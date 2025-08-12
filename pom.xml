@@ -27,7 +27,7 @@
 
     <name>Transflux</name>
     <description>Transflux - Lightweight microflow orchestration library</description>
-    <url>https://github.com/transflux/transflux</url>
+    <url>https://github.com/vdenisov/transflux</url>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
