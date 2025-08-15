@@ -1,0 +1,86 @@
+/*
+ *
+ *  * Copyright 2025 Victor Denisov
+ *  *
+ *  * Licensed under the Apache License, Version 2.0 (the "License");
+ *  * you may not use this file except in compliance with the License.
+ *  * You may obtain a copy of the License at
+ *  *
+ *  *     http://www.apache.org/licenses/LICENSE-2.0
+ *  *
+ *  * Unless required by applicable law or agreed to in writing, software
+ *  * distributed under the License is distributed on an "AS IS" BASIS,
+ *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  * See the License for the specific language governing permissions and
+ *  * limitations under the License.
+ *
+ */
+
+package org.transflux.core;
+
+/**
+ * Represents a transition between states in a state machine, defining valid state changes
+ * and their associated metadata.
+ * <p>
+ * Transitions define the allowed paths between states in the state machine, specifying
+ * the source state from which the transition can be initiated and the target state
+ * to which the entity will move. Transitions can have associated operations, pre-conditions
+ * that must be met before execution, post-conditions that must be met after execution,
+ * and various types of triggers (manual, event-based, data-based).
+ * 
+ * <p>Transitions are the core mechanism through which entities move through their lifecycle,
+ * coordinating complex business logic, error handling, and compensation patterns similar
+ * to the Saga pattern.
+ * 
+ * <p><b>Example usage:</b>
+ * <pre>{@code
+ * Transition<Subscription, ActivationContext> trialActiveTransition =
+ *     stateMachine.getTransition(TRIAL, ACTIVE);
+ *
+ * // Configure transition
+ * trialActiveTransition
+ *     .withName("trial-to-active")
+ *     .withDescription("Turn trial subscription into active")
+ *
+ *     // Set operation
+ *     .withOperation(ActivateOperation.class)
+ *         .usingContext(ActivationContext.class)
+ *
+ *     // Pre/post conditions
+ *     .addPreCondition(PaymentMethodValid.class)
+ *     .addPostCondition("subscription-items-provisioned", this::isSubscriptionItemsProvisioned)
+ *
+ *     // Triggers
+ *     .addManualTrigger()
+ *     .addEventTrigger(Event.CHECKOUT_FULFILLED)
+ *     .addDataTrigger(OfferActivatedTrigger.class)
+ *
+ *     // Listeners
+ *     .onStart(TransitionStartListener.class)
+ *     .onComplete(TransitionCompleteListener.class)
+ *     .onError(TransitionErrorListener.class);
+ * }</pre>
+ * 
+ */
+public interface Transition extends Identifiable {
+    
+    /**
+     * Returns the identifier of the source state from which this transition can be initiated.
+     * <p>
+     * The source state ID must correspond to a state defined in the state machine.
+     * Transitions can only be executed when the entity is currently in the source state.
+     * 
+     * @return the source state identifier, never {@code null} or blank
+     */
+    String getSourceStateId();
+    
+    /**
+     * Returns the identifier of the target state to which the entity will transition.
+     * <p>
+     * The target state ID must correspond to a state defined in the state machine.
+     * Upon successful completion of the transition, the entity will be in the target state.
+     * 
+     * @return the target state identifier, never {@code null} or blank
+     */
+    String getTargetStateId();
+}

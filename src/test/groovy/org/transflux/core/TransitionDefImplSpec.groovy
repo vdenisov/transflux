@@ -1,0 +1,86 @@
+/*
+ *
+ *  * Copyright 2025 Victor Denisov
+ *  *
+ *  * Licensed under the Apache License, Version 2.0 (the "License");
+ *  * you may not use this file except in compliance with the License.
+ *  * You may obtain a copy of the License at
+ *  *
+ *  *     http://www.apache.org/licenses/LICENSE-2.0
+ *  *
+ *  * Unless required by applicable law or agreed to in writing, software
+ *  * distributed under the License is distributed on an "AS IS" BASIS,
+ *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  * See the License for the specific language governing permissions and
+ *  * limitations under the License.
+ *
+ */
+
+package org.transflux.core
+
+import spock.lang.Specification
+import spock.lang.Unroll
+
+class TransitionDefImplSpec extends Specification {
+
+    def 'constructor should create TransitionDef with valid parameters'() {
+        when:
+        def transitionDef = new TransitionDefImpl('t1', 'source', 'target')
+
+        then:
+        transitionDef.id == 't1'
+        transitionDef.sourceStateId == 'source'
+        transitionDef.targetStateId == 'target'
+    }
+
+    @Unroll
+    def 'constructor should validate parameters: #scenario'() {
+        when:
+        new TransitionDefImpl(id, sourceStateId, targetStateId)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == expectedMessage
+
+        where:
+        scenario                | id   | sourceStateId | targetStateId | expectedMessage
+        'null transition ID'    | null | 'source'      | 'target'      | 'Transition ID cannot be null or blank'
+        'blank transition ID'   | '  ' | 'source'      | 'target'      | 'Transition ID cannot be null or blank'
+        'empty transition ID'   | ''   | 'source'      | 'target'      | 'Transition ID cannot be null or blank'
+        'null source state ID'  | 't1' | null          | 'target'      | 'Source state ID cannot be null or blank'
+        'blank source state ID' | 't1' | '  '          | 'target'      | 'Source state ID cannot be null or blank'
+        'empty source state ID' | 't1' | ''            | 'target'      | 'Source state ID cannot be null or blank'
+        'null target state ID'  | 't1' | 'source'      | null          | 'Target state ID cannot be null or blank'
+        'blank target state ID' | 't1' | 'source'      | '  '          | 'Target state ID cannot be null or blank'
+        'empty target state ID' | 't1' | 'source'      | ''            | 'Target state ID cannot be null or blank'
+    }
+
+    @Unroll
+    def 'getter #getter should return #expected'() {
+        given:
+        def transitionDef = new TransitionDefImpl(id, sourceStateId, targetStateId)
+
+        when:
+        def result = transitionDef."$getter"()
+
+        then:
+        result == expected
+
+        where:
+        getter             | id             | sourceStateId     | targetStateId     | expected
+        'getId'            | 'transition-1' | 'source'          | 'target'          | 'transition-1'
+        'getSourceStateId' | 't1'           | 'source-state-id' | 'target'          | 'source-state-id'
+        'getTargetStateId' | 't1'           | 'source'          | 'target-state-id' | 'target-state-id'
+    }
+
+    def 'toString should include all fields'() {
+        given:
+        def transitionDef = new TransitionDefImpl('t1', 'source', 'target')
+
+        when:
+        def result = transitionDef.toString()
+
+        then:
+        result == "TransitionDef{id='t1', sourceStateId='source', targetStateId='target'}"
+    }
+}

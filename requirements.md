@@ -1217,37 +1217,29 @@ StateMachine<Subscription> stateMachine = Transflux.defineStateMachine()
 
 ```java
 // Get transition reference
-Transition<Offer, ActivationContext> draftActiveTransition = 
-    stateMachine.getTransition(DRAFT, ACTIVE);
+Transition<Subscription, SubscriptionContext> trialActiveTransition =
+    stateMachine.getTransition(TRIAL, ACTIVE);
 
 // Configure transition
-draftActiveTransition
-    .withName("draft-to-active")
-    .withDescription("Activate draft offer")
-    
-    // Set operation
-    .setOperation(ActivateOperation.class)
-    .usingContext(ActivationContext.class)
-        .mappingInput(input -> input
-            .map("entity.id").to("offerId")
-            .map("entity.checkoutUid").to("checkoutId")
-            .mapConstant("SYSTEM").to("activatedBy"))
-        .mappingOutput(output -> output
-            .map("activatedAt").to("entity.activatedTimestamp")
-            .map("activationResult.status").to("entity.activationStatus"))
-        .end()
-        
-    // Pre/post conditions
-    .addPreCondition(CheckoutFulfilledCondition.class)
-    .addPreCondition("milestones-ready", this::milestonesReady)
-    .addPostCondition(MilestonesActivatedCondition.class)
-    
-    // Triggers
+trialActiveTransition
+    .withName("trial-to-active")
+    .withDescription("Activate trial subscription")
+
+// Set operation
+    .withOperation(ActivateSubscriptionOperation.class)
+        .usingContext(SubscriptionContext.class)
+
+// Pre/post conditions
+    .addPreCondition(PaymentMethodValidCondition.class)
+    .addPreCondition("billing-ready", this::billingReady)
+    .addPostCondition(SubscriptionFeaturesActivatedCondition.class)
+
+// Triggers
     .addManualTrigger()
-    .addEventTrigger(Event.CHECKOUT_FULFILLED)
-    .addDataTrigger(OfferActivatedTrigger.class)
-    
-    // Listeners
+    .addEventTrigger(Event.PAYMENT_CONFIRMED)
+    .addDataTrigger(SubscriptionActivatedTrigger.class)
+
+// Listeners
     .onStart(TransitionStartListener.class)
     .onComplete(TransitionCompleteListener.class)
     .onError(TransitionErrorListener.class);
@@ -1259,40 +1251,50 @@ draftActiveTransition
 
 ```java
 // Define operation class
-public class ActivateOperation implements Operation<Offer, ActivationContext> {
-    
+public class ActivateSubscriptionOperation implements Operation<Subscription, SubscriptionContext> {
+
     @Inject
-    private CheckoutService checkoutService;
-    
+    private BillingService billingService;
+
     @Inject
-    private MilestonesService milestonesService;
-    
+    private SubscriptionFeaturesService subscriptionFeaturesService;
+
     @Override
-    public void execute(Offer offer, ActivationContext context, Transition<Offer, ActivationContext> transition) {
-        // Business logic using offer and context data
-        Long offerId = offer.getId();
-        validateOffer(offerId);
-        
+    public void execute(Subscription subscription, SubscriptionContext context, Transition<Subscription, SubscriptionContext> transition) {
+        // Business logic using subscription and context data
+        Long subscriptionId = subscription.getId();
+        validateSubscription(subscriptionId);
+
         // Execute steps via transition
-        transition.step("prepare-event-actor", PrepareEventActorAction.class);
-        transition.step("validate-prerequisites", ValidatePrerequisitesAction.class);
-        
+        transition.step("prepare-billing-actor", PrepareBillingActorAction.class);
+        transition.step("validate-payment-method", ValidatePaymentMethodAction.class);
+
         // Set results in context
         context.setActivatedAt(Instant.now());
-        context.setActivationStatus(ActivationStatus.SUCCESS);
+        context.setSubscriptionStatus(SubscriptionStatus.ACTIVE);
     }
-    
+
     @Override
-    public Class<CompensationAction<Offer, ActivationContext>> getCompensation() {
-        return ActivationCompensation.class;
+    public Class<CompensationAction<Subscription, SubscriptionContext>> getCompensation() {
+        return SubscriptionActivationCompensation.class;
     }
-    
+
     // Alternatively, return the compensation directly
     @Override
-    public CompensationAction<Offer, ActivationContext> getCompensation(Offer offer, ActivationContext context) {
-        return new ActivationCompensation();
+    public CompensationAction<Subscription, SubscriptionContext> getCompensation(Subscription subscription, SubscriptionContext context) {
+        return new SubscriptionActivationCompensation();
     }
 }
+
+// Configure operation on transition
+trialActiveTransition
+    .setOperation(ActivateSubscriptionOperation.class)
+    .usingContext(SubscriptionContext.class)
+    .withCompensation(SubscriptionActivationCompensation.class)
+    .withAsync(async -> async
+    .enabled(true)
+        .steps("notifyExternalSystems", "updateAnalytics"))
+    .end();
 
 // Configure operation on transition
 draftActiveTransition
@@ -1308,89 +1310,89 @@ draftActiveTransition
 #### 4.4.2 Composite Operation (Declarative Style)
 
 ```java
-draftActiveTransition.setOperation(
-    compositeOperation("complex-activation")
-        .withDescription("Complex activation with multiple steps")
-        .usingContext(ComplexActivationContext.class)
+dtrialActiveTransition.setOperation(
+    compositeOperation("complex-subscription-activation")
+        .withDescription("Complex subscription activation with multiple steps")
+        .usingContext(ComplexSubscriptionContext.class)
+
+// Sequential steps
+        .step("prepare-billing-actor", PrepareBillingActorAction.class)
         
-        // Sequential steps
-        .step("prepare-event-actor", PrepareEventActorAction.class)
-        
-        .step("validate-prerequisites", ValidatePrerequisitesAction.class)
-            .withCompensation(ValidationCompensation.class)
-            
-        
-        // Multi-branch conditional
-        .conditional("priority-routing")
-            .branch("high-priority")
-                .condition(HighPriorityPredicate.class)
-                .step("high-priority-processing", HighPriorityAction.class)
-                .step("urgent-notification", UrgentNotificationAction.class)
+        .step("validate-payment-method", ValidatePaymentMethodAction.class)
+            .withCompensation(PaymentValidationCompensation.class)
+
+
+// Multi-branch conditional
+        .conditional("subscription-tier-routing")
+            .branch("premium-tier")
+                .condition(PremiumTierPredicate.class)
+                .step("premium-tier-processing", PremiumTierAction.class)
+                .step("vip-notification", VipNotificationAction.class)
             .end()
             
-            .branch("medium-priority")
-                .condition(entity -> entity.getPriority() >= 5 && entity.getPriority() < 8)
-                .step("medium-priority-processing", MediumPriorityAction.class)
+            .branch("standard-tier")
+                .condition(subscription -> subscription.getTier().equals("STANDARD") && subscription.getPriority() >= 5)
+    .step("standard-tier-processing", StandardTierAction.class)
             .end()
             
-            .branch("vip-customer")
-                .condition(VipCustomerPredicate.class)
-                .step("vip-processing", VipProcessingAction.class)
+            .branch("enterprise-customer")
+                .condition(EnterpriseCustomerPredicate.class)
+                .step("enterprise-processing", EnterpriseProcessingAction.class)
                 .step("account-manager-notification", AccountManagerNotificationAction.class)
             .end()
             
             .defaultBranch()
-                .step("standard-processing", StandardProcessingAction.class)
+                .step("basic-processing", BasicProcessingAction.class)
                 .step("standard-notification", StandardNotificationAction.class)
             .end()
         .end()
-        
-        // Multi-branch conditional with comprehensive examples
-        .conditional("priority-routing")
-            .branch("critical-priority")
-                .condition(CriticalPriorityPredicate.class)
+
+// Multi-branch conditional with comprehensive subscription examples
+        .conditional("subscription-priority-routing")
+            .branch("critical-subscription")
+                .condition(CriticalSubscriptionPredicate.class)
                 .step("escalate-immediately", EscalateAction.class)
                 .step("notify-management", ManagementNotificationAction.class)
-                .step("expedited-processing", ExpeditedProcessingAction.class)
+                .step("expedited-activation", ExpeditedActivationAction.class)
             .end()
             
-            .branch("high-priority")
-                .condition(entity -> entity.getPriority() >= 8 && 
-                          "PREMIUM".equals(entity.getCustomerTier()))
-                .step("priority-processing", PriorityProcessingAction.class)
-                .step("premium-notification", PremiumNotificationAction.class)
+            .branch("high-value-subscription")
+                .condition(subscription -> subscription.getMonthlyValue() >= 1000 &&
+    "ENTERPRISE".equals(subscription.getCustomerTier()))
+    .step("high-value-processing", HighValueProcessingAction.class)
+                .step("enterprise-notification", EnterpriseNotificationAction.class)
             .end()
             
-            .branch("vip-customer")
-                .condition(VipCustomerPredicate.class)
-                .step("vip-processing", VipProcessingAction.class)
-                .step("account-manager-alert", AccountManagerAlertAction.class)
+            .branch("long-term-customer")
+                .condition(LongTermCustomerPredicate.class)
+                .step("loyalty-processing", LoyaltyProcessingAction.class)
+                .step("customer-success-alert", CustomerSuccessAlertAction.class)
             .end()
             
-            .branch("time-sensitive")
-                .condition(entity -> entity.getDeadline().isBefore(
-                    LocalDateTime.now().plusDays(1)))
-                .step("urgent-processing", UrgentProcessingAction.class)
+            .branch("trial-ending-soon")
+                .condition(subscription -> subscription.getTrialEndDate().isBefore(
+    LocalDateTime.now().plusDays(3)))
+    .step("trial-conversion-processing", TrialConversionAction.class)
             .end()
             
             .defaultBranch()
-                .step("standard-processing", StandardProcessingAction.class)
-                .step("standard-notification", StandardNotificationAction.class)
-                .step("queue-for-batch", QueueForBatchAction.class)
+                .step("standard-activation", StandardActivationAction.class)
+                .step("welcome-notification", WelcomeNotificationAction.class)
+                .step("queue-for-onboarding", QueueForOnboardingAction.class)
             .end()
         .end()
         
         
-        .step("finalize", FinalizeActivationAction.class)
-        
-        // Error handling
+        .step("finalize", FinalizeSubscriptionActivationAction.class)
+
+// Error handling
         .onException(RecoverableException.class)
             .matching(e -> e.getCode() == RECOVERABLE_ERROR)
-            .compensateWith(RecoverableCompensation.class)
+    .compensateWith(RecoverableCompensation.class)
         .onAllExceptions()
             .compensateWith(GeneralCompensation.class)
-        
-        // Async part
+
+// Async part
         .async()
             .step("async-notifications", AsyncNotificationStep.class)
             .step("external-integrations", ExternalIntegrationStep.class)
@@ -1400,97 +1402,64 @@ draftActiveTransition.setOperation(
 );
 ```
 
-### 4.5 Context and Data Mapping
+### 4.5 Context Usage in Transitions
 
-#### 4.5.1 Context Definition
-
-```java
-// Define context class
-@TransfluxContext
-public class ActivationContext {
-    
-    @Required
-    private Long offerId;
-    
-    private String checkoutId;
-    private Instant activatedAt;
-    private EventActor eventActor;
-    
-    // Getters and setters
-    // ...
-    
-    @Validate
-    public void validateContext() {
-        if (offerId == null || offerId <= 0) {
-            throw new InvalidContextException("Invalid offer ID");
-        }
-    }
-}
-
-// Context builder
-ActivationContext context = ActivationContext.builder()
-    .offerId(offer.getId())
-    .checkoutId(offer.getCheckoutUid())
-    .build();
-```
-
-#### 4.5.2 Context Usage in Transitions
-
+#### 4.5.1 Context Data 
 Applications are responsible for populating context before execution and reading results after completion:
 
 ```java
 // Define transition with context
-draftActiveTransition
-    .setOperation(ActivateOperation.class)
-    .usingContext(ActivationContext.class)
+trialActiveTransition
+    .setOperation(ActivateSubscriptionOperation.class)
+    .usingContext(SubscriptionContext.class)
     .end();
 
 // Application usage example
-public void activateOffer(Offer entity) {
+public void activateSubscription(Subscription entity) {
     // Application populates context before execution
-    ActivationContext context = new ActivationContext();
-    context.setOfferId(entity.getId());
-    context.setCheckoutId(entity.getCheckoutUid());
+    SubscriptionContext context = new SubscriptionContext();
+    context.setSubscriptionId(entity.getId());
+    context.setPaymentMethodId(entity.getPaymentMethodId());
     context.setActivatedBy("SYSTEM");
-    
+
     // Execute transition with context
-    stateMachine.executeTransition("draft-to-active", entity, context);
-    
+    stateMachine.executeTransition("trial-to-active", entity, context);
+
     // Application reads results from context after execution
     entity.setActivatedTimestamp(context.getActivatedAt());
-    entity.setActivationStatus(context.getActivationResult().getStatus());
+    entity.setSubscriptionStatus(context.getSubscriptionResult().getStatus());
 }
 ```
 
-#### 4.5.3 Nested Operations Context Handling
+#### 4.5.2 Nested Operations Context Handling
 
 For nested operations, there are two approaches:
 
 **Option 1: Using Parent Context**
 ```java
 // Nested operation uses the same context as parent
-public class ParentOperation implements SimpleOperation<Offer, ActivationContext> {
-    
+public class ParentOperation implements SimpleOperation<Subscription, SubscriptionContext> {
+
     @Override
-    public void execute(Offer offer, ActivationContext context, Transition<Offer, ActivationContext> transition) {
+    public void execute(Subscription subscription, SubscriptionContext context, Transition<Subscription, SubscriptionContext> transition) {
         // Parent operation logic
         context.setParentData("some value");
-        
+
         // Nested operation uses same context and transition
-        nestedOperation.execute(offer, context, transition);
-        
+        nestedOperation.execute(subscription, context, transition);
+
         // Parent can access nested operation results
         String result = context.getNestedResult();
     }
 }
 
-public class NestedOperation implements SimpleOperation<Offer, ActivationContext> {
-    
+public class NestedOperation implements SimpleOperation<Subscription, SubscriptionContext> {
+
     @Override
-    public void execute(Offer offer, ActivationContext context, Transition<Offer, ActivationContext> transition) {
+    public void execute(Subscription subscription, SubscriptionContext context, Transition<Subscription, SubscriptionContext> transition) {
         // Access parent data
         String parentData = context.getParentData();
-        
+
         // Set nested results
         context.setNestedResult("processed: " + parentData);
     }
@@ -1500,18 +1469,18 @@ public class NestedOperation implements SimpleOperation<Offer, ActivationContext
 **Option 2: Explicit Context Mapping**
 ```java
 // Nested operation with its own context and explicit mapping
-public class ParentWithMappingOperation implements SimpleOperation<Offer, ActivationContext> {
-    
+public class ParentWithMappingOperation implements SimpleOperation<Subscription, SubscriptionContext> {
+
     @Override
-    public void execute(Offer offer, ActivationContext parentContext, Transition<Offer, ActivationContext> transition) {
+    public void execute(Subscription subscription, SubscriptionContext parentContext, Transition<Subscription, SubscriptionContext> transition) {
         // Create nested context and map data from parent
         NestedContext nestedContext = new NestedContext();
-        nestedContext.setInputData(parentContext.getOfferId());
+        nestedContext.setInputData(parentContext.getSubscriptionId());
         nestedContext.setConfiguration(parentContext.getConfiguration());
-        
+
         // Execute nested operation
-        nestedOperation.execute(offer, nestedContext, transition);
-        
+        nestedOperation.execute(subscription, nestedContext, transition);
+
         // Map results back to parent context
         parentContext.setNestedProcessingResult(nestedContext.getOutputData());
         parentContext.setNestedTimestamp(nestedContext.getCompletedAt());
@@ -1519,45 +1488,47 @@ public class ParentWithMappingOperation implements SimpleOperation<Offer, Activa
 }
 
 // Declarative workflow with optional context mapping
-public CompositeOperation<Offer, ActivationContext> createAdvancedWorkflow() {
-    return compositeOperation("advanced-activation-workflow")
-        .withDescription("Advanced activation with nested operations and context mapping")
-        .usingContext(ActivationContext.class)
-        
+public CompositeOperation<Subscription, SubscriptionContext> createAdvancedWorkflow() {
+    return compositeOperation("advanced-subscription-workflow")
+        .withDescription("Advanced subscription activation with nested operations and context mapping")
+        .usingContext(SubscriptionContext.class)
+
         // Regular steps
-        .step("prepare-event-actor", PrepareEventActorAction.class)
-        .step("validate-prerequisites", ValidatePrerequisitesAction.class)
-        
+        .step("prepare-billing-actor", PrepareBillingActorAction.class)
+        .step("validate-payment-method", ValidatePaymentMethodAction.class)
+
         // Nested operation without mapping (uses parent context)
         .operation("simple-nested", SimpleNestedOperation.class)
-        
+
         // Nested operation with class-based mapping
-        .operation("payment-processing", PaymentProcessingOperation.class)
-            .withContextMapping(PaymentContextMapper.class)
-        
-        // Nested operation with lambda-based mapping
-        .operation("risk-assessment", RiskAssessmentOperation.class)
-            .withContextMapping(
-                // Input mapping lambda
-                parent -> {
-                    RiskContext riskContext = new RiskContext();
-                    riskContext.setOfferId(parent.getOfferId());
-                    riskContext.setCustomerId(parent.getCustomerId());
-                    riskContext.setAmount(parent.getOfferAmount());
-                    return riskContext;
-                },
-                // Output mapping lambda
-                (parent, risk) -> {
-                    parent.setRiskScore(risk.getCalculatedScore());
-                    parent.setRiskLevel(risk.getRiskLevel());
-                    parent.setRiskFactors(risk.getIdentifiedFactors());
-                }
-            )
-            
-        
-        .step("finalize-activation", FinalizeActivationAction.class)
-        
-    .end();
+        .operation("billing-processing", BillingProcessingOperation.class)
+        .usingContext(BillingContext.class)
+        .withContextMapping(BillingContextMapper.class)
+
+        // Nested operation with complex mapping
+        .operation("complex-nested", ComplexNestedOperation.class)
+        .usingContext(NestedSubscriptionContext.class)
+            .mapFrom(parentContext -> {
+                NestedSubscriptionContext nested = new NestedSubscriptionContext();
+                nested.setSubscriptionId(parentContext.getSubscriptionId());
+                nested.setBillingCycle(parentContext.getBillingCycle());
+                return nested;
+            })
+            .mapTo((parentContext, nestedContext) -> {
+                parentContext.setNestedActivationResult(nestedContext.getActivationResult());
+                parentContext.setNestedBillingSetup(nestedContext.getBillingSetup());
+            })
+        .end()
+
+        // Function-based context mapping
+        .operation("function-mapped", FunctionMappedOperation.class)
+        .withContextMapping(
+            // Map to nested context
+            parentContext -> createNestedContext(parentContext.getSubscriptionId(), parentContext.getCustomerId()),
+            // Map back to parent context
+            (parentContext, nestedResult) -> parentContext.setFunctionResult(nestedResult.getOutput())
+        )
+        .end();
 }
 
 // ContextMapper interface definition
@@ -1567,23 +1538,23 @@ public interface ContextMapper<P, N> {
 }
 
 // Class-based context mapper example
-public class PaymentContextMapper implements ContextMapper<ActivationContext, PaymentContext> {
-    
+public class BillingContextMapper implements ContextMapper<SubscriptionContext, BillingContext> {
+
     @Override
-    public PaymentContext mapInput(ActivationContext parent) {
-        PaymentContext paymentContext = new PaymentContext();
-        paymentContext.setOfferId(parent.getOfferId());
-        paymentContext.setPaymentMethodId(parent.getPaymentMethodId());
-        paymentContext.setAmount(parent.getOfferAmount());
-        paymentContext.setCurrency(parent.getCurrency());
-        return paymentContext;
+    public BillingContext mapInput(SubscriptionContext parent) {
+        BillingContext billingContext = new BillingContext();
+        billingContext.setSubscriptionId(parent.getSubscriptionId());
+        billingContext.setPaymentMethodId(parent.getPaymentMethodId());
+        billingContext.setAmount(parent.getSubscriptionAmount());
+        billingContext.setCurrency(parent.getCurrency());
+        return billingContext;
     }
-    
+
     @Override
-    public void mapOutput(ActivationContext parent, PaymentContext payment) {
-        parent.setPaymentTransactionId(payment.getTransactionId());
-        parent.setPaymentStatus(payment.getStatus());
-        parent.setPaymentTimestamp(payment.getProcessedAt());
+    public void mapOutput(SubscriptionContext parent, BillingContext billing) {
+        parent.setBillingTransactionId(billing.getTransactionId());
+        parent.setBillingStatus(billing.getStatus());
+        parent.setBillingTimestamp(billing.getProcessedAt());
     }
 }
 ```
