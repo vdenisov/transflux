@@ -32,7 +32,8 @@ package org.transflux.core;
  * 
  * <p><b>Example usage:</b>
  * <pre>{@code
- * StateMachine<Order> orderStateMachine = Transflux.stateMachineFor(Order.class)
+ * StateMachine<Order> orderStateMachine = Transflux.defineStateMachine()
+ *     .forEntityType(Order.class)
  *     .withName("Order Processing State Machine")
  *     .withDescription("Manages the lifecycle of customer orders")
  *     .withVersion("1.0")
@@ -59,6 +60,8 @@ package org.transflux.core;
  * @param <T> the type of entity managed by the state machine being defined
  */
 public interface StateMachineDef<T> {
+
+    StateMachineDef<T> forEntityType(Class<T> entityType);
 
     /**
      * Sets the human-readable name for this state machine.
@@ -167,7 +170,7 @@ public interface StateMachineDef<T> {
      *
      * @throws TransfluxValidationException if either state ID is null/blank or if no transition exists between the specified states
      */
-    TransitionDef getTransition(String sourceStateId, String targetStateId);
+    TransitionDef<T> getTransition(String sourceStateId, String targetStateId);
 
     /**
      * Retrieves a transition definition by its unique identifier.
@@ -184,5 +187,5 @@ public interface StateMachineDef<T> {
      *
      * @throws TransfluxValidationException if the transition ID is null/blank or if no transition exists with the specified ID
      */
-    TransitionDef getTransition(String transitionId);
+    TransitionDef<T> getTransition(String transitionId);
 }

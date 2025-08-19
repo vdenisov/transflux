@@ -34,7 +34,8 @@ import org.slf4j.LoggerFactory;
  * 
  * <p><b>Example usage:</b>
  * <pre>{@code
- * StateMachine<Order> orderSM = Transflux.stateMachineFor(Order.class)
+ * StateMachine<Order> orderSM = Transflux.defineStateMachine()
+ *     .forEntityType(Order.class)
  *     .withStateResolver(order -> order.getStatus())
  *     .state("pending")
  *         .withName("Pending Order")

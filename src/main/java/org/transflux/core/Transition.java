@@ -62,7 +62,7 @@ package org.transflux.core;
  * }</pre>
  * 
  */
-public interface Transition extends Identifiable {
+public interface Transition<T> extends Identifiable {
     
     /**
      * Returns the identifier of the source state from which this transition can be initiated.

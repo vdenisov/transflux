@@ -30,8 +30,9 @@ package org.transflux.core;
  * transitions are registered through the fluent API and should not be
  * instantiated directly by client code.
  * 
+ * @param <T> the type of business entity used by the state machine this transition belongs to
  */
-public interface TransitionDef {
+public interface TransitionDef<T> {
 
     /**
      * Returns the unique identifier of this transition.
@@ -53,4 +54,6 @@ public interface TransitionDef {
      * @return the target state ID
      */
     String getTargetStateId();
+
+    Transition<T> build();
 }

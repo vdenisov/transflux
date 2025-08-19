@@ -39,7 +39,8 @@ package org.transflux.core;
  * <pre>{@code
  * // Create a state machine for subscription entities
  * StateMachine<Subscription> subscriptionSM = Transflux
- *     .stateMachineFor(Subscription.class)
+ *     .defineStateMachine()
+ *     .forEntityType(Subscription.class)
  *     .withStateResolver(subscription -> subscription.getStatus())
  *     .state("trial")
  *         .withName("Trial Period")

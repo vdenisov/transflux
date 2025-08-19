@@ -29,7 +29,7 @@ class StateDefImplSpec extends Specification {
 
     def 'transitionsTo should create TransitionDef correctly using Identifiable'() {
         given:
-        def smd = Transflux.stateMachineFor(Object) as StateMachineDefImpl
+        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
         def s = new StateDefImpl<Object>(smd, ACTIVE)
 
         when:
@@ -45,7 +45,7 @@ class StateDefImplSpec extends Specification {
 
     def 'transitionsTo should create TransitionDef correctly using string ID'() {
         given:
-        def smd = Transflux.stateMachineFor(Object) as StateMachineDefImpl
+        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
         def s = new StateDefImpl<Object>(smd, ACTIVE)
 
         when:
@@ -61,8 +61,8 @@ class StateDefImplSpec extends Specification {
 
     def 'transitionsTo should prevent duplicate transition id'() {
         given:
-        def smd = Transflux.stateMachineFor(Object) as StateMachineDefImpl
-        def s = new StateDefImpl<Object>(smd, ACTIVE)
+        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
+        def s = new StateDefImpl<>(smd, ACTIVE)
         s.transitionsTo(EXPIRED, "active-to-expired")
 
         when:
@@ -83,9 +83,9 @@ class StateDefImplSpec extends Specification {
         e.message == expectedMessage
 
         where:
-        scenario               | smd                                                      | stateId | expectedMessage
-        'null StateMachineDef' | null                                                     | 'X'     | 'State machine definition cannot be null'
-        'blank state ID'       | Transflux.stateMachineFor(Object) as StateMachineDefImpl | '  '    | 'State ID cannot be null or blank'
+        scenario               | smd                                                   | stateId | expectedMessage
+        'null StateMachineDef' | null                                                  | 'X'     | 'State machine definition cannot be null'
+        'blank state ID'       | Transflux.defineStateMachine() as StateMachineDefImpl | '  ' | 'State ID cannot be null or blank'
     }
 
     @Unroll
@@ -98,15 +98,15 @@ class StateDefImplSpec extends Specification {
         e.message == expectedMessage
 
         where:
-        scenario                     | smd                                                      | identifiable                                         | expectedMessage
-        'null StateMachineDef'       | null                                                     | ACTIVE                                               | 'State machine definition cannot be null'
-        'null identifiable'          | Transflux.stateMachineFor(Object) as StateMachineDefImpl | null                                                 | 'Identifiable for state ID cannot be null'
-        'identifiable with blank id' | Transflux.stateMachineFor(Object) as StateMachineDefImpl | new Identifiable() { String getId() { return ' ' } } | 'State ID cannot be null or blank'
+        scenario                     | smd                                                   | identifiable                                         | expectedMessage
+        'null StateMachineDef'       | null                                                  | ACTIVE                                               | 'State machine definition cannot be null'
+        'null identifiable'          | Transflux.defineStateMachine() as StateMachineDefImpl | null                                                 | 'Identifiable for state ID cannot be null'
+        'identifiable with blank id' | Transflux.defineStateMachine() as StateMachineDefImpl | new Identifiable() { String getId() { return ' ' } } | 'State ID cannot be null or blank'
     }
 
     def 'withName should override previous name value'() {
         given:
-        def smd = Transflux.stateMachineFor(Object) as StateMachineDefImpl
+        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
         def s = new StateDefImpl<Object>(smd, 'S1')
         
         when:
@@ -118,7 +118,7 @@ class StateDefImplSpec extends Specification {
 
     def 'withDescription should override previous description value'() {
         given:
-        def smd = Transflux.stateMachineFor(Object) as StateMachineDefImpl
+        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
         def s = new StateDefImpl<Object>(smd, 'S1')
         
         when:
@@ -130,7 +130,7 @@ class StateDefImplSpec extends Specification {
 
     def 'state method should delegate to StateMachineDef'() {
         given:
-        def smd = Transflux.stateMachineFor(Object) as StateMachineDefImpl
+        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
         def s = new StateDefImpl<Object>(smd, 'S1')
         
         when:
@@ -144,7 +144,7 @@ class StateDefImplSpec extends Specification {
 
     def 'build method should delegate to StateMachineDef'() {
         given:
-        def smd = Transflux.stateMachineFor(Object) as StateMachineDefImpl
+        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
         def s = new StateDefImpl<Object>(smd, 'S1')
         
         when:
@@ -156,7 +156,7 @@ class StateDefImplSpec extends Specification {
 
     def 'transitionsTo should reject null Identifiable target'() {
         given:
-        def smd = Transflux.stateMachineFor(Object) as StateMachineDefImpl
+        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
         def s = new StateDefImpl<Object>(smd, 'S')
         when:
         s.transitionsTo((Identifiable) null, 't')

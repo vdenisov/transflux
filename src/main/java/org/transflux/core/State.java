@@ -30,8 +30,10 @@ package org.transflux.core;
  * 
  * <p>States contain metadata such as human-readable names and descriptions to support
  * documentation, user interfaces, and logging.
+ *
+ * @param <T> the type of entity managed by the state machine
  */
-public interface State extends Identifiable {
+public interface State<T> extends Identifiable {
     
     /**
      * Returns the human-readable name of this state.

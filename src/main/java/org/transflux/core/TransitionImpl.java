@@ -30,7 +30,7 @@ package org.transflux.core;
  * state machine construction and should not be instantiated directly by client code.
  * 
  */
-public class TransitionImpl implements Transition {
+public class TransitionImpl<T> implements Transition<T> {
     private final String id;
     private final String sourceStateId;
     private final String targetStateId;
@@ -46,7 +46,7 @@ public class TransitionImpl implements Transition {
      *
      * @throws TransfluxValidationException if the transition definition is null or has invalid properties
      */
-    TransitionImpl(TransitionDef transitionDef) {
+    TransitionImpl(TransitionDef<T> transitionDef) {
         validateTransitionDef(transitionDef);
         this.id = transitionDef.getId();
         this.sourceStateId = transitionDef.getSourceStateId();
@@ -60,7 +60,7 @@ public class TransitionImpl implements Transition {
      *
      * @throws TransfluxValidationException if the transition definition is null or has invalid properties
      */
-    private void validateTransitionDef(TransitionDef transitionDef) {
+    private void validateTransitionDef(TransitionDef<T> transitionDef) {
         if (transitionDef == null) {
             throw new TransfluxValidationException("Transition definition cannot be null");
         }
@@ -106,12 +106,21 @@ public class TransitionImpl implements Transition {
     public final boolean equals(Object o) {
         if (!(o instanceof TransitionImpl)) return false;
 
-        TransitionImpl that = (TransitionImpl) o;
+        TransitionImpl<?> that = (TransitionImpl<?>) o;
         return id.equals(that.id);
     }
 
     @Override
     public int hashCode() {
         return id.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return "TransitionImpl{" +
+            "id='" + id + '\'' +
+            ", sourceStateId='" + sourceStateId + '\'' +
+            ", targetStateId='" + targetStateId + '\'' +
+            '}';
     }
 }

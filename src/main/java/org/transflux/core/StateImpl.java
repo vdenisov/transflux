@@ -30,7 +30,7 @@ package org.transflux.core;
  * state machine construction and should not be instantiated directly by client code.
  * 
  */
-public class StateImpl implements State {
+public class StateImpl<T> implements State<T> {
     private final String id;
     private final String name;
     private final String description;
@@ -43,11 +43,10 @@ public class StateImpl implements State {
      * definition and extracts the necessary properties.
      * 
      * @param stateDef the state definition to construct this state from
-     * @param <T> the entity type for the state machine
      *
      * @throws TransfluxValidationException if the state definition is null or has invalid properties
      */
-    <T> StateImpl(StateDef<T> stateDef) {
+    StateImpl(StateDef<T> stateDef) {
         validateStateDef(stateDef);
         this.id = stateDef.getId();
         this.name = stateDef.getName();
@@ -62,7 +61,7 @@ public class StateImpl implements State {
      *
      * @throws TransfluxValidationException if the state definition is null or has invalid properties
      */
-    private <T> void validateStateDef(StateDef<T> stateDef) {
+    private void validateStateDef(StateDef<T> stateDef) {
         if (stateDef == null) {
             throw new TransfluxValidationException("State definition cannot be null");
         }
@@ -106,8 +105,8 @@ public class StateImpl implements State {
     public final boolean equals(Object o) {
         if (!(o instanceof StateImpl)) return false;
 
-        StateImpl that = (StateImpl) o;
-        return id.equals(that.id);
+        StateImpl<?> state = (StateImpl<?>) o;
+        return id.equals(state.id);
     }
 
     @Override

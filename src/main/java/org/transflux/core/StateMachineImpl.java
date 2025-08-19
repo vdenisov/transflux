@@ -37,14 +37,15 @@ import java.util.stream.Collectors;
  */
 public class StateMachineImpl<T> implements StateMachine<T> {
     private final Class<T> entityType;
+
     private final String name;
     private final String description;
     private final String version;
 
     private final StateResolver<T> stateResolver;
 
-    private final Map<String, State> states = new LinkedHashMap<>();
-    private final Map<String, Transition> transitions = new LinkedHashMap<>();
+    private final Map<String, State<T>> states = new LinkedHashMap<>();
+    private final Map<String, Transition<T>> transitions = new LinkedHashMap<>();
 
     /**
      * Constructs a new StateMachineImpl from the provided state machine definition.
@@ -121,7 +122,7 @@ public class StateMachineImpl<T> implements StateMachine<T> {
      * 
      * @return a map of state IDs to state instances
      */
-    public Map<String, State> getStates() {
+    public Map<String, State<T>> getStates() {
         return states;
     }
 
@@ -130,7 +131,7 @@ public class StateMachineImpl<T> implements StateMachine<T> {
      * 
      * @return a map of transition IDs to transition instances
      */
-    public Map<String, Transition> getTransitions() {
+    public Map<String, Transition<T>> getTransitions() {
         return transitions;
     }
 }

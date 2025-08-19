@@ -103,22 +103,13 @@ Transflux is a lightweight microflow orchestration library for automating state 
 
 ### 1.5 Simple Operations
 - [ ] **Operation Framework**
+  - [ ] `OperationDef` interface for fluent operation definition
   - [ ] `Operation` interface for business logic
   - [ ] `SimpleOperation` implementation
-  - [ ] `OperationContext` for data passing
-  - [ ] Input/output type safety with generics
+  - [ ] Type safety (context, entity) with generics
   - [ ] Operation execution lifecycle
 
-- [ ] **Context Management**
-  - [ ] `Context` interface for data flow
-  - [ ] `DefaultContext` implementation
-  - [ ] Type-safe data access methods
-  - [ ] Context scoping and inheritance
-  - [ ] Input/output mapping utilities
-
 ### 1.6 Basic Testing & Documentation
-- [ ] ** Temporary scaffolding cleanup
-    - [ ] Clean up temporary SimpleCalculator and SimpleCalculatorSpec classes created for initial build sanity check (section 1.1).
 
 - [ ] **Spock Specifications**
   - [ ] State machine creation and validation specifications (given/when/then)
@@ -151,41 +142,27 @@ Transflux is a lightweight microflow orchestration library for automating state 
 
 ### 2.1 Composite Operations
 - [ ] **Multi-Step Operations**
+  - [ ] `Step` interface and base implementations
   - [ ] `CompositeOperation` implementation
   - [ ] Step execution sequencing
   - [ ] Step-level error handling
   - [ ] Context passing between steps
   - [ ] Step compensation registration
 
-- [ ] **Conditional Logic**
-  - [ ] `ConditionalStep` implementation
-  - [ ] If/else branching logic
-  - [ ] Multi-branch conditional support
-  - [ ] Condition evaluation framework
-  - [ ] Expression language integration (SpEL)
+- [ ] **Programmatic access to Steps**
+    - [ ] `Transition.step` family of methods (with and without explicit class type)
+  
+### 2.2 Condition System
+- [ ] Expression language integration (SpEL)
     - [ ] Add Spring Expression Language 6.0.x dependency
     - [ ] SpEL expression evaluator
     - [ ] Context variable binding for expressions
 
-- [ ] **Parallel Execution**
-  - [ ] `ParallelOperation` implementation
-  - [ ] Thread pool management with configurable sizing
-  - [ ] Parallel step execution coordination
-  - [ ] Result aggregation and error handling
-  - [ ] Partial failure compensation strategies
-
-### 2.2 Condition System
 - [ ] **Condition Framework**
-  - [ ] `Condition` interface for validation logic
-  - [ ] `PreCondition` and `PostCondition` implementations
-  - [ ] Condition evaluation context
-  - [ ] Condition composition (AND/OR logic)
-  - [ ] Custom condition implementations
-
-- [ ] **Expression Language Support**
-  - [ ] SpEL integration for dynamic conditions
-  - [ ] Expression compilation and caching
-  - [ ] Security considerations for expression evaluation
+    - [ ] `Condition` interface for validation and branching logic
+    - [ ] Multi-branch conditional support
+    - [ ] `PreCondition` and `PostCondition` interfaces and implementations
+    - [ ] Expression, class-based, lambda-based condition implementations
 
 ### 2.3 Basic Trigger System
 - [ ] **Trigger Framework**

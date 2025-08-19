@@ -81,6 +81,6 @@ class TransitionDefImplSpec extends Specification {
         def result = transitionDef.toString()
 
         then:
-        result == "TransitionDef{id='t1', sourceStateId='source', targetStateId='target'}"
+        result == "TransitionDefImpl{id='t1', sourceStateId='source', targetStateId='target'}"
     }
 }

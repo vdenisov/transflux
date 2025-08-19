@@ -70,7 +70,7 @@ import java.util.Map;
 class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private static final Logger log = LoggerFactory.getLogger(StateMachineDefImpl.class);
 
-    private final Class<T> entityType;
+    private Class<T> entityType;
     private String name;
     private String description;
     private String version;
@@ -80,27 +80,17 @@ class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private final Map<String, StateDefImpl<T>> states = new LinkedHashMap<>();
 
     // transitionId -> TransitionDefImpl
-    private final Map<String, TransitionDefImpl> transitionsById = new LinkedHashMap<>();
+    private final Map<String, TransitionDefImpl<T>> transitionsById = new LinkedHashMap<>();
     // Source-target index: sourceStateId -> targetStateId -> list of TransitionDefImpl
-    private final Map<String, Map<String, List<TransitionDefImpl>>> transitionsBySourceTarget = new LinkedHashMap<>();
+    private final Map<String, Map<String, List<TransitionDefImpl<T>>>> transitionsBySourceTarget = new LinkedHashMap<>();
 
-    /**
-     * Creates a new state machine definition for the specified entity type.
-     * <p>
-     * This constructor initializes a new state machine definition that will manage
-     * entities of the specified type. The entity type is required and cannot be null,
-     * as it provides the type safety foundation for the entire state machine definition.
-     *
-     * @param entityType the class type of entities that will be managed by this state machine
-     *
-     * @throws TransfluxValidationException if the entity type is null
-     */
-    StateMachineDefImpl(Class<T> entityType) {
-        if (entityType == null) {
-            throw new TransfluxValidationException("Entity type cannot be null");
-        }
+    StateMachineDefImpl() {
+    }
 
+    @Override
+    public StateMachineDef<T> forEntityType(Class<T> entityType) {
         this.entityType = entityType;
+        return this;
     }
 
     /**
@@ -259,7 +249,7 @@ class StateMachineDefImpl<T> implements StateMachineDef<T> {
         var byTarget = transitionsBySourceTarget.computeIfAbsent(sourceStateId, k -> new LinkedHashMap<>());
         var list = byTarget.computeIfAbsent(targetStateId, k -> new ArrayList<>(1)); // More than one transition between states is uncommon
 
-        var def = new TransitionDefImpl(transitionId, sourceStateId, targetStateId);
+        var def = new TransitionDefImpl<T>(transitionId, sourceStateId, targetStateId);
         list.add(def);
         transitionsById.put(transitionId, def);
     }
@@ -302,12 +292,12 @@ class StateMachineDefImpl<T> implements StateMachineDef<T> {
         return states;
     }
 
-    Map<String, TransitionDefImpl> getTransitionsById() {
+    Map<String, TransitionDefImpl<T>> getTransitionsById() {
         return transitionsById;
     }
 
     @Override
-    public TransitionDef getTransition(String sourceStateId, String targetStateId) {
+    public TransitionDef<T> getTransition(String sourceStateId, String targetStateId) {
         var byTarget = transitionsBySourceTarget.get(sourceStateId);
         if (byTarget == null) {
             throw new TransfluxValidationException("Source state '" + sourceStateId + "' not found");
@@ -328,7 +318,7 @@ class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public TransitionDef getTransition(String transitionId) {
+    public TransitionDef<T> getTransition(String transitionId) {
         var td = transitionsById.get(transitionId);
         if (td == null) {
             throw new TransfluxValidationException("Transition '" + transitionId + "' not found");

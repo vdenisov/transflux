@@ -30,8 +30,9 @@ package org.transflux.core;
  * transitions are registered through the fluent API and should not be
  * instantiated directly by client code.
  * 
+ * @param <T> the type of business entity used by the state machine this transition belongs to
  */
-class TransitionDefImpl implements TransitionDef {
+class TransitionDefImpl<T> implements TransitionDef<T> {
     private final String id;
     private final String sourceStateId;
     private final String targetStateId;
@@ -93,8 +94,13 @@ class TransitionDefImpl implements TransitionDef {
     }
 
     @Override
+    public Transition<T> build() {
+        return new TransitionImpl<>(this);
+    }
+
+    @Override
     public String toString() {
-        return "TransitionDef{" +
+        return "TransitionDefImpl{" +
             "id='" + id + '\'' +
             ", sourceStateId='" + sourceStateId + '\'' +
             ", targetStateId='" + targetStateId + '\'' +

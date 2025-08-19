@@ -42,7 +42,8 @@ package org.transflux.core;
  * <pre>{@code
  * // Create a state machine for subscription entities
  * StateMachine<Subscription> subscriptionSM = Transflux
- *     .stateMachineFor(Subscription.class)
+ *     .defineStateMachine()
+ *     .forEntityType(Subscription.class)
  *     .withName("Subscription Lifecycle")
  *     .withStateResolver(subscription -> subscription.getStatus())
  *     .state("trial")
@@ -78,12 +79,11 @@ public final class Transflux {
      * to configure states, transitions, and other state machine properties.
      * 
      * @param <T> the type of entity that will be managed by the state machine
-     * @param entityType the class type of entities that will be managed by this state machine
      *
      * @return a new StateMachineDef instance for building the state machine definition
      * @throws TransfluxValidationException if the entity type is null
      */
-    public static <T> StateMachineDef<T> stateMachineFor(Class<T> entityType) {
-        return new StateMachineDefImpl<>(entityType);
+    public static <T> StateMachineDef<T> defineStateMachine() {
+        return new StateMachineDefImpl<>();
     }
 }
