@@ -144,12 +144,64 @@ class StateMachineDefImplSpec extends Specification {
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
         def r1 = { o -> 'A' } as StateResolver<Object>
         def r2 = { o -> 'B' } as StateResolver<Object>
-        
+
         when:
         smd.withStateResolver(r1).withStateResolver(r2)
-        
+
         then:
         smd.getStateResolver().resolveState(new Object()) == 'B'
+    }
+
+    def "withStateApplier should reject null"() {
+        given:
+        def smd = Transflux.defineStateMachine()
+
+        when:
+        smd.withStateApplier(null)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == 'State applier cannot be null'
+    }
+
+    def "withStateApplier should override previous state applier"() {
+        given:
+        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
+        def captured = []
+        def a1 = { e, s -> captured << ('a1:' + s) } as StateApplier<Object>
+        def a2 = { e, s -> captured << ('a2:' + s) } as StateApplier<Object>
+
+        when:
+        smd.withStateApplier(a1).withStateApplier(a2)
+        smd.getStateApplier().applyState(new Object(), 'X')
+
+        then:
+        captured == ['a2:X']
+    }
+
+    def "state applier should propagate to built state machine"() {
+        given:
+        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
+        def applier = { e, s -> } as StateApplier<Object>
+        smd.withStateApplier(applier).state('s')
+
+        when:
+        def machine = smd.build() as StateMachineImpl
+
+        then:
+        machine.getStateApplier().is(applier)
+    }
+
+    def "build should leave state applier null when not configured"() {
+        given:
+        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
+        smd.state('s')
+
+        when:
+        def machine = smd.build() as StateMachineImpl
+
+        then:
+        machine.getStateApplier() == null
     }
 
     def "state should reject duplicate state ID"() {
@@ -220,6 +272,18 @@ class StateMachineDefImplSpec extends Specification {
         'null source state ID'    | null          | 'T'           | 'X'          | 'Source state ID cannot be null or blank'
         'null target state ID'    | 'S'           | null          | 'X'          | 'Target state ID cannot be null or blank'
         'null transition ID'      | 'S'           | 'T'           | null         | 'Transition ID cannot be null or blank'
+    }
+
+    def "forEntityType should reject null"() {
+        given:
+        def smd = Transflux.defineStateMachine()
+
+        when:
+        smd.forEntityType(null)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == 'Entity type cannot be null'
     }
 
     def "getTransition should error when source state not found"() {

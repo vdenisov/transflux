@@ -26,14 +26,4 @@ public class OperationDefImpl<T, C> implements OperationDef<T, C> {
         this.entityClass = entityClass;
         this.contextClass = contextClass;
     }
-
-    @Override
-    public Class<T> getEntityClass() {
-        return entityClass;
-    }
-
-    @Override
-    public Class<C> getContextClass() {
-        return contextClass;
-    }
 }

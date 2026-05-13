@@ -18,6 +18,7 @@
 
 package org.transflux.core;
 
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -43,6 +44,7 @@ public class StateMachineImpl<T> implements StateMachine<T> {
     private final String version;
 
     private final StateResolver<T> stateResolver;
+    private final StateApplier<T> stateApplier;
 
     private final Map<String, State<T>> states = new LinkedHashMap<>();
     private final Map<String, Transition<T>> transitions = new LinkedHashMap<>();
@@ -64,9 +66,10 @@ public class StateMachineImpl<T> implements StateMachine<T> {
         this.description = def.getDescription();
         this.version = def.getVersion();
         this.stateResolver = def.getStateResolver();
+        this.stateApplier = def.getStateApplier();
 
         this.states.putAll(def.getStates().values().stream()
-                              .collect(Collectors.toMap(StateDef::getId, StateImpl::new)));
+                              .collect(Collectors.toMap(StateDefImpl::getId, StateImpl::new)));
 
         this.transitions.putAll(def.getTransitionsById().values().stream()
                                    .collect(Collectors.toMap(TransitionDef::getId, TransitionImpl::new)));
@@ -110,11 +113,20 @@ public class StateMachineImpl<T> implements StateMachine<T> {
 
     /**
      * Returns the state resolver used to determine entity current states.
-     * 
+     *
      * @return the state resolver for this state machine
      */
     public StateResolver<T> getStateResolver() {
         return stateResolver;
+    }
+
+    /**
+     * Returns the state applier used to write the new state after a successful transition.
+     *
+     * @return the state applier, may be {@code null} if not configured
+     */
+    public StateApplier<T> getStateApplier() {
+        return stateApplier;
     }
 
     /**
@@ -128,10 +140,194 @@ public class StateMachineImpl<T> implements StateMachine<T> {
 
     /**
      * Returns an immutable map of all transitions defined in this state machine.
-     * 
+     *
      * @return a map of transition IDs to transition instances
      */
     public Map<String, Transition<T>> getTransitions() {
         return transitions;
+    }
+
+    @Override
+    public TransitionResult<T> executeTransition(T entity, String targetStateId) {
+        if (entity == null) {
+            throw new TransfluxValidationException("Entity cannot be null");
+        }
+        if (targetStateId == null || targetStateId.isBlank()) {
+            throw new TransfluxValidationException("Target state ID cannot be null or blank");
+        }
+
+        // Resolve current state
+        String currentStateId = resolveCurrentState(entity);
+
+        // Find transition(s) from current to target state
+        Transition<T> transition = findTransition(currentStateId, targetStateId);
+
+        // Execute the transition
+        return executeTransitionInternal(entity, transition);
+    }
+
+    @Override
+    public TransitionResult<T> executeTransition(T entity, String targetStateId, String transitionId) {
+        if (entity == null) {
+            throw new TransfluxValidationException("Entity cannot be null");
+        }
+        if (targetStateId == null || targetStateId.isBlank()) {
+            throw new TransfluxValidationException("Target state ID cannot be null or blank");
+        }
+        if (transitionId == null || transitionId.isBlank()) {
+            throw new TransfluxValidationException("Transition ID cannot be null or blank");
+        }
+
+        // Resolve current state
+        String currentStateId = resolveCurrentState(entity);
+
+        // Get the specific transition
+        Transition<T> transition = getTransition(transitionId);
+
+        // Verify the transition matches the expected source and target
+        if (!transition.getSourceStateId().equals(currentStateId)) {
+            throw new TransfluxValidationException(
+                String.format("Entity is in state '%s' but transition '%s' requires source state '%s'",
+                           currentStateId, transitionId, transition.getSourceStateId())
+            );
+        }
+        if (!transition.getTargetStateId().equals(targetStateId)) {
+            throw new TransfluxValidationException(
+                String.format("Transition '%s' leads to state '%s' but target state '%s' was requested",
+                           transitionId, transition.getTargetStateId(), targetStateId)
+            );
+        }
+
+        // Execute the transition
+        return executeTransitionInternal(entity, transition);
+    }
+
+    @Override
+    public String resolveCurrentState(T entity) {
+        if (entity == null) {
+            throw new TransfluxValidationException("Entity cannot be null");
+        }
+        if (stateResolver == null) {
+            throw new TransfluxValidationException(
+                "No state resolver configured for this state machine"
+            );
+        }
+
+        String stateId = stateResolver.resolveState(entity);
+
+        if (stateId == null || stateId.isBlank()) {
+            throw new TransfluxValidationException(
+                "State resolver returned null or blank state ID for entity: " + entity
+            );
+        }
+
+        if (!states.containsKey(stateId)) {
+            throw new TransfluxValidationException(
+                String.format("State resolver returned unknown state ID '%s' for entity: %s",
+                           stateId, entity)
+            );
+        }
+
+        return stateId;
+    }
+
+    @Override
+    public State<T> getState(String stateId) {
+        if (stateId == null || stateId.isBlank()) {
+            throw new TransfluxValidationException("State ID cannot be null or blank");
+        }
+
+        State<T> state = states.get(stateId);
+        if (state == null) {
+            throw new TransfluxValidationException("State '" + stateId + "' does not exist");
+        }
+
+        return state;
+    }
+
+    @Override
+    public Transition<T> getTransition(String transitionId) {
+        if (transitionId == null || transitionId.isBlank()) {
+            throw new TransfluxValidationException("Transition ID cannot be null or blank");
+        }
+
+        Transition<T> transition = transitions.get(transitionId);
+        if (transition == null) {
+            throw new TransfluxValidationException("Transition '" + transitionId + "' does not exist");
+        }
+
+        return transition;
+    }
+
+    /**
+     * Finds a unique transition from source to target state.
+     *
+     * @param sourceStateId the source state ID
+     * @param targetStateId the target state ID
+     * @return the transition
+     * @throws TransfluxValidationException if no transition exists or multiple transitions exist
+     */
+    private Transition<T> findTransition(String sourceStateId, String targetStateId) {
+        // Filter transitions by source and target
+        var matchingTransitions = transitions.values().stream()
+            .filter(t -> t.getSourceStateId().equals(sourceStateId)
+                      && t.getTargetStateId().equals(targetStateId))
+            .collect(Collectors.toList());
+
+        if (matchingTransitions.isEmpty()) {
+            throw new TransfluxValidationException(
+                String.format("No transition exists from state '%s' to state '%s'",
+                           sourceStateId, targetStateId)
+            );
+        }
+
+        if (matchingTransitions.size() > 1) {
+            throw new TransfluxValidationException(
+                String.format("Multiple transitions exist from state '%s' to state '%s'. " +
+                           "Please specify the transition ID explicitly.",
+                           sourceStateId, targetStateId)
+            );
+        }
+
+        return matchingTransitions.get(0);
+    }
+
+    /**
+     * Executes a transition, handling the full lifecycle including operation execution.
+     * <p>
+     * This is a basic implementation that will be enhanced with pre-conditions,
+     * post-conditions, listeners, and error handling in future phases.
+     *
+     * @param entity the entity to transition
+     * @param transition the transition to execute
+     * @return the transition result
+     */
+    private TransitionResult<T> executeTransitionInternal(T entity, Transition<T> transition) {
+        String sourceStateId = transition.getSourceStateId();
+        String targetStateId = transition.getTargetStateId();
+        String transitionId = transition.getId();
+
+        Instant startedAt = Instant.now();
+
+        try {
+            // TODO: Execute pre-conditions
+            // TODO: Notify transition start listeners (and source-state onExit)
+            // TODO: Execute operation if present
+            // TODO: Execute post-conditions
+
+            if (stateApplier != null) {
+                stateApplier.applyState(entity, targetStateId);
+            }
+
+            // TODO: Notify transition complete listeners (and target-state onEntry)
+
+            return TransitionResult.success(entity, sourceStateId, targetStateId, transitionId,
+                    startedAt, Instant.now());
+
+        } catch (Exception e) {
+            // TODO: Execute compensation logic
+            return TransitionResult.failure(entity, sourceStateId, targetStateId, transitionId, e,
+                    startedAt, Instant.now());
+        }
     }
 }

@@ -139,25 +139,4 @@ public interface StateDef<T> {
      * @throws TransfluxValidationException if the state machine definition is incomplete or invalid
      */
     StateMachine<T> build();
-
-    /**
-     * Returns the unique identifier of this state.
-     * 
-     * @return the state ID
-     */
-    String getId();
-
-    /**
-     * Returns the human-readable name of this state.
-     * 
-     * @return the state name, may be {@code null}
-     */
-    String getName();
-
-    /**
-     * Returns the description of this state.
-     * 
-     * @return the state description, may be {@code null}
-     */
-    String getDescription();
 }

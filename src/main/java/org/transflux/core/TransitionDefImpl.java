@@ -18,6 +18,9 @@
 
 package org.transflux.core;
 
+import java.util.function.BiPredicate;
+import java.util.function.Predicate;
+
 /**
  * Definition implementation class for transitions between states in a state machine.
  * <p>
@@ -25,11 +28,11 @@ package org.transflux.core;
  * including the unique identifier, source state, and target state. This class
  * is used internally during state machine construction to store transition
  * definitions before they are converted into concrete {@link Transition} instances.
- * 
+ *
  * <p>TransitionDef instances are created internally by the framework when
  * transitions are registered through the fluent API and should not be
  * instantiated directly by client code.
- * 
+ *
  * @param <T> the type of business entity used by the state machine this transition belongs to
  */
 class TransitionDefImpl<T> implements TransitionDef<T> {
@@ -93,8 +96,7 @@ class TransitionDefImpl<T> implements TransitionDef<T> {
         return targetStateId;
     }
 
-    @Override
-    public Transition<T> build() {
+    Transition<T> build() {
         return new TransitionImpl<>(this);
     }
 
@@ -105,5 +107,109 @@ class TransitionDefImpl<T> implements TransitionDef<T> {
             ", sourceStateId='" + sourceStateId + '\'' +
             ", targetStateId='" + targetStateId + '\'' +
             '}';
+    }
+
+    // Stub implementations for OperationlessTransitionDef methods. Real implementations
+    // arrive with the operation framework (composite operations, conditions, triggers).
+    @Override
+    public <C> OperationlessTransitionDef<T> operation(Class<Operation<T, C>> simpleOperationClass) {
+        throw new UnsupportedOperationException("Operation registration not yet implemented");
+    }
+
+    @Override
+    public <C> OperationlessTransitionDef<T> operation(Operation<T, C> simpleOperation) {
+        throw new UnsupportedOperationException("Operation registration not yet implemented");
+    }
+
+    @Override
+    public TransitionDef<T> withName(String name) {
+        // TODO: Implement name configuration
+        return this;
+    }
+
+    @Override
+    public TransitionDef<T> withDescription(String description) {
+        // TODO: Implement description configuration
+        return this;
+    }
+
+    @Override
+    public TransitionDef<T> addPreCondition(String conditionId) {
+        throw new UnsupportedOperationException("Pre-conditions not yet implemented");
+    }
+
+    @Override
+    public TransitionDef<T> addPreCondition(Predicate<T> preCondition) {
+        throw new UnsupportedOperationException("Pre-conditions not yet implemented");
+    }
+
+    @Override
+    public TransitionDef<T> addPreCondition(String id, Predicate<T> preCondition) {
+        throw new UnsupportedOperationException("Pre-conditions not yet implemented");
+    }
+
+    @Override
+    public TransitionDef<T> addPostCondition(Predicate<T> postCondition) {
+        throw new UnsupportedOperationException("Post-conditions not yet implemented");
+    }
+
+    @Override
+    public TransitionDef<T> addPostCondition(String id, Predicate<T> postCondition) {
+        throw new UnsupportedOperationException("Post-conditions not yet implemented");
+    }
+
+    @Override
+    public TransitionDef<T> addManualTrigger() {
+        throw new UnsupportedOperationException("Triggers not yet implemented");
+    }
+
+    @Override
+    public TransitionDef<T> addManualTrigger(String id) {
+        throw new UnsupportedOperationException("Triggers not yet implemented");
+    }
+
+    @Override
+    public TransitionDef<T> addEventTrigger(String id) {
+        throw new UnsupportedOperationException("Triggers not yet implemented");
+    }
+
+    @Override
+    public TransitionDef<T> addEventTrigger(String id, String eventId) {
+        throw new UnsupportedOperationException("Triggers not yet implemented");
+    }
+
+    @Override
+    public TransitionDef<T> addEventTrigger(Identifiable event) {
+        throw new UnsupportedOperationException("Triggers not yet implemented");
+    }
+
+    @Override
+    public TransitionDef<T> addEventTrigger(String id, Identifiable event) {
+        throw new UnsupportedOperationException("Triggers not yet implemented");
+    }
+
+    @Override
+    public TransitionDef<T> addEventTrigger(BiPredicate<String, T> condition) {
+        throw new UnsupportedOperationException("Triggers not yet implemented");
+    }
+
+    @Override
+    public TransitionDef<T> addEventTrigger(String id, BiPredicate<String, T> condition) {
+        throw new UnsupportedOperationException("Triggers not yet implemented");
+    }
+
+    @Override
+    public TransitionDef<T> addDataTrigger(String id) {
+        throw new UnsupportedOperationException("Triggers not yet implemented");
+    }
+
+    @Override
+    public TransitionDef<T> addDataTrigger(Predicate<T> condition) {
+        throw new UnsupportedOperationException("Triggers not yet implemented");
+    }
+
+    @Override
+    public TransitionDef<T> addDataTrigger(String id, Predicate<T> condition) {
+        throw new UnsupportedOperationException("Triggers not yet implemented");
     }
 }

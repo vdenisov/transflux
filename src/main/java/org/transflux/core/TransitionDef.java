@@ -22,38 +22,44 @@ package org.transflux.core;
  * Definition interface for transitions between states in a state machine.
  * <p>
  * TransitionDef represents the configuration and metadata for a transition,
- * including the unique identifier, source state, and target state. This interface
- * provides access to transition information during state machine operation and
- * introspection.
- * 
+ * including the unique identifier, source state, target state.
+ *
  * <p>TransitionDef instances are created internally by the framework when
  * transitions are registered through the fluent API and should not be
  * instantiated directly by client code.
- * 
+ *
  * @param <T> the type of business entity used by the state machine this transition belongs to
  */
-public interface TransitionDef<T> {
+public interface TransitionDef<T> extends OperationlessTransitionDef<T>, Identifiable {
 
     /**
      * Returns the unique identifier of this transition.
-     * 
+     *
      * @return the transition ID
      */
+    @Override
     String getId();
 
     /**
-     * Returns the identifier of the source state for this transition.
-     * 
+     * Returns the ID of the source state for this transition.
+     *
      * @return the source state ID
      */
     String getSourceStateId();
 
     /**
-     * Returns the identifier of the target state for this transition.
-     * 
+     * Returns the ID of the target state for this transition.
+     *
      * @return the target state ID
      */
     String getTargetStateId();
 
-    Transition<T> build();
+    // TODO: Select operation by id from library, when component library is implemented
+    //OperationlessTransitionDef<T> operation(String id);
+    //OperationlessTransitionDef<T> operation(Identifiable operation);
+
+    <C> OperationlessTransitionDef<T> operation(Class<Operation<T, C>> simpleOperationClass);
+    <C> OperationlessTransitionDef<T> operation(Operation<T, C> simpleOperation);
+
+    // TODO: composite operations
 }

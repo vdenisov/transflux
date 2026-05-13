@@ -1,1220 +1,556 @@
 # Transflux - Microflow Orchestration Library
-## Comprehensive Development Plan
+## Development Plan
 
 ### Project Overview
-Transflux is a lightweight microflow orchestration library for automating state changes in business entities. This plan outlines the complete development roadmap from initial core implementation to advanced features, organized into releasable phases.
+
+Transflux is a lightweight microflow orchestration library for automating state changes in business entities. This plan covers the road to a **smallest-useful-core 1.0 release** in six phases, followed by themed post-1.0 work.
+
+The plan tracks high-level work items derived from `requirements.md`. Detailed design and per-feature breakdowns happen in feature-specific docs as we go.
+
+---
+
+## Versioning Strategy
+
+- **0.x.y** — pre-1.0 phases. API is unstable; breaking changes are expected between phases.
+- **1.0.0** — stable core. Semantic versioning applies from this point on.
+- **1.x.0** — additive features only. Anything that would force a breaking change against the 1.0 contract is queued for 2.0.
+- **2.0.0** — reserved for themes that cannot realistically remain additive: persistence, long-running/durable executions, and distributed execution. These touch the core operation/context contract (serializable contexts, resumable state, distributed identity/locking) in ways that 1.0 does not anticipate.
+
+Patch releases (`x.y.z`) ship between minor releases for bug fixes and security updates.
+
+### Release Policy
+
+**No releases until 1.0.** All pre-1.0 work is internal — no Maven Central publishing, no GitHub releases, no public artifacts. The library is in active design and the surface is changing too fast for external consumption to be useful. This policy may be revisited mid-roadmap (likely around v0.4.0 or v0.5.0 when YAML DSL and triggers are in place) if a controlled preview release becomes valuable; the default remains "no release" until that decision is made explicitly.
 
 ---
 
 ## Phase 1: Core Foundation (v0.1.0)
-*Target: Basic state machine functionality with programmatic API*
+*Target: Programmatic state machine API with paired state resolver/applier and core contracts.*
 
 ### 1.1 Project Setup & Infrastructure
 - [x] **Maven Configuration**
-  - [x] Update pom.xml with Java 21 source and Java 11 target. Make sure that the library is compatible with Java 11+ JVMs.
-  - [x] Add core dependencies:
-    - [x] SLF4J API 2.0.17 for logging
-    - [x] Jackson Core 2.18.0 for JSON processing (foundation for YAML)
-    - [x] Spock Framework 2.3-groovy-4.0 for BDD-style testing
-    - [x] Groovy 4.0.28 (required for Spock specifications)
-    - [x] Logback 1.5.18 (in the test scope, for logging in tests)
-    - [x] Configure Maven plugins:
-    - [x] Maven Compiler Plugin
-    - [x] GMavenPlus Plugin for Groovy compilation
-    - [x] Maven Surefire Plugin for testing (with Groovy/Spock support)
-    - [x] JaCoCo for code coverage
-    - [x] Maven Source Plugin for source jars
+  - [x] Java 21 source, Java 11 target; library compatible with Java 11+ JVMs.
+  - [x] Core dependencies: SLF4J API 2.0.17, Jackson Core 2.18.0, Spock 2.3-groovy-4.0, Groovy 4.0.28, Logback 1.5.18 (test scope).
+  - [x] Maven plugins: compiler, GMavenPlus, Surefire (Spock/Groovy), JaCoCo, source.
 
-- [x] **Build Sanity Check (Temporary)**
-  - [x] Purpose: Verify that Maven configuration, Groovy/Spock setup, and all core test-time dependencies work together end-to-end by compiling and running a minimal sample. This is a temporary scaffold to be removed in later iterations.
-  - [x] Temporary Sample Class (Java)
-    - [x] Create `org.transflux.sample.SampleCalculator` in `src/main/java` with simple pure functions (e.g., `add(int a, int b)`, `multiply(int a, int b)`).
-    - [x] Keep the class self-contained with no external dependencies beyond the JDK.
-  - [x] Spock Specification (Groovy)
-    - [x] Create `SampleCalculatorSpec` in `src/test/groovy/org/transflux/sample` validating basic behavior (addition, multiplication, negative numbers, and a few data-driven cases).
-    - [x] Use Spock 2.3 (Groovy 4) and ensure Groovy sources under `src/test/groovy` are compiled via GMavenPlus.
-    - [x] Configure logging in tests with Logback (test scope) to confirm SLF4J binding works; minimal test logback.xml if needed.
-  - [x] Maven/Surefire/GMavenPlus Settings
-    - [x] Ensure GMavenPlus executes for both main and test Groovy sources where applicable and is compatible with Java 21.
-    - [x] Ensure Surefire runs Spock on JUnit Platform (JUnit 5 engine for Spock 2.x) and picks up `*Spec.groovy` patterns.
-    - [x] Verify test runtime classpath contains Groovy, Spock, and Logback.
-  - [x] Execution & Verification
-    - [x] Run `mvn -q -DskipTests=false clean test` locally; ensure build succeeds and tests are executed (Spock output visible).
-    - [x] Confirm JaCoCo generates coverage report for both Java and Groovy test execution.
-    - [x] Confirm logging works by setting up a custom SLF4J appender in the test and capturing relevant log messages.
-  - [x] Clean-up Plan
-    - [x] Mark the sample class and spec with comments `// TODO: Remove after initial build verification`.
-    - [x] Remove `org.transflux.sample` package and associated test/specs as soon as real components and specs are in place (Section 1.6).
+- [x] **Build Sanity Check (Temporary Scaffold)**
+  - [x] Sample class + Spock spec exercising the full build path.
+  - [x] Sample package removed once real components landed.
 
 - [x] **Package Structure**
-  - [x] Create core package structure:
-    - [x] `org.transflux.core` - Core interfaces and implementations
-    - [x] `org.transflux.core.state` - State management
-    - [x] `org.transflux.core.transition` - Transition handling
-    - [x] `org.transflux.core.operation` - Operation execution
-    - [x] `org.transflux.core.context` - Context management
-    - [x] `org.transflux.core.exception` - Exception hierarchy
+  - [x] `org.transflux.core` flat package established. Per `CLAUDE.md`, subpackages (state/transition/operation/context/exception) are aspirational and deferred.
 
-### 1.2 Basic Repository & Documentation Setup
-- [x] **Repository Setup**
-  - [x] GitHub repository setup with basic structure
-    - [x] Repository description and topics
-    - [x] Basic README with project overview
-    - [x] Initial .gitignore and basic project structure
-  - [x] Git workflow configuration
-    - [x] Basic branch setup (main branch)
-    - [x] Commit message conventions
-
-- [x] **Legal Foundation**
-  - [x] License selection and application
-    - [x] Choose appropriate open source license (Apache 2.0, MIT, etc.)
-    - [x] LICENSE file creation
-    - [x] Basic license headers in source files
+### 1.2 Repository & Legal
+- [x] GitHub repository, basic README, .gitignore.
+- [x] Commit message conventions (Conventional Commits).
+- [x] License selected and applied; LICENSE file present; license headers in source files.
 
 ### 1.3 Core Domain Model
 - [x] **State Management**
-  - [x] `State` interface with metadata support
-  - [x] `DefaultState` implementation
-  - [x] Unique component identifiers (`id`) and optional human-readable `name`, `description`; other attributes should be added as needed, based on requirements
-  - [x] State validation and lifecycle management
-  - [x] State metadata (display name, description)
+  - [x] `State` interface with metadata support.
+  - [x] `DefaultState` implementation (currently `StateImpl`).
+  - [x] Required `id`, optional `name`/`description`.
+  - [x] State validation during builder execution.
 
 - [x] **Transition System**
-  - [x] `Transition` interface with source/target states
-  - [x] `DefaultTransition` implementation
-  - [x] `TransitionResult` for execution outcomes
-  - [x] Transition validation and execution logic
+  - [x] `Transition` interface with source/target states.
+  - [x] `DefaultTransition` implementation (currently `TransitionDefImpl`/`TransitionImpl`).
+  - [x] Transition validation logic.
 
 ### 1.4 Basic State Machine
 - [x] **StateMachine Core**
-  - [x] `StateMachine<T>` interface with generic entity support
-  - [x] `DefaultStateMachine` implementation
-  - [x] State transition matrix validation, including ID uniqueness validation
-  - [x] State transition execution (no-op for now)
-  - [x] Forced state execution API (bypass normal rules for testing, debugging, and recovery)
-  - [x] Basic error handling and validation
+  - [x] `StateMachine<T>` interface with generic entity support.
+  - [x] `DefaultStateMachine` implementation (currently `StateMachineImpl`).
+  - [x] State transition matrix validation, including ID uniqueness.
+  - [x] No-op transition execution (operation execution lands in Phase 2).
+  - [x] Basic error handling and validation.
+
+- [x] **Remove Forced State Execution API**
+  - [x] Removed from `StateMachine` interface, `StateMachineImpl`, and `StateMachineImplSpec`. Host owns initial-state placement (requirements §1.3).
 
 - [x] **Programmatic Builder API**
-  - [x] `StateMachineBuilder` fluent API
-  - [x] State definition methods
-  - [x] Transition definition methods
-  - [x] Entity type binding
-  - [x] Validation during build process
+  - [x] Fluent `StateMachineDef<T>` builder.
+  - [x] State definition methods.
+  - [x] Transition definition methods.
+  - [x] Entity type binding.
+  - [x] Validation during build.
 
-### 1.5 Simple Operations
-- [ ] **Operation Framework**
-  - [ ] `OperationDef` interface for fluent operation definition
-  - [ ] `Operation` interface for business logic
-  - [ ] `SimpleOperation` implementation
-  - [ ] Type safety (context, entity) with generics
-  - [ ] Operation execution lifecycle
+### 1.5 Core Contracts (API surface)
+- [x] **State Resolver and State Applier**
+  - [x] `StateResolver<T>` interface (read current state from entity).
+    - [x] Class-based implementation.
+    - [x] Lambda function (Java API).
+    - [ ] SpEL expression (deferred to Phase 5 with rest of SpEL work; interface in place).
+  - [x] `StateApplier<T>` interface (write new state to entity after successful transition).
+    - [x] Class-based implementation.
+    - [x] Lambda function (Java API).
+    - [ ] SpEL property path (deferred to Phase 5).
+  - [x] Builder wiring: `.withStateResolver(...)` and `.withStateApplier(...)` on `StateMachineDef<T>`.
+  - [x] State machine invokes the applier exactly once on successful execution. Post-condition gating and `onComplete` listener ordering land with their respective phases.
 
-### 1.6 Basic Testing & Documentation
+- [x] **TransitionResult\<T\>**
+  - [x] Shape matches requirements §2.1.4: success flag, target state, error, executed step IDs, compensated step IDs, `startedAt`/`completedAt` timestamps, derived `duration`. Per-step durations deferred to Phase 2.
+  - [x] Documented failure semantics (business outcomes via result; validation errors thrown synchronously).
 
-- [ ] **Spock Specifications**
-  - [ ] State machine creation and validation specifications (given/when/then)
-  - [ ] Transition execution specifications with behavior verification
-  - [ ] Operation execution specifications with mocking and stubbing
-  - [ ] Context management specifications with data-driven testing
-  - [ ] Error handling specifications with exception testing
+- [x] **Exception Hierarchy**
+  - [x] `TransfluxException` base class (unchecked).
+  - [x] `TransfluxValidationException` reparented under `TransfluxException`.
+  - [x] `TransfluxReentrancyException` declared (will be raised by the runtime guard in Phase 2).
 
-- [ ] **Testing Framework Foundations**
-  - [ ] Basic transition path recording infrastructure
-  - [ ] Simple test assertion utilities
-  - [ ] Test data builders for entities and contexts
-  - [ ] Mock integration setup for Spock (ensure compatibility with JUnit/TestNG execution where applicable)
-  - [ ] Basic performance measurement utilities
-
-- [ ] **Integration Tests**
-  - [ ] End-to-end state machine workflows
-  - [ ] Multi-step transition scenarios
-  - [ ] Concurrent access tests
-
-- [ ] **Documentation**
-  - [ ] API documentation with JavaDoc
-  - [ ] Basic usage examples
-  - [ ] Getting started guide
+### 1.6 Spock Specifications
+- [x] `StateMachineImplSpec` covers transition execution, state-applier invocation order, applier-skip when failing, and timestamp population.
+- [x] `StateMachineDefImplSpec` covers state-resolver and state-applier wiring (null rejection, override-warn, build-time propagation).
+- [x] `TransitionResultSpec` covers all factories, immutability, defensive copying, and `duration` derivation.
+- [x] Spec coverage for builder validation paths and ID uniqueness.
 
 ---
 
-## Phase 2: Advanced Operations & Conditions (v0.2.0)
-*Target: Complex operations, conditions, and basic trigger system*
+## Phase 2: Operations, Steps & Conditions (v0.2.0)
+*Target: Composite operations, entity-aware steps, the unified Condition Descriptor, and the runtime reentrancy guard.*
 
-### 2.1 Composite Operations
-- [ ] **Multi-Step Operations**
-  - [ ] `Step` interface and base implementations
-  - [ ] `CompositeOperation` implementation
-  - [ ] Step execution sequencing
-  - [ ] Step-level error handling
-  - [ ] Context passing between steps
-  - [ ] Step compensation registration
+### 2.1 Operation Framework
+- [ ] `OperationDef` interface for fluent operation definition (in flight on the branch).
+- [ ] `Operation<T, C>` runtime interface — `execute(entity, context, transition)` returns `void`; results flow through the context (requirements §2.1.5).
+- [ ] `SimpleOperation<T, C>` implementation.
+- [ ] Operation lifecycle and execution order within a transition.
+- [ ] Operation results documented as context-flowing (no `.input(...)` API; no domain return value).
 
-- [ ] **Programmatic access to Steps**
-    - [ ] `Transition.step` family of methods (with and without explicit class type)
-  
-### 2.2 Condition System
-- [ ] Expression language integration (SpEL)
-    - [ ] Add Spring Expression Language 6.0.x dependency
-    - [ ] SpEL expression evaluator
-    - [ ] Context variable binding for expressions
+### 2.2 Steps
+- [ ] `Step<T, C>` interface — entity-aware, receives `(entity, context, transition)`. Reusable across operations.
+- [ ] Step elevation as `SimpleOperation` targets (a step may be used directly as an operation).
+- [ ] `CompositeOperation<T, C>` implementation.
+- [ ] Sequential step execution within composite operations.
+- [ ] Step-level error handling primitives (full compensation engine lands in Phase 4).
+- [ ] `Transition.step(...)` family of methods (with and without explicit class) for in-operation step invocation.
+
+### 2.3 Multi-Branch Conditional Operations
+- [ ] Conditional step type within composite operations.
+- [ ] Sequential branch evaluation, first-match-wins semantics.
+- [ ] `default` fallback branch.
+- [ ] Configurable behavior when no branch matches and no default is defined (warning vs. error).
+
+### 2.4 Condition System
+- [ ] **SpEL Integration**
+  - [ ] Spring Expression Language 6.2.x dependency. Note: SpEL itself runs on Java 11+ even though `spring-context` does not — verify Java 11 compatibility of the SpEL JAR before locking the version.
+  - [ ] SpEL expression evaluator with entity and context variable binding.
+  - [ ] Expression caching.
 
 - [ ] **Condition Framework**
-    - [ ] `Condition` interface for validation and branching logic
-    - [ ] Multi-branch conditional support
-    - [ ] `PreCondition` and `PostCondition` interfaces and implementations
-    - [ ] Expression, class-based, lambda-based condition implementations
+  - [ ] `Condition<T>` interface.
+  - [ ] `Predicate<T>`-style lightweight conditions.
+  - [ ] Pre/Post condition wiring on transitions.
+  - [ ] **Condition Descriptor** — the four-form grammar from requirements §3.6.1:
+    - [ ] Reference (by ID).
+    - [ ] Class-based (`Condition<T>` implementation).
+    - [ ] Predicate-based.
+    - [ ] Expression-based (SpEL).
+  - [ ] Auto-ID derivation for inline expression-based conditions only.
 
-### 2.3 Basic Trigger System
-- [ ] **Trigger Framework**
-  - [ ] `Trigger` interface and base implementations
-  - [ ] `ManualTrigger` for explicit transitions
-  - [ ] `PreConditionTrigger` for automatic transitions
-  - [ ] Trigger registration and management
-  - [ ] Trigger evaluation scheduling
+### 2.5 Reentrancy Guard
+- [ ] Runtime detection of reentrant transition attempts on the same `StateMachine<T>` instance for the same entity.
+- [ ] Throw `TransfluxReentrancyException` with diagnostic context.
+- [ ] Permit transitions on *different* entities from within an executing transition.
+- [ ] Spock coverage for the guard.
 
-- [ ] **Data-Based Triggers**
-  - [ ] `DataTrigger` implementation
-  - [ ] Field watching and change detection
-  - [ ] Value filtering and condition matching
-  - [ ] Efficient change detection algorithms
-
-### 2.4 Class Instance Factory System
-- [ ] **Core Factory Implementation**
-  - [ ] `ComponentFactory` interface with generic type support
-  - [ ] `DefaultComponentFactory` implementation
-  - [ ] Constructor parameter resolution and dependency injection
-  - [ ] Named component registration and retrieval
-  - [ ] Singleton vs prototype instance management
-  - [ ] Circular dependency detection and prevention
-
-- [ ] **Factory Integration**
-  - [ ] Integration with Spring ApplicationContext (optional)
-  - [ ] Integration with Guice Injector (optional)
-  - [ ] Integration with CDI BeanManager (optional)
-  - [ ] Fallback to reflection-based instantiation
-  - [ ] Custom factory function registration
-
-### 2.5 Enhanced Testing
-- [ ] **Advanced Spock Specifications**
-  - [ ] Composite operation specifications with interaction testing
-  - [ ] Conditional logic specifications with parameterized testing
-  - [ ] Parallel execution specifications with concurrent behavior verification
-  - [ ] Trigger system specifications with event-driven testing
-  - [ ] Performance benchmarking with Spock's @Benchmark extension
-
-- [ ] **State Machine Testing Framework**
-  - [ ] `TestStateMachine` wrapper for testing support
-  - [ ] Transition path recording and tracking
-  - [ ] Context snapshot capture at transition points
-  - [ ] Step-level execution tracking for granular testing
-  - [ ] Timing information collection for performance testing
-
-- [ ] **AssertJ-Inspired Assertion Framework**
-  - [ ] `TransfluxAssertions` fluent assertion API
-  - [ ] State assertions (current state, transition history)
-  - [ ] Transition assertions (execution outcomes, paths)
-  - [ ] Context assertions (data verification, transformations)
-  - [ ] Operation assertions (execution results, compensation)
-  - [ ] Timing assertions (duration, performance thresholds)
-
-- [ ] **Dependency Injection Testing Foundations**
-  - [ ] Framework-agnostic DI container specifications
-  - [ ] Component registration and lifecycle specifications
-  - [ ] Mock DI container implementations for testing
-  - [ ] DI framework detection and fallback specifications
-
-### 2.6 CI/CD & Quality Infrastructure
-- [ ] **Essential Documentation**
-    - [ ] Basic README and getting started
-        - [ ] Project description and goals
-        - [ ] Basic installation instructions
-        - [ ] Simple usage example
-        - [ ] Development setup instructions
-
-- [ ] **Basic CI/CD**
-    - [ ] GitHub Actions basic workflow
-        - [ ] Build and test automation (Java 21+)
-        - [ ] Basic code compilation and unit test execution
-
-- [ ] **Advanced CI/CD Pipeline**
-  - [ ] Enhanced GitHub Actions workflow configuration
-    - [ ] Code quality checks (SpotBugs, Checkstyle, PMD)
-    - [ ] Security vulnerability scanning
-    - [ ] Code coverage reporting (JaCoCo + Codecov)
-  - [ ] Quality gates and branch protection
-    - [ ] Required status checks for PRs
-    - [ ] Branch protection rules (main/develop)
-    - [ ] Automated dependency updates (Dependabot)
-
-- [ ] **Repository Enhancement**
-  - [ ] Issue and PR templates
-    - [ ] Bug report template
-    - [ ] Feature request template
-    - [ ] Pull request template
-  - [ ] Contributing guidelines (CONTRIBUTING.md)
-  - [ ] Pre-commit hooks configuration
+### 2.6 Specifications
+- [ ] Composite operation specs with step sequencing and parameterized data tables.
+- [ ] Multi-branch conditional specs (each branch matched, no-match-with-default, no-match-no-default).
+- [ ] Condition Descriptor specs for each form, including auto-ID derivation.
+- [ ] Reentrancy guard specs.
 
 ---
 
-## Phase 3: YAML DSL & Component System (v0.3.0)
-*Target: Declarative configuration with YAML DSL and reusable components*
+## Phase 3: Triggers & Listeners (v0.3.0)
+*Target: The 1.0 trigger set (Manual, Event, host-driven Data) and full listener parity between DSLs.*
 
-### 3.1 YAML Processing Infrastructure
-- [ ] **YAML Dependencies**
-  - [ ] Add SnakeYAML 2.2 for YAML parsing
-  - [ ] Jackson YAML module 2.15.x for advanced processing
-  - [ ] Schema validation with JSON Schema Validator 1.0.x
+### 3.1 Trigger Framework
+- [ ] `Trigger` interface and base implementations.
+- [ ] Trigger registration and lookup on transitions.
+- [ ] Trigger catalog API on the state machine (enumerate triggers by name/type).
 
-- [ ] **YAML Schema Definition**
-  - [ ] Define JSON Schema for Transflux YAML format
-  - [ ] Enforce component identification rules (unique `id` per type, optional `name`); conditions may omit `id` and receive auto-generated identifiers
-  - [ ] Schema validation during parsing
-  - [ ] Error reporting with line numbers and context
-  - [ ] IDE support files (JSON Schema for autocomplete)
+### 3.2 Manual Triggers
+- [ ] `ManualTrigger` implementation.
+- [ ] Per-trigger metadata: description, listener bindings, trigger-specific pre-conditions distinct from the transition's defaults.
+- [ ] Invocation API (`stateMachine.entity(e).transitionTo(state, triggerId)`).
 
-### 3.2 Component Library System
-- [ ] **Component Definition Framework**
-  - [ ] `ComponentLibrary` for reusable components
-  - [ ] Component types: Actions, Conditions, Triggers, Listeners, Operations
-  - [ ] Component identification rules: required unique `id` per component within its scope; optional human-readable `name`
-  - [ ] Special case: Conditions need not declare an explicit `id`; auto-generate based on class/expression and definition path
-  - [ ] Component metadata and documentation
-  - [ ] Component versioning and compatibility
+### 3.3 Event Triggers
+- [ ] `EventTrigger` implementation.
+- [ ] `processEvent(event, eventData)` API on the entity binding.
+- [ ] Event filtering via expressions / predicate classes.
+- [ ] Entity correlation (matching events to entities) for the in-process case.
 
-- [ ] **Reference Resolution System**
-  - [ ] `$ref` syntax parsing and resolution
-  - [ ] Namespace support for component organization
-  - [ ] Circular reference detection
-  - [ ] Component dependency graph management
-  - [ ] Lazy loading and caching of components
+### 3.4 Data Triggers (host-driven)
+- [ ] `DataTrigger` implementation.
+- [ ] `processDataChange()` API — host-initiated re-evaluation only.
+- [ ] Data-trigger condition uses the standard Condition Descriptor grammar.
+- [ ] Documented and tested non-goal: no field watching, no ORM hooks, no background polling (those are post-1.0).
 
-- [ ] **Import and Namespace Management**
-  - [ ] YAML file import system
-  - [ ] Namespace collision detection
-  - [ ] Path resolution (relative/absolute)
-  - [ ] Component library discovery and loading
+### 3.5 Listeners
+- [ ] **State Listeners**
+  - [ ] `StateListener` interface (entry / exit).
+  - [ ] Per-state and global registration.
+  - [ ] Invocation in execution flow: source-state `onExit` at step 4; target-state `onEntry` at step 8 (requirements §2.4).
 
-### 3.3 YAML DSL Implementation
-- [ ] **State Machine YAML Parser**
-  - [ ] Parse state machine definitions from YAML
-  - [ ] State configuration parsing
-  - [ ] Transition configuration parsing
-  - [ ] Operation definition parsing
-  - [ ] Validation and error reporting
+- [ ] **Transition Listeners**
+  - [ ] `TransitionListener` interface (start / complete / error).
+  - [ ] Per-transition and global registration (`onAnyTransitionStart`, etc.).
+  - [ ] Async listener execution support (basic; full async work lands in Phase 4).
 
-- [ ] **YAML to Java Model Mapping**
-  - [ ] YAML model classes with Jackson annotations
-  - [ ] Conversion from YAML model to runtime objects
-  - [ ] Type safety and validation during conversion
-  - [ ] Custom deserializers for complex types
-
-- [ ] **Factory Integration with YAML DSL**
-  - [ ] Component instantiation from YAML class definitions
-  - [ ] Constructor parameter injection from YAML configuration
-  - [ ] Named component registration from YAML
-  - [ ] Factory-based component resolution in YAML parsing
-  - [ ] YAML factory configuration section support
-
-### 3.4 Advanced YAML Features
-- [ ] **Multi-File Support**
-  - [ ] Cross-file component references
-  - [ ] Import dependency resolution
-  - [ ] File watching for hot reloading (development mode)
-  - [ ] Circular import detection
-
-- [ ] **Template and Inheritance**
-  - [ ] YAML anchors and aliases support
-  - [ ] Template-based component definitions
-  - [ ] Component inheritance and overrides
-  - [ ] Parameterized components
-
-### 3.5 Maven Central Publishing Setup
-- [ ] **Maven POM Configuration for Publishing**
-  - [ ] Complete project metadata (name, description, URL, licenses)
-  - [ ] Developer information and SCM details
-  - [ ] Distribution management configuration
-  - [ ] Maven plugins for publishing (source, javadoc, GPG signing)
-
-- [ ] **Sonatype OSSRH Account Setup**
-  - [ ] JIRA account creation and project request
-  - [ ] Group ID verification (org.transflux)
-  - [ ] Repository access configuration
-
-- [ ] **GPG Key Setup for Artifact Signing**
-  - [ ] Generate and publish GPG keys
-  - [ ] Configure Maven settings for signing
-  - [ ] Key management and backup procedures
-
-- [ ] **Release Automation**
-  - [ ] Automated version bumping and tagging
-  - [ ] Automated changelog generation
-  - [ ] Automated Maven Central deployment
-  - [ ] GitHub releases with artifacts
+### 3.6 Specifications
+- [ ] Trigger specs for each type, including catalog enumeration.
+- [ ] Manual-trigger metadata override specs.
+- [ ] Data trigger specs covering all four Condition Descriptor forms.
+- [ ] Listener-ordering specs covering the execution flow.
 
 ---
 
-## Phase 4: Basic IDE Plugin Support (v0.4.0)
-*Target: Minimalistic IDE plugins for YAML DSL development*
+## Phase 4: Async Operations & Error Handling (v0.4.0)
+*Target: The compensation engine, async anchoring, and exception-specific recovery.*
 
-### 4.1 Plugin Infrastructure
-- [ ] **JetBrains IDE Plugin Foundation**
-  - [ ] IntelliJ Platform SDK integration
-  - [ ] Plugin manifest and basic configuration
-  - [ ] JetBrains Marketplace distribution setup
-  - [ ] Multi-IDE compatibility (IntelliJ IDEA, WebStorm, etc.)
+### 4.1 Compensation Engine
+- [ ] Unified `Compensation<T, C>` interface (entity + context) for both operations and steps.
+- [ ] LIFO compensation stack management.
+- [ ] Compensation registration as each step completes.
+- [ ] Post-condition violation triggers full compensation; entity state is *not* applied.
+- [ ] Compensation declared by class or returned dynamically from `getCompensation(entity, context)`.
 
-- [ ] **VSCode Extension Foundation**
-  - [ ] VSCode Extension API integration
-  - [ ] TypeScript/JavaScript implementation
-  - [ ] Visual Studio Marketplace distribution
-  - [ ] Extension manifest and basic configuration
+### 4.2 Exception-Specific Compensation
+- [ ] `.onException(...)` / `.onAllExceptions()` builder DSL on composite operations.
+- [ ] Exception matching by class hierarchy + optional predicate.
+- [ ] Compensation chaining and ordering.
 
-### 4.2 Basic YAML Support
-- [ ] **Syntax Highlighting**
-  - [ ] Basic syntax highlighting for Transflux YAML files
-  - [ ] File type recognition (.transflux.yaml, .tf.yaml)
-  - [ ] Color scheme integration with IDE themes
-  - [ ] Basic structure highlighting (states, transitions, operations)
+### 4.3 Async Operation Support
+- [ ] `async` block on composite operations.
+- [ ] **Anchor forms**: exactly one of
+  - [ ] `startBefore(stepId)` — kick off when execution reaches the named sync step (join-point pattern).
+  - [ ] `startAfter(stepId)` — kick off when the named sync step completes successfully (post-action notifications pattern).
+- [ ] Configurable thread pool and queue capacity.
+- [ ] Async result handling and callbacks.
+- [ ] Async operation cancellation semantics.
 
-- [ ] **Schema-Based Validation**
-  - [ ] JSON Schema integration for YAML validation
-  - [ ] Real-time error highlighting with inline indicators
-  - [ ] Error messages with line numbers and context
-  - [ ] Schema-aware validation during editing
+### 4.4 Async Compensation
+- [ ] Compensation of async branches.
+- [ ] Coordination semantics when sync work fails while async work is still running.
+- [ ] Timeout handling for async operations.
 
-### 4.3 Basic Code Assistance
-- [ ] **Auto-Completion**
-  - [ ] Schema-based auto-completion for YAML elements
-  - [ ] Basic property and value completion
-  - [ ] YAML structure completion (states, transitions, operations)
-  - [ ] Simple template insertion for common patterns
-
-- [ ] **Basic Navigation**
-  - [ ] Document outline view for YAML structure
-  - [ ] Go-to-definition within YAML files
-  - [ ] Basic symbol search within current file
-  - [ ] Code folding for YAML sections
-
-### 4.4 Documentation Integration
-- [ ] **Basic Help**
-  - [ ] Hover documentation for YAML elements
-  - [ ] Quick help popups with schema information
-  - [ ] Link to online documentation
-  - [ ] Basic usage examples in tooltips
+### 4.5 Specifications
+- [ ] Compensation engine specs (LIFO order, exception routing, partial rollback).
+- [ ] Async anchor specs for both `startBefore` and `startAfter`.
+- [ ] Async-compensation specs.
 
 ---
 
-## Phase 5: Event System & Advanced Triggers (v0.5.0)
-*Target: Comprehensive trigger system with event integration*
+## Phase 5: YAML DSL & Component System (v0.5.0)
+*Target: The declarative DSL at parity with the Java DSL.*
 
-### 5.1 Event System Infrastructure
-- [ ] **Event Framework**
-  - [ ] `Event` interface and base implementations
-  - [ ] `EventPublisher` for event distribution
-  - [ ] `EventListener` for event consumption
-  - [ ] Event routing and filtering
-  - [ ] Pluggable event transport mechanisms
+### 5.1 YAML Processing Infrastructure
+- [ ] Dependencies: SnakeYAML 2.4, Jackson YAML module (2.20.x, matching the core Jackson version), JSON Schema Validator 1.x current.
+- [ ] JSON Schema for Transflux YAML format.
+- [ ] Schema-based validation with line-number / context error reporting.
+- [ ] IDE-support schema files for autocomplete (the schema itself; IDE plugin work is out of scope).
 
-- [ ] **Event Integration**
-  - [ ] Spring Events integration (optional)
-  - [ ] JMS integration for enterprise messaging
-    - [ ] Add Spring JMS 6.0.x dependency (optional)
-    - [ ] JMS event publisher and listener
-  - [ ] Custom event source adapters
-  - [ ] Event serialization and deserialization
+### 5.2 Component Library System
+- [ ] `ComponentLibrary` — reusable definitions of steps, conditions, triggers, listeners, operations.
+- [ ] Component identification rules per requirements §2.2.1 (mandatory `id`; expression-based conditions excepted).
+- [ ] Component versioning / compatibility metadata.
 
-### 5.2 Advanced Trigger System
-- [ ] **Event-Based Triggers**
-  - [ ] `EventTrigger` implementation
-  - [ ] Event filtering and matching
-  - [ ] Entity correlation (matching events to entities)
-  - [ ] Event aggregation and complex event processing
+### 5.3 Component Reference Grammar
+- [ ] String-shorthand reference resolution (`operation: my-op`).
+- [ ] Inline block definitions (`operation: { type: composite, ... }`) — first-class everywhere.
+- [ ] Long-form reference (`{ ref: my-op }`) accepted in block contexts.
+- [ ] Type discrimination rules for inline definitions.
+- [ ] Circular reference detection.
+- [ ] Component dependency graph.
 
-- [ ] **Signal-Based Triggers**
-  - [ ] `SignalTrigger` for framework-wide signals
-  - [ ] Signal broadcasting and subscription
-  - [ ] Signal filtering and predicate matching
-  - [ ] Cross-state-machine signal coordination
+### 5.4 Imports and Namespacing
+- [ ] YAML import system with relative/absolute path resolution.
+- [ ] Cross-file component references.
+- [ ] Namespace collision detection (all IDs unique within type across imports).
+- [ ] Circular import detection.
 
-- [ ] **Timer-Based Triggers**
-  - [ ] `TimerTrigger` implementation
-  - [ ] Cron expression support using Quartz Scheduler 2.3.x
-  - [ ] Timezone handling and DST considerations
-  - [ ] Timer persistence and recovery
-  - [ ] Distributed timer coordination (future consideration)
+### 5.5 YAML DSL Parsing
+- [ ] State machine definition parser.
+- [ ] State, transition, operation, step, condition, trigger, listener parsers.
+- [ ] Condition Descriptor parsing (the four forms).
+- [ ] State resolver + state applier configuration (class or SpEL).
+- [ ] Listener parity with the Java DSL (state entry/exit + transition start/complete).
+- [ ] Validation against the JSON Schema.
+- [ ] Conversion from YAML model to runtime `*Def` builders, then to runtime instances.
 
-### 5.3 Trigger Management
-- [ ] **Trigger Lifecycle**
-  - [ ] Trigger registration and deregistration
-  - [ ] Trigger activation and deactivation
-  - [ ] Trigger state persistence
-  - [ ] Trigger monitoring and health checks
-
-- [ ] **Trigger Optimization**
-  - [ ] Efficient trigger evaluation algorithms
-  - [ ] Trigger indexing and fast lookup
-  - [ ] Batch trigger processing
-  - [ ] Memory-efficient trigger storage
+### 5.6 Specifications
+- [ ] Parser specs for each top-level element.
+- [ ] Reference Grammar specs (ref vs. inline; bare string vs. block).
+- [ ] Import resolution specs.
+- [ ] Schema validation error message specs.
+- [ ] DSL parity check: a single non-trivial state machine expressed in both DSLs produces equivalent runtime instances.
 
 ---
 
-## Phase 6: Compensation & Error Handling (v0.6.0)
-*Target: Robust error handling and compensation mechanisms*
+## Phase 6: Integration, Polish & Release Prep (v0.6.0 → v1.0.0)
+*Target: 1.0-grade integration, infrastructure, and documentation.*
 
-### 6.1 Compensation Engine
-- [ ] **Compensation Framework**
-  - [ ] `CompensationEngine` for rollback coordination
-  - [ ] `CompensationAction` interface and implementations
-  - [ ] LIFO compensation stack management
-  - [ ] Compensation chaining and dependencies
-  - [ ] Partial rollback capabilities
+### 6.1 Spring Integration (Optional)
+- [ ] Target **Spring Boot 3.4.x** (Spring Framework 6.2.x). **Documented Java floor: the core library is Java 11+; the optional Spring integration requires Java 17+** because Spring 6 mandates Java 17. Document this split prominently in the README and in the Spring-integration section of the user guide.
+- [ ] Spring Boot auto-configuration class.
+- [ ] `@EnableTransflux` annotation.
+- [ ] `TransfluxConfiguration` Spring binding with configuration properties.
+- [ ] Automatic Spring-bean discovery for Transflux components (`Step`, `Condition`, `Trigger`, `Listener`, `Operation`).
+- [ ] Profile-aware configuration support.
 
-- [ ] **Compensation Strategies**
-  - [ ] Exception-specific compensation mapping
-  - [ ] Automatic compensation registration
-  - [ ] Manual compensation triggers
-  - [ ] Compensation timeout and retry logic
-  - [ ] Compensation failure handling
+### 6.2 Component Factory SPI
+- [ ] `ComponentFactory` interface with generic type support.
+- [ ] Reflection-based fallback when no DI framework is available.
+- [ ] Named component registration and retrieval.
+- [ ] Custom factory function registration.
+- [ ] Circular dependency detection within component graphs.
+- [ ] YAML DSL integration: instantiation from `class:` references.
 
-### 6.2 Advanced Error Handling
-- [ ] **Exception Hierarchy**
-  - [ ] Transflux-specific exception types
-  - [ ] Recoverable vs non-recoverable exceptions
-  - [ ] Exception context and metadata
-  - [ ] Exception propagation control
+### 6.3 Observability Hooks
+- [ ] `MetricsCollector` SPI (no shipped Micrometer integration in 1.0).
+- [ ] Hook points: transition start/complete/error, step start/complete, compensation execution, trigger evaluation.
+- [ ] Consistent SLF4J logging with predictable logger names.
+- [ ] Configurable flow labels for metric separation.
 
-- [ ] **Recovery Mechanisms**
-  - [ ] Configurable retry strategies
-  - [ ] Exponential backoff algorithms
-  - [ ] Circuit breaker pattern implementation
-    - [ ] Add Resilience4j 2.1.x for circuit breakers
-    - [ ] Circuit breaker configuration and monitoring
-  - [ ] Graceful degradation strategies
+### 6.4 1.0 Dependency Baseline Refresh
 
-### 6.3 Async Operation Support
-- [ ] **Asynchronous Execution**
-  - [ ] `AsyncOperation` implementation
-  - [ ] Thread pool management and configuration
-  - [ ] Async result handling and callbacks
-  - [ ] Async operation cancellation
-  - [ ] Async operation monitoring
+Phase 1.1 captured the dependency versions present in the repo when bootstrapping. Before 1.0, bump to the target 1.0 baseline:
 
-- [ ] **Async Compensation**
-  - [ ] Async compensation execution
-  - [ ] Async compensation coordination
-  - [ ] Timeout handling for async operations
-  - [ ] Async operation state persistence
+- [ ] **Jackson Core** 2.18.0 → **2.20.x** (staying on the 2.x line; Jackson 3 migration is queued as a Post-1.0 / 2.x theme).
+- [ ] **Spock** 2.3-groovy-4.0 → **2.4-groovy-4.0**.
+- [ ] **Groovy** 4.0.28 → latest 4.0.x.
+- [ ] **SLF4J** 2.0.17 → latest 2.0.x.
+- [ ] **Logback** (test scope) 1.5.18 → latest 1.5.x.
+- [ ] Maven plugin versions audited and aligned with current Maven 3.9.x recommendations.
+- [ ] Confirm SpEL 6.2.x JAR runs on Java 11 (per §2.4 note) and pin the exact patch version.
+- [ ] Update `pom.xml` and re-run the full Spock specification suite after each bump to catch behavioral regressions.
 
-### 6.4 Documentation Site Infrastructure
-- [ ] **Documentation Site Setup**
-  - [ ] GitHub Pages or dedicated hosting
-  - [ ] Documentation framework (GitBook, Docusaurus, or MkDocs)
-  - [ ] API documentation generation and hosting
-  - [ ] Versioned documentation support
+### 6.5 CI/CD and Quality Infrastructure
+- [x] Basic GitHub Actions workflow (build + test).
+- [ ] Code-quality gates: SpotBugs, Checkstyle, PMD.
+- [ ] Security vulnerability scanning.
+- [ ] Code-coverage reporting (JaCoCo + Codecov).
+- [ ] Required status checks for PRs; branch protection on `main`.
+- [ ] Dependabot for dependency updates.
+- [ ] Issue / PR / bug-report templates.
+- [ ] `CONTRIBUTING.md`.
+- [ ] Pre-commit hook configuration.
 
-- [ ] **Enhanced Documentation**
-  - [ ] Comprehensive README with badges and examples
-  - [ ] Quick start guide with Maven/Gradle snippets
-  - [ ] Installation and setup instructions
-  - [ ] Advanced usage examples and tutorials
-  - [ ] Architecture and design documentation
-  - [ ] Configuration reference guide
+### 6.6 Maven Central Publishing
+- [ ] Complete POM metadata (name, description, URL, licenses, developers, SCM).
+- [ ] Distribution management configuration.
+- [ ] Source jar and Javadoc jar plugins.
+- [ ] GPG signing configuration.
+- [ ] Sonatype OSSRH account and group-ID verification.
+- [ ] Release automation (version bumping, tagging, changelog, deployment).
+- [ ] GitHub releases with artifacts.
 
----
+### 6.7 Documentation
+- [ ] Complete README (badges, install snippets, hello-world example).
+- [ ] Getting-started guide.
+- [ ] Architecture overview (mirrors `requirements.md` §2 but reader-oriented).
+- [ ] Configuration reference.
+- [ ] Best-practices / patterns guide (when to use simple vs. composite operations, manual vs. event vs. data triggers, etc.).
+- [ ] Migration guide template for breaking changes (will be reused at 2.0).
+- [ ] Complete API Javadoc.
+- [ ] Example applications: simple state machine, complex workflow, Spring Boot integration.
 
-## Phase 7: Metrics & Observability (v0.7.0)
-*Target: Comprehensive monitoring and observability*
+### 6.8 Release Engineering
+- [ ] Semantic versioning policy document.
+- [ ] Backward-compatibility policy.
+- [ ] Release notes template.
+- [ ] Community infrastructure: GitHub Discussions, SECURITY.md, code of conduct.
 
-### 7.1 Metrics Infrastructure
-- [ ] **Metrics Framework**
-  - [ ] Integration with Micrometer 1.12.x for metrics
-  - [ ] `MetricsCollector` interface and implementations
-  - [ ] Custom metrics registration and collection
-  - [ ] Metrics aggregation and reporting
-  - [ ] Configurable metrics backends (Prometheus, InfluxDB, etc.)
-
-- [ ] **Core Metrics**
-  - [ ] Transition success/failure counters
-  - [ ] Transition duration histograms
-  - [ ] Operation execution metrics
-  - [ ] Trigger evaluation metrics
-  - [ ] Compensation execution metrics
-  - [ ] Thread pool utilization metrics
-
-### 7.2 Logging & Tracing
-- [ ] **Structured Logging**
-  - [ ] Consistent logging patterns with SLF4J
-  - [ ] Contextual logging with MDC
-  - [ ] Configurable log levels per component
-  - [ ] Structured log formats (JSON support)
-  - [ ] Correlation ID propagation
-
-- [ ] **Distributed Tracing**
-  - [ ] OpenTelemetry integration 1.32.x
-  - [ ] Trace context propagation
-  - [ ] Span creation for operations and transitions
-  - [ ] Custom trace attributes and tags
-  - [ ] Trace sampling configuration
-
-### 7.3 Health Checks & Monitoring
-- [ ] **Health Check Framework**
-  - [ ] State machine health indicators
-  - [ ] Trigger system health checks
-  - [ ] Thread pool health monitoring
-  - [ ] External dependency health checks
-  - [ ] Composite health status reporting
-
-- [ ] **Monitoring Dashboards**
-  - [ ] Grafana dashboard templates
-  - [ ] Prometheus alerting rules
-  - [ ] Key performance indicators (KPIs)
-  - [ ] Operational runbooks and troubleshooting guides
+### 6.9 1.0 Quality Gates
+- [ ] Spock specification coverage ≥ 80% for core packages.
+- [ ] No critical or high-severity security findings.
+- [ ] Performance baseline established (basic benchmarks; not a 1.0 feature, but a baseline to detect regressions).
+- [ ] API surface review and sign-off.
+- [ ] Load test of representative workflow.
+- [ ] Documentation completeness verification.
 
 ---
 
-## Phase 8: Dependency Injection & Spring Integration (v0.8.0)
-*Target: Comprehensive dependency injection framework integration*
+## v1.0.0 Release
 
-### 8.1 Spring Boot Integration
-- [ ] **Auto-Configuration**
-  - [ ] Spring Boot auto-configuration classes
-  - [ ] `@EnableTransflux` annotation implementation
-  - [ ] Configuration properties binding
-    - [ ] Add Spring Boot 3.2.x dependencies
-    - [ ] Configuration metadata for IDE support
-  - [ ] Conditional bean creation based on properties
+The first stable release. Semantic versioning applies from this point on.
 
-- [ ] **Spring Configuration**
-  - [ ] `TransfluxConfiguration` Spring integration
-  - [ ] Bean factory integration for components
-  - [ ] Profile-based configuration support
-  - [ ] Environment-specific property overrides
-
-### 8.2 Dependency Injection Integration
-- [ ] **Spring Integration (Primary)**
-  - [ ] Automatic Spring bean discovery for Transflux components
-  - [ ] Custom component scanning and registration
-  - [ ] Lifecycle management integration
-  - [ ] Scope management (singleton, prototype, etc.)
-
-- [ ] **Google Guice Integration**
-  - [ ] Add Google Guice 7.0.x dependency (optional)
-  - [ ] `TransfluxGuiceModule` for component binding
-    - [ ] Automatic component discovery and binding
-    - [ ] Custom binding configurations
-    - [ ] Scope management (Singleton, RequestScoped, etc.)
-    - [ ] Provider-based component creation
-  - [ ] Guice-specific annotations support
-    - [ ] `@TransfluxComponent` annotation processing
-    - [ ] `@Inject` support for Transflux components
-    - [ ] Custom qualifier annotations
-  - [ ] Guice injector integration
-    - [ ] StateMachine factory with Guice injection
-    - [ ] Operation and Action dependency injection
-    - [ ] Trigger and Listener dependency injection
-  - [ ] Configuration and lifecycle
-    - [ ] Guice-based configuration binding
-    - [ ] Component lifecycle management
-    - [ ] Multi-stage initialization support
-
-- [ ] **CDI (Contexts and Dependency Injection) Integration**
-  - [ ] Add Weld SE 5.1.x dependency (CDI implementation)
-  - [ ] CDI extension for Transflux components
-    - [ ] `TransfluxExtension` for component discovery
-    - [ ] Bean definition and registration
-    - [ ] Custom scope definitions
-    - [ ] Interceptor and decorator support
-  - [ ] CDI-specific annotations
-    - [ ] `@ApplicationScoped`, `@RequestScoped` support
-    - [ ] `@Inject` and `@Produces` integration
-    - [ ] Custom qualifiers and stereotypes
-    - [ ] Event-driven programming with CDI events
-  - [ ] CDI container integration
-    - [ ] SeContainer bootstrap for standalone applications
-    - [ ] Jakarta EE server integration
-    - [ ] Bean validation integration
-    - [ ] Transaction management support
-  - [ ] Configuration and observability
-    - [ ] CDI configuration properties
-    - [ ] Health check integration
-    - [ ] Metrics and monitoring support
-
-- [ ] **Dagger 2 Integration (Compile-time DI)**
-  - [ ] Add Dagger 2.48.x dependency (optional)
-  - [ ] Dagger component and module definitions
-    - [ ] `@TransfluxComponent` Dagger component
-    - [ ] `@TransfluxModule` for component provision
-    - [ ] Compile-time dependency graph validation
-    - [ ] Subcomponent support for scoped operations
-  - [ ] Annotation processing integration
-    - [ ] Custom annotation processor for Transflux components
-    - [ ] Code generation for component factories
-    - [ ] Compile-time validation of dependencies
-  - [ ] Dagger-specific features
-    - [ ] `@Singleton` and custom scope support
-    - [ ] `@Provides` methods for complex component creation
-    - [ ] Multibinding support for component collections
-    - [ ] Optional binding support
-  - [ ] Build integration
-    - [ ] Maven annotation processing configuration
-    - [ ] Generated code management
-    - [ ] IDE integration support
-
-- [ ] **Framework-Agnostic Abstraction**
-  - [ ] `DIContainer` abstraction interface
-  - [ ] `ComponentRegistry` for manual registration
-  - [ ] Adapter pattern for different DI frameworks
-  - [ ] Fallback to manual wiring when no DI framework detected
-  - [ ] Configuration-driven component selection
-
-### 8.3 Spring Ecosystem Integration
-- [ ] **Spring Events Integration**
-  - [ ] Spring ApplicationEvent publishing
-  - [ ] Spring event listener integration
-  - [ ] Event-driven trigger activation
-  - [ ] Transaction-aware event publishing
-
-- [ ] **Spring Data Integration**
-  - [ ] Entity persistence integration
-  - [ ] Repository pattern support
-  - [ ] Transaction management integration
-  - [ ] Audit trail integration with Spring Data
-
-### 8.4 Dependency Injection Testing
-- [ ] **Spring Integration Testing**
-  - [ ] Spring Boot auto-configuration specifications
-  - [ ] Spring context loading and component discovery specifications
-  - [ ] Spring bean lifecycle and scope specifications
-  - [ ] Spring profile-based configuration specifications
-  - [ ] Spring event integration specifications
-
-- [ ] **Google Guice Integration Testing**
-  - [ ] Guice module binding specifications
-  - [ ] Guice injector creation and component resolution specifications
-  - [ ] Guice scope management specifications (Singleton, RequestScoped)
-  - [ ] Guice provider and custom binding specifications
-  - [ ] Guice annotation processing specifications
-
-- [ ] **CDI Integration Testing**
-  - [ ] CDI extension registration and discovery specifications
-  - [ ] CDI bean definition and lifecycle specifications
-  - [ ] CDI scope and context management specifications
-  - [ ] CDI event-driven programming specifications
-  - [ ] CDI interceptor and decorator specifications
-  - [ ] Weld SE container bootstrap specifications
-
-- [ ] **Dagger 2 Integration Testing**
-  - [ ] Dagger component compilation specifications
-  - [ ] Dagger module and provider specifications
-  - [ ] Dagger dependency graph validation specifications
-  - [ ] Dagger code generation verification specifications
-  - [ ] Dagger multibinding and optional binding specifications
-
-- [ ] **Cross-Framework Testing**
-  - [ ] Framework detection and selection specifications
-  - [ ] Framework-agnostic abstraction specifications
-  - [ ] Fallback to manual wiring specifications
-  - [ ] Performance comparison between DI frameworks
-  - [ ] Integration testing with multiple DI frameworks
+**1.0 contract summary:**
+- Programmatic and YAML DSLs at parity.
+- Core abstractions: `StateMachine`, `State`, `Transition`, `Operation`, `Step`, `Context`, `Condition`, `Trigger` (Manual / Event / host-driven Data), `Listener` (state entry/exit + transition start/complete), `Compensation`.
+- Paired `StateResolver<T>` + `StateApplier<T>` (class / lambda / SpEL forms).
+- Condition Descriptor grammar (reference, class, predicate, expression).
+- Multi-branch conditional operations.
+- LIFO compensation engine with exception-specific routing.
+- Async operations anchored via `startBefore` / `startAfter`.
+- Spring auto-configuration (optional) + manual wiring via `ComponentRegistry`.
+- `MetricsCollector` SPI hook (no shipped backend integration).
 
 ---
 
-## Phase 9: Intermediate IDE Plugin Features (v0.9.0)
-*Target: Enhanced IDE support with cross-language navigation and basic refactoring*
+## Post-1.0 — Additive Themes (1.x line)
 
-### 9.1 Cross-Language Navigation
-- [ ] **YAML to Java Navigation**
-  - [ ] Navigate from YAML step references to Java classes
-  - [ ] Navigate from YAML operation references to Java implementations
-  - [ ] Navigate from YAML context references to Java context classes
-  - [ ] Navigate from YAML entity references to Java entity classes
-  - [ ] Quick definition preview on hover
+Ordering between themes will depend on demand. None of these should require breaking changes against the 1.0 contract.
 
-- [ ] **Java to YAML Navigation**
-  - [ ] Find YAML usage of Java classes and methods
-  - [ ] Reference highlighting between YAML and Java
-  - [ ] Bidirectional reference tracking
-  - [ ] Usage search across workspace
+### Trigger Expansion
+- [ ] **Timer / Cron Triggers**
+  - [ ] `TimerTrigger` implementation.
+  - [ ] Quartz Scheduler 2.3.x integration.
+  - [ ] Timezone / DST handling.
+  - [ ] Timer persistence considerations (will interact with the persistence theme on the 2.x line).
+- [ ] **Signal Triggers**
+  - [ ] `SignalTrigger` for framework-wide signals.
+  - [ ] Signal broadcasting, subscription, predicate matching.
+  - [ ] Cross-state-machine signal coordination.
+- [ ] **Automatic Data-Change Detection**
+  - [ ] Field-watcher infrastructure.
+  - [ ] ORM-hook integration adapters (Hibernate listener, JPA, etc.).
+  - [ ] Efficient change detection algorithms.
 
-### 9.2 Enhanced Validation and Code Assistance
-- [ ] **Advanced Validation**
-  - [ ] Java class reference validation in YAML
-  - [ ] Type compatibility checking between YAML and Java
-  - [ ] Method signature validation for operations
-  - [ ] Context mapping validation
-  - [ ] Circular dependency detection in workflows
+### Observability Integration
+- [ ] Micrometer 1.12.x integration (first-party `MetricsCollector` implementation).
+- [ ] OpenTelemetry 1.32.x tracing (span creation, context propagation, sampling).
+- [ ] Structured logging with MDC and correlation IDs.
+- [ ] Health-check framework (state machine, triggers, thread pools, dependencies).
+- [ ] Grafana dashboard templates and example alerting rules.
 
-- [ ] **Enhanced Auto-Completion**
-  - [ ] Java class name completion in YAML references
-  - [ ] Method name completion for operation references
-  - [ ] Context property completion with type information
-  - [ ] YAML template generation for common patterns
-  - [ ] Smart completion based on context
+### DI Framework Expansion
+- [ ] **Google Guice 7.0.x** integration: `TransfluxGuiceModule`, `@TransfluxComponent`, scope management.
+- [ ] **CDI / Weld SE 5.1.x** integration: `TransfluxExtension`, bean definitions, Jakarta EE compatibility.
+- [ ] **Dagger 2.48.x** integration: compile-time components, annotation processing, multibinding.
+- [ ] Framework-agnostic `DIContainer` abstraction with adapters.
+- [ ] Specs for each integration; cross-framework benchmark / parity checks.
 
-### 9.3 Basic Refactoring Support
-- [ ] **Safe Refactoring**
-  - [ ] Rename refactoring with YAML reference updates
-  - [ ] Move class refactoring with reference tracking
-  - [ ] Extract operation refactoring from YAML
-  - [ ] Safe delete with usage analysis across YAML and Java
-  - [ ] Refactoring preview with impact analysis
+### Testing Framework (separate artifact)
+- [ ] `transflux-test` (or similar) module.
+- [ ] `TestStateMachine<T>` wrapper with transition-path recording.
+- [ ] Context snapshot capture at transition points.
+- [ ] Step-level execution tracking.
+- [ ] AssertJ-inspired fluent assertion API (`TransfluxAssertions`):
+  - [ ] State assertions.
+  - [ ] Transition assertions.
+  - [ ] Context assertions.
+  - [ ] Operation / compensation assertions.
+- [ ] Test data builders for entities and contexts.
+- [ ] Integration with Spock, JUnit, TestNG.
 
-- [ ] **Code Generation**
-  - [ ] Java class scaffolding from YAML definitions
-  - [ ] Context class generation from YAML mappings
-  - [ ] Operation interface generation
-  - [ ] Test class generation for workflow components
+### Resilience Patterns
+- [ ] Resilience4j 2.1.x integration.
+- [ ] Configurable retry strategies (exponential backoff, jitter).
+- [ ] Circuit breaker pattern.
+- [ ] Rate limiting.
+- [ ] Graceful degradation strategies.
 
-### 9.4 Simple Workflow Visualization
-- [ ] **Basic Diagrams**
-  - [ ] Simple state machine diagram generation
-  - [ ] Basic operation flow visualization
-  - [ ] Click-to-navigate from diagrams to code
-  - [ ] Diagram export (PNG, SVG)
-  - [ ] Zoom and pan controls
+### Advanced DSL Features
+- [ ] YAML anchors / aliases support.
+- [ ] Template-based component definitions and inheritance.
+- [ ] Parameterized components.
+- [ ] Hot reload in development mode.
+- [ ] Dynamic runtime reconfiguration (blue/green with rollback).
 
-- [ ] **Workflow Analysis**
-  - [ ] Workflow structure analysis and validation
-  - [ ] Dead state detection
-  - [ ] Unreachable transition identification
-  - [ ] Workflow complexity metrics
-  - [ ] Basic performance analysis hints
-
----
-
-## Phase 10: Performance & Scalability (v1.0.0)
-*Target: Production-ready performance and scalability*
-
-### 10.1 Performance Optimization
-- [ ] **Core Performance**
-  - [ ] State machine execution optimization
-  - [ ] Memory usage optimization
-  - [ ] CPU usage profiling and optimization
-  - [ ] Garbage collection impact minimization
-  - [ ] Lock contention reduction
-
-- [ ] **Caching Strategy**
-  - [ ] State machine definition caching
-  - [ ] Component library caching
-  - [ ] Expression compilation caching
-  - [ ] Trigger evaluation result caching
-  - [ ] Cache invalidation strategies
-
-### 10.2 Concurrency & Threading
-- [ ] **Thread Safety**
-  - [ ] Comprehensive thread safety analysis
-  - [ ] Lock-free algorithms where possible
-  - [ ] Concurrent data structure usage
-  - [ ] Thread-local storage optimization
-  - [ ] Deadlock detection and prevention
-
-- [ ] **Thread Pool Management**
-  - [ ] Configurable thread pools for different operations
-  - [ ] Thread pool monitoring and tuning
-  - [ ] Work-stealing algorithms for load balancing
-  - [ ] Thread pool isolation for different workloads
-
-### 10.3 Scalability Features
-- [ ] **Horizontal Scaling Preparation**
-  - [ ] Stateless operation design
-  - [ ] External state storage abstraction
-  - [ ] Cluster-aware component design
-  - [ ] Load balancing considerations
-
-- [ ] **Resource Management**
-  - [ ] Memory usage monitoring and limits
-  - [ ] CPU usage throttling
-  - [ ] I/O resource management
-  - [ ] Resource cleanup and lifecycle management
+### Plugin System
+- [ ] Plugin interface and extension points.
+- [ ] Plugin discovery and loading.
+- [ ] Plugin lifecycle management.
+- [ ] Plugin dependency resolution.
+- [ ] Built-in plugins (subject to demand): message-queue integration, REST API for external triggers, alerting integrations.
 
 ---
 
-## Phase 11: Advanced Features & Extensions (v1.1.0)
-*Target: Advanced enterprise features and extensibility*
+## Post-1.0 — Breaking Themes (2.x line)
 
-### 11.1 Listener System
-- [ ] **Comprehensive Listener Framework**
-  - [ ] State entry/exit listeners
-  - [ ] Transition start/completion listeners
-  - [ ] Operation and step execution listeners
-  - [ ] Error and compensation listeners
-  - [ ] Async listener execution support
+These themes alter the core operation/context contract enough that they cannot realistically remain additive. Bundling them into a single 2.0 release (vs. a series of 1.x with breaking sub-releases) preserves semver integrity.
 
-- [ ] **Listener Management**
-  - [ ] Dynamic listener registration/deregistration
-  - [ ] Listener ordering and priority
-  - [ ] Listener exception handling
-  - [ ] Listener performance monitoring
+### Persistence
+- [ ] Pluggable persistence layer for state-machine definitions.
+- [ ] Transition history auditing.
+- [ ] Entity state persistence and recovery.
+- [ ] Implications: serializable contexts may become a 1.x-soft requirement; full enforcement is 2.0.
 
-### 11.2 Advanced Configuration
-- [ ] **Dynamic Configuration**
-  - [ ] Runtime configuration updates
-  - [ ] Blue/green application of configuration updates with rollback support
+### Long-Running / Durable Executions
+- [ ] Checkpoint and resume capabilities.
+- [ ] Progress tracking and monitoring.
+- [ ] Suspend / resume semantics for the transition lifecycle.
+- [ ] Distributed transaction support.
+- [ ] BPMN interoperability considerations.
 
-- [ ] **Environment-Specific Configuration**
-  - [ ] Multi-environment support (dev, test, prod)
-  - [ ] Configuration inheritance and overrides
-  - [ ] Configuration templates and parameterization
+### Distributed Execution
+- [ ] Cluster-wide locking primitives.
+- [ ] Distributed state-machine coordination.
+- [ ] Cluster-aware triggers (event de-duplication, leader election).
+- [ ] Cross-node entity identity and dispatch.
+- [ ] Failure handling and recovery in distributed environments.
 
-### 11.3 Plugin System
-- [ ] **Extension Points**
-  - [ ] Plugin interface definitions
-  - [ ] Plugin discovery and loading
-  - [ ] Plugin lifecycle management
-  - [ ] Plugin dependency resolution
-
-- [ ] **Built-in Extensions**
-  - [ ] Database persistence plugin
-  - [ ] Message queue integration plugin
-  - [ ] REST API plugin for external triggers
-  - [ ] Monitoring and alerting plugins
+### Jackson 3 Migration
+- [ ] Migrate from Jackson 2.20.x to Jackson 3.x.
+- [ ] Package rename: `com.fasterxml.jackson.*` → `tools.jackson.*` across all parsing code.
+- [ ] Verify SnakeYAML / Jackson YAML 3.x interoperability.
+- [ ] Audit all `ObjectMapper` and `YAMLMapper` usages for API changes.
+- [ ] Document Jackson 3 as a breaking change for users who pin Jackson on their classpath. Bundle with the other 2.x breaking themes to avoid double migration disruption.
 
 ---
 
-## Phase 12: Production Readiness (v1.2.0)
-*Target: Production-ready release with comprehensive documentation*
+## Technical Implementation Notes
 
-### 12.1 Documentation & Examples
-- [ ] **Comprehensive Documentation**
-  - [ ] Complete API documentation
-  - [ ] Architecture and design documentation
-  - [ ] Configuration reference guide
-  - [ ] Best practices and patterns guide
-  - [ ] Troubleshooting and FAQ
+### Java Baseline
 
-- [ ] **Example Applications**
-  - [ ] Simple state machine examples
-  - [ ] Complex workflow examples
-  - [ ] Dependency injection framework integration examples
-    - [ ] Spring Boot integration examples
-    - [ ] Google Guice integration examples
-    - [ ] CDI (Weld SE) integration examples
-    - [ ] Dagger 2 integration examples
-    - [ ] Framework comparison and migration examples
-  - [ ] Performance benchmarking examples
-  - [ ] Real-world use case implementations
+- **Core library**: Java 21+ to build (toolchain enforced); **Java 11+** target. Compiles to Java 11 bytecode via `<release>11</release>`.
+- **Optional Spring integration**: Java 17+ runtime (Spring 6 mandates Java 17). The split is documented as a known constraint, not a workaround.
 
-### 12.2 Testing & Quality Assurance
-- [ ] **Comprehensive Test Suite**
-  - [ ] Spock specification coverage > 90%
-  - [ ] Integration test coverage for all major features using Spock
-  - [ ] Performance regression tests with Spock benchmarking
-  - [ ] Load testing and stress testing
-  - [ ] Security testing and vulnerability assessment
+### Core Dependencies (1.0 Target Baseline)
+- **SLF4J 2.0.x** (latest) — logging.
+- **Jackson 2.20.x** — JSON / YAML data binding (staying on the 2.x line for 1.0; Jackson 3 migration is a 2.x post-1.0 item).
+- **SnakeYAML 2.4** — YAML parsing (Phase 5).
+- **Spring Expression Language 6.2.x** — SpEL for conditions, applier paths, expression-based conditions. Java 11 compatibility of the SpEL JAR to be verified during Phase 6.4 dependency refresh.
 
-- [ ] **Quality Gates**
-  - [ ] Code quality analysis with SonarQube
-  - [ ] Security vulnerability scanning
-  - [ ] License compliance checking
-  - [ ] API compatibility testing
-  - [ ] Documentation completeness verification
+### Optional Integrations (1.0)
+- **Spring Boot 3.4.x** + **Spring Framework 6.2.x** — auto-configuration; Java 17+ runtime required for this integration.
 
-### 12.3 Release Preparation
-- [ ] **Release Engineering**
-  - [ ] Maven Central deployment configuration
-  - [ ] Release automation scripts
-  - [ ] Version management and tagging
-  - [ ] Release notes and changelog generation
-  - [ ] Backward compatibility guarantees
+### Testing (1.0)
+- **Spock Framework 2.4-groovy-4.0** + **Groovy 4.0.x** — BDD-style specifications.
+- **Logback 1.5.x** (test scope).
 
-- [ ] **Community Preparation**
-  - [ ] GitHub repository setup with templates
-  - [ ] Contributing guidelines
-  - [ ] Code of conduct
-  - [ ] Issue and PR templates
-  - [ ] Community documentation
+### Build & Quality
+- **Maven 3.9.x**.
+- **JaCoCo** — coverage.
+- **SpotBugs**, **Checkstyle**, **PMD** — static analysis (Phase 6.5).
 
-### 12.4 Community & Support Infrastructure
-- [ ] **Issue Tracking and Management**
-  - [ ] Issue templates for bugs, features, questions
-  - [ ] Issue labeling system and automation
-  - [ ] Milestone and project board setup
-
-- [ ] **Communication Channels**
-  - [ ] Discussions forum setup (GitHub Discussions)
-  - [ ] Discord/Slack community (optional)
-  - [ ] Mailing list or Google Group (optional)
-
-- [ ] **Release Management**
-  - [ ] Release notes template and automation
-  - [ ] Semantic versioning strategy
-  - [ ] Backward compatibility policy
-  - [ ] Migration guides for breaking changes
-
-- [ ] **Advanced Legal & Compliance**
-  - [ ] Third-party license compliance
-  - [ ] Security policy (SECURITY.md)
-  - [ ] Trademark and branding
-    - [ ] Logo and branding guidelines
-    - [ ] Trademark registration considerations
-    - [ ] Brand usage guidelines
+### Deferred Dependencies (Post-1.0)
+- Micrometer 1.15.x+ / 2.x (observability theme).
+- OpenTelemetry 1.45.x+ (observability theme).
+- Quartz Scheduler 2.5.x (timer-trigger theme).
+- Resilience4j 2.3.x (resilience theme).
+- Spring JMS 6.2.x (event-transport extensions).
+- Google Guice 7.x, Weld SE 6.x, Dagger 2.51+ (DI expansion theme).
+- Testcontainers 1.21.x (testing framework or persistence theme).
+- Jackson 3.x (breaking — bundled with the 2.x release; see below).
 
 ---
 
-## Future Phases (Post v1.0.0)
+## Release Cadence
 
-## Phase 13: Distributed Operations (v1.3.0)
-- [ ] **Distributed State Management**
-  - [ ] Distributed state machine coordination
-  - [ ] Cluster-wide locking mechanisms
-  - [ ] Distributed transaction support
-  - [ ] Failure handling in distributed environments
+- **Pre-1.0 phases**: ~6–8 weeks per phase.
+- **1.x minor releases**: as themes complete.
+- **Patch releases**: as needed for critical bugs.
+- **LTS**: revisit policy after 1.0 ships.
 
-- [ ] **Persistence Layer**
-  - [ ] Pluggable persistence layer
-  - [ ] State machine definition storage
-  - [ ] Transition history auditing
-  - [ ] Entity state persistence and recovery
+## Phase Completion Criteria
 
-## Phase 14: Advanced Enterprise Features (v1.4.0)
-- [ ] **Long-running Operations**
-  - [ ] Progress tracking and monitoring
-  - [ ] Timeout and retry mechanisms
-  - [ ] Checkpoint and resume capabilities
-  - [ ] Distributed operation coordination
+Each phase must meet the following before the next phase starts:
+- [ ] All planned features implemented and tested.
+- [ ] Spock specification coverage ≥ 80% for new code.
+- [ ] No critical security findings against new code.
+- [ ] `requirements.md` and `todo.md` updated to reflect any in-flight scope changes.
+- [ ] Migration notes for breaking changes (pre-1.0 only; post-1.0 changes follow semver).
 
-- [ ] **Enterprise Integration**
-  - [ ] BPMN integration and compatibility
-  - [ ] Workflow engine interoperability
-  - [ ] Enterprise service bus integration
-  - [ ] Legacy system integration patterns
+## 1.0 Release Readiness
 
-## Phase 15: Advanced IDE Plugin Features (v1.5.0) - **OPTIONAL**
-*Target: Advanced IDE features for power users and complex workflows*
-
-**Note: All features in this phase are OPTIONAL and represent the most complex IDE functionality. These should be deferred to the latest phases and are not required for basic YAML DSL productivity.**
-
-- [ ] **Advanced Debugging Integration (OPTIONAL)**
-  - [ ] **Workflow Debugging**
-    - [ ] Breakpoint support in YAML workflows with runtime state inspection
-    - [ ] Step-by-step workflow debugging with execution flow visualization
-    - [ ] Variable inspection and context viewing during workflow execution
-    - [ ] Integration with Java debugging for seamless cross-language debugging
-    - [ ] Real-time execution flow visualization with state transitions
-    - [ ] Conditional breakpoints based on workflow state or context values
-
-  - [ ] **Advanced Debugging Features**
-    - [ ] Time-travel debugging for workflow execution history
-    - [ ] Distributed debugging across multiple workflow instances
-    - [ ] Performance profiling integration with debugging
-    - [ ] Memory usage tracking during workflow execution
-
-- [ ] **Advanced Testing Support (OPTIONAL)**
-  - [ ] **Comprehensive Test Generation**
-    - [ ] Automated test generation for workflow components with edge cases
-    - [ ] Run configurations for workflow tests with custom parameters
-    - [ ] Test result visualization with workflow context and execution paths
-    - [ ] Coverage reporting for workflow components with branch analysis
-    - [ ] Mock generation for external dependencies with smart defaults
-
-  - [ ] **Advanced Testing Features**
-    - [ ] Property-based testing for workflow invariants
-    - [ ] Load testing integration for workflow performance
-    - [ ] Mutation testing for workflow robustness
-    - [ ] Test data generation based on workflow schemas
-
-- [ ] **Advanced Visualization (OPTIONAL)**
-  - [ ] **Interactive Workflow Analysis**
-    - [ ] Advanced state machine diagram generation with custom layouts
-    - [ ] 3D workflow visualization for complex state relationships
-    - [ ] Real-time workflow execution visualization with live updates
-    - [ ] Workflow performance heatmaps and bottleneck identification
-    - [ ] Interactive workflow simulation and "what-if" analysis
-
-  - [ ] **Advanced Diagram Features**
-    - [ ] Custom diagram themes and branding
-    - [ ] Collaborative diagram editing and sharing
-    - [ ] Diagram versioning and change tracking
-    - [ ] Export to multiple formats (PNG, SVG, PDF, Visio, etc.)
-
-- [ ] **Performance Optimization (OPTIONAL)**
-  - [ ] **Advanced Performance Features**
-    - [ ] Sub-millisecond syntax highlighting for very large files
-    - [ ] Intelligent background validation with predictive caching
-    - [ ] Incremental parsing with change-aware recompilation
-    - [ ] Lazy loading of diagrams and visualizations with progressive enhancement
-    - [ ] Memory optimization for projects with thousands of workflow files
-    - [ ] CPU usage optimization with multi-threaded processing
-
-- [ ] **Advanced Documentation Integration (OPTIONAL)**
-  - [ ] **Comprehensive Documentation Features**
-    - [ ] AI-powered documentation generation from workflow patterns
-    - [ ] Interactive documentation with embedded workflow examples
-    - [ ] Automatic API documentation linking with version tracking
-    - [ ] Multi-language documentation support
-    - [ ] Documentation quality analysis and suggestions
-
-- [ ] **Enterprise Features (OPTIONAL)**
-  - [ ] **Advanced Enterprise Integration**
-    - [ ] Team collaboration features with workflow sharing
-    - [ ] Enterprise authentication and authorization integration
-    - [ ] Workflow governance and compliance checking
-    - [ ] Advanced metrics and analytics integration
-    - [ ] Custom plugin extensions and API for enterprise tools
+- [ ] All Phase 1–6 tasks completed.
+- [ ] 1.0 quality gates (§6.9) satisfied.
+- [ ] Documentation complete.
+- [ ] Release notes prepared.
+- [ ] Migration guide template ready (for future 2.0).
+- [ ] Code audit completed against the rewritten `requirements.md` (forced-state revert, `TransitionResult` shape verification, etc.).
 
 ---
 
-## Technical Implementation Details
-
-### Proposed Libraries and Dependencies
-
-#### Core Dependencies
-- **Java 21+**: Modern Java features, records, pattern matching
-- **SLF4J 2.0.x**: Logging abstraction
-- **Jackson 2.18.x**: JSON/YAML processing and data binding
-- **SnakeYAML 2.2**: YAML parsing and generation
-
-#### Expression Languages
-- **Spring Expression Language (SpEL) 6.0.x**: Dynamic expression evaluation
-
-#### Metrics and Monitoring
-- **Micrometer 1.12.x**: Metrics collection and reporting
-- **OpenTelemetry 1.32.x**: Distributed tracing and observability
-
-#### Spring Integration (Optional)
-- **Spring Boot 3.2.x**: Auto-configuration and integration
-- **Spring Framework 6.1.x**: Core Spring features
-- **Spring JMS 6.0.x**: Message queue integration
-
-#### Dependency Injection Frameworks (Optional)
-- **Google Guice 7.0.x**: Lightweight dependency injection framework
-  - **Guice Extensions**: Additional modules for advanced features
-  - **Guice Servlet**: Web application integration
-  - **Guice Persist**: JPA integration support
-- **Weld SE 5.1.x**: CDI (Contexts and Dependency Injection) implementation
-  - **Jakarta CDI API 4.0.x**: CDI specification interfaces
-  - **Jakarta Interceptors API 2.1.x**: Interceptor support
-  - **Jakarta Annotations API 2.1.x**: Common annotations
-- **Dagger 2.48.x**: Compile-time dependency injection framework
-  - **Dagger Compiler**: Annotation processor for code generation
-  - **Dagger Producers**: Asynchronous dependency injection
-  - **Auto-Service 1.1.x**: Service provider registration
-
-#### Resilience and Reliability
-- **Resilience4j 2.1.x**: Circuit breakers, retry, rate limiting
-- **Quartz Scheduler 2.3.x**: Cron-based scheduling
-
-#### Testing
-- **Spock Framework 2.3-groovy-4.0**: BDD-style testing framework with built-in mocking and assertions
-- **Groovy 4.0.x**: Required for Spock specifications
-- **Testcontainers 1.19.x**: Integration testing with containers
-
-#### Build and Quality
-- **Maven 3.9.x**: Build automation
-- **JaCoCo**: Code coverage analysis
-- **SpotBugs**: Static analysis
-- **Checkstyle**: Code style enforcement
-
-### YAML Processing Strategy
-
-#### Schema Validation
-- JSON Schema-based validation for YAML files
-- Custom validators for Transflux-specific constraints
-- IDE integration for autocomplete and validation
-
-#### Component Resolution
-- Lazy loading of component libraries
-- Circular dependency detection
-- Efficient caching of resolved components
-- Hot reloading in development mode
-
-#### Error Handling
-- Detailed error messages with line numbers
-- Context-aware error reporting
-- Validation error aggregation
-- Graceful fallback for missing components
-
-### Configuration Management
-
-#### Hierarchical Configuration
-- System properties override environment variables
-- Environment variables override configuration files
-- Configuration files override defaults
-- Profile-specific configuration support
-
-### Performance Considerations
-
-#### Memory Management
-- Object pooling for frequently created objects
-- Weak references for caches
-- Memory-mapped files for large configurations
-- Garbage collection tuning guidelines
-
-#### CPU Optimization
-- Compiled expression caching
-- Efficient data structures (e.g., Roaring Bitmaps for triggers)
-- Lock-free algorithms where possible
-- CPU-aware thread pool sizing
-
-### Monitoring and Observability
-
-#### Key Metrics
-- Transition success/failure rates
-- Transition duration percentiles
-- Operation execution times
-- Trigger evaluation frequency
-- Compensation execution rates
-- Thread pool utilization
-- Memory usage patterns
-
-#### Alerting Strategies
-- SLA-based alerting thresholds
-- Anomaly detection for performance metrics
-- Error rate spike detection
-- Resource exhaustion warnings
-
----
-
-## Release Strategy
-
-### Version Numbering
-- **Major versions (x.0.0)**: Breaking API changes
-- **Minor versions (x.y.0)**: New features, backward compatible
-- **Patch versions (x.y.z)**: Bug fixes, security updates
-
-### Release Cadence
-- **Phase releases**: Every 6-8 weeks
-- **Patch releases**: As needed for critical bugs
-- **LTS releases**: Every 12 months starting with v1.0.0
-
-### Backward Compatibility
-- API compatibility within major versions
-- Configuration format compatibility
-- Migration guides for breaking changes
-- Deprecation warnings with migration paths
-
-### Support Strategy
-- **Current version**: Full support and active development
-- **Previous major version**: Security updates and critical bug fixes
-- **Older versions**: Community support only
-
----
-
-## Success Criteria
-
-### Phase Completion Criteria
-Each phase must meet the following criteria before proceeding:
-- [ ] All planned features implemented and tested
-- [ ] Code coverage > 80% for new code
-- [ ] Performance benchmarks meet targets
-- [ ] Documentation updated and reviewed
-- [ ] Security review completed
-- [ ] Backward compatibility verified
-
-### Quality Gates
-- [ ] No critical or high-severity security vulnerabilities
-- [ ] No critical performance regressions
-- [ ] API design review completed
-- [ ] User acceptance testing passed
-- [ ] Load testing results within acceptable limits
-
-### Release Readiness
-- [ ] All tests passing in CI/CD pipeline
-- [ ] Documentation complete and accurate
-- [ ] Release notes prepared
-- [ ] Migration guides available (if needed)
-- [ ] Community feedback incorporated
-
----
-
-*This comprehensive plan provides a roadmap for developing Transflux from a basic state machine library to a full-featured microflow orchestration platform. Each phase builds upon the previous one, ensuring a solid foundation while progressively adding advanced features.*
+*This plan supersedes earlier 15-phase drafts. Detailed feature design lives in feature-specific docs as we go; `requirements.md` remains the canonical high-level spec.*

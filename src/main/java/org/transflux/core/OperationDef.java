@@ -19,6 +19,5 @@
 package org.transflux.core;
 
 public interface OperationDef<T, C> {
-    Class<T> getEntityClass();
-    Class<C> getContextClass();
+
 }

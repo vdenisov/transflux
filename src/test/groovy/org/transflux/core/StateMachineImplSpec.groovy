@@ -1,0 +1,438 @@
+/*
+ *
+ *  * Copyright 2025 Victor Denisov
+ *  *
+ *  * Licensed under the Apache License, Version 2.0 (the "License");
+ *  * you may not use this file except in compliance with the License.
+ *  * You may obtain a copy of the License at
+ *  *
+ *  *     http://www.apache.org/licenses/LICENSE-2.0
+ *  *
+ *  * Unless required by applicable law or agreed to in writing, software
+ *  * distributed under the License is distributed on an "AS IS" BASIS,
+ *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  * See the License for the specific language governing permissions and
+ *  * limitations under the License.
+ *
+ */
+
+package org.transflux.core
+
+import spock.lang.Specification
+import spock.lang.Unroll
+
+import static org.transflux.core.TestStateEnum.*
+
+class StateMachineImplSpec extends Specification {
+
+    // Test entity class
+    static class TestEntity {
+        String state
+        String id
+
+        TestEntity(String id, String state) {
+            this.id = id
+            this.state = state
+        }
+    }
+
+    def "state machine should be constructed from definition"() {
+        given:
+        def sm = Transflux.defineStateMachine()
+            .forEntityType(TestEntity)
+            .withName("Test SM")
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .state(TRIAL).transitionsTo(ACTIVE, "trial-to-active")
+            .state(ACTIVE)
+            .build()
+
+        expect:
+        sm != null
+        sm.name == "Test SM"
+        sm.entityType == TestEntity
+        sm.states.size() == 2
+        sm.transitions.size() == 1
+        sm.stateResolver != null
+    }
+
+    def "resolveCurrentState should return entity's current state"() {
+        given:
+        def sm = Transflux.defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .state(TRIAL)
+            .state(ACTIVE)
+            .build()
+
+        def entity = new TestEntity("e1", "TRIAL")
+
+        when:
+        def currentState = sm.resolveCurrentState(entity)
+
+        then:
+        currentState == "TRIAL"
+    }
+
+    def "resolveCurrentState should throw when entity is null"() {
+        given:
+        def sm = Transflux.defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .state(TRIAL)
+            .build()
+
+        when:
+        sm.resolveCurrentState(null)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == "Entity cannot be null"
+    }
+
+    def "resolveCurrentState should throw when state resolver not configured"() {
+        given:
+        def sm = Transflux.defineStateMachine()
+            .forEntityType(TestEntity)
+            .state(TRIAL)
+            .build()
+
+        def entity = new TestEntity("e1", "TRIAL")
+
+        when:
+        sm.resolveCurrentState(entity)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == "No state resolver configured for this state machine"
+    }
+
+    def "resolveCurrentState should throw when resolver returns unknown state"() {
+        given:
+        def sm = Transflux.defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> "UNKNOWN" } as StateResolver<TestEntity>)
+            .state(TRIAL)
+            .build()
+
+        def entity = new TestEntity("e1", "TRIAL")
+
+        when:
+        sm.resolveCurrentState(entity)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("State resolver returned unknown state ID 'UNKNOWN'")
+    }
+
+    def "getState should return state by ID"() {
+        given:
+        def sm = Transflux.defineStateMachine()
+            .forEntityType(TestEntity)
+            .state(TRIAL).withName("Trial State")
+            .state(ACTIVE)
+            .build()
+
+        when:
+        def state = sm.getState("TRIAL")
+
+        then:
+        state != null
+        state.id == "TRIAL"
+        state.name == "Trial State"
+    }
+
+    def "getState should throw when state does not exist"() {
+        given:
+        def sm = Transflux.defineStateMachine()
+            .forEntityType(TestEntity)
+            .state(TRIAL)
+            .build()
+
+        when:
+        sm.getState("NONEXISTENT")
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == "State 'NONEXISTENT' does not exist"
+    }
+
+    def "getTransition should return transition by ID"() {
+        given:
+        def sm = Transflux.defineStateMachine()
+            .forEntityType(TestEntity)
+            .state(TRIAL).transitionsTo(ACTIVE, "trial-to-active")
+            .state(ACTIVE)
+            .build()
+
+        when:
+        def transition = sm.getTransition("trial-to-active")
+
+        then:
+        transition != null
+        transition.id == "trial-to-active"
+        transition.sourceStateId == "TRIAL"
+        transition.targetStateId == "ACTIVE"
+    }
+
+    def "getTransition should throw when transition does not exist"() {
+        given:
+        def sm = Transflux.defineStateMachine()
+            .forEntityType(TestEntity)
+            .state(TRIAL)
+            .build()
+
+        when:
+        sm.getTransition("nonexistent")
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == "Transition 'nonexistent' does not exist"
+    }
+
+    def "executeTransition should invoke state applier with target state on success"() {
+        given:
+        def applied = []
+        def applier = { TestEntity e, String s -> applied << [e.id, s] } as StateApplier<TestEntity>
+
+        def sm = Transflux.defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .withStateApplier(applier)
+            .state(TRIAL).transitionsTo(ACTIVE, "trial-to-active")
+            .state(ACTIVE)
+            .build()
+
+        def entity = new TestEntity("e1", "TRIAL")
+
+        when:
+        def result = sm.executeTransition(entity, "ACTIVE")
+
+        then:
+        result.success
+        applied == [["e1", "ACTIVE"]]
+    }
+
+    def "executeTransition should succeed without invoking applier when none configured"() {
+        given:
+        def sm = Transflux.defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .state(TRIAL).transitionsTo(ACTIVE, "trial-to-active")
+            .state(ACTIVE)
+            .build()
+
+        def entity = new TestEntity("e1", "TRIAL")
+
+        when:
+        def result = sm.executeTransition(entity, "ACTIVE")
+
+        then:
+        result.success
+        result.targetStateId == "ACTIVE"
+    }
+
+    def "executeTransition should not invoke applier when source state resolution fails"() {
+        given:
+        def applied = []
+        def applier = { TestEntity e, String s -> applied << [e.id, s] } as StateApplier<TestEntity>
+
+        def sm = Transflux.defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> "UNKNOWN" } as StateResolver<TestEntity>)
+            .withStateApplier(applier)
+            .state(TRIAL)
+            .state(ACTIVE)
+            .build()
+
+        def entity = new TestEntity("e1", "TRIAL")
+
+        when:
+        sm.executeTransition(entity, "ACTIVE")
+
+        then:
+        thrown(TransfluxValidationException)
+        applied.isEmpty()
+    }
+
+    def "executeTransition should populate startedAt and completedAt timestamps"() {
+        given:
+        def sm = Transflux.defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .state(TRIAL).transitionsTo(ACTIVE, "trial-to-active")
+            .state(ACTIVE)
+            .build()
+
+        def entity = new TestEntity("e1", "TRIAL")
+
+        when:
+        def result = sm.executeTransition(entity, "ACTIVE")
+
+        then:
+        result.startedAt != null
+        result.completedAt != null
+        !result.startedAt.isAfter(result.completedAt)
+    }
+
+    def "executeTransition should successfully execute valid transition"() {
+        given:
+        def sm = Transflux.defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .state(TRIAL).transitionsTo(ACTIVE, "trial-to-active")
+            .state(ACTIVE)
+            .build()
+
+        def entity = new TestEntity("e1", "TRIAL")
+
+        when:
+        def result = sm.executeTransition(entity, "ACTIVE")
+
+        then:
+        result.success
+        result.entity == entity
+        result.sourceStateId == "TRIAL"
+        result.targetStateId == "ACTIVE"
+        result.transitionId == "trial-to-active"
+        result.error == null
+    }
+
+    def "executeTransition with transition ID should successfully execute"() {
+        given:
+        def sm = Transflux.defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .state(TRIAL).transitionsTo(ACTIVE, "trial-to-active")
+            .state(ACTIVE)
+            .build()
+
+        def entity = new TestEntity("e1", "TRIAL")
+
+        when:
+        def result = sm.executeTransition(entity, "ACTIVE", "trial-to-active")
+
+        then:
+        result.success
+        result.entity == entity
+        result.sourceStateId == "TRIAL"
+        result.targetStateId == "ACTIVE"
+        result.transitionId == "trial-to-active"
+    }
+
+    def "executeTransition should throw when no transition exists"() {
+        given:
+        def sm = Transflux.defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .state(TRIAL)
+            .state(ACTIVE)
+            .build()
+
+        def entity = new TestEntity("e1", "TRIAL")
+
+        when:
+        sm.executeTransition(entity, "ACTIVE")
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == "No transition exists from state 'TRIAL' to state 'ACTIVE'"
+    }
+
+    def "executeTransition should throw when multiple transitions exist"() {
+        given:
+        def sm = Transflux.defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .state(TRIAL)
+                .transitionsTo(ACTIVE, "trial-to-active-1")
+                .transitionsTo(ACTIVE, "trial-to-active-2")
+            .state(ACTIVE)
+            .build()
+
+        def entity = new TestEntity("e1", "TRIAL")
+
+        when:
+        sm.executeTransition(entity, "ACTIVE")
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("Multiple transitions exist from state 'TRIAL' to state 'ACTIVE'")
+    }
+
+    def "executeTransition with ID should throw when entity not in correct source state"() {
+        given:
+        def sm = Transflux.defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .state(TRIAL).transitionsTo(ACTIVE, "trial-to-active")
+            .state(ACTIVE)
+            .state(EXPIRED)
+            .build()
+
+        def entity = new TestEntity("e1", "EXPIRED")
+
+        when:
+        sm.executeTransition(entity, "ACTIVE", "trial-to-active")
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("Entity is in state 'EXPIRED'")
+        e.message.contains("requires source state 'TRIAL'")
+    }
+
+    @Unroll
+    def "executeTransition should validate parameters: #scenario"() {
+        given:
+        def sm = Transflux.defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .state(TRIAL).transitionsTo(ACTIVE, "t1")
+            .state(ACTIVE)
+            .build()
+
+        when:
+        sm.executeTransition(entity, targetStateId)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == expectedMessage
+
+        where:
+        scenario              | entity                           | targetStateId | expectedMessage
+        'null entity'         | null                             | 'ACTIVE'      | 'Entity cannot be null'
+        'null target state'   | new TestEntity("e1", "TRIAL")    | null          | 'Target state ID cannot be null or blank'
+        'blank target state'  | new TestEntity("e1", "TRIAL")    | '  '          | 'Target state ID cannot be null or blank'
+    }
+
+    def "TransitionResult toString should provide readable output"() {
+        given:
+        def entity = new TestEntity("e1", "TRIAL")
+
+        when:
+        def successResult = TransitionResult.success(entity, "TRIAL", "ACTIVE", "t1")
+        def failureResult = TransitionResult.failure(entity, "TRIAL", "ACTIVE", "t1", new RuntimeException("test error"))
+
+        then:
+        successResult.toString().contains("success=true")
+        successResult.toString().contains("TRIAL -> ACTIVE")
+        failureResult.toString().contains("success=false")
+        failureResult.toString().contains("test error")
+    }
+
+    def "TransitionResult should provide convenient query methods"() {
+        given:
+        def entity = new TestEntity("e1", "TRIAL")
+        def success = TransitionResult.success(entity, "TRIAL", "ACTIVE", "t1")
+        def failure = TransitionResult.failure(entity, "TRIAL", "ACTIVE", "t1", new RuntimeException("error"))
+
+        expect:
+        success.success
+        !success.failure
+        success.error == null
+
+        !failure.success
+        failure.failure
+        failure.error != null
+        failure.error.message == "error"
+    }
+}

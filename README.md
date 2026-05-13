@@ -12,24 +12,22 @@ Transflux is a lightweight microflow orchestration library designed to automate 
 See requirements.md for the full vision and scope.
 
 ## Project Status
-Phase 1 (Core Foundation) is in progress. Current repository contains temporary scaffolding to validate the build and test toolchain (Java + Spock/Groovy, logging, coverage). These temporary samples will be removed once core components are implemented.
+Phase 1 (Core Foundation) is essentially complete: programmatic state machine builder, paired `StateResolver` / `StateApplier`, `TransitionResult` with executed/compensated step lists and timing metadata, and the `TransfluxException` hierarchy are all in place. Operations, conditions, triggers, listeners, and the YAML DSL are upcoming phases.
+
+The project is in active design and the public API is unstable. **No releases are published before v1.0** — see `todo.md` for the phased roadmap.
 
 ## Build
-- Prerequisites: Java 11+ (project sources target Java 21 language features with Java 11+ runtime compatibility), Maven 3.9+
-- Run tests: `mvn -q -DskipTests=false clean test`
-- Coverage report: target/site/jacoco/index.html
+- Prerequisites: JDK 21+ to build (enforced via Maven toolchains); the library compiles to Java 11 bytecode and is compatible with Java 11+ runtimes. Maven 3.9+.
+- Run tests: `mvn -q clean test`
+- Run a single spec: `mvn -q test -Dtest=StateMachineImplSpec`
+- Coverage report: `target/site/jacoco/index.html`
 
-## Package Structure (initial)
-- org.transflux.core – Core interfaces and implementations (to be implemented)
-- org.transflux.core.state – State management (to be implemented)
-- org.transflux.core.transition – Transition handling (to be implemented)
-- org.transflux.core.operation – Operation execution (to be implemented)
-- org.transflux.core.context – Context management (to be implemented)
-- org.transflux.core.exception – Exception hierarchy (to be implemented)
+## Package Structure
+- `org.transflux.core` — all core interfaces and implementations (flat package; subpackage organization deferred until the surface area justifies it).
 
 ## Contributing and Workflow
-- Default branch: main
-- Commit messages: follow Conventional Commits (e.g., `feat: add state validation`, `fix: correct transition check`). See instructions.md for details and optional enforcement.
+- Default branch: `main`.
+- Commit messages: follow Conventional Commits (e.g., `feat: add state validation`, `fix: correct transition check`).
 
 ## License
 Apache License 2.0. See LICENSE for details.

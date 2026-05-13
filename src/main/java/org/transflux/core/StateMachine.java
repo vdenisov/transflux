@@ -60,4 +60,65 @@ package org.transflux.core;
  */
 public interface StateMachine<T> {
 
+    /**
+     * Executes a transition for the given entity from its current state to the specified target state.
+     * <p>
+     * This method resolves the entity's current state using the configured state resolver,
+     * determines the appropriate transition based on the target state, and executes it.
+     * If multiple transitions exist between the current and target states, this method
+     * will throw an exception - use {@link #executeTransition(Object, String, String)} to
+     * specify which transition to use.
+     *
+     * @param entity the entity to transition
+     * @param targetStateId the ID of the target state
+     * @return the result of the transition execution
+     * @throws TransfluxValidationException if no transition exists, multiple transitions exist,
+     *         or the current state cannot be resolved
+     */
+    TransitionResult<T> executeTransition(T entity, String targetStateId);
+
+    /**
+     * Executes a specific transition for the given entity.
+     * <p>
+     * This method executes the transition identified by both the target state and transition ID,
+     * allowing for explicit selection when multiple transitions exist between two states.
+     *
+     * @param entity the entity to transition
+     * @param targetStateId the ID of the target state
+     * @param transitionId the ID of the specific transition to execute
+     * @return the result of the transition execution
+     * @throws TransfluxValidationException if the transition does not exist or the entity
+     *         is not in the correct source state
+     */
+    TransitionResult<T> executeTransition(T entity, String targetStateId, String transitionId);
+
+    /**
+     * Resolves and returns the current state ID of the given entity.
+     * <p>
+     * This method uses the configured state resolver to determine the entity's
+     * current state identifier.
+     *
+     * @param entity the entity whose state to resolve
+     * @return the current state ID of the entity
+     * @throws TransfluxValidationException if the state cannot be resolved or is invalid
+     */
+    String resolveCurrentState(T entity);
+
+    /**
+     * Retrieves a state by its identifier.
+     *
+     * @param stateId the state identifier
+     * @return the state with the given ID
+     * @throws TransfluxValidationException if no state exists with the given ID
+     */
+    State<T> getState(String stateId);
+
+    /**
+     * Retrieves a transition by its identifier.
+     *
+     * @param transitionId the transition identifier
+     * @return the transition with the given ID
+     * @throws TransfluxValidationException if no transition exists with the given ID
+     */
+    Transition<T> getTransition(String transitionId);
 }

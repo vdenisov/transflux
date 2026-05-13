@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-Transflux is a lightweight microflow orchestration library designed to automate the coordination of state changes for business entities. The library focuses on the logic and execution of transitions themselves - handling dependencies, sequencing, error handling, and compensations during state changes - rather than just defining states or managing long-term processes.
+Transflux is a lightweight microflow orchestration library designed to automate the coordination of state changes for business entities. The library focuses on the logic and execution of transitions themselves — handling dependencies, sequencing, error handling, and compensations during state changes — rather than just defining states or managing long-term processes.
 
 ### 1.1 Problem Statement
 
@@ -21,198 +21,276 @@ Transflux aims to provide a standard framework for finite-state machine entities
 - Supportive of reusable components (steps, triggers, listeners)
 - Comes with DSL support for both declarative and programmatic definitions
 
+### 1.3 Non-Goals for 1.0
+
+The following are explicitly **out of scope** for the 1.0 release. Several are tracked as Post-1.0 themes in §7.2; some are not on the roadmap at all. These non-goals shape the size and complexity of the 1.0 deliverable and should be cited whenever scope creep is proposed.
+
+- **No persistence.** Transflux never owns or persists entity state. The host application is responsible for loading entities into memory, providing the framework with the means to read and apply state on a single in-memory instance, and persisting (or discarding) the result. Some transitions may be purely transient — "the road is the goal" — and the host is free to discard the entity post-transition.
+- **No scheduler.** The library has no internal scheduler, timer, or background thread that polls for work or evaluates triggers automatically. All evaluation is host-initiated.
+- **No automatic data-change detection.** Data-based triggers in 1.0 are evaluated only on explicit `processDataChange(...)` calls from the host. No ORM hooks, no field watchers.
+- **No distributed coordination.** No clustering, no distributed locks, no cluster-aware triggers, no cross-node state synchronization. Transflux runs in a single JVM and treats entities as in-memory objects.
+- **No long-running / durable executions.** A transition is an in-process operation that begins and completes (or fails and compensates) within a single JVM lifetime. There is no checkpoint/resume capability.
+- **No UI or workflow editor.** Visualization, diagrams, and editing tools are not part of the library deliverable. IDE plugin tooling is tracked separately in `ide-plugin-roadmap.md`.
+- **No forced-state API.** With no persistence, the library cannot meaningfully "force" an entity into a state. The host is responsible for placing entities into an initial state through its own model (see §2.2.3).
+- **No built-in observability backends.** Transflux exposes hooks (e.g., a `MetricsCollector` SPI) but does not ship with first-party Micrometer / OpenTelemetry integration in 1.0 (see §7.2).
+
 ## 2. Architecture
 
-### 2.1 Core Components
+### 2.1 Core Contracts
 
-#### 2.1.1 Component Identification
+The contracts in this section govern how Transflux interacts with the host application. They are deliberately minimal — the library's value is in orchestrating transitions, not in owning data, scheduling work, or coordinating across processes. These contracts apply equally to both DSLs.
+
+#### 2.1.1 State Ownership
+
+The host application owns the entity and its persistence. Transflux operates on an in-memory entity instance for the duration of a transition. The framework reads the current state via a host-supplied `StateResolver<T>` and applies the new state via a host-supplied `StateApplier<T>` (see §2.2.12).
+
+Steps and operations may freely mutate the entity in-place for business reasons; such mutations are part of the host's domain model and are visible to the host immediately. The framework does not snapshot or roll back entity mutations on failure — recovery is the responsibility of user-defined compensation actions.
+
+The `StateApplier<T>` is invoked **once**, after all post-conditions have passed (see §2.4 step 7). Until that point, the entity's state field (or whatever the resolver derives state from) holds the pre-transition value, even if other fields have been mutated by steps. The applier call is the moment the framework considers the transition committed.
+
+#### 2.1.2 Thread Safety
+
+A `StateMachine<T>` instance is safe for concurrent use across threads and across entities. The library guarantees only that its own internal data structures are not corrupted under concurrent use.
+
+Concurrent transitions on the **same entity** are the host's responsibility to serialize; the framework does not lock or queue per-entity work. Hosts that need single-writer semantics must enforce them externally (database row locks, application-level mutexes, single-threaded executors, etc.).
+
+#### 2.1.3 Reentrancy
+
+Reentrancy is **fail-fast**. Invoking a transition from within a listener, operation, step, or condition on the same `StateMachine<T>` instance for the same entity throws `TransfluxReentrancyException`. Triggering a transition on a *different* entity from within an executing transition is permitted (provided the host is prepared to handle the implications).
+
+#### 2.1.4 TransitionResult
+
+Transition execution (via `transitionTo(...)`, `processEvent(...)`, `processDataChange()`, and batch variants) returns a `TransitionResult<T>` describing the execution outcome:
+
+- `boolean isSuccess()` — terminal outcome.
+- `String getTargetState()` — final state (post-transition on success; pre-transition on rolled-back failure).
+- `Throwable getError()` — present iff `isSuccess()` is `false`.
+- `List<String> getExecutedStepIds()` — ordered list of steps that ran.
+- `List<String> getCompensatedStepIds()` — ordered list of compensations that ran (empty on success).
+- Timing metadata (start/end timestamps; per-step durations).
+
+Business outcomes (failed conditions, failed steps, post-condition violations) are reported through `TransitionResult` rather than thrown. **Configuration and validation errors** — invalid definitions, missing transitions, unknown states, illegal builder usage — throw `TransfluxValidationException` synchronously.
+
+#### 2.1.5 Operation Result Mapping
+
+`Operation.execute(entity, context, transition)` returns `void`. Any data the operation produces flows back to the caller through the user-provided context (which the host populated before invocation and reads after the transition completes). `TransitionResult<T>` carries only execution metadata, not domain output.
+
+#### 2.1.6 Step Entity-Awareness
+
+Steps are entity-aware. Every step receives `(entity, context, transition)` — the same signature as operations. A step may mutate the entity, derive data from it, read from the context, and write results back to the context. Steps are reusable across operations; they are not entity-agnostic context manipulators.
+
+This shapes the compensation contract too (see §2.2.11): a unified `Compensation<T, C>` interface receives `(entity, context)`, used by both operations and steps.
+
+### 2.2 Core Components
+
+#### 2.2.1 Component Identification
 
 All components in Transflux (states, transitions, operations, steps, conditions, triggers, and others) must have unique identifiers for proper referencing and management.
 
 **Component ID:**
-- **Required property** for all components
-- Must be unique within the component type (e.g., all state IDs must be unique within a state machine, all operation IDs must be unique within their scope)
-- Used for internal referencing, component lookup, and programmatic access
-- Should follow naming conventions suitable for programmatic use (e.g., kebab-case, camelCase)
+- **Required property** for all components.
+- Must be unique within the component type (e.g., all state IDs must be unique within a state machine, all operation IDs must be unique within their scope).
+- Used for internal referencing, component lookup, and programmatic access.
+- Opaque strings; the library does not mandate a casing convention. Examples in this document use **kebab-case** for readability.
 
 **Component Name:**
-- **Optional property** for components
-- Provides human-readable description or display name
-- Used for documentation, user interfaces, and logging
-- Can contain spaces, special characters, and be more descriptive than IDs
+- **Optional property** for components.
+- Provides a human-readable description or display name.
+- Used for documentation, user interfaces, and logging.
+- Can contain spaces, special characters, and be more descriptive than IDs.
 
 **Example:**
 ```yaml
 states:
-  - id: trial-state
+  - id: trial
     name: "Trial Subscription State"
-    
-  - id: active-state
+  - id: active
     name: "Active Subscription State"
 ```
 
-There is one exception to this rule: to reduce boilerplate, conditions are not required to specify an id; if it's missing in the definition, the condition will be automatically assigned a unique identifier based on its class name or expression contents and the path from the root of the state machine definition to the condition.
+There is one narrow exception: **inline expression-based conditions** are not required to specify an `id`. If the `id` is missing, the condition is automatically assigned a unique identifier derived from the expression contents plus the path from the root of the state machine definition to the condition. All other components — including class- and predicate-based conditions — must declare an `id` explicitly.
 
-#### 2.1.2 StateMachine
+#### 2.2.2 StateMachine
+
 The central orchestrator that manages entity state transitions and coordinates all framework operations.
 
 **Responsibilities:**
-- Maintain the state transition matrix definition
-- Validate transition requests against defined rules
-- Execute transition operations and manage their lifecycle
-- Handle trigger evaluation and activation
-- Coordinate pre/post-conditions and listeners
-- Manage operation contexts and data flow
+- Maintain the state transition matrix definition.
+- Validate transition requests against defined rules.
+- Execute transition operations and manage their lifecycle.
+- Handle trigger evaluation and activation.
+- Coordinate pre/post-conditions and listeners.
+- Manage operation contexts and data flow.
+- Invoke the configured `StateApplier<T>` to commit successful transitions.
 
-**Key Interfaces:**
-- Entity state management and transition execution
-- Trigger registration and event processing
-- Operation and step execution coordination
-- Context and data mapping management
+#### 2.2.3 State
 
-#### 2.1.3 State
 Represents individual states in the state machine with associated metadata and behavior.
 
 States are characterized by their transition patterns rather than explicit types:
-- **Initial states** have no incoming transitions and serve as entry points where entities begin their lifecycle
-- **Terminal states** have no outgoing transitions and represent final states in the entity lifecycle
-- All other states can have both incoming and outgoing transitions
+- **Initial states** have no incoming transitions and serve as entry points where entities begin their lifecycle.
+- **Terminal states** have no outgoing transitions and represent final states in the entity lifecycle.
+- All other states can have both incoming and outgoing transitions.
 
-The state machine API provides functionality to force execution to start at any arbitrary state, enabling testing scenarios, debugging workflows, and recovery from abnormal situations.
-
-**Forced State Execution:**
-The API includes methods to bypass normal state transition rules and directly place entities into specific states. This capability supports:
-- **Testing**: Initialize entities in specific states for unit and integration tests
-- **Debugging**: Reproduce issues by placing entities in problematic states
-- **Recovery**: Restore entities to valid states after system failures or data corruption
+The host is responsible for placing entities into an initial state through its own model. The library trusts whatever value the configured `StateResolver<T>` returns; it does not provide an API to force an entity into an arbitrary state (this is a 1.0 non-goal — see §1.3).
 
 **Properties:**
-- State identifier and metadata
-- Valid outgoing transitions
+- State identifier and metadata.
+- Valid outgoing transitions.
+- Optional entry/exit listeners (see §2.2.10).
 
-#### 2.1.4 Transition
+#### 2.2.4 Transition
+
 Defines valid state changes and their associated operations, conditions, and triggers.
 
 **Components:**
-- Source and target states
-- Associated operation (optional)
-- Pre-conditions (conditions that must be met **before** the transition is executed)
-- Post-conditions (conditions that must be met **after** the transition is executed)
-- Triggers (manual, event-based, data-based)
-- Transition-specific listeners
-- Compensation strategies
+- Source and target states.
+- Associated operation (optional).
+- Pre-conditions (must be met **before** execution).
+- Post-conditions (must be met **after** execution; violation triggers rollback / compensation).
+- Triggers (manual, event-based, data-based).
+- Transition-specific listeners (`onStart`, `onComplete`).
+- Compensation strategies.
 
-#### 2.1.5 Operation
+#### 2.2.5 Operation
+
 Encapsulates the business logic executed during state transitions.
 
 **Types:**
-- **SimpleOperation**: Single-step operations with direct Java implementation
-- **CompositeOperation**: Multi-step operations with declarative flow control
+- **SimpleOperation** — single-step operations with a direct Java implementation (or a single referenced step elevated to operation-level usage).
+- **CompositeOperation** — multi-step operations with declarative flow control.
 
 **Features:**
-- Input/output type safety with context mapping
-- Synchronous and asynchronous execution parts
-- Error handling and compensation strategies
-- Step-level granular control
+- Type safety (entity, context) with generics.
+- Synchronous and asynchronous execution parts.
+- Error handling and compensation strategies.
+- Step-level granular control.
 
-#### 2.1.6 Step
-Individual executable units within operations.
+`Operation.execute` returns `void`; results flow through the context (see §2.1.5).
+
+#### 2.2.6 Step
+
+Individual executable units within operations. Steps are **entity-aware** (see §2.1.6) and receive `(entity, context, transition)`.
 
 **Characteristics:**
-- Context-aware execution
-- Individual compensation strategies
-- Reusable across different operations
+- Entity- and context-aware execution.
+- Individual compensation strategies — a step may declare its own `Compensation<T, C>`.
+- Reusable across different operations.
 
-#### 2.1.7 Context
+A step may be invoked either as a member of a `CompositeOperation` or as a first-class operation target (a `SimpleOperation` that delegates directly to one step). The two DSLs allow either form interchangeably.
+
+#### 2.2.7 Context
+
 Manages shared state during transition execution.
 
 **Responsibilities:**
-- Shared data storage during operation execution
-- Type-safe data access and manipulation
+- Shared data storage during operation execution.
+- Type-safe data access and manipulation.
+- The host populates the context before invocation; the host reads results after the transition completes.
 
-#### 2.1.8 Trigger System
-Manages various mechanisms for initiating state transitions.
+#### 2.2.8 Trigger System
+
+Manages the various mechanisms for initiating state transitions.
 
 **Trigger Types:**
-- **ManualTrigger**: Explicit programmatic transition requests
-- **EventTrigger**: Transitions based on external events
-- **DataTrigger**: Transitions triggered when an entity instance is evaluated and matches defined conditions (class-based or expression-based)
 
-#### 2.1.9 Condition System
+- **ManualTrigger** — names an explicit invocation point. A manual trigger is more than syntactic noise: it provides a named handle that carries per-trigger metadata (descriptions, listener bindings, trigger-specific pre-conditions) which may differ from the transition's defaults. Useful for cases like "cancellation cron" — the cron itself runs in the host's scheduler, but the in-library `cancellation-cron` handle anchors the metadata and lets the catalog API discover it.
+
+- **EventTrigger** — transitions initiated by host-published events. The host pushes events into the state machine via `processEvent(...)`; the framework matches them against registered triggers.
+
+- **DataTrigger** — transitions initiated by the host calling `processDataChange(entity)`. The framework re-evaluates registered data-trigger conditions and fires any that match. **Transflux does not watch entity fields, hook into ORM change tracking, or run background evaluations** — data triggers are host-driven re-evaluation only in 1.0. Background watching is a Post-1.0 theme (see §7.2).
+
+#### 2.2.9 Condition System
+
 Provides validation and gating mechanisms for transitions.
 
 **Types:**
-- **PreCondition**: Validates transition eligibility before execution
-- **PostCondition**: Validates successful transition completion (transition will be rolled back, any compensation actions included, if post-condition is not met when the transition completes)
+- **PreCondition** — validates transition eligibility before execution.
+- **PostCondition** — validates successful transition completion. If a post-condition is not met, the transition is rolled back and registered compensation actions are executed.
 
-#### 2.1.10 Listener System
+A condition's authoring shape — class, predicate, expression, or reference — is defined uniformly by the **Condition Descriptor** grammar (see §3.6.1 and §4.7).
+
+#### 2.2.10 Listener System
+
 Enables observation and reaction to state machine events.
 
 **Listener Types:**
-- Transition start/completion listeners (before and after transition)
+- **State entry/exit listeners** — fire when an entity enters or exits a particular state.
+- **Transition start/complete listeners** — fire at the start and end of a transition (success or failure).
 
-#### 2.1.11 Compensation Engine
+Both DSLs support both listener categories symmetrically.
+
+#### 2.2.11 Compensation Engine
+
 Manages error recovery and rollback operations.
 
 **Features:**
-- Stack-based compensation execution (LIFO)
-- Exception-specific compensation strategies
+- Stack-based compensation execution (LIFO).
+- Exception-specific compensation strategies.
+- **Unified `Compensation<T, C>` interface** across operations and steps; both forms receive `(entity, context)`. A compensation may be declared by class or returned dynamically from `getCompensation(entity, context)`.
 
-#### 2.1.12 State Resolver
-Determines the current state of an entity to enable appropriate transition selection and validation.
+#### 2.2.12 State Resolver and State Applier
 
-**Purpose:**
-To select the appropriate transition, the state machine needs to understand the current entity state. The state resolver provides a flexible mechanism to extract or compute the current state from an entity instance.
+The host wires two paired components into the state machine.
 
-**Resolution Approaches:**
-- **Dedicated Java Class**: Custom resolver class implementing StateResolver interface
-- **Lambda Function**: Inline function for programmatic state resolution (Java API only)
-- **SpEL Expression**: Expression-based state resolution using Spring Expression Language
+**`StateResolver<T>`** determines the current state of an entity. Because state can be a *computed* property (e.g., a contract may report "created" until its start date, then "started"), the resolver is a function — not necessarily a simple field accessor. Resolution approaches:
+
+- **Dedicated class** implementing `StateResolver<T>`.
+- **Lambda function** (Java API only).
+- **SpEL expression** evaluating against the entity.
+
+**`StateApplier<T>`** finalizes a successful transition by writing the new state to the entity. The applier is invoked **once**, after all post-conditions have passed (see §2.1.1). Application approaches mirror the resolver:
+
+- **Dedicated class** implementing `StateApplier<T>`.
+- **Lambda function** (Java API only).
+- **SpEL property path** — the framework writes through the path (e.g., `"entity.status"` ⇒ `entity.setStatus(newState)`).
 
 **Key Characteristics:**
-- State resolution is a property of the state machine itself, not individual transitions or triggers
-- Resolvers are evaluated before transition eligibility checks
-- Support for complex state derivation logic including computed states
-- Type-safe resolution with compile-time validation in Java API
+- The resolver/applier pair is a property of the state machine itself, not of individual transitions or triggers.
+- The resolver runs before transition eligibility checks; the applier runs immediately before `onComplete` listeners.
+- Type-safe in Java; SpEL-typed in YAML.
+- In the simplest case the resolver reads `entity.status` and the applier writes `entity.status`. In more complex cases, the resolver computes state from multiple fields while the applier still writes a single "current state" field that the resolver then prefers over its computed fallback. The library does not mandate any particular pairing.
 
-**Note:** it is expected that in the vast majority of cases, the state resolver will simply extract a specific state field from the entity instance, and that internal (model) entity states will map 1:1 to external (state machine) states.
-
-### 2.2 Component Relationships
+### 2.3 Component Relationships
 
 ```
 StateMachine
-├── State Resolver (Class, Lambda, SpEL)
+├── StateResolver + StateApplier (Class, Lambda, SpEL)
 ├── States (Initial, Terminal, Regular)
+│   ├── Entry/Exit Listeners
 │   ├── Transitions
 │   │   ├── Operations (Simple, Composite)
 │   │   │   ├── Steps
 │   │   │   ├── Context
-│   │   │   └── Compensation Strategies
+│   │   │   └── Compensations
 │   │   ├── Conditions (Pre/Post)
 │   │   ├── Triggers (Manual, Event, Data)
-│   │   └── Listeners
+│   │   └── Listeners (onStart, onComplete)
 ├── Trigger System
-├── Compensation Engine
-└── Metrics & Observability
+└── Compensation Engine
 ```
 
-### 2.3 Execution Flow
+### 2.4 Execution Flow
 
-1. **Transition Request**: Initiated by triggers or manual calls
-2. **State Resolution**: Determine current entity state using configured state resolver
-3. **Pre-condition Evaluation**: Validate transition eligibility
-4. **Listener Notification**: Notify registered transition start listeners
-5. **Operation Execution**: Execute associated business logic
-    - Sequential step execution
-    - Compensation registration
-    - Asynchronous part scheduling (if applicable)
-6. **Post-condition Evaluation**: Validate successful completion
-7. **Listener Notification**: Notify registered transition end listeners
+1. **Transition Request** — initiated by a manual API call, an event handed to the machine, or a `processDataChange(...)` invocation.
+2. **State Resolution** — determine current entity state via the configured `StateResolver<T>`.
+3. **Pre-condition Evaluation** — validate transition eligibility. On failure, return a `TransitionResult` with `isSuccess() == false`; no compensations run because no operation has executed.
+4. **Listener Notification (start)** — notify registered `onStart` listeners and source-state `onExit` listeners.
+5. **Operation Execution** — execute the associated business logic:
+    - Sequential step execution.
+    - Compensation registration as each step completes.
+    - Asynchronous part scheduling (if applicable).
+6. **Post-condition Evaluation** — validate successful completion. On failure, run registered compensations in LIFO order; the entity's state field is **not** updated.
+7. **State Application** — invoke the `StateApplier<T>` to write the new state to the entity. The transition is now considered committed.
+8. **Listener Notification (complete)** — notify registered `onComplete` listeners and target-state `onEntry` listeners.
 
-### 2.4 Error Handling and Compensation
+### 2.5 Error Handling and Compensation
 
-- **Exception Propagation**: Controlled exception handling with compensation triggers
-- **Compensation Stack**: LIFO execution of registered compensation actions
+- **Exception Propagation** — controlled exception handling with compensation triggers.
+- **Compensation Stack** — LIFO execution of registered compensation actions.
+- **Validation vs. runtime errors** — `TransfluxValidationException` is thrown for definition/lookup errors; all other failure modes (failed conditions, failed steps, post-condition violations, unhandled exceptions inside steps) are reported through `TransitionResult` after compensation has run.
+
+---
 
 ## 3. YAML-based DSL Specification
 
@@ -227,7 +305,6 @@ To eliminate duplication and promote reusability, Transflux supports shared comp
 ```yaml
 # components/shared-components.yml
 apiVersion: transflux/v1
-# Top-level metadata belongs to the component library, not individual components
 metadata:
   name: "Subscription Management Components"
   description: "Shared components for subscription management"
@@ -286,7 +363,7 @@ spec:
       type: event
       event: PAYMENT_METHOD_VALIDATED
       filter:
-        expression: "event.validation == CONFIRMED"
+        expression: "event.validation == 'CONFIRMED'"
         
     - id: data-priority-change
       type: data
@@ -331,14 +408,46 @@ spec:
         enabled: true
 ```
 
-#### 3.1.2 Component References
+#### 3.1.2 Component Reference Grammar
 
-Components from libraries can be referenced directly by their unique name. All component IDs must be unique across all imported definitions. The component type is determined by the context where the reference is used:
+Any field that expects a component (operation, step, condition, trigger, listener) accepts **either** a reference or an inline definition.
+
+**1. String ID — a reference** to a component defined in the current file, in an imported library, or in the runtime component registry:
 
 ```yaml
-# Reference format: <component-name>
+operation: activate-subscription
+preConditions:
+  - payment-method-valid
+```
 
-# Using component references in operations
+**2. Inline block — a full component definition.** Inline definitions are first-class throughout the DSL; they are essential to keep simple cases readable (a lesson learned the hard way with overly-modularized BPMN dialects):
+
+```yaml
+operation:
+  id: cancel-subscription
+  type: simple
+  class: com.example.operations.CancelSubscriptionOperation
+  compensation: com.example.compensations.RefundPartialFeesCompensation
+```
+
+A long-form `ref:` is also accepted where a block is more natural:
+
+```yaml
+operation:
+  ref: activate-subscription
+```
+
+**Rules:**
+- All component IDs must be unique within their type across the current file and all imported definitions.
+- An inline definition's `id` is **required**, except for inline expression-based conditions (the single auto-ID exception described in §2.2.1).
+- Type discrimination for inline definitions: operations require a `type:` (`simple` | `composite`); steps and conditions infer type from the descriptor (`class` / `step` / `expression` / `predicate`).
+
+#### 3.1.3 Component References in Context
+
+Components from libraries can be referenced directly by their unique name:
+
+```yaml
+# In operations
 operations:
   - id: activation-operation
     type: composite
@@ -355,11 +464,11 @@ operations:
       - id: analytics
         operation: analytics-update
 
-# Using component references in transitions
+# In transitions
 transitions:
   - id: draft-to-active
-    from: DRAFT
-    to: ACTIVE
+    from: draft
+    to: active
     
     preConditions:
       - checkout-fulfilled
@@ -379,10 +488,9 @@ transitions:
         - audit-complete
 ```
 
-#### 3.1.3 Library Imports
+#### 3.1.4 Library Imports
 
 ```yaml
-# Main state machine file with library imports
 apiVersion: transflux/v1
 
 # Import component libraries
@@ -397,17 +505,14 @@ stateMachine:
   name: "Subscription State Machine"
   entityType: com.example.Subscription
   
-  # Use imported components directly by their unique IDs
   transitions:
     - id: trial-to-active
-      from: TRIAL
-      to: ACTIVE
+      from: trial
+      to: active
       operation: activate-subscription
-      
       preConditions:
         - payment-method-valid
         - subscription-specific-validation
-        
       triggers:
         - end-of-trial-cron
 ```
@@ -416,7 +521,7 @@ stateMachine:
 
 #### 3.2.1 Basic Structure
 
-Note: only a single state machine definition is allowed per file.
+> Note: only a single state machine definition is allowed per file.
 
 ```yaml
 # subscription-state-machine.yml
@@ -435,48 +540,52 @@ stateMachine:
   
   entityType: com.example.Subscription
   
-  # State resolver configuration
+  # State resolver — read the current state
   stateResolver:
-    # Option 1: Using a dedicated Java class
     class: com.example.resolvers.SubscriptionStateResolver
-    
-    # Option 2: Using SpEL expression (alternative to class)
-    # expression: "entity.status"
+    # Alternatives:
+    #   expression: "entity.status"
+  
+  # State applier — finalize the transition by writing the new state
+  stateApplier:
+    class: com.example.appliers.SubscriptionStateApplier
+    # Alternatives:
+    #   expression: "entity.status"     # SpEL write-through property path
   
   states:
-    - id: TRIAL
+    - id: trial
       name: "Trial State"
       description: "Initial trial state"
       
-    - id: ACTIVE
+    - id: active
       description: "Active subscription state"
       
-    - id: SUSPENDED
+    - id: suspended
       description: "Suspended subscription state"
       
-    - id: CANCELLED
+    - id: cancelled
       description: "Cancelled subscription state"
       
-    - id: EXPIRED
+    - id: expired
       description: "Expired subscription state"
 
   transitions:
     - id: trial-to-active
       name: "Trial to Active Transition"
-      from: TRIAL
-      to: ACTIVE
-      # Imported, pre-configured operation reference
+      from: trial
+      to: active
       operation: activate-subscription
       preConditions:
         - payment-method-valid
       triggers:
         - id: end-of-trial-cron
           type: manual
+          description: "Invoked manually by an external cron job"
       
     - id: active-to-suspended
-      from: ACTIVE
-      to: SUSPENDED
-      # In-line operation definition (example)
+      from: active
+      to: suspended
+      # Inline composite operation
       operation:
         id: evaluate-suspension
         type: composite
@@ -503,8 +612,8 @@ stateMachine:
             predicate: com.example.triggers.PaymentFailedTrigger
       
     - id: suspended-to-cancelled
-      from: SUSPENDED
-      to: CANCELLED
+      from: suspended
+      to: cancelled
       operation:
         id: cancel-subscription
         type: simple
@@ -516,19 +625,26 @@ stateMachine:
       triggers:
         - id: cancellation-cron
           type: manual
+          description: "Invoked manually by an external cron job"
       
     - id: active-to-expired
-      from: ACTIVE
-      to: EXPIRED
+      from: active
+      to: expired
 ```
 
 #### 3.2.2 State Configuration
 
 ```yaml
 states:
-  - id: ACTIVE
+  - id: active
     name: "Active State"
     description: "Active subscription state"
+    # State entry/exit listeners (see §3.7)
+    listeners:
+      onEntry:
+        - subscription-activated
+      onExit:
+        - subscription-deactivated
 ```
 
 ### 3.3 Transition Configuration
@@ -539,8 +655,8 @@ states:
 transitions:
   - id: trial-to-active
     name: "Trial to Active Transition"
-    from: TRIAL
-    to: ACTIVE
+    from: trial
+    to: active
     description: "Activate trial subscription"
     
     operation: activate-subscription
@@ -552,12 +668,14 @@ transitions:
       - milestones-activated
     
     triggers:
-      - id: end-of-trial-cron # manual trigger example (e.g., external cron job)
+      - id: end-of-trial-cron
         type: manual
+        description: "Invoked manually by an external cron job"
         
       - id: external-activation
         type: data
-        class: com.example.triggers.SubscriptionActivatedTrigger
+        condition:
+          class: com.example.triggers.SubscriptionActivatedTrigger
         
     listeners:
       onStart:
@@ -566,50 +684,87 @@ transitions:
         - audit-complete
 ```
 
-#### 3.3.2 Advanced Triggers
+#### 3.3.2 Manual Triggers
+
+A `type: manual` trigger names an explicit invocation point. Even when a transition could be invoked through the bare `stateMachine.transitionTo(...)` API, defining a named manual trigger carries value: per-trigger metadata, listener bindings, descriptions, and trigger-specific pre-conditions can be attached to the named handle and discovered via the catalog API. The trigger's name does **not** imply the library schedules anything — for example, `end-of-trial-cron` indicates that an external cron job invokes this trigger; the library does no scheduling itself (see §1.3 Non-Goals).
 
 ```yaml
 triggers:
-  # Manual trigger (default)
-  - type: manual
-    id: manual-trigger
-    
-  # Event-based trigger
+  - id: manual-cancel
+    type: manual
+    description: "User-initiated cancellation through the support portal"
+    preConditions:
+      - support-user-authorized
+```
+
+#### 3.3.3 Event Triggers
+
+Event triggers fire in response to events that the host publishes into the state machine via `processEvent(...)`.
+
+```yaml
+triggers:
   - id: payment-method-validated-event
     type: event
     event: PAYMENT_METHOD_VALIDATED
-      
-  # Data-based trigger with dedicated class
-  - id: data-trigger
+    filter:
+      expression: "event.validation == 'CONFIRMED'"
+```
+
+#### 3.3.4 Data Triggers
+
+Data triggers fire when the host calls `processDataChange(entity)` and the trigger's condition matches the entity's current state.
+
+> **Reminder:** Transflux does not watch entity fields, hook into ORM change tracking, or evaluate triggers automatically in 1.0 — data triggers are host-driven re-evaluation only (see §1.3 Non-Goals). The host's typical pattern is: update the entity → call `processDataChange(entity)` → framework evaluates registered data triggers and fires any matching transition.
+
+A data trigger's condition follows the standard Condition Descriptor grammar (§3.6.1):
+
+```yaml
+triggers:
+  # Class-based — full Condition<T> implementation
+  - id: priority-change-class
     type: data
     condition:
-      predicate: com.example.triggers.SubscriptionDataTrigger
-    description: "Custom trigger class that evaluates subscription instance"
+      class: com.example.triggers.SubscriptionPriorityChangedCondition
       
-  # Data-based trigger with expression-based condition
-  - id: data-priority-change-trigger
+  # Predicate-based — lighter-weight Predicate<T>-style class
+  - id: payment-failed
+    type: data
+    condition:
+      predicate: com.example.triggers.PaymentFailedTrigger
+      
+  # Expression-based — inline SpEL
+  - id: priority-change-expression
     type: data
     condition:
       expression: "entity.status == 'READY_FOR_ACTIVATION' && entity.priority > 5"
-    description: "Expression-based entity evaluation"
+      
+  # Reference to a pre-defined condition (id shorthand)
+  - id: ready-and-high-priority
+    type: data
+    condition: ready-and-high-priority-condition
 ```
 
 ### 3.4 Operation Definitions
 
 #### 3.4.1 Simple Operation
 
+A simple operation is either a single Java `Operation` implementation **or** a single Step elevated to operation-level usage.
+
 ```yaml
-# operations/subscription-operations.yml
-apiVersion: transflux/v1
 operations:
+  # Class-backed simple operation
   - id: activate-subscription
     name: "Activate Subscription"
-    description: "Activate a trial subscription and prepare for notifications"
+    description: "Activate a trial subscription"
     type: simple
     class: com.example.operations.ActivateSubscriptionOperation
-    
     context:
       class: com.example.contexts.ActivationContext
+  
+  # Step elevated as operation
+  - id: send-welcome-email
+    type: simple
+    step: send-welcome-email-step
 ```
 
 #### 3.4.2 Composite Operation
@@ -627,9 +782,9 @@ operations:
       - id: prepare-event-actor
         type: step
       - id: validate-prerequisites
-        # Step is the default, so it can be omitted
+        # type: step is the default and can be omitted
       - id: lock-resources
-        # Can define steps in-line
+        # Steps may be defined in-line
         class: com.example.operations.LockResourcesOperation
         description: "Lock resources for activation"
         
@@ -637,7 +792,7 @@ operations:
         type: conditional
         branches:
           - id: high-priority-branch
-            condition: 
+            condition:
               predicate: com.example.predicates.HighPriorityPredicate
             steps:
               - id: high-priority-processing
@@ -646,14 +801,14 @@ operations:
                 class: com.example.steps.UrgentNotificationStep
                 
           - id: medium-priority-branch
-            condition: 
+            condition:
               expression: "entity.priority >= 5 && entity.priority < 8"
             steps:
               - id: medium-priority-processing
                 class: com.example.steps.MediumPriorityStep
                 
           - id: vip-customer-branch
-            condition: 
+            condition:
               predicate: com.example.predicates.VipCustomerPredicate
             steps:
               - id: vip-processing
@@ -669,7 +824,7 @@ operations:
               class: com.example.steps.StandardNotificationStep
               
       - id: finalize
-        class: com.example.actions.FinalizeActivationStep
+        class: com.example.steps.FinalizeActivationStep
         
     errorHandling:
       - exception: com.example.exceptions.RecoverableException
@@ -680,21 +835,25 @@ operations:
       - exception: java.lang.Exception
         compensation: com.example.compensations.GeneralCompensation
         
+    # Async part — anchored to a named sync step; runs concurrently from that point on
     async:
       enabled: true
-      startBeforeStep: finalize
-      # or startAfterStep: <step-id>
+      startBeforeStep: finalize     # OR: startAfterStep: last-business-step
       steps:
         - id: async-notifications
           class: com.example.steps.AsyncNotificationStep
-          
         - id: external-integrations
           class: com.example.steps.ExternalIntegrationStep
 ```
 
+> **Async semantics.** The async block is always anchored to a sync step. Two anchor forms are supported; exactly one must be specified.
+>
+> - `startBeforeStep: <stepId>` — async steps are scheduled when execution **reaches** the named sync step. Use this when the async work doesn't depend on the named step's results — for example, at a join point right after conditional branches merge (`stepA → if/else → stepD`), anchor `startBeforeStep: stepD` so the async kicks off as soon as the branches converge, regardless of which branch ran. This avoids duplicating identical async blocks at the end of each branch.
+> - `startAfterStep: <stepId>` — async steps are scheduled when the named sync step **completes successfully**. Use this when the async work observes or notifies about the results of that step — for example, sending non-essential post-action notifications about completed business logic. The async work cannot run before the step it depends on.
+
 #### 3.4.3 Multi-Branch Conditional Operations
 
-Multi-branch conditional operations allow for complex decision-making with multiple predicates and a default fallback branch. Multi-branch conditionals evaluate multiple conditions in sequence and execute the first matching branch, or the default branch if no conditions match.
+Multi-branch conditional operations allow for complex decision-making with multiple predicates and a default fallback branch. They evaluate conditions in declaration order and execute the **first matching** branch, or the default branch if no conditions match.
 
 ```yaml
 operations:
@@ -706,7 +865,6 @@ operations:
       - id: multi-priority-routing
         type: conditional
         branches:
-          # High priority branch - checked first
           - id: critical-priority
             condition:
               predicate: com.example.predicates.CriticalPriorityPredicate
@@ -718,7 +876,6 @@ operations:
               - id: expedited-processing
                 class: com.example.steps.ExpeditedProcessingStep
                 
-          # Medium-high priority branch
           - id: high-priority
             condition:
               expression: "entity.priority >= 8 && entity.customerTier == 'PREMIUM'"
@@ -728,7 +885,6 @@ operations:
               - id: premium-notification
                 class: com.example.steps.PremiumNotificationStep
                 
-          # VIP customer branch (regardless of priority)
           - id: vip-customer
             condition:
               predicate: com.example.predicates.VipCustomerPredicate
@@ -738,7 +894,6 @@ operations:
               - id: account-manager-alert
                 class: com.example.steps.AccountManagerAlertStep
                 
-          # Time-sensitive branch
           - id: time-sensitive
             condition:
               expression: "entity.deadline.isBefore(T(java.time.LocalDate).now().plusDays(1))"
@@ -746,17 +901,13 @@ operations:
               - id: urgent-processing
                 class: com.example.steps.UrgentProcessingStep
                 
-          # Business hours branch
           - id: business-hours
             condition:
               expression: "T(java.time.LocalTime).now().hour >= 9 && T(java.time.LocalTime).now().hour < 17"
             steps:
               - id: business-hours-processing
                 class: com.example.steps.BusinessHoursProcessingStep
-              - id: same-day-notification
-                class: com.example.steps.SameDayNotificationStep
                 
-        # Default branch - executed if no conditions match
         default:
           steps:
             - id: standard-processing
@@ -768,63 +919,11 @@ operations:
 ```
 
 **Execution Semantics:**
-1. Branches are evaluated in the order they are defined
-2. The first branch whose condition evaluates to `true` is executed
-3. Once a branch is executed, no further conditions are evaluated
-4. If no branch conditions match, the `default` branch is executed
-5. If no `default` branch is defined and no conditions match, either the warning is logged and the step is skipped, or an error is raised, based on configuration
-
-**Advanced Multi-Branch Example with Nested Operations:**
-
-```yaml
-operations:
-  - id: complex-approval-workflow
-    type: composite
-    description: "Complex approval workflow with multiple decision points"
-    
-    steps:
-      - id: approval-routing
-        type: conditional
-        branches:
-          # Auto-approval branch
-          - id: auto-approve
-            condition:
-              predicate: com.example.predicates.AutoApprovalEligiblePredicate
-            steps:
-              - id: auto-approve-action
-                class: com.example.steps.AutoApproveStep
-              - id: log-auto-approval
-                class: com.example.steps.LogAutoApprovalStep
-                
-          # Manager approval branch
-          - id: manager-approval
-            condition:
-              expression: "entity.amount <= 10000 && entity.riskScore < 5"
-            steps:
-              - id: request-manager-approval
-                class: com.example.steps.RequestManagerApprovalStep
-              - id: nested-approval-workflow
-                operation: manager-approval-workflow
-                
-          # Committee approval branch
-          - id: committee-approval
-            condition:
-              expression: "entity.amount > 10000 || entity.riskScore >= 5"
-            steps:
-              - id: prepare-committee-review
-                class: com.example.steps.PrepareCommitteeReviewStep
-              - id: schedule-committee-meeting
-                class: com.example.steps.ScheduleCommitteeMeetingStep
-              - id: committee-workflow
-                operation: committee-approval-workflow
-                
-        default:
-          steps:
-            - id: manual-review-required
-              class: com.example.steps.ManualReviewRequiredStep
-            - id: assign-to-specialist
-              class: com.example.steps.AssignToSpecialistStep
-```
+1. Branches are evaluated in the order they are defined.
+2. The first branch whose condition evaluates to `true` is executed.
+3. Once a branch is executed, no further conditions are evaluated.
+4. If no branch conditions match, the `default` branch is executed.
+5. If no `default` branch is defined and no conditions match, either a warning is logged and the step is skipped, or an error is raised — configurable.
 
 ### 3.5 Context and Data Mapping
 
@@ -848,15 +947,57 @@ context.setPaymentMethodId(entity.getPaymentMethodId());
 context.setActivatedBy("SYSTEM");
 
 // Execute transition with context
-stateMachine.executeTransition("trial-to-active", entity, context);
+TransitionResult<Subscription> result = stateMachine
+    .entity(entity)
+    .withContext(context)
+    .transitionTo("active");
 
 // Application reads results from context after execution
-log.info("Activated subscription {} at {} with result {}", entity.getId(), context.getActivatedAt(), context.getActivationResult());
+log.info("Activated subscription {} at {} with result {}",
+    entity.getId(), context.getActivatedAt(), context.getActivationResult());
 ```
 
 ### 3.6 Conditions and Validators
 
-#### 3.6.1 Pre/Post Conditions
+#### 3.6.1 Condition Descriptor
+
+Conditions appear in many places: pre/post conditions, conditional branch selectors, data-trigger gates, event-trigger filters. They share a single grammar — the **Condition Descriptor** — with four authoring forms:
+
+```yaml
+# 1. Reference to a pre-defined condition (string shorthand)
+preConditions:
+  - payment-method-valid
+
+# 2. Inline class-based — a full Condition<T> implementation
+preConditions:
+  - condition:
+      class: com.example.conditions.PaymentMethodValidCondition
+
+# 3. Inline predicate-based — a Predicate<T>-style class (lighter than Condition<T>;
+#    useful for stateless boolean tests without DI or rich failure metadata)
+preConditions:
+  - condition:
+      predicate: com.example.predicates.PaymentMethodValidPredicate
+
+# 4. Inline expression — SpEL evaluated against the entity (and context where applicable)
+preConditions:
+  - condition:
+      expression: "entity.paymentMethodId != null"
+```
+
+**Resolution rules:**
+- When a list element is a **bare string**, it is interpreted as form 1 (reference).
+- When it is a **block**, it must contain exactly one of `class`, `predicate`, `expression`, or `ref` (long-form reference).
+
+**Form comparison:**
+- A **`Condition<T>`** implementation (form 2) is the full-featured shape: it can hold injected dependencies, return rich failure metadata (error codes, messages), and is the appropriate choice for reusable, framework-aware conditions.
+- A **`Predicate<T>`** (form 3) is the minimal shape — a simple boolean test. Useful for stateless conditions where rich metadata is unnecessary.
+- An **expression** (form 4) is for one-off inline logic that doesn't justify a Java class.
+- A **reference** (form 1) shares a single definition across many transitions.
+
+The same descriptor grammar is reused everywhere a condition is accepted: pre/post conditions, conditional branch selectors, data-trigger gates.
+
+#### 3.6.2 Pre/Post Conditions
 
 ```yaml
 conditions:
@@ -872,17 +1013,38 @@ conditions:
 
 ### 3.7 Listeners and Hooks
 
+Both DSLs support state entry/exit listeners and transition start/complete listeners.
+
 ```yaml
-listeners:
-  # Transition listeners (before and after transition)
-  transitionListeners:
-    - transition: draft-to-active
+# State entry/exit listeners — attached to the state definition
+states:
+  - id: active
+    listeners:
+      onEntry:
+        - subscription-activated
+      onExit:
+        - subscription-deactivated
+
+# Transition listeners — attached to the transition definition
+transitions:
+  - id: trial-to-active
+    listeners:
       onStart:
-        - class: com.example.listeners.ActivationStartListener
-        
-    - transition: "*"  # Global transition listener
+        - audit-start
+      onComplete:
+        - audit-complete
+
+# Global listeners — apply to all transitions or all states
+listeners:
+  transitionListeners:
+    - transition: "*"
       onComplete:
         - class: com.example.listeners.TransitionAuditListener
+        
+  stateListeners:
+    - state: "*"
+      onEntry:
+        - class: com.example.listeners.StateAuditListener
 ```
 
 ### 3.8 Global Configuration
@@ -908,35 +1070,30 @@ config:
 
 ### 3.9 Expression Language Support
 
-Transflux uses SpEL (Spring Expression Language) for defining conditions, filters, and simple computations with powerful expression evaluation. 
-
-SpEL provides powerful expression capabilities with or without DI integration. Here are examples of how to use SpEL in various contexts:
+Transflux uses SpEL (Spring Expression Language) for inline expression evaluation in conditions, filters, and computed state.
 
 ```yaml
-# conditions/spel-conditions.yml
-apiVersion: transflux/v1
-kind: Conditions
 conditions:
   # Simple field access
-  - name: status-ready
+  - id: status-ready
     expression: "entity.status == 'READY'"
     
-  # Complex condition with method calls
-  - name: checkout-fulfilled
+  # Method calls (with DI integration when available)
+  - id: checkout-fulfilled
     expression: "@checkoutService.isCheckoutFulfilled(entity.checkoutUid)"
     
   # Date/time conditions
-  - name: business-hours
+  - id: business-hours
     expression: |
       T(java.time.LocalTime).now().isAfter(T(java.time.LocalTime).of(9, 0)) && 
       T(java.time.LocalTime).now().isBefore(T(java.time.LocalTime).of(17, 0))
       
   # Collection operations
-  - name: all-milestones-active
+  - id: all-milestones-active
     expression: "entity.milestones.![state].contains('INACTIVE') == false"
     
   # Conditional logic
-  - name: priority-based-validation
+  - id: priority-based-validation
     expression: |
       entity.priority > 8 ? 
         @validationService.strictValidation(entity) : 
@@ -944,15 +1101,19 @@ conditions:
 
 # Data-based triggers with SpEL expression evaluation
 triggers:
-  - type: data
+  - id: ready-and-high-priority
+    type: data
     condition:
       expression: "entity.status == 'PENDING' && entity.priority > 5"
 
-  - type: data
+  - id: pending-and-expedited
+    type: data
     condition:
-      # Expedite if status is PENDING and the request is marked as expedited in context
+      # Expedite if pending and the request is marked as expedited in context
       expression: "entity.status == 'PENDING' && (context?.expedited ?: false)"
 ```
+
+---
 
 ## 4. Java-based Builder DSL Specification
 
@@ -960,44 +1121,43 @@ The Java-based builder DSL provides a programmatic, type-safe approach to defini
 
 ### 4.1 Reusable Component Registry
 
-To eliminate duplication and promote reusability, the Java DSL supports a component registry system that allows defining components once and referencing them multiple times across different state machines, operations, and transitions.
+To eliminate duplication and promote reusability, the Java DSL supports a component registry that lets components be defined once and referenced across state machines, operations, and transitions.
 
 #### 4.1.1 Component Registry Structure
 
 ```java
-// Define a component registry
 @Component
 public class SubscriptionComponentRegistry implements ComponentRegistry {
     
-    // Shared Actions
-    @RegisterAction("prepare-notifications")
-    public PrepareNotificationsAction prepareNotificationsAction() {
-        return new PrepareNotificationsAction();
+    // Shared Steps
+    @RegisterStep("prepare-notifications")
+    public PrepareNotificationsStep prepareNotificationsStep() {
+        return new PrepareNotificationsStep();
     }
     
-    @RegisterAction("send-notifications")
-    public SendNotificationsAction sendNotificationsAction() {
-        return new SendNotificationsAction();
+    @RegisterStep("send-notifications")
+    public SendNotificationsStep sendNotificationsStep() {
+        return new SendNotificationsStep();
     }
     
-    @RegisterAction("update-analytics")
-    public UpdateAnalyticsAction updateAnalyticsAction() {
-        return new UpdateAnalyticsAction();
+    @RegisterStep("update-analytics")
+    public UpdateAnalyticsStep updateAnalyticsStep() {
+        return new UpdateAnalyticsStep();
     }
     
-    @RegisterAction("activate-milestones")
-    public ActivateMilestonesAction activateMilestonesAction() {
-        return new ActivateMilestonesAction();
+    @RegisterStep("activate-milestones")
+    public ActivateMilestonesStep activateMilestonesStep() {
+        return new ActivateMilestonesStep();
     }
     
-    @RegisterAction("prepare-event-actor")
-    public PrepareEventActorAction prepareEventActorAction() {
-        return new PrepareEventActorAction();
+    @RegisterStep("prepare-event-actor")
+    public PrepareEventActorStep prepareEventActorStep() {
+        return new PrepareEventActorStep();
     }
     
-    @RegisterAction("validate-prerequisites")
-    public ValidatePrerequisitesAction validatePrerequisitesAction() {
-        return new ValidatePrerequisitesAction();
+    @RegisterStep("validate-prerequisites")
+    public ValidatePrerequisitesStep validatePrerequisitesStep() {
+        return new ValidatePrerequisitesStep();
     }
     
     // Shared Conditions
@@ -1029,9 +1189,9 @@ public class SubscriptionComponentRegistry implements ComponentRegistry {
     public DataTrigger dataPriorityChangeTrigger() {
         return DataTrigger.builder()
             .evaluateEntity(entity -> {
-                Subscription subscription = (Subscription) entity;
-                return "READY_FOR_ACTIVATION".equals(subscription.getStatus()) && 
-                       subscription.getPriority() > 5;
+                Subscription s = (Subscription) entity;
+                return "READY_FOR_ACTIVATION".equals(s.getStatus())
+                    && s.getPriority() > 5;
             })
             .build();
     }
@@ -1064,7 +1224,7 @@ public class SubscriptionComponentRegistry implements ComponentRegistry {
     @RegisterOperation("analytics-update")
     public SimpleOperation analyticsUpdateOperation() {
         return simpleOperation("analytics-update")
-            .action("update-analytics")
+            .step("update-analytics")
             .async(true)
             .build();
     }
@@ -1076,7 +1236,7 @@ public class SubscriptionComponentRegistry implements ComponentRegistry {
 Components from the registry can be referenced directly by their unique name. All component IDs must be unique across all registered components:
 
 ```java
-// Using component references in operations
+// In operations
 CompositeOperation activationOperation = compositeOperation("activation-operation")
     .step("prepare-actor", "prepare-event-actor")
     .step("validate", "validate-prerequisites")
@@ -1084,7 +1244,7 @@ CompositeOperation activationOperation = compositeOperation("activation-operatio
     .step("analytics", "analytics-update")
     .build();
 
-// Using component references in transitions
+// In transitions
 draftActiveTransition
     .addPreCondition("checkout-fulfilled")
     .addPreCondition("business-hours")
@@ -1093,13 +1253,11 @@ draftActiveTransition
     .addTrigger("data-priority-change")
     .onStart("audit-start")
     .onComplete("audit-complete");
-
 ```
 
 #### 4.1.3 Registry Configuration and Injection
 
 ```java
-// Configuration class
 @Configuration
 @EnableTransflux
 public class TransfluxConfig {
@@ -1121,9 +1279,9 @@ public class TransfluxConfig {
 
 // Alternative programmatic registration
 ComponentRegistry registry = ComponentRegistry.builder()
-    .registerAction("prepare-notifications", PrepareNotificationsAction.class)
-    .registerAction("send-notifications", SendNotificationsAction.class)
-    .registerAction("update-analytics", UpdateAnalyticsAction.class)
+    .registerStep("prepare-notifications", PrepareNotificationsStep.class)
+    .registerStep("send-notifications", SendNotificationsStep.class)
+    .registerStep("update-analytics", UpdateAnalyticsStep.class)
     .registerCondition("payment-method-valid", PaymentMethodValidCondition.class)
     .registerCondition("milestones-activated", MilestonesActivatedCondition.class)
     .registerListener("audit-start", TransitionStartListener.class)
@@ -1136,44 +1294,45 @@ StateMachine<Subscription> stateMachine = Transflux.defineStateMachine()
     .build();
 ```
 
-
 ### 4.2 Core API Structure
 
 #### 4.2.1 StateMachine Definition
 
 ```java
-// Basic state machine definition
 StateMachine<Subscription> subscriptionStateMachine = Transflux.defineStateMachine()
     .forEntityType(Subscription.class)
     .withName("subscription-state-machine")
     .withVersion("1.0.0")
     
-    // State resolver configuration - Option 1: Dedicated class
+    // State resolver — read the current state
     .withStateResolver(SubscriptionStateResolver.class)
+    // Alternatives:
+    //   .withStateResolver(entity -> entity.getStatus())     // lambda
+    //   .withStateResolver("entity.status")                  // SpEL
     
-    // State resolver configuration - Option 2: Lambda function
-    // .withStateResolver(entity -> entity.getStatus())
-    
-    // State resolver configuration - Option 3: SpEL expression
-    // .withStateResolver("entity.status")
+    // State applier — finalize the transition by writing the new state
+    .withStateApplier(SubscriptionStateApplier.class)
+    // Alternatives:
+    //   .withStateApplier((entity, newState) -> entity.setStatus(newState))
+    //   .withStateApplier("entity.status")                   // SpEL property path
     
     // Define states
-    .state(TRIAL)
+    .state("trial")
         .withDescription("Initial trial state")
-        .transitionsTo(ACTIVE)
+        .transitionsTo("active")
         .end()
         
-    .state(ACTIVE)
+    .state("active")
         .withDescription("Active subscription state")
-        .transitionsTo(SUSPENDED, EXPIRED)
+        .transitionsTo("suspended", "expired")
         .end()
         
-    .state(SUSPENDED)
+    .state("suspended")
         .withDescription("Suspended subscription state")
-        .transitionsTo(CANCELLED)
+        .transitionsTo("cancelled")
         .end()
         
-    .state(CANCELLED, EXPIRED)
+    .state("cancelled", "expired")
         .end()
         
     .build();
@@ -1181,11 +1340,13 @@ StateMachine<Subscription> subscriptionStateMachine = Transflux.defineStateMachi
 // Alternative compact syntax
 StateMachine<Subscription> compactStateMachine = Transflux.defineStateMachine()
     .forEntityType(Subscription.class)
+    .withStateResolver("entity.status")
+    .withStateApplier("entity.status")
     .states(
-        state(TRIAL).transitionsTo(ACTIVE),
-        state(ACTIVE).transitionsTo(SUSPENDED, EXPIRED),
-        state(SUSPENDED).transitionsTo(CANCELLED),
-        state(CANCELLED, EXPIRED)
+        state("trial").transitionsTo("active"),
+        state("active").transitionsTo("suspended", "expired"),
+        state("suspended").transitionsTo("cancelled"),
+        state("cancelled", "expired")
     )
     .build();
 ```
@@ -1196,18 +1357,18 @@ StateMachine<Subscription> compactStateMachine = Transflux.defineStateMachine()
 StateMachine<Subscription> stateMachine = Transflux.defineStateMachine()
     .forEntityType(Subscription.class)
     
-    .state(ACTIVE)
+    .state("active")
         .withDescription("Active subscription state")
         .withMetadata("displayName", "Active")
         
-        // State listeners
-        .onEntry(OfferActivatedListener.class)
+        // State entry/exit listeners
+        .onEntry(SubscriptionActivatedListener.class)
         .onEntry(NotificationListener.class, config -> config
-            .property("template", "offer-activated")
+            .property("template", "subscription-activated")
             .property("async", true))
-        .onExit(OfferDeactivatedListener.class)
+        .onExit(SubscriptionDeactivatedListener.class)
         
-        .transitionsTo(DECLINED, WITHDRAWN, EXPIRED, ACCEPTED)
+        .transitionsTo("suspended", "expired")
         .end()
         
     .build();
@@ -1218,28 +1379,28 @@ StateMachine<Subscription> stateMachine = Transflux.defineStateMachine()
 ```java
 // Get transition reference
 Transition<Subscription, SubscriptionContext> trialActiveTransition =
-    stateMachine.getTransition(TRIAL, ACTIVE);
+    stateMachine.getTransition("trial", "active");
 
 // Configure transition
 trialActiveTransition
     .withName("trial-to-active")
     .withDescription("Activate trial subscription")
-
-// Set operation
+    
+    // Set operation
     .withOperation(ActivateSubscriptionOperation.class)
         .usingContext(SubscriptionContext.class)
-
-// Pre/post conditions
+    
+    // Pre/post conditions
     .addPreCondition(PaymentMethodValidCondition.class)
     .addPreCondition("billing-ready", this::billingReady)
     .addPostCondition(SubscriptionFeaturesActivatedCondition.class)
-
-// Triggers
+    
+    // Triggers
     .addManualTrigger()
     .addEventTrigger(Event.PAYMENT_CONFIRMED)
     .addDataTrigger(SubscriptionActivatedTrigger.class)
-
-// Listeners
+    
+    // Listeners
     .onStart(TransitionStartListener.class)
     .onComplete(TransitionCompleteListener.class)
     .onError(TransitionErrorListener.class);
@@ -1250,38 +1411,35 @@ trialActiveTransition
 #### 4.4.1 Simple Operation
 
 ```java
-// Define operation class
-public class ActivateSubscriptionOperation implements Operation<Subscription, SubscriptionContext> {
-
-    @Inject
-    private BillingService billingService;
-
-    @Inject
-    private SubscriptionFeaturesService subscriptionFeaturesService;
-
+public class ActivateSubscriptionOperation
+        implements Operation<Subscription, SubscriptionContext> {
+    
+    @Inject private BillingService billingService;
+    @Inject private SubscriptionFeaturesService featuresService;
+    
     @Override
-    public void execute(Subscription subscription, SubscriptionContext context, Transition<Subscription, SubscriptionContext> transition) {
-        // Business logic using subscription and context data
-        Long subscriptionId = subscription.getId();
-        validateSubscription(subscriptionId);
-
+    public void execute(Subscription subscription, SubscriptionContext context,
+                        Transition<Subscription, SubscriptionContext> transition) {
+        validateSubscription(subscription.getId());
+        
         // Execute steps via transition
-        transition.step("prepare-billing-actor", PrepareBillingActorAction.class);
-        transition.step("validate-payment-method", ValidatePaymentMethodAction.class);
-
-        // Set results in context
+        transition.step("prepare-billing-actor", PrepareBillingActorStep.class);
+        transition.step("validate-payment-method", ValidatePaymentMethodStep.class);
+        
+        // Results flow back through the context (see §2.1.5)
         context.setActivatedAt(Instant.now());
         context.setSubscriptionStatus(SubscriptionStatus.ACTIVE);
     }
-
+    
     @Override
-    public Class<CompensationAction<Subscription, SubscriptionContext>> getCompensation() {
+    public Class<? extends Compensation<Subscription, SubscriptionContext>> getCompensation() {
         return SubscriptionActivationCompensation.class;
     }
-
-    // Alternatively, return the compensation directly
+    
+    // Alternatively, return the compensation directly at execution time
     @Override
-    public CompensationAction<Subscription, SubscriptionContext> getCompensation(Subscription subscription, SubscriptionContext context) {
+    public Compensation<Subscription, SubscriptionContext> getCompensation(
+            Subscription subscription, SubscriptionContext context) {
         return new SubscriptionActivationCompensation();
     }
 }
@@ -1292,17 +1450,8 @@ trialActiveTransition
     .usingContext(SubscriptionContext.class)
     .withCompensation(SubscriptionActivationCompensation.class)
     .withAsync(async -> async
-    .enabled(true)
-        .steps("notifyExternalSystems", "updateAnalytics"))
-    .end();
-
-// Configure operation on transition
-draftActiveTransition
-    .setOperation(ActivateOperation.class)
-    .usingContext(ActivationContext.class)
-    .withCompensation(ActivationCompensation.class)
-    .withAsync(async -> async
         .enabled(true)
+        .startBefore("finalize")                 // OR: .startAfter("last-business-step")
         .steps("notifyExternalSystems", "updateAnalytics"))
     .end();
 ```
@@ -1310,90 +1459,55 @@ draftActiveTransition
 #### 4.4.2 Composite Operation (Declarative Style)
 
 ```java
-dtrialActiveTransition.setOperation(
+trialActiveTransition.setOperation(
     compositeOperation("complex-subscription-activation")
         .withDescription("Complex subscription activation with multiple steps")
         .usingContext(ComplexSubscriptionContext.class)
-
-// Sequential steps
-        .step("prepare-billing-actor", PrepareBillingActorAction.class)
         
-        .step("validate-payment-method", ValidatePaymentMethodAction.class)
+        // Sequential steps
+        .step("prepare-billing-actor", PrepareBillingActorStep.class)
+        
+        .step("validate-payment-method", ValidatePaymentMethodStep.class)
             .withCompensation(PaymentValidationCompensation.class)
-
-
-// Multi-branch conditional
+        
+        // Multi-branch conditional
         .conditional("subscription-tier-routing")
             .branch("premium-tier")
                 .condition(PremiumTierPredicate.class)
-                .step("premium-tier-processing", PremiumTierAction.class)
-                .step("vip-notification", VipNotificationAction.class)
+                .step("premium-tier-processing", PremiumTierStep.class)
+                .step("vip-notification", VipNotificationStep.class)
             .end()
             
             .branch("standard-tier")
-                .condition(subscription -> subscription.getTier().equals("STANDARD") && subscription.getPriority() >= 5)
-    .step("standard-tier-processing", StandardTierAction.class)
+                .condition(s -> "STANDARD".equals(s.getTier()) && s.getPriority() >= 5)
+                .step("standard-tier-processing", StandardTierStep.class)
             .end()
             
             .branch("enterprise-customer")
                 .condition(EnterpriseCustomerPredicate.class)
-                .step("enterprise-processing", EnterpriseProcessingAction.class)
-                .step("account-manager-notification", AccountManagerNotificationAction.class)
+                .step("enterprise-processing", EnterpriseProcessingStep.class)
+                .step("account-manager-notification", AccountManagerNotificationStep.class)
             .end()
             
             .defaultBranch()
-                .step("basic-processing", BasicProcessingAction.class)
-                .step("standard-notification", StandardNotificationAction.class)
-            .end()
-        .end()
-
-// Multi-branch conditional with comprehensive subscription examples
-        .conditional("subscription-priority-routing")
-            .branch("critical-subscription")
-                .condition(CriticalSubscriptionPredicate.class)
-                .step("escalate-immediately", EscalateAction.class)
-                .step("notify-management", ManagementNotificationAction.class)
-                .step("expedited-activation", ExpeditedActivationAction.class)
-            .end()
-            
-            .branch("high-value-subscription")
-                .condition(subscription -> subscription.getMonthlyValue() >= 1000 &&
-    "ENTERPRISE".equals(subscription.getCustomerTier()))
-    .step("high-value-processing", HighValueProcessingAction.class)
-                .step("enterprise-notification", EnterpriseNotificationAction.class)
-            .end()
-            
-            .branch("long-term-customer")
-                .condition(LongTermCustomerPredicate.class)
-                .step("loyalty-processing", LoyaltyProcessingAction.class)
-                .step("customer-success-alert", CustomerSuccessAlertAction.class)
-            .end()
-            
-            .branch("trial-ending-soon")
-                .condition(subscription -> subscription.getTrialEndDate().isBefore(
-    LocalDateTime.now().plusDays(3)))
-    .step("trial-conversion-processing", TrialConversionAction.class)
-            .end()
-            
-            .defaultBranch()
-                .step("standard-activation", StandardActivationAction.class)
-                .step("welcome-notification", WelcomeNotificationAction.class)
-                .step("queue-for-onboarding", QueueForOnboardingAction.class)
+                .step("basic-processing", BasicProcessingStep.class)
+                .step("standard-notification", StandardNotificationStep.class)
             .end()
         .end()
         
+        .step("finalize", FinalizeSubscriptionActivationStep.class)
         
-        .step("finalize", FinalizeSubscriptionActivationAction.class)
-
-// Error handling
+        // Error handling
         .onException(RecoverableException.class)
             .matching(e -> e.getCode() == RECOVERABLE_ERROR)
-    .compensateWith(RecoverableCompensation.class)
+            .compensateWith(RecoverableCompensation.class)
         .onAllExceptions()
             .compensateWith(GeneralCompensation.class)
-
-// Async part
+        
+        // Async part — anchored to a sync step. Use startBefore for join-point kickoff,
+        // startAfter when the async work depends on the named step completing first.
         .async()
+            .startBefore("finalize")             // OR: .startAfter("last-business-step")
             .step("async-notifications", AsyncNotificationStep.class)
             .step("external-integrations", ExternalIntegrationStep.class)
         .end()
@@ -1402,10 +1516,17 @@ dtrialActiveTransition.setOperation(
 );
 ```
 
+> **Async semantics.** Exactly one anchor must be specified; the Java DSL mirrors the YAML form (§3.4.2). Use `startBefore(stepId)` to kick off async work at a join point — common when conditional branches converge on a downstream step. Use `startAfter(stepId)` when the async work must observe the results of the named step (e.g., post-action notifications about completed business logic).
+
+#### 4.4.3 Multi-Branch Conditional Operations
+
+Branches are evaluated in declaration order; the first branch whose condition matches is executed. If no branch matches and a `defaultBranch()` is defined, it runs; otherwise the step is skipped (or fails, per configuration). See §3.4.3 for full semantics — the Java API mirrors them exactly.
+
 ### 4.5 Context Usage in Transitions
 
-#### 4.5.1 Context Data 
-Applications are responsible for populating context before execution and reading results after completion:
+#### 4.5.1 Context Data
+
+The host is responsible for populating context before execution and reading results after completion. There is no `.input(...)` builder method — all data flows through the context.
 
 ```java
 // Define transition with context
@@ -1414,73 +1535,81 @@ trialActiveTransition
     .usingContext(SubscriptionContext.class)
     .end();
 
-// Application usage example
+// Application usage
 public void activateSubscription(Subscription entity) {
-    // Application populates context before execution
+    // Populate context before execution
     SubscriptionContext context = new SubscriptionContext();
     context.setSubscriptionId(entity.getId());
     context.setPaymentMethodId(entity.getPaymentMethodId());
     context.setActivatedBy("SYSTEM");
 
     // Execute transition with context
-    stateMachine.executeTransition("trial-to-active", entity, context);
+    TransitionResult<Subscription> result = stateMachine
+        .entity(entity)
+        .withContext(context)
+        .transitionTo("active");
 
-    // Application reads results from context after execution
-    entity.setActivatedTimestamp(context.getActivatedAt());
-    entity.setSubscriptionStatus(context.getSubscriptionResult().getStatus());
+    // Read results from context after execution
+    if (result.isSuccess()) {
+        entity.setActivatedTimestamp(context.getActivatedAt());
+        entity.setSubscriptionStatus(context.getSubscriptionResult().getStatus());
+    }
 }
 ```
 
 #### 4.5.2 Nested Operations Context Handling
 
-For nested operations, there are two approaches:
+For nested operations, there are two approaches.
 
 **Option 1: Using Parent Context**
-```java
-// Nested operation uses the same context as parent
-public class ParentOperation implements SimpleOperation<Subscription, SubscriptionContext> {
 
+```java
+public class ParentOperation
+        implements Operation<Subscription, SubscriptionContext> {
+    
     @Override
-    public void execute(Subscription subscription, SubscriptionContext context, Transition<Subscription, SubscriptionContext> transition) {
+    public void execute(Subscription subscription, SubscriptionContext context,
+                        Transition<Subscription, SubscriptionContext> transition) {
         // Parent operation logic
         context.setParentData("some value");
-
+        
         // Nested operation uses same context and transition
         nestedOperation.execute(subscription, context, transition);
-
+        
         // Parent can access nested operation results
         String result = context.getNestedResult();
     }
 }
 
-public class NestedOperation implements SimpleOperation<Subscription, SubscriptionContext> {
-
+public class NestedOperation
+        implements Operation<Subscription, SubscriptionContext> {
+    
     @Override
-    public void execute(Subscription subscription, SubscriptionContext context, Transition<Subscription, SubscriptionContext> transition) {
-        // Access parent data
+    public void execute(Subscription subscription, SubscriptionContext context,
+                        Transition<Subscription, SubscriptionContext> transition) {
         String parentData = context.getParentData();
-
-        // Set nested results
         context.setNestedResult("processed: " + parentData);
     }
 }
 ```
 
 **Option 2: Explicit Context Mapping**
-```java
-// Nested operation with its own context and explicit mapping
-public class ParentWithMappingOperation implements SimpleOperation<Subscription, SubscriptionContext> {
 
+```java
+public class ParentWithMappingOperation
+        implements Operation<Subscription, SubscriptionContext> {
+    
     @Override
-    public void execute(Subscription subscription, SubscriptionContext parentContext, Transition<Subscription, SubscriptionContext> transition) {
+    public void execute(Subscription subscription, SubscriptionContext parentContext,
+                        Transition<Subscription, SubscriptionContext> transition) {
         // Create nested context and map data from parent
         NestedContext nestedContext = new NestedContext();
         nestedContext.setInputData(parentContext.getSubscriptionId());
         nestedContext.setConfiguration(parentContext.getConfiguration());
-
+        
         // Execute nested operation
         nestedOperation.execute(subscription, nestedContext, transition);
-
+        
         // Map results back to parent context
         parentContext.setNestedProcessingResult(nestedContext.getOutputData());
         parentContext.setNestedTimestamp(nestedContext.getCompletedAt());
@@ -1492,22 +1621,22 @@ public CompositeOperation<Subscription, SubscriptionContext> createAdvancedWorkf
     return compositeOperation("advanced-subscription-workflow")
         .withDescription("Advanced subscription activation with nested operations and context mapping")
         .usingContext(SubscriptionContext.class)
-
+        
         // Regular steps
-        .step("prepare-billing-actor", PrepareBillingActorAction.class)
-        .step("validate-payment-method", ValidatePaymentMethodAction.class)
-
+        .step("prepare-billing-actor", PrepareBillingActorStep.class)
+        .step("validate-payment-method", ValidatePaymentMethodStep.class)
+        
         // Nested operation without mapping (uses parent context)
         .operation("simple-nested", SimpleNestedOperation.class)
-
+        
         // Nested operation with class-based mapping
         .operation("billing-processing", BillingProcessingOperation.class)
-        .usingContext(BillingContext.class)
-        .withContextMapping(BillingContextMapper.class)
-
-        // Nested operation with complex mapping
+            .usingContext(BillingContext.class)
+            .withContextMapping(BillingContextMapper.class)
+        
+        // Nested operation with inline mapping
         .operation("complex-nested", ComplexNestedOperation.class)
-        .usingContext(NestedSubscriptionContext.class)
+            .usingContext(NestedSubscriptionContext.class)
             .mapFrom(parentContext -> {
                 NestedSubscriptionContext nested = new NestedSubscriptionContext();
                 nested.setSubscriptionId(parentContext.getSubscriptionId());
@@ -1518,44 +1647,13 @@ public CompositeOperation<Subscription, SubscriptionContext> createAdvancedWorkf
                 parentContext.setNestedActivationResult(nestedContext.getActivationResult());
                 parentContext.setNestedBillingSetup(nestedContext.getBillingSetup());
             })
-        .end()
-
-        // Function-based context mapping
-        .operation("function-mapped", FunctionMappedOperation.class)
-        .withContextMapping(
-            // Map to nested context
-            parentContext -> createNestedContext(parentContext.getSubscriptionId(), parentContext.getCustomerId()),
-            // Map back to parent context
-            (parentContext, nestedResult) -> parentContext.setFunctionResult(nestedResult.getOutput())
-        )
         .end();
 }
 
-// ContextMapper interface definition
+// ContextMapper interface
 public interface ContextMapper<P, N> {
     N mapInput(P parentContext);
     void mapOutput(P parentContext, N nestedContext);
-}
-
-// Class-based context mapper example
-public class BillingContextMapper implements ContextMapper<SubscriptionContext, BillingContext> {
-
-    @Override
-    public BillingContext mapInput(SubscriptionContext parent) {
-        BillingContext billingContext = new BillingContext();
-        billingContext.setSubscriptionId(parent.getSubscriptionId());
-        billingContext.setPaymentMethodId(parent.getPaymentMethodId());
-        billingContext.setAmount(parent.getSubscriptionAmount());
-        billingContext.setCurrency(parent.getCurrency());
-        return billingContext;
-    }
-
-    @Override
-    public void mapOutput(SubscriptionContext parent, BillingContext billing) {
-        parent.setBillingTransactionId(billing.getTransactionId());
-        parent.setBillingStatus(billing.getStatus());
-        parent.setBillingTimestamp(billing.getProcessedAt());
-    }
 }
 ```
 
@@ -1563,35 +1661,36 @@ public class BillingContextMapper implements ContextMapper<SubscriptionContext, 
 
 #### 4.6.1 Step Definition
 
+Steps are entity-aware and receive `(entity, context, transition)`:
+
 ```java
-public class PrepareEventActorStep implements Step<Offer, ActivationContext> {
+public class PrepareEventActorStep
+        implements Step<Subscription, ActivationContext> {
     
-    @Inject
-    private EventActorService eventActorService;
+    @Inject private EventActorService eventActorService;
     
     @Override
-    public void execute(Offer offer, ActivationContext context, Transition<Offer, ActivationContext> transition) {
+    public void execute(Subscription subscription, ActivationContext context,
+                        Transition<Subscription, ActivationContext> transition) {
         EventActor eventActor = eventActorService.createEventActor(
-            context.getOfferId(), "SYSTEM");
+            subscription.getId(), "SYSTEM");
         context.setEventActor(eventActor);
     }
     
     @Override
-    public CompensationStep<ActivationContext> getCompensation() {
-        return context -> eventActorService.removeEventActor(
-            context.getEventActor().getId());
+    public Compensation<Subscription, ActivationContext> getCompensation() {
+        return (entity, ctx) -> eventActorService.removeEventActor(
+            ctx.getEventActor().getId());
     }
 }
 
-public class ValidatePrerequisitesStep 
-    implements Step<Offer, ActivationContext> {
+public class ValidatePrerequisitesStep
+        implements Step<Subscription, ActivationContext> {
     
     @Override
-    public void execute(Offer offer, ActivationContext context, Transition<Offer, ActivationContext> transition) {
-        // Validation logic using context data
-        boolean isValid = performValidation(context.getOfferId(), context.getCheckoutId());
-        
-        // Set validation results in context
+    public void execute(Subscription subscription, ActivationContext context,
+                        Transition<Subscription, ActivationContext> transition) {
+        boolean isValid = performValidation(subscription, context);
         context.setValidationResult(isValid);
         context.setValidatedAt(Instant.now());
     }
@@ -1601,7 +1700,6 @@ public class ValidatePrerequisitesStep
 #### 4.6.2 Step Configuration
 
 ```java
-// Step with compensation
 compositeOperation("complex-operation")
     .step("validate-prerequisites", ValidatePrerequisitesStep.class)
         .withCompensation(ValidationCompensation.class)
@@ -1621,54 +1719,58 @@ compositeOperation("complex-operation")
 
 ```java
 @Component
-public class CheckoutFulfilledCondition implements Condition<Offer> {
+public class CheckoutFulfilledCondition implements Condition<Subscription> {
     
-    @Inject
-    private CheckoutService checkoutService;
+    @Inject private CheckoutService checkoutService;
     
     @Override
-    public boolean evaluate(Offer offer) {
-        return checkoutService.isCheckoutFulfilled(offer.getCheckoutUid());
+    public boolean evaluate(Subscription subscription) {
+        return checkoutService.isCheckoutFulfilled(subscription.getCheckoutUid());
     }
 }
 
 @Component
-public class MilestonesActivatedCondition implements Condition<Offer> {
+public class MilestonesActivatedCondition implements Condition<Subscription> {
     
-    @Inject
-    private MilestonesService milestonesService;
+    @Inject private MilestonesService milestonesService;
     
     @Override
-    public boolean evaluate(Offer offer) {
-        return milestonesService.getMilestones(offer.getId())
+    public boolean evaluate(Subscription subscription) {
+        return milestonesService.getMilestones(subscription.getId())
             .stream()
             .allMatch(m -> m.getState() == MilestoneState.ACTIVE);
     }
 }
 
-// Lambda-based conditions
-draftActiveTransition
-    .addPreCondition("checkout-fulfilled", 
-        offer -> checkoutService.isCheckoutFulfilled(offer.getCheckoutUid()))
+// Lambda-based (form 3 / form 4 equivalent on the Java side)
+trialActiveTransition
+    .addPreCondition("checkout-fulfilled",
+        s -> checkoutService.isCheckoutFulfilled(s.getCheckoutUid()))
     .addPostCondition("milestones-activated",
-        offer -> milestonesService.getMilestones(offer.getId())
-            .stream().allMatch(m -> m.getState() == ACTIVE));
+        s -> milestonesService.getMilestones(s.getId())
+            .stream().allMatch(m -> m.getState() == MilestoneState.ACTIVE));
+
+// Predicate-based (lighter than full Condition<T>)
+trialActiveTransition
+    .addPreCondition(PaymentMethodValidPredicate.class);
+
+// Expression-based — SpEL string
+trialActiveTransition
+    .addPreCondition("entity.paymentMethodId != null");
 ```
+
+The four authoring forms above (reference, full `Condition<T>`, `Predicate<T>`, SpEL expression) map exactly to the four forms of the YAML Condition Descriptor (§3.6.1).
 
 #### 4.7.2 Advanced Condition Configuration
 
 ```java
-draftActiveTransition
-    // Condition configuration
+trialActiveTransition
     .addPreCondition(CheckoutFulfilledCondition.class)
     
-    // Condition with custom error message
+    // Condition with custom error message and error code
     .addPreCondition("business-hours", this::isBusinessHours, condition -> condition
         .withErrorMessage("Transitions only allowed during business hours")
-        .withErrorCode("BUSINESS_HOURS_VIOLATION"))
-    
-    // Synchronous condition evaluation
-    .addPreCondition(ValidationCondition.class);
+        .withErrorCode("BUSINESS_HOURS_VIOLATION"));
 ```
 
 ### 4.8 Listeners and Hooks
@@ -1677,18 +1779,19 @@ draftActiveTransition
 
 ```java
 @Component
-public class TransitionAuditListener implements TransitionListener<Offer, ?> {
+public class TransitionAuditListener
+        implements TransitionListener<Subscription, ?> {
     
-    @Inject
-    private AuditService auditService;
+    @Inject private AuditService auditService;
     
     @Override
-    public void onTransition(Offer offer, Transition<Offer, ?> transition, 
-                                 Object context) {
+    public void onTransition(Subscription subscription,
+                             Transition<Subscription, ?> transition,
+                             Object context) {
         if (transition.isStarted()) {
-            auditService.logTransitionStart(offer, transition);
+            auditService.logTransitionStart(subscription, transition);
         } else {
-            auditService.logTransitionComplete(offer, transition);
+            auditService.logTransitionComplete(subscription, transition);
         }
     }
 }
@@ -1697,15 +1800,22 @@ public class TransitionAuditListener implements TransitionListener<Offer, ?> {
 #### 4.8.2 Listener Registration
 
 ```java
-// Transition listeners (before and after transition)
-draftActiveTransition
+// Transition listeners (start and complete)
+trialActiveTransition
     .onStart(ActivationStartListener.class)
     .onComplete(ActivationCompleteListener.class);
+
+// State entry/exit listeners (attached to the state — see §4.2.2)
 
 // Global transition listeners
 stateMachine
     .onAnyTransitionStart(TransitionAuditListener.class)
     .onAnyTransitionComplete(TransitionAuditListener.class);
+
+// Global state listeners
+stateMachine
+    .onAnyStateEntry(StateAuditListener.class)
+    .onAnyStateExit(StateAuditListener.class);
 ```
 
 ### 4.9 Execution and Usage
@@ -1714,48 +1824,48 @@ stateMachine
 
 ```java
 // Basic transition execution
-TransitionResult<Offer> result = stateMachine
-    .entity(offer)
-    .transitionTo(ACTIVE);
+TransitionResult<Subscription> result = stateMachine
+    .entity(subscription)
+    .transitionTo("active");
 
-// Transition with context
-TransitionResult<Offer> result = stateMachine
-    .entity(offer)
-    .withContext(context -> context
-        .property("source", "API")
-        .property("userId", currentUser.getId()))
-    .transitionTo(ACTIVE);
+// Transition with context — the host prepares the context object
+SubscriptionContext context = new SubscriptionContext();
+context.setSource("API");
+context.setUserId(currentUser.getId());
 
-// Selecting specific transition
-TransitionResult<Offer> result = stateMachine
-    .entity(offer)
-    .transitionTo(ACTIVE, "draft-to-active");
+TransitionResult<Subscription> result = stateMachine
+    .entity(subscription)
+    .withContext(context)
+    .transitionTo("active");
 
+// Selecting a specific named transition (when multiple transitions
+// share source/target — e.g., different triggers)
+TransitionResult<Subscription> result = stateMachine
+    .entity(subscription)
+    .transitionTo("active", "trial-to-active");
 ```
 
 #### 4.9.2 Event and Trigger Processing
 
 ```java
-// Process event
+// Process an event
 stateMachine
-    .entity(offer)
+    .entity(subscription)
     .processEvent(Event.CHECKOUT_FULFILLED, eventData);
 
-// Process data change
+// Process a host-driven data change — re-evaluates data triggers
 stateMachine
-    .entity(offer)
+    .entity(subscription)
     .processDataChange();
 ```
 
 #### 4.9.3 Batch Operations
 
 ```java
-// Batch transition
-List<TransitionResult<Offer>> results = stateMachine
-    .entities(offers)
-    .withContext(offer -> new ActivationContext(offer.getId()))
-    .transitionTo(ACTIVE);
-
+List<TransitionResult<Subscription>> results = stateMachine
+    .entities(subscriptions)
+    .withContextFactory(s -> new ActivationContext(s.getId()))
+    .transitionTo("active");
 ```
 
 ### 4.10 Configuration and Integration
@@ -1763,12 +1873,11 @@ List<TransitionResult<Offer>> results = stateMachine
 #### 4.10.1 Framework Configuration
 
 ```java
-// Basic configuration
 TransfluxConfiguration config = TransfluxConfiguration.builder()
     .asyncThreadPoolSize(10)
     .asyncQueueCapacity(100)
     .metricsEnabled(true)
-    .flowLabel("offer-management")
+    .flowLabel("subscription-management")
     .build();
 
 Transflux transflux = Transflux.create(config);
@@ -1789,9 +1898,9 @@ public class TransfluxConfig {
     }
     
     @Bean
-    public StateMachine<Offer> offerStateMachine() {
+    public StateMachine<Subscription> subscriptionStateMachine() {
         return Transflux.defineStateMachine()
-            .forEntityType(Offer.class)
+            .forEntityType(Subscription.class)
             // ... state machine definition
             .build();
     }
@@ -1799,16 +1908,15 @@ public class TransfluxConfig {
 
 // Usage in service
 @Service
-public class OfferService {
+public class SubscriptionService {
     
-    @Inject
-    private StateMachine<Offer> offerStateMachine;
+    @Inject private StateMachine<Subscription> subscriptionStateMachine;
     
-    public void activateOffer(Offer offer, ActivationInput input) {
-        TransitionResult<Offer> result = offerStateMachine
-            .entity(offer)
-            .input(input)
-            .transitionTo(ACTIVE);
+    public void activate(Subscription subscription, SubscriptionContext context) {
+        TransitionResult<Subscription> result = subscriptionStateMachine
+            .entity(subscription)
+            .withContext(context)
+            .transitionTo("active");
             
         if (!result.isSuccess()) {
             throw new ActivationException(result.getError());
@@ -1820,7 +1928,6 @@ public class OfferService {
 #### 4.10.3 Metrics and Observability
 
 ```java
-// Custom metrics
 @Component
 public class CustomMetricsCollector implements MetricsCollector {
     
@@ -1830,8 +1937,8 @@ public class CustomMetricsCollector implements MetricsCollector {
     }
     
     @Override
-    public void recordTransitionComplete(String stateMachine, String transition, 
-                                       Duration duration) {
+    public void recordTransitionComplete(String stateMachine, String transition,
+                                         Duration duration) {
         // Custom metrics logic
     }
 }
@@ -1839,347 +1946,89 @@ public class CustomMetricsCollector implements MetricsCollector {
 // Configuration
 TransfluxConfiguration config = TransfluxConfiguration.builder()
     .metricsCollector(CustomMetricsCollector.class)
-    .flowLabel("offer-management")
+    .flowLabel("subscription-management")
     .build();
 ```
+
+---
 
 ## 5. Non-Functional Requirements
 
 ### 5.1 Performance
-- Minimal overhead for simple transitions
-- Optimized trigger evaluation and matching
+- Minimal overhead for simple transitions.
+- Optimized trigger evaluation and matching.
 
 ### 5.2 Observability
-- Comprehensive metrics (success/failure counts, timing histograms)
-- Configurable logging with predictable logger names
-- Custom flow labels for metric separation
-- Detailed operation and step-level instrumentation
+- Pluggable `MetricsCollector` SPI exposing success/failure counts, timing histograms, step-level timings.
+- Configurable logging with predictable logger names.
+- Custom flow labels for metric separation.
+- First-party Micrometer / OpenTelemetry integrations are post-1.0 (see §7.2).
 
 ### 5.3 Maintainability
-- Clear separation of concerns
-- Reusable component design
-- Comprehensive documentation and examples
-- Consistent API patterns
+- Clear separation of concerns.
+- Reusable component design.
+- Comprehensive documentation and examples.
+- Consistent API patterns across the two DSLs.
 
 ## 6. Integration Requirements
 
 ### 6.1 Dependency Injection
-- Framework-agnostic component registration
-- Support for Spring, CDI, Guice
-- Manual component wiring capabilities
+
+For 1.0, Transflux supports:
+- **Spring** integration (optional dependency) — automatic Spring-bean discovery for Transflux components and `@EnableTransflux` auto-configuration.
+- **Manual wiring** via the `ComponentRegistry` SPI (see §4.1) — for environments without a DI framework, or for embedding Transflux in non-Spring applications.
+
+Additional DI frameworks (Guice, CDI / Weld, Dagger 2) are deferred to a Post-1.0 theme (see §7.2). The framework-agnostic abstraction proposed in earlier drafts is part of that same Post-1.0 theme; in 1.0, Spring and manual wiring share a minimal `ComponentFactory` SPI without a multi-framework abstraction layer.
 
 ### 6.2 Class Instance Factory System
-- **Component Instantiation Framework**
-    - Generic component factory interface with type safety
-    - Constructor parameter resolution and dependency injection
-    - Named component registration and retrieval mechanisms
-    - Singleton vs prototype instance management strategies
-    - Circular dependency detection and prevention
 
-- **Multi-Framework Integration**
-    - Integration with Spring ApplicationContext for Spring-based applications
-    - Integration with Google Guice Injector for Guice-based applications
-    - Integration with CDI BeanManager for CDI-based applications
-    - Fallback to reflection-based instantiation when no DI framework is available
-    - Custom factory function registration for specialized component creation
-
-- **YAML DSL Integration**
-    - Component instantiation from YAML class definitions
-    - Constructor parameter injection from YAML configuration
-    - Named component registration from YAML component libraries
-    - Factory-based component resolution during YAML parsing
-    - YAML factory configuration section support
-
-### 6.3 Enhanced Testing Framework
-- **State Machine Testing Support**
-    - Comprehensive test wrapper for state machine instances
-    - Transition path recording and tracking capabilities
-    - Context snapshot capture at key transition points
-    - Step-level execution tracking for granular testing
-    - Timing information collection for performance testing
-    - Test data builders for entities and contexts
-
-- **AssertJ-Inspired Assertion Framework**
-    - Fluent assertion API similar to Camunda's test assertions
-    - State assertions (current state, transition history verification)
-    - Transition assertions (execution outcomes, path validation)
-    - Context assertions (data verification, transformation validation)
-    - Operation assertions (execution results, compensation verification)
-    - Custom assertion extensions for domain-specific validations
-
-- **Transition Path Recording**
-    - Ordered path tracking for all executed transitions
-    - Detailed execution metadata capture (timestamps, durations, outcomes)
-    - Context state snapshots at each transition point
-    - Error and compensation action recording
-    - Configurable recording granularity (full detail vs summary)
-
-- **Testing Integration Requirements**
-    - Framework-agnostic DI container testing support
-    - Component registration and lifecycle testing capabilities
-    - Mock DI container implementations for isolated testing
-    - DI framework detection and fallback testing
-    - Performance benchmarking and regression testing support
-    - Integration with popular testing frameworks (Spock, JUnit, TestNG)
-
-**Example Usage:**
-```java
-// State machine testing with path recording
-TestStateMachine<Offer> testStateMachine = TestStateMachine.wrap(offerStateMachine);
-
-// Execute transition with recording
-TransitionResult<Offer> result = testStateMachine
-    .entity(offer)
-    .input(activationInput)
-    .transitionTo(ACTIVE);
-
-// Assert using fluent API
-TransfluxAssertions.assertThat(testStateMachine)
-    .hasExecutedTransitionPath("DRAFT", "ACTIVE")
-    .hasExecutedSteps("validate-prerequisites", "activate-milestones", "send-notifications")
-    .hasNoCompensationActions();
-
-TransfluxAssertions.assertThat(result)
-    .isSuccessful()
-    .hasTargetState(ACTIVE)
-    .hasContextValue("activatedAt", notNullValue())
-    .hasContextValue("notificationsSent", true);
-```
-
-## 7. IDE Plugin Requirements
-
-### 7.1 Overview
-
-To enhance developer productivity and provide a seamless development experience with Transflux, dedicated IDE plugins are required for JetBrains IDEs (IntelliJ IDEA, WebStorm, etc.) and VSCode-based IDEs. These plugins will provide comprehensive support for YAML-based workflow definitions, cross-language navigation, and visual workflow management.
-
-### 7.2 Target IDEs
-
-#### 7.2.1 JetBrains IDEs
-- **IntelliJ IDEA** (Ultimate and Community editions)
-- **WebStorm** and other JetBrains IDEs with YAML support
-- Plugin distributed via JetBrains Marketplace
-
-#### 7.2.2 VSCode-based IDEs
-- **Visual Studio Code**
-- **VSCodium** and other VSCode-compatible editors
-- Extension distributed via Visual Studio Marketplace and Open VSX Registry
-
-### 7.3 Core Features
-
-#### 7.3.1 Enhanced YAML Syntax Highlighting
-
-**Advanced Syntax Support:**
-- **Schema-aware highlighting**: Context-sensitive highlighting based on Transflux YAML schemas
-- **Semantic highlighting**: Different colors for states, transitions, operations, steps, and triggers
-- **Error highlighting**: Real-time validation with inline error indicators
-- **Nested structure visualization**: Indentation guides and bracket matching for complex workflows
-
-**Transflux-specific Elements:**
-- **State definitions**: Highlighting for state types (starting, intermediate, terminal)
-- **Transition configurations**: Visual distinction for transition properties and conditions
-- **Operation declarations**: Highlighting for operation types and their configurations
-- **Step definitions**: Clear visualization of step sequences and dependencies
-- **Context mappings**: Highlighting for input/output mappings and data flow
-- **Trigger configurations**: Visual distinction for different trigger types
-
-#### 7.3.2 Cross-Language Navigation
-
-**YAML to Java Navigation:**
-- **Step class references**: Navigate from YAML step definitions to corresponding Java classes
-- **Operation implementations**: Jump from YAML operation declarations to Java operation classes
-- **Context class references**: Navigate to Java context classes from YAML configurations
-- **Entity class references**: Jump to Java entity classes from state machine definitions
-- **Trigger implementations**: Navigate to Java trigger classes from YAML trigger configurations
-
-**Java to YAML Navigation:**
-- **Find usages in YAML**: Show all YAML files that reference a Java class
-- **Step usage tracking**: Find all workflows that use a specific step implementation
-- **Operation usage analysis**: Locate all state machines using a particular operation
-- **Context usage mapping**: Find YAML files that reference specific context classes
-
-**Bidirectional References:**
-- **Reference highlighting**: Highlight related elements when cursor is positioned on references
-- **Quick definition preview**: Show Java class definitions in popup when hovering over YAML references
-- **Breadcrumb navigation**: Show navigation path between related YAML and Java elements
-
-#### 7.3.3 Workflow Visualization
-
-**State Machine Diagrams:**
-- **Interactive state diagrams**: Visual representation of states and transitions
-- **Transition flow visualization**: Arrows showing possible state transitions with labels
-- **State type indicators**: Visual distinction for initial, regular, and terminal states
-- **Conditional transition paths**: Visual representation of conditional branches and decision points
-
-**Operation Flow Diagrams:**
-- **Step sequence visualization**: Flowchart representation of operation steps
-- **Conditional branching**: Decision diamonds and alternative paths
-- **Compensation flow**: Visual representation of compensation strategies
-
-**Interactive Features:**
-- **Click-to-navigate**: Click on diagram elements to navigate to corresponding code
-- **Zoom and pan**: Navigate large workflows with zoom controls
-- **Minimap overview**: Bird's-eye view of complex workflows
-- **Export capabilities**: Export diagrams as PNG, SVG, or PDF
-
-#### 7.3.4 Intelligent Code Assistance
-
-**Auto-completion:**
-- **Schema-based completion**: Context-aware suggestions based on Transflux schemas
-- **Class name completion**: Auto-complete Java class names in YAML references
-- **Property completion**: Suggest valid properties for each configuration section
-- **Value completion**: Suggest valid values for enumerated properties
-
-**Code Generation:**
-- **YAML template generation**: Generate YAML templates for common workflow patterns
-- **Java class scaffolding**: Generate Java step/operation classes from YAML definitions
-- **Context class generation**: Create context classes based on YAML input/output mappings
-- **Test class generation**: Generate test classes for workflow components
-
-**Refactoring Support:**
-- **Rename refactoring**: Rename Java classes and update all YAML references
-- **Move class refactoring**: Update YAML references when Java classes are moved
-- **Extract operation**: Extract inline operations to separate YAML files
-- **Inline operation**: Inline external operation references
-
-#### 7.3.5 Validation and Error Detection
-
-**Real-time Validation:**
-- **Schema validation**: Validate YAML against Transflux schemas
-- **Reference validation**: Verify that Java class references exist and are accessible
-- **Type compatibility**: Check input/output type compatibility between steps
-- **Circular dependency detection**: Detect and warn about circular references
-
-**Error Reporting:**
-- **Inline error markers**: Show errors directly in the editor with descriptive messages
-- **Error panel integration**: List all validation errors in IDE error panels
-- **Quick fixes**: Provide automated fixes for common validation errors
-- **Severity levels**: Distinguish between errors, warnings, and informational messages
-
-### 7.4 Advanced Features
-
-#### 7.4.1 Debugging Support
-
-**Workflow Debugging:**
-- **Breakpoint support**: Set breakpoints in YAML workflow definitions
-- **Step-by-step execution**: Debug workflow execution step by step
-- **Variable inspection**: Inspect context variables and step inputs/outputs
-- **Call stack visualization**: Show workflow execution stack
-
-**Integration with Java Debugging:**
-- **Seamless debugging**: Debug from YAML into Java code and back
-- **Context variable mapping**: Map YAML context variables to Java objects
-- **Execution flow tracking**: Track execution flow between YAML and Java components
-
-#### 7.4.2 Testing Integration
-
-**Test Generation:**
-- **Unit test scaffolding**: Generate unit tests for workflow components
-- **Integration test templates**: Create integration test templates for complete workflows
-- **Mock generation**: Generate mock objects for external dependencies
-
-**Test Execution:**
-- **Run configurations**: Create run configurations for workflow tests
-- **Test result visualization**: Show test results with workflow context
-- **Coverage reporting**: Show test coverage for workflow components
-
-#### 7.4.3 Documentation Integration
-
-**Inline Documentation:**
-- **Hover documentation**: Show documentation for workflow elements on hover
-- **Quick documentation**: Display comprehensive documentation in popup windows
-- **Schema documentation**: Show schema documentation for YAML properties
-
-**Documentation Generation:**
-- **Workflow documentation**: Generate documentation from YAML workflow definitions
-- **API documentation**: Generate API documentation for Java components
-- **Diagram export**: Export workflow diagrams for documentation
-
-### 7.5 Configuration and Customization
-
-#### 7.5.1 Plugin Configuration
-
-**Schema Configuration:**
-- **Custom schema support**: Support for custom Transflux schema extensions
-- **Schema validation levels**: Configurable validation strictness
-- **Schema update notifications**: Notify when schema updates are available
-
-**Appearance Customization:**
-- **Color scheme integration**: Integrate with IDE color schemes
-- **Custom highlighting**: Allow customization of syntax highlighting colors
-- **Diagram themes**: Multiple themes for workflow diagrams
-
-#### 7.5.2 Project Integration
-
-**Project Setup:**
-- **Project templates**: Provide project templates with Transflux configuration
-- **Build tool integration**: Integration with Maven/Gradle for schema validation
-- **Dependency management**: Assist with Transflux dependency configuration
-
-**Multi-module Support:**
-- **Cross-module navigation**: Navigate between YAML and Java across modules
-- **Module-aware validation**: Validate references across project modules
-- **Shared component libraries**: Support for shared workflow component libraries
-
-### 7.6 Performance and Scalability
-
-#### 7.6.1 Performance Requirements
-
-**Responsiveness:**
-- **Fast syntax highlighting**: Sub-100ms highlighting for typical YAML files
-- **Efficient validation**: Background validation without blocking UI
-- **Incremental parsing**: Parse only changed portions of large files
-
-**Memory Efficiency:**
-- **Lazy loading**: Load workflow diagrams and complex visualizations on demand
-- **Memory optimization**: Efficient memory usage for large workflow definitions
-- **Caching strategies**: Cache parsed schemas and validation results
-
-#### 7.6.2 Scalability
-
-**Large Project Support:**
-- **Scalable indexing**: Efficient indexing of large numbers of workflow files
-- **Fast search**: Quick search across all workflow definitions
-- **Batch operations**: Efficient batch processing for refactoring operations
-
-### 7.7 Distribution and Maintenance
-
-#### 7.7.1 Release Strategy
-
-**Version Alignment:**
-- **Transflux version compatibility**: Plugin versions aligned with Transflux library versions
-- **Backward compatibility**: Support for multiple Transflux versions
-- **Migration assistance**: Help users migrate between Transflux versions
-
-**Update Mechanism:**
-- **Automatic updates**: Automatic plugin updates through IDE update mechanisms
-- **Schema updates**: Automatic schema updates when new Transflux versions are released
-- **Feature announcements**: In-IDE notifications for new features
-
-#### 7.7.2 Support and Documentation
-
-**User Documentation:**
-- **Installation guide**: Step-by-step installation instructions
-- **Feature documentation**: Comprehensive documentation for all plugin features
-- **Video tutorials**: Video tutorials for common workflows and advanced features
-
-**Developer Resources:**
-- **Plugin API documentation**: Documentation for extending plugin functionality
-- **Contribution guidelines**: Guidelines for community contributions
-- **Issue tracking**: Public issue tracking for bug reports and feature requests
-
-## 8. Future Considerations
-
-### 8.1 Pluggable Persistence Layer
-- State machine definition storage
-- Transition history auditing
-- Entity state persistence and recovery
-
-### 8.2 Distributed Operations
-- Distributed task execution
-- Cluster-wide locking mechanisms
-- Failure handling in distributed environments
-
-### 8.3 Long-running Operations
-- Progress tracking and monitoring
-- Timeout and retry mechanisms
-- Distributed transaction support
+A minimal component factory SPI that:
+- Resolves named components from the registry.
+- Falls back to reflection-based instantiation when no DI framework is available.
+- Allows registration of custom factory functions for specialized component creation.
+- Detects circular dependencies in component graphs.
+
+YAML DSL integration with the factory:
+- Component instantiation from YAML `class:` references.
+- Constructor parameter injection from YAML configuration where supported by the underlying DI framework.
+- Named component registration from YAML component libraries.
+
+The richer multi-framework abstraction (Guice / CDI / Dagger integration, framework-agnostic adapter pattern) is part of the Post-1.0 DI Expansion theme.
+
+---
+
+## 7. Roadmap
+
+### 7.1 v1.0 Scope
+
+The 1.0 release is the **smallest useful core** of Transflux: a programmatic and YAML DSL for defining state machines with conditions, operations, steps, triggers (manual, event, host-driven data), listeners, and compensations — running in a single JVM, against host-owned in-memory entities.
+
+In-scope capabilities:
+
+- **Core abstractions** — `StateMachine`, `State`, `Transition`, `Operation` (Simple and Composite), `Step`, `Context`, `Condition` (Pre/Post), `Trigger` (Manual, Event, host-driven Data), `Listener` (state entry/exit, transition start/complete), `Compensation`.
+- **State resolver + applier** — class, lambda (Java only), and SpEL forms.
+- **Both DSLs at parity** — programmatic builder and YAML DSL cover the same surface area, including listener types and condition descriptor forms.
+- **Component library + registry** — reusable component definitions with imports (YAML) and a Java-side `ComponentRegistry`.
+- **Condition descriptor grammar** — class, predicate, expression, reference.
+- **Multi-branch conditional operations** — sequential branch evaluation with default fallback.
+- **Compensation engine** — LIFO stack, unified `Compensation<T, C>` interface, exception-specific compensation strategies.
+- **Optional Spring integration** — auto-configuration, `@EnableTransflux`, Spring-bean component discovery.
+- **Manual wiring fallback** — `ComponentRegistry` SPI.
+- **Basic metrics hooks** — pluggable `MetricsCollector` interface (no shipped Micrometer integration in 1.0).
+- **Testing** — Spock specifications against the library itself. A dedicated `TestStateMachine` harness with AssertJ-style assertions is post-1.0 and ships as a separate artifact.
+
+### 7.2 Post-1.0 Themes
+
+The themes below are deferred to one or more post-1.0 releases. They are grouped by intent rather than by sequence — actual ordering and version assignment lives in `todo.md`.
+
+- **Persistence** — pluggable state-machine definition storage, transition history auditing, entity state persistence and recovery.
+- **Distributed Execution** — clustering, distributed locks, cluster-aware triggers, cross-node coordination, failure handling in distributed environments.
+- **Trigger Expansion** — `TimerTrigger` / cron-based triggers (with Quartz Scheduler), `SignalTrigger` for framework-wide signals, automatic data-change detection (background watching, ORM integration).
+- **Long-Running / Durable Executions** — checkpoint and resume, async-first operations, progress tracking, distributed transaction support, BPMN compatibility considerations.
+- **DI Framework Expansion** — Guice, CDI (Weld), Dagger 2 integrations; framework-agnostic DI abstraction; matrix-tested compatibility.
+- **Observability** — first-party Micrometer metrics, OpenTelemetry tracing, structured logging with MDC, health-check framework, dashboard templates.
+- **Testing Framework** — `TestStateMachine` harness, transition-path recording, AssertJ-style assertion DSL — shipped as a separate artifact (`transflux-test` or similar).
+- **IDE Tooling** — JetBrains and VSCode plugins (syntax highlighting, cross-language navigation, validation, visualization). Tracked separately in `ide-plugin-roadmap.md` and likely a separate repository.
+- **Advanced DSL Features** — YAML anchors / template inheritance, parameterized components, hot reload in development mode, dynamic runtime reconfiguration (blue/green with rollback).
+- **Resilience Patterns** — Resilience4j integration, configurable retry strategies, circuit breakers, exponential backoff.
+- **Plugin System** — extension points, plugin discovery and loading, plugin lifecycle management; built-in plugins for database persistence, message-queue integration, REST API for external triggers, and monitoring/alerting.

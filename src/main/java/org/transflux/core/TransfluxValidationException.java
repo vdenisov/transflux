@@ -18,7 +18,19 @@
 
 package org.transflux.core;
 
-public class TransfluxValidationException extends RuntimeException {
+/**
+ * Thrown when the framework's definition or lookup invariants are violated.
+ * <p>
+ * Validation exceptions are raised synchronously at builder time or when a request
+ * cannot be satisfied because of a structural problem: a null entity type, an
+ * unknown state ID, a duplicate transition ID, a missing state resolver, and so on.
+ * <p>
+ * Business outcomes (failed conditions, failed steps, post-condition violations)
+ * are <strong>not</strong> reported as exceptions — they are returned through
+ * {@link TransitionResult}. Only programmer-visible misconfiguration and lookup
+ * failures throw this type.
+ */
+public class TransfluxValidationException extends TransfluxException {
     public TransfluxValidationException(String message) {
         super(message);
     }

@@ -76,6 +76,7 @@ class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private String version;
 
     private StateResolver<T> stateResolver;
+    private StateApplier<T> stateApplier;
 
     private final Map<String, StateDefImpl<T>> states = new LinkedHashMap<>();
 
@@ -89,6 +90,9 @@ class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     @Override
     public StateMachineDef<T> forEntityType(Class<T> entityType) {
+        if (entityType == null) {
+            throw new TransfluxValidationException("Entity type cannot be null");
+        }
         this.entityType = entityType;
         return this;
     }
@@ -177,6 +181,21 @@ class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
 
         this.stateResolver = stateResolver;
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> withStateApplier(StateApplier<T> stateApplier) {
+        if (stateApplier == null) {
+            throw new TransfluxValidationException("State applier cannot be null");
+        }
+
+        if (this.stateApplier != null) {
+            log.warn("State applier is already defined: {}. Overriding previous value with {}",
+                               this.stateApplier.getClass().getName(), stateApplier.getClass().getName());
+        }
+
+        this.stateApplier = stateApplier;
         return this;
     }
 
@@ -286,6 +305,10 @@ class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     public StateResolver<T> getStateResolver() {
         return stateResolver;
+    }
+
+    public StateApplier<T> getStateApplier() {
+        return stateApplier;
     }
 
     Map<String, StateDefImpl<T>> getStates() {

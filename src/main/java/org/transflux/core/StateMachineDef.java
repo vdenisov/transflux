@@ -105,7 +105,7 @@ public interface StateMachineDef<T> {
      * The state resolver is a critical component that bridges your domain entities
      * with the Transflux framework, allowing the state machine to understand the
      * current state of entities without imposing specific storage requirements.
-     * 
+     *
      * @param stateResolver the state resolver implementation
      *
      * @return this StateMachineDef instance for method chaining
@@ -113,6 +113,27 @@ public interface StateMachineDef<T> {
      * @throws TransfluxValidationException if the state resolver is null
      */
     StateMachineDef<T> withStateResolver(StateResolver<T> stateResolver);
+
+    /**
+     * Sets the state applier used to commit the new state to an entity after a successful
+     * transition.
+     * <p>
+     * The state applier is the write-side counterpart to {@link StateResolver}. The framework
+     * invokes it exactly once per successful transition, after all post-conditions have
+     * passed and immediately before {@code onComplete} listeners are notified.
+     *
+     * <p>The applier is optional. If omitted, the framework will not write back any state
+     * after a successful transition; this is appropriate for purely transient transitions
+     * where the host discards the entity post-transition, or for hosts that mutate state
+     * inside steps and do not need a separate finalization step.
+     *
+     * @param stateApplier the state applier implementation
+     *
+     * @return this StateMachineDef instance for method chaining
+     *
+     * @throws TransfluxValidationException if the state applier is null
+     */
+    StateMachineDef<T> withStateApplier(StateApplier<T> stateApplier);
 
     /**
      * Begins defining a new state in the state machine.

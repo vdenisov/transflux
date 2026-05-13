@@ -18,5 +18,5 @@
 
 package org.transflux.core;
 
-public interface Operation<T, C> {
+public interface Operation<T, C> extends Identifiable {
 }
