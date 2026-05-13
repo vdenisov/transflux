@@ -21,45 +21,45 @@ package org.transflux.core;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 
-public interface OperationlessTransitionDef<T> {
-    TransitionDef<T> withName(String name);
-    TransitionDef<T> withDescription(String description);
+public interface OperationlessTransitionDef<T, C> {
+    TransitionDef<T, C> withName(String name);
+    TransitionDef<T, C> withDescription(String description);
 
     // Add pre-condition from library, when component library is implemented
-    TransitionDef<T> addPreCondition(String conditionId);
+    TransitionDef<T, C> addPreCondition(String conditionId);
     // Add pre-condition by predicate
-    TransitionDef<T> addPreCondition(Predicate<T> preCondition);
+    TransitionDef<T, C> addPreCondition(Predicate<T> preCondition);
     //
-    TransitionDef<T> addPreCondition(String id, Predicate<T> preCondition);
+    TransitionDef<T, C> addPreCondition(String id, Predicate<T> preCondition);
     // TODO: expression support
-    //TransitionDef<T> addPreCondition(Expression preConditionExpression);
-    //TransitionDef<T> addPreCondition(String id, Expression preConditionExpression);
+    //TransitionDef<T, C> addPreCondition(Expression preConditionExpression);
+    //TransitionDef<T, C> addPreCondition(String id, Expression preConditionExpression);
 
     // TODO: Select condition by id from library, when component library is implemented
-    //TransitionDef<T> addPostCondition(String conditionId);
-    TransitionDef<T> addPostCondition(Predicate<T> postCondition);
-    TransitionDef<T> addPostCondition(String id, Predicate<T> postCondition);
+    //TransitionDef<T, C> addPostCondition(String conditionId);
+    TransitionDef<T, C> addPostCondition(Predicate<T> postCondition);
+    TransitionDef<T, C> addPostCondition(String id, Predicate<T> postCondition);
     // TODO: expression support
-    //TransitionDef<T> addPostCondition(Expression postConditionExpression);
-    //TransitionDef<T> addPostCondition(String id, Expression postConditionExpression);
+    //TransitionDef<T, C> addPostCondition(Expression postConditionExpression);
+    //TransitionDef<T, C> addPostCondition(String id, Expression postConditionExpression);
 
-    TransitionDef<T> addManualTrigger();
-    TransitionDef<T> addManualTrigger(String id);
+    TransitionDef<T, C> addManualTrigger();
+    TransitionDef<T, C> addManualTrigger(String id);
 
-    TransitionDef<T> addEventTrigger(String id);
-    TransitionDef<T> addEventTrigger(String id, String eventId);
-    TransitionDef<T> addEventTrigger(Identifiable event);
-    TransitionDef<T> addEventTrigger(String id, Identifiable event);
-    TransitionDef<T> addEventTrigger(BiPredicate<String, T> condition);
-    TransitionDef<T> addEventTrigger(String id, BiPredicate<String, T> condition);
+    TransitionDef<T, C> addEventTrigger(String id);
+    TransitionDef<T, C> addEventTrigger(String id, String eventId);
+    TransitionDef<T, C> addEventTrigger(Identifiable event);
+    TransitionDef<T, C> addEventTrigger(String id, Identifiable event);
+    TransitionDef<T, C> addEventTrigger(BiPredicate<String, T> condition);
+    TransitionDef<T, C> addEventTrigger(String id, BiPredicate<String, T> condition);
     // TODO: expression support
-    //TransitionDef<T> addEventTrigger(Expression conditionExpression);
-    //TransitionDef<T> addEventTrigger(String id, Expression conditionExpression);
+    //TransitionDef<T, C> addEventTrigger(Expression conditionExpression);
+    //TransitionDef<T, C> addEventTrigger(String id, Expression conditionExpression);
 
-    TransitionDef<T> addDataTrigger(String id);
-    TransitionDef<T> addDataTrigger(Predicate<T> condition);
-    TransitionDef<T> addDataTrigger(String id, Predicate<T> condition);
+    TransitionDef<T, C> addDataTrigger(String id);
+    TransitionDef<T, C> addDataTrigger(Predicate<T> condition);
+    TransitionDef<T, C> addDataTrigger(String id, Predicate<T> condition);
     // TODO: expression support
-    //TransitionDef<T> addDataTrigger(Expression conditionExpression);
-    //TransitionDef<T> addDataTrigger(String id, Expression conditionExpression);
+    //TransitionDef<T, C> addDataTrigger(Expression conditionExpression);
+    //TransitionDef<T, C> addDataTrigger(String id, Expression conditionExpression);
 }

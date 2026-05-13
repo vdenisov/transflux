@@ -19,21 +19,29 @@
 package org.transflux.core;
 
 /**
- * Default implementation of the {@link Transition} interface.
+ * Default implementation of the {@link Transition} interface — the static-topology view.
  * <p>
  * This implementation provides a straightforward concrete transition that can be constructed
  * from a {@link TransitionDef} definition. It stores the transition's identifier, source
  * state ID, and target state ID as immutable properties and provides standard implementations
  * for equality and hash code based on the transition identifier.
- * 
+ *
+ * <p>One {@code TransitionImpl} is created per declared transition during state machine
+ * construction and is shared across all executions. The per-execution wrapper that supports
+ * {@link Transition#step(String)} is {@code TransitionView}, built fresh for each execution
+ * by {@code StateMachineImpl}.
+ *
  * <p>{@code TransitionImpl} instances are typically created internally by the framework during
  * state machine construction and should not be instantiated directly by client code.
- * 
+ *
+ * @param <T> the entity type the enclosing state machine manages
+ * @param <C> the host-supplied context type carried through transition execution
  */
-public class TransitionImpl<T> implements Transition<T> {
+public class TransitionImpl<T, C> implements Transition<T, C> {
     private final String id;
     private final String sourceStateId;
     private final String targetStateId;
+    private final BoundOperation<T, C> boundOperation;
 
     /**
      * Constructs a new TransitionImpl from the provided transition definition.
@@ -41,26 +49,27 @@ public class TransitionImpl<T> implements Transition<T> {
      * This package-private constructor is used internally by the framework to create
      * transition instances during state machine construction. It validates the transition
      * definition and extracts the necessary properties.
-     * 
+     *
      * @param transitionDef the transition definition to construct this transition from
      *
      * @throws TransfluxValidationException if the transition definition is null or has invalid properties
      */
-    TransitionImpl(TransitionDef<T> transitionDef) {
+    TransitionImpl(TransitionDefImpl<T, C> transitionDef) {
         validateTransitionDef(transitionDef);
         this.id = transitionDef.getId();
         this.sourceStateId = transitionDef.getSourceStateId();
         this.targetStateId = transitionDef.getTargetStateId();
+        this.boundOperation = transitionDef.buildBoundOperation();
     }
 
     /**
      * Validates the provided transition definition to ensure it contains valid properties.
-     * 
+     *
      * @param transitionDef the transition definition to validate
      *
      * @throws TransfluxValidationException if the transition definition is null or has invalid properties
      */
-    private void validateTransitionDef(TransitionDef<T> transitionDef) {
+    private void validateTransitionDef(TransitionDefImpl<T, C> transitionDef) {
         if (transitionDef == null) {
             throw new TransfluxValidationException("Transition definition cannot be null");
         }
@@ -103,10 +112,19 @@ public class TransitionImpl<T> implements Transition<T> {
     }
 
     @Override
+    public void step(String id) {
+        throw new TransfluxValidationException("Step invocation is only valid during transition execution");
+    }
+
+    BoundOperation<T, C> getBoundOperation() {
+        return boundOperation;
+    }
+
+    @Override
     public final boolean equals(Object o) {
         if (!(o instanceof TransitionImpl)) return false;
 
-        TransitionImpl<?> that = (TransitionImpl<?>) o;
+        TransitionImpl<?, ?> that = (TransitionImpl<?, ?>) o;
         return id.equals(that.id);
     }
 

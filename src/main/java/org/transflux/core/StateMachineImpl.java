@@ -33,11 +33,13 @@ import java.util.stream.Collectors;
  *
  * <p><b>Note:</b> This is currently a placeholder implementation that will be enhanced
  * with full state machine functionality in future versions.
- * 
+ *
  * @param <T> the type of entity managed by this state machine
+ * @param <C> the host-supplied context type carried through transition execution
  */
-public class StateMachineImpl<T> implements StateMachine<T> {
+public class StateMachineImpl<T, C> implements StateMachine<T, C> {
     private final Class<T> entityType;
+    private final Class<C> contextType;
 
     private final String name;
     private final String description;
@@ -47,7 +49,7 @@ public class StateMachineImpl<T> implements StateMachine<T> {
     private final StateApplier<T> stateApplier;
 
     private final Map<String, State<T>> states = new LinkedHashMap<>();
-    private final Map<String, Transition<T>> transitions = new LinkedHashMap<>();
+    private final Map<String, TransitionImpl<T, C>> transitions = new LinkedHashMap<>();
 
     /**
      * Constructs a new StateMachineImpl from the provided state machine definition.
@@ -55,13 +57,14 @@ public class StateMachineImpl<T> implements StateMachine<T> {
      * This constructor initializes the state machine with all necessary components
      * including entity type, metadata, state resolver, and collections of states
      * and transitions created from their respective definitions.
-     * 
+     *
      * @param def the state machine definition to construct this state machine from
      *
      * @throws TransfluxValidationException if the definition is null or invalid
      */
-    StateMachineImpl(StateMachineDefImpl<T> def) {
+    StateMachineImpl(StateMachineDefImpl<T, C> def) {
         this.entityType = def.getEntityType();
+        this.contextType = def.getContextType();
         this.name = def.getName();
         this.description = def.getDescription();
         this.version = def.getVersion();
@@ -77,7 +80,7 @@ public class StateMachineImpl<T> implements StateMachine<T> {
 
     /**
      * Returns the entity type managed by this state machine.
-     * 
+     *
      * @return the entity class type
      */
     public Class<T> getEntityType() {
@@ -85,8 +88,17 @@ public class StateMachineImpl<T> implements StateMachine<T> {
     }
 
     /**
+     * Returns the context type carried through transitions in this state machine.
+     *
+     * @return the context class type, may be {@code null} if not configured
+     */
+    public Class<C> getContextType() {
+        return contextType;
+    }
+
+    /**
      * Returns the human-readable name of this state machine.
-     * 
+     *
      * @return the name of the state machine, may be {@code null}
      */
     public String getName() {
@@ -95,7 +107,7 @@ public class StateMachineImpl<T> implements StateMachine<T> {
 
     /**
      * Returns the description of this state machine.
-     * 
+     *
      * @return the description of the state machine, may be {@code null}
      */
     public String getDescription() {
@@ -104,7 +116,7 @@ public class StateMachineImpl<T> implements StateMachine<T> {
 
     /**
      * Returns the version of this state machine definition.
-     * 
+     *
      * @return the version string, may be {@code null}
      */
     public String getVersion() {
@@ -131,7 +143,7 @@ public class StateMachineImpl<T> implements StateMachine<T> {
 
     /**
      * Returns an immutable map of all states defined in this state machine.
-     * 
+     *
      * @return a map of state IDs to state instances
      */
     public Map<String, State<T>> getStates() {
@@ -143,63 +155,26 @@ public class StateMachineImpl<T> implements StateMachine<T> {
      *
      * @return a map of transition IDs to transition instances
      */
-    public Map<String, Transition<T>> getTransitions() {
+    public Map<String, TransitionImpl<T, C>> getTransitions() {
         return transitions;
     }
 
     @Override
-    public TransitionResult<T> executeTransition(T entity, String targetStateId) {
+    public EntityBinding<T, C> entity(T entity) {
         if (entity == null) {
             throw new TransfluxValidationException("Entity cannot be null");
         }
-        if (targetStateId == null || targetStateId.isBlank()) {
-            throw new TransfluxValidationException("Target state ID cannot be null or blank");
-        }
-
-        // Resolve current state
-        String currentStateId = resolveCurrentState(entity);
-
-        // Find transition(s) from current to target state
-        Transition<T> transition = findTransition(currentStateId, targetStateId);
-
-        // Execute the transition
-        return executeTransitionInternal(entity, transition);
+        return new EntityBindingImpl(entity);
     }
 
     @Override
-    public TransitionResult<T> executeTransition(T entity, String targetStateId, String transitionId) {
-        if (entity == null) {
-            throw new TransfluxValidationException("Entity cannot be null");
-        }
-        if (targetStateId == null || targetStateId.isBlank()) {
-            throw new TransfluxValidationException("Target state ID cannot be null or blank");
-        }
-        if (transitionId == null || transitionId.isBlank()) {
-            throw new TransfluxValidationException("Transition ID cannot be null or blank");
-        }
+    public TransitionResult<T, C> executeTransition(T entity, String targetStateId) {
+        return entity(entity).transitionTo(targetStateId);
+    }
 
-        // Resolve current state
-        String currentStateId = resolveCurrentState(entity);
-
-        // Get the specific transition
-        Transition<T> transition = getTransition(transitionId);
-
-        // Verify the transition matches the expected source and target
-        if (!transition.getSourceStateId().equals(currentStateId)) {
-            throw new TransfluxValidationException(
-                String.format("Entity is in state '%s' but transition '%s' requires source state '%s'",
-                           currentStateId, transitionId, transition.getSourceStateId())
-            );
-        }
-        if (!transition.getTargetStateId().equals(targetStateId)) {
-            throw new TransfluxValidationException(
-                String.format("Transition '%s' leads to state '%s' but target state '%s' was requested",
-                           transitionId, transition.getTargetStateId(), targetStateId)
-            );
-        }
-
-        // Execute the transition
-        return executeTransitionInternal(entity, transition);
+    @Override
+    public TransitionResult<T, C> executeTransition(T entity, String targetStateId, String transitionId) {
+        return entity(entity).transitionTo(targetStateId, transitionId);
     }
 
     @Override
@@ -246,12 +221,12 @@ public class StateMachineImpl<T> implements StateMachine<T> {
     }
 
     @Override
-    public Transition<T> getTransition(String transitionId) {
+    public Transition<T, C> getTransition(String transitionId) {
         if (transitionId == null || transitionId.isBlank()) {
             throw new TransfluxValidationException("Transition ID cannot be null or blank");
         }
 
-        Transition<T> transition = transitions.get(transitionId);
+        Transition<T, C> transition = transitions.get(transitionId);
         if (transition == null) {
             throw new TransfluxValidationException("Transition '" + transitionId + "' does not exist");
         }
@@ -264,10 +239,12 @@ public class StateMachineImpl<T> implements StateMachine<T> {
      *
      * @param sourceStateId the source state ID
      * @param targetStateId the target state ID
+     *
      * @return the transition
+     *
      * @throws TransfluxValidationException if no transition exists or multiple transitions exist
      */
-    private Transition<T> findTransition(String sourceStateId, String targetStateId) {
+    private TransitionImpl<T, C> findTransition(String sourceStateId, String targetStateId) {
         // Filter transitions by source and target
         var matchingTransitions = transitions.values().stream()
             .filter(t -> t.getSourceStateId().equals(sourceStateId)
@@ -293,16 +270,16 @@ public class StateMachineImpl<T> implements StateMachine<T> {
     }
 
     /**
-     * Executes a transition, handling the full lifecycle including operation execution.
-     * <p>
-     * This is a basic implementation that will be enhanced with pre-conditions,
-     * post-conditions, listeners, and error handling in future phases.
+     * Executes a transition, handling the full lifecycle.
      *
      * @param entity the entity to transition
+     * @param context the host-supplied context object, may be {@code null}
      * @param transition the transition to execute
+     *
      * @return the transition result
      */
-    private TransitionResult<T> executeTransitionInternal(T entity, Transition<T> transition) {
+    private TransitionResult<T, C> executeTransitionInternal(T entity, C context,
+                                                             TransitionImpl<T, C> transition) {
         String sourceStateId = transition.getSourceStateId();
         String targetStateId = transition.getTargetStateId();
         String transitionId = transition.getId();
@@ -310,24 +287,81 @@ public class StateMachineImpl<T> implements StateMachine<T> {
         Instant startedAt = Instant.now();
 
         try {
-            // TODO: Execute pre-conditions
-            // TODO: Notify transition start listeners (and source-state onExit)
-            // TODO: Execute operation if present
-            // TODO: Execute post-conditions
+            TransitionView<T, C> view = new TransitionView<>(transition, entity, context);
+
+            // TODO: pre-condition evaluation against `view`.
+            // TODO: notifyStart(view) seam.
+            // TODO: invoke transition.getBoundOperation().getOperation().execute(entity, context, view).
+            // TODO: post-condition evaluation against `view`.
+            assert view != null;
 
             if (stateApplier != null) {
                 stateApplier.applyState(entity, targetStateId);
             }
 
-            // TODO: Notify transition complete listeners (and target-state onEntry)
+            // TODO: notifyComplete(view) seam.
 
             return TransitionResult.success(entity, sourceStateId, targetStateId, transitionId,
                     startedAt, Instant.now());
 
         } catch (Exception e) {
-            // TODO: Execute compensation logic
+            // TODO: run the compensation stack here.
             return TransitionResult.failure(entity, sourceStateId, targetStateId, transitionId, e,
                     startedAt, Instant.now());
+        }
+    }
+
+    private class EntityBindingImpl implements EntityBinding<T, C> {
+        private final T entity;
+        private C context;
+
+        EntityBindingImpl(T entity) {
+            this.entity = entity;
+        }
+
+        @Override
+        public EntityBinding<T, C> withContext(C context) {
+            this.context = context;
+            return this;
+        }
+
+        @Override
+        public TransitionResult<T, C> transitionTo(String targetStateId) {
+            if (targetStateId == null || targetStateId.isBlank()) {
+                throw new TransfluxValidationException("Target state ID cannot be null or blank");
+            }
+
+            String currentStateId = resolveCurrentState(entity);
+            TransitionImpl<T, C> transition = findTransition(currentStateId, targetStateId);
+            return executeTransitionInternal(entity, context, transition);
+        }
+
+        @Override
+        public TransitionResult<T, C> transitionTo(String targetStateId, String transitionId) {
+            if (targetStateId == null || targetStateId.isBlank()) {
+                throw new TransfluxValidationException("Target state ID cannot be null or blank");
+            }
+            if (transitionId == null || transitionId.isBlank()) {
+                throw new TransfluxValidationException("Transition ID cannot be null or blank");
+            }
+
+            String currentStateId = resolveCurrentState(entity);
+            Transition<T, C> abstractTransition = StateMachineImpl.this.getTransition(transitionId);
+
+            if (!abstractTransition.getSourceStateId().equals(currentStateId)) {
+                throw new TransfluxValidationException(
+                    String.format("Entity is in state '%s' but transition '%s' requires source state '%s'",
+                               currentStateId, transitionId, abstractTransition.getSourceStateId())
+                );
+            }
+            if (!abstractTransition.getTargetStateId().equals(targetStateId)) {
+                throw new TransfluxValidationException(
+                    String.format("Transition '%s' leads to state '%s' but target state '%s' was requested",
+                               transitionId, abstractTransition.getTargetStateId(), targetStateId)
+                );
+            }
+
+            return executeTransitionInternal(entity, context, (TransitionImpl<T, C>) abstractTransition);
         }
     }
 }

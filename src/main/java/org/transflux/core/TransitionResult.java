@@ -37,9 +37,14 @@ import java.util.List;
  * are reported through this type. Configuration and lookup errors throw
  * {@link TransfluxValidationException} synchronously.
  *
+ * <p>The {@code <C>} parameter is carried for type-system symmetry with the rest of the
+ * core surface (so {@code TransitionResult<Order, OrderContext>} reads consistently with
+ * {@code StateMachine<Order, OrderContext>}); the context object itself is not stored in
+ * the result.
+ *
  * <p><b>Example usage:</b>
  * <pre>{@code
- * TransitionResult<Order> result = stateMachine.executeTransition(order, "processing");
+ * TransitionResult<Order, OrderContext> result = stateMachine.executeTransition(order, "processing");
  *
  * if (result.isSuccess()) {
  *     log.info("Transitioned {} -> {} in {} via {}",
@@ -51,8 +56,9 @@ import java.util.List;
  * }</pre>
  *
  * @param <T> the type of entity involved in the transition
+ * @param <C> the host-supplied context type carried through transition execution
  */
-public class TransitionResult<T> {
+public class TransitionResult<T, C> {
     private final boolean success;
     private final T entity;
     private final String sourceStateId;
@@ -93,6 +99,7 @@ public class TransitionResult<T> {
      * and empty step lists. Intended for early-phase use where no steps have executed yet.
      *
      * @param <T> the type of entity
+     * @param <C> the host-supplied context type carried through transition execution
      * @param entity the entity that underwent the transition
      * @param sourceStateId the ID of the source state
      * @param targetStateId the ID of the target state
@@ -100,8 +107,8 @@ public class TransitionResult<T> {
      *
      * @return a successful TransitionResult
      */
-    public static <T> TransitionResult<T> success(T entity, String sourceStateId,
-                                                   String targetStateId, String transitionId) {
+    public static <T, C> TransitionResult<T, C> success(T entity, String sourceStateId,
+                                                        String targetStateId, String transitionId) {
         Instant now = Instant.now();
         return success(entity, sourceStateId, targetStateId, transitionId, now, now);
     }
@@ -110,6 +117,7 @@ public class TransitionResult<T> {
      * Creates a successful transition result with explicit timestamps and empty step lists.
      *
      * @param <T> the type of entity
+     * @param <C> the host-supplied context type carried through transition execution
      * @param entity the entity that underwent the transition
      * @param sourceStateId the ID of the source state
      * @param targetStateId the ID of the target state
@@ -119,9 +127,9 @@ public class TransitionResult<T> {
      *
      * @return a successful TransitionResult
      */
-    public static <T> TransitionResult<T> success(T entity, String sourceStateId,
-                                                   String targetStateId, String transitionId,
-                                                   Instant startedAt, Instant completedAt) {
+    public static <T, C> TransitionResult<T, C> success(T entity, String sourceStateId,
+                                                        String targetStateId, String transitionId,
+                                                        Instant startedAt, Instant completedAt) {
         return new TransitionResult<>(true, entity, sourceStateId, targetStateId, transitionId,
                 null, null, null, startedAt, completedAt);
     }
@@ -130,6 +138,7 @@ public class TransitionResult<T> {
      * Creates a successful transition result with full execution metadata.
      *
      * @param <T> the type of entity
+     * @param <C> the host-supplied context type carried through transition execution
      * @param entity the entity that underwent the transition
      * @param sourceStateId the ID of the source state
      * @param targetStateId the ID of the target state
@@ -140,10 +149,10 @@ public class TransitionResult<T> {
      *
      * @return a successful TransitionResult
      */
-    public static <T> TransitionResult<T> success(T entity, String sourceStateId,
-                                                   String targetStateId, String transitionId,
-                                                   List<String> executedStepIds,
-                                                   Instant startedAt, Instant completedAt) {
+    public static <T, C> TransitionResult<T, C> success(T entity, String sourceStateId,
+                                                        String targetStateId, String transitionId,
+                                                        List<String> executedStepIds,
+                                                        Instant startedAt, Instant completedAt) {
         return new TransitionResult<>(true, entity, sourceStateId, targetStateId, transitionId,
                 null, executedStepIds, null, startedAt, completedAt);
     }
@@ -152,6 +161,7 @@ public class TransitionResult<T> {
      * Creates a failed transition result with default timing and empty step lists.
      *
      * @param <T> the type of entity
+     * @param <C> the host-supplied context type carried through transition execution
      * @param entity the entity for which the transition failed
      * @param sourceStateId the ID of the source state
      * @param targetStateId the ID of the target state (may be {@code null})
@@ -160,9 +170,9 @@ public class TransitionResult<T> {
      *
      * @return a failed TransitionResult
      */
-    public static <T> TransitionResult<T> failure(T entity, String sourceStateId,
-                                                   String targetStateId, String transitionId,
-                                                   Throwable error) {
+    public static <T, C> TransitionResult<T, C> failure(T entity, String sourceStateId,
+                                                        String targetStateId, String transitionId,
+                                                        Throwable error) {
         Instant now = Instant.now();
         return failure(entity, sourceStateId, targetStateId, transitionId, error, now, now);
     }
@@ -171,6 +181,7 @@ public class TransitionResult<T> {
      * Creates a failed transition result with explicit timestamps and empty step lists.
      *
      * @param <T> the type of entity
+     * @param <C> the host-supplied context type carried through transition execution
      * @param entity the entity for which the transition failed
      * @param sourceStateId the ID of the source state
      * @param targetStateId the ID of the target state (may be {@code null})
@@ -181,10 +192,10 @@ public class TransitionResult<T> {
      *
      * @return a failed TransitionResult
      */
-    public static <T> TransitionResult<T> failure(T entity, String sourceStateId,
-                                                   String targetStateId, String transitionId,
-                                                   Throwable error,
-                                                   Instant startedAt, Instant completedAt) {
+    public static <T, C> TransitionResult<T, C> failure(T entity, String sourceStateId,
+                                                        String targetStateId, String transitionId,
+                                                        Throwable error,
+                                                        Instant startedAt, Instant completedAt) {
         return new TransitionResult<>(false, entity, sourceStateId, targetStateId, transitionId,
                 error, null, null, startedAt, completedAt);
     }
@@ -194,6 +205,7 @@ public class TransitionResult<T> {
      * the steps that ran and the compensations that were executed during rollback.
      *
      * @param <T> the type of entity
+     * @param <C> the host-supplied context type carried through transition execution
      * @param entity the entity for which the transition failed
      * @param sourceStateId the ID of the source state
      * @param targetStateId the ID of the target state (may be {@code null})
@@ -206,12 +218,12 @@ public class TransitionResult<T> {
      *
      * @return a failed TransitionResult
      */
-    public static <T> TransitionResult<T> failure(T entity, String sourceStateId,
-                                                   String targetStateId, String transitionId,
-                                                   Throwable error,
-                                                   List<String> executedStepIds,
-                                                   List<String> compensatedStepIds,
-                                                   Instant startedAt, Instant completedAt) {
+    public static <T, C> TransitionResult<T, C> failure(T entity, String sourceStateId,
+                                                        String targetStateId, String transitionId,
+                                                        Throwable error,
+                                                        List<String> executedStepIds,
+                                                        List<String> compensatedStepIds,
+                                                        Instant startedAt, Instant completedAt) {
         return new TransitionResult<>(false, entity, sourceStateId, targetStateId, transitionId,
                 error, executedStepIds, compensatedStepIds, startedAt, completedAt);
     }
@@ -248,7 +260,7 @@ public class TransitionResult<T> {
      * Returns the ordered list of step IDs that executed during the transition.
      * <p>
      * The list is unmodifiable and reflects steps in the order they ran. Empty when
-     * no steps executed (including in Phase 1 stub transitions that do not run steps).
+     * no steps executed.
      *
      * @return the executed step IDs; never {@code null}
      */

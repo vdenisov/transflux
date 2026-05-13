@@ -26,7 +26,7 @@ class StateImplSpec extends Specification {
     def 'constructor should create DefaultState with valid StateDef'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def stateDef = new StateDefImpl<Object>(smd, 'state1')
+        def stateDef = new StateDefImpl<Object, Object>(smd, 'state1')
             .withName('State Name')
             .withDescription('State Description')
 
@@ -52,7 +52,7 @@ class StateImplSpec extends Specification {
     def 'getter #getter should return #expected'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def stateDef = new StateDefImpl<Object>(smd, id)
+        def stateDef = new StateDefImpl<Object, Object>(smd, id)
         if (name != null) {
             stateDef = stateDef.withName(name)
         }
@@ -79,7 +79,7 @@ class StateImplSpec extends Specification {
     def 'toString should include all fields'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def stateDef = new StateDefImpl<Object>(smd, 'state1')
+        def stateDef = new StateDefImpl<Object, Object>(smd, 'state1')
             .withName('Test Name')
             .withDescription('Test Description')
         def state = new StateImpl(stateDef)
@@ -94,8 +94,8 @@ class StateImplSpec extends Specification {
     def 'equals should return true for states with same ID'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def stateDef1 = new StateDefImpl<Object>(smd, 'same-id').withName('Name1')
-        def stateDef2 = new StateDefImpl<Object>(smd, 'same-id').withName('Name2')
+        def stateDef1 = new StateDefImpl<Object, Object>(smd, 'same-id').withName('Name1')
+        def stateDef2 = new StateDefImpl<Object, Object>(smd, 'same-id').withName('Name2')
         def state1 = new StateImpl(stateDef1)
         def state2 = new StateImpl(stateDef2)
 
@@ -109,8 +109,8 @@ class StateImplSpec extends Specification {
     def 'equals should return false for states with different IDs'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def stateDef1 = new StateDefImpl<Object>(smd, 'id1')
-        def stateDef2 = new StateDefImpl<Object>(smd, 'id2')
+        def stateDef1 = new StateDefImpl<Object, Object>(smd, 'id1')
+        def stateDef2 = new StateDefImpl<Object, Object>(smd, 'id2')
         def state1 = new StateImpl(stateDef1)
         def state2 = new StateImpl(stateDef2)
 
@@ -125,7 +125,7 @@ class StateImplSpec extends Specification {
     def 'equals should return false for #description'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def stateDef = new StateDefImpl<Object>(smd, 'state1')
+        def stateDef = new StateDefImpl<Object, Object>(smd, 'state1')
         def state = new StateImpl(stateDef)
 
         when:
@@ -143,8 +143,8 @@ class StateImplSpec extends Specification {
     def 'hashCode should return same value for states with same ID'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def stateDef1 = new StateDefImpl<Object>(smd, 'same-id').withName('Name1')
-        def stateDef2 = new StateDefImpl<Object>(smd, 'same-id').withName('Name2')
+        def stateDef1 = new StateDefImpl<Object, Object>(smd, 'same-id').withName('Name1')
+        def stateDef2 = new StateDefImpl<Object, Object>(smd, 'same-id').withName('Name2')
         def state1 = new StateImpl(stateDef1)
         def state2 = new StateImpl(stateDef2)
 
@@ -159,8 +159,8 @@ class StateImplSpec extends Specification {
     def 'hashCode should return different values for states with different IDs'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def stateDef1 = new StateDefImpl<Object>(smd, 'id1')
-        def stateDef2 = new StateDefImpl<Object>(smd, 'id2')
+        def stateDef1 = new StateDefImpl<Object, Object>(smd, 'id1')
+        def stateDef2 = new StateDefImpl<Object, Object>(smd, 'id2')
         def state1 = new StateImpl(stateDef1)
         def state2 = new StateImpl(stateDef2)
 

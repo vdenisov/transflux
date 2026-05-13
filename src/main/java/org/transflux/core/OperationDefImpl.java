@@ -18,12 +18,52 @@
 
 package org.transflux.core;
 
-public class OperationDefImpl<T, C> implements OperationDef<T, C> {
-    private final Class<T> entityClass;
-    private final Class<C> contextClass;
+/**
+ * Package-private base for concrete {@link OperationDef} implementations.
+ * <p>
+ * Holds the metadata shared by every concrete operation def kind. The mandatory {@code id}
+ * is validated in the constructor; {@code name} and {@code description} are optional and can
+ * be set through fluent setters that subclasses expose with a covariant return type.
+ *
+ * @param <T> the entity type the surrounding state machine manages
+ * @param <C> the host-supplied context type carried through transition execution
+ */
+abstract class OperationDefImpl<T, C> implements OperationDef<T, C> {
+    private final String id;
+    private String name;
+    private String description;
 
-    OperationDefImpl(Class<T> entityClass, Class<C> contextClass) {
-        this.entityClass = entityClass;
-        this.contextClass = contextClass;
+    OperationDefImpl(String id) {
+        if (id == null || id.isBlank()) {
+            throw new TransfluxValidationException("Operation ID cannot be null or blank");
+        }
+        this.id = id;
+    }
+
+    @Override
+    public final String getId() {
+        return id;
+    }
+
+    @Override
+    public final String getName() {
+        return name;
+    }
+
+    @Override
+    public final String getDescription() {
+        return description;
+    }
+
+    @Override
+    public OperationDef<T, C> name(String name) {
+        this.name = name;
+        return this;
+    }
+
+    @Override
+    public OperationDef<T, C> description(String description) {
+        this.description = description;
+        return this;
     }
 }

@@ -28,9 +28,10 @@ package org.transflux.core;
  * transitions are registered through the fluent API and should not be
  * instantiated directly by client code.
  *
- * @param <T> the type of business entity used by the state machine this transition belongs to
+ * @param <T> the entity type managed by the enclosing state machine
+ * @param <C> the host-supplied context type carried through transition execution
  */
-public interface TransitionDef<T> extends OperationlessTransitionDef<T>, Identifiable {
+public interface TransitionDef<T, C> extends OperationlessTransitionDef<T, C>, Identifiable {
 
     /**
      * Returns the unique identifier of this transition.
@@ -54,12 +55,36 @@ public interface TransitionDef<T> extends OperationlessTransitionDef<T>, Identif
      */
     String getTargetStateId();
 
-    // TODO: Select operation by id from library, when component library is implemented
-    //OperationlessTransitionDef<T> operation(String id);
-    //OperationlessTransitionDef<T> operation(Identifiable operation);
+    /**
+     * Opens a fluent {@link SimpleOperationDef} for this transition. The caller must call
+     * {@code .using(...)} on the returned def before the enclosing state machine is built;
+     * the def auto-registers itself with this transition.
+     *
+     * @param id the operation id
+     *
+     * @return a {@code SimpleOperationDef} bound to this transition
+     */
+    SimpleOperationDef<T, C> operation(String id);
 
-    <C> OperationlessTransitionDef<T> operation(Class<Operation<T, C>> simpleOperationClass);
-    <C> OperationlessTransitionDef<T> operation(Operation<T, C> simpleOperation);
+    /**
+     * Convenience: registers a simple operation by id and instance in one call.
+     *
+     * @param id the operation id
+     * @param operation the operation instance
+     *
+     * @return this transition def for chaining
+     */
+    TransitionDef<T, C> operation(String id, Operation<T, C> operation);
+
+    /**
+     * Convenience: registers a simple operation by id and class in one call.
+     *
+     * @param id the operation id
+     * @param operationClass the operation class (must have a public no-arg constructor)
+     *
+     * @return this transition def for chaining
+     */
+    TransitionDef<T, C> operation(String id, Class<? extends Operation<T, C>> operationClass);
 
     // TODO: composite operations
 }

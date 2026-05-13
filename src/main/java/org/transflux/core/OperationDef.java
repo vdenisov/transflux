@@ -18,6 +18,59 @@
 
 package org.transflux.core;
 
-public interface OperationDef<T, C> {
+/**
+ * Def-side anchor for an operation attached to a transition.
+ * <p>
+ * {@code OperationDef} carries the framework-owned identity and metadata that pure
+ * {@link Operation} executables do not. Two concrete sub-types exist: {@code SimpleOperationDef}
+ * (a single {@code Operation} class or instance) and {@code CompositeOperationDef}
+ * (an ordered list of bound steps).
+ *
+ * <p>The {@code id} is mandatory and must be unique within its enclosing transition.
+ * {@code name} and {@code description} are optional metadata for diagnostics and tooling.
+ *
+ * @param <T> the entity type the surrounding state machine manages
+ * @param <C> the host-supplied context type carried through transition execution
+ */
+public interface OperationDef<T, C> extends Identifiable {
 
+    /**
+     * Returns the unique identifier of this operation def.
+     *
+     * @return the operation id; never {@code null} or blank
+     */
+    @Override
+    String getId();
+
+    /**
+     * Returns the human-readable name of this operation, or {@code null} when unset.
+     *
+     * @return the optional operation name
+     */
+    String getName();
+
+    /**
+     * Returns the description of this operation, or {@code null} when unset.
+     *
+     * @return the optional operation description
+     */
+    String getDescription();
+
+    /**
+     * Sets the human-readable name of this operation.
+     *
+     * @param name the name; may be {@code null} to clear
+     *
+     * @return this def for chaining
+     */
+    OperationDef<T, C> name(String name);
+
+    /**
+     * Sets the description of this operation.
+     *
+     * @param description the description; may be {@code null} to clear
+     *
+     * @return this def for chaining
+     */
+    OperationDef<T, C> description(String description);
 }

@@ -27,14 +27,14 @@ import org.slf4j.LoggerFactory;
  * {@link StateDef} provides a fluent API for configuring state properties such as name,
  * description, and outgoing transitions. It serves as part of the declarative
  * DSL for building state machines in a readable and maintainable way.
- * 
+ *
  * <p>This class supports method chaining to allow for concise state machine
  * definitions, enabling you to define states, their metadata, and their
  * transitions in a single fluent expression.
- * 
+ *
  * <p><b>Example usage:</b>
  * <pre>{@code
- * StateMachine<Order> orderSM = Transflux.defineStateMachine()
+ * StateMachine<Order, OrderContext> orderSM = Transflux.defineStateMachine()
  *     .forEntityType(Order.class)
  *     .withStateResolver(order -> order.getStatus())
  *     .state("pending")
@@ -47,30 +47,31 @@ import org.slf4j.LoggerFactory;
  *         .transitionsTo("shipped", "ship-order")
  *     .build();
  * }</pre>
- * 
+ *
  * @param <T> the type of entity managed by the state machine
+ * @param <C> the host-supplied context type carried through transition execution
  */
-class StateDefImpl<T> implements StateDef<T> {
+class StateDefImpl<T, C> implements StateDef<T, C> {
     private static final Logger log = LoggerFactory.getLogger(StateDefImpl.class);
 
     private final String id;
     private String name;
     private String description;
 
-    private final StateMachineDefImpl<T> stateMachineDef;
+    private final StateMachineDefImpl<T, C> stateMachineDef;
 
     /**
      * Constructs a new {@code StateDefImpl} with the specified state machine definition and state ID.
      * <p>
      * This package-private constructor is used internally by the framework when
      * building state machine definitions through the fluent API.
-     * 
+     *
      * @param smd the parent state machine definition
      * @param id the unique identifier for this state
      *
      * @throws TransfluxValidationException if the state machine definition is null or the ID is null/blank
      */
-    StateDefImpl(StateMachineDefImpl<T> smd, String id) {
+    StateDefImpl(StateMachineDefImpl<T, C> smd, String id) {
         if (smd == null) {
             throw new TransfluxValidationException("State machine definition cannot be null");
         }
@@ -88,13 +89,13 @@ class StateDefImpl<T> implements StateDef<T> {
      * <p>
      * This package-private constructor is used internally by the framework when
      * building state machine definitions using identifiable objects for state IDs.
-     * 
+     *
      * @param smd the parent state machine definition
      * @param identifiable an object that provides the unique identifier for this state
      *
      * @throws TransfluxValidationException if the state machine definition is null, identifiable is null, or its ID is null/blank
      */
-    StateDefImpl(StateMachineDefImpl<T> smd, Identifiable identifiable) {
+    StateDefImpl(StateMachineDefImpl<T, C> smd, Identifiable identifiable) {
         if (smd == null) {
             throw new TransfluxValidationException("State machine definition cannot be null");
         }
@@ -117,11 +118,13 @@ class StateDefImpl<T> implements StateDef<T> {
      * This method allows you to provide a descriptive name for the state that can be
      * used in documentation, user interfaces, and logging. If a name has already been
      * set, this method will override it and log a warning.
-     * 
+     *
      * @param name the human-readable name for this state
+     *
      * @return this StateDefImpl instance for method chaining
      */
-    public StateDefImpl<T> withName(String name) {
+    @Override
+    public StateDefImpl<T, C> withName(String name) {
         if (this.name != null) {
             log.warn("Name is already defined: {}. Overriding previous value with {}",
                                this.name, name);
@@ -136,11 +139,13 @@ class StateDefImpl<T> implements StateDef<T> {
      * This method allows you to provide additional details about the state's purpose,
      * behavior, or business meaning within the entity's lifecycle. If a description
      * has already been set, this method will override it and log a warning.
-     * 
+     *
      * @param description the description for this state
+     *
      * @return this StateDefImpl instance for method chaining
      */
-    public StateDefImpl<T> withDescription(String description) {
+    @Override
+    public StateDefImpl<T, C> withDescription(String description) {
         if (this.description != null) {
             log.warn("Description is already defined: {}. Overriding previous value with {}",
                                this.description, description);
@@ -156,14 +161,16 @@ class StateDefImpl<T> implements StateDef<T> {
      * the current state to the target state using the specified transition identifier.
      * Note that the target state may not be defined at the time the transition is created,
      * but it must be defined eventually, or the state machine building will fail.
-     * 
+     *
      * @param targetStateId the ID of the target state for this transition
      * @param transitionId the unique identifier for this transition
+     *
      * @return this {@code StateDefImpl} instance for method chaining
      *
      * @throws TransfluxValidationException if either parameter is null or blank
      */
-    public StateDefImpl<T> transitionsTo(String targetStateId, String transitionId) {
+    @Override
+    public StateDefImpl<T, C> transitionsTo(String targetStateId, String transitionId) {
         stateMachineDef.registerTransition(id, targetStateId, transitionId);
         return this;
     }
@@ -175,13 +182,16 @@ class StateDefImpl<T> implements StateDef<T> {
      * the current state to the target state identified by the provided identifiable object.
      * Note that the target state may not be defined at the time the transition is created,
      * but it must be defined eventually, or the state machine building will fail.
-     * 
+     *
      * @param targetStateIdentifiable an identifiable object providing the target state ID
      * @param transitionId the unique identifier for this transition
+     *
      * @return this {@code StateDefImpl} instance for method chaining
+     *
      * @throws TransfluxValidationException if the target state identifiable is null or the transition ID is null/blank
      */
-    public StateDefImpl<T> transitionsTo(Identifiable targetStateIdentifiable, String transitionId) {
+    @Override
+    public StateDefImpl<T, C> transitionsTo(Identifiable targetStateIdentifiable, String transitionId) {
         if (targetStateIdentifiable == null) {
             throw new TransfluxValidationException("Target state identifiable cannot be null");
         }
@@ -195,11 +205,13 @@ class StateDefImpl<T> implements StateDef<T> {
      * This method allows you to continue building the state machine by defining
      * additional states without breaking the fluent API chain. Note that each state
      * (as identified by its id) can only be defined once.
-     * 
+     *
      * @param stateId the ID of the state to define next
+     *
      * @return a {@code StateDef} instance for the specified state
      */
-    public StateDef<T> state(String stateId) {
+    @Override
+    public StateDef<T, C> state(String stateId) {
         return stateMachineDef.state(stateId);
     }
 
@@ -209,11 +221,13 @@ class StateDefImpl<T> implements StateDef<T> {
      * This method allows you to continue building the state machine by defining
      * additional states without breaking the fluent API chain. Note that each state
      * (as identified by its id) can only be defined once.
-     * 
+     *
      * @param stateIdentifiable an identifiable object providing the state ID
+     *
      * @return a {@code StateDef} instance for the specified state
      */
-    public StateDef<T> state(Identifiable stateIdentifiable) {
+    @Override
+    public StateDef<T, C> state(Identifiable stateIdentifiable) {
         return stateMachineDef.state(stateIdentifiable);
     }
 
@@ -224,17 +238,19 @@ class StateDefImpl<T> implements StateDef<T> {
      * implementation that can be used to manage entity state transitions. Note that
      * the state machine is immutable, and absolutely all configuration must be
      * completed before calling this method.
-     * 
+     *
      * @return the constructed {@code StateMachine} instance
+     *
      * @throws IllegalStateException if the state machine definition is invalid or incomplete
      */
-    public StateMachine<T> build() {
+    @Override
+    public StateMachine<T, C> build() {
         return stateMachineDef.build();
     }
 
     /**
      * Returns the unique identifier of this state.
-     * 
+     *
      * @return the state ID
      */
     public String getId() {
@@ -243,7 +259,7 @@ class StateDefImpl<T> implements StateDef<T> {
 
     /**
      * Returns the human-readable name of this state.
-     * 
+     *
      * @return the state name, may be {@code null} if not set
      */
     public String getName() {
@@ -252,7 +268,7 @@ class StateDefImpl<T> implements StateDef<T> {
 
     /**
      * Returns the description of this state.
-     * 
+     *
      * @return the state description, may be {@code null} if not set
      */
     public String getDescription() {

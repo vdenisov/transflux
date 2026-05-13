@@ -33,14 +33,14 @@ import java.util.Map;
  * definitions in Transflux. It manages the configuration of entity types, metadata
  * (name, description, version), state resolvers, states, and transitions, providing
  * a declarative DSL for building complex state machines in a readable and maintainable way.
- * 
+ *
  * <p>The StateMachineDef supports method chaining throughout the definition process,
  * allowing for concise and expressive state machine configurations that can be easily
  * understood and maintained.
- * 
+ *
  * <p><b>Example usage:</b>
  * <pre>{@code
- * StateMachine<Order> orderStateMachine = new StateMachineDef<Order>()
+ * StateMachine<Order, OrderContext> orderStateMachine = new StateMachineDef<Order, OrderContext>()
  *     .forEntityType(Order.class)
  *     .withName("Order Processing State Machine")
  *     .withDescription("Manages the lifecycle of customer orders")
@@ -64,13 +64,15 @@ import java.util.Map;
  *         .withName("Cancelled Order")
  *     .build();
  * }</pre>
- * 
+ *
  * @param <T> the type of entity managed by the state machine being defined
+ * @param <C> the host-supplied context type carried through transition execution
  */
-class StateMachineDefImpl<T> implements StateMachineDef<T> {
+class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
     private static final Logger log = LoggerFactory.getLogger(StateMachineDefImpl.class);
 
     private Class<T> entityType;
+    private Class<C> contextType;
     private String name;
     private String description;
     private String version;
@@ -78,22 +80,31 @@ class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private StateResolver<T> stateResolver;
     private StateApplier<T> stateApplier;
 
-    private final Map<String, StateDefImpl<T>> states = new LinkedHashMap<>();
+    private final Map<String, StateDefImpl<T, C>> states = new LinkedHashMap<>();
 
     // transitionId -> TransitionDefImpl
-    private final Map<String, TransitionDefImpl<T>> transitionsById = new LinkedHashMap<>();
+    private final Map<String, TransitionDefImpl<T, C>> transitionsById = new LinkedHashMap<>();
     // Source-target index: sourceStateId -> targetStateId -> list of TransitionDefImpl
-    private final Map<String, Map<String, List<TransitionDefImpl<T>>>> transitionsBySourceTarget = new LinkedHashMap<>();
+    private final Map<String, Map<String, List<TransitionDefImpl<T, C>>>> transitionsBySourceTarget = new LinkedHashMap<>();
 
     StateMachineDefImpl() {
     }
 
     @Override
-    public StateMachineDef<T> forEntityType(Class<T> entityType) {
+    public StateMachineDef<T, C> forEntityType(Class<T> entityType) {
         if (entityType == null) {
             throw new TransfluxValidationException("Entity type cannot be null");
         }
         this.entityType = entityType;
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T, C> forContextType(Class<C> contextType) {
+        if (contextType == null) {
+            throw new TransfluxValidationException("Context type cannot be null");
+        }
+        this.contextType = contextType;
         return this;
     }
 
@@ -102,11 +113,13 @@ class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * <p>
      * This method allows you to provide a descriptive name for the state machine
      * that can be used in documentation, user interfaces, and logging.
-     * 
+     *
      * @param name the human-readable name for this state machine
+     *
      * @return this StateMachineDef instance for method chaining
      */
-    public StateMachineDef<T> withName(String name) {
+    @Override
+    public StateMachineDef<T, C> withName(String name) {
         if (this.name != null) {
             log.warn("Name is already defined: {}. Overriding previous value with {}",
                                this.name, name);
@@ -121,12 +134,13 @@ class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * <p>
      * This method allows you to provide additional details about the state machine's
      * purpose, behavior, or business domain within your application.
-     * 
+     *
      * @param description the description for this state machine
      *
      * @return this StateMachineDef instance for method chaining
      */
-    public StateMachineDef<T> withDescription(String description) {
+    @Override
+    public StateMachineDef<T, C> withDescription(String description) {
         if (this.description != null) {
             log.warn("Description is already defined: {}. Overriding previous value with {}",
                                this.description, description);
@@ -142,12 +156,13 @@ class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * This method allows you to specify a version identifier for the state machine
      * definition, which can be useful for versioning, deployment tracking, and
      * compatibility management.
-     * 
+     *
      * @param version the version identifier for this state machine definition
      *
      * @return this StateMachineDef instance for method chaining
      */
-    public StateMachineDef<T> withVersion(String version) {
+    @Override
+    public StateMachineDef<T, C> withVersion(String version) {
         if (this.version != null) {
             log.warn("Version is already defined: {}. Overriding previous value with {}",
                                this.version, version);
@@ -163,14 +178,15 @@ class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * The state resolver is a critical component that bridges your domain entities
      * with the Transflux framework, allowing the state machine to understand the
      * current state of entities without imposing specific storage requirements.
-     * 
+     *
      * @param stateResolver the state resolver implementation
      *
      * @return this StateMachineDef instance for method chaining
      *
      * @throws TransfluxValidationException if the state resolver is null
      */
-    public StateMachineDef<T> withStateResolver(StateResolver<T> stateResolver) {
+    @Override
+    public StateMachineDef<T, C> withStateResolver(StateResolver<T> stateResolver) {
         if (stateResolver == null) {
             throw new TransfluxValidationException("State resolver cannot be null");
         }
@@ -185,7 +201,7 @@ class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> withStateApplier(StateApplier<T> stateApplier) {
+    public StateMachineDef<T, C> withStateApplier(StateApplier<T> stateApplier) {
         if (stateApplier == null) {
             throw new TransfluxValidationException("State applier cannot be null");
         }
@@ -204,33 +220,35 @@ class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * <p>
      * This method creates a new state definition with the specified ID and returns
      * a StateDef instance for further configuration through the fluent API.
-     * 
+     *
      * @param stateId the unique identifier for the new state
      *
      * @return a StateDef instance for configuring the new state
      *
      * @throws TransfluxValidationException if the state ID is already defined
      */
-    public StateDef<T> state(String stateId) {
+    @Override
+    public StateDef<T, C> state(String stateId) {
         if (states.containsKey(stateId)) {
             throw new TransfluxValidationException("State ID " + stateId + " already defined");
         }
 
-        var stateDef = new StateDefImpl<>(this, stateId);
+        var stateDef = new StateDefImpl<T, C>(this, stateId);
         states.put(stateDef.getId(), stateDef);
         return stateDef;
     }
 
     /**
      * Begins defining a new state using an identifiable object for the state ID.
-     * 
+     *
      * @param stateIdentifiable an identifiable object providing the state ID
      *
      * @return a StateDef instance for configuring the new state
      *
      * @throws TransfluxValidationException if the identifiable is null or state ID is already defined
      */
-    public StateDef<T> state(Identifiable stateIdentifiable) {
+    @Override
+    public StateDef<T, C> state(Identifiable stateIdentifiable) {
         if (stateIdentifiable == null) {
             throw new TransfluxValidationException("State identifiable cannot be null");
         }
@@ -243,9 +261,9 @@ class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * <p>
      * This package-private method is used internally by StateDef to register
      * transitions when they are defined through the fluent API.
-     * 
+     *
      * @param sourceStateId the ID of the source state
-     * @param targetStateId the ID of the target state  
+     * @param targetStateId the ID of the target state
      * @param transitionId the unique identifier for the transition
      *
      * @throws TransfluxValidationException if any parameter is null/blank or transition ID already exists
@@ -268,7 +286,7 @@ class StateMachineDefImpl<T> implements StateMachineDef<T> {
         var byTarget = transitionsBySourceTarget.computeIfAbsent(sourceStateId, k -> new LinkedHashMap<>());
         var list = byTarget.computeIfAbsent(targetStateId, k -> new ArrayList<>(1)); // More than one transition between states is uncommon
 
-        var def = new TransitionDefImpl<T>(transitionId, sourceStateId, targetStateId);
+        var def = new TransitionDefImpl<T, C>(transitionId, sourceStateId, targetStateId);
         list.add(def);
         transitionsById.put(transitionId, def);
     }
@@ -278,17 +296,22 @@ class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * <p>
      * This method finalizes the state machine configuration and returns a concrete
      * StateMachine implementation that can be used to manage entity state transitions.
-     * 
+     *
      * @return the constructed StateMachine instance
      *
      * @throws IllegalStateException if the state machine definition is invalid or incomplete
      */
-    public StateMachine<T> build() {
+    @Override
+    public StateMachine<T, C> build() {
         return new StateMachineImpl<>(this);
     }
 
     public Class<T> getEntityType() {
         return entityType;
+    }
+
+    public Class<C> getContextType() {
+        return contextType;
     }
 
     public String getName() {
@@ -311,16 +334,16 @@ class StateMachineDefImpl<T> implements StateMachineDef<T> {
         return stateApplier;
     }
 
-    Map<String, StateDefImpl<T>> getStates() {
+    Map<String, StateDefImpl<T, C>> getStates() {
         return states;
     }
 
-    Map<String, TransitionDefImpl<T>> getTransitionsById() {
+    Map<String, TransitionDefImpl<T, C>> getTransitionsById() {
         return transitionsById;
     }
 
     @Override
-    public TransitionDef<T> getTransition(String sourceStateId, String targetStateId) {
+    public TransitionDef<T, C> getTransition(String sourceStateId, String targetStateId) {
         var byTarget = transitionsBySourceTarget.get(sourceStateId);
         if (byTarget == null) {
             throw new TransfluxValidationException("Source state '" + sourceStateId + "' not found");
@@ -341,7 +364,7 @@ class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public TransitionDef<T> getTransition(String transitionId) {
+    public TransitionDef<T, C> getTransition(String transitionId) {
         var td = transitionsById.get(transitionId);
         if (td == null) {
             throw new TransfluxValidationException("Transition '" + transitionId + "' not found");

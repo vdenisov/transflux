@@ -27,11 +27,19 @@ package org.transflux.core;
  * to which the entity will move. Transitions can have associated operations, pre-conditions
  * that must be met before execution, post-conditions that must be met after execution,
  * and various types of triggers (manual, event-based, data-based).
- * 
+ *
  * <p>Transitions are the core mechanism through which entities move through their lifecycle,
  * coordinating complex business logic, error handling, and compensation patterns similar
  * to the Saga pattern.
- * 
+ *
+ * <p>Topology accessors ({@link #getId()}, {@link #getSourceStateId()}, {@link #getTargetStateId()})
+ * are stable for the lifetime of the enclosing state machine. {@link #step(String)} is the
+ * execution-scoped seam: it is only meaningful when an operation calls it from inside a
+ * transition currently being executed, because the framework hands operations a per-execution
+ * {@code Transition} view that carries the captured entity, context, and recorder. Calling
+ * {@code step} against the static-topology object thrown by {@code getTransition(...)} on a
+ * built state machine raises {@link TransfluxValidationException}.
+ *
  * <p><b>Example usage:</b>
  * <pre>{@code
  * Transition<Subscription, ActivationContext> trialActiveTransition =
@@ -60,27 +68,40 @@ package org.transflux.core;
  *     .onComplete(TransitionCompleteListener.class)
  *     .onError(TransitionErrorListener.class);
  * }</pre>
- * 
+ *
+ * @param <T> the entity type the enclosing state machine manages
+ * @param <C> the host-supplied context type carried through transition execution
  */
-public interface Transition<T> extends Identifiable {
-    
+public interface Transition<T, C> extends Identifiable {
+
     /**
      * Returns the identifier of the source state from which this transition can be initiated.
      * <p>
      * The source state ID must correspond to a state defined in the state machine.
      * Transitions can only be executed when the entity is currently in the source state.
-     * 
-     * @return the source state identifier, never {@code null} or blank
+     *
+     * @return the source state identifier; never {@code null} or blank
      */
     String getSourceStateId();
-    
+
     /**
      * Returns the identifier of the target state to which the entity will transition.
      * <p>
      * The target state ID must correspond to a state defined in the state machine.
      * Upon successful completion of the transition, the entity will be in the target state.
-     * 
-     * @return the target state identifier, never {@code null} or blank
+     *
+     * @return the target state identifier; never {@code null} or blank
      */
     String getTargetStateId();
+
+    /**
+     * Executes the registered step against the current execution scope. Only valid while a
+     * transition is executing — i.e. on the per-execution {@code Transition} view handed to
+     * an {@code Operation}'s {@code execute(...)} method.
+     *
+     * @param id the registered step id
+     *
+     * @throws TransfluxValidationException when called outside an active transition execution
+     */
+    void step(String id);
 }

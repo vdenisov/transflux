@@ -18,6 +18,9 @@
 
 package org.transflux.core;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 
@@ -33,22 +36,28 @@ import java.util.function.Predicate;
  * transitions are registered through the fluent API and should not be
  * instantiated directly by client code.
  *
- * @param <T> the type of business entity used by the state machine this transition belongs to
+ * @param <T> the entity type managed by the enclosing state machine
+ * @param <C> the host-supplied context type carried through transition execution
  */
-class TransitionDefImpl<T> implements TransitionDef<T> {
+class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
+    private static final Logger log = LoggerFactory.getLogger(TransitionDefImpl.class);
+
     private final String id;
     private final String sourceStateId;
     private final String targetStateId;
+
+    private SimpleOperationDefImpl<T, C> operationDef;
 
     /**
      * Constructs a new TransitionDefImpl with the specified parameters.
      * <p>
      * This package-private constructor is used internally by the framework
      * to create transition definitions during state machine construction.
-     * 
+     *
      * @param id the unique identifier for this transition
      * @param sourceStateId the ID of the source state
      * @param targetStateId the ID of the target state
+     *
      * @throws TransfluxValidationException if any parameter is null or blank
      */
     TransitionDefImpl(String id, String sourceStateId, String targetStateId) {
@@ -71,33 +80,46 @@ class TransitionDefImpl<T> implements TransitionDef<T> {
 
     /**
      * Returns the unique identifier of this transition.
-     * 
+     *
      * @return the transition ID
      */
+    @Override
     public String getId() {
         return id;
     }
 
     /**
      * Returns the identifier of the source state for this transition.
-     * 
+     *
      * @return the source state ID
      */
+    @Override
     public String getSourceStateId() {
         return sourceStateId;
     }
 
     /**
      * Returns the identifier of the target state for this transition.
-     * 
+     *
      * @return the target state ID
      */
+    @Override
     public String getTargetStateId() {
         return targetStateId;
     }
 
-    Transition<T> build() {
+    Transition<T, C> build() {
         return new TransitionImpl<>(this);
+    }
+
+    /**
+     * Package-private hook used by {@link TransitionImpl} to materialize the runtime
+     * {@link BoundOperation}, or {@code null} when this transition has no operation attached.
+     *
+     * @return the bound operation, or {@code null}
+     */
+    BoundOperation<T, C> buildBoundOperation() {
+        return operationDef == null ? null : operationDef.build();
     }
 
     @Override
@@ -109,107 +131,117 @@ class TransitionDefImpl<T> implements TransitionDef<T> {
             '}';
     }
 
-    // Stub implementations for OperationlessTransitionDef methods. Real implementations
-    // arrive with the operation framework (composite operations, conditions, triggers).
     @Override
-    public <C> OperationlessTransitionDef<T> operation(Class<Operation<T, C>> simpleOperationClass) {
-        throw new UnsupportedOperationException("Operation registration not yet implemented");
+    public SimpleOperationDef<T, C> operation(String id) {
+        if (this.operationDef != null) {
+            log.warn("Operation is already defined for transition '{}'; overriding previous value", this.id);
+        }
+        SimpleOperationDefImpl<T, C> def = new SimpleOperationDefImpl<>(id);
+        this.operationDef = def;
+        return def;
     }
 
     @Override
-    public <C> OperationlessTransitionDef<T> operation(Operation<T, C> simpleOperation) {
-        throw new UnsupportedOperationException("Operation registration not yet implemented");
+    public TransitionDef<T, C> operation(String id, Operation<T, C> operation) {
+        operation(id).using(operation);
+        return this;
     }
 
     @Override
-    public TransitionDef<T> withName(String name) {
+    public TransitionDef<T, C> operation(String id, Class<? extends Operation<T, C>> operationClass) {
+        operation(id).using(operationClass);
+        return this;
+    }
+
+    @Override
+    public TransitionDef<T, C> withName(String name) {
         // TODO: Implement name configuration
         return this;
     }
 
     @Override
-    public TransitionDef<T> withDescription(String description) {
+    public TransitionDef<T, C> withDescription(String description) {
         // TODO: Implement description configuration
         return this;
     }
 
     @Override
-    public TransitionDef<T> addPreCondition(String conditionId) {
+    public TransitionDef<T, C> addPreCondition(String conditionId) {
         throw new UnsupportedOperationException("Pre-conditions not yet implemented");
     }
 
     @Override
-    public TransitionDef<T> addPreCondition(Predicate<T> preCondition) {
+    public TransitionDef<T, C> addPreCondition(Predicate<T> preCondition) {
         throw new UnsupportedOperationException("Pre-conditions not yet implemented");
     }
 
     @Override
-    public TransitionDef<T> addPreCondition(String id, Predicate<T> preCondition) {
+    public TransitionDef<T, C> addPreCondition(String id, Predicate<T> preCondition) {
         throw new UnsupportedOperationException("Pre-conditions not yet implemented");
     }
 
     @Override
-    public TransitionDef<T> addPostCondition(Predicate<T> postCondition) {
+    public TransitionDef<T, C> addPostCondition(Predicate<T> postCondition) {
         throw new UnsupportedOperationException("Post-conditions not yet implemented");
     }
 
     @Override
-    public TransitionDef<T> addPostCondition(String id, Predicate<T> postCondition) {
+    public TransitionDef<T, C> addPostCondition(String id, Predicate<T> postCondition) {
         throw new UnsupportedOperationException("Post-conditions not yet implemented");
     }
 
     @Override
-    public TransitionDef<T> addManualTrigger() {
+    public TransitionDef<T, C> addManualTrigger() {
         throw new UnsupportedOperationException("Triggers not yet implemented");
     }
 
     @Override
-    public TransitionDef<T> addManualTrigger(String id) {
+    public TransitionDef<T, C> addManualTrigger(String id) {
         throw new UnsupportedOperationException("Triggers not yet implemented");
     }
 
     @Override
-    public TransitionDef<T> addEventTrigger(String id) {
+    public TransitionDef<T, C> addEventTrigger(String id) {
         throw new UnsupportedOperationException("Triggers not yet implemented");
     }
 
     @Override
-    public TransitionDef<T> addEventTrigger(String id, String eventId) {
+    public TransitionDef<T, C> addEventTrigger(String id, String eventId) {
         throw new UnsupportedOperationException("Triggers not yet implemented");
     }
 
     @Override
-    public TransitionDef<T> addEventTrigger(Identifiable event) {
+    public TransitionDef<T, C> addEventTrigger(Identifiable event) {
         throw new UnsupportedOperationException("Triggers not yet implemented");
     }
 
     @Override
-    public TransitionDef<T> addEventTrigger(String id, Identifiable event) {
+    public TransitionDef<T, C> addEventTrigger(String id, Identifiable event) {
         throw new UnsupportedOperationException("Triggers not yet implemented");
     }
 
     @Override
-    public TransitionDef<T> addEventTrigger(BiPredicate<String, T> condition) {
+    public TransitionDef<T, C> addEventTrigger(BiPredicate<String, T> condition) {
         throw new UnsupportedOperationException("Triggers not yet implemented");
     }
 
     @Override
-    public TransitionDef<T> addEventTrigger(String id, BiPredicate<String, T> condition) {
+    public TransitionDef<T, C> addEventTrigger(String id, BiPredicate<String, T> condition) {
         throw new UnsupportedOperationException("Triggers not yet implemented");
     }
 
     @Override
-    public TransitionDef<T> addDataTrigger(String id) {
+    public TransitionDef<T, C> addDataTrigger(String id) {
         throw new UnsupportedOperationException("Triggers not yet implemented");
     }
 
     @Override
-    public TransitionDef<T> addDataTrigger(Predicate<T> condition) {
+    public TransitionDef<T, C> addDataTrigger(Predicate<T> condition) {
         throw new UnsupportedOperationException("Triggers not yet implemented");
     }
 
     @Override
-    public TransitionDef<T> addDataTrigger(String id, Predicate<T> condition) {
+    public TransitionDef<T, C> addDataTrigger(String id, Predicate<T> condition) {
         throw new UnsupportedOperationException("Triggers not yet implemented");
     }
 }
