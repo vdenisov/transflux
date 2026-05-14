@@ -31,8 +31,8 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
  *
  * <p>One {@code TransitionImpl} is created per declared transition during state machine
  * construction and is shared across all executions. The per-execution wrapper that supports
- * {@link Transition#step(String)} is {@code TransitionView}, built fresh for each execution
- * by {@code StateMachineImpl}.
+ * {@link Transition#step(String)} is {@link TransitionView}, built fresh for each execution
+ * by {@link StateMachineImpl}.
  *
  * <p>{@code TransitionImpl} instances are typically created internally by the framework during
  * state machine construction and should not be instantiated directly by client code.

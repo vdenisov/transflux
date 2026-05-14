@@ -27,9 +27,9 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
 /**
  * Package-private implementation of {@link SimpleOperationDef}.
  * <p>
- * Holds either an {@code Operation} instance or an {@code Operation} class; the two are
+ * Holds either an {@link Operation} instance or an {@code Operation} class; the two are
  * mutually exclusive and last-write-wins (matches the {@code withStateResolver} /
- * {@code withStateApplier} override-with-warning pattern in {@code StateMachineDefImpl}).
+ * {@code withStateApplier} override-with-warning pattern in {@link StateMachineDefImpl}).
  * {@link #build()} reflectively instantiates the class form when needed and produces a
  * {@link BoundOperation}.
  *

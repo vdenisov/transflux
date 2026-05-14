@@ -21,7 +21,7 @@ package org.transflux.core;
 /**
  * Def-side anchor that builds an {@link Operation} from an ordered sequence of bound steps.
  * <p>
- * {@code CompositeOperationDef} is the composite counterpart to {@code SimpleOperationDef}.
+ * {@code CompositeOperationDef} is the composite counterpart to {@link SimpleOperationDef}.
  * The user appends step references in declaration order; at build time the framework resolves
  * each reference against the state machine's step registry (auto-registering any inline
  * references) and emits an executor {@link Operation} that invokes each {@link Step} in turn,

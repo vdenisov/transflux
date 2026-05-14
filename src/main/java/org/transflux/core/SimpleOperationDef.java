@@ -21,7 +21,7 @@ package org.transflux.core;
 /**
  * Def-side anchor that pairs a single {@link Operation} class or instance with a framework-owned id.
  * <p>
- * {@code SimpleOperationDef} is the simple-case counterpart to {@code CompositeOperationDef}.
+ * {@code SimpleOperationDef} is the simple-case counterpart to {@link CompositeOperationDef}.
  * The user supplies either an already-constructed {@code Operation} instance or a class with
  * a no-arg constructor; at build time the framework produces a package-private bound record
  * pairing the operation with this def's id/name/description so the runtime can track which

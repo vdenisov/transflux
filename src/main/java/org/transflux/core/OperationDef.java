@@ -22,8 +22,8 @@ package org.transflux.core;
  * Def-side anchor for an operation attached to a transition.
  * <p>
  * {@code OperationDef} carries the framework-owned identity and metadata that pure
- * {@link Operation} executables do not. Two concrete sub-types exist: {@code SimpleOperationDef}
- * (a single {@code Operation} class or instance) and {@code CompositeOperationDef}
+ * {@link Operation} executables do not. Two concrete sub-types exist: {@link SimpleOperationDef}
+ * (a single {@code Operation} class or instance) and {@link CompositeOperationDef}
  * (an ordered list of bound steps).
  *
  * <p>The {@code id} is mandatory and must be unique within its enclosing transition.

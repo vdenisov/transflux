@@ -36,12 +36,12 @@ import static org.transflux.core.ValidationUtils.warnIfSet;
 /**
  * Builder class for defining and constructing state machines.
  * <p>
- * {@code StateMachineDef} provides the main fluent API entry point for creating state machine
+ * {@link StateMachineDef} provides the main fluent API entry point for creating state machine
  * definitions in Transflux. It manages the configuration of entity types, metadata
  * (name, description, version), state resolvers, states, and transitions, providing
  * a declarative DSL for building complex state machines in a readable and maintainable way.
  *
- * <p>The StateMachineDef supports method chaining throughout the definition process,
+ * <p>The {@code StateMachineDef} supports method chaining throughout the definition process,
  * allowing for concise and expressive state machine configurations that can be easily
  * understood and maintained.
  *
@@ -278,16 +278,6 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
         }
     }
 
-    /**
-     * Resolves the step registrations into {@link BoundStep} instances, reflectively
-     * instantiating class-form entries. Called from {@link StateMachineImpl} during state
-     * machine construction.
-     *
-     * @return an unmodifiable map of step id to bound step
-     *
-     * @throws TransfluxValidationException if any class-form registration cannot be
-     *         instantiated through its no-arg constructor
-     */
     @Override
     public StateMachineDef<T, C> condition(String id, Condition<T, C> condition) {
         requireNotBlank(id, "Condition ID");
@@ -385,6 +375,16 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
         return Collections.unmodifiableMap(resolved);
     }
 
+    /**
+     * Resolves the step registrations into {@link BoundStep} instances, reflectively
+     * instantiating class-form entries. Called from {@link StateMachineImpl} during state
+     * machine construction.
+     *
+     * @return an unmodifiable map of step id to bound step
+     *
+     * @throws TransfluxValidationException if any class-form registration cannot be
+     *         instantiated through its no-arg constructor
+     */
     Map<String, BoundStep<T, C>> buildBoundSteps() {
         collectInlineStepRegistrations();
         Map<String, BoundStep<T, C>> resolved = new LinkedHashMap<>();

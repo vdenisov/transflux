@@ -31,12 +31,12 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
 /**
  * Definition implementation class for transitions between states in a state machine.
  * <p>
- * TransitionDef represents the configuration and metadata for a transition,
+ * {@link TransitionDef} represents the configuration and metadata for a transition,
  * including the unique identifier, source state, and target state. This class
  * is used internally during state machine construction to store transition
  * definitions before they are converted into concrete {@link Transition} instances.
  *
- * <p>TransitionDef instances are created internally by the framework when
+ * <p>{@code TransitionDef} instances are created internally by the framework when
  * transitions are registered through the fluent API and should not be
  * instantiated directly by client code.
  *
