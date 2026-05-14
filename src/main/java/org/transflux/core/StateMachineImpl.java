@@ -109,8 +109,8 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
      * @param <C> the context type
      */
     static <T, C> void runBoundStep(BoundStep<T, C> boundStep, TransitionView<T, C> view) {
-        view.recordExecutedStepId(boundStep.getId());
         boundStep.getStep().execute(view.getEntity(), view.getContext(), view);
+        view.recordExecutedStepId(boundStep.getId());
     }
 
     /**
@@ -312,15 +312,18 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
         String transitionId = transition.getId();
 
         Instant startedAt = Instant.now();
+        TransitionView<T, C> view = new TransitionView<>(this, transition, entity, context);
 
         try {
-            TransitionView<T, C> view = new TransitionView<>(this, transition, entity, context);
-
             // TODO: pre-condition evaluation against `view`.
             // TODO: notifyStart(view) seam.
-            // TODO: invoke transition.getBoundOperation().getOperation().execute(entity, context, view).
+
+            BoundOperation<T, C> boundOperation = transition.getBoundOperation();
+            if (boundOperation != null) {
+                boundOperation.getOperation().execute(entity, context, view);
+            }
+
             // TODO: post-condition evaluation against `view`.
-            assert view != null;
 
             if (stateApplier != null) {
                 stateApplier.applyState(entity, targetStateId);
@@ -329,12 +332,12 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
             // TODO: notifyComplete(view) seam.
 
             return TransitionResult.success(entity, sourceStateId, targetStateId, transitionId,
-                    startedAt, Instant.now());
+                    view.getExecutedStepIds(), startedAt, Instant.now());
 
         } catch (Exception e) {
             // TODO: run the compensation stack here.
             return TransitionResult.failure(entity, sourceStateId, targetStateId, transitionId, e,
-                    startedAt, Instant.now());
+                    view.getExecutedStepIds(), null, startedAt, Instant.now());
         }
     }
 

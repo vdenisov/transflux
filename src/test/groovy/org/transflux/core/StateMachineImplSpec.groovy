@@ -467,4 +467,168 @@ class StateMachineImplSpec extends Specification {
             context.counter++
         }
     }
+
+    static class BumpCounterStep implements Step<TestEntity, TestContext> {
+        @Override
+        void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
+            context.counter++
+        }
+    }
+
+    static class ThrowingStep implements Step<TestEntity, TestContext> {
+        @Override
+        void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
+            throw new IllegalStateException('step blew up')
+        }
+    }
+
+    static class CallNestedStepOperation implements Operation<TestEntity, TestContext> {
+        @Override
+        void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
+            transition.step('stamp')
+            transition.step('bump')
+        }
+    }
+
+    def "transitionTo should run the attached composite operation and populate executedStepIds in order"() {
+        given:
+        def appliedState = [:] as Map<TestEntity, String>
+        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .withStateApplier({ entity, target -> appliedState[entity] = target } as StateApplier<TestEntity>)
+            .step('stamp', new ContextStampStep())
+            .step('bump', new BumpCounterStep())
+        smd.state(TRIAL).transitionsTo(ACTIVE, 'trial-to-active')
+        smd.state(ACTIVE)
+        smd.getTransition('trial-to-active').compositeOperation('flow', { c ->
+            c.step('stamp').step('bump').step('bump')
+        })
+
+        def sm = smd.build()
+        def entity = new TestEntity('e1', 'TRIAL')
+        def context = new TestContext()
+
+        when:
+        def result = sm.entity(entity).withContext(context).transitionTo('ACTIVE')
+
+        then:
+        result.success
+        result.executedStepIds == ['stamp', 'bump', 'bump']
+        result.sourceStateId == 'TRIAL'
+        result.targetStateId == 'ACTIVE'
+        context.tag == 'e1:stamped'
+        context.counter == 3
+        appliedState[entity] == 'ACTIVE'
+    }
+
+    def "transitionTo with a simple operation should run the operation and apply state"() {
+        given:
+        def appliedState = [:] as Map<TestEntity, String>
+        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .withStateApplier({ entity, target -> appliedState[entity] = target } as StateApplier<TestEntity>)
+        smd.state(TRIAL).transitionsTo(ACTIVE, 'trial-to-active')
+        smd.state(ACTIVE)
+
+        def operation = { TestEntity entity, TestContext ctx, Transition<TestEntity, TestContext> tx ->
+            ctx.tag = 'simple-ran'
+        } as Operation<TestEntity, TestContext>
+
+        smd.getTransition('trial-to-active').simpleOperation('activate', operation)
+
+        def sm = smd.build()
+        def entity = new TestEntity('e1', 'TRIAL')
+        def context = new TestContext()
+
+        when:
+        def result = sm.entity(entity).withContext(context).transitionTo('ACTIVE')
+
+        then:
+        result.success
+        result.executedStepIds == []
+        context.tag == 'simple-ran'
+        appliedState[entity] == 'ACTIVE'
+    }
+
+    def "transitionTo should track step ids invoked from inside a simple operation via transition.step(id)"() {
+        given:
+        def appliedState = [:] as Map<TestEntity, String>
+        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .withStateApplier({ entity, target -> appliedState[entity] = target } as StateApplier<TestEntity>)
+            .step('stamp', new ContextStampStep())
+            .step('bump', new BumpCounterStep())
+        smd.state(TRIAL).transitionsTo(ACTIVE, 'trial-to-active')
+        smd.state(ACTIVE)
+        smd.getTransition('trial-to-active').simpleOperation('orchestrator', new CallNestedStepOperation())
+
+        def sm = smd.build()
+        def entity = new TestEntity('e1', 'TRIAL')
+        def context = new TestContext()
+
+        when:
+        def result = sm.entity(entity).withContext(context).transitionTo('ACTIVE')
+
+        then:
+        result.success
+        result.executedStepIds == ['stamp', 'bump']
+        context.tag == 'e1:stamped'
+        context.counter == 2
+        appliedState[entity] == 'ACTIVE'
+    }
+
+    def "transitionTo should report failure and skip the state applier when an operation throws"() {
+        given:
+        def applierInvocations = 0
+        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .withStateApplier({ entity, target -> applierInvocations++ } as StateApplier<TestEntity>)
+            .step('stamp', new ContextStampStep())
+            .step('boom', new ThrowingStep())
+        smd.state(TRIAL).transitionsTo(ACTIVE, 'trial-to-active')
+        smd.state(ACTIVE)
+        smd.getTransition('trial-to-active').compositeOperation('flow', { c ->
+            c.step('stamp').step('boom')
+        })
+
+        def sm = smd.build()
+        def entity = new TestEntity('e1', 'TRIAL')
+        def context = new TestContext()
+
+        when:
+        def result = sm.entity(entity).withContext(context).transitionTo('ACTIVE')
+
+        then:
+        !result.success
+        result.error instanceof IllegalStateException
+        result.error.message == 'step blew up'
+        result.executedStepIds == ['stamp']
+        applierInvocations == 0
+        context.tag == 'e1:stamped'
+    }
+
+    def "transitionTo without an attached operation should still apply state and return empty executedStepIds"() {
+        given:
+        def appliedState = [:] as Map<TestEntity, String>
+        def sm = Transflux.<TestEntity, TestContext> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .withStateApplier({ entity, target -> appliedState[entity] = target } as StateApplier<TestEntity>)
+            .state(TRIAL).transitionsTo(ACTIVE, 'trial-to-active')
+            .state(ACTIVE)
+            .build()
+        def entity = new TestEntity('e1', 'TRIAL')
+
+        when:
+        def result = sm.entity(entity).transitionTo('ACTIVE')
+
+        then:
+        result.success
+        result.executedStepIds == []
+        appliedState[entity] == 'ACTIVE'
+    }
 }
