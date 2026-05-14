@@ -27,7 +27,7 @@ import spock.lang.Specification
 import static org.transflux.core.TestStateEnum.ACTIVE
 import static org.transflux.core.TestStateEnum.TRIAL
 
-class EntityBindingSpec extends Specification {
+class StateMachineImplEntityBindingSpec extends Specification {
 
     static class TestEntity {
         String id

@@ -16,19 +16,18 @@
  *
  */
 
-package org.transflux.core.transition
+package org.transflux.core
 
-import org.transflux.core.StateMachineDefImpl
-import org.transflux.core.TestContext
 import org.transflux.core.condition.Condition
 import org.transflux.core.operation.Operation
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
+import org.transflux.core.transition.Transition
 import spock.lang.Specification
 
 import java.util.function.Predicate
 
-class TransitionConditionEvaluationSpec extends Specification {
+class StateMachineImplConditionEvaluationSpec extends Specification {
 
     static class Entity {
         String state

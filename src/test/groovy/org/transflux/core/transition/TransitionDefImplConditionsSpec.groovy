@@ -26,7 +26,7 @@ import spock.lang.Specification
 
 import java.util.function.Predicate
 
-class TransitionConditionsSpec extends Specification {
+class TransitionDefImplConditionsSpec extends Specification {
 
     static class Entity {
         int value

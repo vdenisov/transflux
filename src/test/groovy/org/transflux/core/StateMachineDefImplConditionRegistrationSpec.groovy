@@ -16,23 +16,12 @@
  *
  */
 
-package org.transflux.core.condition
+package org.transflux.core
 
-import org.transflux.core.state.State
-import org.transflux.core.state.StateApplier
-import org.transflux.core.state.StateDef
-import org.transflux.core.state.StateDefImpl
-import org.transflux.core.state.StateResolver
-
-import org.transflux.core.Identifiable
-import org.transflux.core.StateMachine
-import org.transflux.core.StateMachineDef
-import org.transflux.core.StateMachineDefImpl
-import org.transflux.core.StateMachineImpl
-import org.transflux.core.TestContext
-import org.transflux.core.TestStateEnum
-import org.transflux.core.Transflux
+import org.transflux.core.condition.Condition
 import org.transflux.core.exception.TransfluxValidationException
+import org.transflux.core.state.StateApplier
+import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 
 import spock.lang.Specification
@@ -40,7 +29,7 @@ import spock.lang.Unroll
 
 import java.util.function.Predicate
 
-class ConditionRegistrationSpec extends Specification {
+class StateMachineDefImplConditionRegistrationSpec extends Specification {
 
     static class TestEntity {
         int value

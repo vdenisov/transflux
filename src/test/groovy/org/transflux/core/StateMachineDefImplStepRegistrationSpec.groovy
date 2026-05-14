@@ -16,37 +16,20 @@
  *
  */
 
-package org.transflux.core.operation
+package org.transflux.core
 
-import org.transflux.core.state.State
-import org.transflux.core.state.StateApplier
-import org.transflux.core.state.StateDef
-import org.transflux.core.state.StateDefImpl
-import org.transflux.core.state.StateImpl
-import org.transflux.core.state.StateResolver
-
-import org.transflux.core.Identifiable
-import org.transflux.core.StateMachine
-import org.transflux.core.StateMachineDef
-import org.transflux.core.StateMachineDefImpl
-import org.transflux.core.StateMachineImpl
-import org.transflux.core.TestContext
-import org.transflux.core.TestStateEnum
-import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
+import org.transflux.core.operation.Step
+import org.transflux.core.state.StateApplier
+import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
-import org.transflux.core.transition.TransitionDef
-import org.transflux.core.transition.TransitionDefImpl
-import org.transflux.core.transition.TransitionImpl
-import org.transflux.core.transition.TransitionResult
-import org.transflux.core.transition.TransitionView
 
 import spock.lang.Specification
 import spock.lang.Unroll
 
 import static org.transflux.core.TestStateEnum.*
 
-class StepRegistrationSpec extends Specification {
+class StateMachineDefImplStepRegistrationSpec extends Specification {
 
     static class TestEntity {
         String state
