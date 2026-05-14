@@ -18,6 +18,9 @@
 
 package org.transflux.core;
 
+import static org.transflux.core.ValidationUtils.requireNotBlank;
+import static org.transflux.core.ValidationUtils.requireNotNull;
+
 /**
  * Package-private discriminated reference to a step inside a composite operation's
  * declaration-time step list.
@@ -41,9 +44,7 @@ abstract class StepRef<T, C> {
     private final String id;
 
     private StepRef(String id) {
-        if (id == null || id.isBlank()) {
-            throw new TransfluxValidationException("Step reference ID cannot be null or blank");
-        }
+        requireNotBlank(id, "Step reference ID");
         this.id = id;
     }
 
@@ -56,16 +57,12 @@ abstract class StepRef<T, C> {
     }
 
     static <T, C> StepRef<T, C> inline(String id, Step<T, C> step) {
-        if (step == null) {
-            throw new TransfluxValidationException("Inline step instance cannot be null");
-        }
+        requireNotNull(step, "Inline step instance");
         return new InlineInstance<>(id, step);
     }
 
     static <T, C> StepRef<T, C> inline(String id, Class<? extends Step<T, C>> stepClass) {
-        if (stepClass == null) {
-            throw new TransfluxValidationException("Inline step class cannot be null");
-        }
+        requireNotNull(stepClass, "Inline step class");
         return new InlineClass<>(id, stepClass);
     }
 

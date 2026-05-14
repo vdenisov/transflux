@@ -18,6 +18,9 @@
 
 package org.transflux.core;
 
+import static org.transflux.core.ValidationUtils.requireNotBlank;
+import static org.transflux.core.ValidationUtils.requireNotNull;
+
 /**
  * Default implementation of the {@link Transition} interface — the static-topology view.
  * <p>
@@ -70,21 +73,10 @@ public class TransitionImpl<T, C> implements Transition<T, C> {
      * @throws TransfluxValidationException if the transition definition is null or has invalid properties
      */
     private void validateTransitionDef(TransitionDefImpl<T, C> transitionDef) {
-        if (transitionDef == null) {
-            throw new TransfluxValidationException("Transition definition cannot be null");
-        }
-
-        if (transitionDef.getId() == null || transitionDef.getId().isBlank()) {
-            throw new TransfluxValidationException("Transition ID cannot be null or blank");
-        }
-
-        if (transitionDef.getSourceStateId() == null || transitionDef.getSourceStateId().isBlank()) {
-            throw new TransfluxValidationException("Source state ID cannot be null or blank");
-        }
-
-        if (transitionDef.getTargetStateId() == null || transitionDef.getTargetStateId().isBlank()) {
-            throw new TransfluxValidationException("Target state ID cannot be null or blank");
-        }
+        requireNotNull(transitionDef, "Transition definition");
+        requireNotBlank(transitionDef.getId(), "Transition ID");
+        requireNotBlank(transitionDef.getSourceStateId(), "Source state ID");
+        requireNotBlank(transitionDef.getTargetStateId(), "Target state ID");
     }
 
     /**

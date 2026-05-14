@@ -22,6 +22,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import static org.transflux.core.ValidationUtils.requireNotBlank;
+import static org.transflux.core.ValidationUtils.requireNotNull;
+
 /**
  * Package-private per-execution view of a {@link Transition}.
  * <p>
@@ -45,12 +48,8 @@ class TransitionView<T, C> implements Transition<T, C> {
 
     TransitionView(StateMachineImpl<T, C> stateMachine, TransitionImpl<T, C> staticTransition,
                    T entity, C context) {
-        if (stateMachine == null) {
-            throw new TransfluxValidationException("State machine cannot be null");
-        }
-        if (staticTransition == null) {
-            throw new TransfluxValidationException("Static transition cannot be null");
-        }
+        requireNotNull(stateMachine, "State machine");
+        requireNotNull(staticTransition, "Static transition");
         this.stateMachine = stateMachine;
         this.staticTransition = staticTransition;
         this.entity = entity;
@@ -74,9 +73,7 @@ class TransitionView<T, C> implements Transition<T, C> {
 
     @Override
     public void step(String id) {
-        if (id == null || id.isBlank()) {
-            throw new TransfluxValidationException("Step ID cannot be null or blank");
-        }
+        requireNotBlank(id, "Step ID");
         BoundStep<T, C> boundStep = stateMachine.getBoundStep(id);
         if (boundStep == null) {
             throw new TransfluxValidationException("No step registered with id '" + id + "'");

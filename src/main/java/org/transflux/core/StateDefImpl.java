@@ -21,6 +21,10 @@ package org.transflux.core;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.transflux.core.ValidationUtils.requireNotBlank;
+import static org.transflux.core.ValidationUtils.requireNotNull;
+import static org.transflux.core.ValidationUtils.warnIfSet;
+
 /**
  * Builder implementation class for defining states within a state machine definition.
  * <p>
@@ -72,13 +76,8 @@ class StateDefImpl<T, C> implements StateDef<T, C> {
      * @throws TransfluxValidationException if the state machine definition is null or the ID is null/blank
      */
     StateDefImpl(StateMachineDefImpl<T, C> smd, String id) {
-        if (smd == null) {
-            throw new TransfluxValidationException("State machine definition cannot be null");
-        }
-
-        if (id == null || id.isBlank()) {
-            throw new TransfluxValidationException("State ID cannot be null or blank");
-        }
+        requireNotNull(smd, "State machine definition");
+        requireNotBlank(id, "State ID");
 
         this.stateMachineDef = smd;
         this.id = id;
@@ -96,17 +95,9 @@ class StateDefImpl<T, C> implements StateDef<T, C> {
      * @throws TransfluxValidationException if the state machine definition is null, identifiable is null, or its ID is null/blank
      */
     StateDefImpl(StateMachineDefImpl<T, C> smd, Identifiable identifiable) {
-        if (smd == null) {
-            throw new TransfluxValidationException("State machine definition cannot be null");
-        }
-
-        if (identifiable == null) {
-            throw new TransfluxValidationException("Identifiable for state ID cannot be null");
-        }
-
-        if (identifiable.getId() == null || identifiable.getId().isBlank()) {
-            throw new TransfluxValidationException("State ID cannot be null or blank");
-        }
+        requireNotNull(smd, "State machine definition");
+        requireNotNull(identifiable, "Identifiable for state ID");
+        requireNotBlank(identifiable.getId(), "State ID");
 
         this.stateMachineDef = smd;
         this.id = identifiable.getId();
@@ -125,10 +116,7 @@ class StateDefImpl<T, C> implements StateDef<T, C> {
      */
     @Override
     public StateDefImpl<T, C> withName(String name) {
-        if (this.name != null) {
-            log.warn("Name is already defined: {}. Overriding previous value with {}",
-                               this.name, name);
-        }
+        warnIfSet(this.name, name, "Name", log);
         this.name = name;
         return this;
     }
@@ -146,10 +134,7 @@ class StateDefImpl<T, C> implements StateDef<T, C> {
      */
     @Override
     public StateDefImpl<T, C> withDescription(String description) {
-        if (this.description != null) {
-            log.warn("Description is already defined: {}. Overriding previous value with {}",
-                               this.description, description);
-        }
+        warnIfSet(this.description, description, "Description", log);
         this.description = description;
         return this;
     }
@@ -192,9 +177,7 @@ class StateDefImpl<T, C> implements StateDef<T, C> {
      */
     @Override
     public StateDefImpl<T, C> transitionsTo(Identifiable targetStateIdentifiable, String transitionId) {
-        if (targetStateIdentifiable == null) {
-            throw new TransfluxValidationException("Target state identifiable cannot be null");
-        }
+        requireNotNull(targetStateIdentifiable, "Target state identifiable");
 
         return transitionsTo(targetStateIdentifiable.getId(), transitionId);
     }

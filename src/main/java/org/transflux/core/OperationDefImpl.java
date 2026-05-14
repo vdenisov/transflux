@@ -18,6 +18,8 @@
 
 package org.transflux.core;
 
+import static org.transflux.core.ValidationUtils.requireNotBlank;
+
 /**
  * Package-private base for concrete {@link OperationDef} implementations.
  * <p>
@@ -34,9 +36,7 @@ abstract class OperationDefImpl<T, C> implements OperationDef<T, C> {
     private String description;
 
     OperationDefImpl(String id) {
-        if (id == null || id.isBlank()) {
-            throw new TransfluxValidationException("Operation ID cannot be null or blank");
-        }
+        requireNotBlank(id, "Operation ID");
         this.id = id;
     }
 

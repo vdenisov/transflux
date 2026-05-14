@@ -23,6 +23,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.transflux.core.ValidationUtils.requireNotBlank;
+import static org.transflux.core.ValidationUtils.requireNotNull;
+
 /**
  * Implementation of the {@link StateMachine} interface.
  * <p>
@@ -193,9 +196,7 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
 
     @Override
     public EntityBinding<T, C> entity(T entity) {
-        if (entity == null) {
-            throw new TransfluxValidationException("Entity cannot be null");
-        }
+        requireNotNull(entity, "Entity");
         return new EntityBindingImpl(entity);
     }
 
@@ -211,9 +212,7 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
 
     @Override
     public String resolveCurrentState(T entity) {
-        if (entity == null) {
-            throw new TransfluxValidationException("Entity cannot be null");
-        }
+        requireNotNull(entity, "Entity");
         if (stateResolver == null) {
             throw new TransfluxValidationException(
                 "No state resolver configured for this state machine"
@@ -240,9 +239,7 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
 
     @Override
     public State<T> getState(String stateId) {
-        if (stateId == null || stateId.isBlank()) {
-            throw new TransfluxValidationException("State ID cannot be null or blank");
-        }
+        requireNotBlank(stateId, "State ID");
 
         State<T> state = states.get(stateId);
         if (state == null) {
@@ -254,9 +251,7 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
 
     @Override
     public Transition<T, C> getTransition(String transitionId) {
-        if (transitionId == null || transitionId.isBlank()) {
-            throw new TransfluxValidationException("Transition ID cannot be null or blank");
-        }
+        requireNotBlank(transitionId, "Transition ID");
 
         Transition<T, C> transition = transitions.get(transitionId);
         if (transition == null) {
@@ -359,9 +354,7 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
 
         @Override
         public TransitionResult<T, C> transitionTo(String targetStateId) {
-            if (targetStateId == null || targetStateId.isBlank()) {
-                throw new TransfluxValidationException("Target state ID cannot be null or blank");
-            }
+            requireNotBlank(targetStateId, "Target state ID");
 
             String currentStateId = resolveCurrentState(entity);
             TransitionImpl<T, C> transition = findTransition(currentStateId, targetStateId);
@@ -370,12 +363,8 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
 
         @Override
         public TransitionResult<T, C> transitionTo(String targetStateId, String transitionId) {
-            if (targetStateId == null || targetStateId.isBlank()) {
-                throw new TransfluxValidationException("Target state ID cannot be null or blank");
-            }
-            if (transitionId == null || transitionId.isBlank()) {
-                throw new TransfluxValidationException("Transition ID cannot be null or blank");
-            }
+            requireNotBlank(targetStateId, "Target state ID");
+            requireNotBlank(transitionId, "Transition ID");
 
             String currentStateId = resolveCurrentState(entity);
             Transition<T, C> abstractTransition = StateMachineImpl.this.getTransition(transitionId);

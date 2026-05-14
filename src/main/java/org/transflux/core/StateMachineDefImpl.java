@@ -28,6 +28,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.transflux.core.ValidationUtils.requireNotBlank;
+import static org.transflux.core.ValidationUtils.requireNotNull;
+import static org.transflux.core.ValidationUtils.warnIfSet;
+
 /**
  * Builder class for defining and constructing state machines.
  * <p>
@@ -96,18 +100,14 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
 
     @Override
     public StateMachineDef<T, C> forEntityType(Class<T> entityType) {
-        if (entityType == null) {
-            throw new TransfluxValidationException("Entity type cannot be null");
-        }
+        requireNotNull(entityType, "Entity type");
         this.entityType = entityType;
         return this;
     }
 
     @Override
     public StateMachineDef<T, C> forContextType(Class<C> contextType) {
-        if (contextType == null) {
-            throw new TransfluxValidationException("Context type cannot be null");
-        }
+        requireNotNull(contextType, "Context type");
         this.contextType = contextType;
         return this;
     }
@@ -124,10 +124,7 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
      */
     @Override
     public StateMachineDef<T, C> withName(String name) {
-        if (this.name != null) {
-            log.warn("Name is already defined: {}. Overriding previous value with {}",
-                               this.name, name);
-        }
+        warnIfSet(this.name, name, "Name", log);
 
         this.name = name;
         return this;
@@ -145,10 +142,7 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
      */
     @Override
     public StateMachineDef<T, C> withDescription(String description) {
-        if (this.description != null) {
-            log.warn("Description is already defined: {}. Overriding previous value with {}",
-                               this.description, description);
-        }
+        warnIfSet(this.description, description, "Description", log);
 
         this.description = description;
         return this;
@@ -167,10 +161,7 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
      */
     @Override
     public StateMachineDef<T, C> withVersion(String version) {
-        if (this.version != null) {
-            log.warn("Version is already defined: {}. Overriding previous value with {}",
-                               this.version, version);
-        }
+        warnIfSet(this.version, version, "Version", log);
 
         this.version = version;
         return this;
@@ -191,9 +182,7 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
      */
     @Override
     public StateMachineDef<T, C> withStateResolver(StateResolver<T> stateResolver) {
-        if (stateResolver == null) {
-            throw new TransfluxValidationException("State resolver cannot be null");
-        }
+        requireNotNull(stateResolver, "State resolver");
 
         if (this.stateResolver != null) {
             log.warn("State resolver is already defined: {}. Overriding previous value with {}",
@@ -206,24 +195,16 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
 
     @Override
     public StateMachineDef<T, C> step(String id, Step<T, C> step) {
-        if (id == null || id.isBlank()) {
-            throw new TransfluxValidationException("Step ID cannot be null or blank");
-        }
-        if (step == null) {
-            throw new TransfluxValidationException("Step cannot be null");
-        }
+        requireNotBlank(id, "Step ID");
+        requireNotNull(step, "Step");
         registerStepInstance(id, step);
         return this;
     }
 
     @Override
     public StateMachineDef<T, C> step(String id, Class<? extends Step<T, C>> stepClass) {
-        if (id == null || id.isBlank()) {
-            throw new TransfluxValidationException("Step ID cannot be null or blank");
-        }
-        if (stepClass == null) {
-            throw new TransfluxValidationException("Step class cannot be null");
-        }
+        requireNotBlank(id, "Step ID");
+        requireNotNull(stepClass, "Step class");
         registerStepClass(id, stepClass);
         return this;
     }
@@ -315,9 +296,7 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
 
     @Override
     public StateMachineDef<T, C> withStateApplier(StateApplier<T> stateApplier) {
-        if (stateApplier == null) {
-            throw new TransfluxValidationException("State applier cannot be null");
-        }
+        requireNotNull(stateApplier, "State applier");
 
         if (this.stateApplier != null) {
             log.warn("State applier is already defined: {}. Overriding previous value with {}",
@@ -362,9 +341,7 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
      */
     @Override
     public StateDef<T, C> state(Identifiable stateIdentifiable) {
-        if (stateIdentifiable == null) {
-            throw new TransfluxValidationException("State identifiable cannot be null");
-        }
+        requireNotNull(stateIdentifiable, "State identifiable");
 
         return state(stateIdentifiable.getId());
     }
@@ -382,15 +359,9 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
      * @throws TransfluxValidationException if any parameter is null/blank or transition ID already exists
      */
     void registerTransition(String sourceStateId, String targetStateId, String transitionId) {
-        if (sourceStateId == null || sourceStateId.isBlank()) {
-            throw new TransfluxValidationException("Source state ID cannot be null or blank");
-        }
-        if (targetStateId == null || targetStateId.isBlank()) {
-            throw new TransfluxValidationException("Target state ID cannot be null or blank");
-        }
-        if (transitionId == null || transitionId.isBlank()) {
-            throw new TransfluxValidationException("Transition ID cannot be null or blank");
-        }
+        requireNotBlank(sourceStateId, "Source state ID");
+        requireNotBlank(targetStateId, "Target state ID");
+        requireNotBlank(transitionId, "Transition ID");
 
         if (transitionsById.containsKey(transitionId)) {
             throw new TransfluxValidationException("Transition ID " + transitionId + " already defined");

@@ -18,6 +18,9 @@
 
 package org.transflux.core;
 
+import static org.transflux.core.ValidationUtils.requireNotBlank;
+import static org.transflux.core.ValidationUtils.requireNotNull;
+
 /**
  * Default implementation of the {@link State} interface.
  * <p>
@@ -61,13 +64,8 @@ public class StateImpl<T> implements State<T> {
      * @throws TransfluxValidationException if the state definition is null or has invalid properties
      */
     private void validateStateDef(StateDefImpl<T, ?> stateDef) {
-        if (stateDef == null) {
-            throw new TransfluxValidationException("State definition cannot be null");
-        }
-
-        if (stateDef.getId() == null || stateDef.getId().isBlank()) {
-            throw new TransfluxValidationException("State ID cannot be null or blank");
-        }
+        requireNotNull(stateDef, "State definition");
+        requireNotBlank(stateDef.getId(), "State ID");
     }
 
     /**

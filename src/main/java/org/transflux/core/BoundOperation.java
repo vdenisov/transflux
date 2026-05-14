@@ -18,6 +18,9 @@
 
 package org.transflux.core;
 
+import static org.transflux.core.ValidationUtils.requireNotBlank;
+import static org.transflux.core.ValidationUtils.requireNotNull;
+
 /**
  * Package-private runtime currency that pairs a pure {@link Operation} with framework-owned
  * identity and metadata.
@@ -40,12 +43,8 @@ final class BoundOperation<T, C> {
 
     static <T, C> BoundOperation<T, C> of(String id, String name, String description,
                                           Operation<T, C> operation) {
-        if (id == null || id.isBlank()) {
-            throw new TransfluxValidationException("Bound operation ID cannot be null or blank");
-        }
-        if (operation == null) {
-            throw new TransfluxValidationException("Bound operation cannot be null");
-        }
+        requireNotBlank(id, "Bound operation ID");
+        requireNotNull(operation, "Bound operation");
         return new BoundOperation<>(id, name, description, operation);
     }
 

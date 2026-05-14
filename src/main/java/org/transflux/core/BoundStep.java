@@ -18,6 +18,9 @@
 
 package org.transflux.core;
 
+import static org.transflux.core.ValidationUtils.requireNotBlank;
+import static org.transflux.core.ValidationUtils.requireNotNull;
+
 /**
  * Package-private runtime currency that pairs a pure {@link Step} with framework-owned
  * identity.
@@ -35,12 +38,8 @@ final class BoundStep<T, C> {
     }
 
     static <T, C> BoundStep<T, C> of(String id, Step<T, C> step) {
-        if (id == null || id.isBlank()) {
-            throw new TransfluxValidationException("Bound step ID cannot be null or blank");
-        }
-        if (step == null) {
-            throw new TransfluxValidationException("Bound step cannot be null");
-        }
+        requireNotBlank(id, "Bound step ID");
+        requireNotNull(step, "Bound step");
         return new BoundStep<>(id, step);
     }
 

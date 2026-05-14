@@ -25,6 +25,9 @@ import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
+import static org.transflux.core.ValidationUtils.requireNotBlank;
+import static org.transflux.core.ValidationUtils.requireNotNull;
+
 /**
  * Definition implementation class for transitions between states in a state machine.
  * <p>
@@ -62,17 +65,9 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
      * @throws TransfluxValidationException if any parameter is null or blank
      */
     TransitionDefImpl(String id, String sourceStateId, String targetStateId) {
-        if (id == null || id.isBlank()) {
-            throw new TransfluxValidationException("Transition ID cannot be null or blank");
-        }
-
-        if (sourceStateId == null || sourceStateId.isBlank()) {
-            throw new TransfluxValidationException("Source state ID cannot be null or blank");
-        }
-
-        if (targetStateId == null || targetStateId.isBlank()) {
-            throw new TransfluxValidationException("Target state ID cannot be null or blank");
-        }
+        requireNotBlank(id, "Transition ID");
+        requireNotBlank(sourceStateId, "Source state ID");
+        requireNotBlank(targetStateId, "Target state ID");
 
         this.id = id;
         this.sourceStateId = sourceStateId;
@@ -163,9 +158,7 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
 
     @Override
     public TransitionDef<T, C> simpleOperation(String id, Consumer<SimpleOperationDef<T, C>> configurer) {
-        if (configurer == null) {
-            throw new TransfluxValidationException("Simple operation configurer cannot be null");
-        }
+        requireNotNull(configurer, "Simple operation configurer");
         SimpleOperationDefImpl<T, C> def = newSimpleOperationDef(id);
         configurer.accept(def);
         attachOperation(def);
@@ -174,9 +167,7 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
 
     @Override
     public TransitionDef<T, C> compositeOperation(String id, Consumer<CompositeOperationDef<T, C>> configurer) {
-        if (configurer == null) {
-            throw new TransfluxValidationException("Composite operation configurer cannot be null");
-        }
+        requireNotNull(configurer, "Composite operation configurer");
         CompositeOperationDefImpl<T, C> composite = new CompositeOperationDefImpl<>(id);
         configurer.accept(composite);
         attachOperation(composite);
@@ -185,9 +176,7 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
 
     @Override
     public TransitionDef<T, C> step(String registeredStepId) {
-        if (registeredStepId == null || registeredStepId.isBlank()) {
-            throw new TransfluxValidationException("Step ID cannot be null or blank");
-        }
+        requireNotBlank(registeredStepId, "Step ID");
         CompositeOperationDefImpl<T, C> composite =
             new CompositeOperationDefImpl<>("transition-" + this.id + "-op");
         composite.step(registeredStepId);

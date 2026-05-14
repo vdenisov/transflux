@@ -23,6 +23,8 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.InvocationTargetException;
 
+import static org.transflux.core.ValidationUtils.requireNotNull;
+
 /**
  * Package-private implementation of {@link SimpleOperationDef}.
  * <p>
@@ -47,9 +49,7 @@ class SimpleOperationDefImpl<T, C> extends OperationDefImpl<T, C> implements Sim
 
     @Override
     public SimpleOperationDefImpl<T, C> using(Operation<T, C> operation) {
-        if (operation == null) {
-            throw new TransfluxValidationException("Operation cannot be null");
-        }
+        requireNotNull(operation, "Operation");
         if (this.operationInstance != null || this.operationClass != null) {
             log.warn("Operation source already defined for SimpleOperationDef '{}'; overriding previous value",
                 getId());
@@ -61,9 +61,7 @@ class SimpleOperationDefImpl<T, C> extends OperationDefImpl<T, C> implements Sim
 
     @Override
     public SimpleOperationDefImpl<T, C> using(Class<? extends Operation<T, C>> operationClass) {
-        if (operationClass == null) {
-            throw new TransfluxValidationException("Operation class cannot be null");
-        }
+        requireNotNull(operationClass, "Operation class");
         if (this.operationInstance != null || this.operationClass != null) {
             log.warn("Operation source already defined for SimpleOperationDef '{}'; overriding previous value",
                 getId());
