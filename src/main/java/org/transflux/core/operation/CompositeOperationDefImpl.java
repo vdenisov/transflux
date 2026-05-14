@@ -28,6 +28,10 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+
+import static org.transflux.core.ValidationUtils.requireNotBlank;
+import static org.transflux.core.ValidationUtils.requireNotNull;
 
 /**
  * Implementation of {@link CompositeOperationDef}.
@@ -71,6 +75,18 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
     }
 
     @Override
+    public CompositeOperationDefImpl<T, C> conditional(String id, Consumer<ConditionalStepDef<T, C>> configurer) {
+        requireNotBlank(id, "Conditional step ID");
+        requireNotNull(configurer, "Conditional configurer");
+
+        ConditionalStepDefImpl<T, C> def = new ConditionalStepDefImpl<>(id);
+        configurer.accept(def);
+        stepRefs.add(StepRef.conditional(id, def));
+
+        return this;
+    }
+
+    @Override
     public CompositeOperationDefImpl<T, C> withName(String name) {
         super.withName(name);
         return this;
@@ -103,11 +119,13 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
      */
     public Map<String, Step<T, C>> getInlineStepInstances() {
         Map<String, Step<T, C>> result = new LinkedHashMap<>();
+
         for (StepRef<T, C> ref : stepRefs) {
             if (ref instanceof StepRef.InlineInstance<T, C> ii) {
                 result.put(ii.id(), ii.step());
             }
         }
+
         return Collections.unmodifiableMap(result);
     }
 
@@ -122,11 +140,37 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
      */
     public Map<String, Class<? extends Step<T, C>>> getInlineStepClasses() {
         Map<String, Class<? extends Step<T, C>>> result = new LinkedHashMap<>();
+
         for (StepRef<T, C> ref : stepRefs) {
             if (ref instanceof StepRef.InlineClass<T, C> ic) {
                 result.put(ic.id(), ic.stepClass());
             }
         }
+
+        return Collections.unmodifiableMap(result);
+    }
+
+    /**
+     * Returns an ordered map of {@code conditionalId -> ConditionalStepDefImpl} for every
+     * {@link StepRef.Conditional} reference contributed by this composite, in declaration
+     * order.
+     *
+     * <p>This is framework-internal infrastructure used by the state-machine def to walk into
+     * conditionals when collecting inline step registrations and when building the
+     * framework-built conditional executor for the step registry; user code should not invoke
+     * it directly.
+     *
+     * @return an unmodifiable map of conditional id to conditional def
+     */
+    public Map<String, ConditionalStepDefImpl<T, C>> getConditionalDefs() {
+        Map<String, ConditionalStepDefImpl<T, C>> result = new LinkedHashMap<>();
+
+        for (StepRef<T, C> ref : stepRefs) {
+            if (ref instanceof StepRef.Conditional<T, C> cond) {
+                result.put(cond.id(), cond.def());
+            }
+        }
+
         return Collections.unmodifiableMap(result);
     }
 
@@ -160,6 +204,7 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
         }
 
         Operation<T, C> executor = new CompositeOperationExecutor<>(stateMachine, boundSteps);
+
         return BoundOperation.of(getId(), getName(), getDescription(), executor);
     }
 
@@ -186,6 +231,7 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
                     "Composite operation requires a per-execution TransitionView; got "
                         + (transition == null ? "null" : transition.getClass().getName()));
             }
+
             @SuppressWarnings("unchecked")
             TransitionView<T, C> view = (TransitionView<T, C>) rawView;
             for (BoundStep<T, C> boundStep : boundSteps) {

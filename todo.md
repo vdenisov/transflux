@@ -160,6 +160,43 @@ Patch releases (`x.y.z`) ship between minor releases for bug fixes and security 
 
 ---
 
+## Phase 2.5: Nested Operations (v0.2.5)
+*Target: First-class operation-as-composite-member with type-safe context mapping. See `requirements.md` §4.5.2.*
+
+### 2.5.1 Nested Operation Member Type
+- [ ] Generalize `CompositeOperation` members from `Step` to `Step | Operation` (both `SimpleOperation` and `CompositeOperation` are nestable, recursively).
+- [ ] `CompositeOperationDef.operation(String id, Class<? extends Operation<T, ?>> opClass)` builder overload.
+- [ ] `CompositeOperationDef.operation(String id, Operation<T, ?> instance)` builder overload.
+- [ ] Definition-time cycle detection (a composite cannot transitively contain itself).
+- [ ] State-machine-wide ID uniqueness check extended across all nesting depths; inline and registry-resolved operations share one ID space.
+
+### 2.5.2 Context Mapping Surface
+- [ ] `ContextMapper<P, N>` interface with `N mapTo(P)` (parent → child) and `void mapFrom(P, N)` (child → parent).
+- [ ] `.usingContext(Class<N>)` on the nested-operation builder; re-generifies the chain to `<T, P, N>` so subsequent mapping calls are checked at compile time.
+- [ ] `.withContextMapping(Class<? extends ContextMapper<P, N>>)` (class-based).
+- [ ] `.withContextMapping(ContextMapper<P, N>)` (instance-based).
+- [ ] `.mapTo(Function<P, N>)` and `.mapFrom(BiConsumer<P, N>)` inline forms.
+- [ ] Pass-through mode (no `usingContext` call): child reuses parent context; no mapper invoked.
+- [ ] Validation: cannot mix class/instance-based and inline mapping on the same nested op; `.mapTo(...)` is required when `.usingContext(...)` is set; `.mapFrom(...)` is optional.
+
+### 2.5.3 Runtime Execution
+- [ ] Nested-op execution threads the parent's `Transition<T, P>` reference into the child even when the context is mapped.
+- [ ] Qualified-path tracking — child member ids emitted as `parent-id/child-id` (recursively) into `executedStepIds` / `compensatedStepIds`. Update `TransitionResult` JavaDoc accordingly; field names unchanged.
+- [ ] Mapper failure attribution: `mapTo` failure → parent failure; `mapFrom` failure → child failure. Same rule for class- and instance-based mappers.
+- [ ] Pre-/post-conditions on a nested operation evaluate against the **child's** context (mapped if applicable) — extends the Phase 2 condition-binding code with a context-resolution hook; no new condition surface.
+
+### 2.5.4 Specifications
+- [ ] Nested-op execution specs (pass-through and mapped, both class- and instance-based mappers).
+- [ ] ID uniqueness across nesting; cycle detection.
+- [ ] Qualified-path emission in `TransitionResult` (mixed top-level + nested members).
+- [ ] Mapper failure routing (`mapTo` vs. `mapFrom`).
+- [ ] Compile-time type-safety check for `.usingContext(...)` widening (Spock spec compiling a Groovy snippet and asserting `MultipleCompilationErrorsException` on a deliberately-broken mapper).
+
+### 2.5.5 requirements.md Alignment (already drafted)
+- [ ] `requirements.md` §4.5.2 expanded; no further spec edits required for Phase 2.5.
+
+---
+
 ## Phase 3: Triggers & Listeners (v0.3.0)
 *Target: The 1.0 trigger set (Manual, Event, host-driven Data) and full listener parity between DSLs.*
 
@@ -205,7 +242,7 @@ Patch releases (`x.y.z`) ship between minor releases for bug fixes and security 
 ### 3.7 Component Metadata Model
 *Prerequisite for §3.5 Listeners — listener payloads, diagnostic logging, and (later) the YAML DSL all need a uniform way to read `name` and `description` off any framework def. The Phase 2 design deliberately deferred this until there was a real consumer.*
 - [ ] Introduce a `Describable extends Identifiable` interface declaring `getName()` and `getDescription()` as default-`null` methods.
-- [ ] Make `StateMachineDef`, `StateDef`, `TransitionDef`, `OperationDef` implement `Describable`; each `*DefImpl` overrides one or both methods to return its stored value.
+- [ ] Make `StateMachineDef`, `StateDef`, `TransitionDef`, `OperationDef` implement `Describable`; each `*DefImpl` overrides one or both methods to return its stored value. Covers nested operations (Phase 2.5) as well — they reuse `OperationDef`, no new def type.
 - [ ] Add `StepDef<T, C>` (mandatory id, optional name/description) — mirroring `SimpleOperationDef`.
 - [ ] Add `ConditionDef<T, C>` (mandatory id, optional name/description) covering the existing four authoring flavours (instance, class, predicate, expression).
 - [ ] Add lambda-configurer overloads where step / condition registrations exist:
@@ -222,7 +259,7 @@ Patch releases (`x.y.z`) ship between minor releases for bug fixes and security 
 
 ### 4.1 Compensation Engine
 - [ ] Unified `Compensation<T, C>` interface (entity + context) for both operations and steps.
-- [ ] LIFO compensation stack management.
+- [ ] LIFO compensation stack management. **One stack per synchronous execution path.** Sync nested operations (Phase 2.5) push onto the enclosing parent's stack so unwinding interleaves child and sibling-step compensations correctly. Async branches own their own stack — see §4.4.
 - [ ] Compensation registration as each step completes.
 - [ ] Post-condition violation triggers full compensation; entity state is *not* applied.
 - [ ] Compensation declared by class or returned dynamically from `getCompensation(entity, context)`.
@@ -233,7 +270,7 @@ Patch releases (`x.y.z`) ship between minor releases for bug fixes and security 
 - [ ] Compensation chaining and ordering.
 
 ### 4.3 Async Operation Support
-- [ ] `async` block on composite operations.
+- [ ] `async` block on composite operations. The block accepts both `.step(...)` and `.operation(...)` members — an async branch may host a nested operation just like a sync composite can (Phase 2.5). The async executor submits the branch root; the nested operation runs on the async thread with its own compensation stack (see §4.4).
 - [ ] **Anchor forms**: exactly one of
   - [ ] `startBefore(stepId)` — kick off when execution reaches the named sync step (join-point pattern).
   - [ ] `startAfter(stepId)` — kick off when the named sync step completes successfully (post-action notifications pattern).
@@ -241,10 +278,20 @@ Patch releases (`x.y.z`) ship between minor releases for bug fixes and security 
 - [ ] Async result handling and callbacks.
 - [ ] Async operation cancellation semantics.
 
+#### 4.3.1 Async Context Handling (requirements §4.5.3)
+- [ ] `ForkableContext<C>` interface with single `C fork()` method.
+- [ ] Runtime fork-at-boundary: at async-branch submission, if the context implements `ForkableContext`, the branch receives `context.fork()`; otherwise it receives the shared reference. Invoked once per branch (not once per `async` block) so sibling branches each get an independent fork.
+- [ ] `ContextMapper`-on-`async` path: `.async().usingContext(Class<N>).mapTo(...)` on the async block, mirroring the nested-operation surface (Phase 2.5). `mapFrom` is rejected at definition time — async outcomes do not merge back synchronously.
+- [ ] Definition-time **warning** (logged, not thrown) when an `async` block is declared on a context type that neither implements `ForkableContext` nor declares a mapper. Warning identifies the operation id and points to §4.5.3.
+- [ ] Documented memory-model guarantees at the submission boundary (writes-before-submission visible to branch; writes-after not synchronized; symmetric for branch → enclosing path).
+- [ ] Optional `JacksonForkableContext` adapter shipped as a convenience implementation (Jackson round-trip). Lives in the same module — it's a few dozen lines and Jackson is already a core dependency.
+- [ ] Specs covering: `ForkableContext` is invoked per branch, shared-reference fallback works and warns, `ContextMapper` on async produces the right type, `mapFrom` on async fails definition-time, `JacksonForkableContext` round-trips a representative POJO context.
+
 ### 4.4 Async Compensation
-- [ ] Compensation of async branches.
-- [ ] Coordination semantics when sync work fails while async work is still running.
-- [ ] Timeout handling for async operations.
+- [ ] **Per-branch LIFO stack.** Each async branch owns its own compensation stack — independent from the enclosing transition's sync stack and from sibling async branches. Compensations registered by an async branch (including any nested operations it hosts) unwind only that branch's stack.
+- [ ] Sync-failure-while-async-running semantics: sync unwinds its own stack; each in-flight async branch unwinds (or completes and then unwinds) its own stack independently. No cross-stack interleaving.
+- [ ] Async-branch failure does not trigger sync compensation; surfacing of async failures into `TransitionResult` follows the existing async result-handling design (§4.3).
+- [ ] Timeout handling for async operations — on timeout, the affected branch unwinds its own stack.
 
 ### 4.5 Specifications
 - [ ] Compensation engine specs (LIFO order, exception routing, partial rollback).
@@ -284,6 +331,8 @@ Patch releases (`x.y.z`) ship between minor releases for bug fixes and security 
 ### 5.5 YAML DSL Parsing
 - [ ] State machine definition parser.
 - [ ] State, transition, operation, step, condition, trigger, listener parsers.
+- [ ] Composite-operation member grammar accepts `operation:` alongside `step:` (YAML counterpart of the Java `.operation(...)` builder added in Phase 2.5), including pass-through, class/instance-mapper, and inline-mapper forms (`mapTo` / `mapFrom`).
+- [ ] Cross-file ID-uniqueness checks walk into composite members so nested-operation ids participate in collision detection (Phase 2.5 enforces SM-wide uniqueness; the YAML loader must mirror that across imports).
 - [ ] Condition Descriptor parsing (the four forms).
 - [ ] State resolver + state applier configuration (class or SpEL).
 - [ ] Listener parity with the Java DSL (state entry/exit + transition start/complete).
@@ -317,6 +366,7 @@ Patch releases (`x.y.z`) ship between minor releases for bug fixes and security 
 - [ ] Custom factory function registration.
 - [ ] Circular dependency detection within component graphs.
 - [ ] YAML DSL integration: instantiation from `class:` references.
+- [ ] Nested-operation instantiation goes through the same factory path — no separate code path for operations used as composite members.
 
 ### 6.3 Observability Hooks
 - [ ] `MetricsCollector` SPI (no shipped Micrometer integration in 1.0).
@@ -389,7 +439,7 @@ The first stable release. Semantic versioning applies from this point on.
 
 **1.0 contract summary:**
 - Programmatic and YAML DSLs at parity.
-- Core abstractions: `StateMachine`, `State`, `Transition`, `Operation`, `Step`, `Context`, `Condition`, `Trigger` (Manual / Event / host-driven Data), `Listener` (state entry/exit + transition start/complete), `Compensation`.
+- Core abstractions: `StateMachine`, `State`, `Transition`, `Operation` (top-level and nested, with type-safe context mapping via `ContextMapper<P, N>`), `Step`, `Context`, `Condition`, `Trigger` (Manual / Event / host-driven Data), `Listener` (state entry/exit + transition start/complete), `Compensation`.
 - Paired `StateResolver<T>` + `StateApplier<T>` (class / lambda / SpEL forms).
 - Condition Descriptor grammar (reference, class, predicate, expression).
 - Multi-branch conditional operations.

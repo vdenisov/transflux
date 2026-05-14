@@ -25,7 +25,7 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
  * Package-private discriminated reference to a step inside a composite operation's
  * declaration-time step list.
  * <p>
- * Three kinds:
+ * Four kinds:
  * <ul>
  *   <li>{@link ById}        — references a step already registered on the enclosing state
  *       machine; the registry must contain it at build time.</li>
@@ -34,13 +34,16 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
  *   <li>{@link InlineClass}    — declares an id and a {@link Step} class; auto-registers,
  *       and the framework reflectively instantiates the class via its public no-arg
  *       constructor at state-machine build time.</li>
+ *   <li>{@link Conditional}    — declares a multi-branch conditional step under an id; the
+ *       framework builds an executor step from the attached {@link ConditionalStepDefImpl}
+ *       and auto-registers it under the declared id.</li>
  * </ul>
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
 sealed interface StepRef<T, C>
-    permits StepRef.ById, StepRef.InlineInstance, StepRef.InlineClass {
+    permits StepRef.ById, StepRef.InlineInstance, StepRef.InlineClass, StepRef.Conditional {
 
     String id();
 
@@ -54,6 +57,10 @@ sealed interface StepRef<T, C>
 
     static <T, C> StepRef<T, C> inline(String id, Class<? extends Step<T, C>> stepClass) {
         return new InlineClass<>(id, stepClass);
+    }
+
+    static <T, C> StepRef<T, C> conditional(String id, ConditionalStepDefImpl<T, C> def) {
+        return new Conditional<>(id, def);
     }
 
     record ById<T, C>(String id) implements StepRef<T, C> {
@@ -73,6 +80,13 @@ sealed interface StepRef<T, C>
         public InlineClass {
             requireNotBlank(id, "Step reference ID");
             requireNotNull(stepClass, "Inline step class");
+        }
+    }
+
+    record Conditional<T, C>(String id, ConditionalStepDefImpl<T, C> def) implements StepRef<T, C> {
+        public Conditional {
+            requireNotBlank(id, "Step reference ID");
+            requireNotNull(def, "Conditional step def");
         }
     }
 }

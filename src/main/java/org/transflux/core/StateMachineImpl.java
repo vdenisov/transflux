@@ -102,9 +102,9 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
         this.states.putAll(def.getStates().values().stream()
                               .collect(Collectors.toMap(StateDefImpl::getId, StateImpl::new)));
 
-        this.boundSteps = def.buildBoundSteps();
-
         Map<String, BoundCondition<T, C>> conditionRegistry = def.buildBoundConditions();
+        this.boundSteps = def.buildBoundSteps(this, conditionRegistry);
+
         for (TransitionDefImpl<T, C> td : def.getTransitionsById().values()) {
             this.transitions.put(td.getId(), new TransitionImpl<>(td, this, conditionRegistry));
         }

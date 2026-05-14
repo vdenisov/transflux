@@ -20,14 +20,13 @@ package org.transflux.core
 
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.operation.Step
-import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
-
 import spock.lang.Specification
 import spock.lang.Unroll
 
-import static org.transflux.core.TestStateEnum.*
+import static org.transflux.core.TestStateEnum.ACTIVE
+import static org.transflux.core.TestStateEnum.TRIAL
 
 class StateMachineDefImplStepRegistrationSpec extends Specification {
 
@@ -118,7 +117,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
             .step('shared', instance)
 
         when:
-        def map = ((StateMachineDefImpl) smd).buildBoundSteps()
+        def map = ((StateMachineDefImpl) smd).buildBoundSteps(null, [:])
 
         then:
         map.keySet() == ['shared'] as Set
@@ -132,7 +131,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
             .step('shared', StepA)
 
         when:
-        def map = ((StateMachineDefImpl) smd).buildBoundSteps()
+        def map = ((StateMachineDefImpl) smd).buildBoundSteps(null, [:])
 
         then:
         map.keySet() == ['shared'] as Set

@@ -21,6 +21,8 @@ package org.transflux.core.operation;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.transition.Transition;
 
+import java.util.function.Consumer;
+
 /**
  * Def-side anchor that builds an {@link Operation} from an ordered sequence of bound steps.
  * <p>
@@ -85,6 +87,21 @@ public interface CompositeOperationDef<T, C> extends OperationDef<T, C> {
      *         {@code stepClass} is {@code null}
      */
     CompositeOperationDef<T, C> step(String id, Class<? extends Step<T, C>> stepClass);
+
+    /**
+     * Appends a multi-branch conditional step under the supplied id. The supplied configurer
+     * defines the branches, optional default branch, and no-match behavior.
+     *
+     * @param id the conditional step id; the executor built from the configurer is
+     *           auto-registered on the enclosing state machine under this id
+     * @param configurer callback that configures the conditional
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
+     *         {@code configurer} is {@code null}
+     */
+    CompositeOperationDef<T, C> conditional(String id, Consumer<ConditionalStepDef<T, C>> configurer);
 
     @Override
     CompositeOperationDef<T, C> withName(String name);

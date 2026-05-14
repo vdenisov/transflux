@@ -65,8 +65,8 @@ Transition execution (via `transitionTo(...)`, `processEvent(...)`, `processData
 - `boolean isSuccess()` — terminal outcome.
 - `String getTargetState()` — final state (post-transition on success; pre-transition on rolled-back failure).
 - `Throwable getError()` — present iff `isSuccess()` is `false`.
-- `List<String> getExecutedStepIds()` — ordered list of steps that ran.
-- `List<String> getCompensatedStepIds()` — ordered list of compensations that ran (empty on success).
+- `List<String> getExecutedStepIds()` — ordered list of steps that ran. Steps belonging to a nested operation are reported as **qualified paths** (`parent-op-id/child-step-id`, recursively for deeper nesting); top-level steps appear under their bare id. See §4.5.2 for nested-operation semantics.
+- `List<String> getCompensatedStepIds()` — ordered list of compensations that ran (empty on success). Same qualified-path encoding as `getExecutedStepIds()`.
 - Timing metadata (start/end timestamps; per-step durations).
 
 Business outcomes (failed conditions, failed steps, post-condition violations) are reported through `TransitionResult` rather than thrown. **Configuration and validation errors** — invalid definitions, missing transitions, unknown states, illegal builder usage — throw `TransfluxValidationException` synchronously.
@@ -187,6 +187,8 @@ Manages shared state during transition execution.
 - Shared data storage during operation execution.
 - Type-safe data access and manipulation.
 - The host populates the context before invocation; the host reads results after the transition completes.
+
+Context access in concurrent (async) execution paths is governed by the rules in §4.5.3 — by default the sync and async paths share the same context reference; isolation is opt-in via the `ForkableContext` interface.
 
 #### 2.2.8 Trigger System
 
@@ -1557,105 +1559,154 @@ public void activateSubscription(Subscription entity) {
 }
 ```
 
-#### 4.5.2 Nested Operations Context Handling
+#### 4.5.2 Nested Operations
 
-For nested operations, there are two approaches.
+A `CompositeOperation` member may be either a `Step` or another `Operation`. Operations nested inside other operations are first-class `Operation` instances — both `SimpleOperation` and `CompositeOperation` are nestable, recursively. Common use cases include shared validation suboperations, billing/notification subflows, and any logic that benefits from being authored once and composed into multiple parents.
 
-**Option 1: Using Parent Context**
+##### 4.5.2.1 Definition Surface
+
+The Java builder exposes nested operations through `.operation(...)` on `CompositeOperationDef`, alongside the existing `.step(...)` member. Two context modes are supported:
+
+- **Pass-through** — child reuses the parent's context object verbatim. This is the default when `.usingContext(...)` is omitted on the nested-operation builder.
+- **Mapped** — child runs against its own context type, populated from the parent on the way in and (optionally) merged back on the way out.
 
 ```java
-public class ParentOperation
-        implements Operation<Subscription, SubscriptionContext> {
-    
-    @Override
-    public void execute(Subscription subscription, SubscriptionContext context,
-                        Transition<Subscription, SubscriptionContext> transition) {
-        // Parent operation logic
-        context.setParentData("some value");
-        
-        // Nested operation uses same context and transition
-        nestedOperation.execute(subscription, context, transition);
-        
-        // Parent can access nested operation results
-        String result = context.getNestedResult();
-    }
-}
+compositeOperation("advanced-subscription-workflow")
+    .withDescription("Advanced subscription activation with nested operations and context mapping")
+    .usingContext(SubscriptionContext.class)
 
-public class NestedOperation
-        implements Operation<Subscription, SubscriptionContext> {
-    
-    @Override
-    public void execute(Subscription subscription, SubscriptionContext context,
-                        Transition<Subscription, SubscriptionContext> transition) {
-        String parentData = context.getParentData();
-        context.setNestedResult("processed: " + parentData);
-    }
-}
+    // Regular steps
+    .step("prepare-billing-actor", PrepareBillingActorStep.class)
+    .step("validate-payment-method", ValidatePaymentMethodStep.class)
+
+    // Nested operation, pass-through context (child reuses SubscriptionContext)
+    .operation("simple-nested", SimpleNestedOperation.class)
+
+    // Nested operation with class-based mapping
+    .operation("billing-processing", BillingProcessingOperation.class)
+        .usingContext(BillingContext.class)
+        .withContextMapping(BillingContextMapper.class)
+
+    // Nested operation with instance-based mapping
+    .operation("audit-processing", AuditProcessingOperation.class)
+        .usingContext(AuditContext.class)
+        .withContextMapping(new AuditContextMapper(auditConfig))
+
+    // Nested operation with inline mapping
+    .operation("complex-nested", ComplexNestedOperation.class)
+        .usingContext(NestedSubscriptionContext.class)
+        .mapTo(parentContext -> {
+            NestedSubscriptionContext nested = new NestedSubscriptionContext();
+            nested.setSubscriptionId(parentContext.getSubscriptionId());
+            nested.setBillingCycle(parentContext.getBillingCycle());
+            return nested;
+        })
+        .mapFrom((parentContext, nestedContext) -> {
+            parentContext.setNestedActivationResult(nestedContext.getActivationResult());
+            parentContext.setNestedBillingSetup(nestedContext.getBillingSetup());
+        })
+    .end();
 ```
 
-**Option 2: Explicit Context Mapping**
+`.usingContext(Class<N>)` re-genericizes the nested-operation builder so subsequent `.withContextMapping(...)`, `.mapTo(...)`, and `.mapFrom(...)` calls are checked against `<P, N>` at compile time — passing a mapper whose generics do not align with the parent's context type and the child's declared context type is a compile-time error.
+
+The `ContextMapper<P, N>` interface mirrors the DSL method names:
 
 ```java
-public class ParentWithMappingOperation
-        implements Operation<Subscription, SubscriptionContext> {
-    
-    @Override
-    public void execute(Subscription subscription, SubscriptionContext parentContext,
-                        Transition<Subscription, SubscriptionContext> transition) {
-        // Create nested context and map data from parent
-        NestedContext nestedContext = new NestedContext();
-        nestedContext.setInputData(parentContext.getSubscriptionId());
-        nestedContext.setConfiguration(parentContext.getConfiguration());
-        
-        // Execute nested operation
-        nestedOperation.execute(subscription, nestedContext, transition);
-        
-        // Map results back to parent context
-        parentContext.setNestedProcessingResult(nestedContext.getOutputData());
-        parentContext.setNestedTimestamp(nestedContext.getCompletedAt());
-    }
-}
-
-// Declarative workflow with optional context mapping
-public CompositeOperation<Subscription, SubscriptionContext> createAdvancedWorkflow() {
-    return compositeOperation("advanced-subscription-workflow")
-        .withDescription("Advanced subscription activation with nested operations and context mapping")
-        .usingContext(SubscriptionContext.class)
-        
-        // Regular steps
-        .step("prepare-billing-actor", PrepareBillingActorStep.class)
-        .step("validate-payment-method", ValidatePaymentMethodStep.class)
-        
-        // Nested operation without mapping (uses parent context)
-        .operation("simple-nested", SimpleNestedOperation.class)
-        
-        // Nested operation with class-based mapping
-        .operation("billing-processing", BillingProcessingOperation.class)
-            .usingContext(BillingContext.class)
-            .withContextMapping(BillingContextMapper.class)
-        
-        // Nested operation with inline mapping
-        .operation("complex-nested", ComplexNestedOperation.class)
-            .usingContext(NestedSubscriptionContext.class)
-            .mapFrom(parentContext -> {
-                NestedSubscriptionContext nested = new NestedSubscriptionContext();
-                nested.setSubscriptionId(parentContext.getSubscriptionId());
-                nested.setBillingCycle(parentContext.getBillingCycle());
-                return nested;
-            })
-            .mapTo((parentContext, nestedContext) -> {
-                parentContext.setNestedActivationResult(nestedContext.getActivationResult());
-                parentContext.setNestedBillingSetup(nestedContext.getBillingSetup());
-            })
-        .end();
-}
-
-// ContextMapper interface
 public interface ContextMapper<P, N> {
-    N mapInput(P parentContext);
-    void mapOutput(P parentContext, N nestedContext);
+    N mapTo(P parentContext);                       // parent → child (input)
+    void mapFrom(P parentContext, N nestedContext); // child → parent (output)
 }
 ```
+
+`.withContextMapping(...)` accepts both class and instance forms. Inline `.mapTo(...)` / `.mapFrom(...)` lambdas are sugar for the same pair of methods. Mixing class-based and inline mapping on the same nested-operation builder is rejected at definition time. When `.usingContext(...)` is set, `.mapTo(...)` is required; `.mapFrom(...)` is optional (a child whose results need not flow back to the parent may omit it).
+
+##### 4.5.2.2 Identity and Uniqueness
+
+Operation identifiers are unique **across the entire state machine**, regardless of nesting depth. Inline-defined and registry-resolved operations share one ID space. Two consequences:
+
+- Promoting an inline nested operation to a top-level reusable operation (or inlining a top-level one) is an ID-preserving refactor — no rename is required.
+- Two sibling composites cannot independently host an inline operation with the same id; one must be renamed.
+
+Despite the global uniqueness rule, nested operations remain externally addressable via their id (e.g., as the target of a `ref:` descriptor or a registry lookup). "Inline" vs. "top-level" is a definition-site convenience, not a visibility scope.
+
+##### 4.5.2.3 Result Reporting
+
+`TransitionResult.getExecutedStepIds()` and `getCompensatedStepIds()` (see §2.1.4) report steps belonging to nested operations as **qualified paths** of the form `parent-op-id/child-step-id`, recursively for deeper nesting. Top-level steps appear under their bare id. The qualified form preserves the structural distinction between a step that ran at the top level and a step that ran inside a nested operation, even when the same step id is reused across parents.
+
+##### 4.5.2.4 Failure and Compensation
+
+A nested operation's failure surfaces as if it were a member failure of the enclosing parent at that position; the parent's error-handling and compensation rules apply. Mapper failures are attributed to whichever side of the boundary they conceptually belong to:
+
+- **`mapTo` failure** (parent → child, runs as part of the parent step before child execution) is a **parent failure**.
+- **`mapFrom` failure** (child → parent, runs as part of child execution after the child returns) is a **child failure**.
+
+The same attribution applies to the equivalent methods on class- and instance-based `ContextMapper` implementations.
+
+Compensations registered by a *synchronously-executed* nested operation are pushed onto the **enclosing parent's** LIFO compensation stack as the child runs. When the parent unwinds, child compensations interleave correctly with sibling steps — there is one stack per synchronous execution path, not one per nesting level.
+
+A nested operation hosted inside an `async` block is a different story: the async branch owns its own LIFO compensation stack, independent from the enclosing transition's sync stack and from sibling async branches. The branch's stack accumulates compensations from the async root and from any operations nested below it; on failure (or timeout, or external cancellation), only that branch's stack unwinds. This decouples async rollback from sync rollback entirely — sync work failing while an async branch is still running does not drain the async branch's stack, and an async-branch failure does not trigger sync compensation. Surfacing of async outcomes into `TransitionResult` follows the standard async result-handling rules.
+
+##### 4.5.2.5 Condition Scope
+
+Pre- and post-conditions attached to a nested operation are evaluated against the **child's** context (mapped, if `.usingContext(...)` is set; otherwise the parent's context, in pass-through mode). Conditions attached to the parent operation continue to evaluate against the parent's context.
+
+##### 4.5.2.6 Reusability
+
+Because identity is state-machine-wide and the runtime treats inline and registry-resolved operations the same way, a single `OperationDef` may be referenced as a nested member of multiple parents — by id (registry lookup) or by direct reference. Once the component registry comes online, nested operations participate in registry resolution on the same terms as top-level operations.
+
+#### 4.5.3 Async Context Handling
+
+An `async` block introduces a concurrency boundary: the branch runs on a separate thread from the enclosing sync path and from sibling async branches. The host owns the context type, so Transflux does not impose a one-size-fits-all concurrency model on it. Two opt-in paths exist for hosts that want isolation; a documented shared-reference fallback covers the rest.
+
+##### 4.5.3.1 ForkableContext (per-branch isolation, same context type)
+
+Hosts that want each async branch to run against an isolated copy of the existing context implement `ForkableContext`:
+
+```java
+public interface ForkableContext<C> {
+    C fork();   // produce an isolated context for an async branch
+}
+```
+
+Runtime rule: at the async-branch boundary, if the context implements `ForkableContext`, the branch receives `context.fork()`; otherwise it receives the same reference held by the enclosing sync path (see §4.5.3.3). The host owns the copy strategy — deep, shallow, copy-on-write, or anything else appropriate to the context shape. Transflux does not perform reflective deep-copy; the failure modes (lazy proxies, transient fields, singletons captured by reference, framework-managed handles) make implicit reflection a worse default than explicit host control.
+
+For a JSON-friendly POJO context, Transflux ships an optional `JacksonForkableContext` adapter that implements `fork()` via a Jackson round-trip. Hosts with weirder shapes write their own.
+
+##### 4.5.3.2 ContextMapper on `async` (full isolation, different context type)
+
+When an async branch needs a distinctly-shaped context — e.g., a notification subflow that needs only an order id and a customer email — declare it on the async block using the same `ContextMapper` machinery as nested operations (§4.5.2.1):
+
+```java
+.async()
+    .startAfter("finalize")
+    .usingContext(AsyncNotificationCtx.class)
+    .mapTo(parent -> new AsyncNotificationCtx(parent.getOrderId(), parent.getCustomerId()))
+    .step("send-receipt", SendReceiptStep.class)
+.end()
+```
+
+`mapTo` runs once on the enclosing sync thread before the async branch is submitted; the constructed context is what the branch sees. `mapFrom` is **not** supported on async blocks, because async results do not merge back synchronously into the parent context — surfacing of async outcomes follows the result-handling design in §4.10 rather than the mapper pattern.
+
+##### 4.5.3.3 Shared-reference fallback and definition-time warning
+
+When neither `ForkableContext` nor a context mapper is declared, the async branch receives the same context reference as the enclosing sync path. This is a legitimate design choice for branches that only read from context — common cases include post-action notifications, audit logging, and any work fired off after the last sync step where the context is effectively read-only by then.
+
+To prevent silent sharing, the framework emits a definition-time **warning** (not an error) when an async block is declared on a context type that does not implement `ForkableContext` and that does not declare a mapper. The warning identifies the operation and links to this section. Hosts that intend to share — explicitly — can suppress it via standard logging configuration.
+
+##### 4.5.3.4 Memory-Model Guarantees
+
+Transflux guarantees, at the async-branch submission boundary:
+
+- All writes the enclosing path performed *before* submission are visible to the async branch (happens-before via the executor submission).
+- Writes performed by the enclosing path *after* submission are **not** synchronized with the branch and may or may not be observed.
+- Symmetrically, writes the async branch performs are not synchronized back into the enclosing path.
+
+These guarantees apply to both shared-reference and `ForkableContext` modes. In `ForkableContext` mode the second and third points are moot for the branch's own writes, since each side mutates a distinct object — but the host's `fork()` implementation is responsible for the snapshot itself being self-consistent (e.g., not capturing references to mutable nested objects it expects to remain stable).
+
+##### 4.5.3.5 Sibling Async Branches
+
+Multiple async branches under the same `async` block follow the same rules pairwise: each branch independently obtains its context per §4.5.3.1 / §4.5.3.2 / §4.5.3.3. `ForkableContext.fork()` is invoked once per branch, not once per `async` block.
 
 ### 4.6 Steps
 

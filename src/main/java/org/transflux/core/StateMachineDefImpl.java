@@ -25,6 +25,7 @@ import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.BoundStep;
 import org.transflux.core.operation.CompositeOperationDefImpl;
+import org.transflux.core.operation.ConditionalStepDefImpl;
 import org.transflux.core.operation.OperationDefImpl;
 import org.transflux.core.operation.Step;
 import org.transflux.core.state.StateApplier;
@@ -106,6 +107,10 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
     private final Map<String, StepRegistration<T, C>> stepRegistrations = new LinkedHashMap<>();
 
     private final Map<String, ConditionRegistration<T, C>> conditionRegistrations = new LinkedHashMap<>();
+
+    // conditionalStepId -> ConditionalStepDefImpl, collected during inline-step walk and
+    // resolved into framework-built executor steps once the bound-step registry is being built.
+    private final Map<String, ConditionalStepDefImpl<T, C>> conditionalStepRegistrations = new LinkedHashMap<>();
 
     // transitionId -> TransitionDefImpl
     private final Map<String, TransitionDefImpl<T, C>> transitionsById = new LinkedHashMap<>();
@@ -242,9 +247,11 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
             stepRegistrations.put(id, StepRegistration.ofInstance(step));
             return;
         }
+
         if (existing.instance != null && existing.instance == step) {
             return;
         }
+
         throw new TransfluxValidationException("Step ID '" + id + "' is already registered");
     }
 
@@ -264,16 +271,21 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
             stepRegistrations.put(id, StepRegistration.ofClass(stepClass));
             return;
         }
+
         if (existing.stepClass != null && existing.stepClass.equals(stepClass)) {
             return;
         }
+
         throw new TransfluxValidationException("Step ID '" + id + "' is already registered");
     }
 
     /**
      * Walks every transition's operation def for inline step refs and registers each one on
-     * this state-machine def. Same-instance / same-class collisions on an id are tolerated;
-     * any other collision raises {@link TransfluxValidationException}.
+     * this state-machine def. Conditionals contributed by a composite are also walked: their
+     * branches and default branch contribute inline step registrations, and the conditional
+     * itself is recorded so the bound-step registry build can produce its framework-built
+     * executor under the conditional's id. Same-instance / same-class collisions on an id are
+     * tolerated; any other collision raises {@link TransfluxValidationException}.
      */
     private void collectInlineStepRegistrations() {
         for (TransitionDefImpl<T, C> td : transitionsById.values()) {
@@ -281,12 +293,43 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
             if (!(op instanceof CompositeOperationDefImpl<T, C> composite)) {
                 continue;
             }
-            for (Map.Entry<String, Step<T, C>> e : composite.getInlineStepInstances().entrySet()) {
-                registerStepInstance(e.getKey(), e.getValue());
+
+            registerInlineSteps(composite.getInlineStepInstances(), composite.getInlineStepClasses());
+
+            for (Map.Entry<String, ConditionalStepDefImpl<T, C>> e : composite.getConditionalDefs().entrySet()) {
+                String conditionalId = e.getKey();
+                ConditionalStepDefImpl<T, C> conditional = e.getValue();
+
+                registerInlineSteps(conditional.getInlineStepInstances(), conditional.getInlineStepClasses());
+
+                ConditionalStepDefImpl<T, C> existing = conditionalStepRegistrations.get(conditionalId);
+                if (existing != null && existing != conditional) {
+                    throw new TransfluxValidationException(
+                        "Conditional step ID '" + conditionalId + "' is already registered");
+                }
+
+                if (stepRegistrations.containsKey(conditionalId)) {
+                    throw new TransfluxValidationException(
+                        "Step ID '" + conditionalId + "' is already registered");
+                }
+                conditionalStepRegistrations.put(conditionalId, conditional);
             }
-            for (Map.Entry<String, Class<? extends Step<T, C>>> e : composite.getInlineStepClasses().entrySet()) {
-                registerStepClass(e.getKey(), e.getValue());
-            }
+        }
+    }
+
+    /**
+     * Registers every inline step instance and every inline step class from the supplied maps.
+     * Shared between the per-composite walk and the per-conditional walk; both expose the same
+     * pair of maps and need the same registration semantics.
+     */
+    private void registerInlineSteps(Map<String, Step<T, C>> instances,
+                                     Map<String, Class<? extends Step<T, C>>> classes) {
+        for (Map.Entry<String, Step<T, C>> e : instances.entrySet()) {
+            registerStepInstance(e.getKey(), e.getValue());
+        }
+
+        for (Map.Entry<String, Class<? extends Step<T, C>>> e : classes.entrySet()) {
+            registerStepClass(e.getKey(), e.getValue());
         }
     }
 
@@ -328,9 +371,11 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
             conditionRegistrations.put(id, ConditionRegistration.ofInstance(condition));
             return;
         }
+
         if (existing.instance != null && existing.instance == condition) {
             return;
         }
+
         throw new TransfluxValidationException("Condition ID '" + id + "' is already registered");
     }
 
@@ -340,9 +385,11 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
             conditionRegistrations.put(id, ConditionRegistration.ofClass(conditionClass));
             return;
         }
+
         if (existing.conditionClass != null && existing.conditionClass.equals(conditionClass)) {
             return;
         }
+
         throw new TransfluxValidationException("Condition ID '" + id + "' is already registered");
     }
 
@@ -352,9 +399,11 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
             conditionRegistrations.put(id, ConditionRegistration.ofPredicate(predicate));
             return;
         }
+
         if (existing.predicate != null && existing.predicate == predicate) {
             return;
         }
+
         throw new TransfluxValidationException("Condition ID '" + id + "' is already registered");
     }
 
@@ -364,9 +413,11 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
             conditionRegistrations.put(id, ConditionRegistration.ofExpression(expression));
             return;
         }
+
         if (existing.expression != null && existing.expression.equals(expression)) {
             return;
         }
+
         throw new TransfluxValidationException("Condition ID '" + id + "' is already registered");
     }
 
@@ -387,25 +438,46 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
         for (Map.Entry<String, ConditionRegistration<T, C>> e : conditionRegistrations.entrySet()) {
             resolved.put(e.getKey(), e.getValue().toBoundCondition(e.getKey()));
         }
+
         return Collections.unmodifiableMap(resolved);
     }
 
     /**
      * Resolves the step registrations into {@link BoundStep} instances, reflectively
-     * instantiating class-form entries. Called from {@link StateMachineImpl} during state
-     * machine construction.
+     * instantiating class-form entries and producing framework-built executor steps for any
+     * conditional registrations collected during the inline-step walk. Called from
+     * {@link StateMachineImpl} during state machine construction after the condition registry
+     * is built — each conditional executor is bound against that registry up-front so its
+     * branch conditions are ready by the time the executor runs.
+     *
+     * @param stateMachine the enclosing state machine, needed by conditional executors at
+     *                     execution time to look up branch step ids against the step registry
+     * @param conditionRegistry the resolved state-machine condition registry, used to bind
+     *                          each conditional's branch conditions
      *
      * @return an unmodifiable map of step id to bound step
      *
      * @throws TransfluxValidationException if any class-form registration cannot be
-     *         instantiated through its no-arg constructor
+     *         instantiated through its no-arg constructor, or if a conditional fails
+     *         validation
      */
-    Map<String, BoundStep<T, C>> buildBoundSteps() {
+    public Map<String, BoundStep<T, C>> buildBoundSteps(StateMachineImpl<T, C> stateMachine,
+                                                        Map<String, BoundCondition<T, C>> conditionRegistry) {
         collectInlineStepRegistrations();
+
         Map<String, BoundStep<T, C>> resolved = new LinkedHashMap<>();
         for (Map.Entry<String, StepRegistration<T, C>> e : stepRegistrations.entrySet()) {
             resolved.put(e.getKey(), e.getValue().toBoundStep(e.getKey()));
         }
+
+        for (Map.Entry<String, ConditionalStepDefImpl<T, C>> e : conditionalStepRegistrations.entrySet()) {
+            if (resolved.containsKey(e.getKey())) {
+                throw new TransfluxValidationException(
+                    "Step ID '" + e.getKey() + "' is already registered");
+            }
+            resolved.put(e.getKey(), e.getValue().buildBoundStep(stateMachine, conditionRegistry));
+        }
+
         return Collections.unmodifiableMap(resolved);
     }
 
@@ -419,6 +491,7 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
         }
 
         this.stateApplier = stateApplier;
+
         return this;
     }
 
