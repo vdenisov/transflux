@@ -18,6 +18,21 @@
 
 package org.transflux.core;
 
+import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.operation.BoundOperation;
+import org.transflux.core.operation.BoundStep;
+import org.transflux.core.operation.Step;
+import org.transflux.core.state.State;
+import org.transflux.core.state.StateApplier;
+import org.transflux.core.state.StateDefImpl;
+import org.transflux.core.state.StateImpl;
+import org.transflux.core.state.StateResolver;
+import org.transflux.core.transition.Transition;
+import org.transflux.core.transition.TransitionDefImpl;
+import org.transflux.core.transition.TransitionImpl;
+import org.transflux.core.transition.TransitionResult;
+import org.transflux.core.transition.TransitionView;
+
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -66,7 +81,7 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
      *
      * @throws TransfluxValidationException if the definition is null or invalid
      */
-    StateMachineImpl(StateMachineDefImpl<T, C> def) {
+    public StateMachineImpl(StateMachineDefImpl<T, C> def) {
         this.entityType = def.getEntityType();
         this.contextType = def.getContextType();
         this.name = def.getName();
@@ -92,7 +107,7 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
      *
      * @return the bound step, or {@code null} if no step is registered under {@code id}
      */
-    BoundStep<T, C> getBoundStep(String id) {
+    public BoundStep<T, C> getBoundStep(String id) {
         return boundSteps.get(id);
     }
 
@@ -108,7 +123,7 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
      * @param <T> the entity type
      * @param <C> the context type
      */
-    static <T, C> void runBoundStep(BoundStep<T, C> boundStep, TransitionView<T, C> view) {
+    public static <T, C> void runBoundStep(BoundStep<T, C> boundStep, TransitionView<T, C> view) {
         boundStep.step().execute(view.getEntity(), view.getContext(), view);
         view.recordExecutedStepId(boundStep.id());
     }

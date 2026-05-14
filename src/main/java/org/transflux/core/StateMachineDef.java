@@ -18,6 +18,15 @@
 
 package org.transflux.core;
 
+import org.transflux.core.condition.Condition;
+import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.operation.CompositeOperationDef;
+import org.transflux.core.operation.Step;
+import org.transflux.core.state.StateApplier;
+import org.transflux.core.state.StateDef;
+import org.transflux.core.state.StateResolver;
+import org.transflux.core.transition.TransitionDef;
+
 import java.util.function.Predicate;
 
 /**

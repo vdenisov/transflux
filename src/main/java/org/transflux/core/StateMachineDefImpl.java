@@ -20,6 +20,19 @@ package org.transflux.core;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.transflux.core.condition.BoundCondition;
+import org.transflux.core.condition.Condition;
+import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.operation.BoundStep;
+import org.transflux.core.operation.CompositeOperationDefImpl;
+import org.transflux.core.operation.OperationDefImpl;
+import org.transflux.core.operation.Step;
+import org.transflux.core.state.StateApplier;
+import org.transflux.core.state.StateDef;
+import org.transflux.core.state.StateDefImpl;
+import org.transflux.core.state.StateResolver;
+import org.transflux.core.transition.TransitionDef;
+import org.transflux.core.transition.TransitionDefImpl;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -75,7 +88,7 @@ import static org.transflux.core.ValidationUtils.warnIfSet;
  * @param <T> the type of entity managed by the state machine being defined
  * @param <C> the host-supplied context type carried through transition execution
  */
-class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
+public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
     private static final Logger log = LoggerFactory.getLogger(StateMachineDefImpl.class);
 
     private Class<T> entityType;
@@ -98,7 +111,7 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
     // Source-target index: sourceStateId -> targetStateId -> list of TransitionDefImpl
     private final Map<String, Map<String, List<TransitionDefImpl<T, C>>>> transitionsBySourceTarget = new LinkedHashMap<>();
 
-    StateMachineDefImpl() {
+    public StateMachineDefImpl() {
     }
 
     @Override
@@ -267,13 +280,11 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
             if (!(op instanceof CompositeOperationDefImpl<T, C> composite)) {
                 continue;
             }
-            for (StepRef<T, C> ref : composite.getStepRefs()) {
-                if (ref instanceof StepRef.InlineInstance<T, C> ii) {
-                    registerStepInstance(ii.id(), ii.step());
-                } else if (ref instanceof StepRef.InlineClass<T, C> ic) {
-                    registerStepClass(ic.id(), ic.stepClass());
-                }
-                // StepRef.ById — no inline registration needed
+            for (Map.Entry<String, Step<T, C>> e : composite.getInlineStepInstances().entrySet()) {
+                registerStepInstance(e.getKey(), e.getValue());
+            }
+            for (Map.Entry<String, Class<? extends Step<T, C>>> e : composite.getInlineStepClasses().entrySet()) {
+                registerStepClass(e.getKey(), e.getValue());
             }
         }
     }
@@ -458,7 +469,7 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
      *
      * @throws TransfluxValidationException if any parameter is null/blank or transition ID already exists
      */
-    void registerTransition(String sourceStateId, String targetStateId, String transitionId) {
+    public void registerTransition(String sourceStateId, String targetStateId, String transitionId) {
         requireNotBlank(sourceStateId, "Source state ID");
         requireNotBlank(targetStateId, "Target state ID");
         requireNotBlank(transitionId, "Transition ID");
@@ -625,10 +636,7 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
                 Condition<T, C> adapted = (entity, ctx, transition) -> p.test(entity);
                 return BoundCondition.of(id, adapted);
             }
-            String expr = expression;
-            Condition<T, C> condition = (entity, ctx, transition) ->
-                SpelConditionEvaluator.shared().evaluate(expr, entity, ctx, transition);
-            return BoundCondition.of(id, condition);
+            return BoundCondition.fromExpression(id, expression);
         }
     }
 

@@ -18,6 +18,8 @@
 
 package org.transflux.core;
 
+import org.transflux.core.exception.TransfluxValidationException;
+
 import java.lang.reflect.InvocationTargetException;
 
 /**
@@ -27,8 +29,11 @@ import java.lang.reflect.InvocationTargetException;
  * failures surface as {@link TransfluxValidationException} with a message that names the
  * failing class and distinguishes "no no-arg constructor" from "constructor exists but
  * instantiation failed".
+ *
+ * <p>This is framework-internal infrastructure used by Transflux's own def builders; user
+ * code should not invoke it directly.
  */
-final class ReflectionUtils {
+public final class ReflectionUtils {
 
     private ReflectionUtils() {
         // utility class — no instances
@@ -53,7 +58,7 @@ final class ReflectionUtils {
      * @throws TransfluxValidationException if {@code type} has no accessible no-arg
      *         constructor, or if instantiation fails for any other reason
      */
-    static <T> T instantiateNoArg(Class<? extends T> type, String typeName) {
+    public static <T> T instantiateNoArg(Class<? extends T> type, String typeName) {
         try {
             return type.getDeclaredConstructor().newInstance();
         } catch (NoSuchMethodException e) {

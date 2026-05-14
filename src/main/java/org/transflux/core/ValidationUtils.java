@@ -19,6 +19,7 @@
 package org.transflux.core;
 
 import org.slf4j.Logger;
+import org.transflux.core.exception.TransfluxValidationException;
 
 /**
  * Static helpers that turn the repeated null / blank / override-warning patterns into

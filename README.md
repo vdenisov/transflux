@@ -23,7 +23,12 @@ The project is in active design and the public API is unstable. **No releases ar
 - Coverage report: `target/site/jacoco/index.html`
 
 ## Package Structure
-- `org.transflux.core` — all core interfaces and implementations (flat package; subpackage organization deferred until the surface area justifies it).
+- `org.transflux.core` — entry point (`Transflux`), `StateMachine` / `StateMachineDef`, the `Identifiable` marker, and shared internal utilities (`ValidationUtils`, `ThrowingUtils`, `ReflectionUtils`).
+- `org.transflux.core.state` — `State`, `StateDef`, their `*Impl`s, and the host-supplied `StateResolver` / `StateApplier` bridges.
+- `org.transflux.core.transition` — `Transition`, `TransitionDef`, their `*Impl`s, `TransitionResult`, and the runtime-internal `TransitionView`.
+- `org.transflux.core.operation` — `Operation`, `Step`, their def-side types (`SimpleOperationDef` / `CompositeOperationDef`), and the bound-record infrastructure.
+- `org.transflux.core.condition` — `Condition`, `ConditionDescriptor`, and the SpEL-backed evaluation utilities.
+- `org.transflux.core.exception` — `TransfluxException` and its subclasses.
 
 ## Contributing and Workflow
 - Default branch: `main`.

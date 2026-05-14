@@ -18,6 +18,11 @@
 
 package org.transflux.core;
 
+import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.state.State;
+import org.transflux.core.transition.Transition;
+import org.transflux.core.transition.TransitionResult;
+
 /**
  * The central orchestrator that manages entity state transitions and coordinates all framework operations.
  * <p>

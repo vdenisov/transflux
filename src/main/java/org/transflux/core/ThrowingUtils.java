@@ -18,6 +18,8 @@
 
 package org.transflux.core;
 
+import org.transflux.core.exception.TransfluxValidationException;
+
 /**
  * Static helpers that wrap a checked- or unchecked-exception-throwing call in a
  * {@link TransfluxValidationException}.
