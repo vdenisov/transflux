@@ -32,12 +32,16 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
  * <p>
  * Reference descriptors are looked up against the state machine's condition registry;
  * class-based descriptors are reflectively instantiated through their public no-arg
- * constructor; predicate-based descriptors are adapted into {@code Condition} instances
- * that ignore the context and transition view; expression-based descriptors are bound to
- * the shared {@link SpelConditionEvaluator}, with id auto-derived from the supplied path
- * when the descriptor omits an explicit id.
+ * constructor; instance-based descriptors return the wrapped {@code Condition} as-is;
+ * predicate-based descriptors are adapted into {@code Condition} instances that ignore the
+ * context and transition view; expression-based descriptors are bound to the shared
+ * {@link SpelConditionEvaluator}, with id auto-derived from the supplied path when the
+ * descriptor omits an explicit id.
+ *
+ * <p>This is framework-internal infrastructure used by Transflux's own def builders; user
+ * code should not invoke it directly.
  */
-final class ConditionResolver {
+public final class ConditionResolver {
 
     private ConditionResolver() {
         // utility class — no instances
@@ -60,9 +64,9 @@ final class ConditionResolver {
      *         a class-based descriptor's class cannot be instantiated through a no-arg
      *         constructor, or if any other input is invalid
      */
-    static <T, C> BoundCondition<T, C> resolve(ConditionDescriptor descriptor,
-                                               Map<String, BoundCondition<T, C>> registry,
-                                               String path) {
+    public static <T, C> BoundCondition<T, C> resolve(ConditionDescriptor descriptor,
+                                                      Map<String, BoundCondition<T, C>> registry,
+                                                      String path) {
         requireNotNull(descriptor, "Condition descriptor");
         requireNotNull(registry, "Condition registry");
         requireNotNull(path, "Path");
@@ -73,6 +77,10 @@ final class ConditionResolver {
 
         if (descriptor instanceof ConditionDescriptor.ClassBased cb) {
             return resolveClassBased(cb);
+        }
+
+        if (descriptor instanceof ConditionDescriptor.InstanceBased ib) {
+            return resolveInstanceBased(ib);
         }
 
         if (descriptor instanceof ConditionDescriptor.PredicateBased pb) {
@@ -103,6 +111,12 @@ final class ConditionResolver {
     private static <T, C> BoundCondition<T, C> resolveClassBased(ConditionDescriptor.ClassBased descriptor) {
         Class<? extends Condition<?, ?>> conditionClass = descriptor.conditionClass();
         Condition<T, C> instance = (Condition<T, C>) instantiateNoArg(conditionClass, "Condition");
+        return BoundCondition.of(descriptor.id(), instance);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T, C> BoundCondition<T, C> resolveInstanceBased(ConditionDescriptor.InstanceBased descriptor) {
+        Condition<T, C> instance = (Condition<T, C>) descriptor.condition();
         return BoundCondition.of(descriptor.id(), instance);
     }
 

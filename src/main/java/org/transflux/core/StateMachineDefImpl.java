@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 
+import static java.util.Objects.requireNonNullElseGet;
 import static org.transflux.core.ReflectionUtils.instantiateNoArg;
 import static org.transflux.core.ValidationUtils.requireNotBlank;
 import static org.transflux.core.ValidationUtils.requireNotNull;
@@ -373,12 +374,15 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
      * Resolves the condition registrations into {@link BoundCondition} instances. Called from
      * {@link StateMachineImpl} during state machine construction.
      *
+     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
+     * should not invoke it directly.
+     *
      * @return an unmodifiable map of condition id to bound condition
      *
      * @throws TransfluxValidationException if any class-form registration cannot be
      *         instantiated through its no-arg constructor
      */
-    Map<String, BoundCondition<T, C>> buildBoundConditions() {
+    public Map<String, BoundCondition<T, C>> buildBoundConditions() {
         Map<String, BoundCondition<T, C>> resolved = new LinkedHashMap<>();
         for (Map.Entry<String, ConditionRegistration<T, C>> e : conditionRegistrations.entrySet()) {
             resolved.put(e.getKey(), e.getValue().toBoundCondition(e.getKey()));
@@ -580,10 +584,7 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
         }
 
         BoundStep<T, C> toBoundStep(String id) {
-            if (instance != null) {
-                return BoundStep.of(id, instance);
-            }
-            return BoundStep.of(id, instantiateNoArg(stepClass, "Step"));
+            return BoundStep.of(id, requireNonNullElseGet(instance, () -> instantiateNoArg(stepClass, "Step")));
         }
     }
 

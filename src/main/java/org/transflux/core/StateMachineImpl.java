@@ -18,6 +18,7 @@
 
 package org.transflux.core;
 
+import org.transflux.core.condition.BoundCondition;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.BoundOperation;
 import org.transflux.core.operation.BoundStep;
@@ -95,8 +96,9 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
 
         this.boundSteps = def.buildBoundSteps();
 
+        Map<String, BoundCondition<T, C>> conditionRegistry = def.buildBoundConditions();
         for (TransitionDefImpl<T, C> td : def.getTransitionsById().values()) {
-            this.transitions.put(td.getId(), new TransitionImpl<>(td, this));
+            this.transitions.put(td.getId(), new TransitionImpl<>(td, this, conditionRegistry));
         }
     }
 
@@ -291,7 +293,7 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
         var matchingTransitions = transitions.values().stream()
             .filter(t -> t.getSourceStateId().equals(sourceStateId)
                       && t.getTargetStateId().equals(targetStateId))
-            .collect(Collectors.toList());
+            .toList();
 
         if (matchingTransitions.isEmpty()) {
             throw new TransfluxValidationException(
@@ -330,7 +332,15 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
         TransitionView<T, C> view = new TransitionView<>(this, transition, entity, context);
 
         try {
-            // TODO: pre-condition evaluation against `view`.
+            for (BoundCondition<T, C> pc : transition.getBoundPreConditions()) {
+                if (!pc.condition().test(entity, context, view)) {
+                    return TransitionResult.failure(
+                        entity, sourceStateId, targetStateId, transitionId,
+                        new TransfluxValidationException("Pre-condition '" + pc.id()
+                            + "' failed for transition '" + transitionId + "'"),
+                        view.getExecutedStepIds(), null, startedAt, Instant.now());
+                }
+            }
             // TODO: notifyStart(view) seam.
 
             BoundOperation<T, C> boundOperation = transition.getBoundOperation();
@@ -338,7 +348,15 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
                 boundOperation.operation().execute(entity, context, view);
             }
 
-            // TODO: post-condition evaluation against `view`.
+            for (BoundCondition<T, C> pc : transition.getBoundPostConditions()) {
+                if (!pc.condition().test(entity, context, view)) {
+                    return TransitionResult.failure(
+                        entity, sourceStateId, targetStateId, transitionId,
+                        new TransfluxValidationException("Post-condition '" + pc.id()
+                            + "' failed for transition '" + transitionId + "'"),
+                        view.getExecutedStepIds(), null, startedAt, Instant.now());
+                }
+            }
 
             if (stateApplier != null) {
                 stateApplier.applyState(entity, targetStateId);

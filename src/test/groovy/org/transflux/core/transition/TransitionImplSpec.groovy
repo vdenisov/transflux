@@ -15,34 +15,12 @@
  *  * limitations under the License.
  *
  */
+//file:noinspection GroovyPointlessBoolean
 
 package org.transflux.core.transition
 
-import org.transflux.core.state.State
-import org.transflux.core.state.StateApplier
-import org.transflux.core.state.StateDef
-import org.transflux.core.state.StateDefImpl
-import org.transflux.core.state.StateImpl
-import org.transflux.core.state.StateResolver
-
-import org.transflux.core.Identifiable
-import org.transflux.core.StateMachine
-import org.transflux.core.StateMachineDef
-import org.transflux.core.StateMachineDefImpl
-import org.transflux.core.StateMachineImpl
-import org.transflux.core.TestContext
-import org.transflux.core.TestStateEnum
-import org.transflux.core.Transflux
+import org.transflux.core.condition.BoundCondition
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.operation.BoundOperation
-import org.transflux.core.operation.BoundStep
-import org.transflux.core.operation.CompositeOperationDef
-import org.transflux.core.operation.CompositeOperationDefImpl
-import org.transflux.core.operation.Operation
-import org.transflux.core.operation.SimpleOperationDef
-import org.transflux.core.operation.SimpleOperationDefImpl
-import org.transflux.core.operation.Step
-
 import spock.lang.Specification
 import spock.lang.Unroll
 
@@ -53,7 +31,7 @@ class TransitionImplSpec extends Specification {
         def transitionDef = new TransitionDefImpl('t1', 'state1', 'state2')
 
         when:
-        def transition = new TransitionImpl(transitionDef, null)
+        def transition = new TransitionImpl(transitionDef, null, [:] as Map<String, BoundCondition>)
 
         then:
         transition.id == 't1'
@@ -63,7 +41,7 @@ class TransitionImplSpec extends Specification {
 
     def 'constructor should validate null TransitionDef'() {
         when:
-        new TransitionImpl(null, null)
+        new TransitionImpl(null, null, [:] as Map<String, BoundCondition>)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -74,7 +52,7 @@ class TransitionImplSpec extends Specification {
     def 'getter #getter should return #expected'() {
         given:
         def transitionDef = new TransitionDefImpl(id, sourceId, targetId)
-        def transition = new TransitionImpl(transitionDef, null)
+        def transition = new TransitionImpl(transitionDef, null, [:] as Map<String, BoundCondition>)
 
         when:
         def result = transition."$getter"()
@@ -93,8 +71,8 @@ class TransitionImplSpec extends Specification {
         given:
         def transitionDef1 = new TransitionDefImpl('same-id', 'source1', 'target1')
         def transitionDef2 = new TransitionDefImpl('same-id', 'source2', 'target2')
-        def transition1 = new TransitionImpl(transitionDef1, null)
-        def transition2 = new TransitionImpl(transitionDef2, null)
+        def transition1 = new TransitionImpl(transitionDef1, null, [:] as Map<String, BoundCondition>)
+        def transition2 = new TransitionImpl(transitionDef2, null, [:] as Map<String, BoundCondition>)
 
         when:
         def result = transition1.equals(transition2)
@@ -107,8 +85,8 @@ class TransitionImplSpec extends Specification {
         given:
         def transitionDef1 = new TransitionDefImpl('id1', 'source', 'target')
         def transitionDef2 = new TransitionDefImpl('id2', 'source', 'target')
-        def transition1 = new TransitionImpl(transitionDef1, null)
-        def transition2 = new TransitionImpl(transitionDef2, null)
+        def transition1 = new TransitionImpl(transitionDef1, null, [:] as Map<String, BoundCondition>)
+        def transition2 = new TransitionImpl(transitionDef2, null, [:] as Map<String, BoundCondition>)
 
         when:
         def result = transition1.equals(transition2)
@@ -121,9 +99,10 @@ class TransitionImplSpec extends Specification {
     def 'equals should return false for #description'() {
         given:
         def transitionDef = new TransitionDefImpl('t1', 'source', 'target')
-        def transition = new TransitionImpl(transitionDef, null)
+        def transition = new TransitionImpl(transitionDef, null, [:] as Map<String, BoundCondition>)
 
         when:
+        //noinspection ChangeToOperator, GrEqualsBetweenInconvertibleTypes
         def result = transition.equals(otherObject)
 
         then:
@@ -139,8 +118,8 @@ class TransitionImplSpec extends Specification {
         given:
         def transitionDef1 = new TransitionDefImpl('same-id', 'source1', 'target1')
         def transitionDef2 = new TransitionDefImpl('same-id', 'source2', 'target2')
-        def transition1 = new TransitionImpl(transitionDef1, null)
-        def transition2 = new TransitionImpl(transitionDef2, null)
+        def transition1 = new TransitionImpl(transitionDef1, null, [:] as Map<String, BoundCondition>)
+        def transition2 = new TransitionImpl(transitionDef2, null, [:] as Map<String, BoundCondition>)
 
         when:
         def hashCode1 = transition1.hashCode()
@@ -154,8 +133,8 @@ class TransitionImplSpec extends Specification {
         given:
         def transitionDef1 = new TransitionDefImpl('id1', 'source', 'target')
         def transitionDef2 = new TransitionDefImpl('id2', 'source', 'target')
-        def transition1 = new TransitionImpl(transitionDef1, null)
-        def transition2 = new TransitionImpl(transitionDef2, null)
+        def transition1 = new TransitionImpl(transitionDef1, null, [:] as Map<String, BoundCondition>)
+        def transition2 = new TransitionImpl(transitionDef2, null, [:] as Map<String, BoundCondition>)
 
         when:
         def hashCode1 = transition1.hashCode()

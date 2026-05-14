@@ -19,8 +19,13 @@
 package org.transflux.core.transition;
 
 import org.transflux.core.StateMachineImpl;
+import org.transflux.core.condition.BoundCondition;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.BoundOperation;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 import static org.transflux.core.ValidationUtils.requireNotBlank;
 import static org.transflux.core.ValidationUtils.requireNotNull;
@@ -49,6 +54,8 @@ public class TransitionImpl<T, C> implements Transition<T, C> {
     private final String sourceStateId;
     private final String targetStateId;
     private final BoundOperation<T, C> boundOperation;
+    private final List<BoundCondition<T, C>> boundPreConditions;
+    private final List<BoundCondition<T, C>> boundPostConditions;
 
     /**
      * Constructs a new TransitionImpl from the provided transition definition.
@@ -58,15 +65,23 @@ public class TransitionImpl<T, C> implements Transition<T, C> {
      * definition and extracts the necessary properties.
      *
      * @param transitionDef the transition definition to construct this transition from
+     * @param stateMachine the enclosing state machine; required by composite operations to
+     *                     resolve step references against the step registry
+     * @param conditionRegistry the resolved state-machine condition registry, used to bind
+     *                          any descriptor-based pre/post conditions on this transition
      *
      * @throws TransfluxValidationException if the transition definition is null or has invalid properties
      */
-    public TransitionImpl(TransitionDefImpl<T, C> transitionDef, StateMachineImpl<T, C> stateMachine) {
+    public TransitionImpl(TransitionDefImpl<T, C> transitionDef, StateMachineImpl<T, C> stateMachine,
+                          Map<String, BoundCondition<T, C>> conditionRegistry) {
         validateTransitionDef(transitionDef);
+        requireNotNull(conditionRegistry, "Condition registry");
         this.id = transitionDef.getId();
         this.sourceStateId = transitionDef.getSourceStateId();
         this.targetStateId = transitionDef.getTargetStateId();
         this.boundOperation = transitionDef.buildBoundOperation(stateMachine);
+        this.boundPreConditions = transitionDef.buildBoundPreConditions(conditionRegistry);
+        this.boundPostConditions = transitionDef.buildBoundPostConditions(conditionRegistry);
     }
 
     /**
@@ -114,6 +129,24 @@ public class TransitionImpl<T, C> implements Transition<T, C> {
 
     public BoundOperation<T, C> getBoundOperation() {
         return boundOperation;
+    }
+
+    /**
+     * Returns the resolved pre-conditions for this transition, in declaration order.
+     *
+     * @return an unmodifiable list of bound pre-conditions; never {@code null}
+     */
+    public List<BoundCondition<T, C>> getBoundPreConditions() {
+        return Collections.unmodifiableList(boundPreConditions);
+    }
+
+    /**
+     * Returns the resolved post-conditions for this transition, in declaration order.
+     *
+     * @return an unmodifiable list of bound post-conditions; never {@code null}
+     */
+    public List<BoundCondition<T, C>> getBoundPostConditions() {
+        return Collections.unmodifiableList(boundPostConditions);
     }
 
     @Override

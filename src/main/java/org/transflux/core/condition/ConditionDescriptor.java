@@ -38,6 +38,7 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
 public sealed interface ConditionDescriptor
     permits ConditionDescriptor.Reference,
             ConditionDescriptor.ClassBased,
+            ConditionDescriptor.InstanceBased,
             ConditionDescriptor.PredicateBased,
             ConditionDescriptor.ExpressionBased {
 
@@ -76,6 +77,22 @@ public sealed interface ConditionDescriptor
      */
     static ConditionDescriptor classBased(String id, Class<? extends Condition<?, ?>> conditionClass) {
         return new ClassBased(id, conditionClass);
+    }
+
+    /**
+     * Creates a descriptor that wraps a pre-built {@link Condition} instance under the given
+     * id. Resolution returns the instance as-is, paired with the supplied id.
+     *
+     * @param id the condition id; never {@code null} or blank
+     * @param condition the condition instance; never {@code null}
+     *
+     * @return an instance-based descriptor
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
+     *         {@code condition} is {@code null}
+     */
+    static ConditionDescriptor instanceBased(String id, Condition<?, ?> condition) {
+        return new InstanceBased(id, condition);
     }
 
     /**
@@ -135,6 +152,13 @@ public sealed interface ConditionDescriptor
         public ClassBased {
             requireNotBlank(id, "Condition ID");
             requireNotNull(conditionClass, "Condition class");
+        }
+    }
+
+    record InstanceBased(String id, Condition<?, ?> condition) implements ConditionDescriptor {
+        public InstanceBased {
+            requireNotBlank(id, "Condition ID");
+            requireNotNull(condition, "Condition");
         }
     }
 

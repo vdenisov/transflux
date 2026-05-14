@@ -22,6 +22,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.transflux.core.Identifiable;
 import org.transflux.core.StateMachineImpl;
+import org.transflux.core.condition.BoundCondition;
+import org.transflux.core.condition.Condition;
+import org.transflux.core.condition.ConditionDescriptor;
+import org.transflux.core.condition.ConditionResolver;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.BoundOperation;
 import org.transflux.core.operation.CompositeOperationDef;
@@ -31,6 +35,10 @@ import org.transflux.core.operation.OperationDefImpl;
 import org.transflux.core.operation.SimpleOperationDef;
 import org.transflux.core.operation.SimpleOperationDefImpl;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -61,6 +69,12 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     private final String targetStateId;
 
     private OperationDefImpl<T, C> operationDef;
+
+    private String name;
+    private String description;
+
+    private final List<ConditionDescriptor> preConditions = new ArrayList<>();
+    private final List<ConditionDescriptor> postConditions = new ArrayList<>();
 
     /**
      * Constructs a new TransitionDefImpl with the specified parameters.
@@ -141,6 +155,58 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
         return operationDef;
     }
 
+    /**
+     * Returns the appended pre-condition descriptors in declaration order.
+     *
+     * @return an unmodifiable view of the pre-condition descriptor list
+     */
+    public List<ConditionDescriptor> getPreConditionDescriptors() {
+        return Collections.unmodifiableList(preConditions);
+    }
+
+    /**
+     * Returns the appended post-condition descriptors in declaration order.
+     *
+     * @return an unmodifiable view of the post-condition descriptor list
+     */
+    public List<ConditionDescriptor> getPostConditionDescriptors() {
+        return Collections.unmodifiableList(postConditions);
+    }
+
+    /**
+     * Resolves this transition's pre-condition descriptors into {@link BoundCondition}
+     * instances against the supplied registry.
+     *
+     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
+     * should not invoke it directly.
+     *
+     * @param registry the state machine's resolved condition registry, keyed by id
+     *
+     * @return an unmodifiable list of resolved bound pre-conditions, in declaration order
+     *
+     * @throws TransfluxValidationException if any descriptor cannot be resolved
+     */
+    public List<BoundCondition<T, C>> buildBoundPreConditions(Map<String, BoundCondition<T, C>> registry) {
+        return buildBoundConditionList(preConditions, registry, "pre");
+    }
+
+    /**
+     * Resolves this transition's post-condition descriptors into {@link BoundCondition}
+     * instances against the supplied registry.
+     *
+     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
+     * should not invoke it directly.
+     *
+     * @param registry the state machine's resolved condition registry, keyed by id
+     *
+     * @return an unmodifiable list of resolved bound post-conditions, in declaration order
+     *
+     * @throws TransfluxValidationException if any descriptor cannot be resolved
+     */
+    public List<BoundCondition<T, C>> buildBoundPostConditions(Map<String, BoundCondition<T, C>> registry) {
+        return buildBoundConditionList(postConditions, registry, "post");
+    }
+
     @Override
     public String toString() {
         return "TransitionDefImpl{" +
@@ -194,52 +260,122 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
         return this;
     }
 
-    private SimpleOperationDefImpl<T, C> newSimpleOperationDef(String operationId) {
-        return new SimpleOperationDefImpl<>(operationId);
-    }
-
-    private void attachOperation(OperationDefImpl<T, C> def) {
-        if (this.operationDef != null) {
-            log.warn("Operation is already defined for transition '{}'; overriding previous value", this.id);
-        }
-        this.operationDef = def;
-    }
-
     @Override
     public TransitionDef<T, C> withName(String name) {
-        // TODO: Implement name configuration
+        if (this.name != null) {
+            log.warn("Name is already defined for transition '{}': {}. Overriding previous value with {}",
+                this.id, this.name, name);
+        }
+        this.name = name;
         return this;
     }
 
     @Override
     public TransitionDef<T, C> withDescription(String description) {
-        // TODO: Implement description configuration
+        if (this.description != null) {
+            log.warn("Description is already defined for transition '{}': {}. Overriding previous value with {}",
+                this.id, this.description, description);
+        }
+        this.description = description;
         return this;
     }
 
-    @Override
-    public TransitionDef<T, C> addPreCondition(String conditionId) {
-        throw new UnsupportedOperationException("Pre-conditions not yet implemented");
+    public String getName() {
+        return name;
+    }
+
+    public String getDescription() {
+        return description;
     }
 
     @Override
-    public TransitionDef<T, C> addPreCondition(Predicate<T> preCondition) {
-        throw new UnsupportedOperationException("Pre-conditions not yet implemented");
+    public TransitionDef<T, C> preCondition(String registeredConditionId) {
+        requireNotBlank(registeredConditionId, "Registered condition ID");
+        return appendPreCondition(ConditionDescriptor.ref(registeredConditionId));
     }
 
     @Override
-    public TransitionDef<T, C> addPreCondition(String id, Predicate<T> preCondition) {
-        throw new UnsupportedOperationException("Pre-conditions not yet implemented");
+    public TransitionDef<T, C> preConditionExpression(String expression) {
+        requireNotBlank(expression, "Expression");
+        return appendPreCondition(ConditionDescriptor.expression(expression));
     }
 
     @Override
-    public TransitionDef<T, C> addPostCondition(Predicate<T> postCondition) {
-        throw new UnsupportedOperationException("Post-conditions not yet implemented");
+    public TransitionDef<T, C> preCondition(String id, Condition<T, C> condition) {
+        requireNotBlank(id, "Condition ID");
+        requireNotNull(condition, "Condition");
+        return appendPreCondition(ConditionDescriptor.instanceBased(id, condition));
     }
 
     @Override
-    public TransitionDef<T, C> addPostCondition(String id, Predicate<T> postCondition) {
-        throw new UnsupportedOperationException("Post-conditions not yet implemented");
+    public TransitionDef<T, C> preCondition(String id, Class<? extends Condition<T, C>> conditionClass) {
+        requireNotBlank(id, "Condition ID");
+        requireNotNull(conditionClass, "Condition class");
+        return appendPreCondition(ConditionDescriptor.classBased(id, conditionClass));
+    }
+
+    @Override
+    public TransitionDef<T, C> preCondition(String id, Predicate<T> predicate) {
+        requireNotBlank(id, "Condition ID");
+        requireNotNull(predicate, "Predicate");
+        return appendPreCondition(ConditionDescriptor.predicate(id, predicate));
+    }
+
+    @Override
+    public TransitionDef<T, C> preCondition(String id, String expression) {
+        requireNotBlank(id, "Condition ID");
+        requireNotBlank(expression, "Expression");
+        return appendPreCondition(ConditionDescriptor.expression(id, expression));
+    }
+
+    @Override
+    public TransitionDef<T, C> postCondition(String registeredConditionId) {
+        requireNotBlank(registeredConditionId, "Registered condition ID");
+        return appendPostCondition(ConditionDescriptor.ref(registeredConditionId));
+    }
+
+    @Override
+    public TransitionDef<T, C> postConditionExpression(String expression) {
+        requireNotBlank(expression, "Expression");
+        return appendPostCondition(ConditionDescriptor.expression(expression));
+    }
+
+    @Override
+    public TransitionDef<T, C> postCondition(String id, Condition<T, C> condition) {
+        requireNotBlank(id, "Condition ID");
+        requireNotNull(condition, "Condition");
+        return appendPostCondition(ConditionDescriptor.instanceBased(id, condition));
+    }
+
+    @Override
+    public TransitionDef<T, C> postCondition(String id, Class<? extends Condition<T, C>> conditionClass) {
+        requireNotBlank(id, "Condition ID");
+        requireNotNull(conditionClass, "Condition class");
+        return appendPostCondition(ConditionDescriptor.classBased(id, conditionClass));
+    }
+
+    @Override
+    public TransitionDef<T, C> postCondition(String id, Predicate<T> predicate) {
+        requireNotBlank(id, "Condition ID");
+        requireNotNull(predicate, "Predicate");
+        return appendPostCondition(ConditionDescriptor.predicate(id, predicate));
+    }
+
+    @Override
+    public TransitionDef<T, C> postCondition(String id, String expression) {
+        requireNotBlank(id, "Condition ID");
+        requireNotBlank(expression, "Expression");
+        return appendPostCondition(ConditionDescriptor.expression(id, expression));
+    }
+
+    private TransitionDef<T, C> appendPreCondition(ConditionDescriptor descriptor) {
+        preConditions.add(descriptor);
+        return this;
+    }
+
+    private TransitionDef<T, C> appendPostCondition(ConditionDescriptor descriptor) {
+        postConditions.add(descriptor);
+        return this;
     }
 
     @Override
@@ -295,5 +431,31 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     @Override
     public TransitionDef<T, C> addDataTrigger(String id, Predicate<T> condition) {
         throw new UnsupportedOperationException("Triggers not yet implemented");
+    }
+
+    private SimpleOperationDefImpl<T, C> newSimpleOperationDef(String operationId) {
+        return new SimpleOperationDefImpl<>(operationId);
+    }
+
+    private void attachOperation(OperationDefImpl<T, C> def) {
+        if (this.operationDef != null) {
+            log.warn("Operation is already defined for transition '{}'; overriding previous value", this.id);
+        }
+        this.operationDef = def;
+    }
+
+    private List<BoundCondition<T, C>> buildBoundConditionList(List<ConditionDescriptor> descriptors,
+                                                               Map<String, BoundCondition<T, C>> registry,
+                                                               String slot) {
+        requireNotNull(registry, "Condition registry");
+        if (descriptors.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<BoundCondition<T, C>> bound = new ArrayList<>(descriptors.size());
+        for (int i = 0; i < descriptors.size(); i++) {
+            String path = "transition:" + id + ":" + slot + "[" + i + "]";
+            bound.add(ConditionResolver.resolve(descriptors.get(i), registry, path));
+        }
+        return Collections.unmodifiableList(bound);
     }
 }

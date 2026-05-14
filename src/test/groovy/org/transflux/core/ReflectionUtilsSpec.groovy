@@ -18,34 +18,8 @@
 
 package org.transflux.core
 
-import org.transflux.core.condition.Condition
-import org.transflux.core.condition.ConditionDescriptor
-import org.transflux.core.exception.TransfluxException
+
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.operation.BoundOperation
-import org.transflux.core.operation.BoundStep
-import org.transflux.core.operation.CompositeOperationDef
-import org.transflux.core.operation.CompositeOperationDefImpl
-import org.transflux.core.operation.Operation
-import org.transflux.core.operation.OperationDef
-import org.transflux.core.operation.SimpleOperationDef
-import org.transflux.core.operation.SimpleOperationDefImpl
-import org.transflux.core.operation.Step
-import org.transflux.core.state.State
-import org.transflux.core.state.StateApplier
-import org.transflux.core.state.StateDef
-import org.transflux.core.state.StateDefImpl
-import org.transflux.core.state.StateImpl
-import org.transflux.core.state.StateResolver
-import org.transflux.core.transition.OperationlessTransitionDef
-import org.transflux.core.transition.Transition
-import org.transflux.core.transition.TransitionDef
-import org.transflux.core.transition.TransitionDefImpl
-import org.transflux.core.transition.TransitionImpl
-import org.transflux.core.transition.TransitionResult
-import org.transflux.core.transition.TransitionView
-
-
 import spock.lang.Specification
 
 import java.lang.reflect.InvocationTargetException

@@ -18,33 +18,18 @@
 
 package org.transflux.core.transition
 
-import org.transflux.core.state.State
-import org.transflux.core.state.StateApplier
-import org.transflux.core.state.StateDef
-import org.transflux.core.state.StateDefImpl
-import org.transflux.core.state.StateImpl
-import org.transflux.core.state.StateResolver
-
-import org.transflux.core.Identifiable
-import org.transflux.core.StateMachine
-import org.transflux.core.StateMachineDef
-import org.transflux.core.StateMachineDefImpl
-import org.transflux.core.StateMachineImpl
 import org.transflux.core.TestContext
-import org.transflux.core.TestStateEnum
-import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.operation.BoundOperation
-import org.transflux.core.operation.BoundStep
 import org.transflux.core.operation.CompositeOperationDef
 import org.transflux.core.operation.CompositeOperationDefImpl
 import org.transflux.core.operation.Operation
 import org.transflux.core.operation.SimpleOperationDef
 import org.transflux.core.operation.SimpleOperationDefImpl
 import org.transflux.core.operation.Step
-
 import spock.lang.Specification
 import spock.lang.Unroll
+
+import java.util.function.Consumer
 
 class TransitionDefImplSpec extends Specification {
 
@@ -56,6 +41,56 @@ class TransitionDefImplSpec extends Specification {
         transitionDef.id == 't1'
         transitionDef.sourceStateId == 'source'
         transitionDef.targetStateId == 'target'
+        transitionDef.name == null
+        transitionDef.description == null
+    }
+
+    def 'withName stores the supplied name and returns the def for chaining'() {
+        given:
+        def td = new TransitionDefImpl<Object, TestContext>('t1', 's1', 's2')
+
+        when:
+        def result = td.withName('My Transition')
+
+        then:
+        result.is(td)
+        td.name == 'My Transition'
+    }
+
+    def 'withDescription stores the supplied description and returns the def for chaining'() {
+        given:
+        def td = new TransitionDefImpl<Object, TestContext>('t1', 's1', 's2')
+
+        when:
+        def result = td.withDescription('Performs the X step of Y')
+
+        then:
+        result.is(td)
+        td.description == 'Performs the X step of Y'
+    }
+
+    def 'withName overrides a previously stored name'() {
+        given:
+        def td = new TransitionDefImpl<Object, TestContext>('t1', 's1', 's2')
+        td.withName('first')
+
+        when:
+        td.withName('second')
+
+        then:
+        td.name == 'second'
+    }
+
+    def 'withDescription overrides a previously stored description'() {
+        given:
+        def td = new TransitionDefImpl<Object, TestContext>('t1', 's1', 's2')
+        td.withDescription('first')
+
+        when:
+        td.withDescription('second')
+
+        then:
+        td.description == 'second'
     }
 
     @Unroll
@@ -158,7 +193,7 @@ class TransitionDefImplSpec extends Specification {
         def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
 
         when:
-        transitionDef.simpleOperation('op1', (java.util.function.Consumer<SimpleOperationDef<Object, Object>>) null)
+        transitionDef.simpleOperation('op1', (Consumer<SimpleOperationDef<Object, Object>>) null)
 
         then:
         thrown(TransfluxValidationException)
@@ -185,7 +220,7 @@ class TransitionDefImplSpec extends Specification {
         def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
 
         when:
-        transitionDef.compositeOperation('op1', (java.util.function.Consumer<CompositeOperationDef<Object, Object>>) null)
+        transitionDef.compositeOperation('op1', (Consumer<CompositeOperationDef<Object, Object>>) null)
 
         then:
         thrown(TransfluxValidationException)

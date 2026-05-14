@@ -202,6 +202,19 @@ Patch releases (`x.y.z`) ship between minor releases for bug fixes and security 
 - [ ] Data trigger specs covering all four Condition Descriptor forms.
 - [ ] Listener-ordering specs covering the execution flow.
 
+### 3.7 Component Metadata Model
+*Prerequisite for §3.5 Listeners — listener payloads, diagnostic logging, and (later) the YAML DSL all need a uniform way to read `name` and `description` off any framework def. The Phase 2 design deliberately deferred this until there was a real consumer.*
+- [ ] Introduce a `Describable extends Identifiable` interface declaring `getName()` and `getDescription()` as default-`null` methods.
+- [ ] Make `StateMachineDef`, `StateDef`, `TransitionDef`, `OperationDef` implement `Describable`; each `*DefImpl` overrides one or both methods to return its stored value.
+- [ ] Add `StepDef<T, C>` (mandatory id, optional name/description) — mirroring `SimpleOperationDef`.
+- [ ] Add `ConditionDef<T, C>` (mandatory id, optional name/description) covering the existing four authoring flavours (instance, class, predicate, expression).
+- [ ] Add lambda-configurer overloads where step / condition registrations exist:
+  - [ ] `StateMachineDef.step(String id, Consumer<StepDef<T, C>> configurer)`
+  - [ ] `StateMachineDef.condition(String id, Consumer<ConditionDef<T, C>> configurer)`
+  - [ ] `TransitionDef.preCondition(String id, Consumer<ConditionDef<T, C>> configurer)` and `postCondition(...)` mirror
+- [ ] Existing flat overloads (`step(id, instance|class)`, `condition(id, instance|class|predicate|expression)`, the typed `preCondition` / `postCondition` overloads) stay as sugar for the no-metadata case.
+- [ ] Listener payloads (§3.5) surface `id` + `name` + `description` from the relevant def — concrete shape pinned down alongside the `*Listener` interfaces.
+
 ---
 
 ## Phase 4: Async Operations & Error Handling (v0.4.0)

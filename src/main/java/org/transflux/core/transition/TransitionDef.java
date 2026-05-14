@@ -19,13 +19,16 @@
 package org.transflux.core.transition;
 
 import org.transflux.core.Identifiable;
+import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.CompositeOperationDef;
 import org.transflux.core.operation.Operation;
 import org.transflux.core.operation.SimpleOperationDef;
 import org.transflux.core.operation.Step;
 
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /**
  * Definition interface for transitions between states in a state machine.
@@ -71,10 +74,21 @@ import java.util.function.Consumer;
  * def; the def is not exposed to the caller after the lambda returns, which keeps the
  * operation immutable from the moment it is attached.
  *
+ * <p><b>Attaching conditions.</b> Pre- and post-conditions are attached through the
+ * {@code preCondition(...)} / {@code postCondition(...)} overloads. The single-argument
+ * {@code preCondition(String registeredConditionId)} / {@code postCondition(...)} forms reference
+ * a condition registered on the enclosing state machine through
+ * {@link org.transflux.core.StateMachineDef#condition StateMachineDef.condition(...)}; the
+ * remaining overloads inline a {@link Condition} instance, class, {@link Predicate}, or SpEL
+ * expression under an explicit id. {@code preConditionExpression(String)} /
+ * {@code postConditionExpression(String)} accept an inline expression with an auto-derived id.
+ * Multiple calls accumulate; conditions are evaluated in declaration order, and the first
+ * failure aborts the remainder of the corresponding list.
+ *
  * @param <T> the entity type managed by the enclosing state machine
  * @param <C> the host-supplied context type carried through transition execution
  */
-public interface TransitionDef<T, C> extends OperationlessTransitionDef<T, C>, Identifiable {
+public interface TransitionDef<T, C> extends Identifiable {
 
     /**
      * Returns the unique identifier of this transition.
@@ -97,6 +111,24 @@ public interface TransitionDef<T, C> extends OperationlessTransitionDef<T, C>, I
      * @return the target state ID
      */
     String getTargetStateId();
+
+    /**
+     * Sets the human-readable name of this transition.
+     *
+     * @param name the human-readable name; may be {@code null}
+     *
+     * @return this transition def for chaining
+     */
+    TransitionDef<T, C> withName(String name);
+
+    /**
+     * Sets the description of this transition.
+     *
+     * @param description the description; may be {@code null}
+     *
+     * @return this transition def for chaining
+     */
+    TransitionDef<T, C> withDescription(String description);
 
     /**
      * Attaches a simple operation using a pre-constructed {@link Operation} instance.
@@ -176,4 +208,195 @@ public interface TransitionDef<T, C> extends OperationlessTransitionDef<T, C>, I
      * @throws TransfluxValidationException if {@code registeredStepId} is {@code null} or blank
      */
     TransitionDef<T, C> step(String registeredStepId);
+
+    /**
+     * Appends a pre-condition that references a condition already registered on the enclosing
+     * state machine through {@link org.transflux.core.StateMachineDef#condition StateMachineDef.condition(...)}.
+     *
+     * @param registeredConditionId the registered condition id; never {@code null} or blank
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code registeredConditionId} is {@code null} or
+     *         blank
+     */
+    TransitionDef<T, C> preCondition(String registeredConditionId);
+
+    /**
+     * Appends an inline SpEL pre-condition with an auto-derived id. The id is computed
+     * deterministically from the expression text and the descriptor's position within the
+     * enclosing state machine. Use {@link #preCondition(String, String)} when an explicit id is
+     * preferred.
+     *
+     * @param expression the SpEL expression text; never {@code null} or blank
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code expression} is {@code null} or blank
+     */
+    TransitionDef<T, C> preConditionExpression(String expression);
+
+    /**
+     * Appends a pre-condition built from a {@link Condition} instance under the given id.
+     *
+     * @param id the condition id; never {@code null} or blank
+     * @param condition the condition instance; never {@code null}
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
+     *         {@code condition} is {@code null}
+     */
+    TransitionDef<T, C> preCondition(String id, Condition<T, C> condition);
+
+    /**
+     * Appends a pre-condition built from a {@link Condition} class under the given id. The
+     * class is reflectively instantiated through its public no-arg constructor when the state
+     * machine is built.
+     *
+     * @param id the condition id; never {@code null} or blank
+     * @param conditionClass the condition class; never {@code null}
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
+     *         {@code conditionClass} is {@code null}
+     */
+    TransitionDef<T, C> preCondition(String id, Class<? extends Condition<T, C>> conditionClass);
+
+    /**
+     * Appends a pre-condition built from a {@link Predicate} over the entity under the given
+     * id. The predicate is adapted into a {@link Condition} that ignores the context and the
+     * transition view.
+     *
+     * @param id the condition id; never {@code null} or blank
+     * @param predicate the predicate; never {@code null}
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
+     *         {@code predicate} is {@code null}
+     */
+    TransitionDef<T, C> preCondition(String id, Predicate<T> predicate);
+
+    /**
+     * Appends a pre-condition built from a SpEL expression under the given id.
+     *
+     * @param id the condition id; never {@code null} or blank
+     * @param expression the SpEL expression text; never {@code null} or blank
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} or {@code expression} is
+     *         {@code null} or blank
+     */
+    TransitionDef<T, C> preCondition(String id, String expression);
+
+    /**
+     * Appends a post-condition that references a condition already registered on the enclosing
+     * state machine through {@link org.transflux.core.StateMachineDef#condition StateMachineDef.condition(...)}.
+     *
+     * @param registeredConditionId the registered condition id; never {@code null} or blank
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code registeredConditionId} is {@code null} or
+     *         blank
+     */
+    TransitionDef<T, C> postCondition(String registeredConditionId);
+
+    /**
+     * Appends an inline SpEL post-condition with an auto-derived id. The id is computed
+     * deterministically from the expression text and the descriptor's position within the
+     * enclosing state machine. Use {@link #postCondition(String, String)} when an explicit id is
+     * preferred.
+     *
+     * @param expression the SpEL expression text; never {@code null} or blank
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code expression} is {@code null} or blank
+     */
+    TransitionDef<T, C> postConditionExpression(String expression);
+
+    /**
+     * Appends a post-condition built from a {@link Condition} instance under the given id.
+     *
+     * @param id the condition id; never {@code null} or blank
+     * @param condition the condition instance; never {@code null}
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
+     *         {@code condition} is {@code null}
+     */
+    TransitionDef<T, C> postCondition(String id, Condition<T, C> condition);
+
+    /**
+     * Appends a post-condition built from a {@link Condition} class under the given id. The
+     * class is reflectively instantiated through its public no-arg constructor when the state
+     * machine is built.
+     *
+     * @param id the condition id; never {@code null} or blank
+     * @param conditionClass the condition class; never {@code null}
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
+     *         {@code conditionClass} is {@code null}
+     */
+    TransitionDef<T, C> postCondition(String id, Class<? extends Condition<T, C>> conditionClass);
+
+    /**
+     * Appends a post-condition built from a {@link Predicate} over the entity under the given
+     * id. The predicate is adapted into a {@link Condition} that ignores the context and the
+     * transition view.
+     *
+     * @param id the condition id; never {@code null} or blank
+     * @param predicate the predicate; never {@code null}
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
+     *         {@code predicate} is {@code null}
+     */
+    TransitionDef<T, C> postCondition(String id, Predicate<T> predicate);
+
+    /**
+     * Appends a post-condition built from a SpEL expression under the given id.
+     *
+     * @param id the condition id; never {@code null} or blank
+     * @param expression the SpEL expression text; never {@code null} or blank
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} or {@code expression} is
+     *         {@code null} or blank
+     */
+    TransitionDef<T, C> postCondition(String id, String expression);
+
+    // TODO: trigger framework
+    TransitionDef<T, C> addManualTrigger();
+    // TODO: trigger framework
+    TransitionDef<T, C> addManualTrigger(String id);
+
+    // TODO: trigger framework
+    TransitionDef<T, C> addEventTrigger(String id);
+    // TODO: trigger framework
+    TransitionDef<T, C> addEventTrigger(String id, String eventId);
+    // TODO: trigger framework
+    TransitionDef<T, C> addEventTrigger(Identifiable event);
+    // TODO: trigger framework
+    TransitionDef<T, C> addEventTrigger(String id, Identifiable event);
+    // TODO: trigger framework
+    TransitionDef<T, C> addEventTrigger(BiPredicate<String, T> condition);
+    // TODO: trigger framework
+    TransitionDef<T, C> addEventTrigger(String id, BiPredicate<String, T> condition);
+
+    // TODO: trigger framework
+    TransitionDef<T, C> addDataTrigger(String id);
+    // TODO: trigger framework
+    TransitionDef<T, C> addDataTrigger(Predicate<T> condition);
+    // TODO: trigger framework
+    TransitionDef<T, C> addDataTrigger(String id, Predicate<T> condition);
 }
