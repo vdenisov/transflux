@@ -18,10 +18,10 @@
 
 package org.transflux.core;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
 import java.util.function.Predicate;
 
+import static org.transflux.core.ReflectionUtils.instantiateNoArg;
 import static org.transflux.core.ValidationUtils.requireNotNull;
 
 /**
@@ -100,18 +100,7 @@ final class ConditionResolver {
     @SuppressWarnings("unchecked")
     private static <T, C> BoundCondition<T, C> resolveClassBased(ConditionDescriptor.ClassBased descriptor) {
         Class<? extends Condition<?, ?>> conditionClass = descriptor.conditionClass();
-
-        Condition<T, C> instance;
-        try {
-            instance = (Condition<T, C>) conditionClass.getDeclaredConstructor().newInstance();
-        } catch (NoSuchMethodException e) {
-            throw new TransfluxValidationException(
-                "Condition class '" + conditionClass.getName() + "' has no accessible no-arg constructor", e);
-        } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-            throw new TransfluxValidationException(
-                "Failed to instantiate condition class '" + conditionClass.getName() + "'", e);
-        }
-
+        Condition<T, C> instance = (Condition<T, C>) instantiateNoArg(conditionClass, "Condition");
         return BoundCondition.of(descriptor.id(), instance);
     }
 

@@ -20,7 +20,6 @@ package org.transflux.core;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 
 import static org.transflux.core.ValidationUtils.requireNotBlank;
@@ -67,13 +66,8 @@ final class ExpressionIdDerivation {
         requireNotNull(path, "Path");
 
         byte[] input = (path + "::" + expression).getBytes(StandardCharsets.UTF_8);
-
-        byte[] digest;
-        try {
-            digest = MessageDigest.getInstance("SHA-256").digest(input);
-        } catch (NoSuchAlgorithmException e) {
-            throw new TransfluxValidationException("SHA-256 algorithm unavailable", e);
-        }
+        byte[] digest = ThrowingUtils.sneakyGet(() -> MessageDigest.getInstance("SHA-256").digest(input),
+                                                "SHA-256 algorithm unavailable");
 
         String encoded = Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
         return PREFIX + encoded.substring(0, TRUNCATED_LENGTH);

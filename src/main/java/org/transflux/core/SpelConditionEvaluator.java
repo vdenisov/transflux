@@ -18,10 +18,8 @@
 
 package org.transflux.core;
 
-import org.springframework.expression.EvaluationException;
 import org.springframework.expression.Expression;
 import org.springframework.expression.ExpressionParser;
-import org.springframework.expression.ParseException;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 
@@ -84,13 +82,9 @@ final class SpelConditionEvaluator {
 
         Expression parsed = cache.get(expression);
         if (parsed == null) {
-            try {
-                parsed = parser.parseExpression(expression);
-            } catch (ParseException e) {
-                throw new TransfluxValidationException(
-                    "Invalid SpEL expression '" + expression + "': " + e.getMessage(), e);
-            }
-            cache.putIfAbsent(expression, parsed);
+            Expression freshlyParsed = ThrowingUtils.sneakyGet(() -> parser.parseExpression(expression),
+                                                               "Invalid SpEL expression '" + expression + "'");
+            cache.putIfAbsent(expression, freshlyParsed);
             parsed = cache.get(expression);
         }
 
@@ -98,13 +92,9 @@ final class SpelConditionEvaluator {
         evalContext.setVariable("context", context);
         evalContext.setVariable("transition", transition);
 
-        Object result;
-        try {
-            result = parsed.getValue(evalContext);
-        } catch (EvaluationException e) {
-            throw new TransfluxValidationException(
-                "Failed to evaluate SpEL expression '" + expression + "': " + e.getMessage(), e);
-        }
+        Expression toEvaluate = parsed;
+        Object result = ThrowingUtils.sneakyGet(() -> toEvaluate.getValue(evalContext),
+                                                "Failed to evaluate SpEL expression '" + expression + "'");
 
         if (result instanceof Boolean b) {
             return b;

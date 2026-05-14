@@ -21,8 +21,7 @@ package org.transflux.core;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.InvocationTargetException;
-
+import static org.transflux.core.ReflectionUtils.instantiateNoArg;
 import static org.transflux.core.ValidationUtils.requireNotNull;
 
 /**
@@ -91,20 +90,8 @@ final class SimpleOperationDefImpl<T, C> extends OperationDefImpl<T, C> implemen
 
         Operation<T, C> resolved = operationInstance != null
             ? operationInstance
-            : instantiate(operationClass);
+            : instantiateNoArg(operationClass, "Operation");
 
         return BoundOperation.of(getId(), getName(), getDescription(), resolved);
-    }
-
-    private Operation<T, C> instantiate(Class<? extends Operation<T, C>> cls) {
-        try {
-            return cls.getDeclaredConstructor().newInstance();
-        } catch (NoSuchMethodException e) {
-            throw new TransfluxValidationException(
-                "Operation class '" + cls.getName() + "' has no accessible no-arg constructor", e);
-        } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-            throw new TransfluxValidationException(
-                "Failed to instantiate operation class '" + cls.getName() + "'", e);
-        }
     }
 }

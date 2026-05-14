@@ -21,7 +21,6 @@ package org.transflux.core;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -29,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 
+import static org.transflux.core.ReflectionUtils.instantiateNoArg;
 import static org.transflux.core.ValidationUtils.requireNotBlank;
 import static org.transflux.core.ValidationUtils.requireNotNull;
 import static org.transflux.core.ValidationUtils.warnIfSet;
@@ -572,17 +572,7 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
             if (instance != null) {
                 return BoundStep.of(id, instance);
             }
-
-            try {
-                Step<T, C> resolved = stepClass.getDeclaredConstructor().newInstance();
-                return BoundStep.of(id, resolved);
-            } catch (NoSuchMethodException e) {
-                throw new TransfluxValidationException(
-                    "Step class '" + stepClass.getName() + "' has no accessible no-arg constructor", e);
-            } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-                throw new TransfluxValidationException(
-                    "Failed to instantiate step class '" + stepClass.getName() + "'", e);
-            }
+            return BoundStep.of(id, instantiateNoArg(stepClass, "Step"));
         }
     }
 
@@ -628,16 +618,7 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
                 return BoundCondition.of(id, instance);
             }
             if (conditionClass != null) {
-                try {
-                    Condition<T, C> resolved = conditionClass.getDeclaredConstructor().newInstance();
-                    return BoundCondition.of(id, resolved);
-                } catch (NoSuchMethodException e) {
-                    throw new TransfluxValidationException(
-                        "Condition class '" + conditionClass.getName() + "' has no accessible no-arg constructor", e);
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-                    throw new TransfluxValidationException(
-                        "Failed to instantiate condition class '" + conditionClass.getName() + "'", e);
-                }
+                return BoundCondition.of(id, instantiateNoArg(conditionClass, "Condition"));
             }
             if (predicate != null) {
                 Predicate<T> p = predicate;
