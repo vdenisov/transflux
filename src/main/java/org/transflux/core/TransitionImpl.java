@@ -54,12 +54,12 @@ public class TransitionImpl<T, C> implements Transition<T, C> {
      *
      * @throws TransfluxValidationException if the transition definition is null or has invalid properties
      */
-    TransitionImpl(TransitionDefImpl<T, C> transitionDef) {
+    TransitionImpl(TransitionDefImpl<T, C> transitionDef, StateMachineImpl<T, C> stateMachine) {
         validateTransitionDef(transitionDef);
         this.id = transitionDef.getId();
         this.sourceStateId = transitionDef.getSourceStateId();
         this.targetStateId = transitionDef.getTargetStateId();
-        this.boundOperation = transitionDef.buildBoundOperation();
+        this.boundOperation = transitionDef.buildBoundOperation(stateMachine);
     }
 
     /**

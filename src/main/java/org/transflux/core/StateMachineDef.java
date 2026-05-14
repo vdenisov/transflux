@@ -151,6 +151,44 @@ public interface StateMachineDef<T, C> {
     StateMachineDef<T, C> withStateApplier(StateApplier<T> stateApplier);
 
     /**
+     * Registers a step instance against this state machine under the given id.
+     * <p>
+     * The id must be non-blank and unique across the state machine. Re-registering an
+     * identical {@link Step} instance under the same id is a no-op; registering a different
+     * instance under an already-claimed id raises {@link TransfluxValidationException}.
+     *
+     * <p>Inline step references declared inside a {@link CompositeOperationDef} auto-register
+     * on this state machine under their declared id, and the same uniqueness rule applies.
+     *
+     * @param id the step id
+     * @param step the step instance; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank, {@code step}
+     *         is {@code null}, or another step is already registered under {@code id}
+     */
+    StateMachineDef<T, C> step(String id, Step<T, C> step);
+
+    /**
+     * Registers a step class against this state machine under the given id. The framework
+     * reflectively instantiates the class via its public no-arg constructor when the state
+     * machine is built.
+     * <p>
+     * Re-registering the same class under the same id is a no-op; registering a different
+     * class under an already-claimed id raises {@link TransfluxValidationException}.
+     *
+     * @param id the step id
+     * @param stepClass the step class; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank, {@code stepClass}
+     *         is {@code null}, or another step is already registered under {@code id}
+     */
+    StateMachineDef<T, C> step(String id, Class<? extends Step<T, C>> stepClass);
+
+    /**
      * Begins defining a new state in the state machine.
      * <p>
      * This method creates a new state definition with the specified identifier

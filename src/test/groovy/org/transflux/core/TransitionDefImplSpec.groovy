@@ -73,6 +73,129 @@ class TransitionDefImplSpec extends Specification {
         'getTargetStateId' | 't1'           | 'source'          | 'target-state-id' | 'target-state-id'
     }
 
+    static class FooStep implements Step<Object, Object> {
+        @Override
+        void execute(Object entity, Object context, Transition<Object, Object> transition) {
+        }
+    }
+
+    static class FooOperation implements Operation<Object, Object> {
+        @Override
+        void execute(Object entity, Object context, Transition<Object, Object> transition) {
+        }
+    }
+
+    def 'simpleOperation(id, Operation instance) should attach a simple operation def'() {
+        given:
+        def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
+
+        when:
+        def returned = transitionDef.simpleOperation('op1', new FooOperation())
+
+        then:
+        returned.is(transitionDef)
+        transitionDef.operationDef instanceof SimpleOperationDefImpl
+        transitionDef.operationDef.id == 'op1'
+    }
+
+    def 'simpleOperation(id, Operation class) should attach a simple operation def'() {
+        given:
+        def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
+
+        when:
+        def returned = transitionDef.simpleOperation('op1', FooOperation)
+
+        then:
+        returned.is(transitionDef)
+        transitionDef.operationDef instanceof SimpleOperationDefImpl
+        transitionDef.operationDef.id == 'op1'
+    }
+
+    def 'simpleOperation(id, Consumer) should attach a configured simple operation def'() {
+        given:
+        def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
+
+        when:
+        def returned = transitionDef.simpleOperation('op1', { SimpleOperationDef<Object, Object> op ->
+            op.name('Foo').description('Foo desc').using(FooOperation)
+        })
+
+        then:
+        returned.is(transitionDef)
+        transitionDef.operationDef instanceof SimpleOperationDefImpl
+        transitionDef.operationDef.id == 'op1'
+        transitionDef.operationDef.name == 'Foo'
+        transitionDef.operationDef.description == 'Foo desc'
+    }
+
+    def 'simpleOperation(id, Consumer) should reject null configurer'() {
+        given:
+        def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
+
+        when:
+        transitionDef.simpleOperation('op1', (java.util.function.Consumer<SimpleOperationDef<Object, Object>>) null)
+
+        then:
+        thrown(TransfluxValidationException)
+    }
+
+    def 'compositeOperation(id, Consumer) should attach a composite operation def'() {
+        given:
+        def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
+
+        when:
+        def returned = transitionDef.compositeOperation('op1', { CompositeOperationDef<Object, Object> c ->
+            c.step('s1', new FooStep())
+        })
+
+        then:
+        returned.is(transitionDef)
+        transitionDef.operationDef instanceof CompositeOperationDefImpl
+        transitionDef.operationDef.id == 'op1'
+        ((CompositeOperationDefImpl<Object, Object>) transitionDef.operationDef).stepRefs.size() == 1
+    }
+
+    def 'compositeOperation(id, Consumer) should reject null configurer'() {
+        given:
+        def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
+
+        when:
+        transitionDef.compositeOperation('op1', (java.util.function.Consumer<CompositeOperationDef<Object, Object>>) null)
+
+        then:
+        thrown(TransfluxValidationException)
+    }
+
+    def 'step(id) sugar should build a single-step composite with a deterministic id'() {
+        given:
+        def transitionDef = new TransitionDefImpl<Object, Object>('t-x', 'source', 'target')
+
+        when:
+        transitionDef.step('foo')
+
+        then:
+        transitionDef.operationDef instanceof CompositeOperationDefImpl
+        transitionDef.operationDef.id == 'transition-t-x-op'
+        def refs = ((CompositeOperationDefImpl<Object, Object>) transitionDef.operationDef).stepRefs
+        refs.size() == 1
+        refs[0] instanceof StepRef.ById
+        refs[0].id == 'foo'
+    }
+
+    def 'step(id) sugar should reject null or blank id'() {
+        given:
+        def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
+
+        when:
+        transitionDef.step(id)
+
+        then:
+        thrown(TransfluxValidationException)
+
+        where:
+        id << [null, '', '  ']
+    }
+
     def 'toString should include all fields'() {
         given:
         def transitionDef = new TransitionDefImpl('t1', 'source', 'target')

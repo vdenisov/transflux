@@ -21,7 +21,9 @@ package org.transflux.core;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -81,6 +83,8 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
     private StateApplier<T> stateApplier;
 
     private final Map<String, StateDefImpl<T, C>> states = new LinkedHashMap<>();
+
+    private final Map<String, StepRegistration<T, C>> stepRegistrations = new LinkedHashMap<>();
 
     // transitionId -> TransitionDefImpl
     private final Map<String, TransitionDefImpl<T, C>> transitionsById = new LinkedHashMap<>();
@@ -198,6 +202,115 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
 
         this.stateResolver = stateResolver;
         return this;
+    }
+
+    @Override
+    public StateMachineDef<T, C> step(String id, Step<T, C> step) {
+        if (id == null || id.isBlank()) {
+            throw new TransfluxValidationException("Step ID cannot be null or blank");
+        }
+        if (step == null) {
+            throw new TransfluxValidationException("Step cannot be null");
+        }
+        registerStepInstance(id, step);
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T, C> step(String id, Class<? extends Step<T, C>> stepClass) {
+        if (id == null || id.isBlank()) {
+            throw new TransfluxValidationException("Step ID cannot be null or blank");
+        }
+        if (stepClass == null) {
+            throw new TransfluxValidationException("Step class cannot be null");
+        }
+        registerStepClass(id, stepClass);
+        return this;
+    }
+
+    /**
+     * Records an instance-based step registration, enforcing uniqueness with same-instance
+     * re-registration tolerated as a no-op.
+     *
+     * @param id the step id
+     * @param step the step instance
+     *
+     * @throws TransfluxValidationException if {@code id} is already registered with a
+     *         different instance or with any class
+     */
+    private void registerStepInstance(String id, Step<T, C> step) {
+        StepRegistration<T, C> existing = stepRegistrations.get(id);
+        if (existing == null) {
+            stepRegistrations.put(id, StepRegistration.ofInstance(step));
+            return;
+        }
+        if (existing.instance != null && existing.instance == step) {
+            return;
+        }
+        throw new TransfluxValidationException("Step ID '" + id + "' is already registered");
+    }
+
+    /**
+     * Records a class-based step registration, enforcing uniqueness with same-class
+     * re-registration tolerated as a no-op.
+     *
+     * @param id the step id
+     * @param stepClass the step class
+     *
+     * @throws TransfluxValidationException if {@code id} is already registered with a
+     *         different class or with any instance
+     */
+    private void registerStepClass(String id, Class<? extends Step<T, C>> stepClass) {
+        StepRegistration<T, C> existing = stepRegistrations.get(id);
+        if (existing == null) {
+            stepRegistrations.put(id, StepRegistration.ofClass(stepClass));
+            return;
+        }
+        if (existing.stepClass != null && existing.stepClass.equals(stepClass)) {
+            return;
+        }
+        throw new TransfluxValidationException("Step ID '" + id + "' is already registered");
+    }
+
+    /**
+     * Walks every transition's operation def for inline step refs and registers each one on
+     * this state-machine def. Same-instance / same-class collisions on an id are tolerated;
+     * any other collision raises {@link TransfluxValidationException}.
+     */
+    private void collectInlineStepRegistrations() {
+        for (TransitionDefImpl<T, C> td : transitionsById.values()) {
+            OperationDefImpl<T, C> op = td.getOperationDef();
+            if (!(op instanceof CompositeOperationDefImpl)) {
+                continue;
+            }
+            CompositeOperationDefImpl<T, C> composite = (CompositeOperationDefImpl<T, C>) op;
+            for (StepRef<T, C> ref : composite.getStepRefs()) {
+                if (ref instanceof StepRef.InlineInstance) {
+                    registerStepInstance(ref.getId(), ((StepRef.InlineInstance<T, C>) ref).getStep());
+                } else if (ref instanceof StepRef.InlineClass) {
+                    registerStepClass(ref.getId(), ((StepRef.InlineClass<T, C>) ref).getStepClass());
+                }
+            }
+        }
+    }
+
+    /**
+     * Resolves the step registrations into {@link BoundStep} instances, reflectively
+     * instantiating class-form entries. Called from {@link StateMachineImpl} during state
+     * machine construction.
+     *
+     * @return an unmodifiable map of step id to bound step
+     *
+     * @throws TransfluxValidationException if any class-form registration cannot be
+     *         instantiated through its no-arg constructor
+     */
+    Map<String, BoundStep<T, C>> buildBoundSteps() {
+        collectInlineStepRegistrations();
+        Map<String, BoundStep<T, C>> resolved = new LinkedHashMap<>();
+        for (Map.Entry<String, StepRegistration<T, C>> e : stepRegistrations.entrySet()) {
+            resolved.put(e.getKey(), e.getValue().toBoundStep(e.getKey()));
+        }
+        return Collections.unmodifiableMap(resolved);
     }
 
     @Override
@@ -361,6 +474,45 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
         }
 
         return list.get(0);
+    }
+
+    /**
+     * Holds one step registration kept on the state-machine def. Exactly one of
+     * {@link #instance} or {@link #stepClass} is non-null.
+     */
+    private static final class StepRegistration<T, C> {
+        private final Step<T, C> instance;
+        private final Class<? extends Step<T, C>> stepClass;
+
+        private StepRegistration(Step<T, C> instance, Class<? extends Step<T, C>> stepClass) {
+            this.instance = instance;
+            this.stepClass = stepClass;
+        }
+
+        static <T, C> StepRegistration<T, C> ofInstance(Step<T, C> instance) {
+            return new StepRegistration<>(instance, null);
+        }
+
+        static <T, C> StepRegistration<T, C> ofClass(Class<? extends Step<T, C>> stepClass) {
+            return new StepRegistration<>(null, stepClass);
+        }
+
+        BoundStep<T, C> toBoundStep(String id) {
+            if (instance != null) {
+                return BoundStep.of(id, instance);
+            }
+
+            try {
+                Step<T, C> resolved = stepClass.getDeclaredConstructor().newInstance();
+                return BoundStep.of(id, resolved);
+            } catch (NoSuchMethodException e) {
+                throw new TransfluxValidationException(
+                    "Step class '" + stepClass.getName() + "' has no accessible no-arg constructor", e);
+            } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+                throw new TransfluxValidationException(
+                    "Failed to instantiate step class '" + stepClass.getName() + "'", e);
+            }
+        }
     }
 
     @Override

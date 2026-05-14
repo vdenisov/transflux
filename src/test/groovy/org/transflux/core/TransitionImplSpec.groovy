@@ -28,7 +28,7 @@ class TransitionImplSpec extends Specification {
         def transitionDef = new TransitionDefImpl('t1', 'state1', 'state2')
 
         when:
-        def transition = new TransitionImpl(transitionDef)
+        def transition = new TransitionImpl(transitionDef, null)
 
         then:
         transition.id == 't1'
@@ -38,7 +38,7 @@ class TransitionImplSpec extends Specification {
 
     def 'constructor should validate null TransitionDef'() {
         when:
-        new TransitionImpl(null)
+        new TransitionImpl(null, null)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -49,7 +49,7 @@ class TransitionImplSpec extends Specification {
     def 'getter #getter should return #expected'() {
         given:
         def transitionDef = new TransitionDefImpl(id, sourceId, targetId)
-        def transition = new TransitionImpl(transitionDef)
+        def transition = new TransitionImpl(transitionDef, null)
 
         when:
         def result = transition."$getter"()
@@ -68,8 +68,8 @@ class TransitionImplSpec extends Specification {
         given:
         def transitionDef1 = new TransitionDefImpl('same-id', 'source1', 'target1')
         def transitionDef2 = new TransitionDefImpl('same-id', 'source2', 'target2')
-        def transition1 = new TransitionImpl(transitionDef1)
-        def transition2 = new TransitionImpl(transitionDef2)
+        def transition1 = new TransitionImpl(transitionDef1, null)
+        def transition2 = new TransitionImpl(transitionDef2, null)
 
         when:
         def result = transition1.equals(transition2)
@@ -82,8 +82,8 @@ class TransitionImplSpec extends Specification {
         given:
         def transitionDef1 = new TransitionDefImpl('id1', 'source', 'target')
         def transitionDef2 = new TransitionDefImpl('id2', 'source', 'target')
-        def transition1 = new TransitionImpl(transitionDef1)
-        def transition2 = new TransitionImpl(transitionDef2)
+        def transition1 = new TransitionImpl(transitionDef1, null)
+        def transition2 = new TransitionImpl(transitionDef2, null)
 
         when:
         def result = transition1.equals(transition2)
@@ -96,7 +96,7 @@ class TransitionImplSpec extends Specification {
     def 'equals should return false for #description'() {
         given:
         def transitionDef = new TransitionDefImpl('t1', 'source', 'target')
-        def transition = new TransitionImpl(transitionDef)
+        def transition = new TransitionImpl(transitionDef, null)
 
         when:
         def result = transition.equals(otherObject)
@@ -114,8 +114,8 @@ class TransitionImplSpec extends Specification {
         given:
         def transitionDef1 = new TransitionDefImpl('same-id', 'source1', 'target1')
         def transitionDef2 = new TransitionDefImpl('same-id', 'source2', 'target2')
-        def transition1 = new TransitionImpl(transitionDef1)
-        def transition2 = new TransitionImpl(transitionDef2)
+        def transition1 = new TransitionImpl(transitionDef1, null)
+        def transition2 = new TransitionImpl(transitionDef2, null)
 
         when:
         def hashCode1 = transition1.hashCode()
@@ -129,8 +129,8 @@ class TransitionImplSpec extends Specification {
         given:
         def transitionDef1 = new TransitionDefImpl('id1', 'source', 'target')
         def transitionDef2 = new TransitionDefImpl('id2', 'source', 'target')
-        def transition1 = new TransitionImpl(transitionDef1)
-        def transition2 = new TransitionImpl(transitionDef2)
+        def transition1 = new TransitionImpl(transitionDef1, null)
+        def transition2 = new TransitionImpl(transitionDef2, null)
 
         when:
         def hashCode1 = transition1.hashCode()

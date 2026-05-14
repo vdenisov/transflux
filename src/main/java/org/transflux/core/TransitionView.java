@@ -18,30 +18,40 @@
 
 package org.transflux.core;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 /**
  * Package-private per-execution view of a {@link Transition}.
  * <p>
  * The framework builds a fresh {@code TransitionView} for each transition execution and
  * hands it to the underlying {@link Operation} as the {@code transition} parameter. Topology
  * accessors delegate to the static {@link TransitionImpl}; {@link #step(String)} runs against
- * the captured execution scope (entity, context, step-id recorder, compensation stack).
+ * the captured execution scope (entity, context, step-id recorder) by resolving the id against
+ * the enclosing state machine's step registry.
  *
  * @param <T> the entity type the enclosing state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
 class TransitionView<T, C> implements Transition<T, C> {
+    private final StateMachineImpl<T, C> stateMachine;
     private final TransitionImpl<T, C> staticTransition;
     private final T entity;
     private final C context;
+    private final List<String> executedStepIds = new ArrayList<>();
 
-    // TODO: thread a StepIdRecorder through here so step("id") and the composite executor
-    //  append executed ids in one place.
     // TODO: thread the per-execution compensation stack through here.
 
-    TransitionView(TransitionImpl<T, C> staticTransition, T entity, C context) {
+    TransitionView(StateMachineImpl<T, C> stateMachine, TransitionImpl<T, C> staticTransition,
+                   T entity, C context) {
+        if (stateMachine == null) {
+            throw new TransfluxValidationException("State machine cannot be null");
+        }
         if (staticTransition == null) {
             throw new TransfluxValidationException("Static transition cannot be null");
         }
+        this.stateMachine = stateMachine;
         this.staticTransition = staticTransition;
         this.entity = entity;
         this.context = context;
@@ -64,9 +74,14 @@ class TransitionView<T, C> implements Transition<T, C> {
 
     @Override
     public void step(String id) {
-        // TODO: resolve `id` against the state machine's step registry and execute the bound
-        //  step against this view's captured scope.
-        throw new TransfluxValidationException("Step lookup not yet wired");
+        if (id == null || id.isBlank()) {
+            throw new TransfluxValidationException("Step ID cannot be null or blank");
+        }
+        BoundStep<T, C> boundStep = stateMachine.getBoundStep(id);
+        if (boundStep == null) {
+            throw new TransfluxValidationException("No step registered with id '" + id + "'");
+        }
+        StateMachineImpl.runBoundStep(boundStep, this);
     }
 
     T getEntity() {
@@ -79,5 +94,17 @@ class TransitionView<T, C> implements Transition<T, C> {
 
     TransitionImpl<T, C> getStaticTransition() {
         return staticTransition;
+    }
+
+    StateMachineImpl<T, C> getStateMachine() {
+        return stateMachine;
+    }
+
+    void recordExecutedStepId(String id) {
+        executedStepIds.add(id);
+    }
+
+    List<String> getExecutedStepIds() {
+        return Collections.unmodifiableList(executedStepIds);
     }
 }

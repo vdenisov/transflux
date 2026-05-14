@@ -404,6 +404,30 @@ class StateMachineImplSpec extends Specification {
         'blank target state'  | new TestEntity("e1", "TRIAL")    | '  '          | 'Target state ID cannot be null or blank'
     }
 
+    def "composite operation invoked directly should run a registered step against the captured scope"() {
+        given:
+        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .step('stamp', new ContextStampStep())
+        smd.state(TRIAL).transitionsTo(ACTIVE, 'trial-to-active')
+        smd.state(ACTIVE)
+        smd.getTransition('trial-to-active').step('stamp')
+
+        def sm = (StateMachineImpl<TestEntity, TestContext>) smd.build()
+        def entity = new TestEntity('e1', 'TRIAL')
+        def ctx = new TestContext()
+        def view = new TransitionView<TestEntity, TestContext>(sm, sm.transitions['trial-to-active'], entity, ctx)
+
+        when:
+        sm.transitions['trial-to-active'].boundOperation.operation.execute(entity, ctx, view)
+
+        then:
+        ctx.tag == 'e1:stamped'
+        ctx.counter == 1
+        view.executedStepIds == ['stamp']
+    }
+
     def "TransitionResult toString should provide readable output"() {
         given:
         def entity = new TestEntity("e1", "TRIAL")
@@ -434,5 +458,13 @@ class StateMachineImplSpec extends Specification {
         failure.failure
         failure.error != null
         failure.error.message == "error"
+    }
+
+    static class ContextStampStep implements Step<TestEntity, TestContext> {
+        @Override
+        void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
+            context.tag = entity.id + ':stamped'
+            context.counter++
+        }
     }
 }

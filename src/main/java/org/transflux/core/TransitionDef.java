@@ -18,15 +18,51 @@
 
 package org.transflux.core;
 
+import java.util.function.Consumer;
+
 /**
  * Definition interface for transitions between states in a state machine.
  * <p>
- * TransitionDef represents the configuration and metadata for a transition,
- * including the unique identifier, source state, target state.
+ * TransitionDef represents the configuration and metadata for a transition, including the
+ * unique identifier, source state, target state, and the operation that runs while the
+ * transition is in flight.
  *
- * <p>TransitionDef instances are created internally by the framework when
- * transitions are registered through the fluent API and should not be
- * instantiated directly by client code.
+ * <p>TransitionDef instances are created internally by the framework when transitions are
+ * registered through the fluent API and should not be instantiated directly by client code.
+ *
+ * <p><b>Attaching operations.</b> A transition carries at most one operation. The operation
+ * is either <i>simple</i> (a single {@link Operation} executing all the business logic on its
+ * own) or <i>composite</i> (an ordered list of reusable {@link Step}s). The fluent API exposes
+ * both kinds symmetrically:
+ *
+ * <pre>{@code
+ * // Simple, no extra configuration (class form):
+ * .simpleOperation("activate", ActivateOperation.class)
+ *
+ * // Simple, no extra configuration (instance form):
+ * .simpleOperation("activate", new ActivateOperation())
+ *
+ * // Simple, with name/description set inside the configurer:
+ * .simpleOperation("activate", op -> op
+ *     .name("Activate Subscription")
+ *     .description("Marks the subscription active and bills the first period")
+ *     .using(ActivateOperation.class))
+ *
+ * // Composite, with an ordered list of steps:
+ * .compositeOperation("validate-and-pay", composite -> composite
+ *     .name("Validate and Charge")
+ *     .step("validate-cart")
+ *     .step("compute-total")
+ *     .step("charge", ChargeStep.class))
+ *
+ * // Sugar for a single-step composite that references a registered step:
+ * .step("validate-cart")
+ * }</pre>
+ *
+ * Each method returns {@code TransitionDef<T, C>} so chained calls stay scoped to the
+ * transition. The configurer forms grant temporary write access to the underlying operation
+ * def; the def is not exposed to the caller after the lambda returns, which keeps the
+ * operation immutable from the moment it is attached.
  *
  * @param <T> the entity type managed by the enclosing state machine
  * @param <C> the host-supplied context type carried through transition execution
@@ -56,35 +92,81 @@ public interface TransitionDef<T, C> extends OperationlessTransitionDef<T, C>, I
     String getTargetStateId();
 
     /**
-     * Opens a fluent {@link SimpleOperationDef} for this transition. The caller must call
-     * {@code .using(...)} on the returned def before the enclosing state machine is built;
-     * the def auto-registers itself with this transition.
+     * Attaches a simple operation using a pre-constructed {@link Operation} instance.
      *
-     * @param id the operation id
-     *
-     * @return a {@code SimpleOperationDef} bound to this transition
-     */
-    SimpleOperationDef<T, C> operation(String id);
-
-    /**
-     * Convenience: registers a simple operation by id and instance in one call.
-     *
-     * @param id the operation id
-     * @param operation the operation instance
+     * @param id the operation id; never {@code null} or blank
+     * @param operation the operation instance; never {@code null}
      *
      * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
+     *         {@code operation} is {@code null}
      */
-    TransitionDef<T, C> operation(String id, Operation<T, C> operation);
+    TransitionDef<T, C> simpleOperation(String id, Operation<T, C> operation);
 
     /**
-     * Convenience: registers a simple operation by id and class in one call.
+     * Attaches a simple operation using an {@link Operation} class. The framework instantiates
+     * it via its public no-arg constructor at state machine build time.
      *
-     * @param id the operation id
-     * @param operationClass the operation class (must have a public no-arg constructor)
+     * @param id the operation id; never {@code null} or blank
+     * @param operationClass the operation class; never {@code null}
      *
      * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
+     *         {@code operationClass} is {@code null}
      */
-    TransitionDef<T, C> operation(String id, Class<? extends Operation<T, C>> operationClass);
+    TransitionDef<T, C> simpleOperation(String id, Class<? extends Operation<T, C>> operationClass);
 
-    // TODO: composite operations
+    /**
+     * Attaches a simple operation built through a fluent configurer. Use this form when you
+     * want to set {@code name} / {@code description} alongside the operation source.
+     * <p>
+     * The configurer is invoked synchronously against a freshly-constructed
+     * {@link SimpleOperationDef} carrying the supplied {@code id}; it must call
+     * {@code .using(...)} before returning. The def is not exposed to the caller after the
+     * lambda returns.
+     *
+     * @param id the operation id; never {@code null} or blank
+     * @param configurer the fluent configurer; never {@code null}
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank,
+     *         {@code configurer} is {@code null}, or the configurer leaves the def without
+     *         an operation source
+     */
+    TransitionDef<T, C> simpleOperation(String id, Consumer<SimpleOperationDef<T, C>> configurer);
+
+    /**
+     * Attaches a composite operation built through a fluent configurer. The composite must
+     * declare at least one step.
+     * <p>
+     * The configurer is invoked synchronously against a freshly-constructed
+     * {@link CompositeOperationDef} carrying the supplied {@code id}; it must append at least
+     * one step before returning. The def is not exposed to the caller after the lambda returns.
+     *
+     * @param id the operation id; never {@code null} or blank
+     * @param configurer the fluent configurer; never {@code null}
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank,
+     *         {@code configurer} is {@code null}, or the configurer leaves the composite
+     *         without any steps
+     */
+    TransitionDef<T, C> compositeOperation(String id, Consumer<CompositeOperationDef<T, C>> configurer);
+
+    /**
+     * Convenience: attaches a single-step composite operation that references a step already
+     * registered on the enclosing state machine. The composite is assigned a deterministic id
+     * derived from this transition's id ({@code "transition-{transitionId}-op"}).
+     *
+     * @param registeredStepId the registered step id
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code registeredStepId} is {@code null} or blank
+     */
+    TransitionDef<T, C> step(String registeredStepId);
 }

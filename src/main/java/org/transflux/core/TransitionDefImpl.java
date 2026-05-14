@@ -22,6 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.function.BiPredicate;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**
@@ -46,7 +47,7 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     private final String sourceStateId;
     private final String targetStateId;
 
-    private SimpleOperationDefImpl<T, C> operationDef;
+    private OperationDefImpl<T, C> operationDef;
 
     /**
      * Constructs a new TransitionDefImpl with the specified parameters.
@@ -108,18 +109,31 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
         return targetStateId;
     }
 
-    Transition<T, C> build() {
-        return new TransitionImpl<>(this);
-    }
-
     /**
      * Package-private hook used by {@link TransitionImpl} to materialize the runtime
      * {@link BoundOperation}, or {@code null} when this transition has no operation attached.
      *
+     * @param stateMachine the enclosing state machine; required by composite operations to
+     *                     resolve step references against the step registry
+     *
      * @return the bound operation, or {@code null}
      */
-    BoundOperation<T, C> buildBoundOperation() {
-        return operationDef == null ? null : operationDef.build();
+    BoundOperation<T, C> buildBoundOperation(StateMachineImpl<T, C> stateMachine) {
+        if (operationDef == null) {
+            return null;
+        }
+        if (operationDef instanceof SimpleOperationDefImpl) {
+            return ((SimpleOperationDefImpl<T, C>) operationDef).build();
+        }
+        if (operationDef instanceof CompositeOperationDefImpl) {
+            return ((CompositeOperationDefImpl<T, C>) operationDef).build(stateMachine);
+        }
+        throw new TransfluxValidationException(
+            "Unsupported operation def kind: " + operationDef.getClass().getName());
+    }
+
+    OperationDefImpl<T, C> getOperationDef() {
+        return operationDef;
     }
 
     @Override
@@ -132,25 +146,64 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     }
 
     @Override
-    public SimpleOperationDef<T, C> operation(String id) {
+    public TransitionDef<T, C> simpleOperation(String id, Operation<T, C> operation) {
+        SimpleOperationDefImpl<T, C> def = newSimpleOperationDef(id);
+        def.using(operation);
+        attachOperation(def);
+        return this;
+    }
+
+    @Override
+    public TransitionDef<T, C> simpleOperation(String id, Class<? extends Operation<T, C>> operationClass) {
+        SimpleOperationDefImpl<T, C> def = newSimpleOperationDef(id);
+        def.using(operationClass);
+        attachOperation(def);
+        return this;
+    }
+
+    @Override
+    public TransitionDef<T, C> simpleOperation(String id, Consumer<SimpleOperationDef<T, C>> configurer) {
+        if (configurer == null) {
+            throw new TransfluxValidationException("Simple operation configurer cannot be null");
+        }
+        SimpleOperationDefImpl<T, C> def = newSimpleOperationDef(id);
+        configurer.accept(def);
+        attachOperation(def);
+        return this;
+    }
+
+    @Override
+    public TransitionDef<T, C> compositeOperation(String id, Consumer<CompositeOperationDef<T, C>> configurer) {
+        if (configurer == null) {
+            throw new TransfluxValidationException("Composite operation configurer cannot be null");
+        }
+        CompositeOperationDefImpl<T, C> composite = new CompositeOperationDefImpl<>(id);
+        configurer.accept(composite);
+        attachOperation(composite);
+        return this;
+    }
+
+    @Override
+    public TransitionDef<T, C> step(String registeredStepId) {
+        if (registeredStepId == null || registeredStepId.isBlank()) {
+            throw new TransfluxValidationException("Step ID cannot be null or blank");
+        }
+        CompositeOperationDefImpl<T, C> composite =
+            new CompositeOperationDefImpl<>("transition-" + this.id + "-op");
+        composite.step(registeredStepId);
+        attachOperation(composite);
+        return this;
+    }
+
+    private SimpleOperationDefImpl<T, C> newSimpleOperationDef(String operationId) {
+        return new SimpleOperationDefImpl<>(operationId);
+    }
+
+    private void attachOperation(OperationDefImpl<T, C> def) {
         if (this.operationDef != null) {
             log.warn("Operation is already defined for transition '{}'; overriding previous value", this.id);
         }
-        SimpleOperationDefImpl<T, C> def = new SimpleOperationDefImpl<>(id);
         this.operationDef = def;
-        return def;
-    }
-
-    @Override
-    public TransitionDef<T, C> operation(String id, Operation<T, C> operation) {
-        operation(id).using(operation);
-        return this;
-    }
-
-    @Override
-    public TransitionDef<T, C> operation(String id, Class<? extends Operation<T, C>> operationClass) {
-        operation(id).using(operationClass);
-        return this;
     }
 
     @Override

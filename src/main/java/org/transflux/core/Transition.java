@@ -40,34 +40,25 @@ package org.transflux.core;
  * {@code step} against the static-topology object thrown by {@code getTransition(...)} on a
  * built state machine raises {@link TransfluxValidationException}.
  *
- * <p><b>Example usage:</b>
+ * <p><b>Example usage from inside an operation:</b>
  * <pre>{@code
- * Transition<Subscription, ActivationContext> trialActiveTransition =
- *     stateMachine.getTransition(TRIAL, ACTIVE);
- *
- * // Configure transition
- * trialActiveTransition
- *     .withName("trial-to-active")
- *     .withDescription("Turn trial subscription into active")
- *
- *     // Set operation
- *     .withOperation(ActivateOperation.class)
- *         .usingContext(ActivationContext.class)
- *
- *     // Pre/post conditions
- *     .addPreCondition(PaymentMethodValid.class)
- *     .addPostCondition("subscription-items-provisioned", this::isSubscriptionItemsProvisioned)
- *
- *     // Triggers
- *     .addManualTrigger()
- *     .addEventTrigger(Event.CHECKOUT_FULFILLED)
- *     .addDataTrigger(OfferActivatedTrigger.class)
- *
- *     // Listeners
- *     .onStart(TransitionStartListener.class)
- *     .onComplete(TransitionCompleteListener.class)
- *     .onError(TransitionErrorListener.class);
+ * public class ActivateSubscription implements Operation<Subscription, ActivationContext> {
+ *     @Override
+ *     public void execute(Subscription entity, ActivationContext context,
+ *                         Transition<Subscription, ActivationContext> transition) {
+ *         transition.step("validate-payment-method");
+ *         transition.step("charge-first-period");
+ *         transition.step("provision-entitlements");
+ *     }
+ * }
  * }</pre>
+ *
+ * <p>Each {@code step("id")} call resolves the step against the state machine's registry and
+ * runs it against the same entity / context / view, with the step's id automatically appended
+ * to the executed-step list on the resulting {@link TransitionResult}.
+ *
+ * <p>Configuration of transitions (operations, conditions, triggers, listeners) is done on
+ * {@link TransitionDef} during state machine construction, not on this runtime interface.
  *
  * @param <T> the entity type the enclosing state machine manages
  * @param <C> the host-supplied context type carried through transition execution

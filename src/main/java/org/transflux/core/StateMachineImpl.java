@@ -50,6 +50,7 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
 
     private final Map<String, State<T>> states = new LinkedHashMap<>();
     private final Map<String, TransitionImpl<T, C>> transitions = new LinkedHashMap<>();
+    private final Map<String, BoundStep<T, C>> boundSteps;
 
     /**
      * Constructs a new StateMachineImpl from the provided state machine definition.
@@ -74,8 +75,39 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
         this.states.putAll(def.getStates().values().stream()
                               .collect(Collectors.toMap(StateDefImpl::getId, StateImpl::new)));
 
-        this.transitions.putAll(def.getTransitionsById().values().stream()
-                                   .collect(Collectors.toMap(TransitionDef::getId, TransitionImpl::new)));
+        this.boundSteps = def.buildBoundSteps();
+
+        for (TransitionDefImpl<T, C> td : def.getTransitionsById().values()) {
+            this.transitions.put(td.getId(), new TransitionImpl<>(td, this));
+        }
+    }
+
+    /**
+     * Looks up a registered step by id.
+     *
+     * @param id the step id
+     *
+     * @return the bound step, or {@code null} if no step is registered under {@code id}
+     */
+    BoundStep<T, C> getBoundStep(String id) {
+        return boundSteps.get(id);
+    }
+
+    /**
+     * Records the step's id on the view's execution recorder and dispatches the step's
+     * {@link Step#execute(Object, Object, Transition)}. Shared by the composite executor and
+     * by {@code TransitionView.step("id")} so step-id tracking is uniform regardless of who
+     * initiates the step.
+     *
+     * @param boundStep the bound step to invoke
+     * @param view the per-execution transition view that owns the current scope
+     *
+     * @param <T> the entity type
+     * @param <C> the context type
+     */
+    static <T, C> void runBoundStep(BoundStep<T, C> boundStep, TransitionView<T, C> view) {
+        view.recordExecutedStepId(boundStep.getId());
+        boundStep.getStep().execute(view.getEntity(), view.getContext(), view);
     }
 
     /**
@@ -287,7 +319,7 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
         Instant startedAt = Instant.now();
 
         try {
-            TransitionView<T, C> view = new TransitionView<>(transition, entity, context);
+            TransitionView<T, C> view = new TransitionView<>(this, transition, entity, context);
 
             // TODO: pre-condition evaluation against `view`.
             // TODO: notifyStart(view) seam.
