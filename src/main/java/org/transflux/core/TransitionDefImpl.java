@@ -117,14 +117,14 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
         if (operationDef == null) {
             return null;
         }
-        if (operationDef instanceof SimpleOperationDefImpl) {
-            return ((SimpleOperationDefImpl<T, C>) operationDef).build();
+        if (operationDef instanceof SimpleOperationDefImpl<T, C> simple) {
+            return simple.build();
         }
-        if (operationDef instanceof CompositeOperationDefImpl) {
-            return ((CompositeOperationDefImpl<T, C>) operationDef).build(stateMachine);
+        if (operationDef instanceof CompositeOperationDefImpl<T, C> composite) {
+            return composite.build(stateMachine);
         }
         throw new TransfluxValidationException(
-            "Unsupported operation def kind: " + operationDef.getClass().getName());
+            "Unsupported operation def: " + operationDef.getClass().getName());
     }
 
     OperationDefImpl<T, C> getOperationDef() {

@@ -27,11 +27,11 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
  * <p>
  * Three kinds:
  * <ul>
- *   <li>{@code ById}        — references a step already registered on the enclosing state
+ *   <li>{@link ById}        — references a step already registered on the enclosing state
  *       machine; the registry must contain it at build time.</li>
- *   <li>{@code InlineInstance} — declares an id and a {@link Step} instance; auto-registers
+ *   <li>{@link InlineInstance} — declares an id and a {@link Step} instance; auto-registers
  *       on the state machine at build time under the declared id.</li>
- *   <li>{@code InlineClass}    — declares an id and a {@link Step} class; auto-registers,
+ *   <li>{@link InlineClass}    — declares an id and a {@link Step} class; auto-registers,
  *       and the framework reflectively instantiates the class via its public no-arg
  *       constructor at state-machine build time.</li>
  * </ul>
@@ -39,62 +39,40 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-abstract class StepRef<T, C> {
+sealed interface StepRef<T, C>
+    permits StepRef.ById, StepRef.InlineInstance, StepRef.InlineClass {
 
-    private final String id;
-
-    private StepRef(String id) {
-        requireNotBlank(id, "Step reference ID");
-        this.id = id;
-    }
-
-    final String getId() {
-        return id;
-    }
+    String id();
 
     static <T, C> StepRef<T, C> byId(String id) {
         return new ById<>(id);
     }
 
     static <T, C> StepRef<T, C> inline(String id, Step<T, C> step) {
-        requireNotNull(step, "Inline step instance");
         return new InlineInstance<>(id, step);
     }
 
     static <T, C> StepRef<T, C> inline(String id, Class<? extends Step<T, C>> stepClass) {
-        requireNotNull(stepClass, "Inline step class");
         return new InlineClass<>(id, stepClass);
     }
 
-    static final class ById<T, C> extends StepRef<T, C> {
-        ById(String id) {
-            super(id);
+    record ById<T, C>(String id) implements StepRef<T, C> {
+        public ById {
+            requireNotBlank(id, "Step reference ID");
         }
     }
 
-    static final class InlineInstance<T, C> extends StepRef<T, C> {
-        private final Step<T, C> step;
-
-        InlineInstance(String id, Step<T, C> step) {
-            super(id);
-            this.step = step;
-        }
-
-        Step<T, C> getStep() {
-            return step;
+    record InlineInstance<T, C>(String id, Step<T, C> step) implements StepRef<T, C> {
+        public InlineInstance {
+            requireNotBlank(id, "Step reference ID");
+            requireNotNull(step, "Inline step instance");
         }
     }
 
-    static final class InlineClass<T, C> extends StepRef<T, C> {
-        private final Class<? extends Step<T, C>> stepClass;
-
-        InlineClass(String id, Class<? extends Step<T, C>> stepClass) {
-            super(id);
-            this.stepClass = stepClass;
-        }
-
-        Class<? extends Step<T, C>> getStepClass() {
-            return stepClass;
+    record InlineClass<T, C>(String id, Class<? extends Step<T, C>> stepClass) implements StepRef<T, C> {
+        public InlineClass {
+            requireNotBlank(id, "Step reference ID");
+            requireNotNull(stepClass, "Inline step class");
         }
     }
 }

@@ -114,9 +114,7 @@ public class TransitionImpl<T, C> implements Transition<T, C> {
 
     @Override
     public final boolean equals(Object o) {
-        if (!(o instanceof TransitionImpl)) return false;
-
-        TransitionImpl<?, ?> that = (TransitionImpl<?, ?>) o;
+        if (!(o instanceof TransitionImpl<?, ?> that)) return false;
         return id.equals(that.id);
     }
 

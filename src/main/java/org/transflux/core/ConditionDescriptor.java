@@ -33,21 +33,11 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
  * and the descriptor's position within the enclosing state machine (see
  * {@link ExpressionIdDerivation}).
  */
-public abstract class ConditionDescriptor {
-
-    /** Discriminator for the descriptor's authoring form. */
-    enum Kind {
-        REFERENCE,
-        CLASS_BASED,
-        PREDICATE_BASED,
-        EXPRESSION_BASED
-    }
-
-    private final String id;
-
-    private ConditionDescriptor(String id) {
-        this.id = id;
-    }
+public sealed interface ConditionDescriptor
+    permits ConditionDescriptor.Reference,
+            ConditionDescriptor.ClassBased,
+            ConditionDescriptor.PredicateBased,
+            ConditionDescriptor.ExpressionBased {
 
     /**
      * Returns the explicit id supplied at authoring time, or {@code null} for an expression
@@ -55,11 +45,7 @@ public abstract class ConditionDescriptor {
      *
      * @return the explicit id, or {@code null}
      */
-    String getId() {
-        return id;
-    }
-
-    abstract Kind getKind();
+    String id();
 
     /**
      * Creates a descriptor that references a previously registered condition.
@@ -70,8 +56,7 @@ public abstract class ConditionDescriptor {
      *
      * @throws TransfluxValidationException if {@code id} is {@code null} or blank
      */
-    public static ConditionDescriptor ref(String id) {
-        requireNotBlank(id, "Condition reference ID");
+    static ConditionDescriptor ref(String id) {
         return new Reference(id);
     }
 
@@ -87,9 +72,7 @@ public abstract class ConditionDescriptor {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code conditionClass} is {@code null}
      */
-    public static ConditionDescriptor classBased(String id, Class<? extends Condition<?, ?>> conditionClass) {
-        requireNotBlank(id, "Condition ID");
-        requireNotNull(conditionClass, "Condition class");
+    static ConditionDescriptor classBased(String id, Class<? extends Condition<?, ?>> conditionClass) {
         return new ClassBased(id, conditionClass);
     }
 
@@ -105,9 +88,7 @@ public abstract class ConditionDescriptor {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code predicate} is {@code null}
      */
-    public static ConditionDescriptor predicate(String id, Predicate<?> predicate) {
-        requireNotBlank(id, "Condition ID");
-        requireNotNull(predicate, "Predicate");
+    static ConditionDescriptor predicate(String id, Predicate<?> predicate) {
         return new PredicateBased(id, predicate);
     }
 
@@ -122,8 +103,7 @@ public abstract class ConditionDescriptor {
      *
      * @throws TransfluxValidationException if {@code expression} is {@code null} or blank
      */
-    public static ConditionDescriptor expression(String expression) {
-        requireNotBlank(expression, "Expression");
+    static ConditionDescriptor expression(String expression) {
         return new ExpressionBased(null, expression);
     }
 
@@ -138,74 +118,34 @@ public abstract class ConditionDescriptor {
      * @throws TransfluxValidationException if {@code id} or {@code expression} is
      *         {@code null} or blank
      */
-    public static ConditionDescriptor expression(String id, String expression) {
+    static ConditionDescriptor expression(String id, String expression) {
         requireNotBlank(id, "Condition ID");
-        requireNotBlank(expression, "Expression");
         return new ExpressionBased(id, expression);
     }
 
-    static final class Reference extends ConditionDescriptor {
-        Reference(String id) {
-            super(id);
-        }
-
-        @Override
-        Kind getKind() {
-            return Kind.REFERENCE;
+    record Reference(String id) implements ConditionDescriptor {
+        public Reference {
+            requireNotBlank(id, "Condition reference ID");
         }
     }
 
-    static final class ClassBased extends ConditionDescriptor {
-        private final Class<? extends Condition<?, ?>> conditionClass;
-
-        ClassBased(String id, Class<? extends Condition<?, ?>> conditionClass) {
-            super(id);
-            this.conditionClass = conditionClass;
-        }
-
-        Class<? extends Condition<?, ?>> getConditionClass() {
-            return conditionClass;
-        }
-
-        @Override
-        Kind getKind() {
-            return Kind.CLASS_BASED;
+    record ClassBased(String id, Class<? extends Condition<?, ?>> conditionClass) implements ConditionDescriptor {
+        public ClassBased {
+            requireNotBlank(id, "Condition ID");
+            requireNotNull(conditionClass, "Condition class");
         }
     }
 
-    static final class PredicateBased extends ConditionDescriptor {
-        private final Predicate<?> predicate;
-
-        PredicateBased(String id, Predicate<?> predicate) {
-            super(id);
-            this.predicate = predicate;
-        }
-
-        Predicate<?> getPredicate() {
-            return predicate;
-        }
-
-        @Override
-        Kind getKind() {
-            return Kind.PREDICATE_BASED;
+    record PredicateBased(String id, Predicate<?> predicate) implements ConditionDescriptor {
+        public PredicateBased {
+            requireNotBlank(id, "Condition ID");
+            requireNotNull(predicate, "Predicate");
         }
     }
 
-    static final class ExpressionBased extends ConditionDescriptor {
-        private final String expression;
-
-        ExpressionBased(String id, String expression) {
-            super(id);
-            this.expression = expression;
-        }
-
-        String getExpression() {
-            return expression;
-        }
-
-        @Override
-        Kind getKind() {
-            return Kind.EXPRESSION_BASED;
+    record ExpressionBased(String id, String expression) implements ConditionDescriptor {
+        public ExpressionBased {
+            requireNotBlank(expression, "Expression");
         }
     }
 }

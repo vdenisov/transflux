@@ -65,34 +65,42 @@ final class ConditionResolver {
         requireNotNull(registry, "Condition registry");
         requireNotNull(path, "Path");
 
-        switch (descriptor.getKind()) {
-            case REFERENCE:
-                return resolveReference((ConditionDescriptor.Reference) descriptor, registry);
-            case CLASS_BASED:
-                return resolveClassBased((ConditionDescriptor.ClassBased) descriptor);
-            case PREDICATE_BASED:
-                return resolvePredicateBased((ConditionDescriptor.PredicateBased) descriptor);
-            case EXPRESSION_BASED:
-                return resolveExpressionBased((ConditionDescriptor.ExpressionBased) descriptor, path);
-            default:
-                throw new TransfluxValidationException(
-                    "Unsupported condition descriptor kind: " + descriptor.getKind());
+        if (descriptor instanceof ConditionDescriptor.Reference ref) {
+            return resolveReference(ref, registry);
         }
+
+        if (descriptor instanceof ConditionDescriptor.ClassBased cb) {
+            return resolveClassBased(cb);
+        }
+
+        if (descriptor instanceof ConditionDescriptor.PredicateBased pb) {
+            return resolvePredicateBased(pb);
+        }
+
+        if (descriptor instanceof ConditionDescriptor.ExpressionBased eb) {
+            return resolveExpressionBased(eb, path);
+        }
+
+        throw new TransfluxValidationException(
+            "Unsupported condition descriptor: " + descriptor.getClass().getName());
     }
 
     private static <T, C> BoundCondition<T, C> resolveReference(ConditionDescriptor.Reference descriptor,
                                                                 Map<String, BoundCondition<T, C>> registry) {
-        BoundCondition<T, C> bound = registry.get(descriptor.getId());
+        BoundCondition<T, C> bound = registry.get(descriptor.id());
+
         if (bound == null) {
             throw new TransfluxValidationException(
-                "No condition registered with id '" + descriptor.getId() + "'");
+                "No condition registered with id '" + descriptor.id() + "'");
         }
+
         return bound;
     }
 
     @SuppressWarnings("unchecked")
     private static <T, C> BoundCondition<T, C> resolveClassBased(ConditionDescriptor.ClassBased descriptor) {
-        Class<? extends Condition<?, ?>> conditionClass = descriptor.getConditionClass();
+        Class<? extends Condition<?, ?>> conditionClass = descriptor.conditionClass();
+
         Condition<T, C> instance;
         try {
             instance = (Condition<T, C>) conditionClass.getDeclaredConstructor().newInstance();
@@ -103,25 +111,29 @@ final class ConditionResolver {
             throw new TransfluxValidationException(
                 "Failed to instantiate condition class '" + conditionClass.getName() + "'", e);
         }
-        return BoundCondition.of(descriptor.getId(), instance);
+
+        return BoundCondition.of(descriptor.id(), instance);
     }
 
     @SuppressWarnings("unchecked")
     private static <T, C> BoundCondition<T, C> resolvePredicateBased(ConditionDescriptor.PredicateBased descriptor) {
-        Predicate<T> predicate = (Predicate<T>) descriptor.getPredicate();
+        Predicate<T> predicate = (Predicate<T>) descriptor.predicate();
         Condition<T, C> adapted = (entity, ctx, transition) -> predicate.test(entity);
-        return BoundCondition.of(descriptor.getId(), adapted);
+        return BoundCondition.of(descriptor.id(), adapted);
     }
 
     private static <T, C> BoundCondition<T, C> resolveExpressionBased(ConditionDescriptor.ExpressionBased descriptor,
                                                                       String path) {
-        String id = descriptor.getId();
+        String id = descriptor.id();
+
         if (id == null) {
-            id = ExpressionIdDerivation.deriveId(descriptor.getExpression(), path);
+            id = ExpressionIdDerivation.deriveId(descriptor.expression(), path);
         }
-        String expression = descriptor.getExpression();
+
+        String expression = descriptor.expression();
         Condition<T, C> condition = (entity, ctx, transition) ->
             SpelConditionEvaluator.shared().evaluate(expression, entity, ctx, transition);
+
         return BoundCondition.of(id, condition);
     }
 }

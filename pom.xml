@@ -31,7 +31,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.release>11</maven.compiler.release>
+        <maven.compiler.release>17</maven.compiler.release>
 
         <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
         <maven.javadoc.plugin.version>3.8.0</maven.javadoc.plugin.version>
@@ -43,12 +43,12 @@
         <jacoco.plugin.version>0.8.12</jacoco.plugin.version>
 
         <slf4j.version>2.0.17</slf4j.version>
-        <jackson.version>2.18.0</jackson.version>
+        <jackson.version>2.21.3</jackson.version>
         <groovy.version>4.0.28</groovy.version>
         <spock.version>2.3-groovy-4.0</spock.version>
-        <logback.version>1.5.18</logback.version>
+        <logback.version>1.5.32</logback.version>
         <apache.commons.lang3.version>3.18.0</apache.commons.lang3.version>
-        <spring.expression.version>5.3.39</spring.expression.version>
+        <spring.expression.version>6.2.13</spring.expression.version>
     </properties>
 
     <dependencies>
@@ -97,7 +97,7 @@
 
     <build>
         <plugins>
-            <!-- Ensure JDK 21 is used for build; compile to Java 11 bytecode via release -->
+            <!-- Pick any JDK 17+ toolchain that can compile to Java 17 bytecode -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-toolchains-plugin</artifactId>
@@ -112,7 +112,7 @@
                 <configuration>
                     <toolchains>
                         <jdk>
-                            <version>[21,)</version>
+                            <version>[17,)</version>
                         </jdk>
                     </toolchains>
                 </configuration>

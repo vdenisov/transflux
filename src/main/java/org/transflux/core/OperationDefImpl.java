@@ -30,7 +30,8 @@ import static org.transflux.core.ValidationUtils.requireNotBlank;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-abstract class OperationDefImpl<T, C> implements OperationDef<T, C> {
+sealed abstract class OperationDefImpl<T, C> implements OperationDef<T, C>
+    permits SimpleOperationDefImpl, CompositeOperationDefImpl {
     private final String id;
     private String name;
     private String description;

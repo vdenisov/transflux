@@ -100,10 +100,8 @@ public class StateImpl<T> implements State<T> {
 
     @Override
     public final boolean equals(Object o) {
-        if (!(o instanceof StateImpl)) return false;
-
-        StateImpl<?> state = (StateImpl<?>) o;
-        return id.equals(state.id);
+        if (!(o instanceof StateImpl<?> that)) return false;
+        return id.equals(that.id);
     }
 
     @Override

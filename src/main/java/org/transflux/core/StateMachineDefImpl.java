@@ -264,16 +264,16 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
     private void collectInlineStepRegistrations() {
         for (TransitionDefImpl<T, C> td : transitionsById.values()) {
             OperationDefImpl<T, C> op = td.getOperationDef();
-            if (!(op instanceof CompositeOperationDefImpl)) {
+            if (!(op instanceof CompositeOperationDefImpl<T, C> composite)) {
                 continue;
             }
-            CompositeOperationDefImpl<T, C> composite = (CompositeOperationDefImpl<T, C>) op;
             for (StepRef<T, C> ref : composite.getStepRefs()) {
-                if (ref instanceof StepRef.InlineInstance) {
-                    registerStepInstance(ref.getId(), ((StepRef.InlineInstance<T, C>) ref).getStep());
-                } else if (ref instanceof StepRef.InlineClass) {
-                    registerStepClass(ref.getId(), ((StepRef.InlineClass<T, C>) ref).getStepClass());
+                if (ref instanceof StepRef.InlineInstance<T, C> ii) {
+                    registerStepInstance(ii.id(), ii.step());
+                } else if (ref instanceof StepRef.InlineClass<T, C> ic) {
+                    registerStepClass(ic.id(), ic.stepClass());
                 }
+                // StepRef.ById — no inline registration needed
             }
         }
     }

@@ -106,13 +106,13 @@ final class SpelConditionEvaluator {
                 "Failed to evaluate SpEL expression '" + expression + "': " + e.getMessage(), e);
         }
 
-        if (!(result instanceof Boolean)) {
-            String resultType = result == null ? "null" : result.getClass().getName();
-            throw new TransfluxValidationException(
-                "SpEL expression '" + expression + "' must evaluate to boolean but returned " + resultType);
+        if (result instanceof Boolean b) {
+            return b;
         }
 
-        return (Boolean) result;
+        String resultType = result == null ? "null" : result.getClass().getName();
+        throw new TransfluxValidationException(
+            "SpEL expression '" + expression + "' must evaluate to boolean but returned " + resultType);
     }
 
     int cacheSize() {

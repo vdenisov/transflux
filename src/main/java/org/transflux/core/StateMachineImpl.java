@@ -109,8 +109,8 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
      * @param <C> the context type
      */
     static <T, C> void runBoundStep(BoundStep<T, C> boundStep, TransitionView<T, C> view) {
-        boundStep.getStep().execute(view.getEntity(), view.getContext(), view);
-        view.recordExecutedStepId(boundStep.getId());
+        boundStep.step().execute(view.getEntity(), view.getContext(), view);
+        view.recordExecutedStepId(boundStep.id());
     }
 
     /**
@@ -320,7 +320,7 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
 
             BoundOperation<T, C> boundOperation = transition.getBoundOperation();
             if (boundOperation != null) {
-                boundOperation.getOperation().execute(entity, context, view);
+                boundOperation.operation().execute(entity, context, view);
             }
 
             // TODO: post-condition evaluation against `view`.

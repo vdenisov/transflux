@@ -91,10 +91,10 @@ class SimpleOperationDefImplSpec extends Specification {
         def bound = def_.build()
 
         then:
-        bound.getId() == 'op1'
-        bound.getName() == 'n'
-        bound.getDescription() == 'd'
-        bound.getOperation().is(op)
+        bound.id() == 'op1'
+        bound.name() == 'n'
+        bound.description() == 'd'
+        bound.operation().is(op)
     }
 
     def "using(class) should instantiate via no-arg constructor"() {
@@ -105,7 +105,7 @@ class SimpleOperationDefImplSpec extends Specification {
         def bound = def_.build()
 
         then:
-        bound.getOperation() instanceof NoopOp
+        bound.operation() instanceof NoopOp
     }
 
     def "using(...) called twice should override and emit a warning (last write wins, instance)"() {
@@ -118,7 +118,7 @@ class SimpleOperationDefImplSpec extends Specification {
         def bound = def_.build()
 
         then:
-        bound.getOperation().is(second)
+        bound.operation().is(second)
     }
 
     def "using(class) after using(instance) should override the instance"() {
@@ -129,7 +129,7 @@ class SimpleOperationDefImplSpec extends Specification {
         def bound = def_.build()
 
         then:
-        bound.getOperation() instanceof NoopOp
+        bound.operation() instanceof NoopOp
     }
 
     def "using(instance) should reject null"() {

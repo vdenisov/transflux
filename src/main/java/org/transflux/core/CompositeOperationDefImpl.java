@@ -34,7 +34,7 @@ import java.util.List;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> implements CompositeOperationDef<T, C> {
+final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> implements CompositeOperationDef<T, C> {
 
     private final List<StepRef<T, C>> stepRefs = new ArrayList<>();
 
@@ -103,10 +103,10 @@ class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> implements 
 
         List<BoundStep<T, C>> boundSteps = new ArrayList<>(stepRefs.size());
         for (StepRef<T, C> ref : stepRefs) {
-            BoundStep<T, C> bound = stateMachine.getBoundStep(ref.getId());
+            BoundStep<T, C> bound = stateMachine.getBoundStep(ref.id());
             if (bound == null) {
                 throw new TransfluxValidationException(
-                    "CompositeOperationDef '" + getId() + "' references unknown step id '" + ref.getId() + "'");
+                    "CompositeOperationDef '" + getId() + "' references unknown step id '" + ref.id() + "'");
             }
             boundSteps.add(bound);
         }
@@ -133,12 +133,13 @@ class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> implements 
 
         @Override
         public void execute(T entity, C context, Transition<T, C> transition) {
-            if (!(transition instanceof TransitionView)) {
+            if (!(transition instanceof TransitionView<?, ?> rawView)) {
                 throw new TransfluxValidationException(
                     "Composite operation requires a per-execution TransitionView; got "
                         + (transition == null ? "null" : transition.getClass().getName()));
             }
-            TransitionView<T, C> view = (TransitionView<T, C>) transition;
+            @SuppressWarnings("unchecked")
+            TransitionView<T, C> view = (TransitionView<T, C>) rawView;
             for (BoundStep<T, C> boundStep : boundSteps) {
                 StateMachineImpl.runBoundStep(boundStep, view);
             }

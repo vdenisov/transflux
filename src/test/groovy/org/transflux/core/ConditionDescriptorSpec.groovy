@@ -37,9 +37,8 @@ class ConditionDescriptorSpec extends Specification {
         def d = ConditionDescriptor.ref('cond-a')
 
         then:
-        d.kind == ConditionDescriptor.Kind.REFERENCE
-        d.id == 'cond-a'
         d instanceof ConditionDescriptor.Reference
+        d.id() == 'cond-a'
     }
 
     def "classBased(...) should produce a ClassBased descriptor carrying id and class"() {
@@ -47,9 +46,9 @@ class ConditionDescriptorSpec extends Specification {
         def d = ConditionDescriptor.classBased('cond-a', SampleCondition)
 
         then:
-        d.kind == ConditionDescriptor.Kind.CLASS_BASED
-        d.id == 'cond-a'
-        (d as ConditionDescriptor.ClassBased).conditionClass == SampleCondition
+        d instanceof ConditionDescriptor.ClassBased
+        d.id() == 'cond-a'
+        (d as ConditionDescriptor.ClassBased).conditionClass() == SampleCondition
     }
 
     def "predicate(...) should produce a PredicateBased descriptor carrying id and predicate"() {
@@ -60,9 +59,9 @@ class ConditionDescriptorSpec extends Specification {
         def d = ConditionDescriptor.predicate('cond-a', p)
 
         then:
-        d.kind == ConditionDescriptor.Kind.PREDICATE_BASED
-        d.id == 'cond-a'
-        (d as ConditionDescriptor.PredicateBased).predicate.is(p)
+        d instanceof ConditionDescriptor.PredicateBased
+        d.id() == 'cond-a'
+        (d as ConditionDescriptor.PredicateBased).predicate().is(p)
     }
 
     def "expression(expr) should produce an ExpressionBased descriptor with null id"() {
@@ -70,9 +69,9 @@ class ConditionDescriptorSpec extends Specification {
         def d = ConditionDescriptor.expression('#entity.value > 0')
 
         then:
-        d.kind == ConditionDescriptor.Kind.EXPRESSION_BASED
-        d.id == null
-        (d as ConditionDescriptor.ExpressionBased).expression == '#entity.value > 0'
+        d instanceof ConditionDescriptor.ExpressionBased
+        d.id() == null
+        (d as ConditionDescriptor.ExpressionBased).expression() == '#entity.value > 0'
     }
 
     def "expression(id, expr) should produce an ExpressionBased descriptor with explicit id"() {
@@ -80,9 +79,9 @@ class ConditionDescriptorSpec extends Specification {
         def d = ConditionDescriptor.expression('cond-a', '#entity.value > 0')
 
         then:
-        d.kind == ConditionDescriptor.Kind.EXPRESSION_BASED
-        d.id == 'cond-a'
-        (d as ConditionDescriptor.ExpressionBased).expression == '#entity.value > 0'
+        d instanceof ConditionDescriptor.ExpressionBased
+        d.id() == 'cond-a'
+        (d as ConditionDescriptor.ExpressionBased).expression() == '#entity.value > 0'
     }
 
     @Unroll

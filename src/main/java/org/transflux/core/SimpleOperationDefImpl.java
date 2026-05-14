@@ -37,7 +37,7 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-class SimpleOperationDefImpl<T, C> extends OperationDefImpl<T, C> implements SimpleOperationDef<T, C> {
+final class SimpleOperationDefImpl<T, C> extends OperationDefImpl<T, C> implements SimpleOperationDef<T, C> {
     private static final Logger log = LoggerFactory.getLogger(SimpleOperationDefImpl.class);
 
     private Operation<T, C> operationInstance;

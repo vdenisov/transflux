@@ -28,26 +28,14 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-final class BoundCondition<T, C> {
-    private final String id;
-    private final Condition<T, C> condition;
+record BoundCondition<T, C>(String id, Condition<T, C> condition) {
 
-    private BoundCondition(String id, Condition<T, C> condition) {
-        this.id = id;
-        this.condition = condition;
+    BoundCondition {
+        requireNotBlank(id, "Bound condition ID");
+        requireNotNull(condition, "Bound condition");
     }
 
     static <T, C> BoundCondition<T, C> of(String id, Condition<T, C> condition) {
-        requireNotBlank(id, "Bound condition ID");
-        requireNotNull(condition, "Bound condition");
         return new BoundCondition<>(id, condition);
-    }
-
-    String getId() {
-        return id;
-    }
-
-    Condition<T, C> getCondition() {
-        return condition;
     }
 }

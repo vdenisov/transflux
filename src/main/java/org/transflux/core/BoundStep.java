@@ -28,26 +28,14 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-final class BoundStep<T, C> {
-    private final String id;
-    private final Step<T, C> step;
+record BoundStep<T, C>(String id, Step<T, C> step) {
 
-    private BoundStep(String id, Step<T, C> step) {
-        this.id = id;
-        this.step = step;
+    BoundStep {
+        requireNotBlank(id, "Bound step ID");
+        requireNotNull(step, "Bound step");
     }
 
     static <T, C> BoundStep<T, C> of(String id, Step<T, C> step) {
-        requireNotBlank(id, "Bound step ID");
-        requireNotNull(step, "Bound step");
         return new BoundStep<>(id, step);
-    }
-
-    String getId() {
-        return id;
-    }
-
-    Step<T, C> getStep() {
-        return step;
     }
 }
