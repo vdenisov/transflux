@@ -109,7 +109,7 @@ class CompositeOperationDefImplSpec extends Specification {
     def "name and description should be optional and round-trip with covariant return"() {
         given:
         def composite = new CompositeOperationDefImpl<TestEntity, TestContext>('op1')
-            .name('My Op').description('does stuff').step('s1', new FooStep())
+            .withName('My Op').withDescription('does stuff').step('s1', new FooStep())
 
         expect:
         composite.id == 'op1'

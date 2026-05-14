@@ -63,7 +63,7 @@ public interface OperationDef<T, C> extends Identifiable {
      *
      * @return this def for chaining
      */
-    OperationDef<T, C> name(String name);
+    OperationDef<T, C> withName(String name);
 
     /**
      * Sets the description of this operation.
@@ -72,5 +72,5 @@ public interface OperationDef<T, C> extends Identifiable {
      *
      * @return this def for chaining
      */
-    OperationDef<T, C> description(String description);
+    OperationDef<T, C> withDescription(String description);
 }

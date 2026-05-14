@@ -84,8 +84,8 @@ public interface CompositeOperationDef<T, C> extends OperationDef<T, C> {
     CompositeOperationDef<T, C> step(String id, Class<? extends Step<T, C>> stepClass);
 
     @Override
-    CompositeOperationDef<T, C> name(String name);
+    CompositeOperationDef<T, C> withName(String name);
 
     @Override
-    CompositeOperationDef<T, C> description(String description);
+    CompositeOperationDef<T, C> withDescription(String description);
 }

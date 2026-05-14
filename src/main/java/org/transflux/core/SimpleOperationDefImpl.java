@@ -72,14 +72,14 @@ final class SimpleOperationDefImpl<T, C> extends OperationDefImpl<T, C> implemen
     }
 
     @Override
-    public SimpleOperationDefImpl<T, C> name(String name) {
-        super.name(name);
+    public SimpleOperationDefImpl<T, C> withName(String name) {
+        super.withName(name);
         return this;
     }
 
     @Override
-    public SimpleOperationDefImpl<T, C> description(String description) {
-        super.description(description);
+    public SimpleOperationDefImpl<T, C> withDescription(String description) {
+        super.withDescription(description);
         return this;
     }
 

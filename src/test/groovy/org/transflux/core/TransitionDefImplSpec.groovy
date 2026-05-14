@@ -117,7 +117,7 @@ class TransitionDefImplSpec extends Specification {
 
         when:
         def returned = transitionDef.simpleOperation('op1', { SimpleOperationDef<Object, Object> op ->
-            op.name('Foo').description('Foo desc').using(FooOperation)
+            op.withName('Foo').withDescription('Foo desc').using(FooOperation)
         })
 
         then:

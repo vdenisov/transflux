@@ -61,14 +61,14 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
     }
 
     @Override
-    public CompositeOperationDefImpl<T, C> name(String name) {
-        super.name(name);
+    public CompositeOperationDefImpl<T, C> withName(String name) {
+        super.withName(name);
         return this;
     }
 
     @Override
-    public CompositeOperationDefImpl<T, C> description(String description) {
-        super.description(description);
+    public CompositeOperationDefImpl<T, C> withDescription(String description) {
+        super.withDescription(description);
         return this;
     }
 

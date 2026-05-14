@@ -61,8 +61,8 @@ public interface SimpleOperationDef<T, C> extends OperationDef<T, C> {
     SimpleOperationDef<T, C> using(Class<? extends Operation<T, C>> operationClass);
 
     @Override
-    SimpleOperationDef<T, C> name(String name);
+    SimpleOperationDef<T, C> withName(String name);
 
     @Override
-    SimpleOperationDef<T, C> description(String description);
+    SimpleOperationDef<T, C> withDescription(String description);
 }

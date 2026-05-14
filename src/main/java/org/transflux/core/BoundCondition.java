@@ -22,7 +22,7 @@ import static org.transflux.core.ValidationUtils.requireNotBlank;
 import static org.transflux.core.ValidationUtils.requireNotNull;
 
 /**
- * Package-private runtime currency that pairs a pure {@link Condition} with framework-owned
+ * Package-private runtime binder that pairs a pure {@link Condition} with framework-owned
  * identity.
  *
  * @param <T> the entity type the surrounding state machine manages

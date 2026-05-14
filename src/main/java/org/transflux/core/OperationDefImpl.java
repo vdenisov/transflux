@@ -57,13 +57,13 @@ sealed abstract class OperationDefImpl<T, C> implements OperationDef<T, C>
     }
 
     @Override
-    public OperationDef<T, C> name(String name) {
+    public OperationDef<T, C> withName(String name) {
         this.name = name;
         return this;
     }
 
     @Override
-    public OperationDef<T, C> description(String description) {
+    public OperationDef<T, C> withDescription(String description) {
         this.description = description;
         return this;
     }

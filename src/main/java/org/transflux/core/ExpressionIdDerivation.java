@@ -67,6 +67,7 @@ final class ExpressionIdDerivation {
         requireNotNull(path, "Path");
 
         byte[] input = (path + "::" + expression).getBytes(StandardCharsets.UTF_8);
+
         byte[] digest;
         try {
             digest = MessageDigest.getInstance("SHA-256").digest(input);
