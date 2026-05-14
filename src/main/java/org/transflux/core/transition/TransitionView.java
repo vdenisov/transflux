@@ -20,11 +20,15 @@ package org.transflux.core.transition;
 
 import org.transflux.core.StateMachineImpl;
 import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.operation.BoundCompensation;
 import org.transflux.core.operation.BoundStep;
+import org.transflux.core.operation.Compensation;
 import org.transflux.core.operation.Operation;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.List;
 
 import static org.transflux.core.ValidationUtils.requireNotBlank;
@@ -48,16 +52,19 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
 public class TransitionView<T, C> implements Transition<T, C> {
     private final StateMachineImpl<T, C> stateMachine;
     private final TransitionImpl<T, C> staticTransition;
+
     private final T entity;
     private final C context;
+
     private final List<String> executedStepIds = new ArrayList<>();
 
-    // TODO: thread the per-execution compensation stack through here.
+    private final Deque<BoundCompensation<T, C>> compensationStack = new ArrayDeque<>();
 
     public TransitionView(StateMachineImpl<T, C> stateMachine, TransitionImpl<T, C> staticTransition,
                    T entity, C context) {
         requireNotNull(stateMachine, "State machine");
         requireNotNull(staticTransition, "Static transition");
+
         this.stateMachine = stateMachine;
         this.staticTransition = staticTransition;
         this.entity = entity;
@@ -111,5 +118,47 @@ public class TransitionView<T, C> implements Transition<T, C> {
 
     public List<String> getExecutedStepIds() {
         return Collections.unmodifiableList(executedStepIds);
+    }
+
+    /**
+     * Pushes a {@link Compensation} onto this view's LIFO rollback stack under the supplied
+     * step id. A {@code null} compensation is a no-op; this lets callers forward the result of
+     * {@link org.transflux.core.operation.Step#getCompensation(Object, Object)} unconditionally
+     * without first checking it for {@code null}.
+     *
+     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
+     * should not invoke it directly.
+     *
+     * @param stepId the id of the step the compensation rolls back; must be non-blank
+     * @param compensation the compensation callback; ignored when {@code null}
+     */
+    public void pushCompensation(String stepId, Compensation<T, C> compensation) {
+        requireNotBlank(stepId, "Step ID");
+        if (compensation == null) {
+            return;
+        }
+        compensationStack.push(new BoundCompensation<>(stepId, compensation));
+    }
+
+    /**
+     * Drains the rollback stack and returns its contents in pop order, i.e. reverse order of
+     * registration (LIFO). The stack is empty when this method returns.
+     *
+     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
+     * should not invoke it directly.
+     *
+     * @return an unmodifiable list of the popped compensations in LIFO order
+     */
+    public List<BoundCompensation<T, C>> drainCompensationsLifo() {
+        if (compensationStack.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<BoundCompensation<T, C>> drained = new ArrayList<>(compensationStack.size());
+        while (!compensationStack.isEmpty()) {
+            drained.add(compensationStack.pop());
+        }
+
+        return Collections.unmodifiableList(drained);
     }
 }

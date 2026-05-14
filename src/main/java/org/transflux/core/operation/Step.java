@@ -51,4 +51,39 @@ public interface Step<T, C> {
      *                   registered step in the current execution scope
      */
     void execute(T entity, C context, Transition<T, C> transition);
+
+    /**
+     * Returns the {@link Compensation} that rolls back this step's effects, or {@code null}
+     * when this step has nothing to roll back.
+     * <p>
+     * The runtime invokes this method exactly once per step invocation, <em>before</em>
+     * {@link #execute(Object, Object, Transition)} runs. The returned compensation is pushed
+     * onto the per-execution LIFO rollback stack at that point; if the transition's operation
+     * later fails (this step's own {@code execute} throws, or a subsequent step does), the
+     * stack is drained in reverse-push order and each compensation runs in turn.
+     *
+     * <p>Capturing the compensation before {@code execute} is deliberate: a step that throws
+     * partway through producing side effects — created remote entities, inserted database rows,
+     * published messages — should still have its compensation invoked so the partial work can
+     * be cleaned up. The {@code entity} and {@code context} references handed in here are the
+     * same references {@code execute} will see; the compensation is free to close over them and
+     * read whatever state {@code execute} has accumulated by the time the rollback runs (for
+     * example, a list of created ids the step appends to as it goes).
+     *
+     * <p>If the compensation depends on completion-time state (e.g. a "before" snapshot of the
+     * entity), write that state into the entity or context during {@code execute} and have the
+     * returned compensation read it back at rollback time.
+     *
+     * <p>Returning {@code null} means "no compensation registered for this step's effects" and
+     * leaves the rollback stack unchanged.
+     *
+     * @param entity the entity this step is about to be invoked against; never {@code null}
+     * @param context the host-supplied context this step is about to be invoked against; may
+     *                be {@code null} when the caller opted not to attach one
+     *
+     * @return the compensation to register against this step's id, or {@code null}
+     */
+    default Compensation<T, C> getCompensation(T entity, C context) {
+        return null;
+    }
 }

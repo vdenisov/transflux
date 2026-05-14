@@ -18,10 +18,14 @@
 
 package org.transflux.core;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.transflux.core.condition.BoundCondition;
 import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.operation.BoundCompensation;
 import org.transflux.core.operation.BoundOperation;
 import org.transflux.core.operation.BoundStep;
+import org.transflux.core.operation.Compensation;
 import org.transflux.core.operation.Step;
 import org.transflux.core.state.State;
 import org.transflux.core.state.StateApplier;
@@ -35,7 +39,9 @@ import org.transflux.core.transition.TransitionResult;
 import org.transflux.core.transition.TransitionView;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -57,6 +63,8 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
  * @param <C> the host-supplied context type carried through transition execution
  */
 public class StateMachineImpl<T, C> implements StateMachine<T, C> {
+    private static final Logger log = LoggerFactory.getLogger(StateMachineImpl.class);
+
     private final Class<T> entityType;
     private final Class<C> contextType;
 
@@ -114,10 +122,34 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
     }
 
     /**
-     * Records the step's id on the view's execution recorder and dispatches the step's
-     * {@link Step#execute(Object, Object, Transition)}. Shared by the composite executor and
-     * by {@code TransitionView.step("id")} so step-id tracking is uniform regardless of who
-     * initiates the step.
+     * Acquires the step's {@link Compensation}, pushes it onto the view's rollback stack, then
+     * dispatches the step's {@link Step#execute(Object, Object, Transition)} against the same
+     * view. Shared by the composite executor and by {@code TransitionView.step("id")} so both
+     * step-id tracking and compensation registration are uniform regardless of who initiates
+     * the step.
+     *
+     * <p>The compensation is captured <em>before</em> {@code execute} runs. This is deliberate:
+     * if {@code execute} throws partway through producing side effects (created remote entities,
+     * inserted database rows, sent messages), the compensation is already on the stack and the
+     * enclosing transition catch will run it, giving the step a chance to roll back whatever
+     * it managed to do. Implementations whose compensation depends on completion-time state
+     * should write that state into the entity or context during {@code execute} and have the
+     * returned compensation read it back at rollback time. {@code execute} sees the same entity
+     * and context references {@code getCompensation} already saw.
+     *
+     * <p>Sequencing within this method, and how it interacts with failures:
+     * <ul>
+     *   <li>{@code getCompensation} runs first. If it throws, neither {@code execute} nor the
+     *       id-recording happens; the exception propagates and the step is treated as having
+     *       never started (its id appears on neither {@code executedStepIds} nor
+     *       {@code compensatedStepIds}).</li>
+     *   <li>If {@code getCompensation} returns non-{@code null}, the compensation is pushed.
+     *       A {@code null} return is a no-op.</li>
+     *   <li>{@code execute} runs. If it throws, the exception propagates; the step's id is
+     *       <em>not</em> appended to {@code executedStepIds} (executed = completed), but its
+     *       compensation is on the stack and will run when the enclosing catch drains it.</li>
+     *   <li>On successful return, the step's id is appended to {@code executedStepIds}.</li>
+     * </ul>
      *
      * @param boundStep the bound step to invoke
      * @param view the per-execution transition view that owns the current scope
@@ -126,7 +158,12 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
      * @param <C> the context type
      */
     public static <T, C> void runBoundStep(BoundStep<T, C> boundStep, TransitionView<T, C> view) {
-        boundStep.step().execute(view.getEntity(), view.getContext(), view);
+        Step<T, C> step = boundStep.step();
+        Compensation<T, C> compensation = step.getCompensation(view.getEntity(), view.getContext());
+
+        view.pushCompensation(boundStep.id(), compensation);
+        step.execute(view.getEntity(), view.getContext(), view);
+
         view.recordExecutedStepId(boundStep.id());
     }
 
@@ -368,9 +405,28 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
                     view.getExecutedStepIds(), startedAt, Instant.now());
 
         } catch (Exception e) {
-            // TODO: run the compensation stack here.
-            return TransitionResult.failure(entity, sourceStateId, targetStateId, transitionId, e,
-                    view.getExecutedStepIds(), null, startedAt, Instant.now());
+            List<BoundCompensation<T, C>> drained = view.drainCompensationsLifo();
+            List<String> compensatedStepIds = new ArrayList<>(drained.size());
+
+            for (BoundCompensation<T, C> bc : drained) {
+                compensatedStepIds.add(bc.stepId());
+                try {
+                    bc.compensation().compensate(entity, context);
+                } catch (Exception ce) {
+                    log.warn("Compensation for step '{}' threw '{}': {}",
+                            bc.stepId(), ce.getClass().getName(), ce.getMessage());
+                }
+            }
+
+            return TransitionResult.failure(entity,
+                                            sourceStateId,
+                                            targetStateId,
+                                            transitionId,
+                                            e,
+                                            view.getExecutedStepIds(),
+                                            compensatedStepIds,
+                                            startedAt,
+                                            Instant.now());
         }
     }
 
