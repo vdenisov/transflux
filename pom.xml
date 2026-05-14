@@ -48,6 +48,7 @@
         <spock.version>2.3-groovy-4.0</spock.version>
         <logback.version>1.5.18</logback.version>
         <apache.commons.lang3.version>3.18.0</apache.commons.lang3.version>
+        <spring.expression.version>5.3.39</spring.expression.version>
     </properties>
 
     <dependencies>
@@ -66,6 +67,11 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
             <version>${apache.commons.lang3.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-expression</artifactId>
+            <version>${spring.expression.version}</version>
         </dependency>
 
         <!-- Test dependencies -->

@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import static org.transflux.core.ValidationUtils.requireNotBlank;
 import static org.transflux.core.ValidationUtils.requireNotNull;
@@ -89,6 +90,8 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
     private final Map<String, StateDefImpl<T, C>> states = new LinkedHashMap<>();
 
     private final Map<String, StepRegistration<T, C>> stepRegistrations = new LinkedHashMap<>();
+
+    private final Map<String, ConditionRegistration<T, C>> conditionRegistrations = new LinkedHashMap<>();
 
     // transitionId -> TransitionDefImpl
     private final Map<String, TransitionDefImpl<T, C>> transitionsById = new LinkedHashMap<>();
@@ -285,6 +288,103 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
      * @throws TransfluxValidationException if any class-form registration cannot be
      *         instantiated through its no-arg constructor
      */
+    @Override
+    public StateMachineDef<T, C> condition(String id, Condition<T, C> condition) {
+        requireNotBlank(id, "Condition ID");
+        requireNotNull(condition, "Condition");
+        registerConditionInstance(id, condition);
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T, C> condition(String id, Class<? extends Condition<T, C>> conditionClass) {
+        requireNotBlank(id, "Condition ID");
+        requireNotNull(conditionClass, "Condition class");
+        registerConditionClass(id, conditionClass);
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T, C> condition(String id, Predicate<T> predicate) {
+        requireNotBlank(id, "Condition ID");
+        requireNotNull(predicate, "Predicate");
+        registerConditionPredicate(id, predicate);
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T, C> condition(String id, String spelExpression) {
+        requireNotBlank(id, "Condition ID");
+        requireNotBlank(spelExpression, "SpEL expression");
+        registerConditionExpression(id, spelExpression);
+        return this;
+    }
+
+    private void registerConditionInstance(String id, Condition<T, C> condition) {
+        ConditionRegistration<T, C> existing = conditionRegistrations.get(id);
+        if (existing == null) {
+            conditionRegistrations.put(id, ConditionRegistration.ofInstance(condition));
+            return;
+        }
+        if (existing.instance != null && existing.instance == condition) {
+            return;
+        }
+        throw new TransfluxValidationException("Condition ID '" + id + "' is already registered");
+    }
+
+    private void registerConditionClass(String id, Class<? extends Condition<T, C>> conditionClass) {
+        ConditionRegistration<T, C> existing = conditionRegistrations.get(id);
+        if (existing == null) {
+            conditionRegistrations.put(id, ConditionRegistration.ofClass(conditionClass));
+            return;
+        }
+        if (existing.conditionClass != null && existing.conditionClass.equals(conditionClass)) {
+            return;
+        }
+        throw new TransfluxValidationException("Condition ID '" + id + "' is already registered");
+    }
+
+    private void registerConditionPredicate(String id, Predicate<T> predicate) {
+        ConditionRegistration<T, C> existing = conditionRegistrations.get(id);
+        if (existing == null) {
+            conditionRegistrations.put(id, ConditionRegistration.ofPredicate(predicate));
+            return;
+        }
+        if (existing.predicate != null && existing.predicate == predicate) {
+            return;
+        }
+        throw new TransfluxValidationException("Condition ID '" + id + "' is already registered");
+    }
+
+    private void registerConditionExpression(String id, String expression) {
+        ConditionRegistration<T, C> existing = conditionRegistrations.get(id);
+        if (existing == null) {
+            conditionRegistrations.put(id, ConditionRegistration.ofExpression(expression));
+            return;
+        }
+        if (existing.expression != null && existing.expression.equals(expression)) {
+            return;
+        }
+        throw new TransfluxValidationException("Condition ID '" + id + "' is already registered");
+    }
+
+    /**
+     * Resolves the condition registrations into {@link BoundCondition} instances. Called from
+     * {@link StateMachineImpl} during state machine construction.
+     *
+     * @return an unmodifiable map of condition id to bound condition
+     *
+     * @throws TransfluxValidationException if any class-form registration cannot be
+     *         instantiated through its no-arg constructor
+     */
+    Map<String, BoundCondition<T, C>> buildBoundConditions() {
+        Map<String, BoundCondition<T, C>> resolved = new LinkedHashMap<>();
+        for (Map.Entry<String, ConditionRegistration<T, C>> e : conditionRegistrations.entrySet()) {
+            resolved.put(e.getKey(), e.getValue().toBoundCondition(e.getKey()));
+        }
+        return Collections.unmodifiableMap(resolved);
+    }
+
     Map<String, BoundStep<T, C>> buildBoundSteps() {
         collectInlineStepRegistrations();
         Map<String, BoundStep<T, C>> resolved = new LinkedHashMap<>();
@@ -483,6 +583,71 @@ class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
                 throw new TransfluxValidationException(
                     "Failed to instantiate step class '" + stepClass.getName() + "'", e);
             }
+        }
+    }
+
+    /**
+     * Holds one condition registration kept on the state-machine def. Exactly one of
+     * {@link #instance}, {@link #conditionClass}, {@link #predicate}, or {@link #expression}
+     * is non-null.
+     */
+    private static final class ConditionRegistration<T, C> {
+        private final Condition<T, C> instance;
+        private final Class<? extends Condition<T, C>> conditionClass;
+        private final Predicate<T> predicate;
+        private final String expression;
+
+        private ConditionRegistration(Condition<T, C> instance,
+                                      Class<? extends Condition<T, C>> conditionClass,
+                                      Predicate<T> predicate,
+                                      String expression) {
+            this.instance = instance;
+            this.conditionClass = conditionClass;
+            this.predicate = predicate;
+            this.expression = expression;
+        }
+
+        static <T, C> ConditionRegistration<T, C> ofInstance(Condition<T, C> instance) {
+            return new ConditionRegistration<>(instance, null, null, null);
+        }
+
+        static <T, C> ConditionRegistration<T, C> ofClass(Class<? extends Condition<T, C>> conditionClass) {
+            return new ConditionRegistration<>(null, conditionClass, null, null);
+        }
+
+        static <T, C> ConditionRegistration<T, C> ofPredicate(Predicate<T> predicate) {
+            return new ConditionRegistration<>(null, null, predicate, null);
+        }
+
+        static <T, C> ConditionRegistration<T, C> ofExpression(String expression) {
+            return new ConditionRegistration<>(null, null, null, expression);
+        }
+
+        BoundCondition<T, C> toBoundCondition(String id) {
+            if (instance != null) {
+                return BoundCondition.of(id, instance);
+            }
+            if (conditionClass != null) {
+                try {
+                    Condition<T, C> resolved = conditionClass.getDeclaredConstructor().newInstance();
+                    return BoundCondition.of(id, resolved);
+                } catch (NoSuchMethodException e) {
+                    throw new TransfluxValidationException(
+                        "Condition class '" + conditionClass.getName() + "' has no accessible no-arg constructor", e);
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+                    throw new TransfluxValidationException(
+                        "Failed to instantiate condition class '" + conditionClass.getName() + "'", e);
+                }
+            }
+            if (predicate != null) {
+                Predicate<T> p = predicate;
+                Condition<T, C> adapted = (entity, ctx, transition) -> p.test(entity);
+                return BoundCondition.of(id, adapted);
+            }
+            String expr = expression;
+            Condition<T, C> condition = (entity, ctx, transition) ->
+                SpelConditionEvaluator.shared().evaluate(expr, entity, ctx, transition);
+            return BoundCondition.of(id, condition);
         }
     }
 

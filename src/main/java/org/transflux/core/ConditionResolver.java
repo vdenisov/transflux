@@ -1,0 +1,127 @@
+/*
+ *
+ *  * Copyright 2025 Victor Denisov
+ *  *
+ *  * Licensed under the Apache License, Version 2.0 (the "License");
+ *  * you may not use this file except in compliance with the License.
+ *  * You may obtain a copy of the License at
+ *  *
+ *  *     http://www.apache.org/licenses/LICENSE-2.0
+ *  *
+ *  * Unless required by applicable law or agreed to in writing, software
+ *  * distributed under the License is distributed on an "AS IS" BASIS,
+ *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  * See the License for the specific language governing permissions and
+ *  * limitations under the License.
+ *
+ */
+
+package org.transflux.core;
+
+import java.lang.reflect.InvocationTargetException;
+import java.util.Map;
+import java.util.function.Predicate;
+
+import static org.transflux.core.ValidationUtils.requireNotNull;
+
+/**
+ * Stateless resolver that turns a {@link ConditionDescriptor} into a {@link BoundCondition}
+ * suitable for execution.
+ * <p>
+ * Reference descriptors are looked up against the state machine's condition registry;
+ * class-based descriptors are reflectively instantiated through their public no-arg
+ * constructor; predicate-based descriptors are adapted into {@code Condition} instances
+ * that ignore the context and transition view; expression-based descriptors are bound to
+ * the shared {@link SpelConditionEvaluator}, with id auto-derived from the supplied path
+ * when the descriptor omits an explicit id.
+ */
+final class ConditionResolver {
+
+    private ConditionResolver() {
+        // utility class — no instances
+    }
+
+    /**
+     * Resolves the descriptor against the registry.
+     *
+     * @param descriptor the descriptor to resolve; never {@code null}
+     * @param registry the state machine's condition registry, keyed by id
+     * @param path slash-separated location of the descriptor within the enclosing state
+     *             machine, used for auto-id derivation on expression-based descriptors with
+     *             no explicit id
+     * @param <T> the entity type
+     * @param <C> the context type
+     *
+     * @return the bound condition
+     *
+     * @throws TransfluxValidationException if a reference points at an unregistered id, if
+     *         a class-based descriptor's class cannot be instantiated through a no-arg
+     *         constructor, or if any other input is invalid
+     */
+    static <T, C> BoundCondition<T, C> resolve(ConditionDescriptor descriptor,
+                                               Map<String, BoundCondition<T, C>> registry,
+                                               String path) {
+        requireNotNull(descriptor, "Condition descriptor");
+        requireNotNull(registry, "Condition registry");
+        requireNotNull(path, "Path");
+
+        switch (descriptor.getKind()) {
+            case REFERENCE:
+                return resolveReference((ConditionDescriptor.Reference) descriptor, registry);
+            case CLASS_BASED:
+                return resolveClassBased((ConditionDescriptor.ClassBased) descriptor);
+            case PREDICATE_BASED:
+                return resolvePredicateBased((ConditionDescriptor.PredicateBased) descriptor);
+            case EXPRESSION_BASED:
+                return resolveExpressionBased((ConditionDescriptor.ExpressionBased) descriptor, path);
+            default:
+                throw new TransfluxValidationException(
+                    "Unsupported condition descriptor kind: " + descriptor.getKind());
+        }
+    }
+
+    private static <T, C> BoundCondition<T, C> resolveReference(ConditionDescriptor.Reference descriptor,
+                                                                Map<String, BoundCondition<T, C>> registry) {
+        BoundCondition<T, C> bound = registry.get(descriptor.getId());
+        if (bound == null) {
+            throw new TransfluxValidationException(
+                "No condition registered with id '" + descriptor.getId() + "'");
+        }
+        return bound;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T, C> BoundCondition<T, C> resolveClassBased(ConditionDescriptor.ClassBased descriptor) {
+        Class<? extends Condition<?, ?>> conditionClass = descriptor.getConditionClass();
+        Condition<T, C> instance;
+        try {
+            instance = (Condition<T, C>) conditionClass.getDeclaredConstructor().newInstance();
+        } catch (NoSuchMethodException e) {
+            throw new TransfluxValidationException(
+                "Condition class '" + conditionClass.getName() + "' has no accessible no-arg constructor", e);
+        } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+            throw new TransfluxValidationException(
+                "Failed to instantiate condition class '" + conditionClass.getName() + "'", e);
+        }
+        return BoundCondition.of(descriptor.getId(), instance);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T, C> BoundCondition<T, C> resolvePredicateBased(ConditionDescriptor.PredicateBased descriptor) {
+        Predicate<T> predicate = (Predicate<T>) descriptor.getPredicate();
+        Condition<T, C> adapted = (entity, ctx, transition) -> predicate.test(entity);
+        return BoundCondition.of(descriptor.getId(), adapted);
+    }
+
+    private static <T, C> BoundCondition<T, C> resolveExpressionBased(ConditionDescriptor.ExpressionBased descriptor,
+                                                                      String path) {
+        String id = descriptor.getId();
+        if (id == null) {
+            id = ExpressionIdDerivation.deriveId(descriptor.getExpression(), path);
+        }
+        String expression = descriptor.getExpression();
+        Condition<T, C> condition = (entity, ctx, transition) ->
+            SpelConditionEvaluator.shared().evaluate(expression, entity, ctx, transition);
+        return BoundCondition.of(id, condition);
+    }
+}

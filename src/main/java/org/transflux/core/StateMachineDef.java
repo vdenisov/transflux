@@ -18,6 +18,8 @@
 
 package org.transflux.core;
 
+import java.util.function.Predicate;
+
 /**
  * Builder interface for defining and constructing state machines.
  * <p>
@@ -187,6 +189,75 @@ public interface StateMachineDef<T, C> {
      *         is {@code null}, or another step is already registered under {@code id}
      */
     StateMachineDef<T, C> step(String id, Class<? extends Step<T, C>> stepClass);
+
+    /**
+     * Registers a condition instance against this state machine under the given id.
+     * <p>
+     * The id must be non-blank and unique across the state machine's condition registry.
+     * Re-registering an identical {@link Condition} instance under the same id is a no-op;
+     * registering a different instance under an already-claimed id raises
+     * {@link TransfluxValidationException}.
+     *
+     * @param id the condition id
+     * @param condition the condition instance; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank, {@code condition}
+     *         is {@code null}, or another condition is already registered under {@code id}
+     */
+    StateMachineDef<T, C> condition(String id, Condition<T, C> condition);
+
+    /**
+     * Registers a condition class against this state machine under the given id. The framework
+     * reflectively instantiates the class via its public no-arg constructor when the state
+     * machine is built.
+     * <p>
+     * Re-registering the same class under the same id is a no-op; registering a different
+     * class under an already-claimed id raises {@link TransfluxValidationException}.
+     *
+     * @param id the condition id
+     * @param conditionClass the condition class; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank,
+     *         {@code conditionClass} is {@code null}, or another condition is already registered
+     *         under {@code id}
+     */
+    StateMachineDef<T, C> condition(String id, Class<? extends Condition<T, C>> conditionClass);
+
+    /**
+     * Registers a {@link Predicate} over the entity as a condition under the given id. The
+     * predicate is adapted into a {@link Condition} that ignores the context and the per-execution
+     * transition view.
+     *
+     * @param id the condition id
+     * @param predicate the predicate; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank, {@code predicate}
+     *         is {@code null}, or another condition is already registered under {@code id}
+     */
+    StateMachineDef<T, C> condition(String id, Predicate<T> predicate);
+
+    /**
+     * Registers a SpEL expression as a condition under the given id. The expression is parsed
+     * lazily by the shared evaluator at first invocation; the entity is bound as the SpEL root
+     * object, and the context and the per-execution transition view are bound as {@code #context}
+     * and {@code #transition} respectively.
+     *
+     * @param id the condition id
+     * @param spelExpression the SpEL expression text; never {@code null} or blank
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank,
+     *         {@code spelExpression} is {@code null}/blank, or another condition is already
+     *         registered under {@code id}
+     */
+    StateMachineDef<T, C> condition(String id, String spelExpression);
 
     /**
      * Begins defining a new state in the state machine.
