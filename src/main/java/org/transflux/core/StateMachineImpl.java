@@ -21,6 +21,7 @@ package org.transflux.core;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.transflux.core.condition.BoundCondition;
+import org.transflux.core.exception.TransfluxReentrancyException;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.BoundCompensation;
 import org.transflux.core.operation.BoundOperation;
@@ -40,9 +41,11 @@ import org.transflux.core.transition.TransitionView;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.transflux.core.ValidationUtils.requireNotBlank;
@@ -64,6 +67,13 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
  */
 public class StateMachineImpl<T, C> implements StateMachine<T, C> {
     private static final Logger log = LoggerFactory.getLogger(StateMachineImpl.class);
+
+    // TODO Phase 4: extend across the async-submission boundary (§4.5.3.4) via
+    //   capture/restore — the enclosing thread snapshots this set on submission and
+    //   the worker installs it before entering the SM, so logical reentrancy stays
+    //   detected when an operation spawns async work that calls back into the same
+    //   SM for the same entity.
+    private static final ThreadLocal<Set<EntityKey>> IN_FLIGHT = ThreadLocal.withInitial(HashSet::new);
 
     private final Class<T> entityType;
     private final Class<C> contextType;
@@ -365,6 +375,16 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
         String targetStateId = transition.getTargetStateId();
         String transitionId = transition.getId();
 
+        EntityKey key = new EntityKey(this, entity);
+        Set<EntityKey> inFlight = IN_FLIGHT.get();
+        if (inFlight.contains(key)) {
+            throw new TransfluxReentrancyException(
+                "Reentrant transition '" + transitionId + "' to state '" + targetStateId
+                    + "' rejected for entity: " + entity
+                    + " (a transition is already in flight for the same state machine and entity)");
+        }
+        inFlight.add(key);
+
         Instant startedAt = Instant.now();
         TransitionView<T, C> view = new TransitionView<>(this, transition, entity, context);
 
@@ -427,8 +447,34 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
                                             compensatedStepIds,
                                             startedAt,
                                             Instant.now());
+        } finally {
+            inFlight.remove(key);
+            if (inFlight.isEmpty()) {
+                IN_FLIGHT.remove();
+            }
         }
     }
+
+    private record EntityKey(StateMachineImpl<?, ?> sm, Object entity) {
+
+        @Override
+            public boolean equals(Object o) {
+                if (this == o) {
+                    return true;
+                }
+
+                if (!(o instanceof EntityKey other)) {
+                    return false;
+                }
+
+                return this.sm == other.sm && this.entity == other.entity;
+            }
+
+            @Override
+            public int hashCode() {
+                return System.identityHashCode(sm) * 31 + System.identityHashCode(entity);
+            }
+        }
 
     private class EntityBindingImpl implements EntityBinding<T, C> {
         private final T entity;
