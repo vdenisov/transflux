@@ -109,54 +109,54 @@ Patch releases (`x.y.z`) ship between minor releases for bug fixes and security 
 *Target: Composite operations, entity-aware steps, the unified Condition Descriptor, and the runtime reentrancy guard.*
 
 ### 2.1 Operation Framework
-- [ ] `OperationDef` interface for fluent operation definition (in flight on the branch).
-- [ ] `Operation<T, C>` runtime interface — `execute(entity, context, transition)` returns `void`; results flow through the context (requirements §2.1.5).
-- [ ] `SimpleOperation<T, C>` implementation.
-- [ ] Operation lifecycle and execution order within a transition.
-- [ ] Operation results documented as context-flowing (no `.input(...)` API; no domain return value).
+- [x] `OperationDef` base interface plus `SimpleOperationDef` and `CompositeOperationDef` for fluent operation definition.
+- [x] `Operation<T, C>` runtime interface — `execute(entity, context, transition)` returns `void`; pure functional contract, identity-free at runtime; results flow through the context (requirements §2.1.5).
+- [x] `SimpleOperationDef` def-side anchor (no runtime `SimpleOperation` type — users implement `Operation<T, C>` directly).
+- [x] Operation lifecycle and execution order within a transition.
+- [x] Operation results documented as context-flowing (no `.input(...)` API; no domain return value).
 
 ### 2.2 Steps
-- [ ] `Step<T, C>` interface — entity-aware, receives `(entity, context, transition)`. Reusable across operations.
-- [ ] Step elevation as `SimpleOperation` targets (a step may be used directly as an operation).
-- [ ] `CompositeOperation<T, C>` implementation.
-- [ ] Sequential step execution within composite operations.
-- [ ] Step-level error handling primitives (full compensation engine lands in Phase 4).
-- [ ] `Transition.step(...)` family of methods (with and without explicit class) for in-operation step invocation.
+- [x] `Step<T, C>` interface — entity-aware, receives `(entity, context, transition)`. Pure functional contract; reusable across operations under different ids.
+- [x] `CompositeOperationDef` builds an internal framework-owned `Operation<T, C>` that iterates the declared step list. Single-step composites cover the "step as an operation" case without a special elevation mechanism.
+- [x] Sequential step execution within composite operations.
+- [x] Step-level error handling primitives (full compensation engine lands in Phase 4).
+- [x] `Transition.step("id")` framework-executed dispatch from inside an operation, with the same step-id recording and compensation registration as composite-driven steps.
 
 ### 2.3 Multi-Branch Conditional Operations
-- [ ] Conditional step type within composite operations.
-- [ ] Sequential branch evaluation, first-match-wins semantics.
-- [ ] `default` fallback branch.
-- [ ] Configurable behavior when no branch matches and no default is defined (warning vs. error).
+- [x] Conditional step type within composite operations.
+- [x] Sequential branch evaluation, first-match-wins semantics.
+- [x] `default` fallback branch.
+- [x] Configurable `NoMatchBehavior` (WARN — default; SILENT; ERROR) when no branch matches and no default is defined.
 
 ### 2.4 Condition System
-- [ ] **SpEL Integration**
-  - [ ] Spring Expression Language 6.2.x dependency. Note: SpEL itself runs on Java 11+ even though `spring-context` does not — verify Java 11 compatibility of the SpEL JAR before locking the version.
-  - [ ] SpEL expression evaluator with entity and context variable binding.
-  - [ ] Expression caching.
+- [x] **SpEL Integration**
+  - [x] Spring Expression Language 6.2.x dependency. (Note: the project baseline was raised to Java 17 mid-Phase-2, so the SpEL Java 11 compatibility concern is moot.)
+  - [x] SpEL expression evaluator with entity and context variable binding.
+  - [x] Expression caching.
 
-- [ ] **Condition Framework**
-  - [ ] `Condition<T>` interface.
-  - [ ] `Predicate<T>`-style lightweight conditions.
-  - [ ] Pre/Post condition wiring on transitions.
-  - [ ] **Condition Descriptor** — the four-form grammar from requirements §3.6.1:
-    - [ ] Reference (by ID).
-    - [ ] Class-based (`Condition<T>` implementation).
-    - [ ] Predicate-based.
-    - [ ] Expression-based (SpEL).
-  - [ ] Auto-ID derivation for inline expression-based conditions only.
+- [x] **Condition Framework**
+  - [x] `Condition<T, C>` interface — pure functional contract; ids live on the def side (`StateMachineDef.condition(id, ...)` registry and `ConditionDescriptor`).
+  - [x] `Predicate<T>`-style lightweight conditions.
+  - [x] Pre/Post condition wiring on transitions.
+  - [x] **Condition Descriptor** — the five-form grammar from requirements §3.6.1:
+    - [x] Reference (by id).
+    - [x] Instance-based (pre-built `Condition<T, C>` instance under an explicit id; Java DSL only).
+    - [x] Class-based (`Condition<T, C>` implementation).
+    - [x] Predicate-based.
+    - [x] Expression-based (SpEL).
+  - [x] Auto-id derivation for inline expression-based conditions only.
 
 ### 2.5 Reentrancy Guard
-- [ ] Runtime detection of reentrant transition attempts on the same `StateMachine<T>` instance for the same entity.
-- [ ] Throw `TransfluxReentrancyException` with diagnostic context.
-- [ ] Permit transitions on *different* entities from within an executing transition.
-- [ ] Spock coverage for the guard.
+- [x] Runtime detection of reentrant transition attempts on the same `StateMachine<T>` instance for the same entity.
+- [x] Throw `TransfluxReentrancyException` with diagnostic context.
+- [x] Permit transitions on *different* entities from within an executing transition.
+- [x] Spock coverage for the guard.
 
 ### 2.6 Specifications
-- [ ] Composite operation specs with step sequencing and parameterized data tables.
-- [ ] Multi-branch conditional specs (each branch matched, no-match-with-default, no-match-no-default).
-- [ ] Condition Descriptor specs for each form, including auto-ID derivation.
-- [ ] Reentrancy guard specs.
+- [x] Composite operation specs with step sequencing and parameterized data tables.
+- [x] Multi-branch conditional specs (each branch matched, no-match-with-default, no-match-no-default).
+- [x] Condition Descriptor specs for each form, including auto-id derivation.
+- [x] Reentrancy guard specs.
 
 ---
 
@@ -260,7 +260,7 @@ Patch releases (`x.y.z`) ship between minor releases for bug fixes and security 
 ### 4.1 Compensation Engine
 - [ ] Unified `Compensation<T, C>` interface (entity + context) for both operations and steps.
 - [ ] LIFO compensation stack management. **One stack per synchronous execution path.** Sync nested operations (Phase 2.5) push onto the enclosing parent's stack so unwinding interleaves child and sibling-step compensations correctly. Async branches own their own stack — see §4.4.
-- [ ] Compensation registration as each step completes.
+- [ ] Compensation registration before each step runs (so a step that throws partway through producing side effects still gets its compensation invoked).
 - [ ] Post-condition violation triggers full compensation; entity state is *not* applied.
 - [ ] Compensation declared by class or returned dynamically from `getCompensation(entity, context)`.
 
@@ -333,7 +333,7 @@ Patch releases (`x.y.z`) ship between minor releases for bug fixes and security 
 - [ ] State, transition, operation, step, condition, trigger, listener parsers.
 - [ ] Composite-operation member grammar accepts `operation:` alongside `step:` (YAML counterpart of the Java `.operation(...)` builder added in Phase 2.5), including pass-through, class/instance-mapper, and inline-mapper forms (`mapTo` / `mapFrom`).
 - [ ] Cross-file ID-uniqueness checks walk into composite members so nested-operation ids participate in collision detection (Phase 2.5 enforces SM-wide uniqueness; the YAML loader must mirror that across imports).
-- [ ] Condition Descriptor parsing (the four forms).
+- [ ] Condition Descriptor parsing (the four YAML-expressible forms — reference, class, predicate, expression). The fifth `InstanceBased` form is Java-only and has no YAML surface.
 - [ ] State resolver + state applier configuration (class or SpEL).
 - [ ] Listener parity with the Java DSL (state entry/exit + transition start/complete).
 - [ ] Validation against the JSON Schema.

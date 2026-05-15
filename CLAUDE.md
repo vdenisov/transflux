@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Transflux is a lightweight, embeddable microflow orchestration library (Java). It coordinates state changes for business entities — transitions, sequencing, pre-/post-conditions, triggers, listeners, and Saga-like compensations — without providing its own persistence. Project status: Phase 1 (Core Foundation), in progress; the public API is unstable.
+Transflux is a lightweight, embeddable microflow orchestration library (Java). It coordinates state changes for business entities — transitions, sequencing, pre-/post-conditions, triggers, listeners, and Saga-like compensations — without providing its own persistence. Project status: Phase 2 (Operations, Steps & Conditions) complete; Phase 2.5 (Nested Operations) is the next phase. The public API is unstable.
 
 `requirements.md` is the canonical spec for the vision and component model; consult it before designing new core abstractions. `todo.md` tracks phased implementation work.
 
 ## Build & Test
 
-- Toolchain: Maven builds with **JDK 21+** (enforced via `maven-toolchains-plugin`) and compiles to **Java 11 bytecode** (`<release>11</release>`). A JDK 21+ must be discoverable through `~/.m2/toolchains.xml`.
+- Toolchain: Maven builds with **JDK 21+** (enforced via `maven-toolchains-plugin`) and compiles to **Java 17 bytecode** (`<release>17</release>`). A JDK 21+ must be discoverable through `~/.m2/toolchains.xml`.
 - Run all tests: `mvn -q clean test`
 - Run a single Spock spec: `mvn -q test -Dtest=StateMachineImplSpec`
 - Run a single feature method: `mvn -q test -Dtest=StateMachineImplSpec#"feature method name"`
@@ -22,9 +22,9 @@ Transflux is a lightweight, embeddable microflow orchestration library (Java). I
 The core domain is split across `org.transflux.core` and five subpackages:
 - `core` — `Transflux` entry point, `StateMachine` / `StateMachineDef` plus their `*Impl`s, the `Identifiable` marker, and shared utilities (`ValidationUtils`, `ThrowingUtils`, `ReflectionUtils`).
 - `core.state` — `State` / `StateDef` and their `*Impl`s, plus the host-supplied `StateResolver` / `StateApplier`.
-- `core.transition` — `Transition` / `TransitionDef` and their `*Impl`s, `TransitionResult`, and the runtime-internal `TransitionView`.
-- `core.operation` — `Operation`, `Step`, the `OperationDef` family, and the runtime-internal `BoundOperation` / `BoundStep` / `StepRef` types.
-- `core.condition` — `Condition`, `ConditionDescriptor`, and the package-private SpEL utilities (`ConditionResolver`, `SpelConditionEvaluator`, `ExpressionIdDerivation`).
+- `core.transition` — `Transition` / `TransitionDef` and their `*Impl`s, `TransitionResult`, and the framework-internal `TransitionView`.
+- `core.operation` — `Operation`, `Step`, the `OperationDef` family (including `ConditionalStepDef` and the per-branch sub-builders), the unified `Compensation<T, C>` contract, and the framework-internal `BoundOperation` / `BoundStep` / `BoundCompensation` / `StepRef` types.
+- `core.condition` — `Condition`, `ConditionDescriptor` (five-form sealed grammar: Reference, InstanceBased, ClassBased, PredicateBased, ExpressionBased), `BoundCondition`, and the SpEL utilities (`ConditionResolver`, `SpelConditionEvaluator`, `ExpressionIdDerivation`).
 - `core.exception` — `TransfluxException` and its subclasses.
 
 **Definition vs. runtime split** — every concept has paired types:
@@ -37,11 +37,15 @@ Read a `*Def` to understand the DSL surface; read the matching runtime interface
 
 **State accessor pair.** `StateResolver<T>` extracts the current state ID from a domain entity (read side); `StateApplier<T>` writes the new state ID after a successful transition (write side). The applier is optional — purely transient transitions, or hosts that mutate state inside steps, can omit it. Transflux never owns storage; both interfaces are host-supplied bridges.
 
-**Identifiable.** Most components implement `Identifiable` and carry a stable `id` (used for lookup) plus an optional human-readable `name`. Per `requirements.md` §2.2.1, IDs are required and must be unique within their scope; only **inline expression-based conditions** may omit `id` and have one auto-derived from expression + path.
+**Identifiable.** Identity lives on the **definition** side. The `*Def` types (`StateDef`, `TransitionDef`, `SimpleOperationDef`, `CompositeOperationDef`, the `step(id, ...)` and `condition(id, ...)` registrations on `StateMachineDef`, plus `ConditionDescriptor`) carry a stable `id` (used for lookup) and optional `name` / `description`. The runtime executable contracts (`Operation<T, C>`, `Step<T, C>`, `Condition<T, C>`) are pure functional interfaces with no identity — the same class can be registered any number of times under different ids. At runtime the framework carries internal bound records (`BoundOperation`, `BoundStep`, `BoundCondition`, `BoundCompensation`) that pair the executable with the framework-owned id; diagnostics and `executedStepIds` / `compensatedStepIds` pull from the bound side. Per `requirements.md` §2.2.1, ids are required and must be unique within their scope; only **inline expression-based condition descriptors** may omit `id` and have one auto-derived from expression + descriptor path.
 
-**Exception hierarchy.** All Transflux-thrown exceptions derive from `TransfluxException` (unchecked) and live in `org.transflux.core.exception`. `TransfluxValidationException` covers definition, builder, and lookup errors — raised synchronously. `TransfluxReentrancyException` is declared but not yet raised by the runtime guard.
+**Reentrancy guard.** `StateMachineImpl` carries a static `ThreadLocal<Set<EntityKey>>` that tracks in-flight transitions on the current thread, keyed by reference identity of `(StateMachineImpl, entity)`. A transition that calls back into the same SM with the same entity (from inside an operation, step, condition, or future listener) throws `TransfluxReentrancyException`. Different-entity reentrant calls are permitted. Phase 4 async will extend the guard across the async-submission boundary via capture/restore — the TODO at the TL declaration marks that future seam.
+
+**Exception hierarchy.** All Transflux-thrown exceptions derive from `TransfluxException` (unchecked) and live in `org.transflux.core.exception`. `TransfluxValidationException` covers definition, builder, and lookup errors — raised synchronously. `TransfluxReentrancyException` is raised by the reentrancy guard described above.
 
 **TransitionResult.** Transition execution returns a `TransitionResult<T>` rather than throwing on business outcomes — failures from invalid configuration still throw `TransfluxValidationException`. `TransitionResult` carries: success flag, source/target state, transition ID, error, executed-step IDs, compensated-step IDs, started/completed timestamps. There is no forced-state API (host owns initial-state placement).
+
+**Compensation.** A step optionally declares a `Compensation<T, C>` via `Step.getCompensation(entity, context)` — captured **before** `execute` runs and pushed onto the per-execution LIFO stack carried by `TransitionView`. If `execute` throws (its own or a later step's), the enclosing transition catch drains the stack in LIFO order. Capturing before execute is deliberate: a step that throws partway through producing side effects (e.g., creating remote entities in a loop) still has its rollback handler available. The completion-time-snapshot pattern stays expressible by writing the snapshot into the entity or context during `execute` and reading it back in the compensation.
 
 ## Conventions Specific to This Repo
 
@@ -49,6 +53,7 @@ Read a `*Def` to understand the DSL surface; read the matching runtime interface
 - **Generics:** prefer `<T>` consistently for the entity type across paired `Def`/runtime interfaces — recent commits explicitly refactored for this consistency.
 - **Commit messages:** Conventional Commits (`feat:`, `fix:`, `chore:`, `refactor:`, ...). See README §Contributing.
 - **Tests:** Spock (Groovy 4.0 / Spock 2.3 — bump to 2.4 is scheduled for Phase 6.4). Co-locate a spec with each new core class; name it `<ClassName>Spec.groovy` so Surefire picks it up.
+- **Spec naming for IDE navigation.** Every Spock spec name starts with its primary production class name, optionally followed by a feature topic, ending in `Spec` — e.g. `StateMachineImplSpec` (the default class-focused spec) and `StateMachineImplReentrancySpec` (one topic split out). This lets IDEA's *Navigate to Test* (`Ctrl+Shift+T`) surface every related spec by prefix-matching the prod class name. When behavior cuts across multiple classes, the prefix is the *primary* entry point — the class the reader is most likely to be in when they want to find the test.
 - **Adding new types** to an existing subpackage is fine; introducing new top-level packages (or any `core.*` subpackage beyond the six above) requires updating both this file and the README's "Package Structure" section.
 - **Cross-package visibility:** when a type must be referenced from another subpackage, promote it to `public` and note `<p>This is framework-internal infrastructure; user code should not invoke it directly.</p>` in its JavaDoc rather than introducing a separate `internal` package.
 - **Source comments and JavaDoc must be time-neutral.** Treat every comment and JavaDoc block in source files as if it has to survive unchanged until 1.0. Do not write phrases like "introduced in Phase 2 Step 1", "wired in Phase X Step Y", "per requirements §2.1.5", "preserves the Phase 1 no-op behavior", "in Phase 2 specs" — anything that ties the prose to a transient point in the build plan. Phase numbers, plan steps, and `requirements.md`/`todo.md` section pointers are scaffolding that decays the moment the next phase lands; the diff is the right place to capture that context (commit message, PR description, the plan file), not the source. **One narrow exception**: `TODO` markers that flag a known placeholder are fine, because their whole purpose is to be removed when the placeholder is filled in — but even then, the body of the TODO should describe what the placeholder needs to do, not the plan step that will do it (write `// TODO: pre-condition evaluation against view`, not `// TODO Phase 2 Step 5: pre-condition evaluation`). Exception messages and log strings follow the same rule, since they surface to users at runtime.

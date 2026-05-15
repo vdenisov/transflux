@@ -73,11 +73,11 @@ Business outcomes (failed conditions, failed steps, post-condition violations) a
 
 #### 2.1.5 Operation Result Mapping
 
-`Operation.execute(entity, context, transition)` returns `void`. Any data the operation produces flows back to the caller through the user-provided context (which the host populated before invocation and reads after the transition completes). `TransitionResult<T>` carries only execution metadata, not domain output.
+`Operation<T, C>.execute(entity, context, transition)` returns `void`. Any data the operation produces flows back to the caller through the user-provided context (which the host populated before invocation and reads after the transition completes). `TransitionResult<T>` carries only execution metadata, not domain output. `Operation<T, C>` is a pure functional contract — the operation's identity (id, name, description) lives on its corresponding `*OperationDef` (see §2.2.5).
 
 #### 2.1.6 Step Entity-Awareness
 
-Steps are entity-aware. Every step receives `(entity, context, transition)` — the same signature as operations. A step may mutate the entity, derive data from it, read from the context, and write results back to the context. Steps are reusable across operations; they are not entity-agnostic context manipulators.
+Steps are entity-aware. Every step receives `(entity, context, transition)` — the same signature as operations. A step may mutate the entity, derive data from it, read from the context, and write results back to the context. Steps are reusable across operations; they are not entity-agnostic context manipulators. Like `Operation<T, C>`, `Step<T, C>` is a pure functional contract — step ids are declared on the `step(id, ...)` registration on `StateMachineDef`, not on the `Step<T, C>` class itself.
 
 This shapes the compensation contract too (see §2.2.11): a unified `Compensation<T, C>` interface receives `(entity, context)`, used by both operations and steps.
 
@@ -85,16 +85,16 @@ This shapes the compensation contract too (see §2.2.11): a unified `Compensatio
 
 #### 2.2.1 Component Identification
 
-All components in Transflux (states, transitions, operations, steps, conditions, triggers, and others) must have unique identifiers for proper referencing and management.
+All components in Transflux (states, transitions, operations, steps, conditions, triggers, and others) carry a stable identifier so they can be referenced, looked up, and reported in diagnostics. The identifier lives on the **definition** — the configuration object that declares how the component behaves (e.g., `StateDef`, `TransitionDef`, `SimpleOperationDef`, `CompositeOperationDef`, the `step(id, ...)` and `condition(id, ...)` registrations on `StateMachineDef`, plus `ConditionDescriptor`). The runtime executables themselves (`Operation<T, C>`, `Step<T, C>`, `Condition<T, C>`) are pure functional contracts and do **not** carry identity — the same class can be registered any number of times under different ids. At runtime the framework carries internal **bound records** (`BoundOperation`, `BoundStep`, `BoundCondition`) that pair the pure executable with the framework-owned id; diagnostics and `executedStepIds` / `compensatedStepIds` pull from the bound side.
 
 **Component ID:**
-- **Required property** for all components.
+- **Required property** on every component definition.
 - Must be unique within the component type (e.g., all state IDs must be unique within a state machine, all operation IDs must be unique within their scope).
 - Used for internal referencing, component lookup, and programmatic access.
 - Opaque strings; the library does not mandate a casing convention. Examples in this document use **kebab-case** for readability.
 
 **Component Name:**
-- **Optional property** for components.
+- **Optional property** on every component definition.
 - Provides a human-readable description or display name.
 - Used for documentation, user interfaces, and logging.
 - Can contain spaces, special characters, and be more descriptive than IDs.
@@ -108,7 +108,7 @@ states:
     name: "Active Subscription State"
 ```
 
-There is one narrow exception: **inline expression-based conditions** are not required to specify an `id`. If the `id` is missing, the condition is automatically assigned a unique identifier derived from the expression contents plus the path from the root of the state machine definition to the condition. All other components — including class- and predicate-based conditions — must declare an `id` explicitly.
+There is one narrow exception: **inline expression-based condition descriptors** are not required to specify an `id`. If the `id` is missing on a `ConditionDescriptor.ExpressionBased`, the descriptor is automatically assigned a unique identifier derived from the expression contents plus the path from the root of the state machine definition to the descriptor. All other descriptor forms — `Reference`, `InstanceBased`, `ClassBased`, `PredicateBased`, and explicit-id `ExpressionBased` — must declare an `id` explicitly.
 
 #### 2.2.2 StateMachine
 
@@ -154,11 +154,13 @@ Defines valid state changes and their associated operations, conditions, and tri
 
 #### 2.2.5 Operation
 
-Encapsulates the business logic executed during state transitions.
+Encapsulates the business logic executed during state transitions. `Operation<T, C>` is a **pure functional contract** with a single `execute(entity, context, transition)` method; it is identity-free at runtime — definition-side `SimpleOperationDef` and `CompositeOperationDef` carry the id, name, and description.
 
-**Types:**
-- **SimpleOperation** — single-step operations with a direct Java implementation (or a single referenced step elevated to operation-level usage).
-- **CompositeOperation** — multi-step operations with declarative flow control.
+**Def-side flavours:**
+- **`SimpleOperationDef`** — wires a single `Operation<T, C>` implementation (class or instance) into a transition.
+- **`CompositeOperationDef`** — declares a multi-step operation with flow control. At build time the framework synthesizes the underlying `Operation<T, C>` that iterates the configured step list.
+
+From the engine's view a transition always carries a single bound operation — composite vs. simple is purely a def-side distinction.
 
 **Features:**
 - Type safety (entity, context) with generics.
@@ -170,14 +172,14 @@ Encapsulates the business logic executed during state transitions.
 
 #### 2.2.6 Step
 
-Individual executable units within operations. Steps are **entity-aware** (see §2.1.6) and receive `(entity, context, transition)`.
+Individual executable units within operations. `Step<T, C>` is a **pure functional contract** that is **entity-aware** (see §2.1.6) and receives `(entity, context, transition)`; like `Operation<T, C>`, it does not carry identity at runtime — the id lives on the `step(id, ...)` registration on `StateMachineDef`.
 
 **Characteristics:**
 - Entity- and context-aware execution.
 - Individual compensation strategies — a step may declare its own `Compensation<T, C>`.
-- Reusable across different operations.
+- Reusable across different operations: the same `Step<T, C>` class can be registered under different ids and referenced from multiple composites.
 
-A step may be invoked either as a member of a `CompositeOperation` or as a first-class operation target (a `SimpleOperation` that delegates directly to one step). The two DSLs allow either form interchangeably.
+A step is invoked either as a declared member of a `CompositeOperationDef` or dynamically through `transition.step("id")` from inside an executing operation. Both paths flow through the same internal dispatcher so step-id recording, timing, and compensation registration are uniform regardless of who initiated the step. Authoring a single-step composite (one step inside a `CompositeOperationDef`) is the way to use a step as a stand-alone operation target; there is no special elevation mechanism.
 
 #### 2.2.7 Context
 
@@ -204,13 +206,13 @@ Manages the various mechanisms for initiating state transitions.
 
 #### 2.2.9 Condition System
 
-Provides validation and gating mechanisms for transitions.
+Provides validation and gating mechanisms for transitions. `Condition<T, C>` is a **pure functional contract** with a single `test(entity, context, transition)` method; condition ids live on the def-side authoring vocabulary — the `condition(id, ...)` registry on `StateMachineDef` and on the `ConditionDescriptor` carried by transition / branch / data-trigger attachment sites.
 
 **Types:**
 - **PreCondition** — validates transition eligibility before execution.
 - **PostCondition** — validates successful transition completion. If a post-condition is not met, the transition is rolled back and registered compensation actions are executed.
 
-A condition's authoring shape — class, predicate, expression, or reference — is defined uniformly by the **Condition Descriptor** grammar (see §3.6.1 and §4.7).
+A condition's authoring shape — reference, instance, class, predicate, or expression — is defined uniformly by the **Condition Descriptor** grammar (see §3.6.1 and §4.7).
 
 #### 2.2.10 Listener System
 
@@ -280,7 +282,7 @@ StateMachine
 4. **Listener Notification (start)** — notify registered `onStart` listeners and source-state `onExit` listeners.
 5. **Operation Execution** — execute the associated business logic:
     - Sequential step execution.
-    - Compensation registration as each step completes.
+    - Compensation registration **before each step runs**, so a step that throws partway through producing side effects still gets its compensation invoked. A step that needs completion-time state for its rollback writes that state into the entity or context during `execute` and reads it back in the compensation; the compensation closure captured before `execute` is invoked sees the same entity and context references the body of `execute` ran against.
     - Asynchronous part scheduling (if applicable).
 6. **Post-condition Evaluation** — validate successful completion. On failure, run registered compensations in LIFO order; the entity's state field is **not** updated.
 7. **State Application** — invoke the `StateApplier<T>` to write the new state to the entity. The transition is now considered committed.
@@ -925,7 +927,10 @@ operations:
 2. The first branch whose condition evaluates to `true` is executed.
 3. Once a branch is executed, no further conditions are evaluated.
 4. If no branch conditions match, the `default` branch is executed.
-5. If no `default` branch is defined and no conditions match, either a warning is logged and the step is skipped, or an error is raised — configurable.
+5. If no `default` branch is defined and no conditions match, the outcome is configurable through the `NoMatchBehavior` enumeration on the conditional step:
+   - **`WARN`** (default) — log a warning and continue. The conditional step itself completes without dispatching any inner steps; its id is recorded on `executedStepIds`.
+   - **`SILENT`** — same as `WARN` but without logging. Suits the guard pattern (`if (cond) { ... }` with no `else`), where a no-match is the deliberate, expected outcome.
+   - **`ERROR`** — raise a transition failure. The conditional step fails, the operation fails, and any registered compensations run.
 
 ### 3.5 Context and Data Mapping
 
@@ -963,7 +968,7 @@ log.info("Activated subscription {} at {} with result {}",
 
 #### 3.6.1 Condition Descriptor
 
-Conditions appear in many places: pre/post conditions, conditional branch selectors, data-trigger gates, event-trigger filters. They share a single grammar — the **Condition Descriptor** — with four authoring forms:
+Conditions appear in many places: pre/post conditions, conditional branch selectors, data-trigger gates, event-trigger filters. They share a single grammar — the **Condition Descriptor** — with five authoring forms. Four are expressible in both DSLs; the fifth (`InstanceBased`) attaches a pre-built `Condition<T, C>` instance and is Java-only — it has no YAML serialization because a live Java object cannot be expressed in YAML without a class-name handle (use the `class:` form for that).
 
 ```yaml
 # 1. Reference to a pre-defined condition (string shorthand)
@@ -985,6 +990,10 @@ preConditions:
 preConditions:
   - condition:
       expression: "entity.paymentMethodId != null"
+
+# 5. (Java DSL only) InstanceBased — attach a pre-built Condition<T, C> instance under an explicit id.
+#    Useful when the host already holds a configured instance (e.g., from a DI container) and wants
+#    to wire it through the same descriptor pipeline as the class/predicate forms.
 ```
 
 **Resolution rules:**
@@ -992,7 +1001,8 @@ preConditions:
 - When it is a **block**, it must contain exactly one of `class`, `predicate`, `expression`, or `ref` (long-form reference).
 
 **Form comparison:**
-- A **`Condition<T>`** implementation (form 2) is the full-featured shape: it can hold injected dependencies, return rich failure metadata (error codes, messages), and is the appropriate choice for reusable, framework-aware conditions.
+- A **`Condition<T, C>` instance** (form 5, Java DSL only) is the right choice when the host already has a configured `Condition` (DI-wired, holds runtime state) and wants to attach it to a single site without re-routing through the `StateMachineDef.condition(id, ...)` registry.
+- A **`Condition<T, C>`** implementation class (form 2) is the full-featured *class-shaped* form: it can hold injected dependencies, return rich failure metadata (error codes, messages), and is the appropriate choice for reusable, framework-aware conditions instantiated by the framework or DI container.
 - A **`Predicate<T>`** (form 3) is the minimal shape — a simple boolean test. Useful for stateless conditions where rich metadata is unnecessary.
 - An **expression** (form 4) is for one-off inline logic that doesn't justify a Java class.
 - A **reference** (form 1) shares a single definition across many transitions.
@@ -1522,7 +1532,7 @@ trialActiveTransition.setOperation(
 
 #### 4.4.3 Multi-Branch Conditional Operations
 
-Branches are evaluated in declaration order; the first branch whose condition matches is executed. If no branch matches and a `defaultBranch()` is defined, it runs; otherwise the step is skipped (or fails, per configuration). See §3.4.3 for full semantics — the Java API mirrors them exactly.
+Branches are evaluated in declaration order; the first branch whose condition matches is executed. If no branch matches and a `defaultBranch()` is defined, it runs; otherwise the conditional step's behavior is controlled by `.onNoMatch(NoMatchBehavior)` — `WARN` (default; log + complete without dispatching inner steps), `SILENT` (complete without logging, suiting the guard pattern), or `ERROR` (fail the transition). See §3.4.3 for full semantics — the Java API mirrors them exactly.
 
 ### 4.5 Context Usage in Transitions
 
@@ -1810,7 +1820,7 @@ trialActiveTransition
     .addPreCondition("entity.paymentMethodId != null");
 ```
 
-The four authoring forms above (reference, full `Condition<T>`, `Predicate<T>`, SpEL expression) map exactly to the four forms of the YAML Condition Descriptor (§3.6.1).
+The four authoring forms above (reference, full `Condition<T>`, `Predicate<T>`, SpEL expression) map exactly to the four YAML-expressible forms of the Condition Descriptor (§3.6.1). The Java DSL additionally accepts a fifth `InstanceBased` form — `.addPreCondition("id", existingConditionInstance)` — for attaching a pre-built `Condition<T, C>` instance under an explicit id without routing through the `StateMachineDef.condition(...)` registry.
 
 #### 4.7.2 Advanced Condition Configuration
 
