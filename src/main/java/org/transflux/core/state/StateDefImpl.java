@@ -177,7 +177,8 @@ public class StateDefImpl<T, C> implements StateDef<T, C> {
      *
      * @return this {@code StateDefImpl} instance for method chaining
      *
-     * @throws TransfluxValidationException if the target state identifiable is null or the transition ID is null/blank
+     * @throws TransfluxValidationException if the target state identifiable is null, its ID is null/blank,
+     *                                      or the transition ID is null/blank
      */
     @Override
     public StateDefImpl<T, C> transitionsTo(Identifiable targetStateIdentifiable, String transitionId) {

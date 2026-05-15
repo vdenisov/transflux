@@ -110,7 +110,8 @@ public interface StateDef<T, C> {
      *
      * @return this {@code StateDef} instance for method chaining
      *
-     * @throws TransfluxValidationException if the target state identifiable is null or the transition ID is null/blank
+     * @throws TransfluxValidationException if the target state identifiable is null, its ID is null/blank,
+     *                                      or the transition ID is null/blank
      */
     StateDef<T, C> transitionsTo(Identifiable targetStateIdentifiable, String transitionId);
 
