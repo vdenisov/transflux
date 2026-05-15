@@ -111,7 +111,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
         entity.trail == ['escalate']
         // Branch steps run through the central step runner and are recorded; the conditional
         // executor itself is also dispatched through the runner, so its id appears last.
-        result.executedStepIds == ['esc', 'route']
+        result.executedStepIds*.toString() == ['esc', 'route']
         applied == ['s2']
     }
 
@@ -144,7 +144,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
         then:
         result.success
         entity.trail == ['hi-priority']
-        result.executedStepIds == ['hi', 'route']
+        result.executedStepIds*.toString() == ['hi', 'route']
     }
 
     def 'three-branch conditional: registered-condition-reference branch matches when earlier branches do not'() {
@@ -177,7 +177,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
         then:
         result.success
         entity.trail == ['vip']
-        result.executedStepIds == ['vip-step', 'route']
+        result.executedStepIds*.toString() == ['vip-step', 'route']
     }
 
     def 'first-match-wins: only the first matching branch runs'() {
@@ -203,7 +203,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
         then:
         result.success
         entity.trail == ['A']
-        result.executedStepIds == ['a-step', 'route']
+        result.executedStepIds*.toString() == ['a-step', 'route']
     }
 
     def 'default fallback runs when no branch matches'() {
@@ -229,7 +229,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
         then:
         result.success
         entity.trail == ['default']
-        result.executedStepIds == ['default-step', 'route']
+        result.executedStepIds*.toString() == ['default-step', 'route']
     }
 
     def 'WARN with no match and no default: conditional is skipped; preceding steps still recorded'() {
@@ -254,7 +254,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
         then:
         result.success
         entity.trail == ['before']
-        result.executedStepIds == ['before', 'route']
+        result.executedStepIds*.toString() == ['before', 'route']
         applied == ['s2']
     }
 
@@ -282,7 +282,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
         entity.trail == ['before']
         // Same shape as the WARN case — the conditional itself was dispatched and returned
         // normally, so its id is on executedStepIds even though no branch ran.
-        result.executedStepIds == ['before', 'route']
+        result.executedStepIds*.toString() == ['before', 'route']
         applied == ['s2']
     }
 
@@ -338,7 +338,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
         then:
         result.success
         entity.trail == ['t1', 't2', 't3']
-        result.executedStepIds == ['t1', 't2', 't3', 'route']
+        result.executedStepIds*.toString() == ['t1', 't2', 't3', 'route']
     }
 
     def 'compensation inside a taken branch runs in LIFO when a subsequent step throws'() {
@@ -364,8 +364,8 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
         then:
         !result.success
         result.error.message == 'boom'
-        result.executedStepIds == ['s1', 's2']
-        result.compensatedStepIds == ['s2', 's1']
+        result.executedStepIds*.toString() == ['s1', 's2']
+        result.compensatedStepIds*.toString() == ['s2', 's1']
         entity.trail == ['a', 'b', '-b', '-a']
         applied.isEmpty()
     }

@@ -39,18 +39,20 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
  * <p>This is framework-internal infrastructure; user code constructs composite operations
  * through the public {@link CompositeOperationDef} fluent API.
  * <p>
- * Holds the composite's step references in declaration order. The references are not resolved
- * eagerly; they are resolved against the enclosing state machine's step registry when
- * {@link #build(StateMachineImpl)} is invoked during state-machine construction. Inline
- * references contributed by this composite must already have been registered with the
- * state-machine def before that point.
+ * Holds the composite's member references in declaration order. A member is either a step
+ * (the historical kind, recorded via {@link #step(String) step(...)}) or a nested operation
+ * (recorded via {@link #operation(String) operation(...)}). References are not resolved
+ * eagerly; they are resolved against the enclosing state machine's step and operation
+ * registries when {@link #build(StateMachineImpl)} is invoked during state-machine
+ * construction. Inline references contributed by this composite must already have been
+ * registered with the state-machine def before that point.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
 public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> implements CompositeOperationDef<T, C> {
 
-    private final List<StepRef<T, C>> stepRefs = new ArrayList<>();
+    private final List<ActionRef<T, C>> actionRefs = new ArrayList<>();
 
     public CompositeOperationDefImpl(String id) {
         super(id);
@@ -58,19 +60,19 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
 
     @Override
     public CompositeOperationDefImpl<T, C> step(String registeredStepId) {
-        stepRefs.add(StepRef.byId(registeredStepId));
+        actionRefs.add(ActionRef.byId(registeredStepId));
         return this;
     }
 
     @Override
     public CompositeOperationDefImpl<T, C> step(String id, Step<T, C> step) {
-        stepRefs.add(StepRef.inline(id, step));
+        actionRefs.add(ActionRef.inline(id, step));
         return this;
     }
 
     @Override
     public CompositeOperationDefImpl<T, C> step(String id, Class<? extends Step<T, C>> stepClass) {
-        stepRefs.add(StepRef.inline(id, stepClass));
+        actionRefs.add(ActionRef.inline(id, stepClass));
         return this;
     }
 
@@ -81,8 +83,26 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
 
         ConditionalStepDefImpl<T, C> def = new ConditionalStepDefImpl<>(id);
         configurer.accept(def);
-        stepRefs.add(StepRef.conditional(id, def));
+        actionRefs.add(ActionRef.conditional(id, def));
 
+        return this;
+    }
+
+    @Override
+    public CompositeOperationDefImpl<T, C> operation(String registeredOperationId) {
+        actionRefs.add(ActionRef.operationById(registeredOperationId));
+        return this;
+    }
+
+    @Override
+    public CompositeOperationDefImpl<T, C> operation(String id, Operation<T, C> operation) {
+        actionRefs.add(ActionRef.operationInline(id, operation));
+        return this;
+    }
+
+    @Override
+    public CompositeOperationDefImpl<T, C> operation(String id, Class<? extends Operation<T, C>> operationClass) {
+        actionRefs.add(ActionRef.operationInline(id, operationClass));
         return this;
     }
 
@@ -99,18 +119,19 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
     }
 
     /**
-     * Returns the step references in declaration order. Used by the enclosing state-machine
+     * Returns the member references in declaration order. Used by the enclosing state-machine
      * def to auto-register inline references before resolving any by-id references.
      *
-     * @return an unmodifiable view of the step-reference list
+     * @return an unmodifiable view of the member-reference list
      */
-    List<StepRef<T, C>> getStepRefs() {
-        return Collections.unmodifiableList(stepRefs);
+    List<ActionRef<T, C>> getActionRefs() {
+        return Collections.unmodifiableList(actionRefs);
     }
 
     /**
      * Returns a map of {@code stepId -> Step} for every inline step instance contributed by
-     * this composite, in declaration order. The result excludes by-id references.
+     * this composite, in declaration order. The result excludes by-id step references and all
+     * operation members.
      *
      * <p>This is framework-internal infrastructure used by the state-machine def to
      * auto-register inline steps; user code should not invoke it directly.
@@ -120,8 +141,8 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
     public Map<String, Step<T, C>> getInlineStepInstances() {
         Map<String, Step<T, C>> result = new LinkedHashMap<>();
 
-        for (StepRef<T, C> ref : stepRefs) {
-            if (ref instanceof StepRef.InlineInstance<T, C> ii) {
+        for (ActionRef<T, C> ref : actionRefs) {
+            if (ref instanceof ActionRef.InlineInstance<T, C> ii) {
                 result.put(ii.id(), ii.step());
             }
         }
@@ -131,7 +152,8 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
 
     /**
      * Returns a map of {@code stepId -> stepClass} for every inline step class contributed by
-     * this composite, in declaration order. The result excludes by-id references.
+     * this composite, in declaration order. The result excludes by-id step references and all
+     * operation members.
      *
      * <p>This is framework-internal infrastructure used by the state-machine def to
      * auto-register inline steps; user code should not invoke it directly.
@@ -141,8 +163,8 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
     public Map<String, Class<? extends Step<T, C>>> getInlineStepClasses() {
         Map<String, Class<? extends Step<T, C>>> result = new LinkedHashMap<>();
 
-        for (StepRef<T, C> ref : stepRefs) {
-            if (ref instanceof StepRef.InlineClass<T, C> ic) {
+        for (ActionRef<T, C> ref : actionRefs) {
+            if (ref instanceof ActionRef.InlineClass<T, C> ic) {
                 result.put(ic.id(), ic.stepClass());
             }
         }
@@ -152,7 +174,7 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
 
     /**
      * Returns an ordered map of {@code conditionalId -> ConditionalStepDefImpl} for every
-     * {@link StepRef.Conditional} reference contributed by this composite, in declaration
+     * {@link ActionRef.Conditional} reference contributed by this composite, in declaration
      * order.
      *
      * <p>This is framework-internal infrastructure used by the state-machine def to walk into
@@ -165,8 +187,8 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
     public Map<String, ConditionalStepDefImpl<T, C>> getConditionalDefs() {
         Map<String, ConditionalStepDefImpl<T, C>> result = new LinkedHashMap<>();
 
-        for (StepRef<T, C> ref : stepRefs) {
-            if (ref instanceof StepRef.Conditional<T, C> cond) {
+        for (ActionRef<T, C> ref : actionRefs) {
+            if (ref instanceof ActionRef.Conditional<T, C> cond) {
                 result.put(cond.id(), cond.def());
             }
         }
@@ -175,53 +197,100 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
     }
 
     /**
-     * Resolves each step reference against the state machine's step registry and produces a
-     * {@link BoundOperation} whose underlying {@link Operation} iterates the bound steps in
-     * declaration order.
+     * Returns a map of {@code operationId -> Operation} for every inline nested operation
+     * instance contributed by this composite, in declaration order. The result excludes by-id
+     * operation references and all step members.
      *
-     * @param stateMachine the enclosing state machine; the registry must already contain
-     *                     every referenced id
+     * <p>This is framework-internal infrastructure used by the state-machine def to
+     * auto-register inline nested operations; user code should not invoke it directly.
+     *
+     * @return an unmodifiable map of operation id to inline operation instance
+     */
+    public Map<String, Operation<T, C>> getInlineOperationInstances() {
+        Map<String, Operation<T, C>> result = new LinkedHashMap<>();
+
+        for (ActionRef<T, C> ref : actionRefs) {
+            if (ref instanceof ActionRef.OperationInlineInstance<T, C> oi) {
+                result.put(oi.id(), oi.operation());
+            }
+        }
+
+        return Collections.unmodifiableMap(result);
+    }
+
+    /**
+     * Returns a map of {@code operationId -> operationClass} for every inline nested operation
+     * class contributed by this composite, in declaration order. The result excludes by-id
+     * operation references and all step members.
+     *
+     * <p>This is framework-internal infrastructure used by the state-machine def to
+     * auto-register inline nested operations; user code should not invoke it directly.
+     *
+     * @return an unmodifiable map of operation id to inline operation class
+     */
+    public Map<String, Class<? extends Operation<T, C>>> getInlineOperationClasses() {
+        Map<String, Class<? extends Operation<T, C>>> result = new LinkedHashMap<>();
+
+        for (ActionRef<T, C> ref : actionRefs) {
+            if (ref instanceof ActionRef.OperationInlineClass<T, C> oc) {
+                result.put(oc.id(), oc.operationClass());
+            }
+        }
+
+        return Collections.unmodifiableMap(result);
+    }
+
+    /**
+     * Resolves each member reference against the state machine's step and operation registries
+     * and produces a {@link BoundOperation} whose underlying {@link Operation} iterates the
+     * bound members in declaration order. Step members are dispatched through
+     * {@link StateMachineImpl#runBoundStep(BoundStep, TransitionView)}; nested operation
+     * members are dispatched by entering an operation scope on the view, invoking the
+     * operation against the parent's context (pass-through), and exiting the scope so any
+     * subsequent step ids are recorded without the nested-op prefix.
+     *
+     * @param stateMachine the enclosing state machine; the step or operation registry must
+     *                     already contain every referenced id
      *
      * @return the bound operation
      *
-     * @throws TransfluxValidationException if the composite has no steps, or any referenced
+     * @throws TransfluxValidationException if the composite has no members, or any referenced
      *         id is not registered on the state machine
      */
     public BoundOperation<T, C> build(StateMachineImpl<T, C> stateMachine) {
-        if (stepRefs.isEmpty()) {
+        if (actionRefs.isEmpty()) {
             throw new TransfluxValidationException(
-                "CompositeOperationDef '" + getId() + "' has no steps; call step(...) at least once before build");
+                "CompositeOperationDef '" + getId()
+                    + "' has no members; call step(...) or operation(...) at least once before build");
         }
 
-        List<BoundStep<T, C>> boundSteps = new ArrayList<>(stepRefs.size());
-        for (StepRef<T, C> ref : stepRefs) {
-            BoundStep<T, C> bound = stateMachine.getBoundStep(ref.id());
-            if (bound == null) {
-                throw new TransfluxValidationException(
-                    "CompositeOperationDef '" + getId() + "' references unknown step id '" + ref.id() + "'");
-            }
-            boundSteps.add(bound);
+        List<BoundAction<T, C>> boundActions = new ArrayList<>(actionRefs.size());
+        for (ActionRef<T, C> ref : actionRefs) {
+            boundActions.add(ref.resolve(stateMachine, getId()));
         }
 
-        Operation<T, C> executor = new CompositeOperationExecutor<>(stateMachine, boundSteps);
+        Operation<T, C> executor = new CompositeOperationExecutor<>(boundActions);
 
         return BoundOperation.of(getId(), getName(), getDescription(), executor);
     }
 
     /**
-     * Iterates an ordered list of {@link BoundStep} instances and invokes each one against the
-     * supplied {@link Transition} view. Each step is dispatched through
+     * Iterates an ordered list of {@link BoundAction} instances and invokes each one against
+     * the supplied {@link Transition} view. {@link BoundStep} members are dispatched through
      * {@link StateMachineImpl#runBoundStep(BoundStep, TransitionView)} so that step-id
      * recording is uniform across composite-driven invocations and user-driven
-     * {@code transition.step("id")} calls.
+     * {@code transition.step("id")} calls. {@link BoundOperation} members are dispatched in
+     * pass-through mode: the executor pushes the operation's id onto the view's nesting
+     * stack, invokes {@code operation.execute(entity, context, view)} with the parent's
+     * context, and pops the scope on return so any subsequent step ids are recorded without
+     * the nested-op prefix.
      */
+    @SuppressWarnings("ClassCanBeRecord")
     private static final class CompositeOperationExecutor<T, C> implements Operation<T, C> {
-        private final StateMachineImpl<T, C> stateMachine;
-        private final List<BoundStep<T, C>> boundSteps;
+        private final List<BoundAction<T, C>> boundActions;
 
-        CompositeOperationExecutor(StateMachineImpl<T, C> stateMachine, List<BoundStep<T, C>> boundSteps) {
-            this.stateMachine = stateMachine;
-            this.boundSteps = boundSteps;
+        CompositeOperationExecutor(List<BoundAction<T, C>> boundActions) {
+            this.boundActions = boundActions;
         }
 
         @Override
@@ -234,8 +303,17 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
 
             @SuppressWarnings("unchecked")
             TransitionView<T, C> view = (TransitionView<T, C>) rawView;
-            for (BoundStep<T, C> boundStep : boundSteps) {
-                StateMachineImpl.runBoundStep(boundStep, view);
+            for (BoundAction<T, C> action : boundActions) {
+                if (action instanceof BoundStep<T, C> boundStep) {
+                    StateMachineImpl.runBoundStep(boundStep, view);
+                } else if (action instanceof BoundOperation<T, C> boundOperation) {
+                    view.enterOperation(boundOperation.id());
+                    try {
+                        boundOperation.operation().execute(entity, context, view);
+                    } finally {
+                        view.exitOperation();
+                    }
+                }
             }
         }
     }

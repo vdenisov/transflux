@@ -19,6 +19,7 @@
 package org.transflux.core.transition;
 
 import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.operation.StepPath;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -67,8 +68,8 @@ public class TransitionResult<T, C> {
     private final String targetStateId;
     private final String transitionId;
     private final Throwable error;
-    private final List<String> executedStepIds;
-    private final List<String> compensatedStepIds;
+    private final List<StepPath> executedStepIds;
+    private final List<StepPath> compensatedStepIds;
     private final Instant startedAt;
     private final Instant completedAt;
 
@@ -78,8 +79,8 @@ public class TransitionResult<T, C> {
                              String targetStateId,
                              String transitionId,
                              Throwable error,
-                             List<String> executedStepIds,
-                             List<String> compensatedStepIds,
+                             List<StepPath> executedStepIds,
+                             List<StepPath> compensatedStepIds,
                              Instant startedAt,
                              Instant completedAt) {
         this.success = success;
@@ -145,7 +146,7 @@ public class TransitionResult<T, C> {
      * @param sourceStateId the ID of the source state
      * @param targetStateId the ID of the target state
      * @param transitionId the ID of the transition that was executed
-     * @param executedStepIds the ordered list of step IDs that ran
+     * @param executedStepIds the ordered list of step paths that ran
      * @param startedAt the timestamp at which the transition started
      * @param completedAt the timestamp at which the transition completed
      *
@@ -153,7 +154,7 @@ public class TransitionResult<T, C> {
      */
     public static <T, C> TransitionResult<T, C> success(T entity, String sourceStateId,
                                                         String targetStateId, String transitionId,
-                                                        List<String> executedStepIds,
+                                                        List<StepPath> executedStepIds,
                                                         Instant startedAt, Instant completedAt) {
         return new TransitionResult<>(true, entity, sourceStateId, targetStateId, transitionId,
                 null, executedStepIds, null, startedAt, completedAt);
@@ -213,8 +214,8 @@ public class TransitionResult<T, C> {
      * @param targetStateId the ID of the target state (may be {@code null})
      * @param transitionId the ID of the transition that failed (may be {@code null})
      * @param error the error that caused the failure
-     * @param executedStepIds the ordered list of step IDs that ran before the failure
-     * @param compensatedStepIds the ordered list of compensation IDs that ran during rollback
+     * @param executedStepIds the ordered list of step paths that ran before the failure
+     * @param compensatedStepIds the ordered list of step paths whose compensations ran during rollback
      * @param startedAt the timestamp at which the transition started
      * @param completedAt the timestamp at which the transition was abandoned
      *
@@ -223,8 +224,8 @@ public class TransitionResult<T, C> {
     public static <T, C> TransitionResult<T, C> failure(T entity, String sourceStateId,
                                                         String targetStateId, String transitionId,
                                                         Throwable error,
-                                                        List<String> executedStepIds,
-                                                        List<String> compensatedStepIds,
+                                                        List<StepPath> executedStepIds,
+                                                        List<StepPath> compensatedStepIds,
                                                         Instant startedAt, Instant completedAt) {
         return new TransitionResult<>(false, entity, sourceStateId, targetStateId, transitionId,
                 error, executedStepIds, compensatedStepIds, startedAt, completedAt);
@@ -259,26 +260,32 @@ public class TransitionResult<T, C> {
     }
 
     /**
-     * Returns the ordered list of step IDs that executed during the transition.
+     * Returns the ordered list of step paths that executed during the transition.
      * <p>
-     * The list is unmodifiable and reflects steps in the order they ran. Empty when
-     * no steps executed.
+     * The list is unmodifiable and reflects steps in the order they ran. Empty when no steps
+     * executed. Each {@link StepPath} carries the step's local id and any enclosing
+     * nested-operation ids as ordered segments; {@code StepPath.toString()} renders them as
+     * the slash-joined qualified path {@code parent-op-id/.../child-step-id}. Top-level
+     * steps have single-segment paths.
      *
-     * @return the executed step IDs; never {@code null}
+     * @return the executed step paths; never {@code null}
      */
-    public List<String> getExecutedStepIds() {
+    public List<StepPath> getExecutedStepIds() {
         return executedStepIds;
     }
 
     /**
-     * Returns the ordered list of compensation IDs that ran during rollback.
+     * Returns the ordered list of step paths whose compensations ran during rollback.
      * <p>
-     * The list is unmodifiable and reflects compensations in LIFO order relative to
-     * their registration. Empty on successful transitions.
+     * The list is unmodifiable and reflects compensations in LIFO order relative to their
+     * registration. Empty on successful transitions. Each entry shares the same qualified-path
+     * shape as {@link #getExecutedStepIds()}: compensations registered by a step inside a
+     * nested operation carry the full enclosing-operation chain; top-level compensations
+     * appear under a single-segment path.
      *
-     * @return the compensated step IDs; never {@code null}
+     * @return the compensated step paths; never {@code null}
      */
-    public List<String> getCompensatedStepIds() {
+    public List<StepPath> getCompensatedStepIds() {
         return compensatedStepIds;
     }
 

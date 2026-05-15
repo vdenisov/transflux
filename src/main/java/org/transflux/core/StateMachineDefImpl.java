@@ -23,9 +23,11 @@ import org.slf4j.LoggerFactory;
 import org.transflux.core.condition.BoundCondition;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.operation.BoundOperation;
 import org.transflux.core.operation.BoundStep;
 import org.transflux.core.operation.CompositeOperationDefImpl;
 import org.transflux.core.operation.ConditionalStepDefImpl;
+import org.transflux.core.operation.Operation;
 import org.transflux.core.operation.OperationDefImpl;
 import org.transflux.core.operation.Step;
 import org.transflux.core.state.StateApplier;
@@ -107,6 +109,8 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
     private final Map<String, StepRegistration<T, C>> stepRegistrations = new LinkedHashMap<>();
 
     private final Map<String, ConditionRegistration<T, C>> conditionRegistrations = new LinkedHashMap<>();
+
+    private final Map<String, OperationRegistration<T, C>> operationRegistrations = new LinkedHashMap<>();
 
     // conditionalStepId -> ConditionalStepDefImpl, collected during inline-step walk and
     // resolved into framework-built executor steps once the bound-step registry is being built.
@@ -244,6 +248,7 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
     private void registerStepInstance(String id, Step<T, C> step) {
         StepRegistration<T, C> existing = stepRegistrations.get(id);
         if (existing == null) {
+            checkIdNotRegisteredAsOperation(id);
             stepRegistrations.put(id, StepRegistration.ofInstance(step));
             return;
         }
@@ -268,6 +273,7 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
     private void registerStepClass(String id, Class<? extends Step<T, C>> stepClass) {
         StepRegistration<T, C> existing = stepRegistrations.get(id);
         if (existing == null) {
+            checkIdNotRegisteredAsOperation(id);
             stepRegistrations.put(id, StepRegistration.ofClass(stepClass));
             return;
         }
@@ -279,15 +285,78 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
         throw new TransfluxValidationException("Step ID '" + id + "' is already registered");
     }
 
+    private void checkIdNotRegisteredAsOperation(String id) {
+        if (operationRegistrations.containsKey(id)) {
+            throw new TransfluxValidationException(
+                "ID '" + id + "' is already registered as an operation");
+        }
+    }
+
+    private void checkIdNotRegisteredAsStep(String id) {
+        if (stepRegistrations.containsKey(id)) {
+            throw new TransfluxValidationException(
+                "ID '" + id + "' is already registered as a step");
+        }
+        if (conditionalStepRegistrations.containsKey(id)) {
+            throw new TransfluxValidationException(
+                "ID '" + id + "' is already registered as a conditional step");
+        }
+    }
+
+    private void registerOperationInstance(String id, Operation<T, C> operation) {
+        OperationRegistration<T, C> existing = operationRegistrations.get(id);
+        if (existing == null) {
+            checkIdNotRegisteredAsStep(id);
+            operationRegistrations.put(id, OperationRegistration.ofInstance(operation));
+            return;
+        }
+
+        if (existing.instance != null && existing.instance == operation) {
+            return;
+        }
+
+        throw new TransfluxValidationException("Operation ID '" + id + "' is already registered");
+    }
+
+    private void registerOperationClass(String id, Class<? extends Operation<T, C>> operationClass) {
+        OperationRegistration<T, C> existing = operationRegistrations.get(id);
+        if (existing == null) {
+            checkIdNotRegisteredAsStep(id);
+            operationRegistrations.put(id, OperationRegistration.ofClass(operationClass));
+            return;
+        }
+
+        if (existing.operationClass != null && existing.operationClass.equals(operationClass)) {
+            return;
+        }
+
+        throw new TransfluxValidationException("Operation ID '" + id + "' is already registered");
+    }
+
+    private void registerInlineOperations(Map<String, Operation<T, C>> instances,
+                                          Map<String, Class<? extends Operation<T, C>>> classes) {
+        for (Map.Entry<String, Operation<T, C>> e : instances.entrySet()) {
+            registerOperationInstance(e.getKey(), e.getValue());
+        }
+
+        for (Map.Entry<String, Class<? extends Operation<T, C>>> e : classes.entrySet()) {
+            registerOperationClass(e.getKey(), e.getValue());
+        }
+    }
+
     /**
-     * Walks every transition's operation def for inline step refs and registers each one on
-     * this state-machine def. Conditionals contributed by a composite are also walked: their
-     * branches and default branch contribute inline step registrations, and the conditional
-     * itself is recorded so the bound-step registry build can produce its framework-built
-     * executor under the conditional's id. Same-instance / same-class collisions on an id are
-     * tolerated; any other collision raises {@link TransfluxValidationException}.
+     * Walks every transition's operation def for inline step and inline nested-operation refs
+     * and registers each one on this state-machine def. Conditionals contributed by a
+     * composite are also walked: their branches and default branch contribute inline step
+     * registrations, and the conditional itself is recorded so the bound-step registry build
+     * can produce its framework-built executor under the conditional's id. Same-instance /
+     * same-class collisions on an id are tolerated; any other collision raises
+     * {@link TransfluxValidationException}.
+     *
+     * <p>Step ids and operation ids share a single state-machine-wide namespace; an id
+     * registered as a step cannot also be registered as a nested operation, and vice versa.
      */
-    private void collectInlineStepRegistrations() {
+    private void collectInlineMemberRegistrations() {
         for (TransitionDefImpl<T, C> td : transitionsById.values()) {
             OperationDefImpl<T, C> op = td.getOperationDef();
             if (!(op instanceof CompositeOperationDefImpl<T, C> composite)) {
@@ -295,6 +364,7 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
             }
 
             registerInlineSteps(composite.getInlineStepInstances(), composite.getInlineStepClasses());
+            registerInlineOperations(composite.getInlineOperationInstances(), composite.getInlineOperationClasses());
 
             for (Map.Entry<String, ConditionalStepDefImpl<T, C>> e : composite.getConditionalDefs().entrySet()) {
                 String conditionalId = e.getKey();
@@ -311,6 +381,10 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
                 if (stepRegistrations.containsKey(conditionalId)) {
                     throw new TransfluxValidationException(
                         "Step ID '" + conditionalId + "' is already registered");
+                }
+                if (operationRegistrations.containsKey(conditionalId)) {
+                    throw new TransfluxValidationException(
+                        "ID '" + conditionalId + "' is already registered as an operation");
                 }
                 conditionalStepRegistrations.put(conditionalId, conditional);
             }
@@ -463,7 +537,7 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
      */
     public Map<String, BoundStep<T, C>> buildBoundSteps(StateMachineImpl<T, C> stateMachine,
                                                         Map<String, BoundCondition<T, C>> conditionRegistry) {
-        collectInlineStepRegistrations();
+        collectInlineMemberRegistrations();
 
         Map<String, BoundStep<T, C>> resolved = new LinkedHashMap<>();
         for (Map.Entry<String, StepRegistration<T, C>> e : stepRegistrations.entrySet()) {
@@ -476,6 +550,32 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
                     "Step ID '" + e.getKey() + "' is already registered");
             }
             resolved.put(e.getKey(), e.getValue().buildBoundStep(stateMachine, conditionRegistry));
+        }
+
+        return Collections.unmodifiableMap(resolved);
+    }
+
+    /**
+     * Resolves the nested-operation registrations collected during the inline-member walk
+     * into {@link BoundOperation} instances. Called from {@link StateMachineImpl} during
+     * state-machine construction after the bound-step registry is built. Class-form
+     * registrations are reflectively instantiated through their public no-arg constructor.
+     *
+     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
+     * should not invoke it directly.
+     *
+     * @param stateMachine the enclosing state machine (reserved for future use by nested
+     *                     composite operations resolved against the registry)
+     *
+     * @return an unmodifiable map of operation id to bound operation
+     *
+     * @throws TransfluxValidationException if any class-form registration cannot be
+     *         instantiated through its no-arg constructor
+     */
+    public Map<String, BoundOperation<T, C>> buildBoundOperations(StateMachineImpl<T, C> stateMachine) {
+        Map<String, BoundOperation<T, C>> resolved = new LinkedHashMap<>();
+        for (Map.Entry<String, OperationRegistration<T, C>> e : operationRegistrations.entrySet()) {
+            resolved.put(e.getKey(), e.getValue().toBoundOperation(e.getKey()));
         }
 
         return Collections.unmodifiableMap(resolved);
@@ -658,6 +758,35 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
 
         BoundStep<T, C> toBoundStep(String id) {
             return BoundStep.of(id, requireNonNullElseGet(instance, () -> instantiateNoArg(stepClass, "Step")));
+        }
+    }
+
+    /**
+     * Holds one nested-operation registration kept on the state-machine def. Exactly one of
+     * {@link #instance} or {@link #operationClass} is non-null.
+     */
+    private static final class OperationRegistration<T, C> {
+        private final Operation<T, C> instance;
+        private final Class<? extends Operation<T, C>> operationClass;
+
+        private OperationRegistration(Operation<T, C> instance,
+                                      Class<? extends Operation<T, C>> operationClass) {
+            this.instance = instance;
+            this.operationClass = operationClass;
+        }
+
+        static <T, C> OperationRegistration<T, C> ofInstance(Operation<T, C> instance) {
+            return new OperationRegistration<>(instance, null);
+        }
+
+        static <T, C> OperationRegistration<T, C> ofClass(Class<? extends Operation<T, C>> operationClass) {
+            return new OperationRegistration<>(null, operationClass);
+        }
+
+        BoundOperation<T, C> toBoundOperation(String id) {
+            Operation<T, C> resolved = requireNonNullElseGet(instance,
+                () -> instantiateNoArg(operationClass, "Operation"));
+            return BoundOperation.of(id, null, null, resolved);
         }
     }
 

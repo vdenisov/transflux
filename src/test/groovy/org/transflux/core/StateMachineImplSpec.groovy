@@ -436,7 +436,7 @@ class StateMachineImplSpec extends Specification {
         then:
         ctx.tag == 'e1:stamped'
         ctx.counter == 1
-        view.executedStepIds == ['stamp']
+        view.executedStepIds*.toString() == ['stamp']
     }
 
     def "TransitionResult toString should provide readable output"() {
@@ -525,7 +525,7 @@ class StateMachineImplSpec extends Specification {
 
         then:
         result.success
-        result.executedStepIds == ['stamp', 'bump', 'bump']
+        result.executedStepIds*.toString() == ['stamp', 'bump', 'bump']
         result.sourceStateId == 'TRIAL'
         result.targetStateId == 'ACTIVE'
         context.tag == 'e1:stamped'
@@ -585,7 +585,7 @@ class StateMachineImplSpec extends Specification {
 
         then:
         result.success
-        result.executedStepIds == ['stamp', 'bump']
+        result.executedStepIds*.toString() == ['stamp', 'bump']
         context.tag == 'e1:stamped'
         context.counter == 2
         appliedState[entity] == 'ACTIVE'
@@ -617,7 +617,7 @@ class StateMachineImplSpec extends Specification {
         !result.success
         result.error instanceof IllegalStateException
         result.error.message == 'step blew up'
-        result.executedStepIds == ['stamp']
+        result.executedStepIds*.toString() == ['stamp']
         applierInvocations == 0
         context.tag == 'e1:stamped'
     }

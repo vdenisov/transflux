@@ -212,7 +212,7 @@ class TransitionDefImplSpec extends Specification {
         returned.is(transitionDef)
         transitionDef.operationDef instanceof CompositeOperationDefImpl
         transitionDef.operationDef.id == 'op1'
-        ((CompositeOperationDefImpl<Object, Object>) transitionDef.operationDef).stepRefs.size() == 1
+        ((CompositeOperationDefImpl<Object, Object>) transitionDef.operationDef).actionRefs.size() == 1
     }
 
     def 'compositeOperation(id, Consumer) should reject null configurer'() {

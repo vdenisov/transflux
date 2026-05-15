@@ -44,7 +44,7 @@ final class BranchDefImpl<T, C> implements BranchDef<T, C> {
 
     private final String branchId;
     private ConditionDescriptor descriptor;
-    private final List<StepRef<T, C>> stepRefs = new ArrayList<>();
+    private final List<ActionRef<T, C>> actionRefs = new ArrayList<>();
 
     BranchDefImpl(String branchId) {
         requireNotBlank(branchId, "Branch ID");
@@ -59,8 +59,8 @@ final class BranchDefImpl<T, C> implements BranchDef<T, C> {
         return descriptor;
     }
 
-    List<StepRef<T, C>> getStepRefs() {
-        return Collections.unmodifiableList(stepRefs);
+    List<ActionRef<T, C>> getActionRefs() {
+        return Collections.unmodifiableList(actionRefs);
     }
 
     @Override
@@ -105,19 +105,19 @@ final class BranchDefImpl<T, C> implements BranchDef<T, C> {
 
     @Override
     public BranchDef<T, C> step(String registeredStepId) {
-        stepRefs.add(StepRef.byId(registeredStepId));
+        actionRefs.add(ActionRef.byId(registeredStepId));
         return this;
     }
 
     @Override
     public BranchDef<T, C> step(String id, Step<T, C> step) {
-        stepRefs.add(StepRef.inline(id, step));
+        actionRefs.add(ActionRef.inline(id, step));
         return this;
     }
 
     @Override
     public BranchDef<T, C> step(String id, Class<? extends Step<T, C>> stepClass) {
-        stepRefs.add(StepRef.inline(id, stepClass));
+        actionRefs.add(ActionRef.inline(id, stepClass));
         return this;
     }
 

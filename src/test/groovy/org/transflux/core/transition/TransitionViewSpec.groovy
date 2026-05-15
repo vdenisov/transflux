@@ -18,34 +18,16 @@
 
 package org.transflux.core.transition
 
-import org.transflux.core.state.State
-import org.transflux.core.state.StateApplier
-import org.transflux.core.state.StateDef
-import org.transflux.core.state.StateDefImpl
-import org.transflux.core.state.StateImpl
-import org.transflux.core.state.StateResolver
-
-import org.transflux.core.Identifiable
-import org.transflux.core.StateMachine
-import org.transflux.core.StateMachineDef
-import org.transflux.core.StateMachineDefImpl
 import org.transflux.core.StateMachineImpl
 import org.transflux.core.TestContext
-import org.transflux.core.TestStateEnum
 import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.operation.BoundOperation
-import org.transflux.core.operation.BoundStep
-import org.transflux.core.operation.CompositeOperationDef
-import org.transflux.core.operation.CompositeOperationDefImpl
-import org.transflux.core.operation.Operation
-import org.transflux.core.operation.SimpleOperationDef
-import org.transflux.core.operation.SimpleOperationDefImpl
 import org.transflux.core.operation.Step
-
+import org.transflux.core.state.StateResolver
 import spock.lang.Specification
 
-import static org.transflux.core.TestStateEnum.*
+import static org.transflux.core.TestStateEnum.ACTIVE
+import static org.transflux.core.TestStateEnum.TRIAL
 
 class TransitionViewSpec extends Specification {
 
@@ -91,7 +73,7 @@ class TransitionViewSpec extends Specification {
         then:
         entity.trail == ['foo']
         ctx.counter == 1
-        view.executedStepIds == ['foo-id']
+        view.executedStepIds*.toString() == ['foo-id']
     }
 
     def "view.step(id) should throw for an unknown id"() {

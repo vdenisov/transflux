@@ -156,10 +156,10 @@ public final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T,
     public Map<String, Step<T, C>> getInlineStepInstances() {
         Map<String, Step<T, C>> result = new LinkedHashMap<>();
         for (BranchDefImpl<T, C> branch : branches) {
-            collectInlineInstances(branch.getStepRefs(), result);
+            collectInlineInstances(branch.getActionRefs(), result);
         }
         if (defaultBranch != null) {
-            collectInlineInstances(defaultBranch.getStepRefs(), result);
+            collectInlineInstances(defaultBranch.getActionRefs(), result);
         }
         return Collections.unmodifiableMap(result);
     }
@@ -177,10 +177,10 @@ public final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T,
     public Map<String, Class<? extends Step<T, C>>> getInlineStepClasses() {
         Map<String, Class<? extends Step<T, C>>> result = new LinkedHashMap<>();
         for (BranchDefImpl<T, C> branch : branches) {
-            collectInlineClasses(branch.getStepRefs(), result);
+            collectInlineClasses(branch.getActionRefs(), result);
         }
         if (defaultBranch != null) {
-            collectInlineClasses(defaultBranch.getStepRefs(), result);
+            collectInlineClasses(defaultBranch.getActionRefs(), result);
         }
         return Collections.unmodifiableMap(result);
     }
@@ -228,7 +228,7 @@ public final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T,
                     "Branch '" + branch.getBranchId() + "' on conditional step '" + id
                         + "' must declare a condition");
             }
-            if (branch.getStepRefs().isEmpty()) {
+            if (branch.getActionRefs().isEmpty()) {
                 throw new TransfluxValidationException(
                     "Branch '" + branch.getBranchId() + "' on conditional step '" + id
                         + "' must declare at least one step");
@@ -238,17 +238,17 @@ public final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T,
             BoundCondition<T, C> bound = ConditionResolver.resolve(
                 branch.getDescriptor(), conditionRegistry, path);
 
-            List<String> stepIds = collectStepIds(branch.getStepRefs());
+            List<String> stepIds = collectStepIds(branch.getActionRefs());
             resolvedBranches.add(new ResolvedBranch<>(branch.getBranchId(), bound, stepIds));
         }
 
         List<String> defaultStepIds = null;
         if (defaultBranch != null) {
-            if (defaultBranch.getStepRefs().isEmpty()) {
+            if (defaultBranch.getActionRefs().isEmpty()) {
                 throw new TransfluxValidationException(
                     "Default branch on conditional step '" + id + "' must declare at least one step");
             }
-            defaultStepIds = collectStepIds(defaultBranch.getStepRefs());
+            defaultStepIds = collectStepIds(defaultBranch.getActionRefs());
         }
 
         Step<T, C> executor = new ConditionalStepExecutor(stateMachine, resolvedBranches,
@@ -256,27 +256,27 @@ public final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T,
         return BoundStep.of(id, executor);
     }
 
-    private static <T, C> void collectInlineInstances(List<StepRef<T, C>> refs,
+    private static <T, C> void collectInlineInstances(List<ActionRef<T, C>> refs,
                                                       Map<String, Step<T, C>> out) {
-        for (StepRef<T, C> ref : refs) {
-            if (ref instanceof StepRef.InlineInstance<T, C> ii) {
+        for (ActionRef<T, C> ref : refs) {
+            if (ref instanceof ActionRef.InlineInstance<T, C> ii) {
                 out.put(ii.id(), ii.step());
             }
         }
     }
 
-    private static <T, C> void collectInlineClasses(List<StepRef<T, C>> refs,
+    private static <T, C> void collectInlineClasses(List<ActionRef<T, C>> refs,
                                                     Map<String, Class<? extends Step<T, C>>> out) {
-        for (StepRef<T, C> ref : refs) {
-            if (ref instanceof StepRef.InlineClass<T, C> ic) {
+        for (ActionRef<T, C> ref : refs) {
+            if (ref instanceof ActionRef.InlineClass<T, C> ic) {
                 out.put(ic.id(), ic.stepClass());
             }
         }
     }
 
-    private static <T, C> List<String> collectStepIds(List<StepRef<T, C>> refs) {
+    private static <T, C> List<String> collectStepIds(List<ActionRef<T, C>> refs) {
         List<String> ids = new ArrayList<>(refs.size());
-        for (StepRef<T, C> ref : refs) {
+        for (ActionRef<T, C> ref : refs) {
             ids.add(ref.id());
         }
         return Collections.unmodifiableList(ids);

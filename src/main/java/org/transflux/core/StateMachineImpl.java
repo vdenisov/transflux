@@ -28,6 +28,7 @@ import org.transflux.core.operation.BoundOperation;
 import org.transflux.core.operation.BoundStep;
 import org.transflux.core.operation.Compensation;
 import org.transflux.core.operation.Step;
+import org.transflux.core.operation.StepPath;
 import org.transflux.core.state.State;
 import org.transflux.core.state.StateApplier;
 import org.transflux.core.state.StateDefImpl;
@@ -88,6 +89,7 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
     private final Map<String, State<T>> states = new LinkedHashMap<>();
     private final Map<String, TransitionImpl<T, C>> transitions = new LinkedHashMap<>();
     private final Map<String, BoundStep<T, C>> boundSteps;
+    private final Map<String, BoundOperation<T, C>> boundOperations;
 
     /**
      * Constructs a new StateMachineImpl from the provided state machine definition.
@@ -114,6 +116,7 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
 
         Map<String, BoundCondition<T, C>> conditionRegistry = def.buildBoundConditions();
         this.boundSteps = def.buildBoundSteps(this, conditionRegistry);
+        this.boundOperations = def.buildBoundOperations(this);
 
         for (TransitionDefImpl<T, C> td : def.getTransitionsById().values()) {
             this.transitions.put(td.getId(), new TransitionImpl<>(td, this, conditionRegistry));
@@ -129,6 +132,18 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
      */
     public BoundStep<T, C> getBoundStep(String id) {
         return boundSteps.get(id);
+    }
+
+    /**
+     * Looks up a registered nested operation by id.
+     *
+     * @param id the operation id
+     *
+     * @return the bound operation, or {@code null} if no operation is registered under
+     *         {@code id}
+     */
+    public BoundOperation<T, C> getBoundOperation(String id) {
+        return boundOperations.get(id);
     }
 
     /**
@@ -426,15 +441,15 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
 
         } catch (Exception e) {
             List<BoundCompensation<T, C>> drained = view.drainCompensationsLifo();
-            List<String> compensatedStepIds = new ArrayList<>(drained.size());
+            List<StepPath> compensatedStepIds = new ArrayList<>(drained.size());
 
             for (BoundCompensation<T, C> bc : drained) {
-                compensatedStepIds.add(bc.stepId());
+                compensatedStepIds.add(bc.path());
                 try {
                     bc.compensation().compensate(entity, context);
                 } catch (Exception ce) {
                     log.warn("Compensation for step '{}' threw '{}': {}",
-                            bc.stepId(), ce.getClass().getName(), ce.getMessage());
+                            bc.path(), ce.getClass().getName(), ce.getMessage());
                 }
             }
 

@@ -23,7 +23,7 @@ The core domain is split across `org.transflux.core` and five subpackages:
 - `core` — `Transflux` entry point, `StateMachine` / `StateMachineDef` plus their `*Impl`s, the `Identifiable` marker, and shared utilities (`ValidationUtils`, `ThrowingUtils`, `ReflectionUtils`).
 - `core.state` — `State` / `StateDef` and their `*Impl`s, plus the host-supplied `StateResolver` / `StateApplier`.
 - `core.transition` — `Transition` / `TransitionDef` and their `*Impl`s, `TransitionResult`, and the framework-internal `TransitionView`.
-- `core.operation` — `Operation`, `Step`, the `OperationDef` family (including `ConditionalStepDef` and the per-branch sub-builders), the unified `Compensation<T, C>` contract, and the framework-internal `BoundOperation` / `BoundStep` / `BoundCompensation` / `StepRef` types.
+- `core.operation` — `Operation`, `Step`, the `OperationDef` family (including `ConditionalStepDef` and the per-branch sub-builders), the unified `Compensation<T, C>` contract, and the framework-internal `BoundAction` / `BoundOperation` / `BoundStep` / `BoundCompensation` / `ActionRef` types.
 - `core.condition` — `Condition`, `ConditionDescriptor` (five-form sealed grammar: Reference, InstanceBased, ClassBased, PredicateBased, ExpressionBased), `BoundCondition`, and the SpEL utilities (`ConditionResolver`, `SpelConditionEvaluator`, `ExpressionIdDerivation`).
 - `core.exception` — `TransfluxException` and its subclasses.
 

@@ -96,7 +96,7 @@ class CompositeOperationDefImplSpec extends Specification {
         id << [null, '', '  ']
     }
 
-    def "build should reject composite with no steps"() {
+    def "build should reject composite with no members"() {
         given:
         def sm = Transflux.<TestEntity, TestContext> defineStateMachine()
             .forEntityType(TestEntity)
@@ -112,7 +112,7 @@ class CompositeOperationDefImplSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains('op1')
-        e.message.contains('no steps')
+        e.message.contains('no members')
     }
 
     def "step(...) overloads should be appendable in any combination and order"() {
@@ -123,10 +123,10 @@ class CompositeOperationDefImplSpec extends Specification {
             .step('c-id', AppendStep)
 
         expect:
-        composite.stepRefs.size() == 3
-        composite.stepRefs[0] instanceof StepRef.InlineInstance
-        composite.stepRefs[1] instanceof StepRef.ById
-        composite.stepRefs[2] instanceof StepRef.InlineClass
+        composite.actionRefs.size() == 3
+        composite.actionRefs[0] instanceof ActionRef.InlineInstance
+        composite.actionRefs[1] instanceof ActionRef.ById
+        composite.actionRefs[2] instanceof ActionRef.InlineClass
     }
 
     def "name and description should be optional and round-trip with covariant return"() {
@@ -169,7 +169,7 @@ class CompositeOperationDefImplSpec extends Specification {
 
         then:
         entity.trail == ['c', 'a', 'b']
-        view.executedStepIds == ['c-id', 'a-id', 'b-id']
+        view.executedStepIds*.toString() == ['c-id', 'a-id', 'b-id']
     }
 
     def "build should reject reference to unknown step id"() {

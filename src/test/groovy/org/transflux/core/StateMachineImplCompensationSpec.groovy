@@ -203,10 +203,10 @@ class StateMachineImplCompensationSpec extends Specification {
         result.error instanceof RuntimeException
         result.error.message == 'boom'
         // Failing step's id is NOT on executedStepIds (executed = completed).
-        result.executedStepIds == ['s1', 's2']
+        result.executedStepIds*.toString() == ['s1', 's2']
         // s3 (ThrowingStep) has no compensation, so only s1 and s2 are on the stack.
         // Compensations run in LIFO of pushes (reverse execution order).
-        result.compensatedStepIds == ['s2', 's1']
+        result.compensatedStepIds*.toString() == ['s2', 's1']
         entity.trail == ['a', 'b', '-b', '-a']
         applied.isEmpty()
     }
@@ -229,9 +229,9 @@ class StateMachineImplCompensationSpec extends Specification {
         !result.success
         result.error.message == 'execute-blew-up-b'
         // s2's execute threw partway through → its id is NOT on executedStepIds.
-        result.executedStepIds == ['s1']
+        result.executedStepIds*.toString() == ['s1']
         // But s2's compensation was pushed BEFORE its execute ran, so the rollback fires.
-        result.compensatedStepIds == ['s2', 's1']
+        result.compensatedStepIds*.toString() == ['s2', 's1']
         // Trail shows the partial side effect (b) followed by reverse-order rollback.
         entity.trail == ['a', 'b', '-b', '-a']
         applied.isEmpty()
@@ -258,7 +258,7 @@ class StateMachineImplCompensationSpec extends Specification {
         // Step's execute threw before completing → not on executedStepIds.
         result.executedStepIds == []
         // Compensation was pushed before execute and runs against the partially-populated list.
-        result.compensatedStepIds == ['create']
+        result.compensatedStepIds*.toString() == ['create']
         // Five entities were created before the throw; the compensation deletes all five.
         createdIds == ['entity-0', 'entity-1', 'entity-2', 'entity-3', 'entity-4']
         deletedIds == ['entity-0', 'entity-1', 'entity-2', 'entity-3', 'entity-4']
@@ -282,8 +282,8 @@ class StateMachineImplCompensationSpec extends Specification {
 
         then:
         !result.success
-        result.executedStepIds == ['s1', 's2']
-        result.compensatedStepIds == ['s1']
+        result.executedStepIds*.toString() == ['s1', 's2']
+        result.compensatedStepIds*.toString() == ['s1']
         entity.trail == ['a', 'b', '-a']
         applied.isEmpty()
     }
@@ -305,9 +305,9 @@ class StateMachineImplCompensationSpec extends Specification {
 
         then:
         !result.success
-        result.executedStepIds == ['s1', 's2']
+        result.executedStepIds*.toString() == ['s1', 's2']
         // The throwing compensation's stepId is still recorded — the rollback was attempted.
-        result.compensatedStepIds == ['s2', 's1']
+        result.compensatedStepIds*.toString() == ['s2', 's1']
         // s2's compensation threw before mutating the trail; s1's compensation still ran.
         entity.trail == ['a', 'b', '-a']
         applied.isEmpty()
@@ -352,7 +352,7 @@ class StateMachineImplCompensationSpec extends Specification {
 
         then:
         !result.success
-        result.executedStepIds == ['s1', 's2']
+        result.executedStepIds*.toString() == ['s1', 's2']
         result.compensatedStepIds.isEmpty()
         // No compensation entries appended — only the original execute calls.
         entity.trail == ['a', 'b']
@@ -387,8 +387,8 @@ class StateMachineImplCompensationSpec extends Specification {
         // 'dynamic' inside s2's own execute. DynamicDispatchStep has no compensation of its
         // own, and s3 (ThrowingStep) has none either, so the stack ends up bottom -> top:
         // [s1, dynamic].
-        result.executedStepIds == ['s1', 'dynamic', 's2']
-        result.compensatedStepIds == ['dynamic', 's1']
+        result.executedStepIds*.toString() == ['s1', 'dynamic', 's2']
+        result.compensatedStepIds*.toString() == ['dynamic', 's1']
         entity.trail == ['a', 'dyn', '-dyn', '-a']
         applied.isEmpty()
     }

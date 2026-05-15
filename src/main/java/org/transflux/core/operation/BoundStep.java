@@ -32,7 +32,7 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-public record BoundStep<T, C>(String id, Step<T, C> step) {
+public record BoundStep<T, C>(String id, Step<T, C> step) implements BoundAction<T, C> {
 
     public BoundStep {
         requireNotBlank(id, "Bound step ID");

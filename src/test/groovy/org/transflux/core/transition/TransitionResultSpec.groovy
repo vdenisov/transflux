@@ -18,31 +18,7 @@
 
 package org.transflux.core.transition
 
-import org.transflux.core.state.State
-import org.transflux.core.state.StateApplier
-import org.transflux.core.state.StateDef
-import org.transflux.core.state.StateDefImpl
-import org.transflux.core.state.StateImpl
-import org.transflux.core.state.StateResolver
-
-import org.transflux.core.Identifiable
-import org.transflux.core.StateMachine
-import org.transflux.core.StateMachineDef
-import org.transflux.core.StateMachineDefImpl
-import org.transflux.core.StateMachineImpl
-import org.transflux.core.TestContext
-import org.transflux.core.TestStateEnum
-import org.transflux.core.Transflux
-import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.operation.BoundOperation
-import org.transflux.core.operation.BoundStep
-import org.transflux.core.operation.CompositeOperationDef
-import org.transflux.core.operation.CompositeOperationDefImpl
-import org.transflux.core.operation.Operation
-import org.transflux.core.operation.SimpleOperationDef
-import org.transflux.core.operation.SimpleOperationDefImpl
-import org.transflux.core.operation.Step
-
+import org.transflux.core.operation.StepPath
 import spock.lang.Specification
 
 import java.time.Duration
@@ -89,13 +65,13 @@ class TransitionResultSpec extends Specification {
     def "success factory with executed step IDs should preserve order"() {
         given:
         def start = Instant.now()
-        def steps = ["step-a", "step-b", "step-c"]
+        def steps = [StepPath.of("step-a"), StepPath.of("step-b"), StepPath.of("step-c")]
 
         when:
         def result = TransitionResult.success("entity", "S", "T", "tx", steps, start, start)
 
         then:
-        result.executedStepIds == ["step-a", "step-b", "step-c"]
+        result.executedStepIds == [StepPath.of("step-a"), StepPath.of("step-b"), StepPath.of("step-c")]
         result.compensatedStepIds == []
     }
 
@@ -118,26 +94,26 @@ class TransitionResultSpec extends Specification {
         given:
         def error = new RuntimeException("kaboom")
         def start = Instant.now()
-        def executed = ["s1", "s2"]
-        def compensated = ["c-s2", "c-s1"]
+        def executed = [StepPath.of("s1"), StepPath.of("s2")]
+        def compensated = [StepPath.of("c-s2"), StepPath.of("c-s1")]
 
         when:
         def result = TransitionResult.failure(
                 "entity", "S", "T", "tx", error, executed, compensated, start, start)
 
         then:
-        result.executedStepIds == ["s1", "s2"]
-        result.compensatedStepIds == ["c-s2", "c-s1"]
+        result.executedStepIds == [StepPath.of("s1"), StepPath.of("s2")]
+        result.compensatedStepIds == [StepPath.of("c-s2"), StepPath.of("c-s1")]
         result.error.is(error)
     }
 
     def "executedStepIds should be unmodifiable"() {
         given:
         def result = TransitionResult.success("entity", "S", "T", "tx",
-                ["s1"], Instant.now(), Instant.now())
+                [StepPath.of("s1")], Instant.now(), Instant.now())
 
         when:
-        result.executedStepIds.add("intruder")
+        result.executedStepIds.add(StepPath.of("intruder"))
 
         then:
         thrown(UnsupportedOperationException)
@@ -147,10 +123,10 @@ class TransitionResultSpec extends Specification {
         given:
         def result = TransitionResult.failure(
                 "entity", "S", "T", "tx", new RuntimeException(),
-                [], ["c1"], Instant.now(), Instant.now())
+                [], [StepPath.of("c1")], Instant.now(), Instant.now())
 
         when:
-        result.compensatedStepIds.add("intruder")
+        result.compensatedStepIds.add(StepPath.of("intruder"))
 
         then:
         thrown(UnsupportedOperationException)
@@ -158,15 +134,15 @@ class TransitionResultSpec extends Specification {
 
     def "factories should defensively copy step list inputs"() {
         given:
-        def steps = ["s1", "s2"] as ArrayList
+        def steps = [StepPath.of("s1"), StepPath.of("s2")] as ArrayList
         def result = TransitionResult.success("entity", "S", "T", "tx",
                 steps, Instant.now(), Instant.now())
 
         when:
-        steps.add("s3")
+        steps.add(StepPath.of("s3"))
 
         then:
-        result.executedStepIds == ["s1", "s2"]
+        result.executedStepIds == [StepPath.of("s1"), StepPath.of("s2")]
     }
 
     def "duration should be null when either timestamp is missing"() {

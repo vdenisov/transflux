@@ -103,6 +103,53 @@ public interface CompositeOperationDef<T, C> extends OperationDef<T, C> {
      */
     CompositeOperationDef<T, C> conditional(String id, Consumer<ConditionalStepDef<T, C>> configurer);
 
+    /**
+     * Appends a reference to a nested operation that is registered on the enclosing state
+     * machine. The referenced id must be registered (or auto-registered through another
+     * composite's inline reference) by the time the state machine is built. The nested
+     * operation runs in pass-through mode: it receives the parent's context object verbatim.
+     *
+     * @param registeredOperationId the registered operation id
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code registeredOperationId} is {@code null}
+     *         or blank
+     */
+    CompositeOperationDef<T, C> operation(String registeredOperationId);
+
+    /**
+     * Appends an inline nested operation instance. The operation is auto-registered on the
+     * enclosing state machine under {@code id} at build time and can be referenced by id from
+     * elsewhere. The nested operation runs in pass-through mode: it receives the parent's
+     * context object verbatim.
+     *
+     * @param id the operation id
+     * @param operation the operation instance; never {@code null}
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
+     *         {@code operation} is {@code null}
+     */
+    CompositeOperationDef<T, C> operation(String id, Operation<T, C> operation);
+
+    /**
+     * Appends an inline nested operation class. The framework reflectively instantiates the
+     * class via its public no-arg constructor at state-machine build time and auto-registers
+     * it under {@code id}. The nested operation runs in pass-through mode: it receives the
+     * parent's context object verbatim.
+     *
+     * @param id the operation id
+     * @param operationClass the operation class; never {@code null}
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
+     *         {@code operationClass} is {@code null}
+     */
+    CompositeOperationDef<T, C> operation(String id, Class<? extends Operation<T, C>> operationClass);
+
     @Override
     CompositeOperationDef<T, C> withName(String name);
 

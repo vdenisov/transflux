@@ -35,7 +35,8 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-public record BoundOperation<T, C>(String id, String name, String description, Operation<T, C> operation) {
+public record BoundOperation<T, C>(String id, String name, String description, Operation<T, C> operation)
+    implements BoundAction<T, C> {
 
     public BoundOperation {
         requireNotBlank(id, "Bound operation ID");

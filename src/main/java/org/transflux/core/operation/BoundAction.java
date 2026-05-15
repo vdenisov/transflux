@@ -18,28 +18,23 @@
 
 package org.transflux.core.operation;
 
-import static org.transflux.core.ValidationUtils.requireNotNull;
-
 /**
- * Runtime binder that pairs a {@link Compensation} with the qualified {@link StepPath} of
- * the step whose effects it rolls back. The path captures both the step's local id and any
- * enclosing nested-operation ids, so compensation entries surface in
- * {@link org.transflux.core.transition.TransitionResult#getCompensatedStepIds()} under the
- * same qualified-path form as executed steps.
+ * Sealed marker type implemented by both {@link BoundStep} and {@link BoundOperation},
+ * letting a composite operation executor iterate a single ordered list of heterogeneous
+ * actions and dispatch each one against its bound runtime.
  *
  * <p>This is framework-internal infrastructure; user code should not construct or inspect
- * bound compensations directly.
+ * bound actions directly.
  *
- * @param path the qualified step path the compensation was registered against; never
- *             {@code null}
- * @param compensation the rollback callback; never {@code null}
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-public record BoundCompensation<T, C>(StepPath path, Compensation<T, C> compensation) {
+public sealed interface BoundAction<T, C> permits BoundStep, BoundOperation {
 
-    public BoundCompensation {
-        requireNotNull(path, "Bound compensation step path");
-        requireNotNull(compensation, "Bound compensation");
-    }
+    /**
+     * Returns the framework-owned id of this action.
+     *
+     * @return the action id; never {@code null} or blank
+     */
+    String id();
 }

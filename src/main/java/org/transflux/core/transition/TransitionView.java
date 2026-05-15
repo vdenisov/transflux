@@ -24,11 +24,13 @@ import org.transflux.core.operation.BoundCompensation;
 import org.transflux.core.operation.BoundStep;
 import org.transflux.core.operation.Compensation;
 import org.transflux.core.operation.Operation;
+import org.transflux.core.operation.StepPath;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.List;
 
 import static org.transflux.core.ValidationUtils.requireNotBlank;
@@ -56,9 +58,11 @@ public class TransitionView<T, C> implements Transition<T, C> {
     private final T entity;
     private final C context;
 
-    private final List<String> executedStepIds = new ArrayList<>();
+    private final List<StepPath> executedStepIds = new ArrayList<>();
 
     private final Deque<BoundCompensation<T, C>> compensationStack = new ArrayDeque<>();
+
+    private final Deque<String> operationStack = new ArrayDeque<>();
 
     public TransitionView(StateMachineImpl<T, C> stateMachine, TransitionImpl<T, C> staticTransition,
                    T entity, C context) {
@@ -112,12 +116,62 @@ public class TransitionView<T, C> implements Transition<T, C> {
         return stateMachine;
     }
 
-    public void recordExecutedStepId(String id) {
-        executedStepIds.add(id);
+    public void recordExecutedStepId(String localStepId) {
+        executedStepIds.add(qualifyStepPath(localStepId));
     }
 
-    public List<String> getExecutedStepIds() {
+    public List<StepPath> getExecutedStepIds() {
         return Collections.unmodifiableList(executedStepIds);
+    }
+
+    /**
+     * Pushes the supplied nested-operation id onto this view's operation-nesting stack. While
+     * the stack is non-empty every {@link #recordExecutedStepId(String)} call records the step
+     * id under a {@code parent-op-id/.../child-step-id} qualified path. Each push must be
+     * paired with a matching {@link #exitOperation()} call.
+     *
+     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
+     * should not invoke it directly.
+     *
+     * @param operationId the nested-operation id to push; must be non-blank
+     */
+    public void enterOperation(String operationId) {
+        requireNotBlank(operationId, "Operation ID");
+        operationStack.push(operationId);
+    }
+
+    /**
+     * Pops the most recently pushed nested-operation id from this view's operation-nesting
+     * stack.
+     *
+     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
+     * should not invoke it directly.
+     *
+     * @throws TransfluxValidationException if the nesting stack is empty
+     */
+    public void exitOperation() {
+        if (operationStack.isEmpty()) {
+            throw new TransfluxValidationException(
+                "exitOperation() called with no matching enterOperation()");
+        }
+        operationStack.pop();
+    }
+
+    private StepPath qualifyStepPath(String localStepId) {
+        requireNotBlank(localStepId, "Step ID");
+
+        if (operationStack.isEmpty()) {
+            return StepPath.of(localStepId);
+        }
+
+        List<String> segments = new ArrayList<>(operationStack.size() + 1);
+        Iterator<String> descending = operationStack.descendingIterator();
+        while (descending.hasNext()) {
+            segments.add(descending.next());
+        }
+        segments.add(localStepId);
+
+        return new StepPath(segments);
     }
 
     /**
@@ -132,12 +186,12 @@ public class TransitionView<T, C> implements Transition<T, C> {
      * @param stepId the id of the step the compensation rolls back; must be non-blank
      * @param compensation the compensation callback; ignored when {@code null}
      */
-    public void pushCompensation(String stepId, Compensation<T, C> compensation) {
-        requireNotBlank(stepId, "Step ID");
+    public void pushCompensation(String localStepId, Compensation<T, C> compensation) {
+        requireNotBlank(localStepId, "Step ID");
         if (compensation == null) {
             return;
         }
-        compensationStack.push(new BoundCompensation<>(stepId, compensation));
+        compensationStack.push(new BoundCompensation<>(qualifyStepPath(localStepId), compensation));
     }
 
     /**
