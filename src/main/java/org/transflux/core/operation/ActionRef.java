@@ -96,6 +96,14 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
         return new OperationInlineClass<>(id, operationClass);
     }
 
+    static <T, C> ActionRef<T, C> operationInlineConfigured(String id, Operation<T, ?> operation, ResolvedContextMapping mapping) {
+        return new OperationInlineInstanceConfigured<>(id, operation, mapping);
+    }
+
+    static <T, C> ActionRef<T, C> operationInlineConfigured(String id, Class<? extends Operation<T, ?>> operationClass, ResolvedContextMapping mapping) {
+        return new OperationInlineClassConfigured<>(id, operationClass, mapping);
+    }
+
     /**
      * Marker sub-interface for refs that resolve against the state machine's step registry.
      * The {@code resolve} default looks the id up via
@@ -130,7 +138,11 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
      * @param <C> the host-supplied context type carried through transition execution
      */
     sealed interface OperationRef<T, C> extends ActionRef<T, C>
-        permits ActionRef.OperationById, ActionRef.OperationInlineInstance, ActionRef.OperationInlineClass {
+        permits ActionRef.OperationById,
+                ActionRef.OperationInlineInstance,
+                ActionRef.OperationInlineClass,
+                ActionRef.OperationInlineInstanceConfigured,
+                ActionRef.OperationInlineClassConfigured {
 
         @Override
         default BoundAction<T, C> resolve(StateMachineImpl<T, C> stateMachine, String enclosingCompositeId) {
@@ -141,6 +153,17 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
                         + "' references unknown operation id '" + id() + "'");
             }
             return bound;
+        }
+
+        /**
+         * Returns the context-mapping configuration to apply at the parent-to-child boundary
+         * when this operation runs. Pass-through by default; overridden by the configured
+         * variants that carry an explicit {@link ResolvedContextMapping}.
+         *
+         * @return the resolved mapping; never {@code null}
+         */
+        default ResolvedContextMapping mapping() {
+            return ResolvedContextMapping.passThrough();
         }
     }
 
@@ -188,6 +211,42 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
         public OperationInlineClass {
             requireNotBlank(id, "Operation reference ID");
             requireNotNull(operationClass, "Inline operation class");
+        }
+    }
+
+    record OperationInlineInstanceConfigured<T, C>(
+        String id,
+        Operation<T, ?> operation,
+        ResolvedContextMapping resolvedMapping
+    ) implements OperationRef<T, C> {
+
+        public OperationInlineInstanceConfigured {
+            requireNotBlank(id, "Operation reference ID");
+            requireNotNull(operation, "Inline operation instance");
+            requireNotNull(resolvedMapping, "Resolved context mapping");
+        }
+
+        @Override
+        public ResolvedContextMapping mapping() {
+            return resolvedMapping;
+        }
+    }
+
+    record OperationInlineClassConfigured<T, C>(
+        String id,
+        Class<? extends Operation<T, ?>> operationClass,
+        ResolvedContextMapping resolvedMapping
+    ) implements OperationRef<T, C> {
+
+        public OperationInlineClassConfigured {
+            requireNotBlank(id, "Operation reference ID");
+            requireNotNull(operationClass, "Inline operation class");
+            requireNotNull(resolvedMapping, "Resolved context mapping");
+        }
+
+        @Override
+        public ResolvedContextMapping mapping() {
+            return resolvedMapping;
         }
     }
 }

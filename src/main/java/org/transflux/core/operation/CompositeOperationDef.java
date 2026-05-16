@@ -150,6 +150,64 @@ public interface CompositeOperationDef<T, C> extends OperationDef<T, C> {
      */
     CompositeOperationDef<T, C> operation(String id, Class<? extends Operation<T, C>> operationClass);
 
+    /**
+     * Appends an inline nested operation instance with a lambda configurer for context
+     * mapping and metadata. The operation is auto-registered on the enclosing state machine
+     * under {@code id}. The configurer may declare a child context type via
+     * {@code .usingContext(...)} and supply a {@link ContextMapper} (class or instance form)
+     * or inline {@code .mapTo(...)} / {@code .mapFrom(...)} lambdas; mixing the two mapping
+     * styles is rejected at build time. When the configurer leaves the nested operation in
+     * pass-through mode (no {@code .usingContext} call and no mapping), behavior matches
+     * {@link #operation(String, Operation)}.
+     *
+     * @param id the operation id
+     * @param operation the operation instance; never {@code null}
+     * @param configurer callback that configures context mapping and metadata
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank,
+     *         {@code operation} is {@code null}, {@code configurer} is {@code null}, or the
+     *         configured mapping is inconsistent
+     */
+    CompositeOperationDef<T, C> operation(String id, Operation<T, ?> operation,
+                                          Consumer<NestedOperationDef<T, C, C>> configurer);
+
+    /**
+     * Appends an inline nested operation class with a lambda configurer for context mapping
+     * and metadata. The framework reflectively instantiates the class via its public no-arg
+     * constructor at state-machine build time and auto-registers it under {@code id}. The
+     * configurer rules mirror {@link #operation(String, Operation, Consumer)}.
+     *
+     * @param id the operation id
+     * @param operationClass the operation class; never {@code null}
+     * @param configurer callback that configures context mapping and metadata
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank,
+     *         {@code operationClass} is {@code null}, {@code configurer} is {@code null}, or
+     *         the configured mapping is inconsistent
+     */
+    CompositeOperationDef<T, C> operation(String id, Class<? extends Operation<T, ?>> operationClass,
+                                          Consumer<NestedOperationDef<T, C, C>> configurer);
+
+    /**
+     * Records a runtime type-assertion that the composite's declared context generic
+     * {@code C} matches the supplied class. Useful for documentation, IDE legibility, and
+     * the future YAML DSL where generics are erased. At {@link #build} time the framework
+     * validates this assertion against the enclosing state machine's
+     * {@linkplain org.transflux.core.StateMachineDef#forContextType(Class) declared context
+     * type} and throws on mismatch.
+     *
+     * @param contextType the context class; never {@code null}
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code contextType} is {@code null}
+     */
+    CompositeOperationDef<T, C> usingContext(Class<C> contextType);
+
     @Override
     CompositeOperationDef<T, C> withName(String name);
 
