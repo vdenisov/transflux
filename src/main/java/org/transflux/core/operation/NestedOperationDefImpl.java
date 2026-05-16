@@ -80,14 +80,17 @@ public final class NestedOperationDefImpl<T, P, N> implements NestedOperationDef
         this.id = id;
     }
 
+    @Override
     public String getId() {
         return id;
     }
 
+    @Override
     public String getName() {
         return name;
     }
 
+    @Override
     public String getDescription() {
         return description;
     }

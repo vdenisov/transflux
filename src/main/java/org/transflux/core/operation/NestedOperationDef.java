@@ -53,7 +53,7 @@ import java.util.function.Function;
  * @param <N> the nested operation's context type; equals {@code P} until
  *            {@link #usingContext(Class)} narrows it
  */
-public interface NestedOperationDef<T, P, N> {
+public interface NestedOperationDef<T, P, N> extends OperationDef<T, N> {
 
     /**
      * Sets the human-readable name for this nested operation.
@@ -62,6 +62,7 @@ public interface NestedOperationDef<T, P, N> {
      *
      * @return this def for chaining
      */
+    @Override
     NestedOperationDef<T, P, N> withName(String name);
 
     /**
@@ -71,6 +72,7 @@ public interface NestedOperationDef<T, P, N> {
      *
      * @return this def for chaining
      */
+    @Override
     NestedOperationDef<T, P, N> withDescription(String description);
 
     /**

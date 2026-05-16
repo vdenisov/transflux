@@ -88,8 +88,7 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
 
     private final Map<String, State<T>> states = new LinkedHashMap<>();
     private final Map<String, TransitionImpl<T, C>> transitions = new LinkedHashMap<>();
-    private final Map<String, BoundStep<T, C>> boundSteps;
-    private final Map<String, BoundOperation<T, C>> boundOperations;
+    private final Registry<T> componentRegistry;
 
     /**
      * Constructs a new StateMachineImpl from the provided state machine definition.
@@ -115,12 +114,38 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
                               .collect(Collectors.toMap(StateDefImpl::getId, StateImpl::new)));
 
         Map<String, BoundCondition<T, C>> conditionRegistry = def.buildBoundConditions();
-        this.boundSteps = def.buildBoundSteps(this, conditionRegistry);
-        this.boundOperations = def.buildBoundOperations(this);
+        Map<String, BoundStep<T, C>> boundSteps = def.buildBoundSteps(this, conditionRegistry);
+        Map<String, BoundOperation<T, C>> boundOperations = def.buildBoundOperations(this);
+
+        RegistryImpl<T> registry = new RegistryImpl<>();
+        for (BoundCondition<T, C> bc : conditionRegistry.values()) {
+            registry.register(new Component.Condition<>(bc.id(), null, null, contextType, bc));
+        }
+        for (BoundStep<T, C> bs : boundSteps.values()) {
+            registry.register(new Component.Step<>(bs.id(), null, null, contextType, bs));
+        }
+        for (BoundOperation<T, C> bo : boundOperations.values()) {
+            registry.register(new Component.Operation<>(bo.id(), bo.name(), bo.description(), contextType, bo));
+        }
+        this.componentRegistry = registry;
 
         for (TransitionDefImpl<T, C> td : def.getTransitionsById().values()) {
             this.transitions.put(td.getId(), new TransitionImpl<>(td, this, conditionRegistry));
         }
+    }
+
+    /**
+     * Returns the SM-level component registry holding every registered step, operation, and
+     * condition. Phase 6.2's process-wide parent registry plugs into this registry's
+     * parent-chain seam.
+     *
+     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user
+     * code should not invoke it directly.
+     *
+     * @return the component registry; never {@code null}
+     */
+    public Registry<T> getComponentRegistry() {
+        return componentRegistry;
     }
 
     /**
@@ -130,8 +155,12 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
      *
      * @return the bound step, or {@code null} if no step is registered under {@code id}
      */
+    @SuppressWarnings("unchecked")
     public BoundStep<T, C> getBoundStep(String id) {
-        return boundSteps.get(id);
+        return componentRegistry.resolve(id)
+            .filter(Component.Step.class::isInstance)
+            .map(c -> ((Component.Step<T, C>) c).bound())
+            .orElse(null);
     }
 
     /**
@@ -142,8 +171,12 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
      * @return the bound operation, or {@code null} if no operation is registered under
      *         {@code id}
      */
+    @SuppressWarnings("unchecked")
     public BoundOperation<T, C> getBoundOperation(String id) {
-        return boundOperations.get(id);
+        return componentRegistry.resolve(id)
+            .filter(Component.Operation.class::isInstance)
+            .map(c -> ((Component.Operation<T, C>) c).bound())
+            .orElse(null);
     }
 
     /**
