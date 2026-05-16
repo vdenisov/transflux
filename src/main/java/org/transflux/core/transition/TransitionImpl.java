@@ -53,6 +53,7 @@ public class TransitionImpl<T, C> implements Transition<T, C> {
     private final String id;
     private final String sourceStateId;
     private final String targetStateId;
+    private final Class<C> contextType;
     private final BoundOperation<T, C> boundOperation;
     private final List<BoundCondition<T, C>> boundPreConditions;
     private final List<BoundCondition<T, C>> boundPostConditions;
@@ -79,6 +80,7 @@ public class TransitionImpl<T, C> implements Transition<T, C> {
         this.id = transitionDef.getId();
         this.sourceStateId = transitionDef.getSourceStateId();
         this.targetStateId = transitionDef.getTargetStateId();
+        this.contextType = transitionDef.getContextType();
         this.boundOperation = transitionDef.buildBoundOperation(stateMachine);
         this.boundPreConditions = transitionDef.buildBoundPreConditions(conditionRegistry);
         this.boundPostConditions = transitionDef.buildBoundPostConditions(conditionRegistry);
@@ -129,6 +131,16 @@ public class TransitionImpl<T, C> implements Transition<T, C> {
 
     public BoundOperation<T, C> getBoundOperation() {
         return boundOperation;
+    }
+
+    /**
+     * Returns the context class declared for this transition. Defaults to {@code Void.class}
+     * when {@link TransitionDef#usingContext(Class)} was not called.
+     *
+     * @return the declared context class; never {@code null}
+     */
+    public Class<C> getContextType() {
+        return contextType;
     }
 
     /**

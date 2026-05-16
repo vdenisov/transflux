@@ -183,8 +183,55 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
      *
      * @return an unmodifiable view of the member-reference list
      */
-    List<ActionRef<T, C>> getActionRefs() {
+    /**
+     * Returns the composite's action references in declaration order.
+     *
+     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
+     * should not invoke it directly.
+     *
+     * @return an unmodifiable view of the action ref list
+     */
+    public List<ActionRef<T, C>> getActionRefs() {
         return Collections.unmodifiableList(actionRefs);
+    }
+
+    /**
+     * Returns the ids of every step-by-id reference declared by this composite — used by the
+     * build-time context-compatibility check to confirm a referenced step's declared context
+     * matches the enclosing scope's.
+     *
+     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
+     * should not invoke it directly.
+     *
+     * @return the referenced step ids in declaration order
+     */
+    public List<String> getStepByIdReferenceIds() {
+        List<String> ids = new ArrayList<>();
+        for (ActionRef<T, C> ref : actionRefs) {
+            if (ref instanceof ActionRef.ById<T, C> r) {
+                ids.add(r.id());
+            }
+        }
+        return Collections.unmodifiableList(ids);
+    }
+
+    /**
+     * Returns the ids of every operation-by-id reference declared by this composite — used by
+     * the build-time context-compatibility check and the cycle-detection pass.
+     *
+     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
+     * should not invoke it directly.
+     *
+     * @return the referenced operation ids in declaration order
+     */
+    public List<String> getOperationByIdReferenceIds() {
+        List<String> ids = new ArrayList<>();
+        for (ActionRef<T, C> ref : actionRefs) {
+            if (ref instanceof ActionRef.OperationById<T, C> r) {
+                ids.add(r.id());
+            }
+        }
+        return Collections.unmodifiableList(ids);
     }
 
     /**

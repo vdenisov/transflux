@@ -113,25 +113,45 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
         this.states.putAll(def.getStates().values().stream()
                               .collect(Collectors.toMap(StateDefImpl::getId, StateImpl::new)));
 
-        Map<String, BoundCondition<T, C>> conditionRegistry = def.buildBoundConditions();
-        Map<String, BoundStep<T, C>> boundSteps = def.buildBoundSteps(this, conditionRegistry);
-        Map<String, BoundOperation<T, C>> boundOperations = def.buildBoundOperations(this);
-
+        // Build conditions and steps first; populate the registry incrementally so SM-level
+        // composite operations (which run their build() inside buildBoundOperations) can resolve
+        // step- and condition-by-id references through the registry chain.
         RegistryImpl<T> registry = new RegistryImpl<>();
-        for (BoundCondition<T, C> bc : conditionRegistry.values()) {
-            registry.register(new Component.Condition<>(bc.id(), null, null, contextType, bc));
-        }
-        for (BoundStep<T, C> bs : boundSteps.values()) {
-            registry.register(new Component.Step<>(bs.id(), null, null, contextType, bs));
-        }
-        for (BoundOperation<T, C> bo : boundOperations.values()) {
-            registry.register(new Component.Operation<>(bo.id(), bo.name(), bo.description(), contextType, bo));
-        }
         this.componentRegistry = registry;
+
+        Map<String, BoundCondition<T, C>> conditionRegistry = def.buildBoundConditions();
+        for (BoundCondition<T, C> bc : conditionRegistry.values()) {
+            @SuppressWarnings("unchecked")
+            Class<C> ctx = (Class<C>) effectiveContextType(def, bc.id());
+            registry.register(new Component.Condition<>(bc.id(), null, null, ctx, bc));
+        }
+
+        Map<String, BoundStep<T, C>> boundSteps = def.buildBoundSteps(this, conditionRegistry);
+        for (BoundStep<T, C> bs : boundSteps.values()) {
+            @SuppressWarnings("unchecked")
+            Class<C> ctx = (Class<C>) effectiveContextType(def, bs.id());
+            registry.register(new Component.Step<>(bs.id(), null, null, ctx, bs));
+        }
+
+        // Build operations one-at-a-time, registering each into the registry as soon as it is
+        // built so that subsequent composite builds in the same pass can resolve them. SM-level
+        // composites that reference other SM-level composites must be registered in dependency
+        // order (referenced composites first); cycles raise during the build-time validation
+        // pass and never reach this point.
+        Map<String, BoundOperation<T, C>> boundOperations = def.buildBoundOperationsIncrementally(this, bo -> {
+            @SuppressWarnings("unchecked")
+            Class<C> ctx = (Class<C>) effectiveContextType(def, bo.id());
+            registry.register(new Component.Operation<>(bo.id(), bo.name(), bo.description(), ctx, bo));
+        });
 
         for (TransitionDefImpl<T, C> td : def.getTransitionsById().values()) {
             this.transitions.put(td.getId(), new TransitionImpl<>(td, this, conditionRegistry));
         }
+    }
+
+    private Class<?> effectiveContextType(StateMachineDefImpl<T, C> def, String id) {
+        Class<?> declared = def.getComponentContextType(id);
+        return declared != null ? declared : contextType;
     }
 
     /**
@@ -569,6 +589,63 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
             }
 
             return executeTransitionInternal(entity, context, (TransitionImpl<T, C>) abstractTransition);
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public TransitionResult<T, ?> transitionTo(String targetStateId, Object firingContext) {
+            requireNotBlank(targetStateId, "Target state ID");
+
+            String currentStateId = resolveCurrentState(entity);
+            TransitionImpl<T, C> transition = findTransition(currentStateId, targetStateId);
+            verifyFireContext(transition, firingContext);
+            return executeTransitionInternal(entity, (C) firingContext, transition);
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public TransitionResult<T, ?> transitionTo(String targetStateId, String transitionId, Object firingContext) {
+            requireNotBlank(targetStateId, "Target state ID");
+            requireNotBlank(transitionId, "Transition ID");
+
+            String currentStateId = resolveCurrentState(entity);
+            Transition<T, C> abstractTransition = StateMachineImpl.this.getTransition(transitionId);
+
+            if (!abstractTransition.getSourceStateId().equals(currentStateId)) {
+                throw new TransfluxValidationException(
+                    String.format("Entity is in state '%s' but transition '%s' requires source state '%s'",
+                        currentStateId, transitionId, abstractTransition.getSourceStateId())
+                );
+            }
+            if (!abstractTransition.getTargetStateId().equals(targetStateId)) {
+                throw new TransfluxValidationException(
+                    String.format("Transition '%s' leads to state '%s' but target state '%s' was requested",
+                        transitionId, abstractTransition.getTargetStateId(), targetStateId)
+                );
+            }
+
+            TransitionImpl<T, C> impl = (TransitionImpl<T, C>) abstractTransition;
+            verifyFireContext(impl, firingContext);
+            return executeTransitionInternal(entity, (C) firingContext, impl);
+        }
+
+        private void verifyFireContext(TransitionImpl<T, C> transition, Object firingContext) {
+            Class<?> expected = transition.getContextType();
+            if (firingContext == null || expected == null || expected == Void.class) {
+                if (firingContext != null && expected == Void.class) {
+                    throw new TransfluxValidationException(
+                        "Context type mismatch: transition '" + transition.getId()
+                            + "' expects Void (no context) but received "
+                            + firingContext.getClass().getName());
+                }
+                return;
+            }
+            if (!expected.isInstance(firingContext)) {
+                throw new TransfluxValidationException(
+                    "Context type mismatch: transition '" + transition.getId()
+                        + "' expects " + expected.getName()
+                        + " but received " + firingContext.getClass().getName());
+            }
         }
     }
 }

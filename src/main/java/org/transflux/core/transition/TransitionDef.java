@@ -113,6 +113,30 @@ public interface TransitionDef<T, C> extends Identifiable {
     String getTargetStateId();
 
     /**
+     * Returns the context class declared for this transition. Defaults to {@code Void.class}
+     * until {@link #usingContext(Class)} re-types the def.
+     *
+     * @return the declared context class; never {@code null}
+     */
+    Class<C> getContextType();
+
+    /**
+     * Re-types this transition def to carry the supplied context class. Calling this method
+     * captures the context type and returns the same underlying def re-generified so that
+     * subsequent member declarations (operations, conditions) type-check against {@code C2}.
+     * When omitted, a transition is {@code TransitionDef<T, Void>} and the host passes
+     * {@code null} at fire time.
+     *
+     * @param contextType the context class; never {@code null}
+     * @param <C2> the new context type
+     *
+     * @return this def, re-typed with the new context type
+     *
+     * @throws TransfluxValidationException if {@code contextType} is {@code null}
+     */
+    <C2> TransitionDef<T, C2> usingContext(Class<C2> contextType);
+
+    /**
      * Sets the human-readable name of this transition.
      *
      * @param name the human-readable name; may be {@code null}

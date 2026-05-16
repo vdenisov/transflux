@@ -27,6 +27,7 @@ import org.transflux.core.state.StateDef;
 import org.transflux.core.state.StateResolver;
 import org.transflux.core.transition.TransitionDef;
 
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**
@@ -87,6 +88,27 @@ public interface StateMachineDef<T, C> {
      * @throws TransfluxValidationException if {@code contextType} is {@code null}
      */
     StateMachineDef<T, C> forContextType(Class<C> contextType);
+
+    /**
+     * Opens a context-typed registration scope. The configurer registers reusable components
+     * (steps, conditions, composite operations) tagged with {@code contextType}; the framework
+     * verifies context compatibility at build time when a by-id reference resolves against them.
+     *
+     * <p>Multiple invocations of {@code useContext} are permitted and accumulate, both for the
+     * same context class (further registrations land in the same logical bucket) and for
+     * different context classes (each scope's registrations are tagged with their own class).
+     *
+     * <p>{@link Void} is a valid context class for components that do not consume a context.
+     *
+     * @param contextType the scope's context class; never {@code null}
+     * @param configurer callback that performs the registrations; never {@code null}
+     * @param <C2> the scope context class
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}
+     */
+    <C2> StateMachineDef<T, C> useContext(Class<C2> contextType, Consumer<ContextScope<T, C2>> configurer);
 
     /**
      * Sets the human-readable name for this state machine.

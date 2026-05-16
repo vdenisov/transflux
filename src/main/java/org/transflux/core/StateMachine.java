@@ -187,5 +187,32 @@ public interface StateMachine<T, C> {
          * @return the result of the transition execution
          */
         TransitionResult<T, C> transitionTo(String targetStateId, String transitionId);
+
+        /**
+         * Executes the unique transition from the entity's current state to {@code targetStateId},
+         * passing {@code context} through to the underlying operation. The framework verifies
+         * at the dispatch boundary that {@code context == null || transitionContextType.isInstance(context)}
+         * and throws {@link TransfluxValidationException} on mismatch.
+         *
+         * @param targetStateId the ID of the target state
+         * @param context the fire-time context; may be {@code null}
+         *
+         * @return the result of the transition execution
+         */
+        TransitionResult<T, ?> transitionTo(String targetStateId, Object context);
+
+        /**
+         * Executes the named transition from the entity's current state to {@code targetStateId},
+         * passing {@code context} through to the underlying operation. The framework verifies
+         * at the dispatch boundary that {@code context == null || transitionContextType.isInstance(context)}
+         * and throws {@link TransfluxValidationException} on mismatch.
+         *
+         * @param targetStateId the ID of the target state
+         * @param transitionId the ID of the specific transition to execute
+         * @param context the fire-time context; may be {@code null}
+         *
+         * @return the result of the transition execution
+         */
+        TransitionResult<T, ?> transitionTo(String targetStateId, String transitionId, Object context);
     }
 }

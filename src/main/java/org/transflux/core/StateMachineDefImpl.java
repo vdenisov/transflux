@@ -25,6 +25,7 @@ import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.BoundOperation;
 import org.transflux.core.operation.BoundStep;
+import org.transflux.core.operation.CompositeOperationDef;
 import org.transflux.core.operation.CompositeOperationDefImpl;
 import org.transflux.core.operation.ConditionalStepDefImpl;
 import org.transflux.core.operation.Operation;
@@ -115,6 +116,15 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
     // conditionalStepId -> ConditionalStepDefImpl, collected during inline-step walk and
     // resolved into framework-built executor steps once the bound-step registry is being built.
     private final Map<String, ConditionalStepDefImpl<T, C>> conditionalStepRegistrations = new LinkedHashMap<>();
+
+    // SM-level composite operations registered via useContext(ctx, scope -> scope.compositeOperation(...)).
+    // Each composite carries its members; build-time walk auto-registers inline steps and
+    // operations from these the same way it does for transition-attached composites.
+    private final Map<String, CompositeOperationDefImpl<T, ?>> smCompositeOperations = new LinkedHashMap<>();
+
+    // Per-id context-type tagging for components registered through useContext blocks.
+    // Used by the build-time context-compatibility check.
+    private final Map<String, Class<?>> componentContextTypes = new LinkedHashMap<>();
 
     // transitionId -> TransitionDefImpl
     private final Map<String, TransitionDefImpl<T, C>> transitionsById = new LinkedHashMap<>();
@@ -356,38 +366,44 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
      * <p>Step ids and operation ids share a single state-machine-wide namespace; an id
      * registered as a step cannot also be registered as a nested operation, and vice versa.
      */
+    @SuppressWarnings("unchecked")
     private void collectInlineMemberRegistrations() {
         for (TransitionDefImpl<T, C> td : transitionsById.values()) {
             OperationDefImpl<T, C> op = td.getOperationDef();
-            if (!(op instanceof CompositeOperationDefImpl<T, C> composite)) {
-                continue;
+            if (op instanceof CompositeOperationDefImpl<T, C> composite) {
+                walkCompositeForInlineMembers(composite);
+            }
+        }
+        for (CompositeOperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
+            walkCompositeForInlineMembers((CompositeOperationDefImpl<T, C>) composite);
+        }
+    }
+
+    private void walkCompositeForInlineMembers(CompositeOperationDefImpl<T, C> composite) {
+        registerInlineSteps(composite.getInlineStepInstances(), composite.getInlineStepClasses());
+        registerInlineOperations(composite.getInlineOperationInstances(), composite.getInlineOperationClasses());
+
+        for (Map.Entry<String, ConditionalStepDefImpl<T, C>> e : composite.getConditionalDefs().entrySet()) {
+            String conditionalId = e.getKey();
+            ConditionalStepDefImpl<T, C> conditional = e.getValue();
+
+            registerInlineSteps(conditional.getInlineStepInstances(), conditional.getInlineStepClasses());
+
+            ConditionalStepDefImpl<T, C> existing = conditionalStepRegistrations.get(conditionalId);
+            if (existing != null && existing != conditional) {
+                throw new TransfluxValidationException(
+                    "Conditional step ID '" + conditionalId + "' is already registered");
             }
 
-            registerInlineSteps(composite.getInlineStepInstances(), composite.getInlineStepClasses());
-            registerInlineOperations(composite.getInlineOperationInstances(), composite.getInlineOperationClasses());
-
-            for (Map.Entry<String, ConditionalStepDefImpl<T, C>> e : composite.getConditionalDefs().entrySet()) {
-                String conditionalId = e.getKey();
-                ConditionalStepDefImpl<T, C> conditional = e.getValue();
-
-                registerInlineSteps(conditional.getInlineStepInstances(), conditional.getInlineStepClasses());
-
-                ConditionalStepDefImpl<T, C> existing = conditionalStepRegistrations.get(conditionalId);
-                if (existing != null && existing != conditional) {
-                    throw new TransfluxValidationException(
-                        "Conditional step ID '" + conditionalId + "' is already registered");
-                }
-
-                if (stepRegistrations.containsKey(conditionalId)) {
-                    throw new TransfluxValidationException(
-                        "Step ID '" + conditionalId + "' is already registered");
-                }
-                if (operationRegistrations.containsKey(conditionalId)) {
-                    throw new TransfluxValidationException(
-                        "ID '" + conditionalId + "' is already registered as an operation");
-                }
-                conditionalStepRegistrations.put(conditionalId, conditional);
+            if (stepRegistrations.containsKey(conditionalId)) {
+                throw new TransfluxValidationException(
+                    "Step ID '" + conditionalId + "' is already registered");
             }
+            if (operationRegistrations.containsKey(conditionalId)) {
+                throw new TransfluxValidationException(
+                    "ID '" + conditionalId + "' is already registered as an operation");
+            }
+            conditionalStepRegistrations.put(conditionalId, conditional);
         }
     }
 
@@ -573,12 +589,165 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
      *         instantiated through its no-arg constructor
      */
     public Map<String, BoundOperation<T, C>> buildBoundOperations(StateMachineImpl<T, C> stateMachine) {
+        return buildBoundOperationsIncrementally(stateMachine, ignored -> {});
+    }
+
+    /**
+     * Builds the operation registry one entry at a time, invoking {@code afterBuild} after each
+     * bound operation is produced. Allows the caller to register each operation into the
+     * SM-level component registry as soon as it is built, so that subsequent SM-level composite
+     * builds in the same pass can resolve previously-built composites through the registry.
+     *
+     * <p>SM-level composites that reference other SM-level composites must be registered in
+     * dependency order — referenced composites first. Cycles are caught by the build-time
+     * validation pass and never reach this method.
+     *
+     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
+     * should not invoke it directly.
+     *
+     * @param stateMachine the enclosing state machine
+     * @param afterBuild callback invoked with each bound operation as it is built
+     *
+     * @return an unmodifiable map of operation id to bound operation, in build order
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, BoundOperation<T, C>> buildBoundOperationsIncrementally(
+            StateMachineImpl<T, C> stateMachine,
+            java.util.function.Consumer<BoundOperation<T, C>> afterBuild) {
         Map<String, BoundOperation<T, C>> resolved = new LinkedHashMap<>();
         for (Map.Entry<String, OperationRegistration<T, C>> e : operationRegistrations.entrySet()) {
-            resolved.put(e.getKey(), e.getValue().toBoundOperation(e.getKey()));
+            BoundOperation<T, C> bo = e.getValue().toBoundOperation(e.getKey());
+            resolved.put(e.getKey(), bo);
+            afterBuild.accept(bo);
+        }
+        for (Map.Entry<String, CompositeOperationDefImpl<T, ?>> e : smCompositeOperations.entrySet()) {
+            if (resolved.containsKey(e.getKey())) {
+                throw new TransfluxValidationException(
+                    "Operation ID '" + e.getKey() + "' is already registered");
+            }
+            CompositeOperationDefImpl<T, C> raw = (CompositeOperationDefImpl<T, C>) e.getValue();
+            BoundOperation<T, C> bo = raw.build(stateMachine);
+            resolved.put(e.getKey(), bo);
+            afterBuild.accept(bo);
         }
 
         return Collections.unmodifiableMap(resolved);
+    }
+
+    /**
+     * Opens a context-typed registration scope. The configurer registers reusable
+     * components (steps, conditions, composite operations) tagged with {@code contextType};
+     * the framework verifies context compatibility at build time when a by-id reference
+     * resolves against them.
+     *
+     * <p>Multiple invocations for the same {@code contextType} class are permitted and
+     * accumulate.
+     *
+     * @param contextType the scope's context class; use {@code Void.class} for context-free
+     *                    components
+     * @param configurer callback that performs the registrations
+     * @param <C2> the scope context class
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}
+     */
+    public <C2> StateMachineDef<T, C> useContext(Class<C2> contextType, java.util.function.Consumer<ContextScope<T, C2>> configurer) {
+        requireNotNull(contextType, "Context type");
+        requireNotNull(configurer, "useContext configurer");
+        ContextScopeImpl<T, C2> scope = new ContextScopeImpl<>(this, contextType);
+        configurer.accept(scope);
+        return this;
+    }
+
+    /**
+     * Records the declared context class for a component id.
+     */
+    private void tagContextType(String id, Class<?> contextType) {
+        Class<?> existing = componentContextTypes.get(id);
+        if (existing != null && existing != contextType) {
+            throw new TransfluxValidationException(
+                "Component id '" + id + "' is registered against context type "
+                    + existing.getName() + "; cannot re-register against " + contextType.getName());
+        }
+        componentContextTypes.put(id, contextType);
+    }
+
+    /**
+     * Returns the declared context class for the component id, or {@code null} if the id
+     * was not registered through a {@code useContext} block.
+     *
+     * @param id the component id
+     *
+     * @return the declared context class, or {@code null}
+     */
+    Class<?> getComponentContextType(String id) {
+        return componentContextTypes.get(id);
+    }
+
+    /**
+     * Returns the SM-level composite operation by id, or {@code null} if no composite is
+     * registered under that id at SM level.
+     *
+     * @param id the composite id
+     *
+     * @return the composite def, or {@code null}
+     */
+    public CompositeOperationDefImpl<T, ?> getSmCompositeOperation(String id) {
+        return smCompositeOperations.get(id);
+    }
+
+    @SuppressWarnings("unchecked")
+    <C2> void registerScopedStep(String id, Step<T, C2> step, Class<C2> contextType) {
+        registerStepInstance(id, (Step<T, C>) step);
+        tagContextType(id, contextType);
+    }
+
+    @SuppressWarnings("unchecked")
+    <C2> void registerScopedStep(String id, Class<? extends Step<T, C2>> stepClass, Class<C2> contextType) {
+        registerStepClass(id, (Class<? extends Step<T, C>>) stepClass);
+        tagContextType(id, contextType);
+    }
+
+    @SuppressWarnings("unchecked")
+    <C2> void registerScopedCondition(String id, Condition<T, C2> condition, Class<C2> contextType) {
+        registerConditionInstance(id, (Condition<T, C>) condition);
+        tagContextType(id, contextType);
+    }
+
+    @SuppressWarnings("unchecked")
+    <C2> void registerScopedCondition(String id, Class<? extends Condition<T, C2>> conditionClass, Class<C2> contextType) {
+        registerConditionClass(id, (Class<? extends Condition<T, C>>) conditionClass);
+        tagContextType(id, contextType);
+    }
+
+    <C2> void registerScopedCondition(String id, Predicate<T> predicate, Class<C2> contextType) {
+        registerConditionPredicate(id, predicate);
+        tagContextType(id, contextType);
+    }
+
+    <C2> void registerScopedCondition(String id, String expression, Class<C2> contextType) {
+        registerConditionExpression(id, expression);
+        tagContextType(id, contextType);
+    }
+
+    @SuppressWarnings("unchecked")
+    <C2> void registerScopedCompositeOperation(String id,
+                                               java.util.function.Consumer<CompositeOperationDef<T, C2>> configurer,
+                                               Class<C2> contextType) {
+        if (smCompositeOperations.containsKey(id)) {
+            throw new TransfluxValidationException(
+                "Composite operation id '" + id + "' is already registered at SM level");
+        }
+        if (stepRegistrations.containsKey(id) || operationRegistrations.containsKey(id)
+            || conditionRegistrations.containsKey(id) || conditionalStepRegistrations.containsKey(id)) {
+            throw new TransfluxValidationException(
+                "Component id '" + id + "' is already registered");
+        }
+        CompositeOperationDefImpl<T, C2> composite = new CompositeOperationDefImpl<>(id);
+        configurer.accept(composite);
+        smCompositeOperations.put(id, composite);
+        tagContextType(id, contextType);
     }
 
     @Override
@@ -675,7 +844,104 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
      */
     @Override
     public StateMachine<T, C> build() {
+        validateContextCompatibilityAndCycles();
         return new StateMachineImpl<>(this);
+    }
+
+    /**
+     * Build-time validation pass. Two concerns:
+     * <ul>
+     *   <li><b>Context compatibility.</b> Every by-id reference (a composite's
+     *       {@code .step("foo")} / {@code .operation("foo")}, a transition's
+     *       {@code .preCondition("foo")}) is checked against the referenced component's
+     *       declared context type. The check is conservative: it skips silently when either
+     *       side has no declared context type (legacy registrations without a
+     *       {@code useContext} block carry no tag), and fires only when both sides have
+     *       declared types and they disagree.</li>
+     *   <li><b>Cycle detection.</b> A DFS over the composite-by-id reference graph
+     *       (composites referencing other composites) raises if it encounters a back-edge.
+     *       Self-references (A &rarr; A) and longer cycles (A &rarr; B &rarr; A) are both
+     *       caught.</li>
+     * </ul>
+     */
+    private void validateContextCompatibilityAndCycles() {
+        for (TransitionDefImpl<T, C> td : transitionsById.values()) {
+            Class<?> transitionContext = td.getContextType();
+            OperationDefImpl<T, C> op = td.getOperationDef();
+            if (op instanceof CompositeOperationDefImpl<T, C> composite) {
+                checkCompositeRefs(composite, transitionContext,
+                    "transition '" + td.getId() + "'");
+            }
+        }
+        for (Map.Entry<String, CompositeOperationDefImpl<T, ?>> e : smCompositeOperations.entrySet()) {
+            Class<?> scopeContext = componentContextTypes.get(e.getKey());
+            checkCompositeRefs(e.getValue(), scopeContext,
+                "SM-level composite '" + e.getKey() + "'");
+        }
+        detectCompositeCycles();
+    }
+
+    private void checkCompositeRefs(CompositeOperationDefImpl<T, ?> composite,
+                                    Class<?> scopeContext,
+                                    String scopeLabel) {
+        if (scopeContext == null) {
+            return; // legacy / untagged scope — skip
+        }
+        for (String stepId : composite.getStepByIdReferenceIds()) {
+            Class<?> stepCtx = componentContextTypes.get(stepId);
+            if (stepCtx != null && stepCtx != scopeContext) {
+                throw new TransfluxValidationException(
+                    "Context type mismatch: " + scopeLabel + " (context "
+                        + scopeContext.getName() + ") references step '" + stepId
+                        + "' declared for context " + stepCtx.getName());
+            }
+        }
+        for (String opId : composite.getOperationByIdReferenceIds()) {
+            Class<?> opCtx = componentContextTypes.get(opId);
+            if (opCtx != null && opCtx != scopeContext) {
+                throw new TransfluxValidationException(
+                    "Context type mismatch: " + scopeLabel + " (context "
+                        + scopeContext.getName() + ") references operation '" + opId
+                        + "' declared for context " + opCtx.getName());
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void detectCompositeCycles() {
+        java.util.Set<String> visited = new java.util.HashSet<>();
+        java.util.Deque<String> stack = new java.util.ArrayDeque<>();
+        for (String id : smCompositeOperations.keySet()) {
+            if (!visited.contains(id)) {
+                dfsComposite(id, visited, stack);
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void dfsComposite(String id, java.util.Set<String> visited, java.util.Deque<String> stack) {
+        if (stack.contains(id)) {
+            java.util.List<String> path = new ArrayList<>(stack);
+            path.add(id);
+            int start = path.indexOf(id);
+            throw new TransfluxValidationException(
+                "Composite operation cycle detected: " + String.join(" -> ", path.subList(start, path.size())));
+        }
+        if (visited.contains(id)) {
+            return;
+        }
+        CompositeOperationDefImpl<T, ?> composite = smCompositeOperations.get(id);
+        if (composite == null) {
+            return;
+        }
+        stack.push(id);
+        for (String refId : composite.getOperationByIdReferenceIds()) {
+            if (smCompositeOperations.containsKey(refId)) {
+                dfsComposite(refId, visited, stack);
+            }
+        }
+        stack.pop();
+        visited.add(id);
     }
 
     public Class<T> getEntityType() {

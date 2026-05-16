@@ -69,6 +69,7 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     private final String targetStateId;
 
     private OperationDefImpl<T, C> operationDef;
+    private Class<C> contextType;
 
     private String name;
     private String description;
@@ -88,6 +89,7 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
      *
      * @throws TransfluxValidationException if any parameter is null or blank
      */
+    @SuppressWarnings("unchecked")
     public TransitionDefImpl(String id, String sourceStateId, String targetStateId) {
         requireNotBlank(id, "Transition ID");
         requireNotBlank(sourceStateId, "Source state ID");
@@ -96,6 +98,24 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
         this.id = id;
         this.sourceStateId = sourceStateId;
         this.targetStateId = targetStateId;
+        this.contextType = (Class<C>) Void.class;
+    }
+
+    @Override
+    public Class<C> getContextType() {
+        return contextType;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <C2> TransitionDef<T, C2> usingContext(Class<C2> contextType) {
+        requireNotNull(contextType, "Transition context type");
+        if (this.contextType != null && this.contextType != Void.class && this.contextType != contextType) {
+            log.warn("Transition '{}' context type already declared as {}; overriding with {}",
+                this.id, this.contextType.getName(), contextType.getName());
+        }
+        this.contextType = (Class<C>) contextType;
+        return (TransitionDef<T, C2>) this;
     }
 
     /**
