@@ -195,10 +195,9 @@ public interface CompositeOperationDef<T, C> extends OperationDef<T, C> {
     /**
      * Records a runtime type-assertion that the composite's declared context generic
      * {@code C} matches the supplied class. Useful for documentation, IDE legibility, and
-     * the future YAML DSL where generics are erased. At {@link #build} time the framework
-     * validates this assertion against the enclosing state machine's
-     * {@linkplain org.transflux.core.StateMachineDef#forContextType(Class) declared context
-     * type} and throws on mismatch.
+     * the future YAML DSL where generics are erased. The framework does not validate this
+     * against any SM-level context type (the SM no longer declares one); validation, if any,
+     * is delegated to the enclosing transition's context type.
      *
      * @param contextType the context class; never {@code null}
      *

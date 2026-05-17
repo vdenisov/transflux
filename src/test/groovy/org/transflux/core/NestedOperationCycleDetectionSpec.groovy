@@ -118,8 +118,8 @@ class NestedOperationCycleDetectionSpec extends Specification {
         sm != null
     }
 
-    private static StateMachineDefImpl<Entity, Object> baseDef() {
-        def smd = new StateMachineDefImpl<Entity, Object>()
+    private static StateMachineDefImpl<Entity> baseDef() {
+        def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .state('s1').transitionsTo('s2', 't')

@@ -55,11 +55,10 @@ class StateMachineImplConditionEvaluationSpec extends Specification {
         }
     }
 
-    private static StateMachineDefImpl<Entity, TestContext> baseDef(FlaggingOperation operation,
+    private static StateMachineDefImpl<Entity> baseDef(FlaggingOperation operation,
                                                                     List<String> appliedStates) {
-        def smd = new StateMachineDefImpl<Entity, TestContext>()
+        def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
-            .forContextType(TestContext)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> appliedStates.add(s); e.state = s } as StateApplier<Entity>)
             .state('s1').transitionsTo('s2', 't')
@@ -173,9 +172,8 @@ class StateMachineImplConditionEvaluationSpec extends Specification {
         given:
         def operation = new FlaggingOperation()
         def applied = []
-        def smd = new StateMachineDefImpl<Entity, TestContext>()
+        def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
-            .forContextType(TestContext)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
             .condition('registered', { e -> e.value > 0 } as Predicate)

@@ -55,7 +55,7 @@ class TransitionViewSpec extends Specification {
     def "view.step(id) should run the bound step against the captured scope and record the id"() {
         given:
         def step = new TaggingStep('foo')
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('foo-id', step)
@@ -78,7 +78,7 @@ class TransitionViewSpec extends Specification {
 
     def "view.step(id) should throw for an unknown id"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
         smd.state(TRIAL).transitionsTo(ACTIVE, 't1')
@@ -99,7 +99,7 @@ class TransitionViewSpec extends Specification {
 
     def "view.step(id) should reject null or blank id"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
         smd.state(TRIAL).transitionsTo(ACTIVE, 't1')
@@ -121,7 +121,7 @@ class TransitionViewSpec extends Specification {
 
     def "TransitionImpl.step(id) on the static-topology object should throw"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
         smd.state(TRIAL).transitionsTo(ACTIVE, 't1')
         smd.state(ACTIVE)

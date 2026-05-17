@@ -303,13 +303,12 @@ class ConditionalStepDefImplSpec extends Specification {
         (descriptor as ConditionDescriptor.ExpressionBased).expression() == 'entity.value > 0'
     }
 
-    private static StateMachineImpl<Entity, TestContext> stateMachine() {
-        def smd = new StateMachineDefImpl<Entity, TestContext>()
+    private static StateMachineImpl<Entity> stateMachine() {
+        def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
-            .forContextType(TestContext)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .state('s1').transitionsTo('s2', 't')
             .state('s2')
-        return (StateMachineImpl<Entity, TestContext>) smd.build()
+        return (StateMachineImpl<Entity>) smd.build()
     }
 }

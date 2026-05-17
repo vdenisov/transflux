@@ -31,6 +31,12 @@ import org.transflux.core.transition.TransitionResult;
  * the logic and execution of transitions themselves, including dependencies, sequencing,
  * error handling, and compensations during state changes.
  *
+ * <p>The state machine itself is not parameterized by a context type. Each transition declares
+ * its own context type (via {@code transitionsTo(target, id, Class<C>)} or
+ * {@code TransitionDef.usingContext(Class<C>)}); the host supplies the firing-time context
+ * to {@link EntityBinding#transitionTo(String, Object)} and the framework verifies the type
+ * at the dispatch boundary.
+ *
  * <p><b>Key Responsibilities:</b>
  * <ul>
  * <li>Maintain the state transition matrix definition</li>
@@ -42,8 +48,7 @@ import org.transflux.core.transition.TransitionResult;
  *
  * <p><b>Example usage:</b>
  * <pre>{@code
- * // Create a state machine for subscription entities
- * StateMachine<Subscription, SubscriptionContext> subscriptionSM = Transflux
+ * StateMachine<Subscription> subscriptionSM = Transflux
  *     .defineStateMachine()
  *     .forEntityType(Subscription.class)
  *     .withStateResolver(subscription -> subscription.getStatus())
@@ -62,13 +67,12 @@ import org.transflux.core.transition.TransitionResult;
  * }</pre>
  *
  * @param <T> the type of entity managed by this state machine
- * @param <C> the host-supplied context type carried through transition execution
  */
-public interface StateMachine<T, C> {
+public interface StateMachine<T> {
 
     /**
      * Begins a fluent execution scope for the given entity. Preferred usage is
-     * {@code stateMachine.entity(e).withContext(c).transitionTo("target")}.
+     * {@code stateMachine.entity(e).transitionTo("target", ctx)}.
      *
      * @param entity the entity to operate on
      *
@@ -76,7 +80,7 @@ public interface StateMachine<T, C> {
      *
      * @throws TransfluxValidationException if {@code entity} is {@code null}
      */
-    EntityBinding<T, C> entity(T entity);
+    EntityBinding<T> entity(T entity);
 
     /**
      * Executes a transition for the given entity from its current state to the specified target state.
@@ -95,7 +99,7 @@ public interface StateMachine<T, C> {
      * @throws TransfluxValidationException if no transition exists, multiple transitions exist,
      *         or the current state cannot be resolved
      */
-    TransitionResult<T, C> executeTransition(T entity, String targetStateId);
+    TransitionResult<T> executeTransition(T entity, String targetStateId);
 
     /**
      * Executes a specific transition for the given entity.
@@ -112,7 +116,7 @@ public interface StateMachine<T, C> {
      * @throws TransfluxValidationException if the transition does not exist or the entity
      *         is not in the correct source state
      */
-    TransitionResult<T, C> executeTransition(T entity, String targetStateId, String transitionId);
+    TransitionResult<T> executeTransition(T entity, String targetStateId, String transitionId);
 
     /**
      * Resolves and returns the current state ID of the given entity.
@@ -148,64 +152,55 @@ public interface StateMachine<T, C> {
      *
      * @throws TransfluxValidationException if no transition exists with the given ID
      */
-    Transition<T, C> getTransition(String transitionId);
+    Transition<T, ?> getTransition(String transitionId);
 
     /**
      * Fluent execution scope returned by {@link StateMachine#entity(Object)}.
      *
      * @param <T> the entity type
-     * @param <C> the context type
      */
-    interface EntityBinding<T, C> {
+    interface EntityBinding<T> {
         /**
-         * Attaches a host-supplied context object to this execution scope. May be called
-         * with {@code null} to clear a previously set context.
-         *
-         * @param context the context object; may be {@code null}
-         *
-         * @return this binding for chaining
-         */
-        EntityBinding<T, C> withContext(C context);
-
-        /**
-         * Executes the unique transition from the entity's current state to {@code targetStateId},
-         * passing the bound context through to the underlying operation.
+         * Executes the unique transition from the entity's current state to {@code targetStateId}
+         * with no firing context.
          *
          * @param targetStateId the ID of the target state
          *
          * @return the result of the transition execution
          */
-        TransitionResult<T, C> transitionTo(String targetStateId);
+        TransitionResult<T> transitionTo(String targetStateId);
 
         /**
-         * Executes the named transition from the entity's current state to {@code targetStateId},
-         * passing the bound context through to the underlying operation.
+         * Executes the named transition from the entity's current state to {@code targetStateId}
+         * with no firing context.
          *
          * @param targetStateId the ID of the target state
          * @param transitionId the ID of the specific transition to execute
          *
          * @return the result of the transition execution
          */
-        TransitionResult<T, C> transitionTo(String targetStateId, String transitionId);
+        TransitionResult<T> transitionTo(String targetStateId, String transitionId);
 
         /**
          * Executes the unique transition from the entity's current state to {@code targetStateId},
          * passing {@code context} through to the underlying operation. The framework verifies
          * at the dispatch boundary that {@code context == null || transitionContextType.isInstance(context)}
-         * and throws {@link TransfluxValidationException} on mismatch.
+         * and throws {@link TransfluxValidationException} on mismatch. A transition declared with
+         * {@code Void.class} context rejects any non-null firing value.
          *
          * @param targetStateId the ID of the target state
          * @param context the fire-time context; may be {@code null}
          *
          * @return the result of the transition execution
          */
-        TransitionResult<T, ?> transitionTo(String targetStateId, Object context);
+        TransitionResult<T> transitionTo(String targetStateId, Object context);
 
         /**
          * Executes the named transition from the entity's current state to {@code targetStateId},
          * passing {@code context} through to the underlying operation. The framework verifies
          * at the dispatch boundary that {@code context == null || transitionContextType.isInstance(context)}
-         * and throws {@link TransfluxValidationException} on mismatch.
+         * and throws {@link TransfluxValidationException} on mismatch. A transition declared with
+         * {@code Void.class} context rejects any non-null firing value.
          *
          * @param targetStateId the ID of the target state
          * @param transitionId the ID of the specific transition to execute
@@ -213,6 +208,6 @@ public interface StateMachine<T, C> {
          *
          * @return the result of the transition execution
          */
-        TransitionResult<T, ?> transitionTo(String targetStateId, String transitionId, Object context);
+        TransitionResult<T> transitionTo(String targetStateId, String transitionId, Object context);
     }
 }

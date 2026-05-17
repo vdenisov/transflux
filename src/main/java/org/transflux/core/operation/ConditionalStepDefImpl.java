@@ -204,7 +204,7 @@ public final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T,
      *         branches, or the default branch are violated, or if any condition descriptor
      *         cannot be resolved
      */
-    public BoundStep<T, C> buildBoundStep(StateMachineImpl<T, C> stateMachine,
+    public BoundStep<T, C> buildBoundStep(StateMachineImpl<T> stateMachine,
                                           Map<String, BoundCondition<T, C>> conditionRegistry) {
         requireNotNull(stateMachine, "State machine");
         requireNotNull(conditionRegistry, "Condition registry");
@@ -294,13 +294,13 @@ public final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T,
      * constructed and every referenced id is resolvable.
      */
     private final class ConditionalStepExecutor implements Step<T, C> {
-        private final StateMachineImpl<T, C> stateMachine;
+        private final StateMachineImpl<T> stateMachine;
         private final List<ResolvedBranch<T, C>> resolvedBranches;
         private final List<String> defaultStepIds;
         private final NoMatchBehavior noMatchBehavior;
         private final String conditionalId;
 
-        ConditionalStepExecutor(StateMachineImpl<T, C> stateMachine,
+        ConditionalStepExecutor(StateMachineImpl<T> stateMachine,
                                 List<ResolvedBranch<T, C>> resolvedBranches,
                                 List<String> defaultStepIds,
                                 NoMatchBehavior noMatchBehavior,
@@ -344,9 +344,10 @@ public final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T,
             }
         }
 
+        @SuppressWarnings({"unchecked", "rawtypes"})
         private void dispatchStepIds(List<String> stepIds, TransitionView<T, C> view) {
             for (String stepId : stepIds) {
-                BoundStep<T, C> bound = stateMachine.getBoundStep(stepId);
+                BoundStep<T, C> bound = (BoundStep<T, C>) (BoundStep) stateMachine.getBoundStep(stepId);
                 if (bound == null) {
                     throw new TransfluxValidationException(
                         "Conditional step '" + conditionalId + "' references unknown step id '"

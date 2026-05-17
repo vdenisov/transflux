@@ -362,9 +362,8 @@ class StateMachineImplCompensationSpec extends Specification {
     def 'transition.step("id") invocations also push compensation'() {
         given:
         def applied = []
-        def smd = new StateMachineDefImpl<Entity, TestContext>()
+        def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
-            .forContextType(TestContext)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
             .step('dynamic', new TrailStep('dyn'))
@@ -393,10 +392,9 @@ class StateMachineImplCompensationSpec extends Specification {
         applied.isEmpty()
     }
 
-    private static StateMachineDefImpl<Entity, TestContext> baseDef(List<String> applied) {
-        def smd = new StateMachineDefImpl<Entity, TestContext>()
+    private static StateMachineDefImpl<Entity> baseDef(List<String> applied) {
+        def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
-            .forContextType(TestContext)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
             .state('s1').transitionsTo('s2', 't')

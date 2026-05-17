@@ -35,12 +35,12 @@ class TransitionUsingContextSpec extends Specification {
 
     static class TheCtx { }
 
-    def 'TransitionDef defaults to Void context when usingContext is not called'() {
+    def 'TransitionDef defaults to Object context when usingContext is not called'() {
         given:
-        def td = new TransitionDefImpl<Entity, Void>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, Object>('t1', 's1', 's2')
 
         expect:
-        td.getContextType() == Void
+        td.getContextType() == Object
     }
 
     def 'usingContext narrows the transition\'s context type and re-types the builder'() {
@@ -57,7 +57,7 @@ class TransitionUsingContextSpec extends Specification {
 
     def 'transition\'s contextType is reachable from the runtime TransitionImpl'() {
         given:
-        def smd = new StateMachineDefImpl<Entity, Object>()
+        def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .state('s1').transitionsTo('s2', 't1')

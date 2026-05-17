@@ -47,7 +47,7 @@ class StateMachineImplReentrancySpec extends Specification {
 
     /** Step that calls back into the SM with a chosen entity, at most once. */
     static class ReentrantStep implements Step<Entity, TestContext> {
-        StateMachineImpl<Entity, TestContext> targetSm
+        StateMachineImpl<Entity> targetSm
         Entity targetEntity
         String targetState
         boolean fired = false
@@ -87,7 +87,7 @@ class StateMachineImplReentrancySpec extends Specification {
 
     def 'operation that calls back into the same SM with the same entity raises TransfluxReentrancyException'() {
         given:
-        StateMachineImpl<Entity, TestContext> sm = null
+        StateMachineImpl<Entity> sm = null
         Entity entity = null
         def op = { Entity e, TestContext c, Transition<Entity, TestContext> t ->
             sm.executeTransition(entity, 's2')
@@ -108,7 +108,7 @@ class StateMachineImplReentrancySpec extends Specification {
 
     def 'pre-condition that calls back into the same SM with the same entity raises TransfluxReentrancyException'() {
         given:
-        StateMachineImpl<Entity, TestContext> sm = null
+        StateMachineImpl<Entity> sm = null
         Entity entity = null
         def cond = { Entity e, TestContext c, Transition<Entity, TestContext> t ->
             sm.executeTransition(entity, 's2')
@@ -230,10 +230,9 @@ class StateMachineImplReentrancySpec extends Specification {
         second.error.message == 'boom'
     }
 
-    private static StateMachineDefImpl<Entity, TestContext> baseDef(List<String> applied) {
-        def smd = new StateMachineDefImpl<Entity, TestContext>()
+    private static StateMachineDefImpl<Entity> baseDef(List<String> applied) {
+        def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
-            .forContextType(TestContext)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
             .state('s1').transitionsTo('s2', 't')

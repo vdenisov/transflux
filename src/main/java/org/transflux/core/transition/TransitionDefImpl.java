@@ -91,14 +91,19 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
      */
     @SuppressWarnings("unchecked")
     public TransitionDefImpl(String id, String sourceStateId, String targetStateId) {
+        this(id, sourceStateId, targetStateId, (Class<C>) Object.class);
+    }
+
+    public TransitionDefImpl(String id, String sourceStateId, String targetStateId, Class<C> contextType) {
         requireNotBlank(id, "Transition ID");
         requireNotBlank(sourceStateId, "Source state ID");
         requireNotBlank(targetStateId, "Target state ID");
+        requireNotNull(contextType, "Transition context type");
 
         this.id = id;
         this.sourceStateId = sourceStateId;
         this.targetStateId = targetStateId;
-        this.contextType = (Class<C>) Void.class;
+        this.contextType = contextType;
     }
 
     @Override
@@ -110,7 +115,7 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     @SuppressWarnings("unchecked")
     public <C2> TransitionDef<T, C2> usingContext(Class<C2> contextType) {
         requireNotNull(contextType, "Transition context type");
-        if (this.contextType != null && this.contextType != Void.class && this.contextType != contextType) {
+        if (this.contextType != null && this.contextType != Object.class && this.contextType != contextType) {
             log.warn("Transition '{}' context type already declared as {}; overriding with {}",
                 this.id, this.contextType.getName(), contextType.getName());
         }
@@ -157,7 +162,7 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
      *
      * @return the bound operation, or {@code null}
      */
-    public BoundOperation<T, C> buildBoundOperation(StateMachineImpl<T, C> stateMachine) {
+    public BoundOperation<T, C> buildBoundOperation(StateMachineImpl<T> stateMachine) {
         if (operationDef == null) {
             return null;
         }

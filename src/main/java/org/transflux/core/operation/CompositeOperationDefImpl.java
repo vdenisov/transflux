@@ -371,22 +371,11 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
      * @throws TransfluxValidationException if the composite has no members, or any referenced
      *         id is not registered on the state machine
      */
-    public BoundOperation<T, C> build(StateMachineImpl<T, C> stateMachine) {
+    public BoundOperation<T, C> build(StateMachineImpl<T> stateMachine) {
         if (actionRefs.isEmpty()) {
             throw new TransfluxValidationException(
                 "CompositeOperationDef '" + getId()
                     + "' has no members; call step(...) or operation(...) at least once before build");
-        }
-
-        if (declaredContextType != null) {
-            Class<C> smContextType = stateMachine.getContextType();
-            if (smContextType != null && !smContextType.equals(declaredContextType)) {
-                throw new TransfluxValidationException(
-                    "CompositeOperationDef '" + getId() + "' usingContext("
-                        + declaredContextType.getName()
-                        + ") does not match the state machine's context type "
-                        + smContextType.getName());
-            }
         }
 
         List<CompositeStep<T, C>> steps = new ArrayList<>(actionRefs.size());
@@ -472,7 +461,7 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
                     @SuppressWarnings("unchecked")
                     Operation<T, Object> rawOp = (Operation<T, Object>) boundOperation.operation();
                     @SuppressWarnings("unchecked")
-                    Transition<T, Object> rawTransition = (Transition<T, Object>) (Transition<T, ?>) view;
+                    Transition<T, Object> rawTransition = (Transition<T, Object>) view;
                     rawOp.execute(entity, childContext, rawTransition);
 
                     mapper.mapFrom(context, childContext);

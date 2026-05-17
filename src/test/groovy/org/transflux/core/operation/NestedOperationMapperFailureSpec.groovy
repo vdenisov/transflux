@@ -58,7 +58,7 @@ class NestedOperationMapperFailureSpec extends Specification {
         def entity = new Entity('s1')
 
         when:
-        def result = sm.entity(entity).withContext(new ParentCtx()).transitionTo('s2')
+        def result = sm.entity(entity).transitionTo('s2', new ParentCtx())
 
         then:
         !result.success
@@ -82,7 +82,7 @@ class NestedOperationMapperFailureSpec extends Specification {
         def entity = new Entity('s1')
 
         when:
-        def result = sm.entity(entity).withContext(new ParentCtx()).transitionTo('s2')
+        def result = sm.entity(entity).transitionTo('s2', new ParentCtx())
 
         then:
         !result.success
@@ -92,10 +92,9 @@ class NestedOperationMapperFailureSpec extends Specification {
         entity.trail == ['child-ran']
     }
 
-    private static StateMachineDefImpl<Entity, ParentCtx> baseDef() {
-        def smd = new StateMachineDefImpl<Entity, ParentCtx>()
+    private static StateMachineDefImpl<Entity> baseDef() {
+        def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
-            .forContextType(ParentCtx)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .state('s1').transitionsTo('s2', 't')
             .state('s2')

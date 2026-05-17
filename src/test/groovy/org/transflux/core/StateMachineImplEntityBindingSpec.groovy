@@ -44,9 +44,8 @@ class StateMachineImplEntityBindingSpec extends Specification {
         def applied = []
         def applier = { TestEntity e, String s -> applied << [e.id, s] } as StateApplier<TestEntity>
 
-        StateMachine<TestEntity, TestContext> sm = Transflux.<TestEntity, TestContext> defineStateMachine()
+        StateMachine<TestEntity> sm = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
-            .forContextType(TestContext)
             .withStateResolver({ TestEntity e -> e.state } as StateResolver<TestEntity>)
             .withStateApplier(applier)
             .state(TRIAL).transitionsTo(ACTIVE, "t1")
@@ -64,11 +63,10 @@ class StateMachineImplEntityBindingSpec extends Specification {
         applied == [["e1", "ACTIVE"]]
     }
 
-    def "entity(e).withContext(c).transitionTo(target) should succeed and not lose the context"() {
+    def "entity(e).transitionTo(target, c) should succeed and not lose the context"() {
         given:
-        StateMachine<TestEntity, TestContext> sm = Transflux.<TestEntity, TestContext> defineStateMachine()
+        StateMachine<TestEntity> sm = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
-            .forContextType(TestContext)
             .withStateResolver({ TestEntity e -> e.state } as StateResolver<TestEntity>)
             .state(TRIAL).transitionsTo(ACTIVE, "t1")
             .state(ACTIVE)
@@ -78,7 +76,7 @@ class StateMachineImplEntityBindingSpec extends Specification {
         def context = new TestContext("hello")
 
         when:
-        def result = sm.entity(entity).withContext(context).transitionTo("ACTIVE")
+        def result = sm.entity(entity).transitionTo("ACTIVE", context)
 
         then:
         result.success
@@ -103,7 +101,7 @@ class StateMachineImplEntityBindingSpec extends Specification {
 
     def "entity(e).transitionTo with explicit transitionId should validate the transition matches"() {
         given:
-        StateMachine<TestEntity, TestContext> sm = Transflux.<TestEntity, TestContext> defineStateMachine()
+        StateMachine<TestEntity> sm = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ TestEntity e -> e.state } as StateResolver<TestEntity>)
             .state(TRIAL).transitionsTo(ACTIVE, "t1")

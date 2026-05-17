@@ -85,7 +85,7 @@ public final class Transflux {
      * @return a new StateMachineDef instance for building the state machine definition
      * @throws TransfluxValidationException if the entity type is null
      */
-    public static <T, C> StateMachineDef<T, C> defineStateMachine() {
+    public static <T> StateMachineDef<T> defineStateMachine() {
         return new StateMachineDefImpl<>();
     }
 }

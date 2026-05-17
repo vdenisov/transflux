@@ -163,6 +163,9 @@ Patch releases (`x.y.z`) ship between minor releases for bug fixes and security 
 ## Phase 2.5: Nested Operations (v0.2.5)
 *Target: First-class operation-as-composite-member with type-safe context mapping. See `requirements.md` §4.5.2.*
 
+### 2.5.0 Per-transition context refactor (prerequisite, completed)
+- [x] Drop the `<C>` generic from `StateMachine`, `StateMachineDef`, `StateMachineImpl`, `StateDef`, and the nested `EntityBinding`. Context now lives at the transition level: `TransitionDef<T, C>` declares its own `C`, defaulting to `Object.class` when neither `transitionsTo(target, id, Class<C>)` nor `usingContext(Class<C>)` is called. `Void.class` becomes a sentinel that rejects any non-null firing context. SM-level component registries take wildcard `Step<T, ?>` / `Condition<T, ?>` plus typed overloads `step(id, Class<C>, Step<T, C>)`, mirroring `useContext(...)` tagging. `StateMachineDef.forContextType(Class<C>)` deleted outright. Heterogeneous transitions on a single SM are now expressible (e.g., offer drafting, submission, withdrawal each with their own context type).
+
 ### 2.5.1 Nested Operation Member Type
 - [ ] Generalize `CompositeOperation` members from `Step` to `Step | Operation` (both `SimpleOperation` and `CompositeOperation` are nestable, recursively).
 - [ ] `CompositeOperationDef.operation(String id, Class<? extends Operation<T, ?>> opClass)` builder overload.

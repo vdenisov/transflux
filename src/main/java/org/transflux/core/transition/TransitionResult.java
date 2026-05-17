@@ -40,14 +40,12 @@ import java.util.List;
  * are reported through this type. Configuration and lookup errors throw
  * {@link TransfluxValidationException} synchronously.
  *
- * <p>The {@code <C>} parameter is carried for type-system symmetry with the rest of the
- * core surface (so {@code TransitionResult<Order, OrderContext>} reads consistently with
- * {@code StateMachine<Order, OrderContext>}); the context object itself is not stored in
- * the result.
+ * <p>The firing-time context object is not stored in the result; callers that need it
+ * already have it on their side of the call.
  *
  * <p><b>Example usage:</b>
  * <pre>{@code
- * TransitionResult<Order, OrderContext> result = stateMachine.executeTransition(order, "processing");
+ * TransitionResult<Order> result = stateMachine.executeTransition(order, "processing");
  *
  * if (result.isSuccess()) {
  *     log.info("Transitioned {} -> {} in {} via {}",
@@ -59,9 +57,8 @@ import java.util.List;
  * }</pre>
  *
  * @param <T> the type of entity involved in the transition
- * @param <C> the host-supplied context type carried through transition execution
  */
-public class TransitionResult<T, C> {
+public class TransitionResult<T> {
     private final boolean success;
     private final T entity;
     private final String sourceStateId;
@@ -99,106 +96,52 @@ public class TransitionResult<T, C> {
 
     /**
      * Creates a successful transition result with default timing (both timestamps set to now)
-     * and empty step lists. Intended for early-phase use where no steps have executed yet.
-     *
-     * @param <T> the type of entity
-     * @param <C> the host-supplied context type carried through transition execution
-     * @param entity the entity that underwent the transition
-     * @param sourceStateId the ID of the source state
-     * @param targetStateId the ID of the target state
-     * @param transitionId the ID of the transition that was executed
-     *
-     * @return a successful TransitionResult
+     * and empty step lists.
      */
-    public static <T, C> TransitionResult<T, C> success(T entity, String sourceStateId,
-                                                        String targetStateId, String transitionId) {
+    public static <T> TransitionResult<T> success(T entity, String sourceStateId,
+                                                  String targetStateId, String transitionId) {
         Instant now = Instant.now();
         return success(entity, sourceStateId, targetStateId, transitionId, now, now);
     }
 
     /**
      * Creates a successful transition result with explicit timestamps and empty step lists.
-     *
-     * @param <T> the type of entity
-     * @param <C> the host-supplied context type carried through transition execution
-     * @param entity the entity that underwent the transition
-     * @param sourceStateId the ID of the source state
-     * @param targetStateId the ID of the target state
-     * @param transitionId the ID of the transition that was executed
-     * @param startedAt the timestamp at which the transition started
-     * @param completedAt the timestamp at which the transition completed
-     *
-     * @return a successful TransitionResult
      */
-    public static <T, C> TransitionResult<T, C> success(T entity, String sourceStateId,
-                                                        String targetStateId, String transitionId,
-                                                        Instant startedAt, Instant completedAt) {
+    public static <T> TransitionResult<T> success(T entity, String sourceStateId,
+                                                  String targetStateId, String transitionId,
+                                                  Instant startedAt, Instant completedAt) {
         return new TransitionResult<>(true, entity, sourceStateId, targetStateId, transitionId,
                 null, null, null, startedAt, completedAt);
     }
 
     /**
      * Creates a successful transition result with full execution metadata.
-     *
-     * @param <T> the type of entity
-     * @param <C> the host-supplied context type carried through transition execution
-     * @param entity the entity that underwent the transition
-     * @param sourceStateId the ID of the source state
-     * @param targetStateId the ID of the target state
-     * @param transitionId the ID of the transition that was executed
-     * @param executedStepIds the ordered list of step paths that ran
-     * @param startedAt the timestamp at which the transition started
-     * @param completedAt the timestamp at which the transition completed
-     *
-     * @return a successful TransitionResult
      */
-    public static <T, C> TransitionResult<T, C> success(T entity, String sourceStateId,
-                                                        String targetStateId, String transitionId,
-                                                        List<StepPath> executedStepIds,
-                                                        Instant startedAt, Instant completedAt) {
+    public static <T> TransitionResult<T> success(T entity, String sourceStateId,
+                                                  String targetStateId, String transitionId,
+                                                  List<StepPath> executedStepIds,
+                                                  Instant startedAt, Instant completedAt) {
         return new TransitionResult<>(true, entity, sourceStateId, targetStateId, transitionId,
                 null, executedStepIds, null, startedAt, completedAt);
     }
 
     /**
      * Creates a failed transition result with default timing and empty step lists.
-     *
-     * @param <T> the type of entity
-     * @param <C> the host-supplied context type carried through transition execution
-     * @param entity the entity for which the transition failed
-     * @param sourceStateId the ID of the source state
-     * @param targetStateId the ID of the target state (may be {@code null})
-     * @param transitionId the ID of the transition that failed (may be {@code null})
-     * @param error the error that caused the failure
-     *
-     * @return a failed TransitionResult
      */
-    public static <T, C> TransitionResult<T, C> failure(T entity, String sourceStateId,
-                                                        String targetStateId, String transitionId,
-                                                        Throwable error) {
+    public static <T> TransitionResult<T> failure(T entity, String sourceStateId,
+                                                  String targetStateId, String transitionId,
+                                                  Throwable error) {
         Instant now = Instant.now();
         return failure(entity, sourceStateId, targetStateId, transitionId, error, now, now);
     }
 
     /**
      * Creates a failed transition result with explicit timestamps and empty step lists.
-     *
-     * @param <T> the type of entity
-     * @param <C> the host-supplied context type carried through transition execution
-     * @param entity the entity for which the transition failed
-     * @param sourceStateId the ID of the source state
-     * @param targetStateId the ID of the target state (may be {@code null})
-     * @param transitionId the ID of the transition that failed (may be {@code null})
-     * @param error the error that caused the failure
-     * @param startedAt the timestamp at which the transition started
-     * @param completedAt the timestamp at which the transition was abandoned
-     *
-     * @return a failed TransitionResult
      */
-    public static <T, C> TransitionResult<T, C> failure(T entity, String sourceStateId,
-                                                        String targetStateId, String transitionId,
-                                                        Throwable error,
-                                                        Instant startedAt, Instant completedAt) {
+    public static <T> TransitionResult<T> failure(T entity, String sourceStateId,
+                                                  String targetStateId, String transitionId,
+                                                  Throwable error,
+                                                  Instant startedAt, Instant completedAt) {
         return new TransitionResult<>(false, entity, sourceStateId, targetStateId, transitionId,
                 error, null, null, startedAt, completedAt);
     }
@@ -206,27 +149,13 @@ public class TransitionResult<T, C> {
     /**
      * Creates a failed transition result with full execution metadata, including
      * the steps that ran and the compensations that were executed during rollback.
-     *
-     * @param <T> the type of entity
-     * @param <C> the host-supplied context type carried through transition execution
-     * @param entity the entity for which the transition failed
-     * @param sourceStateId the ID of the source state
-     * @param targetStateId the ID of the target state (may be {@code null})
-     * @param transitionId the ID of the transition that failed (may be {@code null})
-     * @param error the error that caused the failure
-     * @param executedStepIds the ordered list of step paths that ran before the failure
-     * @param compensatedStepIds the ordered list of step paths whose compensations ran during rollback
-     * @param startedAt the timestamp at which the transition started
-     * @param completedAt the timestamp at which the transition was abandoned
-     *
-     * @return a failed TransitionResult
      */
-    public static <T, C> TransitionResult<T, C> failure(T entity, String sourceStateId,
-                                                        String targetStateId, String transitionId,
-                                                        Throwable error,
-                                                        List<StepPath> executedStepIds,
-                                                        List<StepPath> compensatedStepIds,
-                                                        Instant startedAt, Instant completedAt) {
+    public static <T> TransitionResult<T> failure(T entity, String sourceStateId,
+                                                  String targetStateId, String transitionId,
+                                                  Throwable error,
+                                                  List<StepPath> executedStepIds,
+                                                  List<StepPath> compensatedStepIds,
+                                                  Instant startedAt, Instant completedAt) {
         return new TransitionResult<>(false, entity, sourceStateId, targetStateId, transitionId,
                 error, executedStepIds, compensatedStepIds, startedAt, completedAt);
     }

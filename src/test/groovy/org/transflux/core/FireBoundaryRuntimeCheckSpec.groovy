@@ -63,7 +63,7 @@ class FireBoundaryRuntimeCheckSpec extends Specification {
 
     def 'firing a Void-context transition with no context succeeds'() {
         given:
-        def smd = baseDef('t', null)
+        def smd = baseDef('t', Void)
         def sm = smd.build()
 
         when:
@@ -75,7 +75,7 @@ class FireBoundaryRuntimeCheckSpec extends Specification {
 
     def 'firing a Void-context transition with a non-null context is rejected'() {
         given:
-        def sm = baseDef('t', null).build()
+        def sm = baseDef('t', Void).build()
 
         when:
         sm.entity(new Entity('s1')).transitionTo('s2', new CtxA())
@@ -97,8 +97,8 @@ class FireBoundaryRuntimeCheckSpec extends Specification {
         e.message.contains('Context type mismatch')
     }
 
-    private static StateMachineDefImpl<Entity, Object> baseDef(String transitionId, Class<?> ctx) {
-        def smd = new StateMachineDefImpl<Entity, Object>()
+    private static StateMachineDefImpl<Entity> baseDef(String transitionId, Class<?> ctx) {
+        def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .state('s1').transitionsTo('s2', transitionId)

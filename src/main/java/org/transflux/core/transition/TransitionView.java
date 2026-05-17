@@ -52,7 +52,7 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
  * @param <C> the host-supplied context type carried through transition execution
  */
 public class TransitionView<T, C> implements Transition<T, C> {
-    private final StateMachineImpl<T, C> stateMachine;
+    private final StateMachineImpl<T> stateMachine;
     private final TransitionImpl<T, C> staticTransition;
 
     private final T entity;
@@ -64,7 +64,7 @@ public class TransitionView<T, C> implements Transition<T, C> {
 
     private final Deque<String> operationStack = new ArrayDeque<>();
 
-    public TransitionView(StateMachineImpl<T, C> stateMachine, TransitionImpl<T, C> staticTransition,
+    public TransitionView(StateMachineImpl<T> stateMachine, TransitionImpl<T, C> staticTransition,
                    T entity, C context) {
         requireNotNull(stateMachine, "State machine");
         requireNotNull(staticTransition, "Static transition");
@@ -91,13 +91,14 @@ public class TransitionView<T, C> implements Transition<T, C> {
     }
 
     @Override
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public void step(String id) {
         requireNotBlank(id, "Step ID");
-        BoundStep<T, C> boundStep = stateMachine.getBoundStep(id);
+        BoundStep<T, ?> boundStep = stateMachine.getBoundStep(id);
         if (boundStep == null) {
             throw new TransfluxValidationException("No step registered with id '" + id + "'");
         }
-        StateMachineImpl.runBoundStep(boundStep, this);
+        StateMachineImpl.runBoundStep((BoundStep) boundStep, this);
     }
 
     public T getEntity() {
@@ -112,7 +113,7 @@ public class TransitionView<T, C> implements Transition<T, C> {
         return staticTransition;
     }
 
-    public StateMachineImpl<T, C> getStateMachine() {
+    public StateMachineImpl<T> getStateMachine() {
         return stateMachine;
     }
 

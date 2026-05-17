@@ -58,7 +58,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
     @Unroll
     def "step(...) should reject null or blank id (instance form, id='#id')"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine().forEntityType(TestEntity)
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
 
         when:
         smd.step(id, new StepA())
@@ -73,7 +73,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
 
     def "step(...) should reject null instance"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine().forEntityType(TestEntity)
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
 
         when:
         smd.step('a', (Step<TestEntity, TestContext>) null)
@@ -85,7 +85,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
 
     def "step(...) should reject null class"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine().forEntityType(TestEntity)
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
 
         when:
         smd.step('a', (Class<? extends Step<TestEntity, TestContext>>) null)
@@ -97,7 +97,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
 
     def "registering two different instances under same id should fail"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine().forEntityType(TestEntity)
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
             .step('shared', new StepA())
 
         when:
@@ -112,7 +112,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
     def "registering same instance twice under same id should be a no-op"() {
         given:
         def instance = new StepA()
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine().forEntityType(TestEntity)
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
             .step('shared', instance)
             .step('shared', instance)
 
@@ -126,7 +126,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
 
     def "registering same class twice under same id should be a no-op"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine().forEntityType(TestEntity)
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
             .step('shared', StepA)
             .step('shared', StepA)
 
@@ -140,7 +140,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
 
     def "registering a different class under same id should fail"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine().forEntityType(TestEntity)
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
             .step('shared', StepA)
 
         when:
@@ -153,7 +153,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
 
     def "registering an instance after a class under same id should fail"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine().forEntityType(TestEntity)
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
             .step('shared', StepA)
 
         when:
@@ -166,7 +166,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
 
     def "class-form registration should be reflectively instantiated at SM build time"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('a', StepA)
@@ -183,7 +183,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
 
     def "class-form registration with no no-arg constructor should fail at SM build time"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('bad', CtorlessStep)
@@ -201,7 +201,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
     def "inline instance reference inside a composite should auto-register on the SM"() {
         given:
         def stepInstance = new StepA()
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
         smd.state(TRIAL).transitionsTo(ACTIVE, 't1')
@@ -220,7 +220,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
     def "explicit registration and matching inline instance under same id should coexist"() {
         given:
         def stepInstance = new StepA()
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('shared', stepInstance)
@@ -238,7 +238,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
 
     def "two composites inlining different instances under the same id should fail"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
         smd.state(TRIAL)
@@ -261,7 +261,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
 
     def "two composites referencing the same inline class under the same id should be a no-op"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
         smd.state(TRIAL)
@@ -282,7 +282,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
 
     def "byId reference should resolve to an inline registration declared in another composite, regardless of declaration order"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
         smd.state(TRIAL)
@@ -304,7 +304,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
 
     def "getBoundStep should return null for unknown id"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
         smd.state(TRIAL)

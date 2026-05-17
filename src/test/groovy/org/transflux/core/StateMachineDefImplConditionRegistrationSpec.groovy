@@ -62,7 +62,7 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
     @Unroll
     def "condition(...) should reject null or blank id (instance form, id='#id')"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine().forEntityType(TestEntity)
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
 
         when:
         smd.condition(id, new CondA())
@@ -77,7 +77,7 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
 
     def "condition(...) should reject null instance"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine().forEntityType(TestEntity)
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
 
         when:
         smd.condition('a', (Condition<TestEntity, TestContext>) null)
@@ -89,7 +89,7 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
 
     def "condition(...) should reject null class"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine().forEntityType(TestEntity)
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
 
         when:
         smd.condition('a', (Class<? extends Condition<TestEntity, TestContext>>) null)
@@ -101,7 +101,7 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
 
     def "condition(...) should reject null predicate"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine().forEntityType(TestEntity)
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
 
         when:
         smd.condition('a', (Predicate<TestEntity>) null)
@@ -114,7 +114,7 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
     @Unroll
     def "condition(...) should reject null or blank SpEL expression (expr='#expr')"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine().forEntityType(TestEntity)
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
 
         when:
         smd.condition('a', (String) expr)
@@ -129,7 +129,7 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
 
     def "registering two different instances under the same id should fail"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine().forEntityType(TestEntity)
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
             .condition('shared', new CondA())
 
         when:
@@ -144,7 +144,7 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
     def "registering the same instance twice under the same id should be a no-op"() {
         given:
         def instance = new CondA()
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine().forEntityType(TestEntity)
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
             .condition('shared', instance)
             .condition('shared', instance)
 
@@ -158,7 +158,7 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
 
     def "registering the same class twice under the same id should be a no-op"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine().forEntityType(TestEntity)
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
             .condition('shared', CondA)
             .condition('shared', CondA)
 
@@ -172,7 +172,7 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
 
     def "registering a different class under the same id should fail"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine().forEntityType(TestEntity)
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
             .condition('shared', CondA)
 
         when:
@@ -185,7 +185,7 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
 
     def "registering an instance after a class under the same id should fail"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine().forEntityType(TestEntity)
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
             .condition('shared', CondA)
 
         when:
@@ -197,7 +197,7 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
 
     def "class-form registration should be reflectively instantiated when buildBoundConditions runs"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .condition('a', CondA)
 
@@ -210,7 +210,7 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
 
     def "class-form registration with no no-arg constructor should fail at buildBoundConditions"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .condition('bad', CtorlessCondition)
 
@@ -227,7 +227,7 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
         given:
         def instance = new CondA()
         Predicate<TestEntity> pred = { e -> e.value > 5 }
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .condition('inst', instance)
             .condition('cls', CondB)

@@ -417,7 +417,7 @@ class StateMachineImplSpec extends Specification {
 
     def "composite operation invoked directly should run a registered step against the captured scope"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('stamp', new ContextStampStep())
@@ -425,7 +425,7 @@ class StateMachineImplSpec extends Specification {
         smd.state(ACTIVE)
         smd.getTransition('trial-to-active').step('stamp')
 
-        def sm = (StateMachineImpl<TestEntity, TestContext>) smd.build()
+        def sm = (StateMachineImpl<TestEntity>) smd.build()
         def entity = new TestEntity('e1', 'TRIAL')
         def ctx = new TestContext()
         def view = new TransitionView<TestEntity, TestContext>(sm, sm.transitions['trial-to-active'], entity, ctx)
@@ -504,7 +504,7 @@ class StateMachineImplSpec extends Specification {
     def "transitionTo should run the attached composite operation and populate executedStepIds in order"() {
         given:
         def appliedState = [:] as Map<TestEntity, String>
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .withStateApplier({ entity, target -> appliedState[entity] = target } as StateApplier<TestEntity>)
@@ -521,7 +521,7 @@ class StateMachineImplSpec extends Specification {
         def context = new TestContext()
 
         when:
-        def result = sm.entity(entity).withContext(context).transitionTo('ACTIVE')
+        def result = sm.entity(entity).transitionTo('ACTIVE', context)
 
         then:
         result.success
@@ -536,7 +536,7 @@ class StateMachineImplSpec extends Specification {
     def "transitionTo with a simple operation should run the operation and apply state"() {
         given:
         def appliedState = [:] as Map<TestEntity, String>
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .withStateApplier({ entity, target -> appliedState[entity] = target } as StateApplier<TestEntity>)
@@ -554,7 +554,7 @@ class StateMachineImplSpec extends Specification {
         def context = new TestContext()
 
         when:
-        def result = sm.entity(entity).withContext(context).transitionTo('ACTIVE')
+        def result = sm.entity(entity).transitionTo('ACTIVE', context)
 
         then:
         result.success
@@ -566,7 +566,7 @@ class StateMachineImplSpec extends Specification {
     def "transitionTo should track step ids invoked from inside a simple operation via transition.step(id)"() {
         given:
         def appliedState = [:] as Map<TestEntity, String>
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .withStateApplier({ entity, target -> appliedState[entity] = target } as StateApplier<TestEntity>)
@@ -581,7 +581,7 @@ class StateMachineImplSpec extends Specification {
         def context = new TestContext()
 
         when:
-        def result = sm.entity(entity).withContext(context).transitionTo('ACTIVE')
+        def result = sm.entity(entity).transitionTo('ACTIVE', context)
 
         then:
         result.success
@@ -594,7 +594,7 @@ class StateMachineImplSpec extends Specification {
     def "transitionTo should report failure and skip the state applier when an operation throws"() {
         given:
         def applierInvocations = 0
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .withStateApplier({ entity, target -> applierInvocations++ } as StateApplier<TestEntity>)
@@ -611,7 +611,7 @@ class StateMachineImplSpec extends Specification {
         def context = new TestContext()
 
         when:
-        def result = sm.entity(entity).withContext(context).transitionTo('ACTIVE')
+        def result = sm.entity(entity).transitionTo('ACTIVE', context)
 
         then:
         !result.success
@@ -625,7 +625,7 @@ class StateMachineImplSpec extends Specification {
     def "transitionTo without an attached operation should still apply state and return empty executedStepIds"() {
         given:
         def appliedState = [:] as Map<TestEntity, String>
-        def sm = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def sm = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .withStateApplier({ entity, target -> appliedState[entity] = target } as StateApplier<TestEntity>)

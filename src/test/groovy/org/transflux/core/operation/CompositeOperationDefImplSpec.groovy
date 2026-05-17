@@ -98,7 +98,7 @@ class CompositeOperationDefImplSpec extends Specification {
 
     def "build should reject composite with no members"() {
         given:
-        def sm = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def sm = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .state(TRIAL).transitionsTo(ACTIVE, 't1')
@@ -107,7 +107,7 @@ class CompositeOperationDefImplSpec extends Specification {
         def composite = new CompositeOperationDefImpl<TestEntity, TestContext>('op1')
 
         when:
-        composite.build((StateMachineImpl<TestEntity, TestContext>) sm)
+        composite.build((StateMachineImpl<TestEntity>) sm)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -142,7 +142,7 @@ class CompositeOperationDefImplSpec extends Specification {
 
     def "build should iterate steps in declaration order"() {
         given:
-        def sm = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def sm = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('a-id', new AppendStep('a'))
@@ -157,14 +157,14 @@ class CompositeOperationDefImplSpec extends Specification {
 
         def entity = new TestEntity('TRIAL')
         def view = new TransitionView<TestEntity, TestContext>(
-            (StateMachineImpl<TestEntity, TestContext>) sm,
-            ((StateMachineImpl<TestEntity, TestContext>) sm).transitions['t1'],
+            (StateMachineImpl<TestEntity>) sm,
+            ((StateMachineImpl<TestEntity>) sm).transitions['t1'],
             entity,
             new TestContext()
         )
 
         when:
-        def bound = composite.build((StateMachineImpl<TestEntity, TestContext>) sm)
+        def bound = composite.build((StateMachineImpl<TestEntity>) sm)
         bound.operation.execute(entity, view.context, view)
 
         then:
@@ -174,7 +174,7 @@ class CompositeOperationDefImplSpec extends Specification {
 
     def "build should reject reference to unknown step id"() {
         given:
-        def sm = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def sm = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('known', new FooStep())
@@ -186,7 +186,7 @@ class CompositeOperationDefImplSpec extends Specification {
             .step('known').step('missing')
 
         when:
-        composite.build((StateMachineImpl<TestEntity, TestContext>) sm)
+        composite.build((StateMachineImpl<TestEntity>) sm)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -196,7 +196,7 @@ class CompositeOperationDefImplSpec extends Specification {
 
     def "composite using inline class form is reflectively instantiated through the SM registry"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
         smd.state(TRIAL).transitionsTo(ACTIVE, 't1')
@@ -204,7 +204,7 @@ class CompositeOperationDefImplSpec extends Specification {
         smd.getTransition('t1')
             .compositeOperation('op1', { CompositeOperationDef<TestEntity, TestContext> c -> c.step('foo-id', FooStep) })
 
-        def sm = (StateMachineImpl<TestEntity, TestContext>) smd.build()
+        def sm = (StateMachineImpl<TestEntity>) smd.build()
         def entity = new TestEntity('TRIAL')
         def view = new TransitionView<TestEntity, TestContext>(sm, sm.transitions['t1'], entity, new TestContext())
 
@@ -217,7 +217,7 @@ class CompositeOperationDefImplSpec extends Specification {
 
     def "build should fail-fast when inline class has no no-arg constructor"() {
         given:
-        def smd = Transflux.<TestEntity, TestContext> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
         smd.state(TRIAL).transitionsTo(ACTIVE, 't1')

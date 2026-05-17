@@ -54,19 +54,10 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
 
 /**
  * Implementation of the {@link StateMachine} interface.
- * <p>
- * This implementation serves as a concrete state machine that manages entity state
- * transitions and coordinates framework operations. It is constructed from a
- * {@link StateMachineDef} definition and maintains collections of states and transitions
- * along with metadata such as name, description, and version.
- *
- * <p><b>Note:</b> This is currently a placeholder implementation that will be enhanced
- * with full state machine functionality in future versions.
  *
  * @param <T> the type of entity managed by this state machine
- * @param <C> the host-supplied context type carried through transition execution
  */
-public class StateMachineImpl<T, C> implements StateMachine<T, C> {
+public class StateMachineImpl<T> implements StateMachine<T> {
     private static final Logger log = LoggerFactory.getLogger(StateMachineImpl.class);
 
     // TODO Phase 4: extend across the async-submission boundary (§4.5.3.4) via
@@ -77,7 +68,6 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
     private static final ThreadLocal<Set<EntityKey>> IN_FLIGHT = ThreadLocal.withInitial(HashSet::new);
 
     private final Class<T> entityType;
-    private final Class<C> contextType;
 
     private final String name;
     private final String description;
@@ -87,23 +77,12 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
     private final StateApplier<T> stateApplier;
 
     private final Map<String, State<T>> states = new LinkedHashMap<>();
-    private final Map<String, TransitionImpl<T, C>> transitions = new LinkedHashMap<>();
+    private final Map<String, TransitionImpl<T, ?>> transitions = new LinkedHashMap<>();
     private final Registry<T> componentRegistry;
 
-    /**
-     * Constructs a new StateMachineImpl from the provided state machine definition.
-     * <p>
-     * This constructor initializes the state machine with all necessary components
-     * including entity type, metadata, state resolver, and collections of states
-     * and transitions created from their respective definitions.
-     *
-     * @param def the state machine definition to construct this state machine from
-     *
-     * @throws TransfluxValidationException if the definition is null or invalid
-     */
-    public StateMachineImpl(StateMachineDefImpl<T, C> def) {
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public StateMachineImpl(StateMachineDefImpl<T> def) {
         this.entityType = def.getEntityType();
-        this.contextType = def.getContextType();
         this.name = def.getName();
         this.description = def.getDescription();
         this.version = def.getVersion();
@@ -113,127 +92,66 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
         this.states.putAll(def.getStates().values().stream()
                               .collect(Collectors.toMap(StateDefImpl::getId, StateImpl::new)));
 
-        // Build conditions and steps first; populate the registry incrementally so SM-level
-        // composite operations (which run their build() inside buildBoundOperations) can resolve
-        // step- and condition-by-id references through the registry chain.
         RegistryImpl<T> registry = new RegistryImpl<>();
         this.componentRegistry = registry;
 
-        Map<String, BoundCondition<T, C>> conditionRegistry = def.buildBoundConditions();
-        for (BoundCondition<T, C> bc : conditionRegistry.values()) {
-            @SuppressWarnings("unchecked")
-            Class<C> ctx = (Class<C>) effectiveContextType(def, bc.id());
-            registry.register(new Component.Condition<>(bc.id(), null, null, ctx, bc));
+        Map<String, BoundCondition<T, ?>> conditionRegistry = def.buildBoundConditions();
+        for (BoundCondition<T, ?> bc : conditionRegistry.values()) {
+            Class<?> ctx = effectiveContextType(def, bc.id());
+            registry.register(new Component.Condition(bc.id(), null, null, ctx, bc));
         }
 
-        Map<String, BoundStep<T, C>> boundSteps = def.buildBoundSteps(this, conditionRegistry);
-        for (BoundStep<T, C> bs : boundSteps.values()) {
-            @SuppressWarnings("unchecked")
-            Class<C> ctx = (Class<C>) effectiveContextType(def, bs.id());
-            registry.register(new Component.Step<>(bs.id(), null, null, ctx, bs));
+        Map<String, BoundStep<T, ?>> boundSteps = def.buildBoundSteps(this, conditionRegistry);
+        for (BoundStep<T, ?> bs : boundSteps.values()) {
+            Class<?> ctx = effectiveContextType(def, bs.id());
+            registry.register(new Component.Step(bs.id(), null, null, ctx, bs));
         }
 
-        // Build operations one-at-a-time, registering each into the registry as soon as it is
-        // built so that subsequent composite builds in the same pass can resolve them. SM-level
-        // composites that reference other SM-level composites must be registered in dependency
-        // order (referenced composites first); cycles raise during the build-time validation
-        // pass and never reach this point.
-        Map<String, BoundOperation<T, C>> boundOperations = def.buildBoundOperationsIncrementally(this, bo -> {
-            @SuppressWarnings("unchecked")
-            Class<C> ctx = (Class<C>) effectiveContextType(def, bo.id());
-            registry.register(new Component.Operation<>(bo.id(), bo.name(), bo.description(), ctx, bo));
+        Map<String, BoundOperation<T, ?>> boundOperations = def.buildBoundOperationsIncrementally(this, bo -> {
+            Class<?> ctx = effectiveContextType(def, bo.id());
+            registry.register(new Component.Operation(bo.id(), bo.name(), bo.description(), ctx, bo));
         });
 
-        for (TransitionDefImpl<T, C> td : def.getTransitionsById().values()) {
-            this.transitions.put(td.getId(), new TransitionImpl<>(td, this, conditionRegistry));
+        for (TransitionDefImpl<T, ?> td : def.getTransitionsById().values()) {
+            this.transitions.put(td.getId(), buildTransition(td, conditionRegistry));
         }
     }
 
-    private Class<?> effectiveContextType(StateMachineDefImpl<T, C> def, String id) {
-        Class<?> declared = def.getComponentContextType(id);
-        return declared != null ? declared : contextType;
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private <C> TransitionImpl<T, C> buildTransition(TransitionDefImpl<T, C> td,
+                                                      Map<String, BoundCondition<T, ?>> conditionRegistry) {
+        return new TransitionImpl<>(td, this, (Map) conditionRegistry);
     }
 
-    /**
-     * Returns the SM-level component registry holding every registered step, operation, and
-     * condition. Phase 6.2's process-wide parent registry plugs into this registry's
-     * parent-chain seam.
-     *
-     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user
-     * code should not invoke it directly.
-     *
-     * @return the component registry; never {@code null}
-     */
+    private Class<?> effectiveContextType(StateMachineDefImpl<T> def, String id) {
+        Class<?> declared = def.getComponentContextType(id);
+        return declared != null ? declared : Object.class;
+    }
+
     public Registry<T> getComponentRegistry() {
         return componentRegistry;
     }
 
-    /**
-     * Looks up a registered step by id.
-     *
-     * @param id the step id
-     *
-     * @return the bound step, or {@code null} if no step is registered under {@code id}
-     */
-    @SuppressWarnings("unchecked")
-    public BoundStep<T, C> getBoundStep(String id) {
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public BoundStep<T, ?> getBoundStep(String id) {
         return componentRegistry.resolve(id)
             .filter(Component.Step.class::isInstance)
-            .map(c -> ((Component.Step<T, C>) c).bound())
+            .map(c -> ((Component.Step) c).bound())
             .orElse(null);
     }
 
-    /**
-     * Looks up a registered nested operation by id.
-     *
-     * @param id the operation id
-     *
-     * @return the bound operation, or {@code null} if no operation is registered under
-     *         {@code id}
-     */
-    @SuppressWarnings("unchecked")
-    public BoundOperation<T, C> getBoundOperation(String id) {
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public BoundOperation<T, ?> getBoundOperation(String id) {
         return componentRegistry.resolve(id)
             .filter(Component.Operation.class::isInstance)
-            .map(c -> ((Component.Operation<T, C>) c).bound())
+            .map(c -> ((Component.Operation) c).bound())
             .orElse(null);
     }
 
     /**
      * Acquires the step's {@link Compensation}, pushes it onto the view's rollback stack, then
      * dispatches the step's {@link Step#execute(Object, Object, Transition)} against the same
-     * view. Shared by the composite executor and by {@code TransitionView.step("id")} so both
-     * step-id tracking and compensation registration are uniform regardless of who initiates
-     * the step.
-     *
-     * <p>The compensation is captured <em>before</em> {@code execute} runs. This is deliberate:
-     * if {@code execute} throws partway through producing side effects (created remote entities,
-     * inserted database rows, sent messages), the compensation is already on the stack and the
-     * enclosing transition catch will run it, giving the step a chance to roll back whatever
-     * it managed to do. Implementations whose compensation depends on completion-time state
-     * should write that state into the entity or context during {@code execute} and have the
-     * returned compensation read it back at rollback time. {@code execute} sees the same entity
-     * and context references {@code getCompensation} already saw.
-     *
-     * <p>Sequencing within this method, and how it interacts with failures:
-     * <ul>
-     *   <li>{@code getCompensation} runs first. If it throws, neither {@code execute} nor the
-     *       id-recording happens; the exception propagates and the step is treated as having
-     *       never started (its id appears on neither {@code executedStepIds} nor
-     *       {@code compensatedStepIds}).</li>
-     *   <li>If {@code getCompensation} returns non-{@code null}, the compensation is pushed.
-     *       A {@code null} return is a no-op.</li>
-     *   <li>{@code execute} runs. If it throws, the exception propagates; the step's id is
-     *       <em>not</em> appended to {@code executedStepIds} (executed = completed), but its
-     *       compensation is on the stack and will run when the enclosing catch drains it.</li>
-     *   <li>On successful return, the step's id is appended to {@code executedStepIds}.</li>
-     * </ul>
-     *
-     * @param boundStep the bound step to invoke
-     * @param view the per-execution transition view that owns the current scope
-     *
-     * @param <T> the entity type
-     * @param <C> the context type
+     * view.
      */
     public static <T, C> void runBoundStep(BoundStep<T, C> boundStep, TransitionView<T, C> view) {
         Step<T, C> step = boundStep.step();
@@ -245,100 +163,51 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
         view.recordExecutedStepId(boundStep.id());
     }
 
-    /**
-     * Returns the entity type managed by this state machine.
-     *
-     * @return the entity class type
-     */
     public Class<T> getEntityType() {
         return entityType;
     }
 
-    /**
-     * Returns the context type carried through transitions in this state machine.
-     *
-     * @return the context class type, may be {@code null} if not configured
-     */
-    public Class<C> getContextType() {
-        return contextType;
-    }
-
-    /**
-     * Returns the human-readable name of this state machine.
-     *
-     * @return the name of the state machine, may be {@code null}
-     */
     public String getName() {
         return name;
     }
 
-    /**
-     * Returns the description of this state machine.
-     *
-     * @return the description of the state machine, may be {@code null}
-     */
     public String getDescription() {
         return description;
     }
 
-    /**
-     * Returns the version of this state machine definition.
-     *
-     * @return the version string, may be {@code null}
-     */
     public String getVersion() {
         return version;
     }
 
-    /**
-     * Returns the state resolver used to determine entity current states.
-     *
-     * @return the state resolver for this state machine
-     */
     public StateResolver<T> getStateResolver() {
         return stateResolver;
     }
 
-    /**
-     * Returns the state applier used to write the new state after a successful transition.
-     *
-     * @return the state applier, may be {@code null} if not configured
-     */
     public StateApplier<T> getStateApplier() {
         return stateApplier;
     }
 
-    /**
-     * Returns an immutable map of all states defined in this state machine.
-     *
-     * @return a map of state IDs to state instances
-     */
     public Map<String, State<T>> getStates() {
         return states;
     }
 
-    /**
-     * Returns an immutable map of all transitions defined in this state machine.
-     *
-     * @return a map of transition IDs to transition instances
-     */
-    public Map<String, TransitionImpl<T, C>> getTransitions() {
+    public Map<String, TransitionImpl<T, ?>> getTransitions() {
         return transitions;
     }
 
     @Override
-    public EntityBinding<T, C> entity(T entity) {
+    public EntityBinding<T> entity(T entity) {
         requireNotNull(entity, "Entity");
         return new EntityBindingImpl(entity);
     }
 
     @Override
-    public TransitionResult<T, C> executeTransition(T entity, String targetStateId) {
+    public TransitionResult<T> executeTransition(T entity, String targetStateId) {
         return entity(entity).transitionTo(targetStateId);
     }
 
     @Override
-    public TransitionResult<T, C> executeTransition(T entity, String targetStateId, String transitionId) {
+    public TransitionResult<T> executeTransition(T entity, String targetStateId, String transitionId) {
         return entity(entity).transitionTo(targetStateId, transitionId);
     }
 
@@ -382,10 +251,10 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
     }
 
     @Override
-    public Transition<T, C> getTransition(String transitionId) {
+    public Transition<T, ?> getTransition(String transitionId) {
         requireNotBlank(transitionId, "Transition ID");
 
-        Transition<T, C> transition = transitions.get(transitionId);
+        Transition<T, ?> transition = transitions.get(transitionId);
         if (transition == null) {
             throw new TransfluxValidationException("Transition '" + transitionId + "' does not exist");
         }
@@ -393,18 +262,7 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
         return transition;
     }
 
-    /**
-     * Finds a unique transition from source to target state.
-     *
-     * @param sourceStateId the source state ID
-     * @param targetStateId the target state ID
-     *
-     * @return the transition
-     *
-     * @throws TransfluxValidationException if no transition exists or multiple transitions exist
-     */
-    private TransitionImpl<T, C> findTransition(String sourceStateId, String targetStateId) {
-        // Filter transitions by source and target
+    private TransitionImpl<T, ?> findTransition(String sourceStateId, String targetStateId) {
         var matchingTransitions = transitions.values().stream()
             .filter(t -> t.getSourceStateId().equals(sourceStateId)
                       && t.getTargetStateId().equals(targetStateId))
@@ -428,17 +286,9 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
         return matchingTransitions.get(0);
     }
 
-    /**
-     * Executes a transition, handling the full lifecycle.
-     *
-     * @param entity the entity to transition
-     * @param context the host-supplied context object, may be {@code null}
-     * @param transition the transition to execute
-     *
-     * @return the transition result
-     */
-    private TransitionResult<T, C> executeTransitionInternal(T entity, C context,
-                                                             TransitionImpl<T, C> transition) {
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private <C> TransitionResult<T> executeTransitionInternal(T entity, Object firingContext,
+                                                                 TransitionImpl<T, C> transition) {
         String sourceStateId = transition.getSourceStateId();
         String targetStateId = transition.getTargetStateId();
         String transitionId = transition.getId();
@@ -453,6 +303,7 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
         }
         inFlight.add(key);
 
+        C context = (C) firingContext;
         Instant startedAt = Instant.now();
         TransitionView<T, C> view = new TransitionView<>(this, transition, entity, context);
 
@@ -466,7 +317,6 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
                         view.getExecutedStepIds(), null, startedAt, Instant.now());
                 }
             }
-            // TODO: notifyStart(view) seam.
 
             BoundOperation<T, C> boundOperation = transition.getBoundOperation();
             if (boundOperation != null) {
@@ -486,8 +336,6 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
             if (stateApplier != null) {
                 stateApplier.applyState(entity, targetStateId);
             }
-
-            // TODO: notifyComplete(view) seam.
 
             return TransitionResult.success(entity, sourceStateId, targetStateId, transitionId,
                     view.getExecutedStepIds(), startedAt, Instant.now());
@@ -523,7 +371,7 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
         }
     }
 
-    private record EntityKey(StateMachineImpl<?, ?> sm, Object entity) {
+    private record EntityKey(StateMachineImpl<?> sm, Object entity) {
 
         @Override
             public boolean equals(Object o) {
@@ -544,72 +392,40 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
             }
         }
 
-    private class EntityBindingImpl implements EntityBinding<T, C> {
+    private class EntityBindingImpl implements EntityBinding<T> {
         private final T entity;
-        private C context;
 
         EntityBindingImpl(T entity) {
             this.entity = entity;
         }
 
         @Override
-        public EntityBinding<T, C> withContext(C context) {
-            this.context = context;
-            return this;
+        public TransitionResult<T> transitionTo(String targetStateId) {
+            return transitionTo(targetStateId, (Object) null);
         }
 
         @Override
-        public TransitionResult<T, C> transitionTo(String targetStateId) {
-            requireNotBlank(targetStateId, "Target state ID");
-
-            String currentStateId = resolveCurrentState(entity);
-            TransitionImpl<T, C> transition = findTransition(currentStateId, targetStateId);
-            return executeTransitionInternal(entity, context, transition);
+        public TransitionResult<T> transitionTo(String targetStateId, String transitionId) {
+            return transitionTo(targetStateId, transitionId, null);
         }
 
         @Override
-        public TransitionResult<T, C> transitionTo(String targetStateId, String transitionId) {
-            requireNotBlank(targetStateId, "Target state ID");
-            requireNotBlank(transitionId, "Transition ID");
-
-            String currentStateId = resolveCurrentState(entity);
-            Transition<T, C> abstractTransition = StateMachineImpl.this.getTransition(transitionId);
-
-            if (!abstractTransition.getSourceStateId().equals(currentStateId)) {
-                throw new TransfluxValidationException(
-                    String.format("Entity is in state '%s' but transition '%s' requires source state '%s'",
-                               currentStateId, transitionId, abstractTransition.getSourceStateId())
-                );
-            }
-            if (!abstractTransition.getTargetStateId().equals(targetStateId)) {
-                throw new TransfluxValidationException(
-                    String.format("Transition '%s' leads to state '%s' but target state '%s' was requested",
-                               transitionId, abstractTransition.getTargetStateId(), targetStateId)
-                );
-            }
-
-            return executeTransitionInternal(entity, context, (TransitionImpl<T, C>) abstractTransition);
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public TransitionResult<T, ?> transitionTo(String targetStateId, Object firingContext) {
+        public TransitionResult<T> transitionTo(String targetStateId, Object firingContext) {
             requireNotBlank(targetStateId, "Target state ID");
 
             String currentStateId = resolveCurrentState(entity);
-            TransitionImpl<T, C> transition = findTransition(currentStateId, targetStateId);
+            TransitionImpl<T, ?> transition = findTransition(currentStateId, targetStateId);
             verifyFireContext(transition, firingContext);
-            return executeTransitionInternal(entity, (C) firingContext, transition);
+            return executeTransitionInternal(entity, firingContext, transition);
         }
 
         @Override
-        @SuppressWarnings("unchecked")
-        public TransitionResult<T, ?> transitionTo(String targetStateId, String transitionId, Object firingContext) {
+        public TransitionResult<T> transitionTo(String targetStateId, String transitionId, Object firingContext) {
             requireNotBlank(targetStateId, "Target state ID");
             requireNotBlank(transitionId, "Transition ID");
 
             String currentStateId = resolveCurrentState(entity);
-            Transition<T, C> abstractTransition = StateMachineImpl.this.getTransition(transitionId);
+            Transition<T, ?> abstractTransition = StateMachineImpl.this.getTransition(transitionId);
 
             if (!abstractTransition.getSourceStateId().equals(currentStateId)) {
                 throw new TransfluxValidationException(
@@ -624,20 +440,23 @@ public class StateMachineImpl<T, C> implements StateMachine<T, C> {
                 );
             }
 
-            TransitionImpl<T, C> impl = (TransitionImpl<T, C>) abstractTransition;
+            TransitionImpl<T, ?> impl = (TransitionImpl<T, ?>) abstractTransition;
             verifyFireContext(impl, firingContext);
-            return executeTransitionInternal(entity, (C) firingContext, impl);
+            return executeTransitionInternal(entity, firingContext, impl);
         }
 
-        private void verifyFireContext(TransitionImpl<T, C> transition, Object firingContext) {
+        private void verifyFireContext(TransitionImpl<T, ?> transition, Object firingContext) {
             Class<?> expected = transition.getContextType();
-            if (firingContext == null || expected == null || expected == Void.class) {
-                if (firingContext != null && expected == Void.class) {
+            if (expected == Void.class) {
+                if (firingContext != null) {
                     throw new TransfluxValidationException(
                         "Context type mismatch: transition '" + transition.getId()
                             + "' expects Void (no context) but received "
                             + firingContext.getClass().getName());
                 }
+                return;
+            }
+            if (firingContext == null || expected == null || expected == Object.class) {
                 return;
             }
             if (!expected.isInstance(firingContext)) {

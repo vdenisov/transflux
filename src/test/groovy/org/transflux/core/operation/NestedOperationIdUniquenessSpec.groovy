@@ -154,20 +154,18 @@ class NestedOperationIdUniquenessSpec extends Specification {
         e.message.contains('twin')
     }
 
-    private static StateMachineDefImpl<Entity, TestContext> baseDef() {
-        def smd = new StateMachineDefImpl<Entity, TestContext>()
+    private static StateMachineDefImpl<Entity> baseDef() {
+        def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
-            .forContextType(TestContext)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .state('s1').transitionsTo('s2', 't')
             .state('s2')
         return smd
     }
 
-    private static StateMachineDefImpl<Entity, TestContext> multiTransitionDef() {
-        def smd = new StateMachineDefImpl<Entity, TestContext>()
+    private static StateMachineDefImpl<Entity> multiTransitionDef() {
+        def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
-            .forContextType(TestContext)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .state('s1').transitionsTo('s2', 't1')
             .state('s2').transitionsTo('s3', 't2')

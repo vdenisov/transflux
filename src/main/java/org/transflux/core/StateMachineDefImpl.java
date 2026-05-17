@@ -43,6 +43,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static java.util.Objects.requireNonNullElseGet;
@@ -53,51 +54,13 @@ import static org.transflux.core.ValidationUtils.warnIfSet;
 
 /**
  * Builder class for defining and constructing state machines.
- * <p>
- * {@link StateMachineDef} provides the main fluent API entry point for creating state machine
- * definitions in Transflux. It manages the configuration of entity types, metadata
- * (name, description, version), state resolvers, states, and transitions, providing
- * a declarative DSL for building complex state machines in a readable and maintainable way.
- *
- * <p>The {@code StateMachineDef} supports method chaining throughout the definition process,
- * allowing for concise and expressive state machine configurations that can be easily
- * understood and maintained.
- *
- * <p><b>Example usage:</b>
- * <pre>{@code
- * StateMachine<Order, OrderContext> orderStateMachine = new StateMachineDef<Order, OrderContext>()
- *     .forEntityType(Order.class)
- *     .withName("Order Processing State Machine")
- *     .withDescription("Manages the lifecycle of customer orders")
- *     .withVersion("1.0")
- *     .withStateResolver(order -> order.getStatus())
- *     .state("pending")
- *         .withName("Pending Order")
- *         .withDescription("Order received but not yet processed")
- *         .transitionsTo("processing", "start-processing")
- *         .transitionsTo("cancelled", "cancel-order")
- *     .state("processing")
- *         .withName("Processing Order")
- *         .transitionsTo("shipped", "ship-order")
- *         .transitionsTo("cancelled", "cancel-order")
- *     .state("shipped")
- *         .withName("Shipped Order")
- *         .transitionsTo("delivered", "mark-delivered")
- *     .state("delivered")
- *         .withName("Delivered Order")
- *     .state("cancelled")
- *         .withName("Cancelled Order")
- *     .build();
- * }</pre>
  *
  * @param <T> the type of entity managed by the state machine being defined
- * @param <C> the host-supplied context type carried through transition execution
  */
-public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
+public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private static final Logger log = LoggerFactory.getLogger(StateMachineDefImpl.class);
 
     private Class<T> entityType;
-    private Class<C> contextType;
     private String name;
     private String description;
     private String version;
@@ -105,119 +68,59 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
     private StateResolver<T> stateResolver;
     private StateApplier<T> stateApplier;
 
-    private final Map<String, StateDefImpl<T, C>> states = new LinkedHashMap<>();
+    private final Map<String, StateDefImpl<T>> states = new LinkedHashMap<>();
 
-    private final Map<String, StepRegistration<T, C>> stepRegistrations = new LinkedHashMap<>();
+    private final Map<String, StepRegistration<T>> stepRegistrations = new LinkedHashMap<>();
 
-    private final Map<String, ConditionRegistration<T, C>> conditionRegistrations = new LinkedHashMap<>();
+    private final Map<String, ConditionRegistration<T>> conditionRegistrations = new LinkedHashMap<>();
 
-    private final Map<String, OperationRegistration<T, C>> operationRegistrations = new LinkedHashMap<>();
+    private final Map<String, OperationRegistration<T>> operationRegistrations = new LinkedHashMap<>();
 
-    // conditionalStepId -> ConditionalStepDefImpl, collected during inline-step walk and
-    // resolved into framework-built executor steps once the bound-step registry is being built.
-    private final Map<String, ConditionalStepDefImpl<T, C>> conditionalStepRegistrations = new LinkedHashMap<>();
+    private final Map<String, ConditionalStepDefImpl<T, ?>> conditionalStepRegistrations = new LinkedHashMap<>();
 
-    // SM-level composite operations registered via useContext(ctx, scope -> scope.compositeOperation(...)).
-    // Each composite carries its members; build-time walk auto-registers inline steps and
-    // operations from these the same way it does for transition-attached composites.
     private final Map<String, CompositeOperationDefImpl<T, ?>> smCompositeOperations = new LinkedHashMap<>();
 
-    // Per-id context-type tagging for components registered through useContext blocks.
-    // Used by the build-time context-compatibility check.
     private final Map<String, Class<?>> componentContextTypes = new LinkedHashMap<>();
 
-    // transitionId -> TransitionDefImpl
-    private final Map<String, TransitionDefImpl<T, C>> transitionsById = new LinkedHashMap<>();
-    // Source-target index: sourceStateId -> targetStateId -> list of TransitionDefImpl
-    private final Map<String, Map<String, List<TransitionDefImpl<T, C>>>> transitionsBySourceTarget = new LinkedHashMap<>();
+    private final Map<String, TransitionDefImpl<T, ?>> transitionsById = new LinkedHashMap<>();
+    private final Map<String, Map<String, List<TransitionDefImpl<T, ?>>>> transitionsBySourceTarget = new LinkedHashMap<>();
 
     public StateMachineDefImpl() {
     }
 
     @Override
-    public StateMachineDef<T, C> forEntityType(Class<T> entityType) {
+    public StateMachineDef<T> forEntityType(Class<T> entityType) {
         requireNotNull(entityType, "Entity type");
         this.entityType = entityType;
         return this;
     }
 
     @Override
-    public StateMachineDef<T, C> forContextType(Class<C> contextType) {
-        requireNotNull(contextType, "Context type");
-        this.contextType = contextType;
-        return this;
-    }
-
-    /**
-     * Sets the human-readable name for this state machine.
-     * <p>
-     * This method allows you to provide a descriptive name for the state machine
-     * that can be used in documentation, user interfaces, and logging.
-     *
-     * @param name the human-readable name for this state machine
-     *
-     * @return this StateMachineDef instance for method chaining
-     */
-    @Override
-    public StateMachineDef<T, C> withName(String name) {
+    public StateMachineDef<T> withName(String name) {
         warnIfSet(this.name, name, "Name", log);
 
         this.name = name;
         return this;
     }
 
-    /**
-     * Sets the description for this state machine.
-     * <p>
-     * This method allows you to provide additional details about the state machine's
-     * purpose, behavior, or business domain within your application.
-     *
-     * @param description the description for this state machine
-     *
-     * @return this StateMachineDef instance for method chaining
-     */
     @Override
-    public StateMachineDef<T, C> withDescription(String description) {
+    public StateMachineDef<T> withDescription(String description) {
         warnIfSet(this.description, description, "Description", log);
 
         this.description = description;
         return this;
     }
 
-    /**
-     * Sets the version for this state machine definition.
-     * <p>
-     * This method allows you to specify a version identifier for the state machine
-     * definition, which can be useful for versioning, deployment tracking, and
-     * compatibility management.
-     *
-     * @param version the version identifier for this state machine definition
-     *
-     * @return this StateMachineDef instance for method chaining
-     */
     @Override
-    public StateMachineDef<T, C> withVersion(String version) {
+    public StateMachineDef<T> withVersion(String version) {
         warnIfSet(this.version, version, "Version", log);
 
         this.version = version;
         return this;
     }
 
-    /**
-     * Sets the state resolver used to determine the current state of entities.
-     * <p>
-     * The state resolver is a critical component that bridges your domain entities
-     * with the Transflux framework, allowing the state machine to understand the
-     * current state of entities without imposing specific storage requirements.
-     *
-     * @param stateResolver the state resolver implementation
-     *
-     * @return this StateMachineDef instance for method chaining
-     *
-     * @throws TransfluxValidationException if the state resolver is null
-     */
     @Override
-    public StateMachineDef<T, C> withStateResolver(StateResolver<T> stateResolver) {
+    public StateMachineDef<T> withStateResolver(StateResolver<T> stateResolver) {
         requireNotNull(stateResolver, "State resolver");
 
         if (this.stateResolver != null) {
@@ -230,7 +133,7 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
     }
 
     @Override
-    public StateMachineDef<T, C> step(String id, Step<T, C> step) {
+    public StateMachineDef<T> step(String id, Step<T, ?> step) {
         requireNotBlank(id, "Step ID");
         requireNotNull(step, "Step");
         registerStepInstance(id, step);
@@ -238,25 +141,35 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
     }
 
     @Override
-    public StateMachineDef<T, C> step(String id, Class<? extends Step<T, C>> stepClass) {
+    public StateMachineDef<T> step(String id, Class<? extends Step<T, ?>> stepClass) {
         requireNotBlank(id, "Step ID");
         requireNotNull(stepClass, "Step class");
         registerStepClass(id, stepClass);
         return this;
     }
 
-    /**
-     * Records an instance-based step registration, enforcing uniqueness with same-instance
-     * re-registration tolerated as a no-op.
-     *
-     * @param id the step id
-     * @param step the step instance
-     *
-     * @throws TransfluxValidationException if {@code id} is already registered with a
-     *         different instance or with any class
-     */
-    private void registerStepInstance(String id, Step<T, C> step) {
-        StepRegistration<T, C> existing = stepRegistrations.get(id);
+    @Override
+    public <C> StateMachineDef<T> step(String id, Class<C> contextType, Step<T, C> step) {
+        requireNotBlank(id, "Step ID");
+        requireNotNull(contextType, "Context type");
+        requireNotNull(step, "Step");
+        registerStepInstance(id, step);
+        tagContextType(id, contextType);
+        return this;
+    }
+
+    @Override
+    public <C> StateMachineDef<T> step(String id, Class<C> contextType, Class<? extends Step<T, C>> stepClass) {
+        requireNotBlank(id, "Step ID");
+        requireNotNull(contextType, "Context type");
+        requireNotNull(stepClass, "Step class");
+        registerStepClass(id, stepClass);
+        tagContextType(id, contextType);
+        return this;
+    }
+
+    private void registerStepInstance(String id, Step<T, ?> step) {
+        StepRegistration<T> existing = stepRegistrations.get(id);
         if (existing == null) {
             checkIdNotRegisteredAsOperation(id);
             stepRegistrations.put(id, StepRegistration.ofInstance(step));
@@ -270,18 +183,8 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
         throw new TransfluxValidationException("Step ID '" + id + "' is already registered");
     }
 
-    /**
-     * Records a class-based step registration, enforcing uniqueness with same-class
-     * re-registration tolerated as a no-op.
-     *
-     * @param id the step id
-     * @param stepClass the step class
-     *
-     * @throws TransfluxValidationException if {@code id} is already registered with a
-     *         different class or with any instance
-     */
-    private void registerStepClass(String id, Class<? extends Step<T, C>> stepClass) {
-        StepRegistration<T, C> existing = stepRegistrations.get(id);
+    private void registerStepClass(String id, Class<? extends Step<T, ?>> stepClass) {
+        StepRegistration<T> existing = stepRegistrations.get(id);
         if (existing == null) {
             checkIdNotRegisteredAsOperation(id);
             stepRegistrations.put(id, StepRegistration.ofClass(stepClass));
@@ -313,8 +216,8 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
         }
     }
 
-    private void registerOperationInstance(String id, Operation<T, C> operation) {
-        OperationRegistration<T, C> existing = operationRegistrations.get(id);
+    private void registerOperationInstance(String id, Operation<T, ?> operation) {
+        OperationRegistration<T> existing = operationRegistrations.get(id);
         if (existing == null) {
             checkIdNotRegisteredAsStep(id);
             operationRegistrations.put(id, OperationRegistration.ofInstance(operation));
@@ -328,8 +231,8 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
         throw new TransfluxValidationException("Operation ID '" + id + "' is already registered");
     }
 
-    private void registerOperationClass(String id, Class<? extends Operation<T, C>> operationClass) {
-        OperationRegistration<T, C> existing = operationRegistrations.get(id);
+    private void registerOperationClass(String id, Class<? extends Operation<T, ?>> operationClass) {
+        OperationRegistration<T> existing = operationRegistrations.get(id);
         if (existing == null) {
             checkIdNotRegisteredAsStep(id);
             operationRegistrations.put(id, OperationRegistration.ofClass(operationClass));
@@ -343,53 +246,46 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
         throw new TransfluxValidationException("Operation ID '" + id + "' is already registered");
     }
 
-    private void registerInlineOperations(Map<String, Operation<T, C>> instances,
-                                          Map<String, Class<? extends Operation<T, C>>> classes) {
-        for (Map.Entry<String, Operation<T, C>> e : instances.entrySet()) {
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void registerInlineOperations(Map<String, ? extends Operation<T, ?>> instances,
+                                          Map<String, ? extends Class<? extends Operation<T, ?>>> classes) {
+        for (Map.Entry<String, ? extends Operation<T, ?>> e : instances.entrySet()) {
             registerOperationInstance(e.getKey(), e.getValue());
         }
 
-        for (Map.Entry<String, Class<? extends Operation<T, C>>> e : classes.entrySet()) {
+        for (Map.Entry<String, ? extends Class<? extends Operation<T, ?>>> e : classes.entrySet()) {
             registerOperationClass(e.getKey(), e.getValue());
         }
     }
 
-    /**
-     * Walks every transition's operation def for inline step and inline nested-operation refs
-     * and registers each one on this state-machine def. Conditionals contributed by a
-     * composite are also walked: their branches and default branch contribute inline step
-     * registrations, and the conditional itself is recorded so the bound-step registry build
-     * can produce its framework-built executor under the conditional's id. Same-instance /
-     * same-class collisions on an id are tolerated; any other collision raises
-     * {@link TransfluxValidationException}.
-     *
-     * <p>Step ids and operation ids share a single state-machine-wide namespace; an id
-     * registered as a step cannot also be registered as a nested operation, and vice versa.
-     */
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     private void collectInlineMemberRegistrations() {
-        for (TransitionDefImpl<T, C> td : transitionsById.values()) {
-            OperationDefImpl<T, C> op = td.getOperationDef();
-            if (op instanceof CompositeOperationDefImpl<T, C> composite) {
+        for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
+            OperationDefImpl<T, ?> op = td.getOperationDef();
+            if (op instanceof CompositeOperationDefImpl<T, ?> composite) {
                 walkCompositeForInlineMembers(composite);
             }
         }
         for (CompositeOperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
-            walkCompositeForInlineMembers((CompositeOperationDefImpl<T, C>) composite);
+            walkCompositeForInlineMembers(composite);
         }
     }
 
-    private void walkCompositeForInlineMembers(CompositeOperationDefImpl<T, C> composite) {
-        registerInlineSteps(composite.getInlineStepInstances(), composite.getInlineStepClasses());
-        registerInlineOperations(composite.getInlineOperationInstances(), composite.getInlineOperationClasses());
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void walkCompositeForInlineMembers(CompositeOperationDefImpl<T, ?> composite) {
+        registerInlineSteps((Map) composite.getInlineStepInstances(),
+                            (Map) composite.getInlineStepClasses());
+        registerInlineOperations((Map) composite.getInlineOperationInstances(),
+                                 (Map) composite.getInlineOperationClasses());
 
-        for (Map.Entry<String, ConditionalStepDefImpl<T, C>> e : composite.getConditionalDefs().entrySet()) {
+        for (Map.Entry<String, ?> e : composite.getConditionalDefs().entrySet()) {
             String conditionalId = e.getKey();
-            ConditionalStepDefImpl<T, C> conditional = e.getValue();
+            ConditionalStepDefImpl<T, ?> conditional = (ConditionalStepDefImpl<T, ?>) e.getValue();
 
-            registerInlineSteps(conditional.getInlineStepInstances(), conditional.getInlineStepClasses());
+            registerInlineSteps((Map) conditional.getInlineStepInstances(),
+                                (Map) conditional.getInlineStepClasses());
 
-            ConditionalStepDefImpl<T, C> existing = conditionalStepRegistrations.get(conditionalId);
+            ConditionalStepDefImpl<T, ?> existing = conditionalStepRegistrations.get(conditionalId);
             if (existing != null && existing != conditional) {
                 throw new TransfluxValidationException(
                     "Conditional step ID '" + conditionalId + "' is already registered");
@@ -407,24 +303,19 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
         }
     }
 
-    /**
-     * Registers every inline step instance and every inline step class from the supplied maps.
-     * Shared between the per-composite walk and the per-conditional walk; both expose the same
-     * pair of maps and need the same registration semantics.
-     */
-    private void registerInlineSteps(Map<String, Step<T, C>> instances,
-                                     Map<String, Class<? extends Step<T, C>>> classes) {
-        for (Map.Entry<String, Step<T, C>> e : instances.entrySet()) {
+    private void registerInlineSteps(Map<String, Step<T, ?>> instances,
+                                     Map<String, Class<? extends Step<T, ?>>> classes) {
+        for (Map.Entry<String, Step<T, ?>> e : instances.entrySet()) {
             registerStepInstance(e.getKey(), e.getValue());
         }
 
-        for (Map.Entry<String, Class<? extends Step<T, C>>> e : classes.entrySet()) {
+        for (Map.Entry<String, Class<? extends Step<T, ?>>> e : classes.entrySet()) {
             registerStepClass(e.getKey(), e.getValue());
         }
     }
 
     @Override
-    public StateMachineDef<T, C> condition(String id, Condition<T, C> condition) {
+    public StateMachineDef<T> condition(String id, Condition<T, ?> condition) {
         requireNotBlank(id, "Condition ID");
         requireNotNull(condition, "Condition");
         registerConditionInstance(id, condition);
@@ -432,7 +323,7 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
     }
 
     @Override
-    public StateMachineDef<T, C> condition(String id, Class<? extends Condition<T, C>> conditionClass) {
+    public StateMachineDef<T> condition(String id, Class<? extends Condition<T, ?>> conditionClass) {
         requireNotBlank(id, "Condition ID");
         requireNotNull(conditionClass, "Condition class");
         registerConditionClass(id, conditionClass);
@@ -440,7 +331,7 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
     }
 
     @Override
-    public StateMachineDef<T, C> condition(String id, Predicate<T> predicate) {
+    public StateMachineDef<T> condition(String id, Predicate<T> predicate) {
         requireNotBlank(id, "Condition ID");
         requireNotNull(predicate, "Predicate");
         registerConditionPredicate(id, predicate);
@@ -448,15 +339,61 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
     }
 
     @Override
-    public StateMachineDef<T, C> condition(String id, String spelExpression) {
+    public StateMachineDef<T> condition(String id, String spelExpression) {
         requireNotBlank(id, "Condition ID");
         requireNotBlank(spelExpression, "SpEL expression");
         registerConditionExpression(id, spelExpression);
         return this;
     }
 
-    private void registerConditionInstance(String id, Condition<T, C> condition) {
-        ConditionRegistration<T, C> existing = conditionRegistrations.get(id);
+    @Override
+    public <C> StateMachineDef<T> condition(String id, Class<C> contextType, Condition<T, C> condition) {
+        requireNotBlank(id, "Condition ID");
+        requireNotNull(contextType, "Context type");
+        requireNotNull(condition, "Condition");
+        registerConditionInstance(id, condition);
+        tagContextType(id, contextType);
+        return this;
+    }
+
+    @Override
+    public <C> StateMachineDef<T> condition(String id, Class<C> contextType, Class<? extends Condition<T, C>> conditionClass) {
+        requireNotBlank(id, "Condition ID");
+        requireNotNull(contextType, "Context type");
+        requireNotNull(conditionClass, "Condition class");
+        registerConditionClass(id, conditionClass);
+        tagContextType(id, contextType);
+        return this;
+    }
+
+    @Override
+    public <C> StateMachineDef<T> conditionPredicate(String id, Class<C> contextType, Predicate<T> predicate) {
+        requireNotBlank(id, "Condition ID");
+        requireNotNull(contextType, "Context type");
+        requireNotNull(predicate, "Predicate");
+        registerConditionPredicate(id, predicate);
+        tagContextType(id, contextType);
+        return this;
+    }
+
+    @Override
+    public <C> StateMachineDef<T> conditionExpression(String id, Class<C> contextType, String spelExpression) {
+        requireNotBlank(id, "Condition ID");
+        requireNotNull(contextType, "Context type");
+        requireNotBlank(spelExpression, "SpEL expression");
+        registerConditionExpression(id, spelExpression);
+        tagContextType(id, contextType);
+        return this;
+    }
+
+    @Override
+    public <C> StateMachineDef<T> compositeOperation(String id, Class<C> contextType, Consumer<CompositeOperationDef<T, C>> configurer) {
+        registerScopedCompositeOperation(id, configurer, contextType);
+        return this;
+    }
+
+    private void registerConditionInstance(String id, Condition<T, ?> condition) {
+        ConditionRegistration<T> existing = conditionRegistrations.get(id);
         if (existing == null) {
             conditionRegistrations.put(id, ConditionRegistration.ofInstance(condition));
             return;
@@ -469,8 +406,8 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
         throw new TransfluxValidationException("Condition ID '" + id + "' is already registered");
     }
 
-    private void registerConditionClass(String id, Class<? extends Condition<T, C>> conditionClass) {
-        ConditionRegistration<T, C> existing = conditionRegistrations.get(id);
+    private void registerConditionClass(String id, Class<? extends Condition<T, ?>> conditionClass) {
+        ConditionRegistration<T> existing = conditionRegistrations.get(id);
         if (existing == null) {
             conditionRegistrations.put(id, ConditionRegistration.ofClass(conditionClass));
             return;
@@ -484,7 +421,7 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
     }
 
     private void registerConditionPredicate(String id, Predicate<T> predicate) {
-        ConditionRegistration<T, C> existing = conditionRegistrations.get(id);
+        ConditionRegistration<T> existing = conditionRegistrations.get(id);
         if (existing == null) {
             conditionRegistrations.put(id, ConditionRegistration.ofPredicate(predicate));
             return;
@@ -498,7 +435,7 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
     }
 
     private void registerConditionExpression(String id, String expression) {
-        ConditionRegistration<T, C> existing = conditionRegistrations.get(id);
+        ConditionRegistration<T> existing = conditionRegistrations.get(id);
         if (existing == null) {
             conditionRegistrations.put(id, ConditionRegistration.ofExpression(expression));
             return;
@@ -517,15 +454,11 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
      *
      * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
      * should not invoke it directly.
-     *
-     * @return an unmodifiable map of condition id to bound condition
-     *
-     * @throws TransfluxValidationException if any class-form registration cannot be
-     *         instantiated through its no-arg constructor
      */
-    public Map<String, BoundCondition<T, C>> buildBoundConditions() {
-        Map<String, BoundCondition<T, C>> resolved = new LinkedHashMap<>();
-        for (Map.Entry<String, ConditionRegistration<T, C>> e : conditionRegistrations.entrySet()) {
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public Map<String, BoundCondition<T, ?>> buildBoundConditions() {
+        Map<String, BoundCondition<T, ?>> resolved = new LinkedHashMap<>();
+        for (Map.Entry<String, ConditionRegistration<T>> e : conditionRegistrations.entrySet()) {
             resolved.put(e.getKey(), e.getValue().toBoundCondition(e.getKey()));
         }
 
@@ -533,90 +466,44 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
     }
 
     /**
-     * Resolves the step registrations into {@link BoundStep} instances, reflectively
-     * instantiating class-form entries and producing framework-built executor steps for any
-     * conditional registrations collected during the inline-step walk. Called from
-     * {@link StateMachineImpl} during state machine construction after the condition registry
-     * is built — each conditional executor is bound against that registry up-front so its
-     * branch conditions are ready by the time the executor runs.
-     *
-     * @param stateMachine the enclosing state machine, needed by conditional executors at
-     *                     execution time to look up branch step ids against the step registry
-     * @param conditionRegistry the resolved state-machine condition registry, used to bind
-     *                          each conditional's branch conditions
-     *
-     * @return an unmodifiable map of step id to bound step
-     *
-     * @throws TransfluxValidationException if any class-form registration cannot be
-     *         instantiated through its no-arg constructor, or if a conditional fails
-     *         validation
+     * Resolves the step registrations into {@link BoundStep} instances. Framework-internal.
      */
-    public Map<String, BoundStep<T, C>> buildBoundSteps(StateMachineImpl<T, C> stateMachine,
-                                                        Map<String, BoundCondition<T, C>> conditionRegistry) {
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public Map<String, BoundStep<T, ?>> buildBoundSteps(StateMachineImpl<T> stateMachine,
+                                                         Map<String, BoundCondition<T, ?>> conditionRegistry) {
         collectInlineMemberRegistrations();
 
-        Map<String, BoundStep<T, C>> resolved = new LinkedHashMap<>();
-        for (Map.Entry<String, StepRegistration<T, C>> e : stepRegistrations.entrySet()) {
+        Map<String, BoundStep<T, ?>> resolved = new LinkedHashMap<>();
+        for (Map.Entry<String, StepRegistration<T>> e : stepRegistrations.entrySet()) {
             resolved.put(e.getKey(), e.getValue().toBoundStep(e.getKey()));
         }
 
-        for (Map.Entry<String, ConditionalStepDefImpl<T, C>> e : conditionalStepRegistrations.entrySet()) {
+        for (Map.Entry<String, ConditionalStepDefImpl<T, ?>> e : conditionalStepRegistrations.entrySet()) {
             if (resolved.containsKey(e.getKey())) {
                 throw new TransfluxValidationException(
                     "Step ID '" + e.getKey() + "' is already registered");
             }
-            resolved.put(e.getKey(), e.getValue().buildBoundStep(stateMachine, conditionRegistry));
+            ConditionalStepDefImpl raw = e.getValue();
+            resolved.put(e.getKey(), raw.buildBoundStep(stateMachine, (Map) conditionRegistry));
         }
 
         return Collections.unmodifiableMap(resolved);
     }
 
     /**
-     * Resolves the nested-operation registrations collected during the inline-member walk
-     * into {@link BoundOperation} instances. Called from {@link StateMachineImpl} during
-     * state-machine construction after the bound-step registry is built. Class-form
-     * registrations are reflectively instantiated through their public no-arg constructor.
-     *
-     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
-     * should not invoke it directly.
-     *
-     * @param stateMachine the enclosing state machine (reserved for future use by nested
-     *                     composite operations resolved against the registry)
-     *
-     * @return an unmodifiable map of operation id to bound operation
-     *
-     * @throws TransfluxValidationException if any class-form registration cannot be
-     *         instantiated through its no-arg constructor
+     * Resolves the operation registrations into {@link BoundOperation} instances. Framework-internal.
      */
-    public Map<String, BoundOperation<T, C>> buildBoundOperations(StateMachineImpl<T, C> stateMachine) {
+    public Map<String, BoundOperation<T, ?>> buildBoundOperations(StateMachineImpl<T> stateMachine) {
         return buildBoundOperationsIncrementally(stateMachine, ignored -> {});
     }
 
-    /**
-     * Builds the operation registry one entry at a time, invoking {@code afterBuild} after each
-     * bound operation is produced. Allows the caller to register each operation into the
-     * SM-level component registry as soon as it is built, so that subsequent SM-level composite
-     * builds in the same pass can resolve previously-built composites through the registry.
-     *
-     * <p>SM-level composites that reference other SM-level composites must be registered in
-     * dependency order — referenced composites first. Cycles are caught by the build-time
-     * validation pass and never reach this method.
-     *
-     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
-     * should not invoke it directly.
-     *
-     * @param stateMachine the enclosing state machine
-     * @param afterBuild callback invoked with each bound operation as it is built
-     *
-     * @return an unmodifiable map of operation id to bound operation, in build order
-     */
-    @SuppressWarnings("unchecked")
-    public Map<String, BoundOperation<T, C>> buildBoundOperationsIncrementally(
-            StateMachineImpl<T, C> stateMachine,
-            java.util.function.Consumer<BoundOperation<T, C>> afterBuild) {
-        Map<String, BoundOperation<T, C>> resolved = new LinkedHashMap<>();
-        for (Map.Entry<String, OperationRegistration<T, C>> e : operationRegistrations.entrySet()) {
-            BoundOperation<T, C> bo = e.getValue().toBoundOperation(e.getKey());
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public Map<String, BoundOperation<T, ?>> buildBoundOperationsIncrementally(
+            StateMachineImpl<T> stateMachine,
+            Consumer<BoundOperation<T, ?>> afterBuild) {
+        Map<String, BoundOperation<T, ?>> resolved = new LinkedHashMap<>();
+        for (Map.Entry<String, OperationRegistration<T>> e : operationRegistrations.entrySet()) {
+            BoundOperation<T, ?> bo = e.getValue().toBoundOperation(e.getKey());
             resolved.put(e.getKey(), bo);
             afterBuild.accept(bo);
         }
@@ -625,8 +512,8 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
                 throw new TransfluxValidationException(
                     "Operation ID '" + e.getKey() + "' is already registered");
             }
-            CompositeOperationDefImpl<T, C> raw = (CompositeOperationDefImpl<T, C>) e.getValue();
-            BoundOperation<T, C> bo = raw.build(stateMachine);
+            CompositeOperationDefImpl raw = e.getValue();
+            BoundOperation<T, ?> bo = raw.build(stateMachine);
             resolved.put(e.getKey(), bo);
             afterBuild.accept(bo);
         }
@@ -634,35 +521,15 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
         return Collections.unmodifiableMap(resolved);
     }
 
-    /**
-     * Opens a context-typed registration scope. The configurer registers reusable
-     * components (steps, conditions, composite operations) tagged with {@code contextType};
-     * the framework verifies context compatibility at build time when a by-id reference
-     * resolves against them.
-     *
-     * <p>Multiple invocations for the same {@code contextType} class are permitted and
-     * accumulate.
-     *
-     * @param contextType the scope's context class; use {@code Void.class} for context-free
-     *                    components
-     * @param configurer callback that performs the registrations
-     * @param <C2> the scope context class
-     *
-     * @return this state machine def for chaining
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}
-     */
-    public <C2> StateMachineDef<T, C> useContext(Class<C2> contextType, java.util.function.Consumer<ContextScope<T, C2>> configurer) {
+    @Override
+    public <C> StateMachineDef<T> useContext(Class<C> contextType, Consumer<ContextScope<T, C>> configurer) {
         requireNotNull(contextType, "Context type");
         requireNotNull(configurer, "useContext configurer");
-        ContextScopeImpl<T, C2> scope = new ContextScopeImpl<>(this, contextType);
+        ContextScopeImpl<T, C> scope = new ContextScopeImpl<>(this, contextType);
         configurer.accept(scope);
         return this;
     }
 
-    /**
-     * Records the declared context class for a component id.
-     */
     private void tagContextType(String id, Class<?> contextType) {
         Class<?> existing = componentContextTypes.get(id);
         if (existing != null && existing != contextType) {
@@ -673,68 +540,50 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
         componentContextTypes.put(id, contextType);
     }
 
-    /**
-     * Returns the declared context class for the component id, or {@code null} if the id
-     * was not registered through a {@code useContext} block.
-     *
-     * @param id the component id
-     *
-     * @return the declared context class, or {@code null}
-     */
-    Class<?> getComponentContextType(String id) {
+    public Class<?> getComponentContextType(String id) {
         return componentContextTypes.get(id);
     }
 
-    /**
-     * Returns the SM-level composite operation by id, or {@code null} if no composite is
-     * registered under that id at SM level.
-     *
-     * @param id the composite id
-     *
-     * @return the composite def, or {@code null}
-     */
     public CompositeOperationDefImpl<T, ?> getSmCompositeOperation(String id) {
         return smCompositeOperations.get(id);
     }
 
-    @SuppressWarnings("unchecked")
-    <C2> void registerScopedStep(String id, Step<T, C2> step, Class<C2> contextType) {
-        registerStepInstance(id, (Step<T, C>) step);
+    <C> void registerScopedStep(String id, Step<T, C> step, Class<C> contextType) {
+        registerStepInstance(id, step);
         tagContextType(id, contextType);
     }
 
-    @SuppressWarnings("unchecked")
-    <C2> void registerScopedStep(String id, Class<? extends Step<T, C2>> stepClass, Class<C2> contextType) {
-        registerStepClass(id, (Class<? extends Step<T, C>>) stepClass);
+    <C> void registerScopedStep(String id, Class<? extends Step<T, C>> stepClass, Class<C> contextType) {
+        registerStepClass(id, stepClass);
         tagContextType(id, contextType);
     }
 
-    @SuppressWarnings("unchecked")
-    <C2> void registerScopedCondition(String id, Condition<T, C2> condition, Class<C2> contextType) {
-        registerConditionInstance(id, (Condition<T, C>) condition);
+    <C> void registerScopedCondition(String id, Condition<T, C> condition, Class<C> contextType) {
+        registerConditionInstance(id, condition);
         tagContextType(id, contextType);
     }
 
-    @SuppressWarnings("unchecked")
-    <C2> void registerScopedCondition(String id, Class<? extends Condition<T, C2>> conditionClass, Class<C2> contextType) {
-        registerConditionClass(id, (Class<? extends Condition<T, C>>) conditionClass);
+    <C> void registerScopedCondition(String id, Class<? extends Condition<T, C>> conditionClass, Class<C> contextType) {
+        registerConditionClass(id, conditionClass);
         tagContextType(id, contextType);
     }
 
-    <C2> void registerScopedCondition(String id, Predicate<T> predicate, Class<C2> contextType) {
+    <C> void registerScopedCondition(String id, Predicate<T> predicate, Class<C> contextType) {
         registerConditionPredicate(id, predicate);
         tagContextType(id, contextType);
     }
 
-    <C2> void registerScopedCondition(String id, String expression, Class<C2> contextType) {
+    <C> void registerScopedCondition(String id, String expression, Class<C> contextType) {
         registerConditionExpression(id, expression);
         tagContextType(id, contextType);
     }
 
-    @SuppressWarnings("unchecked")
-    <C2> void registerScopedCompositeOperation(String id,
-                                               java.util.function.Consumer<CompositeOperationDef<T, C2>> configurer,
-                                               Class<C2> contextType) {
+    <C> void registerScopedCompositeOperation(String id,
+                                              Consumer<CompositeOperationDef<T, C>> configurer,
+                                              Class<C> contextType) {
+        requireNotBlank(id, "Composite operation ID");
+        requireNotNull(contextType, "Context type");
+        requireNotNull(configurer, "Composite operation configurer");
         if (smCompositeOperations.containsKey(id)) {
             throw new TransfluxValidationException(
                 "Composite operation id '" + id + "' is already registered at SM level");
@@ -744,14 +593,14 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
             throw new TransfluxValidationException(
                 "Component id '" + id + "' is already registered");
         }
-        CompositeOperationDefImpl<T, C2> composite = new CompositeOperationDefImpl<>(id);
+        CompositeOperationDefImpl<T, C> composite = new CompositeOperationDefImpl<>(id);
         configurer.accept(composite);
         smCompositeOperations.put(id, composite);
         tagContextType(id, contextType);
     }
 
     @Override
-    public StateMachineDef<T, C> withStateApplier(StateApplier<T> stateApplier) {
+    public StateMachineDef<T> withStateApplier(StateApplier<T> stateApplier) {
         requireNotNull(stateApplier, "State applier");
 
         if (this.stateApplier != null) {
@@ -764,40 +613,19 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
         return this;
     }
 
-    /**
-     * Begins defining a new state in the state machine.
-     * <p>
-     * This method creates a new state definition with the specified ID and returns
-     * a StateDef instance for further configuration through the fluent API.
-     *
-     * @param stateId the unique identifier for the new state
-     *
-     * @return a StateDef instance for configuring the new state
-     *
-     * @throws TransfluxValidationException if the state ID is already defined
-     */
     @Override
-    public StateDef<T, C> state(String stateId) {
+    public StateDef<T> state(String stateId) {
         if (states.containsKey(stateId)) {
             throw new TransfluxValidationException("State ID " + stateId + " already defined");
         }
 
-        var stateDef = new StateDefImpl<T, C>(this, stateId);
+        var stateDef = new StateDefImpl<T>(this, stateId);
         states.put(stateDef.getId(), stateDef);
         return stateDef;
     }
 
-    /**
-     * Begins defining a new state using an identifiable object for the state ID.
-     *
-     * @param stateIdentifiable an identifiable object providing the state ID
-     *
-     * @return a StateDef instance for configuring the new state
-     *
-     * @throws TransfluxValidationException if the identifiable is null or state ID is already defined
-     */
     @Override
-    public StateDef<T, C> state(Identifiable stateIdentifiable) {
+    public StateDef<T> state(Identifiable stateIdentifiable) {
         requireNotNull(stateIdentifiable, "State identifiable");
 
         return state(stateIdentifiable.getId());
@@ -805,17 +633,18 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
 
     /**
      * Registers a transition between two states.
-     * <p>
-     * This package-private method is used internally by StateDef to register
-     * transitions when they are defined through the fluent API.
      *
      * @param sourceStateId the ID of the source state
      * @param targetStateId the ID of the target state
      * @param transitionId the unique identifier for the transition
-     *
-     * @throws TransfluxValidationException if any parameter is null/blank or transition ID already exists
+     * @param contextType optional pre-bound context type; may be {@code null}
      */
     public void registerTransition(String sourceStateId, String targetStateId, String transitionId) {
+        registerTransition(sourceStateId, targetStateId, transitionId, null);
+    }
+
+    public void registerTransition(String sourceStateId, String targetStateId, String transitionId,
+                                   Class<?> contextType) {
         requireNotBlank(sourceStateId, "Source state ID");
         requireNotBlank(targetStateId, "Target state ID");
         requireNotBlank(transitionId, "Transition ID");
@@ -825,50 +654,31 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
         }
 
         var byTarget = transitionsBySourceTarget.computeIfAbsent(sourceStateId, k -> new LinkedHashMap<>());
-        var list = byTarget.computeIfAbsent(targetStateId, k -> new ArrayList<>(1)); // More than one transition between states is uncommon
+        var list = byTarget.computeIfAbsent(targetStateId, k -> new ArrayList<>(1));
 
-        var def = new TransitionDefImpl<T, C>(transitionId, sourceStateId, targetStateId);
+        TransitionDefImpl<T, ?> def = createTransition(transitionId, sourceStateId, targetStateId, contextType);
         list.add(def);
         transitionsById.put(transitionId, def);
     }
 
-    /**
-     * Completes the state machine definition and creates the final StateMachine instance.
-     * <p>
-     * This method finalizes the state machine configuration and returns a concrete
-     * StateMachine implementation that can be used to manage entity state transitions.
-     *
-     * @return the constructed StateMachine instance
-     *
-     * @throws IllegalStateException if the state machine definition is invalid or incomplete
-     */
+    private <C> TransitionDefImpl<T, C> createTransition(String transitionId, String sourceStateId,
+                                                          String targetStateId, Class<?> contextType) {
+        @SuppressWarnings("unchecked")
+        Class<C> ctx = (Class<C>) (contextType != null ? contextType : Object.class);
+        return new TransitionDefImpl<>(transitionId, sourceStateId, targetStateId, ctx);
+    }
+
     @Override
-    public StateMachine<T, C> build() {
+    public StateMachine<T> build() {
         validateContextCompatibilityAndCycles();
         return new StateMachineImpl<>(this);
     }
 
-    /**
-     * Build-time validation pass. Two concerns:
-     * <ul>
-     *   <li><b>Context compatibility.</b> Every by-id reference (a composite's
-     *       {@code .step("foo")} / {@code .operation("foo")}, a transition's
-     *       {@code .preCondition("foo")}) is checked against the referenced component's
-     *       declared context type. The check is conservative: it skips silently when either
-     *       side has no declared context type (legacy registrations without a
-     *       {@code useContext} block carry no tag), and fires only when both sides have
-     *       declared types and they disagree.</li>
-     *   <li><b>Cycle detection.</b> A DFS over the composite-by-id reference graph
-     *       (composites referencing other composites) raises if it encounters a back-edge.
-     *       Self-references (A &rarr; A) and longer cycles (A &rarr; B &rarr; A) are both
-     *       caught.</li>
-     * </ul>
-     */
     private void validateContextCompatibilityAndCycles() {
-        for (TransitionDefImpl<T, C> td : transitionsById.values()) {
+        for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             Class<?> transitionContext = td.getContextType();
-            OperationDefImpl<T, C> op = td.getOperationDef();
-            if (op instanceof CompositeOperationDefImpl<T, C> composite) {
+            OperationDefImpl<T, ?> op = td.getOperationDef();
+            if (op instanceof CompositeOperationDefImpl<T, ?> composite) {
                 checkCompositeRefs(composite, transitionContext,
                     "transition '" + td.getId() + "'");
             }
@@ -884,8 +694,8 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
     private void checkCompositeRefs(CompositeOperationDefImpl<T, ?> composite,
                                     Class<?> scopeContext,
                                     String scopeLabel) {
-        if (scopeContext == null) {
-            return; // legacy / untagged scope — skip
+        if (scopeContext == null || scopeContext == Object.class) {
+            return;
         }
         for (String stepId : composite.getStepByIdReferenceIds()) {
             Class<?> stepCtx = componentContextTypes.get(stepId);
@@ -907,7 +717,6 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private void detectCompositeCycles() {
         java.util.Set<String> visited = new java.util.HashSet<>();
         java.util.Deque<String> stack = new java.util.ArrayDeque<>();
@@ -918,7 +727,6 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private void dfsComposite(String id, java.util.Set<String> visited, java.util.Deque<String> stack) {
         if (stack.contains(id)) {
             java.util.List<String> path = new ArrayList<>(stack);
@@ -948,10 +756,6 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
         return entityType;
     }
 
-    public Class<C> getContextType() {
-        return contextType;
-    }
-
     public String getName() {
         return name;
     }
@@ -972,16 +776,16 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
         return stateApplier;
     }
 
-    Map<String, StateDefImpl<T, C>> getStates() {
+    public Map<String, StateDefImpl<T>> getStates() {
         return states;
     }
 
-    Map<String, TransitionDefImpl<T, C>> getTransitionsById() {
+    public Map<String, TransitionDefImpl<T, ?>> getTransitionsById() {
         return transitionsById;
     }
 
     @Override
-    public TransitionDef<T, C> getTransition(String sourceStateId, String targetStateId) {
+    public TransitionDef<T, ?> getTransition(String sourceStateId, String targetStateId) {
         var byTarget = transitionsBySourceTarget.get(sourceStateId);
         if (byTarget == null) {
             throw new TransfluxValidationException("Source state '" + sourceStateId + "' not found");
@@ -1001,74 +805,65 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
         return list.get(0);
     }
 
-    /**
-     * Holds one step registration kept on the state-machine def. Exactly one of
-     * {@link #instance} or {@link #stepClass} is non-null.
-     */
-    private static final class StepRegistration<T, C> {
-        private final Step<T, C> instance;
-        private final Class<? extends Step<T, C>> stepClass;
+    private static final class StepRegistration<T> {
+        private final Step<T, ?> instance;
+        private final Class<? extends Step<T, ?>> stepClass;
 
-        private StepRegistration(Step<T, C> instance, Class<? extends Step<T, C>> stepClass) {
+        private StepRegistration(Step<T, ?> instance, Class<? extends Step<T, ?>> stepClass) {
             this.instance = instance;
             this.stepClass = stepClass;
         }
 
-        static <T, C> StepRegistration<T, C> ofInstance(Step<T, C> instance) {
+        static <T> StepRegistration<T> ofInstance(Step<T, ?> instance) {
             return new StepRegistration<>(instance, null);
         }
 
-        static <T, C> StepRegistration<T, C> ofClass(Class<? extends Step<T, C>> stepClass) {
+        static <T> StepRegistration<T> ofClass(Class<? extends Step<T, ?>> stepClass) {
             return new StepRegistration<>(null, stepClass);
         }
 
-        BoundStep<T, C> toBoundStep(String id) {
-            return BoundStep.of(id, requireNonNullElseGet(instance, () -> instantiateNoArg(stepClass, "Step")));
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        BoundStep<T, ?> toBoundStep(String id) {
+            Step<T, ?> resolved = instance != null ? instance : (Step<T, ?>) instantiateNoArg((Class) stepClass, "Step");
+            return BoundStep.of(id, (Step) resolved);
         }
     }
 
-    /**
-     * Holds one nested-operation registration kept on the state-machine def. Exactly one of
-     * {@link #instance} or {@link #operationClass} is non-null.
-     */
-    private static final class OperationRegistration<T, C> {
-        private final Operation<T, C> instance;
-        private final Class<? extends Operation<T, C>> operationClass;
+    private static final class OperationRegistration<T> {
+        private final Operation<T, ?> instance;
+        private final Class<? extends Operation<T, ?>> operationClass;
 
-        private OperationRegistration(Operation<T, C> instance,
-                                      Class<? extends Operation<T, C>> operationClass) {
+        private OperationRegistration(Operation<T, ?> instance,
+                                      Class<? extends Operation<T, ?>> operationClass) {
             this.instance = instance;
             this.operationClass = operationClass;
         }
 
-        static <T, C> OperationRegistration<T, C> ofInstance(Operation<T, C> instance) {
+        static <T> OperationRegistration<T> ofInstance(Operation<T, ?> instance) {
             return new OperationRegistration<>(instance, null);
         }
 
-        static <T, C> OperationRegistration<T, C> ofClass(Class<? extends Operation<T, C>> operationClass) {
+        static <T> OperationRegistration<T> ofClass(Class<? extends Operation<T, ?>> operationClass) {
             return new OperationRegistration<>(null, operationClass);
         }
 
-        BoundOperation<T, C> toBoundOperation(String id) {
-            Operation<T, C> resolved = requireNonNullElseGet(instance,
-                () -> instantiateNoArg(operationClass, "Operation"));
-            return BoundOperation.of(id, null, null, resolved);
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        BoundOperation<T, ?> toBoundOperation(String id) {
+            Operation<T, ?> resolved = instance != null
+                ? instance
+                : (Operation<T, ?>) instantiateNoArg((Class) operationClass, "Operation");
+            return BoundOperation.of(id, null, null, (Operation) resolved);
         }
     }
 
-    /**
-     * Holds one condition registration kept on the state-machine def. Exactly one of
-     * {@link #instance}, {@link #conditionClass}, {@link #predicate}, or {@link #expression}
-     * is non-null.
-     */
-    private static final class ConditionRegistration<T, C> {
-        private final Condition<T, C> instance;
-        private final Class<? extends Condition<T, C>> conditionClass;
+    private static final class ConditionRegistration<T> {
+        private final Condition<T, ?> instance;
+        private final Class<? extends Condition<T, ?>> conditionClass;
         private final Predicate<T> predicate;
         private final String expression;
 
-        private ConditionRegistration(Condition<T, C> instance,
-                                      Class<? extends Condition<T, C>> conditionClass,
+        private ConditionRegistration(Condition<T, ?> instance,
+                                      Class<? extends Condition<T, ?>> conditionClass,
                                       Predicate<T> predicate,
                                       String expression) {
             this.instance = instance;
@@ -1077,40 +872,41 @@ public class StateMachineDefImpl<T, C> implements StateMachineDef<T, C> {
             this.expression = expression;
         }
 
-        static <T, C> ConditionRegistration<T, C> ofInstance(Condition<T, C> instance) {
+        static <T> ConditionRegistration<T> ofInstance(Condition<T, ?> instance) {
             return new ConditionRegistration<>(instance, null, null, null);
         }
 
-        static <T, C> ConditionRegistration<T, C> ofClass(Class<? extends Condition<T, C>> conditionClass) {
+        static <T> ConditionRegistration<T> ofClass(Class<? extends Condition<T, ?>> conditionClass) {
             return new ConditionRegistration<>(null, conditionClass, null, null);
         }
 
-        static <T, C> ConditionRegistration<T, C> ofPredicate(Predicate<T> predicate) {
+        static <T> ConditionRegistration<T> ofPredicate(Predicate<T> predicate) {
             return new ConditionRegistration<>(null, null, predicate, null);
         }
 
-        static <T, C> ConditionRegistration<T, C> ofExpression(String expression) {
+        static <T> ConditionRegistration<T> ofExpression(String expression) {
             return new ConditionRegistration<>(null, null, null, expression);
         }
 
-        BoundCondition<T, C> toBoundCondition(String id) {
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        BoundCondition<T, ?> toBoundCondition(String id) {
             if (instance != null) {
-                return BoundCondition.of(id, instance);
+                return BoundCondition.of(id, (Condition) instance);
             }
             if (conditionClass != null) {
-                return BoundCondition.of(id, instantiateNoArg(conditionClass, "Condition"));
+                return BoundCondition.of(id, (Condition) instantiateNoArg((Class) conditionClass, "Condition"));
             }
             if (predicate != null) {
                 Predicate<T> p = predicate;
-                Condition<T, C> adapted = (entity, ctx, transition) -> p.test(entity);
-                return BoundCondition.of(id, adapted);
+                Condition<T, Object> adapted = (entity, ctx, transition) -> p.test(entity);
+                return BoundCondition.of(id, (Condition) adapted);
             }
             return BoundCondition.fromExpression(id, expression);
         }
     }
 
     @Override
-    public TransitionDef<T, C> getTransition(String transitionId) {
+    public TransitionDef<T, ?> getTransition(String transitionId) {
         var td = transitionsById.get(transitionId);
         if (td == null) {
             throw new TransfluxValidationException("Transition '" + transitionId + "' not found");

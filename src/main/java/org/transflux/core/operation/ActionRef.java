@@ -66,7 +66,7 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
      * @throws TransfluxValidationException if no entry is registered under {@link #id()} in
      *         the registry this ref resolves against
      */
-    BoundAction<T, C> resolve(StateMachineImpl<T, C> stateMachine, String enclosingCompositeId);
+    BoundAction<T, C> resolve(StateMachineImpl<T> stateMachine, String enclosingCompositeId);
 
     static <T, C> ActionRef<T, C> byId(String id) {
         return new ById<>(id);
@@ -117,14 +117,15 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
         permits ActionRef.ById, ActionRef.InlineInstance, ActionRef.InlineClass, ActionRef.Conditional {
 
         @Override
-        default BoundAction<T, C> resolve(StateMachineImpl<T, C> stateMachine, String enclosingCompositeId) {
-            BoundStep<T, C> bound = stateMachine.getBoundStep(id());
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        default BoundAction<T, C> resolve(StateMachineImpl<T> stateMachine, String enclosingCompositeId) {
+            BoundStep<T, ?> bound = stateMachine.getBoundStep(id());
             if (bound == null) {
                 throw new TransfluxValidationException(
                     "CompositeOperationDef '" + enclosingCompositeId
                         + "' references unknown step id '" + id() + "'");
             }
-            return bound;
+            return (BoundAction<T, C>) (BoundAction) bound;
         }
     }
 
@@ -145,14 +146,15 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
                 ActionRef.OperationInlineClassConfigured {
 
         @Override
-        default BoundAction<T, C> resolve(StateMachineImpl<T, C> stateMachine, String enclosingCompositeId) {
-            BoundOperation<T, C> bound = stateMachine.getBoundOperation(id());
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        default BoundAction<T, C> resolve(StateMachineImpl<T> stateMachine, String enclosingCompositeId) {
+            BoundOperation<T, ?> bound = stateMachine.getBoundOperation(id());
             if (bound == null) {
                 throw new TransfluxValidationException(
                     "CompositeOperationDef '" + enclosingCompositeId
                         + "' references unknown operation id '" + id() + "'");
             }
-            return bound;
+            return (BoundAction<T, C>) (BoundAction) bound;
         }
 
         /**

@@ -51,7 +51,7 @@ public class StateImpl<T> implements State<T> {
      *
      * @throws TransfluxValidationException if the state definition is null or has invalid properties
      */
-    public StateImpl(StateDefImpl<T, ?> stateDef) {
+    public StateImpl(StateDefImpl<T> stateDef) {
         validateStateDef(stateDef);
         this.id = stateDef.getId();
         this.name = stateDef.getName();
@@ -65,7 +65,7 @@ public class StateImpl<T> implements State<T> {
      *
      * @throws TransfluxValidationException if the state definition is null or has invalid properties
      */
-    private void validateStateDef(StateDefImpl<T, ?> stateDef) {
+    private void validateStateDef(StateDefImpl<T> stateDef) {
         requireNotNull(stateDef, "State definition");
         requireNotBlank(stateDef.getId(), "State ID");
     }

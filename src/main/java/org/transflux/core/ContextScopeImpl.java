@@ -42,10 +42,10 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
  */
 public final class ContextScopeImpl<T, C> implements ContextScope<T, C> {
 
-    private final StateMachineDefImpl<T, ?> smd;
+    private final StateMachineDefImpl<T> smd;
     private final Class<C> contextType;
 
-    ContextScopeImpl(StateMachineDefImpl<T, ?> smd, Class<C> contextType) {
+    ContextScopeImpl(StateMachineDefImpl<T> smd, Class<C> contextType) {
         this.smd = smd;
         this.contextType = contextType;
     }

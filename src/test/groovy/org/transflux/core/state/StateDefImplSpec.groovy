@@ -43,7 +43,7 @@ class StateDefImplSpec extends Specification {
     def 'transitionsTo should create TransitionDef correctly using Identifiable'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def s = new StateDefImpl<Object, Object>(smd, ACTIVE)
+        def s = new StateDefImpl<Object>(smd, ACTIVE)
 
         when:
         s.transitionsTo(EXPIRED, "active-to-expired")
@@ -59,7 +59,7 @@ class StateDefImplSpec extends Specification {
     def 'transitionsTo should create TransitionDef correctly using string ID'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def s = new StateDefImpl<Object, Object>(smd, ACTIVE)
+        def s = new StateDefImpl<Object>(smd, ACTIVE)
 
         when:
         s.transitionsTo("EXPIRED", "active-to-expired")
@@ -89,7 +89,7 @@ class StateDefImplSpec extends Specification {
     @Unroll
     def 'constructor with String id should validate: #scenario'() {
         when:
-        new StateDefImpl<Object, Object>(smd, stateId)
+        new StateDefImpl<Object>(smd, stateId)
         
         then:
         def e = thrown(TransfluxValidationException)
@@ -104,7 +104,7 @@ class StateDefImplSpec extends Specification {
     @Unroll
     def 'constructor with Identifiable should validate: #scenario'() {
         when:
-        new StateDefImpl<Object, Object>(smd, identifiable)
+        new StateDefImpl<Object>(smd, identifiable)
         
         then:
         def e = thrown(TransfluxValidationException)
@@ -120,7 +120,7 @@ class StateDefImplSpec extends Specification {
     def 'withName should override previous name value'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def s = new StateDefImpl<Object, Object>(smd, 'S1')
+        def s = new StateDefImpl<Object>(smd, 'S1')
         
         when:
         s.withName('name1').withName('name2')
@@ -132,7 +132,7 @@ class StateDefImplSpec extends Specification {
     def 'withDescription should override previous description value'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def s = new StateDefImpl<Object, Object>(smd, 'S1')
+        def s = new StateDefImpl<Object>(smd, 'S1')
         
         when:
         s.withDescription('desc1').withDescription('desc2')
@@ -144,7 +144,7 @@ class StateDefImplSpec extends Specification {
     def 'state method should delegate to StateMachineDef'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def s = new StateDefImpl<Object, Object>(smd, 'S1')
+        def s = new StateDefImpl<Object>(smd, 'S1')
         
         when:
         def chained = s.state('S2')
@@ -158,7 +158,7 @@ class StateDefImplSpec extends Specification {
     def 'build method should delegate to StateMachineDef'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def s = new StateDefImpl<Object, Object>(smd, 'S1')
+        def s = new StateDefImpl<Object>(smd, 'S1')
         
         when:
         def machine = s.build()
@@ -170,7 +170,7 @@ class StateDefImplSpec extends Specification {
     def 'transitionsTo should reject null Identifiable target'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def s = new StateDefImpl<Object, Object>(smd, 'S')
+        def s = new StateDefImpl<Object>(smd, 'S')
         when:
         s.transitionsTo((Identifiable) null, 't')
         then:

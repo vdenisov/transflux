@@ -57,35 +57,14 @@ class CompositeOperationContextAssertionSpec extends Specification {
         sm != null
     }
 
-    def 'usingContext(WrongCtx) is rejected with a clear error message'() {
-        given:
-        def smd = baseDef()
-        // Bypass generic typing by going through the raw CompositeOperationDefImpl —
-        // simulates a misuse that wouldn't compile against the typed CompositeOperationDef
-        // surface but could arise from YAML deserialisation or reflective wiring.
-        smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, CorrectCtx> c ->
-            ((CompositeOperationDefImpl) c).declaredContextType = WrongCtx
-            c.step('s1', new NoopStep())
-        })
-
-        when:
-        smd.build()
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message.contains('outer')
-        e.message.contains('WrongCtx')
-        e.message.contains('CorrectCtx')
-    }
-
     def 'usingContext is a no-op when the SM did not declare a context type'() {
         given:
-        def smd = new StateMachineDefImpl<Entity, CorrectCtx>()
+        def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .state('s1').transitionsTo('s2', 't')
             .state('s2')
-        // Note: no forContextType call — SM context type is null.
+        // Note: SM no longer carries a context type — context is per-transition.
         smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, CorrectCtx> c ->
             c.usingContext(CorrectCtx).step('s1', new NoopStep())
         })
@@ -97,10 +76,9 @@ class CompositeOperationContextAssertionSpec extends Specification {
         sm != null   // no validation triggered
     }
 
-    private static StateMachineDefImpl<Entity, CorrectCtx> baseDef() {
-        def smd = new StateMachineDefImpl<Entity, CorrectCtx>()
+    private static StateMachineDefImpl<Entity> baseDef() {
+        def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
-            .forContextType(CorrectCtx)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .state('s1').transitionsTo('s2', 't')
             .state('s2')

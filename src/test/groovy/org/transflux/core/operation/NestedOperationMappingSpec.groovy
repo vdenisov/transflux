@@ -81,7 +81,7 @@ class NestedOperationMappingSpec extends Specification {
         def ctx = new ParentCtx(subscriptionId: 'sub-42')
 
         when:
-        def result = sm.entity(entity).withContext(ctx).transitionTo('s2')
+        def result = sm.entity(entity).transitionTo('s2', ctx)
 
         then:
         result.success
@@ -103,7 +103,7 @@ class NestedOperationMappingSpec extends Specification {
         def ctx = new ParentCtx(subscriptionId: 'sub-99')
 
         when:
-        def result = sm.entity(entity).withContext(ctx).transitionTo('s2')
+        def result = sm.entity(entity).transitionTo('s2', ctx)
 
         then:
         result.success
@@ -129,7 +129,7 @@ class NestedOperationMappingSpec extends Specification {
         def ctx = new ParentCtx(subscriptionId: 'sub-inline')
 
         when:
-        def result = sm.entity(entity).withContext(ctx).transitionTo('s2')
+        def result = sm.entity(entity).transitionTo('s2', ctx)
 
         then:
         result.success
@@ -154,7 +154,7 @@ class NestedOperationMappingSpec extends Specification {
         def ctx = new ParentCtx(subscriptionId: 'sub-no-back')
 
         when:
-        def result = sm.entity(entity).withContext(ctx).transitionTo('s2')
+        def result = sm.entity(entity).transitionTo('s2', ctx)
 
         then:
         result.success
@@ -181,17 +181,16 @@ class NestedOperationMappingSpec extends Specification {
         def ctx = new ParentCtx()
 
         when:
-        def result = sm.entity(entity).withContext(ctx).transitionTo('s2')
+        def result = sm.entity(entity).transitionTo('s2', ctx)
 
         then:
         result.success
         ctx.billingStatus == 'reached'
     }
 
-    private static StateMachineDefImpl<Entity, ParentCtx> baseDef() {
-        def smd = new StateMachineDefImpl<Entity, ParentCtx>()
+    private static StateMachineDefImpl<Entity> baseDef() {
+        def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
-            .forContextType(ParentCtx)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .state('s1').transitionsTo('s2', 't')
             .state('s2')

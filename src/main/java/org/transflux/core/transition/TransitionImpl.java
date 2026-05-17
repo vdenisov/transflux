@@ -73,7 +73,7 @@ public class TransitionImpl<T, C> implements Transition<T, C> {
      *
      * @throws TransfluxValidationException if the transition definition is null or has invalid properties
      */
-    public TransitionImpl(TransitionDefImpl<T, C> transitionDef, StateMachineImpl<T, C> stateMachine,
+    public TransitionImpl(TransitionDefImpl<T, C> transitionDef, StateMachineImpl<T> stateMachine,
                           Map<String, BoundCondition<T, C>> conditionRegistry) {
         validateTransitionDef(transitionDef);
         requireNotNull(conditionRegistry, "Condition registry");

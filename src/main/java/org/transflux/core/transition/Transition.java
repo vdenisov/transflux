@@ -20,7 +20,6 @@ package org.transflux.core.transition;
 
 import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.operation.Operation;
 
 /**
  * Represents a transition between states in a state machine, defining valid state changes
@@ -99,4 +98,6 @@ public interface Transition<T, C> extends Identifiable {
      * @throws TransfluxValidationException when called outside an active transition execution
      */
     void step(String id);
+
+    //TODO: operation
 }

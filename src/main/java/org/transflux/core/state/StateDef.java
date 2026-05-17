@@ -35,14 +35,14 @@ import org.transflux.core.exception.TransfluxValidationException;
  *
  * <p><b>Example usage:</b>
  * <pre>{@code
- * StateMachine<Order, OrderContext> orderSM = Transflux.defineStateMachine()
+ * StateMachine<Order> orderSM = Transflux.defineStateMachine()
  *     .forEntityType(Order.class)
  *     .withStateResolver(order -> order.getStatus())
  *     .state("pending")
  *         .withName("Pending Order")
  *         .withDescription("Order has been placed but not yet processed")
- *         .transitionsTo("processing", "start-processing")
- *         .transitionsTo("cancelled", "cancel-order")
+ *         .transitionsTo("processing", "start-processing", OrderContext.class)
+ *         .transitionsTo("cancelled", "cancel-order", CancelReason.class)
  *     .state("processing")
  *         .withName("Processing Order")
  *         .transitionsTo("shipped", "ship-order")
@@ -50,9 +50,8 @@ import org.transflux.core.exception.TransfluxValidationException;
  * }</pre>
  *
  * @param <T> the type of entity managed by the state machine
- * @param <C> the host-supplied context type carried through transition execution
  */
-public interface StateDef<T, C> {
+public interface StateDef<T> {
 
     /**
      * Sets the human-readable name for this state.
@@ -65,7 +64,7 @@ public interface StateDef<T, C> {
      *
      * @return this StateDef instance for method chaining
      */
-    StateDef<T, C> withName(String name);
+    StateDef<T> withName(String name);
 
     /**
      * Sets the description for this state.
@@ -78,13 +77,12 @@ public interface StateDef<T, C> {
      *
      * @return this StateDef instance for method chaining
      */
-    StateDef<T, C> withDescription(String description);
+    StateDef<T> withDescription(String description);
 
     /**
-     * Defines a transition from this state to the specified target state.
+     * Defines a transition from this state to the specified target state. The new transition
+     * has no declared context type and accepts any {@link Object} as firing context.
      * <p>
-     * This method registers a transition that can be used to move entities from
-     * the current state to the target state using the specified transition identifier.
      * Note that the target state may not be defined at the time the transition is created,
      * but it must be defined eventually, or the state machine building will fail.
      *
@@ -95,15 +93,29 @@ public interface StateDef<T, C> {
      *
      * @throws TransfluxValidationException if either parameter is null or blank
      */
-    StateDef<T, C> transitionsTo(String targetStateId, String transitionId);
+    StateDef<T> transitionsTo(String targetStateId, String transitionId);
+
+    /**
+     * Defines a transition from this state to the specified target state, pre-binding the
+     * transition's context type. Equivalent to declaring the transition and then calling
+     * {@link org.transflux.core.transition.TransitionDef#usingContext(Class)} on it.
+     *
+     * <p>{@code Void.class} declares that the transition takes no context — fire calls with
+     * a non-null context are rejected at the dispatch boundary.
+     *
+     * @param targetStateId the ID of the target state for this transition
+     * @param transitionId the unique identifier for this transition
+     * @param contextType the transition's context type; use {@code Void.class} for a
+     *                    context-free transition
+     *
+     * @return this {@code StateDef} instance for method chaining
+     *
+     * @throws TransfluxValidationException if any parameter is null or blank
+     */
+    StateDef<T> transitionsTo(String targetStateId, String transitionId, Class<?> contextType);
 
     /**
      * Defines a transition from this state to the specified target state using an identifiable object.
-     * <p>
-     * This method registers a transition that can be used to move entities from
-     * the current state to the target state identified by the provided identifiable object.
-     * Note that the target state may not be defined at the time the transition is created,
-     * but it must be defined eventually, or the state machine building will fail.
      *
      * @param targetStateIdentifiable an identifiable object providing the target state ID
      * @param transitionId the unique identifier for this transition
@@ -113,44 +125,32 @@ public interface StateDef<T, C> {
      * @throws TransfluxValidationException if the target state identifiable is null, its ID is null/blank,
      *                                      or the transition ID is null/blank
      */
-    StateDef<T, C> transitionsTo(Identifiable targetStateIdentifiable, String transitionId);
+    StateDef<T> transitionsTo(Identifiable targetStateIdentifiable, String transitionId);
 
     /**
      * Switches the builder context to define another state in the same state machine.
-     * <p>
-     * This method allows you to continue building the state machine by defining
-     * additional states without breaking the fluent API chain. Note that each state
-     * (as identified by its id) can only be defined once.
      *
      * @param stateId the ID of the state to define next
      *
      * @return a {@code StateDef} instance for the specified state
      */
-    StateDef<T, C> state(String stateId);
+    StateDef<T> state(String stateId);
 
     /**
      * Switches the builder context to define another state using an identifiable object.
-     * <p>
-     * This method allows you to continue building the state machine by defining
-     * additional states without breaking the fluent API chain. Note that each state
-     * (as identified by its id) can only be defined once.
      *
      * @param stateIdentifiable an identifiable object providing the state ID
      *
      * @return a {@code StateDef} instance for the specified state
      */
-    StateDef<T, C> state(Identifiable stateIdentifiable);
+    StateDef<T> state(Identifiable stateIdentifiable);
 
     /**
      * Completes the state machine definition and creates the final {@code StateMachine} instance.
-     * <p>
-     * This method finalizes the state machine configuration and returns a concrete
-     * implementation that can be used to manage entity state transitions. Note that
-     * all states referenced in transitions must have been defined before calling this method.
      *
      * @return a configured {@code StateMachine} instance ready for use
      *
      * @throws TransfluxValidationException if the state machine definition is incomplete or invalid
      */
-    StateMachine<T, C> build();
+    StateMachine<T> build();
 }
