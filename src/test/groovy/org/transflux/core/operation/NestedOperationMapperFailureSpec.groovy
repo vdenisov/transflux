@@ -45,14 +45,33 @@ class NestedOperationMapperFailureSpec extends Specification {
         }
     }
 
+    static class FailingMapToMapper implements ContextMapper<ParentCtx, ChildCtx> {
+        @Override
+        ChildCtx mapTo(ParentCtx p) {
+            throw new RuntimeException('mapTo-boom')
+        }
+    }
+
+    static class FailingMapFromMapper implements ContextMapper<ParentCtx, ChildCtx> {
+        @Override
+        ChildCtx mapTo(ParentCtx p) {
+            return new ChildCtx()
+        }
+
+        @Override
+        void mapFrom(ParentCtx p, ChildCtx n) {
+            throw new RuntimeException('mapFrom-boom')
+        }
+    }
+
     def 'mapTo failure surfaces as parent member failure — nested op never starts'() {
         given:
         def smd = baseDef()
+        smd.operation('nested', ChildCtx, new ChildOp())
+            .mapper('failing-mapto', ParentCtx, ChildCtx, new FailingMapToMapper())
         smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, ParentCtx> c ->
-            c.operation('nested', ChildOp, { NestedOperationDef<Entity, ParentCtx, ParentCtx> op ->
-                op.usingContext(ChildCtx)
-                    .mapTo({ ParentCtx p -> throw new RuntimeException('mapTo-boom') })
-            })
+            c.usingContext(ParentCtx)
+            c.operation('nested', 'failing-mapto')
         })
         def sm = smd.build()
         def entity = new Entity('s1')
@@ -64,19 +83,18 @@ class NestedOperationMapperFailureSpec extends Specification {
         !result.success
         result.error instanceof RuntimeException
         result.error.message == 'mapTo-boom'
-        result.executedStepIds.isEmpty()    // child never ran, no inner steps recorded
-        entity.trail == []                   // child execute() never reached
+        result.executedStepIds.isEmpty()
+        entity.trail == []
     }
 
-    def 'mapFrom failure surfaces as child failure — child execution recorded, mapFrom blows up'() {
+    def 'mapFrom failure surfaces as parent failure — child completed but writeback blew up'() {
         given:
         def smd = baseDef()
+        smd.operation('nested', ChildCtx, new ChildOp())
+            .mapper('failing-mapfrom', ParentCtx, ChildCtx, new FailingMapFromMapper())
         smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, ParentCtx> c ->
-            c.operation('nested', ChildOp, { NestedOperationDef<Entity, ParentCtx, ParentCtx> op ->
-                op.usingContext(ChildCtx)
-                    .mapTo({ ParentCtx p -> new ChildCtx() })
-                    .mapFrom({ ParentCtx p, ChildCtx n -> throw new RuntimeException('mapFrom-boom') })
-            })
+            c.usingContext(ParentCtx)
+            c.operation('nested', 'failing-mapfrom')
         })
         def sm = smd.build()
         def entity = new Entity('s1')
@@ -88,7 +106,6 @@ class NestedOperationMapperFailureSpec extends Specification {
         !result.success
         result.error instanceof RuntimeException
         result.error.message == 'mapFrom-boom'
-        // Child's execute() did reach completion before mapFrom blew up; its side-effect is observable.
         entity.trail == ['child-ran']
     }
 
@@ -96,7 +113,7 @@ class NestedOperationMapperFailureSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1').transitionsTo('s2', 't')
+            .state('s1').transitionsTo('s2', 't', ParentCtx)
             .state('s2')
         return smd
     }

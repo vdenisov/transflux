@@ -79,9 +79,11 @@ public class StateMachineImpl<T> implements StateMachine<T> {
     private final Map<String, State<T>> states = new LinkedHashMap<>();
     private final Map<String, TransitionImpl<T, ?>> transitions = new LinkedHashMap<>();
     private final Registry<T> componentRegistry;
+    private final StateMachineDefImpl<T> def;
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     public StateMachineImpl(StateMachineDefImpl<T> def) {
+        this.def = def;
         this.entityType = def.getEntityType();
         this.name = def.getName();
         this.description = def.getDescription();
@@ -107,7 +109,7 @@ public class StateMachineImpl<T> implements StateMachine<T> {
             registry.register(new Component.Step(bs.id(), null, null, ctx, bs));
         }
 
-        Map<String, BoundOperation<T, ?>> boundOperations = def.buildBoundOperationsIncrementally(this, bo -> {
+        def.buildBoundOperationsIncrementally(this, bo -> {
             Class<?> ctx = effectiveContextType(def, bo.id());
             registry.register(new Component.Operation(bo.id(), bo.name(), bo.description(), ctx, bo));
         });
@@ -130,6 +132,18 @@ public class StateMachineImpl<T> implements StateMachine<T> {
 
     public Registry<T> getComponentRegistry() {
         return componentRegistry;
+    }
+
+    /**
+     * Returns the {@link StateMachineDefImpl} this state machine was built from.
+     *
+     * <p>This is framework-internal infrastructure used by the per-execution view to resolve
+     * mapper references at dispatch time; user code should not invoke it directly.
+     *
+     * @return the def
+     */
+    public StateMachineDefImpl<T> getDef() {
+        return def;
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -286,7 +300,7 @@ public class StateMachineImpl<T> implements StateMachine<T> {
         return matchingTransitions.get(0);
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
+    @SuppressWarnings({"unchecked"})
     private <C> TransitionResult<T> executeTransitionInternal(T entity, Object firingContext,
                                                                  TransitionImpl<T, C> transition) {
         String sourceStateId = transition.getSourceStateId();

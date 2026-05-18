@@ -21,6 +21,7 @@ package org.transflux.core;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.CompositeOperationDef;
+import org.transflux.core.operation.Operation;
 import org.transflux.core.operation.Step;
 
 import java.util.function.Consumer;
@@ -129,4 +130,27 @@ public interface ContextScope<T, C> {
      *         under {@code id}
      */
     ContextScope<T, C> compositeOperation(String id, Consumer<CompositeOperationDef<T, C>> configurer);
+
+    /**
+     * Registers an {@link Operation} instance under {@code id}, tagged with this scope's
+     * context class.
+     *
+     * @param id the operation id
+     * @param operation the operation instance; never {@code null}
+     *
+     * @return this scope for chaining
+     */
+    ContextScope<T, C> operation(String id, Operation<T, C> operation);
+
+    /**
+     * Registers an {@link Operation} class under {@code id}, tagged with this scope's context
+     * class. The framework instantiates the class via its public no-arg constructor at build
+     * time.
+     *
+     * @param id the operation id
+     * @param operationClass the operation class; never {@code null}
+     *
+     * @return this scope for chaining
+     */
+    ContextScope<T, C> operation(String id, Class<? extends Operation<T, C>> operationClass);
 }

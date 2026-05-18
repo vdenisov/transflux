@@ -59,6 +59,21 @@ public interface OperationDef<T, C> extends Identifiable {
     String getDescription();
 
     /**
+     * Returns the context class this operation requires.
+     * <p>
+     * The default implementation returns {@link Object} as a permissive sentinel meaning
+     * "any context is acceptable"; concrete defs override this to expose the actual class
+     * supplied at registration so call-site mappers and pass-through compatibility checks
+     * can validate the parent-to-child boundary at build time.
+     *
+     * @return the operation's context class; never {@code null}
+     */
+    @SuppressWarnings("unchecked")
+    default Class<C> contextType() {
+        return (Class<C>) Object.class;
+    }
+
+    /**
      * Sets the human-readable name of this operation.
      *
      * @param name the name; may be {@code null} to clear

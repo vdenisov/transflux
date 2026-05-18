@@ -1569,101 +1569,121 @@ public void activateSubscription(Subscription entity) {
 }
 ```
 
-#### 4.5.2 Nested Operations
+#### 4.5.2 Nested Operations and Call-Site Context Mapping
 
-A `CompositeOperation` member may be either a `Step` or another `Operation`. Operations nested inside other operations are first-class `Operation` instances — both `SimpleOperation` and `CompositeOperation` are nestable, recursively. Common use cases include shared validation suboperations, billing/notification subflows, and any logic that benefits from being authored once and composed into multiple parents.
+A `CompositeOperation` member may be either a `Step` or another `Operation`. Both kinds are nestable, recursively, and obey the same call-site grammar. The same grammar is exposed imperatively through `TransitionView` so a simple `Operation`'s body can dispatch reusable steps or nested operations with the same five forms.
+
+Context mapping is a **call-site** property, not a callee property. A reusable child step or operation declares only the context type it needs (e.g., `Step<T, PaymentCtx>`); each caller is responsible for projecting its own context onto that type. One child + N callers + N small mappers — not one child preconfigured with N caller-specific mappers. This keeps reusable components callee-agnostic and lets a single mapper bridge a parent / child pair across many call sites.
 
 ##### 4.5.2.1 Definition Surface
 
-The Java builder exposes nested operations through `.operation(...)` on `CompositeOperationDef`, alongside the existing `.step(...)` member. Two context modes are supported:
+`CompositeOperationDef` exposes a uniform `(memberId, [mapperSpec])` grammar for both `.step(...)` and `.operation(...)` by-id members:
 
-- **Pass-through** — child reuses the parent's context object verbatim. This is the default when `.usingContext(...)` is omitted on the nested-operation builder.
-- **Mapped** — child runs against its own context type, populated from the parent on the way in and (optionally) merged back on the way out.
+| Form | Composite member call site | `TransitionView` call site |
+|---|---|---|
+| Pass-through | `.step("id")` / `.operation("id")` | `view.step("id")` / `view.operation("id")` |
+| Mapper by registered id | `.step("id", "mapperId")` | `view.step("id", "mapperId")` |
+| Inline `Function<C, ?>` | `.step("id", parent -> child)` | `view.step("id", parent -> child)` |
+| Inline `ContextMapper<C, ?>` | `.step("id", mapperInstance)` | `view.step("id", mapperInstance)` |
 
-```java
-compositeOperation("advanced-subscription-workflow")
-    .withDescription("Advanced subscription activation with nested operations and context mapping")
-    .usingContext(SubscriptionContext.class)
+Inline-registration forms (`.step("id", Step<T, C>)`, `.operation("id", Operation<T, C>)`, and their class variants) define a new member typed against the composite's own `C` and always run pass-through — by definition the member shares the composite's context type, so no boundary mapping is needed.
 
-    // Regular steps
-    .step("prepare-billing-actor", PrepareBillingActorStep.class)
-    .step("validate-payment-method", ValidatePaymentMethodStep.class)
-
-    // Nested operation, pass-through context (child reuses SubscriptionContext)
-    .operation("simple-nested", SimpleNestedOperation.class)
-
-    // Nested operation with class-based mapping
-    .operation("billing-processing", BillingProcessingOperation.class)
-        .usingContext(BillingContext.class)
-        .withContextMapping(BillingContextMapper.class)
-
-    // Nested operation with instance-based mapping
-    .operation("audit-processing", AuditProcessingOperation.class)
-        .usingContext(AuditContext.class)
-        .withContextMapping(new AuditContextMapper(auditConfig))
-
-    // Nested operation with inline mapping
-    .operation("complex-nested", ComplexNestedOperation.class)
-        .usingContext(NestedSubscriptionContext.class)
-        .mapTo(parentContext -> {
-            NestedSubscriptionContext nested = new NestedSubscriptionContext();
-            nested.setSubscriptionId(parentContext.getSubscriptionId());
-            nested.setBillingCycle(parentContext.getBillingCycle());
-            return nested;
-        })
-        .mapFrom((parentContext, nestedContext) -> {
-            parentContext.setNestedActivationResult(nestedContext.getActivationResult());
-            parentContext.setNestedBillingSetup(nestedContext.getBillingSetup());
-        })
-    .end();
-```
-
-`.usingContext(Class<N>)` re-genericizes the nested-operation builder so subsequent `.withContextMapping(...)`, `.mapTo(...)`, and `.mapFrom(...)` calls are checked against `<P, N>` at compile time — passing a mapper whose generics do not align with the parent's context type and the child's declared context type is a compile-time error.
-
-The `ContextMapper<P, N>` interface mirrors the DSL method names:
+The `ContextMapper<P, N>` interface:
 
 ```java
 public interface ContextMapper<P, N> {
-    N mapTo(P parentContext);                       // parent → child (input)
-    void mapFrom(P parentContext, N nestedContext); // child → parent (output)
+    N mapTo(P parent);                                // parent → child (input)
+    default void mapFrom(P parent, N child) {}        // child → parent (output); default no-op
 }
 ```
 
-`.withContextMapping(...)` accepts both class and instance forms. Inline `.mapTo(...)` / `.mapFrom(...)` lambdas are sugar for the same pair of methods. Mixing class-based and inline mapping on the same nested-operation builder is rejected at definition time. When `.usingContext(...)` is set, `.mapTo(...)` is required; `.mapFrom(...)` is optional (a child whose results need not flow back to the parent may omit it).
+`mapFrom` defaults to a no-op so "read-only" mappers are a one-method override or, equivalently, a plain `Function<P, N>` at the call site.
 
-##### 4.5.2.2 Identity and Uniqueness
+##### 4.5.2.2 Mapper Registry
 
-Operation identifiers are unique **across the entire state machine**, regardless of nesting depth. Inline-defined and registry-resolved operations share one ID space. Two consequences:
+`MapperDef` is a first-class reusable component, registered on `StateMachineDef` alongside `step`, `condition`, and `operation`:
+
+```java
+sm.mapper("payment-from-order", OrderCtx.class, PaymentCtx.class, new OrderToPaymentMapper());
+sm.mapper("payment-from-order", OrderCtx.class, PaymentCtx.class, OrderToPaymentMapper.class);
+sm.mapper("payment-from-order", OrderCtx.class, PaymentCtx.class,
+    order -> new PaymentCtx(order.total(), order.currency()));   // Function form, mapFrom = no-op
+```
+
+The mandatory `Class<P>` / `Class<N>` tokens let the build pipeline verify that the mapper's parent type is assignable from the caller's context and the mapper's child type matches the called member's required context. Inline `Function` and inline `ContextMapper` at the call site cannot be reliably introspected at build time (generic erasure); their alignment is checked at first dispatch.
+
+##### 4.5.2.3 Worked Example — One Child, N Callers
+
+A reusable `ChargeCard` operation knows only `PaymentCtx`. Three different parent flows each have their own context shape and call into the same child via three different mappers, registered once on the state machine:
+
+```java
+sm.operation("charge-card", PaymentCtx.class, new ChargeCardOperation());
+
+sm.mapper("payment-from-order",   OrderCtx.class,  PaymentCtx.class,
+    o -> new PaymentCtx(o.total(), o.currency()));
+sm.mapper("payment-from-refund",  RefundCtx.class, PaymentCtx.class,
+    r -> new PaymentCtx(r.amount().negate(), r.currency()));
+sm.mapper("payment-from-subscr",  SubscrCtx.class, PaymentCtx.class,
+    s -> new PaymentCtx(s.nextCharge(), s.currency()));
+
+// Three call sites in three different composites — the child has no knowledge of any of them:
+orderComposite .operation("charge-card", "payment-from-order");
+refundComposite.operation("charge-card", "payment-from-refund");
+subscrComposite.operation("charge-card", "payment-from-subscr");
+```
+
+The same `(memberId, [mapperSpec])` grammar applies to steps:
+
+```java
+sm.step("validate-address", AddressCtx.class, new ValidateAddressStep());
+sm.mapper("address-from-order",  OrderCtx.class,  AddressCtx.class, OrderCtx::shippingAddress);
+
+orderComposite.step("validate-address", "address-from-order");
+```
+
+##### 4.5.2.4 Build-Time Type Compatibility
+
+For every by-id member declared inside a composite, the build pipeline checks:
+
+- **Pass-through (no mapper):** the called member's required context type must be assignable from the caller's context type (`memberCtx.isAssignableFrom(callerCtx)`; `Object`-typed members always pass through). Otherwise a `TransfluxValidationException` is raised at `build()` time with a message pointing the user to supply a mapper.
+- **Mapper by id:** the registered mapper's `parentType` must be assignable from the caller's context and its `childType` must be assignable to the called member's required context. Mismatches are rejected at build time.
+- **Inline `Function<C, ?>` or `ContextMapper<C, ?>`:** type-checked at the source where the lambda or class is declared (Java compile-time generics); runtime alignment is enforced at first dispatch when the user-supplied value is invoked.
+
+##### 4.5.2.5 Identity and Uniqueness
+
+Component identifiers are unique **across the entire state machine**, regardless of nesting depth. Inline-defined and registry-registered components share one ID space. Two consequences:
 
 - Promoting an inline nested operation to a top-level reusable operation (or inlining a top-level one) is an ID-preserving refactor — no rename is required.
 - Two sibling composites cannot independently host an inline operation with the same id; one must be renamed.
 
 Despite the global uniqueness rule, nested operations remain externally addressable via their id (e.g., as the target of a `ref:` descriptor or a registry lookup). "Inline" vs. "top-level" is a definition-site convenience, not a visibility scope.
 
-##### 4.5.2.3 Result Reporting
+##### 4.5.2.6 Result Reporting
 
-`TransitionResult.getExecutedStepIds()` and `getCompensatedStepIds()` (see §2.1.4) report steps belonging to nested operations as **qualified paths** of the form `parent-op-id/child-step-id`, recursively for deeper nesting. Top-level steps appear under their bare id. The qualified form preserves the structural distinction between a step that ran at the top level and a step that ran inside a nested operation, even when the same step id is reused across parents.
+`TransitionResult.getExecutedStepIds()` and `getCompensatedStepIds()` (see §2.1.4) report steps belonging to nested operations as **qualified paths** of the form `parent-op-id/child-step-id`, recursively for deeper nesting. Top-level steps appear under their bare id. The qualified form preserves the structural distinction between a step that ran at the top level and a step that ran inside a nested operation, even when the same step id is reused across parents. The same encoding applies whether the nested operation was dispatched by a composite executor or imperatively via `view.operation("id"[, mapperSpec])`.
 
-##### 4.5.2.4 Failure and Compensation
+##### 4.5.2.7 Failure and Compensation
 
-A nested operation's failure surfaces as if it were a member failure of the enclosing parent at that position; the parent's error-handling and compensation rules apply. Mapper failures are attributed to whichever side of the boundary they conceptually belong to:
+A nested operation's failure surfaces as if it were a member failure of the enclosing parent at that position; the parent's error-handling and compensation rules apply. Mapper failures are attributed to the side of the boundary the parent owns:
 
-- **`mapTo` failure** (parent → child, runs as part of the parent step before child execution) is a **parent failure**.
-- **`mapFrom` failure** (child → parent, runs as part of child execution after the child returns) is a **child failure**.
+- **`mapTo` failure** (parent → child) is a **parent failure**. The child never starts and no child member ids are recorded for this position.
+- **`mapFrom` failure** (child → parent) is also a **parent failure** — the boundary belongs to the parent. The child completed successfully and its compensations are *not* invoked; the parent's error-handling kicks in as if the parent itself raised the writeback failure.
 
-The same attribution applies to the equivalent methods on class- and instance-based `ContextMapper` implementations.
+The same attribution applies to class-based mappers, instance-based mappers, inline `Function`, and inline `ContextMapper` at the call site.
 
 Compensations registered by a *synchronously-executed* nested operation are pushed onto the **enclosing parent's** LIFO compensation stack as the child runs. When the parent unwinds, child compensations interleave correctly with sibling steps — there is one stack per synchronous execution path, not one per nesting level.
 
 A nested operation hosted inside an `async` block is a different story: the async branch owns its own LIFO compensation stack, independent from the enclosing transition's sync stack and from sibling async branches. The branch's stack accumulates compensations from the async root and from any operations nested below it; on failure (or timeout, or external cancellation), only that branch's stack unwinds. This decouples async rollback from sync rollback entirely — sync work failing while an async branch is still running does not drain the async branch's stack, and an async-branch failure does not trigger sync compensation. Surfacing of async outcomes into `TransitionResult` follows the standard async result-handling rules.
 
-##### 4.5.2.5 Condition Scope
+##### 4.5.2.8 Condition Scope
 
-Pre- and post-conditions attached to a nested operation are evaluated against the **child's** context (mapped, if `.usingContext(...)` is set; otherwise the parent's context, in pass-through mode). Conditions attached to the parent operation continue to evaluate against the parent's context.
+Pre- and post-conditions declared on a nested-operation **call site** (the parent's `.preCondition(...)` / `.postCondition(...)` chained to a member declaration) evaluate against the **parent's** context — they are caller-side gating decisions about whether to invoke the member at all.
 
-##### 4.5.2.6 Reusability
+Pre- and post-conditions declared **inside** the nested operation's own def (the child composite's own conditions) evaluate against the **child's** context, populated by the mapper (or pass-through, when no mapper is supplied).
 
-Because identity is state-machine-wide and the runtime treats inline and registry-resolved operations the same way, a single `OperationDef` may be referenced as a nested member of multiple parents — by id (registry lookup) or by direct reference. Once the component registry comes online, nested operations participate in registry resolution on the same terms as top-level operations.
+##### 4.5.2.9 Void-Context Caller
+
+A transition with `Void` context (or a composite typed `<T, Void>`) cannot pass-through to any member that requires a non-`Void` context. A mapper from `Void` to a populated child context is expressible but rare — the mapper's `mapTo(null)` would have to fabricate the child shape from nothing — and is flagged at build time only if the mapper is registered with `Void.class` as `parentType`. The common case is to lift the caller's context type or to attach the child member to a sibling transition that carries a populated context.
 
 #### 4.5.3 Async Context Handling
 
@@ -1685,18 +1705,23 @@ For a JSON-friendly POJO context, Transflux ships an optional `JacksonForkableCo
 
 ##### 4.5.3.2 ContextMapper on `async` (full isolation, different context type)
 
-When an async branch needs a distinctly-shaped context — e.g., a notification subflow that needs only an order id and a customer email — declare it on the async block using the same `ContextMapper` machinery as nested operations (§4.5.2.1):
+When an async branch needs a distinctly-shaped context — e.g., a notification subflow that needs only an order id and a customer email — declare a mapper at the `async` call site using the same call-site grammar as nested operations (§4.5.2.1). The mapper is supplied positionally, exactly as for sync members:
 
 ```java
 .async()
     .startAfter("finalize")
-    .usingContext(AsyncNotificationCtx.class)
-    .mapTo(parent -> new AsyncNotificationCtx(parent.getOrderId(), parent.getCustomerId()))
-    .step("send-receipt", SendReceiptStep.class)
+    .step("send-receipt", "notification-from-order")     // by registered mapper id
+.end()
+
+// or with an inline projection at the call site:
+.async()
+    .startAfter("finalize")
+    .step("send-receipt", parent ->
+        new AsyncNotificationCtx(parent.getOrderId(), parent.getCustomerId()))
 .end()
 ```
 
-`mapTo` runs once on the enclosing sync thread before the async branch is submitted; the constructed context is what the branch sees. `mapFrom` is **not** supported on async blocks, because async results do not merge back synchronously into the parent context — surfacing of async outcomes follows the result-handling design in §4.10 rather than the mapper pattern.
+`mapTo` runs once on the enclosing sync thread before the async branch is submitted; the constructed context is what the branch sees. `mapFrom` is **not** supported on async blocks, because async results do not merge back synchronously into the parent context — supplying a full `ContextMapper` with a non-default `mapFrom` on an async call site is rejected at definition time. Surfacing of async outcomes follows the result-handling design in §4.10 rather than the mapper pattern.
 
 ##### 4.5.3.3 Shared-reference fallback and definition-time warning
 

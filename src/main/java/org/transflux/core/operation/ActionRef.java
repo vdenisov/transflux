@@ -28,28 +28,35 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
  * Package-private discriminated reference to an action inside a composite operation's
  * declaration-time action list.
  * <p>
- * An action is either a step (the historical kind, recorded via the {@code step(...)}
- * overloads on {@link CompositeOperationDef}) or a nested operation (recorded via the
- * {@code operation(...)} overloads). The partitioning is expressed through two sealed
- * sub-interfaces — {@link StepRef} and {@link OperationRef} — each of which knows how to
+ * An action is either a step (recorded via the {@code step(...)} overloads on
+ * {@link CompositeOperationDef}) or a nested operation (recorded via the {@code operation(...)}
+ * overloads). The partitioning is expressed through two sealed sub-interfaces —
+ * {@link StepRef} and {@link OperationRef} — each of which knows how to
  * {@linkplain #resolve(StateMachineImpl, String) resolve} itself against the appropriate
  * registry on the enclosing state machine. The composite executor never has to ask which
  * kind a ref is; it just calls {@code resolve}.
  * <p>
- * Variants are grouped under their marker sub-interface:
- * <ul>
- *   <li>{@link StepRef} — refs that resolve against the step registry. Permits {@link ById},
- *       {@link InlineInstance}, {@link InlineClass}, {@link Conditional}.</li>
- *   <li>{@link OperationRef} — refs that resolve against the operation registry. Permits
- *       {@link OperationById}, {@link OperationInlineInstance}, {@link OperationInlineClass}.</li>
- * </ul>
+ * By-id variants carry a {@link MapperRef} capturing the call-site mapper choice (pass-through,
+ * registered by id, inline function, or inline mapper instance). Inline-registration variants
+ * always carry {@link MapperRef#passThrough()} — they declare a step or operation against the
+ * enclosing composite's context type and therefore need no boundary mapping.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationRef {
+public sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationRef {
 
     String id();
+
+    /**
+     * Returns the call-site mapper reference for this action. By-id variants override; all
+     * inline-registration variants default to {@link MapperRef#passThrough()}.
+     *
+     * @return the mapper reference; never {@code null}
+     */
+    default MapperRef mapperRef() {
+        return MapperRef.passThrough();
+    }
 
     /**
      * Resolves this ref against the supplied state machine's registries and returns the
@@ -69,7 +76,11 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
     BoundAction<T, C> resolve(StateMachineImpl<T> stateMachine, String enclosingCompositeId);
 
     static <T, C> ActionRef<T, C> byId(String id) {
-        return new ById<>(id);
+        return new ById<>(id, MapperRef.passThrough());
+    }
+
+    static <T, C> ActionRef<T, C> byId(String id, MapperRef mapperRef) {
+        return new ById<>(id, mapperRef);
     }
 
     static <T, C> ActionRef<T, C> inline(String id, Step<T, C> step) {
@@ -85,7 +96,11 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
     }
 
     static <T, C> ActionRef<T, C> operationById(String id) {
-        return new OperationById<>(id);
+        return new OperationById<>(id, MapperRef.passThrough());
+    }
+
+    static <T, C> ActionRef<T, C> operationById(String id, MapperRef mapperRef) {
+        return new OperationById<>(id, mapperRef);
     }
 
     static <T, C> ActionRef<T, C> operationInline(String id, Operation<T, C> operation) {
@@ -94,14 +109,6 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
 
     static <T, C> ActionRef<T, C> operationInline(String id, Class<? extends Operation<T, C>> operationClass) {
         return new OperationInlineClass<>(id, operationClass);
-    }
-
-    static <T, C> ActionRef<T, C> operationInlineConfigured(String id, Operation<T, ?> operation, ResolvedContextMapping mapping) {
-        return new OperationInlineInstanceConfigured<>(id, operation, mapping);
-    }
-
-    static <T, C> ActionRef<T, C> operationInlineConfigured(String id, Class<? extends Operation<T, ?>> operationClass, ResolvedContextMapping mapping) {
-        return new OperationInlineClassConfigured<>(id, operationClass, mapping);
     }
 
     /**
@@ -117,7 +124,7 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
         permits ActionRef.ById, ActionRef.InlineInstance, ActionRef.InlineClass, ActionRef.Conditional {
 
         @Override
-        @SuppressWarnings({"unchecked", "rawtypes"})
+        @SuppressWarnings({"unchecked"})
         default BoundAction<T, C> resolve(StateMachineImpl<T> stateMachine, String enclosingCompositeId) {
             BoundStep<T, ?> bound = stateMachine.getBoundStep(id());
             if (bound == null) {
@@ -125,7 +132,7 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
                     "CompositeOperationDef '" + enclosingCompositeId
                         + "' references unknown step id '" + id() + "'");
             }
-            return (BoundAction<T, C>) (BoundAction) bound;
+            return (BoundAction<T, C>) bound;
         }
     }
 
@@ -141,12 +148,10 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
     sealed interface OperationRef<T, C> extends ActionRef<T, C>
         permits ActionRef.OperationById,
                 ActionRef.OperationInlineInstance,
-                ActionRef.OperationInlineClass,
-                ActionRef.OperationInlineInstanceConfigured,
-                ActionRef.OperationInlineClassConfigured {
+                ActionRef.OperationInlineClass {
 
         @Override
-        @SuppressWarnings({"unchecked", "rawtypes"})
+        @SuppressWarnings({"unchecked"})
         default BoundAction<T, C> resolve(StateMachineImpl<T> stateMachine, String enclosingCompositeId) {
             BoundOperation<T, ?> bound = stateMachine.getBoundOperation(id());
             if (bound == null) {
@@ -154,24 +159,14 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
                     "CompositeOperationDef '" + enclosingCompositeId
                         + "' references unknown operation id '" + id() + "'");
             }
-            return (BoundAction<T, C>) (BoundAction) bound;
-        }
-
-        /**
-         * Returns the context-mapping configuration to apply at the parent-to-child boundary
-         * when this operation runs. Pass-through by default; overridden by the configured
-         * variants that carry an explicit {@link ResolvedContextMapping}.
-         *
-         * @return the resolved mapping; never {@code null}
-         */
-        default ResolvedContextMapping mapping() {
-            return ResolvedContextMapping.passThrough();
+            return (BoundAction<T, C>) bound;
         }
     }
 
-    record ById<T, C>(String id) implements StepRef<T, C> {
+    record ById<T, C>(String id, MapperRef mapperRef) implements StepRef<T, C> {
         public ById {
             requireNotBlank(id, "Step reference ID");
+            requireNotNull(mapperRef, "Mapper reference");
         }
     }
 
@@ -196,9 +191,10 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
         }
     }
 
-    record OperationById<T, C>(String id) implements OperationRef<T, C> {
+    record OperationById<T, C>(String id, MapperRef mapperRef) implements OperationRef<T, C> {
         public OperationById {
             requireNotBlank(id, "Operation reference ID");
+            requireNotNull(mapperRef, "Mapper reference");
         }
     }
 
@@ -213,42 +209,6 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
         public OperationInlineClass {
             requireNotBlank(id, "Operation reference ID");
             requireNotNull(operationClass, "Inline operation class");
-        }
-    }
-
-    record OperationInlineInstanceConfigured<T, C>(
-        String id,
-        Operation<T, ?> operation,
-        ResolvedContextMapping resolvedMapping
-    ) implements OperationRef<T, C> {
-
-        public OperationInlineInstanceConfigured {
-            requireNotBlank(id, "Operation reference ID");
-            requireNotNull(operation, "Inline operation instance");
-            requireNotNull(resolvedMapping, "Resolved context mapping");
-        }
-
-        @Override
-        public ResolvedContextMapping mapping() {
-            return resolvedMapping;
-        }
-    }
-
-    record OperationInlineClassConfigured<T, C>(
-        String id,
-        Class<? extends Operation<T, ?>> operationClass,
-        ResolvedContextMapping resolvedMapping
-    ) implements OperationRef<T, C> {
-
-        public OperationInlineClassConfigured {
-            requireNotBlank(id, "Operation reference ID");
-            requireNotNull(operationClass, "Inline operation class");
-            requireNotNull(resolvedMapping, "Resolved context mapping");
-        }
-
-        @Override
-        public ResolvedContextMapping mapping() {
-            return resolvedMapping;
         }
     }
 }

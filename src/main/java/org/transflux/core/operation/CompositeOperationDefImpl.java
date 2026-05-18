@@ -18,6 +18,8 @@
 
 package org.transflux.core.operation;
 
+import org.springframework.lang.NonNull;
+import org.transflux.core.StateMachineDefImpl;
 import org.transflux.core.StateMachineImpl;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.transition.Transition;
@@ -29,6 +31,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static org.transflux.core.ValidationUtils.requireNotBlank;
 import static org.transflux.core.ValidationUtils.requireNotNull;
@@ -39,10 +42,8 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
  * <p>This is framework-internal infrastructure; user code constructs composite operations
  * through the public {@link CompositeOperationDef} fluent API.
  * <p>
- * Holds the composite's member references in declaration order. A member is either a step
- * (the historical kind, recorded via {@link #step(String) step(...)}) or a nested operation
- * (recorded via {@link #operation(String) operation(...)}). References are not resolved
- * eagerly; they are resolved against the enclosing state machine's step and operation
+ * Holds the composite's member references in declaration order. References are not resolved
+ * eagerly; they are resolved against the enclosing state machine's step, operation, and mapper
  * registries when {@link #build(StateMachineImpl)} is invoked during state-machine
  * construction. Inline references contributed by this composite must already have been
  * registered with the state-machine def before that point.
@@ -60,23 +61,39 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
         super(id);
     }
 
-    /**
-     * Returns the context type declared on this composite via
-     * {@link CompositeOperationDef#usingContext(Class)}, or {@code null} if none was
-     * declared.
-     *
-     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
-     * should not invoke it directly.
-     *
-     * @return the declared context class, or {@code null}
-     */
-    public Class<C> getDeclaredContextType() {
-        return declaredContextType;
+    @Override
+    @SuppressWarnings("unchecked")
+    public Class<C> contextType() {
+        return declaredContextType != null ? declaredContextType : (Class<C>) Object.class;
     }
 
     @Override
     public CompositeOperationDefImpl<T, C> step(String registeredStepId) {
         actionRefs.add(ActionRef.byId(registeredStepId));
+        return this;
+    }
+
+    @Override
+    public CompositeOperationDefImpl<T, C> step(String registeredStepId, String mapperId) {
+        requireNotBlank(registeredStepId, "Step reference ID");
+        requireNotBlank(mapperId, "Mapper reference ID");
+        actionRefs.add(ActionRef.byId(registeredStepId, MapperRef.byId(mapperId)));
+        return this;
+    }
+
+    @Override
+    public CompositeOperationDefImpl<T, C> step(String registeredStepId, Function<C, ?> inlineMapTo) {
+        requireNotBlank(registeredStepId, "Step reference ID");
+        requireNotNull(inlineMapTo, "Inline mapper function");
+        actionRefs.add(ActionRef.byId(registeredStepId, MapperRef.inline(inlineMapTo)));
+        return this;
+    }
+
+    @Override
+    public CompositeOperationDefImpl<T, C> step(String registeredStepId, ContextMapper<C, ?> inlineMapper) {
+        requireNotBlank(registeredStepId, "Step reference ID");
+        requireNotNull(inlineMapper, "Inline mapper instance");
+        actionRefs.add(ActionRef.byId(registeredStepId, MapperRef.inline(inlineMapper)));
         return this;
     }
 
@@ -111,6 +128,30 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
     }
 
     @Override
+    public CompositeOperationDefImpl<T, C> operation(String registeredOperationId, String mapperId) {
+        requireNotBlank(registeredOperationId, "Operation reference ID");
+        requireNotBlank(mapperId, "Mapper reference ID");
+        actionRefs.add(ActionRef.operationById(registeredOperationId, MapperRef.byId(mapperId)));
+        return this;
+    }
+
+    @Override
+    public CompositeOperationDefImpl<T, C> operation(String registeredOperationId, Function<C, ?> inlineMapTo) {
+        requireNotBlank(registeredOperationId, "Operation reference ID");
+        requireNotNull(inlineMapTo, "Inline mapper function");
+        actionRefs.add(ActionRef.operationById(registeredOperationId, MapperRef.inline(inlineMapTo)));
+        return this;
+    }
+
+    @Override
+    public CompositeOperationDefImpl<T, C> operation(String registeredOperationId, ContextMapper<C, ?> inlineMapper) {
+        requireNotBlank(registeredOperationId, "Operation reference ID");
+        requireNotNull(inlineMapper, "Inline mapper instance");
+        actionRefs.add(ActionRef.operationById(registeredOperationId, MapperRef.inline(inlineMapper)));
+        return this;
+    }
+
+    @Override
     public CompositeOperationDefImpl<T, C> operation(String id, Operation<T, C> operation) {
         actionRefs.add(ActionRef.operationInline(id, operation));
         return this;
@@ -123,45 +164,18 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
     }
 
     @Override
-    public CompositeOperationDefImpl<T, C> operation(String id, Operation<T, ?> operation,
-                                                     Consumer<NestedOperationDef<T, C, C>> configurer) {
-        requireNotBlank(id, "Operation ID");
-        requireNotNull(operation, "Inline operation instance");
-        requireNotNull(configurer, "Nested operation configurer");
-
-        NestedOperationDefImpl<T, C, C> def = new NestedOperationDefImpl<>(id);
-        configurer.accept(def);
-        ResolvedContextMapping mapping = def.toResolvedMapping();
-
-        actionRefs.add(ActionRef.operationInlineConfigured(id, operation, mapping));
-        return this;
-    }
-
-    @Override
-    public CompositeOperationDefImpl<T, C> operation(String id, Class<? extends Operation<T, ?>> operationClass,
-                                                     Consumer<NestedOperationDef<T, C, C>> configurer) {
-        requireNotBlank(id, "Operation ID");
-        requireNotNull(operationClass, "Inline operation class");
-        requireNotNull(configurer, "Nested operation configurer");
-
-        NestedOperationDefImpl<T, C, C> def = new NestedOperationDefImpl<>(id);
-        configurer.accept(def);
-        ResolvedContextMapping mapping = def.toResolvedMapping();
-
-        actionRefs.add(ActionRef.operationInlineConfigured(id, operationClass, mapping));
-        return this;
-    }
-
-    @Override
     public CompositeOperationDefImpl<T, C> usingContext(Class<C> contextType) {
         requireNotNull(contextType, "Context type");
+
         if (this.declaredContextType != null && this.declaredContextType != contextType) {
             throw new TransfluxValidationException(
                 "CompositeOperationDef '" + getId() + "' usingContext already declared as "
                     + this.declaredContextType.getName() + "; cannot redeclare as "
                     + contextType.getName());
         }
+
         this.declaredContextType = contextType;
+
         return this;
     }
 
@@ -178,12 +192,6 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
     }
 
     /**
-     * Returns the member references in declaration order. Used by the enclosing state-machine
-     * def to auto-register inline references before resolving any by-id references.
-     *
-     * @return an unmodifiable view of the member-reference list
-     */
-    /**
      * Returns the composite's action references in declaration order.
      *
      * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
@@ -197,8 +205,7 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
 
     /**
      * Returns the ids of every step-by-id reference declared by this composite — used by the
-     * build-time context-compatibility check to confirm a referenced step's declared context
-     * matches the enclosing scope's.
+     * build-time context-compatibility check.
      *
      * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
      * should not invoke it directly.
@@ -236,8 +243,7 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
 
     /**
      * Returns a map of {@code stepId -> Step} for every inline step instance contributed by
-     * this composite, in declaration order. The result excludes by-id step references and all
-     * operation members.
+     * this composite, in declaration order.
      *
      * <p>This is framework-internal infrastructure used by the state-machine def to
      * auto-register inline steps; user code should not invoke it directly.
@@ -258,8 +264,7 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
 
     /**
      * Returns a map of {@code stepId -> stepClass} for every inline step class contributed by
-     * this composite, in declaration order. The result excludes by-id step references and all
-     * operation members.
+     * this composite, in declaration order.
      *
      * <p>This is framework-internal infrastructure used by the state-machine def to
      * auto-register inline steps; user code should not invoke it directly.
@@ -284,9 +289,8 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
      * order.
      *
      * <p>This is framework-internal infrastructure used by the state-machine def to walk into
-     * conditionals when collecting inline step registrations and when building the
-     * framework-built conditional executor for the step registry; user code should not invoke
-     * it directly.
+     * conditionals when collecting inline step registrations; user code should not invoke it
+     * directly.
      *
      * @return an unmodifiable map of conditional id to conditional def
      */
@@ -304,8 +308,7 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
 
     /**
      * Returns a map of {@code operationId -> Operation} for every inline nested operation
-     * instance contributed by this composite, in declaration order. The result excludes by-id
-     * operation references and all step members.
+     * instance contributed by this composite, in declaration order.
      *
      * <p>This is framework-internal infrastructure used by the state-machine def to
      * auto-register inline nested operations; user code should not invoke it directly.
@@ -318,10 +321,6 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
         for (ActionRef<T, C> ref : actionRefs) {
             if (ref instanceof ActionRef.OperationInlineInstance<T, C> oi) {
                 result.put(oi.id(), oi.operation());
-            } else if (ref instanceof ActionRef.OperationInlineInstanceConfigured<T, C> oic) {
-                @SuppressWarnings("unchecked")
-                Operation<T, C> raw = (Operation<T, C>) oic.operation();
-                result.put(oic.id(), raw);
             }
         }
 
@@ -330,8 +329,7 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
 
     /**
      * Returns a map of {@code operationId -> operationClass} for every inline nested operation
-     * class contributed by this composite, in declaration order. The result excludes by-id
-     * operation references and all step members.
+     * class contributed by this composite, in declaration order.
      *
      * <p>This is framework-internal infrastructure used by the state-machine def to
      * auto-register inline nested operations; user code should not invoke it directly.
@@ -344,10 +342,6 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
         for (ActionRef<T, C> ref : actionRefs) {
             if (ref instanceof ActionRef.OperationInlineClass<T, C> oc) {
                 result.put(oc.id(), oc.operationClass());
-            } else if (ref instanceof ActionRef.OperationInlineClassConfigured<T, C> occ) {
-                @SuppressWarnings("unchecked")
-                Class<? extends Operation<T, C>> raw = (Class<? extends Operation<T, C>>) occ.operationClass();
-                result.put(occ.id(), raw);
             }
         }
 
@@ -355,16 +349,14 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
     }
 
     /**
-     * Resolves each member reference against the state machine's step and operation registries
-     * and produces a {@link BoundOperation} whose underlying {@link Operation} iterates the
-     * bound members in declaration order. Step members are dispatched through
-     * {@link StateMachineImpl#runBoundStep(BoundStep, TransitionView)}; nested operation
-     * members are dispatched by entering an operation scope on the view, invoking the
-     * operation against the parent's context (pass-through), and exiting the scope so any
-     * subsequent step ids are recorded without the nested-op prefix.
+     * Resolves each member reference against the state machine's step, operation, and mapper
+     * registries and produces a {@link BoundOperation} whose underlying {@link Operation}
+     * iterates the bound members in declaration order. Step and operation members are
+     * dispatched through a unified per-member path that consults the resolved
+     * {@link ResolvedContextMapping} carried alongside each bound action.
      *
-     * @param stateMachine the enclosing state machine; the step or operation registry must
-     *                     already contain every referenced id
+     * @param stateMachine the enclosing state machine; the step, operation, and mapper
+     *                     registries must already contain every referenced id
      *
      * @return the bound operation
      *
@@ -378,53 +370,110 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
                     + "' has no members; call step(...) or operation(...) at least once before build");
         }
 
-        List<CompositeStep<T, C>> steps = new ArrayList<>(actionRefs.size());
+        List<CompositeMember<T, C>> members = new ArrayList<>(actionRefs.size());
         for (ActionRef<T, C> ref : actionRefs) {
             BoundAction<T, C> bound = ref.resolve(stateMachine, getId());
-            ResolvedContextMapping mapping = (ref instanceof ActionRef.OperationRef<T, C> or)
-                ? or.mapping()
-                : ResolvedContextMapping.passThrough();
-            steps.add(new CompositeStep<>(bound, mapping));
+            ResolvedContextMapping mapping = resolveMapping(stateMachine, ref);
+            members.add(new CompositeMember<>(bound, mapping));
         }
 
-        Operation<T, C> executor = new CompositeOperationExecutor<>(steps);
+        Operation<T, C> executor = new CompositeOperationExecutor<>(members);
 
         return BoundOperation.of(getId(), getName(), getDescription(), executor);
     }
 
-    /**
-     * Pairs a resolved composite member with its context-mapping configuration. Step members
-     * always carry a pass-through mapping; operation members carry whatever
-     * {@link ActionRef.OperationRef#mapping()} returned for the originating ref.
-     */
-    private record CompositeStep<T, C>(BoundAction<T, C> action, ResolvedContextMapping mapping) {
+    private ResolvedContextMapping resolveMapping(StateMachineImpl<T> stateMachine, ActionRef<T, C> ref) {
+        MapperRef mapperRef = ref.mapperRef();
+
+        if (mapperRef instanceof MapperRef.PassThrough) {
+            return ResolvedContextMapping.passThrough();
+        }
+
+        if (mapperRef instanceof MapperRef.ById byId) {
+            var impl = resolveMapperDef(stateMachine, byId);
+            return ResolvedContextMapping.mapped(impl.buildMapper());
+        }
+
+        if (mapperRef instanceof MapperRef.InlineFunction inlineFn) {
+            @SuppressWarnings("unchecked")
+            Function<Object, Object> fn = (Function<Object, Object>) inlineFn.fn();
+            return ResolvedContextMapping.mapped(new InlineFunctionMapper(fn));
+        }
+
+        if (mapperRef instanceof MapperRef.InlineMapper inlineMapper) {
+            @SuppressWarnings("unchecked")
+            ContextMapper<Object, Object> m = (ContextMapper<Object, Object>) inlineMapper.mapper();
+            return ResolvedContextMapping.mapped(m);
+        }
+
+        throw new TransfluxValidationException(
+            "CompositeOperationDef '" + getId() + "' has unsupported mapper reference: "
+                + mapperRef.getClass().getName());
+    }
+
+    @NonNull
+    private MapperDefImpl<Object, Object> resolveMapperDef(StateMachineImpl<T> stateMachine, MapperRef.ById byId) {
+        StateMachineDefImpl<T> def = stateMachine.getDef();
+        MapperDef<?, ?> mapperDef = def.getMapperDef(byId.mapperId());
+        if (mapperDef == null) {
+            throw new TransfluxValidationException(
+                "CompositeOperationDef '" + getId() + "' references unknown mapper id '"
+                    + byId.mapperId() + "'");
+        }
+        @SuppressWarnings("unchecked")
+        MapperDefImpl<Object, Object> impl = (MapperDefImpl<Object, Object>) mapperDef;
+        return impl;
     }
 
     /**
-     * Iterates an ordered list of {@link CompositeStep} entries and invokes each one against
-     * the supplied {@link Transition} view. {@link BoundStep} members are dispatched through
+     * Adapter that exposes a parent-to-child {@link Function} as a {@link ContextMapper} whose
+     * {@link ContextMapper#mapFrom(Object, Object) mapFrom} is the default no-op.
+     */
+    private record InlineFunctionMapper(Function<Object, Object> mapTo) implements ContextMapper<Object, Object> {
+
+        @Override
+        public Object mapTo(Object parentContext) {
+            return mapTo.apply(parentContext);
+        }
+    }
+
+    /**
+     * Pairs a resolved composite member with its context-mapping configuration. Each member is
+     * dispatched uniformly: optional {@link ContextMapper#mapTo(Object) mapTo} before, the
+     * bound action's invocation against the (possibly mapped) child context, optional
+     * {@link ContextMapper#mapFrom(Object, Object) mapFrom} after on success.
+     */
+    private record CompositeMember<T, C>(BoundAction<T, C> action, ResolvedContextMapping mapping) {
+    }
+
+    /**
+     * Iterates an ordered list of {@link CompositeMember} entries and invokes each one against
+     * the supplied {@link Transition} view through a single unified dispatch path.
+     *
+     * <p>Step members in pass-through mode go through
      * {@link StateMachineImpl#runBoundStep(BoundStep, TransitionView)} so that step-id
      * recording is uniform across composite-driven invocations and user-driven
-     * {@code transition.step("id")} calls. {@link BoundOperation} members are dispatched
-     * either in pass-through mode (the nested operation receives the parent's context
-     * verbatim) or in mapped mode (a {@link ContextMapper#mapTo(Object)} produces a fresh
-     * child context, the nested operation runs against that, and on successful return a
-     * {@link ContextMapper#mapFrom(Object, Object)} folds any child-side mutations back into
-     * the parent).
+     * {@code transition.step("id")} calls. Step members with a mapper enter a child-context
+     * scope: {@code mapTo} produces the child context, the bound step runs against it, then
+     * {@code mapFrom} folds any changes back into the parent.
      *
-     * <p>Mapper failure attribution: a {@code mapTo} failure throws before the nested
-     * operation starts and therefore surfaces as a parent member failure at the nested
-     * operation's position — no child member ids are recorded. A {@code mapFrom} failure
-     * throws after the nested operation has returned successfully, so any inner step ids
-     * the nested operation drove are already on the executed list; the failure attaches to
-     * the nested operation's id.
+     * <p>Operation members follow the same pattern: pass-through mode runs the bound operation
+     * with the parent context verbatim; mapped mode produces a child context, runs the
+     * operation against it, then folds back on success.
+     *
+     * <p>Mapper failure attribution: a {@code mapTo} failure throws before the member starts
+     * and therefore surfaces as a parent member failure at the member's position — no child
+     * step ids are recorded for it. A {@code mapFrom} failure throws after the member has
+     * returned successfully, so any inner step ids the member drove are already on the executed
+     * list; the failure attaches to the parent's position and is treated as a parent failure
+     * (the child completed successfully — its compensations are not invoked).
      */
     @SuppressWarnings("ClassCanBeRecord")
     private static final class CompositeOperationExecutor<T, C> implements Operation<T, C> {
-        private final List<CompositeStep<T, C>> steps;
+        private final List<CompositeMember<T, C>> members;
 
-        CompositeOperationExecutor(List<CompositeStep<T, C>> steps) {
-            this.steps = steps;
+        CompositeOperationExecutor(List<CompositeMember<T, C>> members) {
+            this.members = members;
         }
 
         @Override
@@ -437,38 +486,37 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
 
             @SuppressWarnings("unchecked")
             TransitionView<T, C> view = (TransitionView<T, C>) rawView;
-            for (CompositeStep<T, C> step : steps) {
-                BoundAction<T, C> action = step.action();
-                if (action instanceof BoundStep<T, C> boundStep) {
-                    StateMachineImpl.runBoundStep(boundStep, view);
-                } else if (action instanceof BoundOperation<T, C> boundOperation) {
-                    dispatchOperation(entity, context, view, boundOperation, step.mapping());
-                }
+            for (CompositeMember<T, C> member : members) {
+                dispatchMember(view, member);
             }
         }
 
-        private void dispatchOperation(T entity, C context, TransitionView<T, C> view,
-                                       BoundOperation<T, C> boundOperation,
-                                       ResolvedContextMapping mapping) {
-            view.enterOperation(boundOperation.id());
-            try {
-                if (mapping.isPassThrough()) {
-                    boundOperation.operation().execute(entity, context, view);
-                } else {
-                    ContextMapper<Object, Object> mapper = mapping.mapper();
-                    Object childContext = mapper.mapTo(context);
+        private void dispatchMember(TransitionView<T, C> view, CompositeMember<T, C> member) {
+            BoundAction<T, C> action = member.action();
+            ResolvedContextMapping mapping = member.mapping();
 
-                    @SuppressWarnings("unchecked")
-                    Operation<T, Object> rawOp = (Operation<T, Object>) boundOperation.operation();
-                    @SuppressWarnings("unchecked")
-                    Transition<T, Object> rawTransition = (Transition<T, Object>) view;
-                    rawOp.execute(entity, childContext, rawTransition);
-
-                    mapper.mapFrom(context, childContext);
-                }
-            } finally {
-                view.exitOperation();
+            if (action instanceof BoundStep<T, C> boundStep) {
+                dispatchStep(view, boundStep, mapping);
+            } else if (action instanceof BoundOperation<T, C> boundOperation) {
+                dispatchOperation(view, boundOperation, mapping);
             }
+        }
+
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        private void dispatchStep(TransitionView<T, C> view, BoundStep<T, C> boundStep,
+                                  ResolvedContextMapping mapping) {
+            if (mapping.isPassThrough()) {
+                StateMachineImpl.runBoundStep(boundStep, view);
+                return;
+            }
+            view.runChildStep((BoundStep) boundStep, mapping.mapper());
+        }
+
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        private void dispatchOperation(TransitionView<T, C> view, BoundOperation<T, C> boundOperation,
+                                       ResolvedContextMapping mapping) {
+            ContextMapper<Object, Object> mapper = mapping.isPassThrough() ? null : mapping.mapper();
+            view.runChildOperation((BoundOperation) boundOperation, mapper);
         }
     }
 }

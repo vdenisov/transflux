@@ -19,8 +19,8 @@
 package org.transflux.core;
 
 import org.transflux.core.condition.Condition;
-import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.CompositeOperationDef;
+import org.transflux.core.operation.Operation;
 import org.transflux.core.operation.Step;
 
 import java.util.function.Consumer;
@@ -103,6 +103,22 @@ public final class ContextScopeImpl<T, C> implements ContextScope<T, C> {
         requireNotBlank(id, "Composite operation ID");
         requireNotNull(configurer, "Composite operation configurer");
         smd.registerScopedCompositeOperation(id, configurer, contextType);
+        return this;
+    }
+
+    @Override
+    public ContextScope<T, C> operation(String id, Operation<T, C> operation) {
+        requireNotBlank(id, "Operation ID");
+        requireNotNull(operation, "Operation");
+        smd.registerScopedOperation(id, operation, contextType);
+        return this;
+    }
+
+    @Override
+    public ContextScope<T, C> operation(String id, Class<? extends Operation<T, C>> operationClass) {
+        requireNotBlank(id, "Operation ID");
+        requireNotNull(operationClass, "Operation class");
+        smd.registerScopedOperation(id, operationClass, contextType);
         return this;
     }
 }

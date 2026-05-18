@@ -160,43 +160,191 @@ Patch releases (`x.y.z`) ship between minor releases for bug fixes and security 
 
 ---
 
-## Phase 2.5: Nested Operations (v0.2.5)
-*Target: First-class operation-as-composite-member with type-safe context mapping. See `requirements.md` §4.5.2.*
+## Phase 2.5: Nested Operations & Call-Site Context Mapping (v0.2.5)
+*Target: First-class operation-as-composite-member with caller-side `ContextMapper`. See `requirements.md` §4.5.2.*
 
 ### 2.5.0 Per-transition context refactor (prerequisite, completed)
-- [x] Drop the `<C>` generic from `StateMachine`, `StateMachineDef`, `StateMachineImpl`, `StateDef`, and the nested `EntityBinding`. Context now lives at the transition level: `TransitionDef<T, C>` declares its own `C`, defaulting to `Object.class` when neither `transitionsTo(target, id, Class<C>)` nor `usingContext(Class<C>)` is called. `Void.class` becomes a sentinel that rejects any non-null firing context. SM-level component registries take wildcard `Step<T, ?>` / `Condition<T, ?>` plus typed overloads `step(id, Class<C>, Step<T, C>)`, mirroring `useContext(...)` tagging. `StateMachineDef.forContextType(Class<C>)` deleted outright. Heterogeneous transitions on a single SM are now expressible (e.g., offer drafting, submission, withdrawal each with their own context type).
+- [x] Drop the `<C>` generic from `StateMachine`, `StateMachineDef`, `StateMachineImpl`, `StateDef`, and the nested `EntityBinding`. Context now lives at the transition level: `TransitionDef<T, C>` declares its own `C`, defaulting to `Object.class` when neither `transitionsTo(target, id, Class<C>)` nor `usingContext(Class<C>)` is called. `Void.class` becomes a sentinel that rejects any non-null firing context. SM-level component registries take wildcard `Step<T, ?>` / `Condition<T, ?>` plus typed overloads `step(id, Class<C>, Step<T, C>)`, mirroring `useContext(...)` tagging. `StateMachineDef.forContextType(Class<C>)` deleted outright. Heterogeneous transitions on a single SM are now expressible.
 
-### 2.5.1 Nested Operation Member Type
-- [ ] Generalize `CompositeOperation` members from `Step` to `Step | Operation` (both `SimpleOperation` and `CompositeOperation` are nestable, recursively).
-- [ ] `CompositeOperationDef.operation(String id, Class<? extends Operation<T, ?>> opClass)` builder overload.
-- [ ] `CompositeOperationDef.operation(String id, Operation<T, ?> instance)` builder overload.
-- [ ] Definition-time cycle detection (a composite cannot transitively contain itself).
-- [ ] State-machine-wide ID uniqueness check extended across all nesting depths; inline and registry-resolved operations share one ID space.
+### 2.5.1 Reusable Component Types (def-side anchors)
+- [x] `OperationDef` gains `Class<C> contextType()` accessor (default `Object.class`; overridden by composite to return `declaredContextType`).
+- [x] Introduce `StepDef<T, C>` def-side anchor with id, optional name/description, mandatory `Class<C> contextType()`, `using(Step|Class)` source forms, and `buildBoundStep()`. (Pulled forward from the original Phase 3.7 plan.)
+- [x] Introduce `MapperDef<P, N>` def-side anchor with id, mandatory `parentType` / `childType`, three source forms (`ContextMapper` instance, `ContextMapper` class, `Function<P, N>` wrapped with default no-op `mapFrom`), and `buildMapper()`.
+- [x] Promote `ContextMapper<P, N>` to a first-class reusable component: `default void mapFrom(P, N) {}` so "read-only" mappers are a one-method override.
 
-### 2.5.2 Context Mapping Surface
-- [ ] `ContextMapper<P, N>` interface with `N mapTo(P)` (parent → child) and `void mapFrom(P, N)` (child → parent).
-- [ ] `.usingContext(Class<N>)` on the nested-operation builder; re-generifies the chain to `<T, P, N>` so subsequent mapping calls are checked at compile time.
-- [ ] `.withContextMapping(Class<? extends ContextMapper<P, N>>)` (class-based).
-- [ ] `.withContextMapping(ContextMapper<P, N>)` (instance-based).
-- [ ] `.mapTo(Function<P, N>)` and `.mapFrom(BiConsumer<P, N>)` inline forms.
-- [ ] Pass-through mode (no `usingContext` call): child reuses parent context; no mapper invoked.
-- [ ] Validation: cannot mix class/instance-based and inline mapping on the same nested op; `.mapTo(...)` is required when `.usingContext(...)` is set; `.mapFrom(...)` is optional.
+### 2.5.2 SM-Level Registries
+- [x] `StateMachineDef.mapper(id, parentType, childType, ContextMapper)` — instance form.
+- [x] `StateMachineDef.mapper(id, parentType, childType, Class<? extends ContextMapper>)` — class form.
+- [x] `StateMachineDef.mapper(id, parentType, childType, Function<P, N>)` — read-only sugar (wraps with default no-op `mapFrom`).
+- [x] `StateMachineDef.operation(id, contextType, Operation<T, C>)` and `operation(id, contextType, Class)` — SM-level registration for callee-agnostic reusable operations (mirrors `step(...)`).
+- [x] `ContextScope.operation(...)` — same registrations inside `useContext(...)` blocks.
+- [x] `StateMachineDefImpl.getMapperDef(id)` framework-internal accessor used at dispatch time.
 
-### 2.5.3 Runtime Execution
-- [ ] Nested-op execution threads the parent's `Transition<T, P>` reference into the child even when the context is mapped.
-- [ ] Qualified-path tracking — child member ids emitted as `parent-id/child-id` (recursively) into `executedStepIds` / `compensatedStepIds`. Update `TransitionResult` JavaDoc accordingly; field names unchanged.
-- [ ] Mapper failure attribution: `mapTo` failure → parent failure; `mapFrom` failure → child failure. Same rule for class- and instance-based mappers.
-- [ ] Pre-/post-conditions on a nested operation evaluate against the **child's** context (mapped if applicable) — extends the Phase 2 condition-binding code with a context-resolution hook; no new condition surface.
+### 2.5.3 Call-Site Grammar (uniform across composite members and `TransitionView`)
+Every by-id member accepts the same five forms:
+- [x] Pass-through: `.step("id")` / `.operation("id")` (requires component context assignable from caller context).
+- [x] By registered mapper id: `.step("id", "mapperId")` / `.operation("id", "mapperId")`.
+- [x] Inline `Function<C, ?>`: `.step("id", parent -> child)` / `.operation("id", parent -> child)`.
+- [x] Inline `ContextMapper<C, ?>`: `.step("id", mapperInstance)` / `.operation("id", mapperInstance)`.
+- [x] (Class form for mappers is registry-only — Java erasure collides with inline-class step/operation registration; users go through `smd.mapper(id, P, N, Class)` + by-id ref.)
+- [x] Same five forms on `TransitionView.step(...)` and `TransitionView.operation(...)`.
+- [x] Inline-registered composite members (`step(id, Step<T, C>)`, `operation(id, Operation<T, C>)`, and class variants) are typed against the composite's own `C` and always run pass-through; no mapper slot.
 
-### 2.5.4 Specifications
-- [ ] Nested-op execution specs (pass-through and mapped, both class- and instance-based mappers).
-- [ ] ID uniqueness across nesting; cycle detection.
-- [ ] Qualified-path emission in `TransitionResult` (mixed top-level + nested members).
-- [ ] Mapper failure routing (`mapTo` vs. `mapFrom`).
-- [ ] Compile-time type-safety check for `.usingContext(...)` widening (Spock spec compiling a Groovy snippet and asserting `MultipleCompilationErrorsException` on a deliberately-broken mapper).
+### 2.5.4 Runtime Execution
+- [x] `MapperRef` sealed type captures the unresolved call-site choice (`PassThrough`, `ById`, `InlineFunction`, `InlineMapper`).
+- [x] `CompositeOperationDefImpl.build(stateMachine)` resolves each `MapperRef` to a runtime `ResolvedContextMapping` via the SM's mapper registry; inline `Function` wrapped with default no-op `mapFrom`.
+- [x] Unified `dispatchMember` path on the composite executor: pass-through routes through `StateMachineImpl.runBoundStep(...)` or `operation.execute(...)` directly; mapped routes through `TransitionView.runChildStep(...)` / `runChildOperation(...)`.
+- [x] Per-execution context-override stack on `TransitionView`: `getContext()` returns the active child context inside a mapped section so `runBoundStep` sees the correct shape.
+- [x] Qualified-path tracking — child member ids emitted as `parent-id/child-id` (recursively) into `executedStepIds` / `compensatedStepIds`. Same encoding whether the call originated from a composite member or imperatively via `view.operation(...)`.
+- [x] Mapper failure attribution: `mapTo` failure → parent failure; `mapFrom` failure → **parent failure** (boundary belongs to the parent; child completed and its compensations are not invoked).
+- [ ] Pre-/post-conditions declared at a nested-op **call site** evaluate against the parent's context; conditions declared **inside** the nested op's own def evaluate against the child's context. (Condition wiring on call-site members lands once Phase 2's condition-binding code grows a call-site hook.)
 
-### 2.5.5 requirements.md Alignment (already drafted)
-- [ ] `requirements.md` §4.5.2 expanded; no further spec edits required for Phase 2.5.
+### 2.5.5 Build-Time Type Compatibility
+- [x] Walk every composite's `ActionRef` list; for each by-id member:
+  - Pass-through: require `componentCtx.isAssignableFrom(callerCtx)` (`Object`-typed always passes).
+  - Mapper by id: require `mapperParent.isAssignableFrom(callerCtx)` and `componentCtx.isAssignableFrom(mapperChild)`.
+  - Inline `Function` / `ContextMapper`: deferred to first dispatch (generic erasure prevents reliable build-time introspection).
+- [x] Error messages name the offending member id, the caller's context class, and the component's required context class; mapper errors name the mapper id.
+
+### 2.5.6 Deletions
+- [x] `NestedOperationDef` and `NestedOperationDefImpl` removed.
+- [x] `CompositeOperationDef.operation(id, op, Consumer<NestedOperationDef>)` overloads removed (callee-side configurer).
+- [x] `ActionRef.OperationInline{Instance,Class}Configured` variants removed.
+
+### 2.5.7 Specifications
+- [x] `StateMachineDefImplMapperRegistrationSpec` — registry CRUD, id collisions, instance/class/Function forms, null rejection.
+- [x] `CompositeOperationDefStepMappingSpec` — step-level mapping at call sites (the new capability), with registered mapper / inline `Function` / inline `ContextMapper` forms; pass-through type-mismatch rejection; mapper P/N alignment rejection.
+- [x] `TransitionViewOperationDispatchSpec` — `view.operation(...)` pass-through and mapped; `view.step(...)` mapper-aware; unknown-id rejection.
+- [x] `NestedOperationMappingSpec` rewritten for caller-side API (by-id mapper, class mapper, inline `ContextMapper`, inline `Function`, registered `Function` form).
+- [x] `NestedOperationMapperFailureSpec` rewritten — `mapTo` → parent failure; `mapFrom` → parent failure (child completed).
+- [x] `NestedOperationPassThroughSpec` and `NestedOperationIdUniquenessSpec` — preserved (use only the pass-through inline form, unchanged).
+- [x] Deleted: `NestedOperationBuilderValidationSpec`, `NestedOperationDefHierarchySpec` (tested the deleted callee-side surface; no semantic equivalent under the new model).
+
+### 2.5.8 Documentation Alignment
+- [x] `requirements.md` §4.5.2 rewritten end-to-end for the caller-side model: 5-form grammar, mapper registry, worked "5 parents, 1 child" example, build-time type-compatibility rules, failure attribution including `mapFrom`-as-parent-failure, condition scope (call-site vs. callee-side), Void-context edge case.
+- [x] `requirements.md` §4.5.3.2 (`ContextMapper` on `async`) realigned with the call-site grammar.
+- [x] `CLAUDE.md` updated for the new component shape and call-site grammar.
+
+### 2.5.9 Known Follow-Ups (carried to later phases)
+- Call-site pre-/post-conditions on composite members (sequenced with Phase 3's listener/condition wiring).
+- `mapFrom`-on-`async` definition-time rejection check (sequenced with Phase 4.3.1 async work).
+
+---
+
+## Phase 2.6: DSL Shape Consistency (v0.2.6)
+*Target: Lambda-configurer becomes the single declaration shape for every Def that owns children. The chained-return form on `StateDef` / `TransitionDef` is removed outright — it is inconsistent with every other Def and is the source of scope-leak bugs where a caller accidentally attaches a child to the wrong parent. The API is still pre-1.0; this is a breaking change to early users.*
+
+### 2.6.1 `StateDef` lambda-configurer (replaces the chained form)
+- [ ] Add `StateMachineDef.state(String id, Consumer<StateDef<T>> configurer)` and the `Identifiable` overload, mirroring `compositeOperation(id, configurer)` / `conditional(id, configurer)` / `simpleOperation(id, configurer)` / `branch(id, configurer)`.
+- [ ] **Remove the chained `StateMachineDef.state(String id)` form** that returns a free-floating `StateDef<T>`. The state-id-only registration is replaced by `state(id, s -> {})` for the truly empty case; the no-arg form does not pull its weight once the configurer exists.
+- [ ] `StateDef`'s public surface no longer exposes anything callable *after* the configurer returns: the impl tracks "configurer in flight" and rejects post-return mutation calls with a clear error (see §2.6.3). The closed-over reference becomes inert.
+
+### 2.6.2 `TransitionDef` lambda-configurer (replaces the chained form)
+- [ ] `StateDef.transitionsTo(String target, String id, Consumer<TransitionDef<T, ?>> configurer)` — pass-through context.
+- [ ] `<C> StateDef.transitionsTo(String target, String id, Class<C> contextType, Consumer<TransitionDef<T, C>> configurer)` — typed-context form.
+- [ ] **Remove all existing `StateDef.transitionsTo(...)` overloads that return a chainable `TransitionDef`.** Every transition declaration goes through a configurer. The bare-target `transitionsTo(target, id)` registration is replaced by `transitionsTo(target, id, t -> {})` for the empty case.
+- [ ] Configurer surface mirrors what the chained `TransitionDef` API exposed (operations, conditions, future triggers/listeners). Post-configurer mutation is rejected by the same scope guard as §2.6.1.
+
+### 2.6.3 Scope guard (mandatory, not optional)
+- [ ] `StateDefImpl` and `TransitionDefImpl` track a `configurerActive` flag set on entry to the configurer and cleared on return. Every public mutating method (`transitionsTo`, `simpleOperation`, `compositeOperation`, `preCondition`, `postCondition`, `withName`, `withDescription`, future trigger/listener attachments) asserts the flag is set, throwing `TransfluxValidationException` with a message naming the offending def id when it isn't.
+- [ ] The reentrant case (a configurer that calls `transitionsTo(target, id, t -> ...)`, which sets `configurerActive` on the new `TransitionDef`) is fine — guards are per-def, not global.
+
+### 2.6.4 Rename `useContext` → `forContext`
+- [ ] Rename `StateMachineDef.useContext(Class<C>, Consumer<ContextScope<T, C>>)` to `forContext(...)`. Rationale: the `for/using` split is the semantic split — `forContext(C, scope -> ...)` is a **grouping** block ("for context C, register these"), whereas `usingContext(C)` on `TransitionDef` / `CompositeOperationDef` is a **property setter** ("this transition uses context C"). `useContext` blurred the boundary; `forContext` aligns the verb to the action.
+- [ ] Receiver type stays `ContextScope<T, C>` — the method *opens* a scope; the value handed to the configurer *is* a scope. Asymmetric naming is the same shape `compositeOperation(id, c -> ...)` already uses.
+- [ ] Internal helper names: `ContextScopeImpl` unchanged. `StateMachineDefImpl.useContext(...)` becomes `forContext(...)`.
+- [ ] Migrate every spec and every doc snippet from `useContext` → `forContext`. Spec rename: `UseContextScopingSpec` → `ForContextScopingSpec`.
+
+### 2.6.5 Flat-shorthand policy (explicit decision, not a task)
+- The flat `smd.step(...)` / `smd.condition(...)` / `smd.operation(...)` / `smd.mapper(...)` overloads **stay** alongside `forContext(...)` blocks. Rationale: when a state machine registers a single one-off component, the flat form is meaningfully more compact than wrapping it in a one-line block. The typed flat overloads (`smd.step(id, Class<C>, Step<T, C>)`) already carry the context tag inline. `forContext(...)` is the right shape for *groups* of components sharing a context; the flat form is the right shape for *one-offs*. Both forms populate the same registry; they are stylistic, not semantic, alternatives.
+- [ ] Document the decision in `CLAUDE.md` ("DSL Shape" note) and in the user guide so the choice between forms is unambiguous to readers.
+
+### 2.6.6 Multi-level `Registry` (composite-local scoping + Phase 6.2 seam)
+*Originally Step 3b of the Phase 2.5 plan. Pulled into 2.6 because it lands a final piece of DSL-shape consistency (component resolution semantics) and prepares the Phase 6.2 process-wide registry seam.*
+- [ ] `Registry<T>` interface gains `parent()` returning the optional enclosing registry; `resolve(id)` walks `parent()` on miss; `get(id)` stays local-only. `RegistryImpl<T>` accepts an optional parent at construction.
+- [ ] `StateMachineImpl<T>` owns one root `Registry<T>` (no parent in 2.6; Phase 6.2 supplies one).
+- [ ] Each `CompositeOperationDefImpl` exposes a per-composite `Registry<T>` whose `parent()` is the enclosing scope's registry (root SM or enclosing composite). Inline-registered composite members go into the composite's local registry; SM-level registrations stay on the root.
+- [ ] By-id resolution at runtime (`view.step("id")` / `view.operation("id")` / composite `ActionRef.resolve`) walks the active scope's registry chain: local first, then ancestors. Same id at multiple levels resolves to the innermost (shadowing).
+- [ ] Id-namespace uniqueness rule: still SM-wide for the canonical case, but **a composite-local inline registration with the same id as an ancestor's is permitted and shadows the ancestor for that composite's subtree**. (Confirm this matches §4.5.2.5 in `requirements.md`; if not, decide which wins — the section may need an addendum.)
+- [ ] Existing `StateMachineImpl.getBoundStep(String)` / `getBoundOperation(String)` accessors stay as thin wrappers over the root registry; non-breaking for callers outside the resolution path.
+- [ ] **Build-time flattening (rolled in here, not split out).** After all registrations settle but before runtime, each registry's chain is walked once and reachable components are copied into the registry's local map. At runtime, `resolve(id)` is a single map lookup with no `parent()` traversal. Shadowing is preserved because the bottom-up flattening writes parent entries first and lets local entries overwrite them. `parent()` stays as a public introspection accessor for tooling / diagnostics; `resolve(...)` no longer needs it.
+- [ ] New `RegistryResolutionSpec` — local hit, parent-walk hit, shadowing (innermost wins), not-found returns `Optional.empty()`, flattened-mode parity (resolution result before and after build-time flattening is identical).
+
+### 2.6.7 Migration & Spec Updates
+- [ ] Walk every Spock spec under `src/test/groovy`; rewrite chained `smd.state("a").transitionsTo("b", "t1").state("b")...` patterns into the lambda form. No backward-compatibility shims — the chained API is gone.
+- [ ] `StateDefImplSpec`, `StateDefImplTransitionsToContextSpec`, `StateMachineDefImplSpec`, `TransitionDefImplSpec`, `TransitionDefImplConditionsSpec`, `UseContextScopingSpec` → `ForContextScopingSpec`, etc. — all need their fixture setup updated. Audit `StateMachineDefImpl#baseDef`-style helpers across the test tree.
+- [ ] New `StateDefImplLambdaConfigurerSpec` — configurer wires transitions correctly; post-return mutation throws; nested `transitionsTo(target, id, t -> ...)` configurer guards work; reentrant guard fires on attempted misuse.
+- [ ] New `TransitionDefImplLambdaConfigurerSpec` — typed and untyped context overloads; configurer-surface parity with what the chained form exposed; post-return mutation rejected.
+
+### 2.6.8 Documentation Alignment
+- [ ] `requirements.md` — replace every chained-form example with the lambda-configurer form; rename every `useContext` reference to `forContext`. The chained form is not mentioned (it never existed in the 1.0 contract).
+- [ ] `CLAUDE.md` — "DSL Shape" note: lambda-configurer is the single declaration shape for any Def that owns children. Post-configurer mutation is rejected; the configurer is the *only* place to declare children. Also document the flat-vs-`forContext` choice per §2.6.5 and the multi-level `Registry` resolution semantics per §2.6.6.
+- [ ] README hello-world snippet updated.
+- [ ] User-guide migration note (one-time, lives in the README or a `MIGRATION.md` until 1.0): chained → configurer transformation pattern, plus the `useContext` → `forContext` rename. Both are breaking changes against any user code already written against the pre-2.6 API.
+
+### 2.6.9 `Identifiable` overload parity (all three tiers)
+*Currently only states and event triggers expose `Identifiable` overloads. The audit found ~65 String-only sites that benefit from a symmetric `Identifiable` overload. Each overload is a one-line delegate calling `.getId()` on the supplied `Identifiable`. Bonus: every `*Def` already extends `Identifiable`, so reference-site overloads automatically accept a held-onto `StateDef` / `TransitionDef` / `StepDef` / etc., enabling the "register-then-pass-the-def" pattern alongside enum-constant tagging.*
+
+#### Tier 1 — Reference sites (highest value)
+*Sites that look up something declared elsewhere. Enum-tagged ids give compile-checked refactoring safety here — the primary use case for `Identifiable`.*
+- [ ] `StateDef.transitionsTo(...)` — already accepts `Identifiable` for target; no Tier-1 work needed beyond what exists (the `transitionId` side is a definition, see Tier 3).
+- [ ] `TransitionDef.step(Identifiable registeredStep)` (by-id step ref).
+- [ ] `TransitionDef.preCondition(Identifiable registeredCondition)` and `postCondition(Identifiable registeredCondition)`.
+- [ ] `CompositeOperationDef.step(Identifiable registeredStep)`, `step(Identifiable registeredStep, Identifiable mapper)`, `step(Identifiable registeredStep, String mapperId)`, `step(String registeredStepId, Identifiable mapper)` — every combination of step ref + mapper ref.
+- [ ] `CompositeOperationDef.operation(Identifiable registeredOperation)` and the same matrix of step-ref-times-mapper-ref combinations as above.
+- [ ] `TransitionView.step(Identifiable)` and `step(Identifiable, Identifiable mapper)` plus mixed-form overloads — same matrix.
+- [ ] `TransitionView.operation(Identifiable)` and the matching matrix.
+- [ ] `ConditionDescriptor.ref(Identifiable)` and the four named factory forms (`instanceBased`, `classBased`, `predicate`, `expression`) — wherever an id parameter identifies a registered component or auto-derived reference.
+
+#### Tier 2 — Runtime entry points (high value)
+*Host-facing API. Where workflow code wires transitions and looks up runtime types — heavy enum usage pays off most here.*
+- [ ] `EntityBinding.transitionTo(Identifiable targetState)`.
+- [ ] `EntityBinding.transitionTo(Identifiable targetState, Object context)`.
+- [ ] `EntityBinding.transitionTo(Identifiable targetState, Identifiable transition)`.
+- [ ] `EntityBinding.transitionTo(Identifiable targetState, Identifiable transition, Object context)`.
+- [ ] `StateMachine.executeTransition(T entity, Identifiable targetState)` and `executeTransition(T entity, Identifiable targetState, Identifiable transition)`.
+- [ ] `StateMachine.getState(Identifiable)`.
+- [ ] `StateMachine.getTransition(Identifiable transition)`.
+- [ ] `StateMachine.getTransition(Identifiable sourceState, Identifiable targetState)`.
+- [ ] `StateMachineDef.getTransition(Identifiable transition)`.
+- [ ] `StateMachineDef.getTransition(Identifiable sourceState, Identifiable targetState)`.
+
+#### Tier 3 — Definition sites (symmetry / consistency)
+*Pure consistency win. The user is creating the name, so the immediate ergonomic gain is smaller — but a `*Def`-as-`Identifiable` parameter lets callers reuse an already-registered def as the source of an id when defining a derived component. Adds uniformity: every DSL method that takes an id accepts both forms.*
+- [ ] `StateMachineDef.step(Identifiable, ...)` — all four overloads (with/without `Class<C>`, instance/class).
+- [ ] `StateMachineDef.condition(Identifiable, ...)` — all six overloads (instance/class/predicate/expression × untyped/typed).
+- [ ] `StateMachineDef.operation(Identifiable, Class<C>, ...)` — instance and class forms.
+- [ ] `StateMachineDef.compositeOperation(Identifiable, Class<C>, Consumer<...>)`.
+- [ ] `StateMachineDef.mapper(Identifiable, ...)` — instance / class / Function forms.
+- [ ] `StateDef.transitionsTo(String|Identifiable target, Identifiable transition, ...)` — adds the `Identifiable transitionId` side alongside the existing `Identifiable target` side.
+- [ ] `TransitionDef.simpleOperation(Identifiable, ...)` and `compositeOperation(Identifiable, ...)`.
+- [ ] `TransitionDef.preCondition(Identifiable, Condition)` / `(Identifiable, Class)` / `(Identifiable, Predicate)` / `(Identifiable, String expression)` inline forms; matching `postCondition(...)`.
+- [ ] `TransitionDef.addManualTrigger(Identifiable)`, `addEventTrigger(Identifiable, ...)` (where the *first* arg is the trigger id, not the event), `addDataTrigger(Identifiable, ...)`.
+- [ ] `CompositeOperationDef.step(Identifiable, Step<T, C>)` / `step(Identifiable, Class<? extends Step<T, C>>)` inline registration.
+- [ ] `CompositeOperationDef.operation(Identifiable, Operation<T, C>)` / `operation(Identifiable, Class<? extends Operation<T, C>>)`.
+- [ ] `CompositeOperationDef.conditional(Identifiable, Consumer<...>)`.
+- [ ] `ConditionalStepDef.branch(Identifiable, Consumer<BranchDef>)`.
+- [ ] `ContextScope.step / condition / operation / compositeOperation` — every `Identifiable` overload mirrors the matching `StateMachineDef` method inside `forContext` blocks.
+
+#### Spec coverage
+- [ ] One parameterized spec per affected interface (`StateMachineDefImplIdentifiableOverloadsSpec`, `TransitionDefImplIdentifiableOverloadsSpec`, `CompositeOperationDefImplIdentifiableOverloadsSpec`, `TransitionViewIdentifiableOverloadsSpec`, etc.). Each verifies: (a) the `Identifiable` overload registers / resolves identically to the matching `String` overload; (b) passing a registered `*Def` instance works as the `Identifiable` (the "register-then-reference" pattern); (c) `null` `Identifiable` is rejected with a clear message.
+
+#### Documentation
+- [ ] `CLAUDE.md` — short paragraph documenting the parity rule: every DSL method that takes a `String id` exposes an `Identifiable` overload that delegates via `.getId()`. New methods added in later phases are expected to follow the rule.
+- [ ] `requirements.md` — the canonical examples lean on enum-constant `Identifiable` ids where idiomatic (states, transition ids, trigger / event ids).
+
+### 2.6.10 Offer-state-machine worked example (DSL polish gate)
+*Originally Step 5 of the Phase 2.5 plan. Last task in 2.6 — after all DSL-shape changes have landed, walk a realistic workflow end-to-end against the final API to catch awkward grammar before Phase 3 multiplies the surface.*
+- [ ] New scratch file `offer-state-machine.md` at the **repository root**. **Not committed** — temporary doc for joint review during this step (add to `.gitignore` if needed).
+- [ ] Contents:
+  - `JobOffer` entity sketch.
+  - States: `draft`, `submitted`, `sent`, `withdrawn`.
+  - Per-transition contexts: `DraftCtx` (opening + application), `SubmitCtx` (review metadata), `SendCtx` (contact details), `WithdrawCtx` (reason, code).
+  - SM definition end-to-end: state graph with transitions, each transition's `.usingContext(...)` + inline composite, SM-level `forContext` blocks for components reused across transitions, at least one nested operation with context narrowing via `ContextMapper` (e.g. a `BillingFlow` nested inside the `sent` transition).
+  - Caller sketch — fire calls for each transition with the right context object.
+  - Edge cases: `Void`-context transition, mid-flow context narrowing, multi-level registry resolution order (composite-local → enclosing → SM root).
+- [ ] Walk the example with the user, identify awkward DSL spots, fix the implementation, re-walk until clean.
+- [ ] Roll any polish fixes (spec coverage gaps, JavaDoc for new public types like `Registry`, `ContextScope`) into the 2.6 commit. The scratch doc itself is not committed.
 
 ---
 
@@ -236,6 +384,12 @@ Patch releases (`x.y.z`) ship between minor releases for bug fixes and security 
   - [ ] Per-transition and global registration (`onAnyTransitionStart`, etc.).
   - [ ] Async listener execution support (basic; full async work lands in Phase 4).
 
+- [ ] **Component `validate()` hook** (deferred from the Phase 2.5 plan, Step 3c)
+  - [ ] Add a `validate()` method to each `Component<T>` sealed variant (`Component.Step`, `Component.Operation`, `Component.Condition`, plus any new variants Phase 3 introduces such as `Component.Trigger` and the listener-related variants if listeners get componentized).
+  - [ ] Invoke `validate()` once per component at the end of `StateMachineDefImpl.build(...)` — after the registry chain is settled and after the existing context-compatibility + cycle-detection passes. Failure throws `TransfluxValidationException` with the component id and a clear diagnostic.
+  - [ ] Original use case driving the hook: a `Component.Step` may reject listener attachments that are illegal for its position (e.g. a transition-level listener attached to a sub-step). The Phase 2.5 plan's framing: "Step's validate (e.g.) might reject attached listeners once Phase 3 adds them. For Phase 2.5 the validate methods are mostly empty — the hook is in place so Phase 3 doesn't need to retouch the registry pipeline."
+  - [ ] In practice, the hook lands here in Phase 3 (with listeners as the first real consumer) rather than as empty stubs in 2.6. Each variant's default `validate()` is a no-op; only variants with structural rules override it.
+
 ### 3.6 Specifications
 - [ ] Trigger specs for each type, including catalog enumeration.
 - [ ] Manual-trigger metadata override specs.
@@ -243,16 +397,17 @@ Patch releases (`x.y.z`) ship between minor releases for bug fixes and security 
 - [ ] Listener-ordering specs covering the execution flow.
 
 ### 3.7 Component Metadata Model
-*Prerequisite for §3.5 Listeners — listener payloads, diagnostic logging, and (later) the YAML DSL all need a uniform way to read `name` and `description` off any framework def. The Phase 2 design deliberately deferred this until there was a real consumer.*
+*Prerequisite for §3.5 Listeners — listener payloads, diagnostic logging, and (later) the YAML DSL all need a uniform way to read `name` and `description` off any framework def. The Phase 2 design deliberately deferred this until there was a real consumer.* `StepDef<T, C>` already ships in Phase 2.5 (call-site context mapping needed `contextType()` on every component); the metadata work below builds on that anchor.
 - [ ] Introduce a `Describable extends Identifiable` interface declaring `getName()` and `getDescription()` as default-`null` methods.
-- [ ] Make `StateMachineDef`, `StateDef`, `TransitionDef`, `OperationDef` implement `Describable`; each `*DefImpl` overrides one or both methods to return its stored value. Covers nested operations (Phase 2.5) as well — they reuse `OperationDef`, no new def type.
-- [ ] Add `StepDef<T, C>` (mandatory id, optional name/description) — mirroring `SimpleOperationDef`.
+- [ ] Make `StateMachineDef`, `StateDef`, `TransitionDef`, `OperationDef`, `StepDef`, `MapperDef` implement `Describable`; each `*DefImpl` overrides one or both methods to return its stored value.
 - [ ] Add `ConditionDef<T, C>` (mandatory id, optional name/description) covering the existing four authoring flavours (instance, class, predicate, expression).
-- [ ] Add lambda-configurer overloads where step / condition registrations exist:
-  - [ ] `StateMachineDef.step(String id, Consumer<StepDef<T, C>> configurer)`
+- [ ] Add lambda-configurer overloads where step / condition / operation / mapper registrations exist:
+  - [ ] `StateMachineDef.step(String id, Class<C> contextType, Consumer<StepDef<T, C>> configurer)`
   - [ ] `StateMachineDef.condition(String id, Consumer<ConditionDef<T, C>> configurer)`
+  - [ ] `StateMachineDef.operation(String id, Class<C> contextType, Consumer<SimpleOperationDef<T, C>> configurer)`
+  - [ ] `StateMachineDef.mapper(String id, Class<P> parentType, Class<N> childType, Consumer<MapperDef<P, N>> configurer)`
   - [ ] `TransitionDef.preCondition(String id, Consumer<ConditionDef<T, C>> configurer)` and `postCondition(...)` mirror
-- [ ] Existing flat overloads (`step(id, instance|class)`, `condition(id, instance|class|predicate|expression)`, the typed `preCondition` / `postCondition` overloads) stay as sugar for the no-metadata case.
+- [ ] Existing flat overloads stay as sugar for the no-metadata case.
 - [ ] Listener payloads (§3.5) surface `id` + `name` + `description` from the relevant def — concrete shape pinned down alongside the `*Listener` interfaces.
 
 ---
@@ -284,7 +439,7 @@ Patch releases (`x.y.z`) ship between minor releases for bug fixes and security 
 #### 4.3.1 Async Context Handling (requirements §4.5.3)
 - [ ] `ForkableContext<C>` interface with single `C fork()` method.
 - [ ] Runtime fork-at-boundary: at async-branch submission, if the context implements `ForkableContext`, the branch receives `context.fork()`; otherwise it receives the shared reference. Invoked once per branch (not once per `async` block) so sibling branches each get an independent fork.
-- [ ] `ContextMapper`-on-`async` path: `.async().usingContext(Class<N>).mapTo(...)` on the async block, mirroring the nested-operation surface (Phase 2.5). `mapFrom` is rejected at definition time — async outcomes do not merge back synchronously.
+- [ ] `ContextMapper`-on-`async` path: the async block accepts the same five-form call-site grammar as composite members (`.async().step("id", "mapperId")` / `.async().step("id", parent -> child)` / `.async().operation("id", mapperInstance)` etc., per Phase 2.5 §2.5.3). Supplying a `ContextMapper` whose `mapFrom` is overridden is rejected at definition time — async outcomes do not merge back synchronously.
 - [ ] Definition-time **warning** (logged, not thrown) when an `async` block is declared on a context type that neither implements `ForkableContext` nor declares a mapper. Warning identifies the operation id and points to §4.5.3.
 - [ ] Documented memory-model guarantees at the submission boundary (writes-before-submission visible to branch; writes-after not synchronized; symmetric for branch → enclosing path).
 - [ ] Optional `JacksonForkableContext` adapter shipped as a convenience implementation (Jackson round-trip). Lives in the same module — it's a few dozen lines and Jackson is already a core dependency.
@@ -305,6 +460,13 @@ Patch releases (`x.y.z`) ship between minor releases for bug fixes and security 
 
 ## Phase 5: YAML DSL & Component System (v0.5.0)
 *Target: The declarative DSL at parity with the Java DSL.*
+
+### 5.0 Java DSL Audit & Java/YAML Alignment (first work item)
+*This pass runs **before** any YAML implementation work. The YAML DSL is only as good as the Java DSL it shadows; if the Java DSL has drifted from `requirements.md` (or from itself) during Phases 2–4, that drift must be resolved first or it propagates into YAML.*
+- [ ] **`requirements.md` ↔ Java DSL audit.** Walk `requirements.md` end-to-end against the implemented Java DSL. For every code snippet in the spec, verify it compiles and runs against the live API. Update wording, examples, and types in `requirements.md` to match the implementation; conversely, flag implementation gaps where the spec was right and the code drifted. Sections most likely to need touch-ups (cumulative debt from Phases 2–4): §2.1 (core abstractions), §2.1.4 (`TransitionResult`), §2.1.5 (operation execution), §2.4 (execution flow), §3.6 (conditions), §4.3 (transition definitions), §4.4 (operation definitions), §4.5 (nested operations + async).
+- [ ] **Java DSL self-consistency review.** Cross-cutting pass through every Def's public API. Verify: shape consistency (lambda-configurer everywhere children exist, per Phase 2.6); naming consistency (`with*` for entity properties, `using*` for declarative property-setters, `for*` for scoping/grouping blocks); generic-parameter consistency across paired Def/runtime types; metadata accessor parity (id / name / description). Surface any inconsistencies as targeted fix tasks before Phase 5 work proceeds.
+- [ ] **Java/YAML alignment proposal.** Produce a short alignment doc (transient, repo-root scratch file along the lines of the offer-state-machine example in §2.6.9) walking the YAML shape side-by-side with the Java shape for every top-level element (state, transition, operation, step, condition, mapper, async, listener, trigger). Flag every place where the YAML would naturally read differently from the Java — those are the design questions to resolve before writing the parser. Propose changes, additions, or improvements to the Java DSL where the YAML walkthrough surfaces opportunities (e.g., the Java DSL gains a sugar form because the YAML wants it, or both DSLs gain a feature the spec hadn't anticipated).
+- [ ] **Decisions captured.** Resolve the alignment questions and capture decisions in `requirements.md` before moving to §5.1. This means `requirements.md` is the single source of truth for both DSLs entering YAML implementation work.
 
 ### 5.1 YAML Processing Infrastructure
 - [ ] Dependencies: SnakeYAML 2.4, Jackson YAML module (2.20.x, matching the core Jackson version), JSON Schema Validator 1.x current.
@@ -334,7 +496,8 @@ Patch releases (`x.y.z`) ship between minor releases for bug fixes and security 
 ### 5.5 YAML DSL Parsing
 - [ ] State machine definition parser.
 - [ ] State, transition, operation, step, condition, trigger, listener parsers.
-- [ ] Composite-operation member grammar accepts `operation:` alongside `step:` (YAML counterpart of the Java `.operation(...)` builder added in Phase 2.5), including pass-through, class/instance-mapper, and inline-mapper forms (`mapTo` / `mapFrom`).
+- [ ] Composite-operation member grammar accepts `operation:` alongside `step:` (YAML counterpart of the Java `.operation(...)` builder added in Phase 2.5). Each member exposes the same five-form call-site grammar: an optional `mapper:` field that accepts a string (registered mapper id), a `class:` block (mapper class), or an inline `mapTo:` SpEL expression. Full inline `ContextMapper` instances are Java-only and have no YAML surface.
+- [ ] `mapper:` is a new top-level component kind in the YAML DSL (peer to `step:` / `condition:` / `operation:`), with `parent-type` / `child-type` / `class` (or `mapTo:` SpEL) fields. Mappers participate in cross-file imports and ID-uniqueness checks.
 - [ ] Cross-file ID-uniqueness checks walk into composite members so nested-operation ids participate in collision detection (Phase 2.5 enforces SM-wide uniqueness; the YAML loader must mirror that across imports).
 - [ ] Condition Descriptor parsing (the four YAML-expressible forms — reference, class, predicate, expression). The fifth `InstanceBased` form is Java-only and has no YAML surface.
 - [ ] State resolver + state applier configuration (class or SpEL).

@@ -23,11 +23,16 @@ import org.slf4j.LoggerFactory;
 import org.transflux.core.condition.BoundCondition;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.operation.ActionRef;
 import org.transflux.core.operation.BoundOperation;
 import org.transflux.core.operation.BoundStep;
 import org.transflux.core.operation.CompositeOperationDef;
 import org.transflux.core.operation.CompositeOperationDefImpl;
 import org.transflux.core.operation.ConditionalStepDefImpl;
+import org.transflux.core.operation.ContextMapper;
+import org.transflux.core.operation.MapperDef;
+import org.transflux.core.operation.MapperDefImpl;
+import org.transflux.core.operation.MapperRef;
 import org.transflux.core.operation.Operation;
 import org.transflux.core.operation.OperationDefImpl;
 import org.transflux.core.operation.Step;
@@ -44,9 +49,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
-import static java.util.Objects.requireNonNullElseGet;
 import static org.transflux.core.ReflectionUtils.instantiateNoArg;
 import static org.transflux.core.ValidationUtils.requireNotBlank;
 import static org.transflux.core.ValidationUtils.requireNotNull;
@@ -79,6 +84,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private final Map<String, ConditionalStepDefImpl<T, ?>> conditionalStepRegistrations = new LinkedHashMap<>();
 
     private final Map<String, CompositeOperationDefImpl<T, ?>> smCompositeOperations = new LinkedHashMap<>();
+
+    private final Map<String, MapperDefImpl<?, ?>> mapperRegistrations = new LinkedHashMap<>();
 
     private final Map<String, Class<?>> componentContextTypes = new LinkedHashMap<>();
 
@@ -246,7 +253,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         throw new TransfluxValidationException("Operation ID '" + id + "' is already registered");
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
     private void registerInlineOperations(Map<String, ? extends Operation<T, ?>> instances,
                                           Map<String, ? extends Class<? extends Operation<T, ?>>> classes) {
         for (Map.Entry<String, ? extends Operation<T, ?>> e : instances.entrySet()) {
@@ -258,7 +264,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
     private void collectInlineMemberRegistrations() {
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             OperationDefImpl<T, ?> op = td.getOperationDef();
@@ -275,8 +280,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private void walkCompositeForInlineMembers(CompositeOperationDefImpl<T, ?> composite) {
         registerInlineSteps((Map) composite.getInlineStepInstances(),
                             (Map) composite.getInlineStepClasses());
-        registerInlineOperations((Map) composite.getInlineOperationInstances(),
-                                 (Map) composite.getInlineOperationClasses());
+        registerInlineOperations(composite.getInlineOperationInstances(),
+                                 composite.getInlineOperationClasses());
 
         for (Map.Entry<String, ?> e : composite.getConditionalDefs().entrySet()) {
             String conditionalId = e.getKey();
@@ -392,6 +397,87 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         return this;
     }
 
+    @Override
+    public <C> StateMachineDef<T> operation(String id, Class<C> contextType, Operation<T, C> operation) {
+        requireNotBlank(id, "Operation ID");
+        requireNotNull(contextType, "Context type");
+        requireNotNull(operation, "Operation");
+        registerOperationInstance(id, operation);
+        tagContextType(id, contextType);
+        return this;
+    }
+
+    @Override
+    public <C> StateMachineDef<T> operation(String id, Class<C> contextType, Class<? extends Operation<T, C>> operationClass) {
+        requireNotBlank(id, "Operation ID");
+        requireNotNull(contextType, "Context type");
+        requireNotNull(operationClass, "Operation class");
+        registerOperationClass(id, operationClass);
+        tagContextType(id, contextType);
+        return this;
+    }
+
+    @Override
+    public <P, N> StateMachineDef<T> mapper(String id,
+                                            Class<P> parentType,
+                                            Class<N> childType,
+                                            ContextMapper<P, N> mapper) {
+        requireNotBlank(id, "Mapper ID");
+        requireNotNull(parentType, "Mapper parent type");
+        requireNotNull(childType, "Mapper child type");
+        requireNotNull(mapper, "Context mapper");
+        registerMapper(new MapperDefImpl<>(id, parentType, childType).using(mapper));
+        return this;
+    }
+
+    @Override
+    public <P, N> StateMachineDef<T> mapper(String id,
+                                            Class<P> parentType,
+                                            Class<N> childType,
+                                            Class<? extends ContextMapper<P, N>> mapperClass) {
+        requireNotBlank(id, "Mapper ID");
+        requireNotNull(parentType, "Mapper parent type");
+        requireNotNull(childType, "Mapper child type");
+        requireNotNull(mapperClass, "Context mapper class");
+        registerMapper(new MapperDefImpl<>(id, parentType, childType).using(mapperClass));
+        return this;
+    }
+
+    @Override
+    public <P, N> StateMachineDef<T> mapper(String id,
+                                            Class<P> parentType,
+                                            Class<N> childType,
+                                            Function<P, N> mapTo) {
+        requireNotBlank(id, "Mapper ID");
+        requireNotNull(parentType, "Mapper parent type");
+        requireNotNull(childType, "Mapper child type");
+        requireNotNull(mapTo, "mapTo function");
+        registerMapper(new MapperDefImpl<>(id, parentType, childType).using(mapTo));
+        return this;
+    }
+
+    private void registerMapper(MapperDefImpl<?, ?> def) {
+        MapperDefImpl<?, ?> existing = mapperRegistrations.get(def.getId());
+        if (existing != null && existing != def) {
+            throw new TransfluxValidationException("Mapper ID '" + def.getId() + "' is already registered");
+        }
+        mapperRegistrations.put(def.getId(), def);
+    }
+
+    /**
+     * Returns the {@link MapperDef} registered under {@code id}, or {@code null} if none.
+     *
+     * <p>This is framework-internal infrastructure used by the build pipeline to resolve
+     * call-site mapper references; user code does not invoke it directly.
+     *
+     * @param id the mapper id
+     *
+     * @return the registered mapper def, or {@code null}
+     */
+    public MapperDef<?, ?> getMapperDef(String id) {
+        return mapperRegistrations.get(id);
+    }
+
     private void registerConditionInstance(String id, Condition<T, ?> condition) {
         ConditionRegistration<T> existing = conditionRegistrations.get(id);
         if (existing == null) {
@@ -455,7 +541,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
      * should not invoke it directly.
      */
-    @SuppressWarnings({"rawtypes", "unchecked"})
     public Map<String, BoundCondition<T, ?>> buildBoundConditions() {
         Map<String, BoundCondition<T, ?>> resolved = new LinkedHashMap<>();
         for (Map.Entry<String, ConditionRegistration<T>> e : conditionRegistrations.entrySet()) {
@@ -484,7 +569,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
                     "Step ID '" + e.getKey() + "' is already registered");
             }
             ConditionalStepDefImpl raw = e.getValue();
-            resolved.put(e.getKey(), raw.buildBoundStep(stateMachine, (Map) conditionRegistry));
+            resolved.put(e.getKey(), raw.buildBoundStep(stateMachine, conditionRegistry));
         }
 
         return Collections.unmodifiableMap(resolved);
@@ -493,10 +578,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     /**
      * Resolves the operation registrations into {@link BoundOperation} instances. Framework-internal.
      */
-    public Map<String, BoundOperation<T, ?>> buildBoundOperations(StateMachineImpl<T> stateMachine) {
-        return buildBoundOperationsIncrementally(stateMachine, ignored -> {});
-    }
-
     @SuppressWarnings({"unchecked", "rawtypes"})
     public Map<String, BoundOperation<T, ?>> buildBoundOperationsIncrementally(
             StateMachineImpl<T> stateMachine,
@@ -578,6 +659,16 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         tagContextType(id, contextType);
     }
 
+    <C> void registerScopedOperation(String id, Operation<T, C> operation, Class<C> contextType) {
+        registerOperationInstance(id, operation);
+        tagContextType(id, contextType);
+    }
+
+    <C> void registerScopedOperation(String id, Class<? extends Operation<T, C>> operationClass, Class<C> contextType) {
+        registerOperationClass(id, operationClass);
+        tagContextType(id, contextType);
+    }
+
     <C> void registerScopedCompositeOperation(String id,
                                               Consumer<CompositeOperationDef<T, C>> configurer,
                                               Class<C> contextType) {
@@ -619,7 +710,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             throw new TransfluxValidationException("State ID " + stateId + " already defined");
         }
 
-        var stateDef = new StateDefImpl<T>(this, stateId);
+        var stateDef = new StateDefImpl<>(this, stateId);
         states.put(stateDef.getId(), stateDef);
         return stateDef;
     }
@@ -637,7 +728,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @param sourceStateId the ID of the source state
      * @param targetStateId the ID of the target state
      * @param transitionId the unique identifier for the transition
-     * @param contextType optional pre-bound context type; may be {@code null}
      */
     public void registerTransition(String sourceStateId, String targetStateId, String transitionId) {
         registerTransition(sourceStateId, targetStateId, transitionId, null);
@@ -694,27 +784,59 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private void checkCompositeRefs(CompositeOperationDefImpl<T, ?> composite,
                                     Class<?> scopeContext,
                                     String scopeLabel) {
-        if (scopeContext == null || scopeContext == Object.class) {
-            return;
+        if (scopeContext == null) {
+            scopeContext = Object.class;
         }
-        for (String stepId : composite.getStepByIdReferenceIds()) {
-            Class<?> stepCtx = componentContextTypes.get(stepId);
-            if (stepCtx != null && stepCtx != scopeContext) {
-                throw new TransfluxValidationException(
-                    "Context type mismatch: " + scopeLabel + " (context "
-                        + scopeContext.getName() + ") references step '" + stepId
-                        + "' declared for context " + stepCtx.getName());
+
+        for (ActionRef<T, ?> ref : composite.getActionRefs()) {
+            if (ref instanceof ActionRef.ById<T, ?> stepRef) {
+                Class<?> componentCtx = componentContextTypes.getOrDefault(stepRef.id(), Object.class);
+                checkMemberRef(scopeContext, scopeLabel, "step", stepRef.id(),
+                    componentCtx, stepRef.mapperRef());
+            } else if (ref instanceof ActionRef.OperationById<T, ?> opRef) {
+                Class<?> componentCtx = componentContextTypes.getOrDefault(opRef.id(), Object.class);
+                checkMemberRef(scopeContext, scopeLabel, "operation", opRef.id(),
+                    componentCtx, opRef.mapperRef());
             }
         }
-        for (String opId : composite.getOperationByIdReferenceIds()) {
-            Class<?> opCtx = componentContextTypes.get(opId);
-            if (opCtx != null && opCtx != scopeContext) {
+    }
+
+    private void checkMemberRef(Class<?> scopeContext, String scopeLabel, String kind,
+                                String memberId, Class<?> componentContext, MapperRef mapperRef) {
+        if (mapperRef instanceof MapperRef.PassThrough) {
+            if (componentContext == Object.class || componentContext.isAssignableFrom(scopeContext)) {
+                return;
+            }
+            throw new TransfluxValidationException(
+                "Context type mismatch: " + scopeLabel + " (context " + scopeContext.getName()
+                    + ") references " + kind + " '" + memberId
+                    + "' declared for context " + componentContext.getName()
+                    + " without a mapper; supply a mapper to bridge the boundary");
+        }
+        if (mapperRef instanceof MapperRef.ById byId) {
+            MapperDefImpl<?, ?> mapperDef = mapperRegistrations.get(byId.mapperId());
+            if (mapperDef == null) {
                 throw new TransfluxValidationException(
-                    "Context type mismatch: " + scopeLabel + " (context "
-                        + scopeContext.getName() + ") references operation '" + opId
-                        + "' declared for context " + opCtx.getName());
+                    scopeLabel + " references unknown mapper '" + byId.mapperId() + "' at " + kind
+                        + " '" + memberId + "'");
+            }
+            Class<?> mapperParent = mapperDef.parentType();
+            Class<?> mapperChild = mapperDef.childType();
+            if (!mapperParent.isAssignableFrom(scopeContext)) {
+                throw new TransfluxValidationException(
+                    "Mapper '" + byId.mapperId() + "' parent type " + mapperParent.getName()
+                        + " is not assignable from " + scopeLabel + " context " + scopeContext.getName());
+            }
+            if (componentContext != Object.class && !componentContext.isAssignableFrom(mapperChild)) {
+                throw new TransfluxValidationException(
+                    "Mapper '" + byId.mapperId() + "' child type " + mapperChild.getName()
+                        + " is not assignable to " + kind + " '" + memberId + "' context "
+                        + componentContext.getName());
             }
         }
+        // Inline Function and inline ContextMapper forms cannot be reliably introspected at
+        // build time (generic-parameter erasure); their P/N alignment is checked at first
+        // dispatch when the user-supplied value is invoked.
     }
 
     private void detectCompositeCycles() {
@@ -805,105 +927,77 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         return list.get(0);
     }
 
-    private static final class StepRegistration<T> {
-        private final Step<T, ?> instance;
-        private final Class<? extends Step<T, ?>> stepClass;
-
-        private StepRegistration(Step<T, ?> instance, Class<? extends Step<T, ?>> stepClass) {
-            this.instance = instance;
-            this.stepClass = stepClass;
-        }
+    private record StepRegistration<T>(Step<T, ?> instance, Class<? extends Step<T, ?>> stepClass) {
 
         static <T> StepRegistration<T> ofInstance(Step<T, ?> instance) {
-            return new StepRegistration<>(instance, null);
+                return new StepRegistration<>(instance, null);
+            }
+
+            static <T> StepRegistration<T> ofClass(Class<? extends Step<T, ?>> stepClass) {
+                return new StepRegistration<>(null, stepClass);
+            }
+
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            BoundStep<T, ?> toBoundStep(String id) {
+                Step<T, ?> resolved = instance != null ? instance : (Step<T, ?>) instantiateNoArg((Class) stepClass, "Step");
+                return BoundStep.of(id, (Step) resolved);
+            }
         }
 
-        static <T> StepRegistration<T> ofClass(Class<? extends Step<T, ?>> stepClass) {
-            return new StepRegistration<>(null, stepClass);
-        }
-
-        @SuppressWarnings({"unchecked", "rawtypes"})
-        BoundStep<T, ?> toBoundStep(String id) {
-            Step<T, ?> resolved = instance != null ? instance : (Step<T, ?>) instantiateNoArg((Class) stepClass, "Step");
-            return BoundStep.of(id, (Step) resolved);
-        }
-    }
-
-    private static final class OperationRegistration<T> {
-        private final Operation<T, ?> instance;
-        private final Class<? extends Operation<T, ?>> operationClass;
-
-        private OperationRegistration(Operation<T, ?> instance,
-                                      Class<? extends Operation<T, ?>> operationClass) {
-            this.instance = instance;
-            this.operationClass = operationClass;
-        }
+    private record OperationRegistration<T>(Operation<T, ?> instance, Class<? extends Operation<T, ?>> operationClass) {
 
         static <T> OperationRegistration<T> ofInstance(Operation<T, ?> instance) {
-            return new OperationRegistration<>(instance, null);
+                return new OperationRegistration<>(instance, null);
+            }
+
+            static <T> OperationRegistration<T> ofClass(Class<? extends Operation<T, ?>> operationClass) {
+                return new OperationRegistration<>(null, operationClass);
+            }
+
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            BoundOperation<T, ?> toBoundOperation(String id) {
+                Operation<T, ?> resolved = instance != null
+                    ? instance
+                    : (Operation<T, ?>) instantiateNoArg((Class) operationClass, "Operation");
+                return BoundOperation.of(id, null, null, (Operation) resolved);
+            }
         }
 
-        static <T> OperationRegistration<T> ofClass(Class<? extends Operation<T, ?>> operationClass) {
-            return new OperationRegistration<>(null, operationClass);
-        }
-
-        @SuppressWarnings({"unchecked", "rawtypes"})
-        BoundOperation<T, ?> toBoundOperation(String id) {
-            Operation<T, ?> resolved = instance != null
-                ? instance
-                : (Operation<T, ?>) instantiateNoArg((Class) operationClass, "Operation");
-            return BoundOperation.of(id, null, null, (Operation) resolved);
-        }
-    }
-
-    private static final class ConditionRegistration<T> {
-        private final Condition<T, ?> instance;
-        private final Class<? extends Condition<T, ?>> conditionClass;
-        private final Predicate<T> predicate;
-        private final String expression;
-
-        private ConditionRegistration(Condition<T, ?> instance,
-                                      Class<? extends Condition<T, ?>> conditionClass,
-                                      Predicate<T> predicate,
-                                      String expression) {
-            this.instance = instance;
-            this.conditionClass = conditionClass;
-            this.predicate = predicate;
-            this.expression = expression;
-        }
+    private record ConditionRegistration<T>(Condition<T, ?> instance, Class<? extends Condition<T, ?>> conditionClass,
+                                            Predicate<T> predicate, String expression) {
 
         static <T> ConditionRegistration<T> ofInstance(Condition<T, ?> instance) {
-            return new ConditionRegistration<>(instance, null, null, null);
-        }
-
-        static <T> ConditionRegistration<T> ofClass(Class<? extends Condition<T, ?>> conditionClass) {
-            return new ConditionRegistration<>(null, conditionClass, null, null);
-        }
-
-        static <T> ConditionRegistration<T> ofPredicate(Predicate<T> predicate) {
-            return new ConditionRegistration<>(null, null, predicate, null);
-        }
-
-        static <T> ConditionRegistration<T> ofExpression(String expression) {
-            return new ConditionRegistration<>(null, null, null, expression);
-        }
-
-        @SuppressWarnings({"unchecked", "rawtypes"})
-        BoundCondition<T, ?> toBoundCondition(String id) {
-            if (instance != null) {
-                return BoundCondition.of(id, (Condition) instance);
+                return new ConditionRegistration<>(instance, null, null, null);
             }
-            if (conditionClass != null) {
-                return BoundCondition.of(id, (Condition) instantiateNoArg((Class) conditionClass, "Condition"));
+
+            static <T> ConditionRegistration<T> ofClass(Class<? extends Condition<T, ?>> conditionClass) {
+                return new ConditionRegistration<>(null, conditionClass, null, null);
             }
-            if (predicate != null) {
-                Predicate<T> p = predicate;
-                Condition<T, Object> adapted = (entity, ctx, transition) -> p.test(entity);
-                return BoundCondition.of(id, (Condition) adapted);
+
+            static <T> ConditionRegistration<T> ofPredicate(Predicate<T> predicate) {
+                return new ConditionRegistration<>(null, null, predicate, null);
             }
-            return BoundCondition.fromExpression(id, expression);
+
+            static <T> ConditionRegistration<T> ofExpression(String expression) {
+                return new ConditionRegistration<>(null, null, null, expression);
+            }
+
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            BoundCondition<T, ?> toBoundCondition(String id) {
+                if (instance != null) {
+                    return BoundCondition.of(id, (Condition) instance);
+                }
+                if (conditionClass != null) {
+                    return BoundCondition.of(id, (Condition) instantiateNoArg((Class) conditionClass, "Condition"));
+                }
+                if (predicate != null) {
+                    Predicate<T> p = predicate;
+                    Condition<T, Object> adapted = (entity, ctx, transition) -> p.test(entity);
+                    return BoundCondition.of(id, (Condition) adapted);
+                }
+                return BoundCondition.fromExpression(id, expression);
+            }
         }
-    }
 
     @Override
     public TransitionDef<T, ?> getTransition(String transitionId) {

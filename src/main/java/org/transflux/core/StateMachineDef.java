@@ -21,6 +21,8 @@ package org.transflux.core;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.CompositeOperationDef;
+import org.transflux.core.operation.ContextMapper;
+import org.transflux.core.operation.Operation;
 import org.transflux.core.operation.Step;
 import org.transflux.core.state.StateApplier;
 import org.transflux.core.state.StateDef;
@@ -28,6 +30,7 @@ import org.transflux.core.state.StateResolver;
 import org.transflux.core.transition.TransitionDef;
 
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
@@ -188,6 +191,92 @@ public interface StateMachineDef<T> {
      * freshly-constructed composite def.
      */
     <C> StateMachineDef<T> compositeOperation(String id, Class<C> contextType, Consumer<CompositeOperationDef<T, C>> configurer);
+
+    /**
+     * Registers an {@link Operation} instance against this state machine under the given id,
+     * tagged with the supplied context class. The registered operation can be referenced by id
+     * from any number of call sites — composite members, {@code TransitionView.operation(...)}
+     * dispatches — that either pass through a compatible parent context or supply a mapper
+     * whose child type matches {@code contextType}.
+     *
+     * @param id the operation id
+     * @param contextType the operation's declared context class; never {@code null}
+     * @param operation the operation instance; never {@code null}
+     * @param <C> the operation's context type
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> operation(String id, Class<C> contextType, Operation<T, C> operation);
+
+    /**
+     * Registers an {@link Operation} class against this state machine under the given id,
+     * tagged with the supplied context class. The framework instantiates it via its public
+     * no-arg constructor at build time.
+     *
+     * @param id the operation id
+     * @param contextType the operation's declared context class; never {@code null}
+     * @param operationClass the operation class; never {@code null}
+     * @param <C> the operation's context type
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> operation(String id, Class<C> contextType, Class<? extends Operation<T, C>> operationClass);
+
+    /**
+     * Registers a {@link ContextMapper} instance against this state machine under the given id,
+     * with explicit parent and child type tokens. The registered mapper can be referenced by id
+     * from any call site (composite member, {@code TransitionView.operation(...)} dispatch,
+     * {@code async} block) where its parent type is assignable from the call site's context and
+     * its child type matches the called step or operation's required context.
+     *
+     * @param id the mapper id
+     * @param parentType the parent context class
+     * @param childType the child context class
+     * @param mapper the mapper instance; never {@code null}
+     * @param <P> the parent context type
+     * @param <N> the child context type
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if any argument is {@code null}/blank or another
+     *         mapper is already registered under {@code id}
+     */
+    <P, N> StateMachineDef<T> mapper(String id, Class<P> parentType, Class<N> childType,
+                                     ContextMapper<P, N> mapper);
+
+    /**
+     * Registers a {@link ContextMapper} class against this state machine under the given id.
+     * The framework instantiates it via its public no-arg constructor at build time.
+     *
+     * @param id the mapper id
+     * @param parentType the parent context class
+     * @param childType the child context class
+     * @param mapperClass the mapper class; never {@code null}
+     * @param <P> the parent context type
+     * @param <N> the child context type
+     *
+     * @return this state machine def for chaining
+     */
+    <P, N> StateMachineDef<T> mapper(String id, Class<P> parentType, Class<N> childType,
+                                     Class<? extends ContextMapper<P, N>> mapperClass);
+
+    /**
+     * Registers a read-only parent-to-child function as a mapper. The framework wraps it in a
+     * {@link ContextMapper} whose {@link ContextMapper#mapFrom(Object, Object) mapFrom} is the
+     * default no-op — appropriate when the called step or operation has no results to fold back
+     * into the parent's context.
+     *
+     * @param id the mapper id
+     * @param parentType the parent context class
+     * @param childType the child context class
+     * @param mapTo the parent-to-child projection; never {@code null}
+     * @param <P> the parent context type
+     * @param <N> the child context type
+     *
+     * @return this state machine def for chaining
+     */
+    <P, N> StateMachineDef<T> mapper(String id, Class<P> parentType, Class<N> childType,
+                                     Function<P, N> mapTo);
 
     StateDef<T> state(String stateId);
 

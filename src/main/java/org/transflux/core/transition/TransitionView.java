@@ -18,11 +18,16 @@
 
 package org.transflux.core.transition;
 
+import org.transflux.core.StateMachineDefImpl;
 import org.transflux.core.StateMachineImpl;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.BoundCompensation;
+import org.transflux.core.operation.BoundOperation;
 import org.transflux.core.operation.BoundStep;
 import org.transflux.core.operation.Compensation;
+import org.transflux.core.operation.ContextMapper;
+import org.transflux.core.operation.MapperDef;
+import org.transflux.core.operation.MapperDefImpl;
 import org.transflux.core.operation.Operation;
 import org.transflux.core.operation.StepPath;
 
@@ -32,6 +37,7 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Function;
 
 import static org.transflux.core.ValidationUtils.requireNotBlank;
 import static org.transflux.core.ValidationUtils.requireNotNull;
@@ -39,11 +45,19 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
 /**
  * Per-execution view of a {@link Transition}.
  * <p>
- * The framework builds a fresh {@code TransitionView} for each transition execution and
- * hands it to the underlying {@link Operation} as the {@code transition} parameter. Topology
- * accessors delegate to the static {@link TransitionImpl}; {@link #step(String)} runs against
- * the captured execution scope (entity, context, step-id recorder) by resolving the id against
- * the enclosing state machine's step registry.
+ * The framework builds a fresh {@code TransitionView} for each transition execution and hands
+ * it to the underlying {@link Operation} as the {@code transition} parameter. Topology
+ * accessors delegate to the static {@link TransitionImpl}; {@link #step(String)} and
+ * {@link #operation(String)} run against the captured execution scope (entity, context, step-id
+ * recorder, compensation stack) by resolving the id against the enclosing state machine's
+ * registries.
+ *
+ * <p><b>Mapper-aware overloads.</b> Both {@code step(...)} and {@code operation(...)} accept an
+ * optional mapper specification — a registered {@link MapperDef} by id, an inline {@link Function}
+ * for read-only projection, or a fully-supplied {@link ContextMapper} instance — that bridges
+ * the active context to whatever the referenced step or operation requires. Pass-through forms
+ * are equivalent to mapper-less invocation and require the called step or operation's context
+ * type to be assignable from the active context.
  *
  * <p>This is framework-internal runtime infrastructure intended only for use by Transflux's
  * own runtime; user code should not reference it directly.
@@ -53,10 +67,12 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
  */
 public class TransitionView<T, C> implements Transition<T, C> {
     private final StateMachineImpl<T> stateMachine;
-    private final TransitionImpl<T, C> staticTransition;
+    private final TransitionImpl<T, C> boundTransition;
 
     private final T entity;
     private final C context;
+
+    private final Deque<Object> contextOverrideStack = new ArrayDeque<>();
 
     private final List<StepPath> executedStepIds = new ArrayList<>();
 
@@ -64,53 +80,147 @@ public class TransitionView<T, C> implements Transition<T, C> {
 
     private final Deque<String> operationStack = new ArrayDeque<>();
 
-    public TransitionView(StateMachineImpl<T> stateMachine, TransitionImpl<T, C> staticTransition,
+    public TransitionView(StateMachineImpl<T> stateMachine, TransitionImpl<T, C> boundTransition,
                    T entity, C context) {
         requireNotNull(stateMachine, "State machine");
-        requireNotNull(staticTransition, "Static transition");
+        requireNotNull(boundTransition, "Bound transition");
 
         this.stateMachine = stateMachine;
-        this.staticTransition = staticTransition;
+        this.boundTransition = boundTransition;
         this.entity = entity;
         this.context = context;
     }
 
     @Override
     public String getId() {
-        return staticTransition.getId();
+        return boundTransition.getId();
     }
 
     @Override
     public String getSourceStateId() {
-        return staticTransition.getSourceStateId();
+        return boundTransition.getSourceStateId();
     }
 
     @Override
     public String getTargetStateId() {
-        return staticTransition.getTargetStateId();
+        return boundTransition.getTargetStateId();
     }
 
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public void step(String id) {
-        requireNotBlank(id, "Step ID");
-        BoundStep<T, ?> boundStep = stateMachine.getBoundStep(id);
-        if (boundStep == null) {
-            throw new TransfluxValidationException("No step registered with id '" + id + "'");
-        }
+        BoundStep<T, ?> boundStep = resolveStep(id);
         StateMachineImpl.runBoundStep((BoundStep) boundStep, this);
+    }
+
+    /**
+     * Dispatches a registered step under {@code id} with the supplied mapper, which must be
+     * registered on the enclosing state machine under {@code mapperId}.
+     *
+     * @param id the registered step id
+     * @param mapperId the registered mapper id
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public void step(String id, String mapperId) {
+        requireNotBlank(mapperId, "Mapper reference ID");
+        BoundStep<T, ?> boundStep = resolveStep(id);
+        ContextMapper<Object, Object> mapper = resolveRegisteredMapper(mapperId);
+        runChildStep((BoundStep) boundStep, mapper);
+    }
+
+    /**
+     * Dispatches a registered step under {@code id} with an inline read-only parent-to-child
+     * function.
+     *
+     * @param id the registered step id
+     * @param inlineMapTo the parent-to-child projection
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public void step(String id, Function<C, ?> inlineMapTo) {
+        requireNotNull(inlineMapTo, "Inline mapper function");
+        BoundStep<T, ?> boundStep = resolveStep(id);
+        ContextMapper<Object, Object> mapper = wrapFunction((Function) inlineMapTo);
+        runChildStep((BoundStep) boundStep, mapper);
+    }
+
+    /**
+     * Dispatches a registered step under {@code id} with an inline fully-supplied
+     * {@link ContextMapper}.
+     *
+     * @param id the registered step id
+     * @param inlineMapper the mapper
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public void step(String id, ContextMapper<C, ?> inlineMapper) {
+        requireNotNull(inlineMapper, "Inline mapper instance");
+        BoundStep<T, ?> boundStep = resolveStep(id);
+        ContextMapper<Object, Object> mapper = (ContextMapper<Object, Object>) inlineMapper;
+        runChildStep((BoundStep) boundStep, mapper);
+    }
+
+    /**
+     * Dispatches a registered operation under {@code id} in pass-through mode. The operation's
+     * context type must be assignable from this view's active context.
+     *
+     * @param id the registered operation id
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public void operation(String id) {
+        BoundOperation<T, ?> bound = resolveOperation(id);
+        runChildOperation((BoundOperation) bound, null);
+    }
+
+    /**
+     * Dispatches a registered operation under {@code id} with a registered mapper.
+     *
+     * @param id the registered operation id
+     * @param mapperId the registered mapper id
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public void operation(String id, String mapperId) {
+        requireNotBlank(mapperId, "Mapper reference ID");
+        BoundOperation<T, ?> bound = resolveOperation(id);
+        ContextMapper<Object, Object> mapper = resolveRegisteredMapper(mapperId);
+        runChildOperation((BoundOperation) bound, mapper);
+    }
+
+    /**
+     * Dispatches a registered operation under {@code id} with an inline read-only
+     * parent-to-child function.
+     *
+     * @param id the registered operation id
+     * @param inlineMapTo the parent-to-child projection
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public void operation(String id, Function<C, ?> inlineMapTo) {
+        requireNotNull(inlineMapTo, "Inline mapper function");
+        BoundOperation<T, ?> bound = resolveOperation(id);
+        ContextMapper<Object, Object> mapper = wrapFunction((Function) inlineMapTo);
+        runChildOperation((BoundOperation) bound, mapper);
+    }
+
+    /**
+     * Dispatches a registered operation under {@code id} with an inline fully-supplied
+     * {@link ContextMapper}.
+     *
+     * @param id the registered operation id
+     * @param inlineMapper the mapper
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public void operation(String id, ContextMapper<C, ?> inlineMapper) {
+        requireNotNull(inlineMapper, "Inline mapper instance");
+        BoundOperation<T, ?> bound = resolveOperation(id);
+        ContextMapper<Object, Object> mapper = (ContextMapper<Object, Object>) inlineMapper;
+        runChildOperation((BoundOperation) bound, mapper);
     }
 
     public T getEntity() {
         return entity;
     }
 
+    @SuppressWarnings("unchecked")
     public C getContext() {
-        return context;
-    }
-
-    public TransitionImpl<T, C> getStaticTransition() {
-        return staticTransition;
+        return contextOverrideStack.isEmpty() ? context : (C) contextOverrideStack.peek();
     }
 
     public StateMachineImpl<T> getStateMachine() {
@@ -158,6 +268,100 @@ public class TransitionView<T, C> implements Transition<T, C> {
         operationStack.pop();
     }
 
+    /**
+     * Runs a bound step under a freshly-mapped child context. The child context produced by
+     * {@code mapper.mapTo(activeContext)} is pushed onto the view's context-override stack for
+     * the duration of the step's execution, and on successful return
+     * {@link ContextMapper#mapFrom(Object, Object) mapFrom} folds any child-side changes back
+     * into the active context.
+     *
+     * <p>This is framework-internal infrastructure used by composite executors and the
+     * mapper-aware {@code step(...)} overloads; user code should not invoke it directly.
+     *
+     * @param boundStep the bound step to run; never {@code null}
+     * @param mapper the mapper to apply at the boundary; never {@code null}
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public void runChildStep(BoundStep<T, Object> boundStep, ContextMapper<Object, Object> mapper) {
+        Object active = getContext();
+        Object child = mapper.mapTo(active);
+        contextOverrideStack.push(child);
+        try {
+            StateMachineImpl.runBoundStep((BoundStep) boundStep, (TransitionView) this);
+        } finally {
+            contextOverrideStack.pop();
+        }
+        mapper.mapFrom(active, child);
+    }
+
+    /**
+     * Runs a bound operation under a freshly-mapped child context, recording the operation's
+     * id on the operation-nesting stack so any step ids the operation drives are qualified
+     * with this parent prefix. When {@code mapper} is {@code null} the operation runs
+     * pass-through against the active context.
+     *
+     * <p>This is framework-internal infrastructure used by composite executors and the
+     * mapper-aware {@code operation(...)} overloads; user code should not invoke it directly.
+     *
+     * @param boundOperation the bound operation to run; never {@code null}
+     * @param mapper the mapper to apply at the boundary, or {@code null} for pass-through
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public void runChildOperation(BoundOperation<T, Object> boundOperation, ContextMapper<Object, Object> mapper) {
+        Object active = getContext();
+        enterOperation(boundOperation.id());
+        try {
+            if (mapper == null) {
+                ((Operation) boundOperation.operation()).execute(entity, active, this);
+                return;
+            }
+            Object child = mapper.mapTo(active);
+            contextOverrideStack.push(child);
+            try {
+                ((Operation) boundOperation.operation()).execute(entity, child, this);
+            } finally {
+                contextOverrideStack.pop();
+            }
+            mapper.mapFrom(active, child);
+        } finally {
+            exitOperation();
+        }
+    }
+
+    private BoundStep<T, ?> resolveStep(String id) {
+        requireNotBlank(id, "Step ID");
+        BoundStep<T, ?> bound = stateMachine.getBoundStep(id);
+        if (bound == null) {
+            throw new TransfluxValidationException("No step registered with id '" + id + "'");
+        }
+        return bound;
+    }
+
+    private BoundOperation<T, ?> resolveOperation(String id) {
+        requireNotBlank(id, "Operation ID");
+        BoundOperation<T, ?> bound = stateMachine.getBoundOperation(id);
+        if (bound == null) {
+            throw new TransfluxValidationException("No operation registered with id '" + id + "'");
+        }
+        return bound;
+    }
+
+    private ContextMapper<Object, Object> resolveRegisteredMapper(String mapperId) {
+        StateMachineDefImpl<T> def = stateMachine.getDef();
+        MapperDef<?, ?> mapperDef = def.getMapperDef(mapperId);
+        if (mapperDef == null) {
+            throw new TransfluxValidationException(
+                "No mapper registered with id '" + mapperId + "'");
+        }
+        @SuppressWarnings("unchecked")
+        MapperDefImpl<Object, Object> impl = (MapperDefImpl<Object, Object>) mapperDef;
+        return impl.buildMapper();
+    }
+
+    private ContextMapper<Object, Object> wrapFunction(Function<Object, Object> fn) {
+        return fn::apply;
+    }
+
     private StepPath qualifyStepPath(String localStepId) {
         requireNotBlank(localStepId, "Step ID");
 
@@ -184,7 +388,7 @@ public class TransitionView<T, C> implements Transition<T, C> {
      * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
      * should not invoke it directly.
      *
-     * @param stepId the id of the step the compensation rolls back; must be non-blank
+     * @param localStepId the id of the step the compensation rolls back; must be non-blank
      * @param compensation the compensation callback; ignored when {@code null}
      */
     public void pushCompensation(String localStepId, Compensation<T, C> compensation) {

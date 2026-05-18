@@ -23,6 +23,8 @@ import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
 
+import java.util.function.Function
+
 class NestedOperationMappingSpec extends Specification {
 
     static class Entity {
@@ -35,7 +37,6 @@ class NestedOperationMappingSpec extends Specification {
 
     static class ParentCtx {
         String subscriptionId
-        String billingStatus
         String activationResult
     }
 
@@ -52,7 +53,6 @@ class NestedOperationMappingSpec extends Specification {
         }
     }
 
-    /** Static class-form mapper — used to assert .withContextMapping(Class). */
     static class ParentChildMapper implements ContextMapper<ParentCtx, ChildCtx> {
         @Override
         ChildCtx mapTo(ParentCtx p) {
@@ -67,14 +67,14 @@ class NestedOperationMappingSpec extends Specification {
         }
     }
 
-    def 'class-based ContextMapper bridges parent and child context'() {
+    def 'registered ContextMapper instance bridges parent and child context via by-id mapper ref'() {
         given:
         def smd = baseDef()
+        smd.operation('charge', ChildCtx, new ChildOp())
+            .mapper('parent-to-child', ParentCtx, ChildCtx, new ParentChildMapper())
         smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, ParentCtx> c ->
-            c.operation('nested', ChildOp, { NestedOperationDef<Entity, ParentCtx, ParentCtx> op ->
-                op.usingContext(ChildCtx)
-                    .withContextMapping(ParentChildMapper)
-            })
+            c.usingContext(ParentCtx)
+            c.operation('charge', 'parent-to-child')
         })
         def sm = smd.build()
         def entity = new Entity('s1')
@@ -86,17 +86,16 @@ class NestedOperationMappingSpec extends Specification {
         then:
         result.success
         ctx.activationResult == 'activated-sub-42'
-        result.executedStepIds.isEmpty()   // ChildOp didn't drive any framework steps
     }
 
-    def 'instance-based ContextMapper bridges parent and child context'() {
+    def 'registered ContextMapper class bridges parent and child context via by-id mapper ref'() {
         given:
         def smd = baseDef()
+        smd.operation('charge', ChildCtx, new ChildOp())
+            .mapper('parent-to-child', ParentCtx, ChildCtx, ParentChildMapper)
         smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, ParentCtx> c ->
-            c.operation('nested', ChildOp, { NestedOperationDef<Entity, ParentCtx, ParentCtx> op ->
-                op.usingContext(ChildCtx)
-                    .withContextMapping(new ParentChildMapper())
-            })
+            c.usingContext(ParentCtx)
+            c.operation('charge', 'parent-to-child')
         })
         def sm = smd.build()
         def entity = new Entity('s1')
@@ -110,44 +109,38 @@ class NestedOperationMappingSpec extends Specification {
         ctx.activationResult == 'activated-sub-99'
     }
 
-    def 'inline mapTo + mapFrom lambdas bridge parent and child context'() {
+    def 'inline ContextMapper instance at the call site bridges parent and child context'() {
         given:
         def smd = baseDef()
+        smd.operation('charge', ChildCtx, new ChildOp())
         smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, ParentCtx> c ->
-            c.operation('nested', ChildOp, { NestedOperationDef<Entity, ParentCtx, ParentCtx> op ->
-                op.usingContext(ChildCtx)
-                    .mapTo({ ParentCtx p ->
-                        def n = new ChildCtx()
-                        n.subscriptionId = p.subscriptionId
-                        return n
-                    })
-                    .mapFrom({ ParentCtx p, ChildCtx n -> p.activationResult = n.activationResult })
-            })
+            c.usingContext(ParentCtx)
+            c.operation('charge', new ParentChildMapper())
         })
         def sm = smd.build()
         def entity = new Entity('s1')
-        def ctx = new ParentCtx(subscriptionId: 'sub-inline')
+        def ctx = new ParentCtx(subscriptionId: 'sub-inline-mapper')
 
         when:
         def result = sm.entity(entity).transitionTo('s2', ctx)
 
         then:
         result.success
-        ctx.activationResult == 'activated-sub-inline'
+        ctx.activationResult == 'activated-sub-inline-mapper'
     }
 
-    def 'mapFrom is optional — omitting it means the child results do not flow back to the parent'() {
+    def 'inline read-only Function at the call site projects parent to child (mapFrom is no-op)'() {
         given:
         def smd = baseDef()
+        smd.operation('charge', ChildCtx, new ChildOp())
+        Function<ParentCtx, ChildCtx> mapTo = { ParentCtx p ->
+            def n = new ChildCtx()
+            n.subscriptionId = p.subscriptionId
+            return n
+        }
         smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, ParentCtx> c ->
-            c.operation('nested', ChildOp, { NestedOperationDef<Entity, ParentCtx, ParentCtx> op ->
-                op.usingContext(ChildCtx)
-                    .mapTo({ ParentCtx p ->
-                        def n = new ChildCtx()
-                        n.subscriptionId = p.subscriptionId
-                        return n
-                    })
-            })
+            c.usingContext(ParentCtx)
+            c.operation('charge', mapTo)
         })
         def sm = smd.build()
         def entity = new Entity('s1')
@@ -158,41 +151,39 @@ class NestedOperationMappingSpec extends Specification {
 
         then:
         result.success
-        ctx.activationResult == null   // nothing flowed back
+        ctx.activationResult == null
     }
 
-    def 'pass-through-with-explicit-empty-configurer behaves like the no-configurer overload'() {
+    def 'registered mapper supplied as a Function is wrapped with a no-op mapFrom'() {
         given:
-        def passOp = new Operation<Entity, ParentCtx>() {
-            @Override
-            void execute(Entity entity, ParentCtx context, Transition<Entity, ParentCtx> transition) {
-                context.billingStatus = 'reached'
-            }
-        }
         def smd = baseDef()
+        smd.operation('charge', ChildCtx, new ChildOp())
+            .mapper('parent-to-child', ParentCtx, ChildCtx, { ParentCtx p ->
+                def n = new ChildCtx()
+                n.subscriptionId = p.subscriptionId
+                return n
+            } as Function<ParentCtx, ChildCtx>)
         smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, ParentCtx> c ->
-            c.operation('pass', passOp, { NestedOperationDef<Entity, ParentCtx, ParentCtx> op ->
-                // No usingContext, no mapping calls — pass-through.
-                op.withName('pass-through-op')
-            })
+            c.usingContext(ParentCtx)
+            c.operation('charge', 'parent-to-child')
         })
         def sm = smd.build()
         def entity = new Entity('s1')
-        def ctx = new ParentCtx()
+        def ctx = new ParentCtx(subscriptionId: 'sub-fn-reg')
 
         when:
         def result = sm.entity(entity).transitionTo('s2', ctx)
 
         then:
         result.success
-        ctx.billingStatus == 'reached'
+        ctx.activationResult == null   // mapFrom defaults to no-op
     }
 
     private static StateMachineDefImpl<Entity> baseDef() {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1').transitionsTo('s2', 't')
+            .state('s1').transitionsTo('s2', 't', ParentCtx)
             .state('s2')
         return smd
     }
