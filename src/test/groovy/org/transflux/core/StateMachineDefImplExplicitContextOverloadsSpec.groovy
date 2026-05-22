@@ -35,26 +35,26 @@ class StateMachineDefImplExplicitContextOverloadsSpec extends Specification {
         boolean test(Entity entity, CtxA context, Transition<Entity, CtxA> transition) { true }
     }
 
-    def 'step(id, Class<C>, Step) tags componentContextTypes identically to useContext scope'() {
+    def 'step(id, Class<C>, Step) tags componentContextTypes identically to forContext scope'() {
         given:
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .step('viaExplicit', CtxA, new CtxAStep())
-            .useContext(CtxA, { scope -> scope.step('viaScope', new CtxAStep()) })
+            .forContext(CtxA, { scope -> scope.step('viaScope', new CtxAStep()) })
 
         expect:
         smd.getComponentContextType('viaExplicit') == CtxA
         smd.getComponentContextType('viaScope') == CtxA
     }
 
-    def 'condition(id, Class<C>, Condition) tags componentContextTypes identically to useContext scope'() {
+    def 'condition(id, Class<C>, Condition) tags componentContextTypes identically to forContext scope'() {
         given:
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .condition('viaExplicit', CtxA, new CtxACondition())
-            .useContext(CtxA, { scope -> scope.condition('viaScope', new CtxACondition()) })
+            .forContext(CtxA, { scope -> scope.condition('viaScope', new CtxACondition()) })
 
         expect:
         smd.getComponentContextType('viaExplicit') == CtxA
@@ -98,7 +98,7 @@ class StateMachineDefImplExplicitContextOverloadsSpec extends Specification {
         smd.getComponentContextType('plainCond') == null
     }
 
-    def 'mixing explicit Class<C> with mismatched useContext on same id is rejected'() {
+    def 'mixing explicit Class<C> with mismatched forContext on same id is rejected'() {
         given:
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
@@ -106,7 +106,7 @@ class StateMachineDefImplExplicitContextOverloadsSpec extends Specification {
             .step('mixed', CtxA, new CtxAStep())
 
         when:
-        smd.useContext(CtxB, { scope -> scope.step('mixed', new CtxAStep() as Step<Entity, CtxB>) })
+        smd.forContext(CtxB, { scope -> scope.step('mixed', new CtxAStep() as Step<Entity, CtxB>) })
 
         then:
         thrown(org.transflux.core.exception.TransfluxValidationException)

@@ -18,15 +18,18 @@
 
 package org.transflux.core.operation
 
+import org.transflux.core.StateMachine
 import org.transflux.core.StateMachineDefImpl
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
+import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
 
+import java.util.function.Consumer
 import java.util.function.Function
 
-class CompositeOperationDefStepMappingSpec extends Specification {
+class CompositeOperationDefImplStepMappingSpec extends Specification {
 
     static class Entity {
         String state
@@ -75,14 +78,12 @@ class CompositeOperationDefStepMappingSpec extends Specification {
 
     def 'step-level mapping at call site via registered mapper id'() {
         given:
-        def smd = baseDef()
-        smd.step('charge', PaymentCtx, new ChargeStep())
-            .mapper('order-to-payment', OrderCtx, PaymentCtx, new OrderToPaymentMapper())
-        smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, OrderCtx> c ->
-            c.usingContext(OrderCtx)
-            c.step('charge', 'order-to-payment')
-        })
-        def sm = smd.build()
+        def sm = build(
+            { smd -> smd.step('charge', PaymentCtx, new ChargeStep())
+                .mapper('order-to-payment', OrderCtx, PaymentCtx, new OrderToPaymentMapper()) },
+            { t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, OrderCtx> c ->
+                c.step('charge', 'order-to-payment')
+            }) })
         def entity = new Entity('s1')
         def ctx = new OrderCtx(orderId: 'ord-1', amount: 12.50)
 
@@ -97,13 +98,11 @@ class CompositeOperationDefStepMappingSpec extends Specification {
 
     def 'step-level mapping at call site via inline ContextMapper instance'() {
         given:
-        def smd = baseDef()
-        smd.step('charge', PaymentCtx, new ChargeStep())
-        smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, OrderCtx> c ->
-            c.usingContext(OrderCtx)
-            c.step('charge', new OrderToPaymentMapper())
-        })
-        def sm = smd.build()
+        def sm = build(
+            { smd -> smd.step('charge', PaymentCtx, new ChargeStep()) },
+            { t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, OrderCtx> c ->
+                c.step('charge', new OrderToPaymentMapper())
+            }) })
         def entity = new Entity('s1')
         def ctx = new OrderCtx(orderId: 'ord-2', amount: 5.00)
 
@@ -117,19 +116,17 @@ class CompositeOperationDefStepMappingSpec extends Specification {
 
     def 'step-level mapping at call site via inline Function (read-only)'() {
         given:
-        def smd = baseDef()
-        smd.step('charge', PaymentCtx, new ChargeStep())
         Function<OrderCtx, PaymentCtx> mapTo = { OrderCtx o ->
             def p = new PaymentCtx()
             p.reference = o.orderId
             p.cents = o.amount * 100
             return p
         }
-        smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, OrderCtx> c ->
-            c.usingContext(OrderCtx)
-            c.step('charge', mapTo)
-        })
-        def sm = smd.build()
+        def sm = build(
+            { smd -> smd.step('charge', PaymentCtx, new ChargeStep()) },
+            { t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, OrderCtx> c ->
+                c.step('charge', mapTo)
+            }) })
         def entity = new Entity('s1')
         def ctx = new OrderCtx(orderId: 'ord-3', amount: 3.00)
 
@@ -138,21 +135,17 @@ class CompositeOperationDefStepMappingSpec extends Specification {
 
         then:
         result.success
-        ctx.chargeResult == null   // inline Function defaults mapFrom to no-op
+        ctx.chargeResult == null
         entity.trail == ['charge:ord-3']
     }
 
     def 'pass-through step ref with non-assignable component context is rejected at build'() {
-        given:
-        def smd = baseDef()
-        smd.step('charge', PaymentCtx, new ChargeStep())
-        smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, OrderCtx> c ->
-            c.usingContext(OrderCtx)
-            c.step('charge')   // no mapper, contexts don't match
-        })
-
         when:
-        smd.build()
+        build(
+            { smd -> smd.step('charge', PaymentCtx, new ChargeStep()) },
+            { t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, OrderCtx> c ->
+                c.step('charge')
+            }) })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -161,33 +154,31 @@ class CompositeOperationDefStepMappingSpec extends Specification {
     }
 
     def 'mapper P type incompatible with caller context is rejected at build'() {
-        given:
-        def smd = baseDef()
-        smd.step('charge', PaymentCtx, new ChargeStep())
-            .mapper('wrong-parent', Number, PaymentCtx, { Number n ->
-                def p = new PaymentCtx()
-                p.cents = n
-                return p
-            } as Function<Number, PaymentCtx>)
-        smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, OrderCtx> c ->
-            c.usingContext(OrderCtx)
-            c.step('charge', 'wrong-parent')
-        })
-
         when:
-        smd.build()
+        build(
+            { smd -> smd.step('charge', PaymentCtx, new ChargeStep())
+                .mapper('wrong-parent', Number, PaymentCtx, { Number n ->
+                    def p = new PaymentCtx()
+                    p.cents = n
+                    return p
+                } as Function<Number, PaymentCtx>) },
+            { t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, OrderCtx> c ->
+                c.step('charge', 'wrong-parent')
+            }) })
 
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains('wrong-parent')
     }
 
-    private static StateMachineDefImpl<Entity> baseDef() {
+    private static StateMachine<Entity> build(Consumer<StateMachineDefImpl<Entity>> smdRegistrations,
+                                              Consumer<TransitionDef<Entity, OrderCtx>> transitionConfigurer) {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1').transitionsTo('s2', 't', OrderCtx)
-            .state('s2')
-        return smd
+        smdRegistrations.accept(smd)
+        smd.state('s1', { s -> s.transitionsTo('s2', 't', OrderCtx, transitionConfigurer) })
+            .state('s2', {})
+        return smd.build()
     }
 }

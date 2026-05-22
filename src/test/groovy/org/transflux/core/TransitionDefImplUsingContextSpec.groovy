@@ -21,9 +21,10 @@ package org.transflux.core
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.TransitionDef
 import org.transflux.core.transition.TransitionDefImpl
+import org.transflux.core.transition.TransitionImpl
 import spock.lang.Specification
 
-class TransitionUsingContextSpec extends Specification {
+class TransitionDefImplUsingContextSpec extends Specification {
 
     static class Entity {
         String state
@@ -43,9 +44,10 @@ class TransitionUsingContextSpec extends Specification {
         td.getContextType() == Object
     }
 
-    def 'usingContext narrows the transition\'s context type and re-types the builder'() {
+    def "usingContext narrows the transition's context type and re-types the builder"() {
         given:
-        def td = new TransitionDefImpl<Entity, Void>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, Void>('t1', 's1', 's2', Void)
+        td.beginConfigurer()
 
         when:
         TransitionDef<Entity, TheCtx> retyped = td.usingContext(TheCtx)
@@ -55,21 +57,20 @@ class TransitionUsingContextSpec extends Specification {
         td.getContextType() == TheCtx   // same underlying impl
     }
 
-    def 'transition\'s contextType is reachable from the runtime TransitionImpl'() {
+    def "transition's contextType is reachable from the runtime TransitionImpl"() {
         given:
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1').transitionsTo('s2', 't1')
-            .state('s2')
-        smd.getTransition('t1').usingContext(TheCtx)
+            .state('s1', { s -> s.transitionsTo('s2', 't1', { t -> t.usingContext(TheCtx) }) })
+            .state('s2', {})
         def sm = smd.build()
 
         when:
         def transition = sm.getTransition('t1')
 
         then:
-        transition instanceof org.transflux.core.transition.TransitionImpl
-        ((org.transflux.core.transition.TransitionImpl) transition).getContextType() == TheCtx
+        transition instanceof TransitionImpl
+        ((TransitionImpl) transition).getContextType() == TheCtx
     }
 }

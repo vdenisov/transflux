@@ -52,17 +52,15 @@ import org.transflux.core.transition.TransitionResult;
  *     .defineStateMachine()
  *     .forEntityType(Subscription.class)
  *     .withStateResolver(subscription -> subscription.getStatus())
- *     .state("trial")
+ *     .state("trial", s -> s
  *         .withName("Trial Period")
- *         .transitionsTo("active", "upgrade-transition")
- *         .transitionsTo("expired", "expire-transition")
- *     .state("active")
+ *         .transitionsTo("active", "upgrade-transition", t -> {})
+ *         .transitionsTo("expired", "expire-transition", t -> {}))
+ *     .state("active", s -> s
  *         .withName("Active Subscription")
- *         .transitionsTo("cancelled", "cancel-transition")
- *     .state("expired")
- *         .withName("Expired Subscription")
- *     .state("cancelled")
- *         .withName("Cancelled Subscription")
+ *         .transitionsTo("cancelled", "cancel-transition", t -> {}))
+ *     .state("expired", s -> s.withName("Expired Subscription"))
+ *     .state("cancelled", s -> s.withName("Cancelled Subscription"))
  *     .build();
  * }</pre>
  *

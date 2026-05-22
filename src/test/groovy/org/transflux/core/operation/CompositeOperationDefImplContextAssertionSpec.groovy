@@ -19,12 +19,11 @@
 package org.transflux.core.operation
 
 import org.transflux.core.StateMachineDefImpl
-import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
 
-class CompositeOperationContextAssertionSpec extends Specification {
+class CompositeOperationDefImplContextAssertionSpec extends Specification {
 
     static class Entity {
         String state
@@ -45,10 +44,15 @@ class CompositeOperationContextAssertionSpec extends Specification {
 
     def 'usingContext(SMContext) accepts when the supplied class matches the SM context type'() {
         given:
-        def smd = baseDef()
-        smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, CorrectCtx> c ->
-            c.usingContext(CorrectCtx).step('s1', new NoopStep())
-        })
+        def smd = new StateMachineDefImpl<Entity>()
+        smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+            .state('s1', { s -> s.transitionsTo('s2', 't', { t ->
+                t.compositeOperation('outer', { CompositeOperationDef<Entity, CorrectCtx> c ->
+                    c.usingContext(CorrectCtx).step('s1', new NoopStep())
+                })
+            }) })
+            .state('s2', {})
 
         when:
         def sm = smd.build()
@@ -62,26 +66,17 @@ class CompositeOperationContextAssertionSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1').transitionsTo('s2', 't')
-            .state('s2')
-        // Note: SM no longer carries a context type — context is per-transition.
-        smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, CorrectCtx> c ->
-            c.usingContext(CorrectCtx).step('s1', new NoopStep())
-        })
+            .state('s1', { s -> s.transitionsTo('s2', 't', { t ->
+                t.compositeOperation('outer', { CompositeOperationDef<Entity, CorrectCtx> c ->
+                    c.usingContext(CorrectCtx).step('s1', new NoopStep())
+                })
+            }) })
+            .state('s2', {})
 
         when:
         def sm = smd.build()
 
         then:
-        sm != null   // no validation triggered
-    }
-
-    private static StateMachineDefImpl<Entity> baseDef() {
-        def smd = new StateMachineDefImpl<Entity>()
-        smd.forEntityType(Entity)
-            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1').transitionsTo('s2', 't')
-            .state('s2')
-        return smd
+        sm != null
     }
 }

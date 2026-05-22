@@ -77,6 +77,8 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     private final List<ConditionDescriptor> preConditions = new ArrayList<>();
     private final List<ConditionDescriptor> postConditions = new ArrayList<>();
 
+    private boolean configurerActive;
+
     /**
      * Constructs a new TransitionDefImpl with the specified parameters.
      * <p>
@@ -114,6 +116,7 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     @Override
     @SuppressWarnings("unchecked")
     public <C2> TransitionDef<T, C2> usingContext(Class<C2> contextType) {
+        requireConfigurerActive("usingContext");
         requireNotNull(contextType, "Transition context type");
         if (this.contextType != null && this.contextType != Object.class && this.contextType != contextType) {
             log.warn("Transition '{}' context type already declared as {}; overriding with {}",
@@ -121,6 +124,29 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
         }
         this.contextType = (Class<C>) contextType;
         return (TransitionDef<T, C2>) this;
+    }
+
+    /**
+     * Marks this def as actively under construction by its configurer lambda. Package-private
+     * — the enclosing {@code StateDefImpl} flips this around the configurer invocation.
+     */
+    public void beginConfigurer() {
+        this.configurerActive = true;
+    }
+
+    /**
+     * Clears the configurer-active flag once the lambda returns.
+     */
+    public void endConfigurer() {
+        this.configurerActive = false;
+    }
+
+    private void requireConfigurerActive(String operation) {
+        if (!configurerActive) {
+            throw new TransfluxValidationException(
+                "Cannot call '" + operation + "' on transition '" + id + "' after its configurer has returned. "
+                    + "The TransitionDef reference is inert; declare children inside the configurer lambda.");
+        }
     }
 
     /**
@@ -243,6 +269,7 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
 
     @Override
     public TransitionDef<T, C> simpleOperation(String id, Operation<T, C> operation) {
+        requireConfigurerActive("simpleOperation");
         SimpleOperationDefImpl<T, C> def = newSimpleOperationDef(id);
         def.using(operation);
         attachOperation(def);
@@ -251,6 +278,7 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
 
     @Override
     public TransitionDef<T, C> simpleOperation(String id, Class<? extends Operation<T, C>> operationClass) {
+        requireConfigurerActive("simpleOperation");
         SimpleOperationDefImpl<T, C> def = newSimpleOperationDef(id);
         def.using(operationClass);
         attachOperation(def);
@@ -259,6 +287,7 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
 
     @Override
     public TransitionDef<T, C> simpleOperation(String id, Consumer<SimpleOperationDef<T, C>> configurer) {
+        requireConfigurerActive("simpleOperation");
         requireNotNull(configurer, "Simple operation configurer");
         SimpleOperationDefImpl<T, C> def = newSimpleOperationDef(id);
         configurer.accept(def);
@@ -268,6 +297,7 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
 
     @Override
     public TransitionDef<T, C> compositeOperation(String id, Consumer<CompositeOperationDef<T, C>> configurer) {
+        requireConfigurerActive("compositeOperation");
         requireNotNull(configurer, "Composite operation configurer");
         CompositeOperationDefImpl<T, C> composite = new CompositeOperationDefImpl<>(id);
         configurer.accept(composite);
@@ -277,6 +307,7 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
 
     @Override
     public TransitionDef<T, C> step(String registeredStepId) {
+        requireConfigurerActive("step");
         requireNotBlank(registeredStepId, "Step ID");
         CompositeOperationDefImpl<T, C> composite =
             new CompositeOperationDefImpl<>("transition-" + this.id + "-op");
@@ -287,6 +318,7 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
 
     @Override
     public TransitionDef<T, C> withName(String name) {
+        requireConfigurerActive("withName");
         if (this.name != null) {
             log.warn("Name is already defined for transition '{}': {}. Overriding previous value with {}",
                 this.id, this.name, name);
@@ -297,6 +329,7 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
 
     @Override
     public TransitionDef<T, C> withDescription(String description) {
+        requireConfigurerActive("withDescription");
         if (this.description != null) {
             log.warn("Description is already defined for transition '{}': {}. Overriding previous value with {}",
                 this.id, this.description, description);
@@ -315,18 +348,21 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
 
     @Override
     public TransitionDef<T, C> preCondition(String registeredConditionId) {
+        requireConfigurerActive("preCondition");
         requireNotBlank(registeredConditionId, "Registered condition ID");
         return appendPreCondition(ConditionDescriptor.ref(registeredConditionId));
     }
 
     @Override
     public TransitionDef<T, C> preConditionExpression(String expression) {
+        requireConfigurerActive("preConditionExpression");
         requireNotBlank(expression, "Expression");
         return appendPreCondition(ConditionDescriptor.expression(expression));
     }
 
     @Override
     public TransitionDef<T, C> preCondition(String id, Condition<T, C> condition) {
+        requireConfigurerActive("preCondition");
         requireNotBlank(id, "Condition ID");
         requireNotNull(condition, "Condition");
         return appendPreCondition(ConditionDescriptor.instanceBased(id, condition));
@@ -334,6 +370,7 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
 
     @Override
     public TransitionDef<T, C> preCondition(String id, Class<? extends Condition<T, C>> conditionClass) {
+        requireConfigurerActive("preCondition");
         requireNotBlank(id, "Condition ID");
         requireNotNull(conditionClass, "Condition class");
         return appendPreCondition(ConditionDescriptor.classBased(id, conditionClass));
@@ -341,6 +378,7 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
 
     @Override
     public TransitionDef<T, C> preCondition(String id, Predicate<T> predicate) {
+        requireConfigurerActive("preCondition");
         requireNotBlank(id, "Condition ID");
         requireNotNull(predicate, "Predicate");
         return appendPreCondition(ConditionDescriptor.predicate(id, predicate));
@@ -348,6 +386,7 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
 
     @Override
     public TransitionDef<T, C> preCondition(String id, String expression) {
+        requireConfigurerActive("preCondition");
         requireNotBlank(id, "Condition ID");
         requireNotBlank(expression, "Expression");
         return appendPreCondition(ConditionDescriptor.expression(id, expression));
@@ -355,18 +394,21 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
 
     @Override
     public TransitionDef<T, C> postCondition(String registeredConditionId) {
+        requireConfigurerActive("postCondition");
         requireNotBlank(registeredConditionId, "Registered condition ID");
         return appendPostCondition(ConditionDescriptor.ref(registeredConditionId));
     }
 
     @Override
     public TransitionDef<T, C> postConditionExpression(String expression) {
+        requireConfigurerActive("postConditionExpression");
         requireNotBlank(expression, "Expression");
         return appendPostCondition(ConditionDescriptor.expression(expression));
     }
 
     @Override
     public TransitionDef<T, C> postCondition(String id, Condition<T, C> condition) {
+        requireConfigurerActive("postCondition");
         requireNotBlank(id, "Condition ID");
         requireNotNull(condition, "Condition");
         return appendPostCondition(ConditionDescriptor.instanceBased(id, condition));
@@ -374,6 +416,7 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
 
     @Override
     public TransitionDef<T, C> postCondition(String id, Class<? extends Condition<T, C>> conditionClass) {
+        requireConfigurerActive("postCondition");
         requireNotBlank(id, "Condition ID");
         requireNotNull(conditionClass, "Condition class");
         return appendPostCondition(ConditionDescriptor.classBased(id, conditionClass));
@@ -381,6 +424,7 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
 
     @Override
     public TransitionDef<T, C> postCondition(String id, Predicate<T> predicate) {
+        requireConfigurerActive("postCondition");
         requireNotBlank(id, "Condition ID");
         requireNotNull(predicate, "Predicate");
         return appendPostCondition(ConditionDescriptor.predicate(id, predicate));
@@ -388,6 +432,7 @@ public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
 
     @Override
     public TransitionDef<T, C> postCondition(String id, String expression) {
+        requireConfigurerActive("postCondition");
         requireNotBlank(id, "Condition ID");
         requireNotBlank(expression, "Expression");
         return appendPostCondition(ConditionDescriptor.expression(id, expression));

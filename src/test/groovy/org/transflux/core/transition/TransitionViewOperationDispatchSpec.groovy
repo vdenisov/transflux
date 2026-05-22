@@ -18,6 +18,7 @@
 
 package org.transflux.core.transition
 
+import org.transflux.core.StateMachine
 import org.transflux.core.StateMachineDefImpl
 import org.transflux.core.operation.ContextMapper
 import org.transflux.core.operation.Operation
@@ -25,6 +26,8 @@ import org.transflux.core.operation.Step
 import org.transflux.core.operation.StepPath
 import org.transflux.core.state.StateResolver
 import spock.lang.Specification
+
+import java.util.function.Consumer
 
 class TransitionViewOperationDispatchSpec extends Specification {
 
@@ -111,10 +114,9 @@ class TransitionViewOperationDispatchSpec extends Specification {
 
     def 'view.step with inline ContextMapper dispatches child step under mapped child context'() {
         given:
-        def smd = baseDef()
-        smd.step('child-step', ChildCtx, new ChildStep())
-        smd.getTransition('t').simpleOperation('outer', new DispatchingViaStep())
-        def sm = smd.build()
+        def sm = build(
+            { smd -> smd.step('child-step', ChildCtx, new ChildStep()) },
+            { t -> t.simpleOperation('outer', new DispatchingViaStep()) })
         def entity = new Entity('s1')
         def ctx = new ParentCtx(input: 'foo')
 
@@ -130,10 +132,9 @@ class TransitionViewOperationDispatchSpec extends Specification {
 
     def 'view.operation with inline ContextMapper dispatches child operation under mapped child context'() {
         given:
-        def smd = baseDef()
-        smd.operation('child-op', ChildCtx, new ChildOperation())
-        smd.getTransition('t').simpleOperation('outer', new DispatchingViaOperation())
-        def sm = smd.build()
+        def sm = build(
+            { smd -> smd.operation('child-op', ChildCtx, new ChildOperation()) },
+            { t -> t.simpleOperation('outer', new DispatchingViaOperation()) })
         def entity = new Entity('s1')
         def ctx = new ParentCtx(input: 'bar')
 
@@ -148,10 +149,9 @@ class TransitionViewOperationDispatchSpec extends Specification {
 
     def 'view.operation pass-through invokes the operation with parent context unchanged'() {
         given:
-        def smd = baseDef()
-        smd.operation('passthrough-op', ParentCtx, new PassThroughChildOp())
-        smd.getTransition('t').simpleOperation('outer', new PassThroughOpDispatcher())
-        def sm = smd.build()
+        def sm = build(
+            { smd -> smd.operation('passthrough-op', ParentCtx, new PassThroughChildOp()) },
+            { t -> t.simpleOperation('outer', new PassThroughOpDispatcher()) })
         def entity = new Entity('s1')
         def ctx = new ParentCtx(input: 'baz')
 
@@ -165,15 +165,13 @@ class TransitionViewOperationDispatchSpec extends Specification {
 
     def 'view.operation rejects unknown id'() {
         given:
-        def smd = baseDef()
         def dispatcher = new Operation<Entity, ParentCtx>() {
             @Override
             void execute(Entity entity, ParentCtx context, Transition<Entity, ParentCtx> transition) {
                 ((TransitionView) transition).operation('does-not-exist')
             }
         }
-        smd.getTransition('t').simpleOperation('outer', dispatcher)
-        def sm = smd.build()
+        def sm = build({ smd -> }, { t -> t.simpleOperation('outer', dispatcher) })
         def entity = new Entity('s1')
 
         when:
@@ -184,12 +182,14 @@ class TransitionViewOperationDispatchSpec extends Specification {
         result.error.message.contains("'does-not-exist'")
     }
 
-    private static StateMachineDefImpl<Entity> baseDef() {
+    private static StateMachine<Entity> build(Consumer<StateMachineDefImpl<Entity>> smdRegistrations,
+                                              Consumer<TransitionDef<Entity, ParentCtx>> transitionConfigurer) {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1').transitionsTo('s2', 't', ParentCtx)
-            .state('s2')
-        return smd
+        smdRegistrations.accept(smd)
+        smd.state('s1', { s -> s.transitionsTo('s2', 't', ParentCtx, transitionConfigurer) })
+            .state('s2', {})
+        return smd.build()
     }
 }

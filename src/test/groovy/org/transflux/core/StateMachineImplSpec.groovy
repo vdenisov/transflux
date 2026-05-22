@@ -36,7 +36,6 @@ import static org.transflux.core.TestStateEnum.TRIAL
 
 class StateMachineImplSpec extends Specification {
 
-    // Test entity class
     static class TestEntity {
         String state
         String id
@@ -53,8 +52,8 @@ class StateMachineImplSpec extends Specification {
             .forEntityType(TestEntity)
             .withName("Test SM")
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-            .state(TRIAL).transitionsTo(ACTIVE, "trial-to-active")
-            .state(ACTIVE)
+            .state(TRIAL, { s -> s.transitionsTo(ACTIVE, "trial-to-active", {}) })
+            .state(ACTIVE, {})
             .build()
 
         expect:
@@ -71,8 +70,8 @@ class StateMachineImplSpec extends Specification {
         def sm = Transflux.defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-            .state(TRIAL)
-            .state(ACTIVE)
+            .state(TRIAL, {})
+            .state(ACTIVE, {})
             .build()
 
         def entity = new TestEntity("e1", "TRIAL")
@@ -89,7 +88,7 @@ class StateMachineImplSpec extends Specification {
         def sm = Transflux.defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-            .state(TRIAL)
+            .state(TRIAL, {})
             .build()
 
         when:
@@ -104,7 +103,7 @@ class StateMachineImplSpec extends Specification {
         given:
         def sm = Transflux.defineStateMachine()
             .forEntityType(TestEntity)
-            .state(TRIAL)
+            .state(TRIAL, {})
             .build()
 
         def entity = new TestEntity("e1", "TRIAL")
@@ -122,7 +121,7 @@ class StateMachineImplSpec extends Specification {
         def sm = Transflux.defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> "UNKNOWN" } as StateResolver<TestEntity>)
-            .state(TRIAL)
+            .state(TRIAL, {})
             .build()
 
         def entity = new TestEntity("e1", "TRIAL")
@@ -139,8 +138,8 @@ class StateMachineImplSpec extends Specification {
         given:
         def sm = Transflux.defineStateMachine()
             .forEntityType(TestEntity)
-            .state(TRIAL).withName("Trial State")
-            .state(ACTIVE)
+            .state(TRIAL, { s -> s.withName("Trial State") })
+            .state(ACTIVE, {})
             .build()
 
         when:
@@ -156,7 +155,7 @@ class StateMachineImplSpec extends Specification {
         given:
         def sm = Transflux.defineStateMachine()
             .forEntityType(TestEntity)
-            .state(TRIAL)
+            .state(TRIAL, {})
             .build()
 
         when:
@@ -171,8 +170,8 @@ class StateMachineImplSpec extends Specification {
         given:
         def sm = Transflux.defineStateMachine()
             .forEntityType(TestEntity)
-            .state(TRIAL).transitionsTo(ACTIVE, "trial-to-active")
-            .state(ACTIVE)
+            .state(TRIAL, { s -> s.transitionsTo(ACTIVE, "trial-to-active", {}) })
+            .state(ACTIVE, {})
             .build()
 
         when:
@@ -189,7 +188,7 @@ class StateMachineImplSpec extends Specification {
         given:
         def sm = Transflux.defineStateMachine()
             .forEntityType(TestEntity)
-            .state(TRIAL)
+            .state(TRIAL, {})
             .build()
 
         when:
@@ -209,8 +208,8 @@ class StateMachineImplSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .withStateApplier(applier)
-            .state(TRIAL).transitionsTo(ACTIVE, "trial-to-active")
-            .state(ACTIVE)
+            .state(TRIAL, { s -> s.transitionsTo(ACTIVE, "trial-to-active", {}) })
+            .state(ACTIVE, {})
             .build()
 
         def entity = new TestEntity("e1", "TRIAL")
@@ -228,8 +227,8 @@ class StateMachineImplSpec extends Specification {
         def sm = Transflux.defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-            .state(TRIAL).transitionsTo(ACTIVE, "trial-to-active")
-            .state(ACTIVE)
+            .state(TRIAL, { s -> s.transitionsTo(ACTIVE, "trial-to-active", {}) })
+            .state(ACTIVE, {})
             .build()
 
         def entity = new TestEntity("e1", "TRIAL")
@@ -251,8 +250,8 @@ class StateMachineImplSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> "UNKNOWN" } as StateResolver<TestEntity>)
             .withStateApplier(applier)
-            .state(TRIAL)
-            .state(ACTIVE)
+            .state(TRIAL, {})
+            .state(ACTIVE, {})
             .build()
 
         def entity = new TestEntity("e1", "TRIAL")
@@ -270,8 +269,8 @@ class StateMachineImplSpec extends Specification {
         def sm = Transflux.defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-            .state(TRIAL).transitionsTo(ACTIVE, "trial-to-active")
-            .state(ACTIVE)
+            .state(TRIAL, { s -> s.transitionsTo(ACTIVE, "trial-to-active", {}) })
+            .state(ACTIVE, {})
             .build()
 
         def entity = new TestEntity("e1", "TRIAL")
@@ -290,8 +289,8 @@ class StateMachineImplSpec extends Specification {
         def sm = Transflux.defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-            .state(TRIAL).transitionsTo(ACTIVE, "trial-to-active")
-            .state(ACTIVE)
+            .state(TRIAL, { s -> s.transitionsTo(ACTIVE, "trial-to-active", {}) })
+            .state(ACTIVE, {})
             .build()
 
         def entity = new TestEntity("e1", "TRIAL")
@@ -313,8 +312,8 @@ class StateMachineImplSpec extends Specification {
         def sm = Transflux.defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-            .state(TRIAL).transitionsTo(ACTIVE, "trial-to-active")
-            .state(ACTIVE)
+            .state(TRIAL, { s -> s.transitionsTo(ACTIVE, "trial-to-active", {}) })
+            .state(ACTIVE, {})
             .build()
 
         def entity = new TestEntity("e1", "TRIAL")
@@ -335,8 +334,8 @@ class StateMachineImplSpec extends Specification {
         def sm = Transflux.defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-            .state(TRIAL)
-            .state(ACTIVE)
+            .state(TRIAL, {})
+            .state(ACTIVE, {})
             .build()
 
         def entity = new TestEntity("e1", "TRIAL")
@@ -354,10 +353,10 @@ class StateMachineImplSpec extends Specification {
         def sm = Transflux.defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-            .state(TRIAL)
-                .transitionsTo(ACTIVE, "trial-to-active-1")
-                .transitionsTo(ACTIVE, "trial-to-active-2")
-            .state(ACTIVE)
+            .state(TRIAL, { s -> s
+                .transitionsTo(ACTIVE, "trial-to-active-1", {})
+                .transitionsTo(ACTIVE, "trial-to-active-2", {}) })
+            .state(ACTIVE, {})
             .build()
 
         def entity = new TestEntity("e1", "TRIAL")
@@ -375,9 +374,9 @@ class StateMachineImplSpec extends Specification {
         def sm = Transflux.defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-            .state(TRIAL).transitionsTo(ACTIVE, "trial-to-active")
-            .state(ACTIVE)
-            .state(EXPIRED)
+            .state(TRIAL, { s -> s.transitionsTo(ACTIVE, "trial-to-active", {}) })
+            .state(ACTIVE, {})
+            .state(EXPIRED, {})
             .build()
 
         def entity = new TestEntity("e1", "EXPIRED")
@@ -397,8 +396,8 @@ class StateMachineImplSpec extends Specification {
         def sm = Transflux.defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-            .state(TRIAL).transitionsTo(ACTIVE, "t1")
-            .state(ACTIVE)
+            .state(TRIAL, { s -> s.transitionsTo(ACTIVE, "t1", {}) })
+            .state(ACTIVE, {})
             .build()
 
         when:
@@ -421,9 +420,8 @@ class StateMachineImplSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('stamp', new ContextStampStep())
-        smd.state(TRIAL).transitionsTo(ACTIVE, 'trial-to-active')
-        smd.state(ACTIVE)
-        smd.getTransition('trial-to-active').step('stamp')
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.step('stamp') }) })
+        smd.state(ACTIVE, {})
 
         def sm = (StateMachineImpl<TestEntity>) smd.build()
         def entity = new TestEntity('e1', 'TRIAL')
@@ -510,11 +508,10 @@ class StateMachineImplSpec extends Specification {
             .withStateApplier({ entity, target -> appliedState[entity] = target } as StateApplier<TestEntity>)
             .step('stamp', new ContextStampStep())
             .step('bump', new BumpCounterStep())
-        smd.state(TRIAL).transitionsTo(ACTIVE, 'trial-to-active')
-        smd.state(ACTIVE)
-        smd.getTransition('trial-to-active').compositeOperation('flow', { c ->
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.compositeOperation('flow', { c ->
             c.step('stamp').step('bump').step('bump')
-        })
+        }) }) })
+        smd.state(ACTIVE, {})
 
         def sm = smd.build()
         def entity = new TestEntity('e1', 'TRIAL')
@@ -536,18 +533,16 @@ class StateMachineImplSpec extends Specification {
     def "transitionTo with a simple operation should run the operation and apply state"() {
         given:
         def appliedState = [:] as Map<TestEntity, String>
-        def smd = Transflux.<TestEntity> defineStateMachine()
-            .forEntityType(TestEntity)
-            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-            .withStateApplier({ entity, target -> appliedState[entity] = target } as StateApplier<TestEntity>)
-        smd.state(TRIAL).transitionsTo(ACTIVE, 'trial-to-active')
-        smd.state(ACTIVE)
-
         def operation = { TestEntity entity, TestContext ctx, Transition<TestEntity, TestContext> tx ->
             ctx.tag = 'simple-ran'
         } as Operation<TestEntity, TestContext>
 
-        smd.getTransition('trial-to-active').simpleOperation('activate', operation)
+        def smd = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .withStateApplier({ entity, target -> appliedState[entity] = target } as StateApplier<TestEntity>)
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.simpleOperation('activate', operation) }) })
+        smd.state(ACTIVE, {})
 
         def sm = smd.build()
         def entity = new TestEntity('e1', 'TRIAL')
@@ -572,9 +567,8 @@ class StateMachineImplSpec extends Specification {
             .withStateApplier({ entity, target -> appliedState[entity] = target } as StateApplier<TestEntity>)
             .step('stamp', new ContextStampStep())
             .step('bump', new BumpCounterStep())
-        smd.state(TRIAL).transitionsTo(ACTIVE, 'trial-to-active')
-        smd.state(ACTIVE)
-        smd.getTransition('trial-to-active').simpleOperation('orchestrator', new CallNestedStepOperation())
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.simpleOperation('orchestrator', new CallNestedStepOperation()) }) })
+        smd.state(ACTIVE, {})
 
         def sm = smd.build()
         def entity = new TestEntity('e1', 'TRIAL')
@@ -600,11 +594,10 @@ class StateMachineImplSpec extends Specification {
             .withStateApplier({ entity, target -> applierInvocations++ } as StateApplier<TestEntity>)
             .step('stamp', new ContextStampStep())
             .step('boom', new ThrowingStep())
-        smd.state(TRIAL).transitionsTo(ACTIVE, 'trial-to-active')
-        smd.state(ACTIVE)
-        smd.getTransition('trial-to-active').compositeOperation('flow', { c ->
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.compositeOperation('flow', { c ->
             c.step('stamp').step('boom')
-        })
+        }) }) })
+        smd.state(ACTIVE, {})
 
         def sm = smd.build()
         def entity = new TestEntity('e1', 'TRIAL')
@@ -629,8 +622,8 @@ class StateMachineImplSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .withStateApplier({ entity, target -> appliedState[entity] = target } as StateApplier<TestEntity>)
-            .state(TRIAL).transitionsTo(ACTIVE, 'trial-to-active')
-            .state(ACTIVE)
+            .state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', {}) })
+            .state(ACTIVE, {})
             .build()
         def entity = new TestEntity('e1', 'TRIAL')
 

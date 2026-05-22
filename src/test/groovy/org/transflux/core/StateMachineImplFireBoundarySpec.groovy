@@ -22,7 +22,7 @@ import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.state.StateResolver
 import spock.lang.Specification
 
-class FireBoundaryRuntimeCheckSpec extends Specification {
+class StateMachineImplFireBoundarySpec extends Specification {
 
     static class Entity {
         String state
@@ -101,11 +101,12 @@ class FireBoundaryRuntimeCheckSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1').transitionsTo('s2', transitionId)
-            .state('s2')
-        if (ctx != null) {
-            smd.getTransition(transitionId).usingContext(ctx)
-        }
+            .state('s1', { s -> s.transitionsTo('s2', transitionId, { t ->
+                if (ctx != null) {
+                    t.usingContext(ctx)
+                }
+            }) })
+            .state('s2', {})
         return smd
     }
 }

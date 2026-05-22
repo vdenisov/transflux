@@ -18,14 +18,17 @@
 
 package org.transflux.core.operation
 
+import org.transflux.core.StateMachine
 import org.transflux.core.StateMachineDefImpl
 import org.transflux.core.TestContext
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
+import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
 
+import java.util.function.Consumer
 import java.util.function.Predicate
 
 class ConditionalStepDefImplIntegrationSpec extends Specification {
@@ -83,23 +86,22 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
     def 'three-branch conditional: predicate branch matches'() {
         given:
         def applied = []
-        def smd = baseDef(applied)
-            .condition('critical-cond', { Entity e -> e.priority >= 10 } as Predicate)
-        smd.getTransition('t').compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
-            c.conditional('route', { ConditionalStepDef<Entity, TestContext> cs ->
-                cs.branch('critical', { BranchDef<Entity, TestContext> b ->
-                    b.condition('critical-cond').step('esc', new TrailStep('escalate'))
+        def sm = build(applied,
+            { smd -> smd.condition('critical-cond', { Entity e -> e.priority >= 10 } as Predicate) },
+            { t -> t.compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
+                c.conditional('route', { ConditionalStepDef<Entity, TestContext> cs ->
+                    cs.branch('critical', { BranchDef<Entity, TestContext> b ->
+                        b.condition('critical-cond').step('esc', new TrailStep('escalate'))
+                    })
+                      .branch('high', { BranchDef<Entity, TestContext> b ->
+                        b.conditionExpression('priority >= 8').step('hi', new TrailStep('hi-priority'))
+                    })
+                      .branch('vip', { BranchDef<Entity, TestContext> b ->
+                        b.condition('vip-pred', { Entity e -> e.tier == 'VIP' } as Predicate)
+                         .step('vip-step', new TrailStep('vip'))
+                    })
                 })
-                  .branch('high', { BranchDef<Entity, TestContext> b ->
-                    b.conditionExpression('priority >= 8').step('hi', new TrailStep('hi-priority'))
-                })
-                  .branch('vip', { BranchDef<Entity, TestContext> b ->
-                    b.condition('vip-pred', { Entity e -> e.tier == 'VIP' } as Predicate)
-                     .step('vip-step', new TrailStep('vip'))
-                })
-            })
-        })
-        def sm = smd.build()
+            }) })
         def entity = new Entity('s1')
         entity.priority = 12
 
@@ -118,23 +120,22 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
     def 'three-branch conditional: expression branch matches'() {
         given:
         def applied = []
-        def smd = baseDef(applied)
-            .condition('critical-cond', { Entity e -> e.priority >= 10 } as Predicate)
-        smd.getTransition('t').compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
-            c.conditional('route', { ConditionalStepDef<Entity, TestContext> cs ->
-                cs.branch('critical', { BranchDef<Entity, TestContext> b ->
-                    b.condition('critical-cond').step('esc', new TrailStep('escalate'))
+        def sm = build(applied,
+            { smd -> smd.condition('critical-cond', { Entity e -> e.priority >= 10 } as Predicate) },
+            { t -> t.compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
+                c.conditional('route', { ConditionalStepDef<Entity, TestContext> cs ->
+                    cs.branch('critical', { BranchDef<Entity, TestContext> b ->
+                        b.condition('critical-cond').step('esc', new TrailStep('escalate'))
+                    })
+                      .branch('high', { BranchDef<Entity, TestContext> b ->
+                        b.conditionExpression('priority >= 8').step('hi', new TrailStep('hi-priority'))
+                    })
+                      .branch('vip', { BranchDef<Entity, TestContext> b ->
+                        b.condition('vip-pred', { Entity e -> e.tier == 'VIP' } as Predicate)
+                         .step('vip-step', new TrailStep('vip'))
+                    })
                 })
-                  .branch('high', { BranchDef<Entity, TestContext> b ->
-                    b.conditionExpression('priority >= 8').step('hi', new TrailStep('hi-priority'))
-                })
-                  .branch('vip', { BranchDef<Entity, TestContext> b ->
-                    b.condition('vip-pred', { Entity e -> e.tier == 'VIP' } as Predicate)
-                     .step('vip-step', new TrailStep('vip'))
-                })
-            })
-        })
-        def sm = smd.build()
+            }) })
         def entity = new Entity('s1')
         entity.priority = 9
 
@@ -150,23 +151,23 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
     def 'three-branch conditional: registered-condition-reference branch matches when earlier branches do not'() {
         given:
         def applied = []
-        def smd = baseDef(applied)
-            .condition('critical-cond', { Entity e -> e.priority >= 10 } as Predicate)
-            .condition('vip-cond', { Entity e -> e.tier == 'VIP' } as Predicate)
-        smd.getTransition('t').compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
-            c.conditional('route', { ConditionalStepDef<Entity, TestContext> cs ->
-                cs.branch('critical', { BranchDef<Entity, TestContext> b ->
-                    b.condition('critical-cond').step('esc', new TrailStep('escalate'))
+        def sm = build(applied,
+            { smd -> smd
+                .condition('critical-cond', { Entity e -> e.priority >= 10 } as Predicate)
+                .condition('vip-cond', { Entity e -> e.tier == 'VIP' } as Predicate) },
+            { t -> t.compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
+                c.conditional('route', { ConditionalStepDef<Entity, TestContext> cs ->
+                    cs.branch('critical', { BranchDef<Entity, TestContext> b ->
+                        b.condition('critical-cond').step('esc', new TrailStep('escalate'))
+                    })
+                      .branch('high', { BranchDef<Entity, TestContext> b ->
+                        b.conditionExpression('priority >= 8').step('hi', new TrailStep('hi-priority'))
+                    })
+                      .branch('vip', { BranchDef<Entity, TestContext> b ->
+                        b.condition('vip-cond').step('vip-step', new TrailStep('vip'))
+                    })
                 })
-                  .branch('high', { BranchDef<Entity, TestContext> b ->
-                    b.conditionExpression('priority >= 8').step('hi', new TrailStep('hi-priority'))
-                })
-                  .branch('vip', { BranchDef<Entity, TestContext> b ->
-                    b.condition('vip-cond').step('vip-step', new TrailStep('vip'))
-                })
-            })
-        })
-        def sm = smd.build()
+            }) })
         def entity = new Entity('s1')
         entity.priority = 3
         entity.tier = 'VIP'
@@ -183,8 +184,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
     def 'first-match-wins: only the first matching branch runs'() {
         given:
         def applied = []
-        def smd = baseDef(applied)
-        smd.getTransition('t').compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
+        def sm = build(applied, { smd -> }, { t -> t.compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
             c.conditional('route', { ConditionalStepDef<Entity, TestContext> cs ->
                 cs.branch('a', { BranchDef<Entity, TestContext> b ->
                     b.condition('a-cond', { Entity e -> true } as Predicate).step('a-step', new TrailStep('A'))
@@ -193,8 +193,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
                     b.condition('b-cond', { Entity e -> true } as Predicate).step('b-step', new TrailStep('B'))
                 })
             })
-        })
-        def sm = smd.build()
+        }) })
         def entity = new Entity('s1')
 
         when:
@@ -209,8 +208,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
     def 'default fallback runs when no branch matches'() {
         given:
         def applied = []
-        def smd = baseDef(applied)
-        smd.getTransition('t').compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
+        def sm = build(applied, { smd -> }, { t -> t.compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
             c.conditional('route', { ConditionalStepDef<Entity, TestContext> cs ->
                 cs.branch('a', { BranchDef<Entity, TestContext> b ->
                     b.condition('a-cond', { Entity e -> false } as Predicate).step('a-step', new TrailStep('A'))
@@ -219,8 +217,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
                     d.step('default-step', new TrailStep('default'))
                 })
             })
-        })
-        def sm = smd.build()
+        }) })
         def entity = new Entity('s1')
 
         when:
@@ -235,8 +232,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
     def 'WARN with no match and no default: conditional is skipped; preceding steps still recorded'() {
         given:
         def applied = []
-        def smd = baseDef(applied)
-        smd.getTransition('t').compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
+        def sm = build(applied, { smd -> }, { t -> t.compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
             c.step('before', new TrailStep('before'))
              .conditional('route', { ConditionalStepDef<Entity, TestContext> cs ->
                 cs.branch('a', { BranchDef<Entity, TestContext> b ->
@@ -244,8 +240,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
                 })
                  .onNoMatch(NoMatchBehavior.WARN)
             })
-        })
-        def sm = smd.build()
+        }) })
         def entity = new Entity('s1')
 
         when:
@@ -261,8 +256,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
     def 'SILENT with no match and no default: conditional skipped without logging, transition succeeds'() {
         given:
         def applied = []
-        def smd = baseDef(applied)
-        smd.getTransition('t').compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
+        def sm = build(applied, { smd -> }, { t -> t.compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
             c.step('before', new TrailStep('before'))
              .conditional('route', { ConditionalStepDef<Entity, TestContext> cs ->
                 cs.branch('a', { BranchDef<Entity, TestContext> b ->
@@ -270,8 +264,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
                 })
                  .onNoMatch(NoMatchBehavior.SILENT)
             })
-        })
-        def sm = smd.build()
+        }) })
         def entity = new Entity('s1')
 
         when:
@@ -289,16 +282,14 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
     def 'ERROR with no match and no default: transition fails and applier is skipped'() {
         given:
         def applied = []
-        def smd = baseDef(applied)
-        smd.getTransition('t').compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
+        def sm = build(applied, { smd -> }, { t -> t.compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
             c.conditional('route', { ConditionalStepDef<Entity, TestContext> cs ->
                 cs.branch('a', { BranchDef<Entity, TestContext> b ->
                     b.condition('a-cond', { Entity e -> false } as Predicate).step('a-step', new TrailStep('A'))
                 })
                  .onNoMatch(NoMatchBehavior.ERROR)
             })
-        })
-        def sm = smd.build()
+        }) })
         def entity = new Entity('s1')
 
         when:
@@ -314,8 +305,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
     def 'executed step ids include taken branch steps in order and not other branches'() {
         given:
         def applied = []
-        def smd = baseDef(applied)
-        smd.getTransition('t').compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
+        def sm = build(applied, { smd -> }, { t -> t.compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
             c.conditional('route', { ConditionalStepDef<Entity, TestContext> cs ->
                 cs.branch('taken', { BranchDef<Entity, TestContext> b ->
                     b.condition('taken-cond', { Entity e -> true } as Predicate)
@@ -328,8 +318,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
                      .step('s1', new TrailStep('s1'))
                 })
             })
-        })
-        def sm = smd.build()
+        }) })
         def entity = new Entity('s1')
 
         when:
@@ -344,8 +333,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
     def 'compensation inside a taken branch runs in LIFO when a subsequent step throws'() {
         given:
         def applied = []
-        def smd = baseDef(applied)
-        smd.getTransition('t').compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
+        def sm = build(applied, { smd -> }, { t -> t.compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
             c.conditional('route', { ConditionalStepDef<Entity, TestContext> cs ->
                 cs.branch('only', { BranchDef<Entity, TestContext> b ->
                     b.condition('only-cond', { Entity e -> true } as Predicate)
@@ -354,8 +342,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
                      .step('s3', new ThrowingStep())
                 })
             })
-        })
-        def sm = smd.build()
+        }) })
         def entity = new Entity('s1')
 
         when:
@@ -370,13 +357,16 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
         applied.isEmpty()
     }
 
-    private static StateMachineDefImpl<Entity> baseDef(List<String> applied) {
+    private static StateMachine<Entity> build(List<String> applied,
+                                              Consumer<StateMachineDefImpl<Entity>> smdRegistrations,
+                                              Consumer<TransitionDef<Entity, TestContext>> transitionConfigurer) {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
-            .state('s1').transitionsTo('s2', 't')
-            .state('s2')
-        return smd
+        smdRegistrations.accept(smd)
+        smd.state('s1', { s -> s.transitionsTo('s2', 't', TestContext, transitionConfigurer) })
+            .state('s2', {})
+        return smd.build()
     }
 }

@@ -18,14 +18,18 @@
 
 package org.transflux.core.operation
 
+import org.transflux.core.StateMachine
 import org.transflux.core.StateMachineDefImpl
 import org.transflux.core.TestContext
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
+import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
 
-class NestedOperationPassThroughSpec extends Specification {
+import java.util.function.Consumer
+
+class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
 
     static class Entity {
         String state
@@ -92,15 +96,13 @@ class NestedOperationPassThroughSpec extends Specification {
     def 'inline-instance nested op runs and emits qualified step paths'() {
         given:
         def applied = []
-        def smd = baseDef(applied)
-        smd.step('inner-a', new TrailStep('a'))
-            .step('inner-b', new TrailStep('b'))
-        smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, TestContext> c ->
-            c.step('top', new TrailStep('top'))
-            c.operation('nested-op', new TwoStepInlineOp())
-            c.step('after', new TrailStep('after'))
-        })
-        def sm = smd.build()
+        def sm = build(applied,
+            { smd -> smd.step('inner-a', new TrailStep('a')).step('inner-b', new TrailStep('b')) },
+            { t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, TestContext> c ->
+                c.step('top', new TrailStep('top'))
+                c.operation('nested-op', new TwoStepInlineOp())
+                c.step('after', new TrailStep('after'))
+            }) })
         def entity = new Entity('s1')
 
         when:
@@ -120,13 +122,11 @@ class NestedOperationPassThroughSpec extends Specification {
     def 'inline-class nested op is reflectively instantiated and runs'() {
         given:
         def applied = []
-        def smd = baseDef(applied)
-        smd.step('inner-a', new TrailStep('a'))
-            .step('inner-b', new TrailStep('b'))
-        smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, TestContext> c ->
-            c.operation('nested-op', TwoStepInlineOp)
-        })
-        def sm = smd.build()
+        def sm = build(applied,
+            { smd -> smd.step('inner-a', new TrailStep('a')).step('inner-b', new TrailStep('b')) },
+            { t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, TestContext> c ->
+                c.operation('nested-op', TwoStepInlineOp)
+            }) })
         def entity = new Entity('s1')
 
         when:
@@ -146,14 +146,12 @@ class NestedOperationPassThroughSpec extends Specification {
         // id namespace.
         given:
         def applied = []
-        def smd = baseDef(applied)
-        smd.step('inner-a', new TrailStep('a'))
-            .step('inner-b', new TrailStep('b'))
-        smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, TestContext> c ->
-            c.operation('shared', new TwoStepInlineOp())
-            c.operation('shared')
-        })
-        def sm = smd.build()
+        def sm = build(applied,
+            { smd -> smd.step('inner-a', new TrailStep('a')).step('inner-b', new TrailStep('b')) },
+            { t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, TestContext> c ->
+                c.operation('shared', new TwoStepInlineOp())
+                c.operation('shared')
+            }) })
         def entity = new Entity('s1')
 
         when:
@@ -171,12 +169,11 @@ class NestedOperationPassThroughSpec extends Specification {
     def 'qualified paths apply to compensatedStepIds too'() {
         given:
         def applied = []
-        def smd = baseDef(applied)
-        smd.step('comp-step', new CompTrailStep('cs'))
-        smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, TestContext> c ->
-            c.operation('nested-op', new CompensatingNestedOp())
-        })
-        def sm = smd.build()
+        def sm = build(applied,
+            { smd -> smd.step('comp-step', new CompTrailStep('cs')) },
+            { t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, TestContext> c ->
+                c.operation('nested-op', new CompensatingNestedOp())
+            }) })
         def entity = new Entity('s1')
 
         when:
@@ -195,13 +192,11 @@ class NestedOperationPassThroughSpec extends Specification {
     def 'composite with only operation members (no steps) builds and runs'() {
         given:
         def applied = []
-        def smd = baseDef(applied)
-        smd.step('inner-a', new TrailStep('a'))
-            .step('inner-b', new TrailStep('b'))
-        smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, TestContext> c ->
-            c.operation('only-op', new TwoStepInlineOp())
-        })
-        def sm = smd.build()
+        def sm = build(applied,
+            { smd -> smd.step('inner-a', new TrailStep('a')).step('inner-b', new TrailStep('b')) },
+            { t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, TestContext> c ->
+                c.operation('only-op', new TwoStepInlineOp())
+            }) })
         def entity = new Entity('s1')
 
         when:
@@ -217,13 +212,13 @@ class NestedOperationPassThroughSpec extends Specification {
     def 'by-id ref to an unknown operation id fails at SM build time'() {
         given:
         def applied = []
-        def smd = baseDef(applied)
-        smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, TestContext> c ->
-            c.operation('ghost')
-        })
 
         when:
-        smd.build()
+        build(applied, { smd -> }, { t ->
+            t.compositeOperation('outer', { CompositeOperationDef<Entity, TestContext> c ->
+                c.operation('ghost')
+            })
+        })
 
         then:
         def e = thrown(org.transflux.core.exception.TransfluxValidationException)
@@ -231,13 +226,16 @@ class NestedOperationPassThroughSpec extends Specification {
         e.message.contains("'ghost'")
     }
 
-    private static StateMachineDefImpl<Entity> baseDef(List<String> applied) {
+    private static StateMachine<Entity> build(List<String> applied,
+                                              Consumer<StateMachineDefImpl<Entity>> smdRegistrations,
+                                              Consumer<TransitionDef<Entity, TestContext>> transitionConfigurer) {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
-            .state('s1').transitionsTo('s2', 't')
-            .state('s2')
-        return smd
+        smdRegistrations.accept(smd)
+        smd.state('s1', { state -> state.transitionsTo('s2', 't', TestContext, transitionConfigurer) })
+            .state('s2', {})
+        return smd.build()
     }
 }

@@ -19,7 +19,7 @@ import spock.lang.Specification
  * offer (requires opening + proposal), submitting it (requires contact details), withdrawing it
  * (requires withdraw reason/code).
  */
-class HeterogeneousTransitionsSpec extends Specification {
+class StateMachineImplHeterogeneousTransitionsSpec extends Specification {
 
     static class Offer {
         String state
@@ -55,29 +55,25 @@ class HeterogeneousTransitionsSpec extends Specification {
             .withStateResolver({ o -> o.state } as StateResolver<Offer>)
             .withStateApplier({ o, s -> o.state = s })
 
-        smd.state('new')
-            .transitionsTo('drafted', 'draft', DraftCtx)
-            .state('drafted')
-                .transitionsTo('submitted', 'submit', SubmitCtx)
-                .transitionsTo('withdrawn', 'withdraw', WithdrawCtx)
-            .state('submitted')
-            .state('withdrawn')
-
-        smd.getTransition('draft').simpleOperation('op-draft',
-            { Offer o, DraftCtx c, t ->
+        smd.state('new', { s -> s.transitionsTo('drafted', 'draft', DraftCtx, { t ->
+            t.simpleOperation('op-draft', { Offer o, DraftCtx c, tx ->
                 o.openingId = c.openingId
                 o.proposalText = c.proposalText
             })
-
-        smd.getTransition('submit').simpleOperation('op-submit',
-            { Offer o, SubmitCtx c, t ->
-                o.contactEmail = c.contactEmail
+        }) })
+        smd.state('drafted', { s -> s
+            .transitionsTo('submitted', 'submit', SubmitCtx, { t ->
+                t.simpleOperation('op-submit', { Offer o, SubmitCtx c, tx ->
+                    o.contactEmail = c.contactEmail
+                })
             })
-
-        smd.getTransition('withdraw').simpleOperation('op-withdraw',
-            { Offer o, WithdrawCtx c, t ->
-                o.withdrawCode = c.code
-            })
+            .transitionsTo('withdrawn', 'withdraw', WithdrawCtx, { t ->
+                t.simpleOperation('op-withdraw', { Offer o, WithdrawCtx c, tx ->
+                    o.withdrawCode = c.code
+                })
+            }) })
+        smd.state('submitted', {})
+        smd.state('withdrawn', {})
 
         return smd.build()
     }

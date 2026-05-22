@@ -48,6 +48,7 @@ class TransitionDefImplSpec extends Specification {
     def 'withName stores the supplied name and returns the def for chaining'() {
         given:
         def td = new TransitionDefImpl<Object, TestContext>('t1', 's1', 's2')
+        td.beginConfigurer()
 
         when:
         def result = td.withName('My Transition')
@@ -60,6 +61,7 @@ class TransitionDefImplSpec extends Specification {
     def 'withDescription stores the supplied description and returns the def for chaining'() {
         given:
         def td = new TransitionDefImpl<Object, TestContext>('t1', 's1', 's2')
+        td.beginConfigurer()
 
         when:
         def result = td.withDescription('Performs the X step of Y')
@@ -72,6 +74,7 @@ class TransitionDefImplSpec extends Specification {
     def 'withName overrides a previously stored name'() {
         given:
         def td = new TransitionDefImpl<Object, TestContext>('t1', 's1', 's2')
+        td.beginConfigurer()
         td.withName('first')
 
         when:
@@ -84,6 +87,7 @@ class TransitionDefImplSpec extends Specification {
     def 'withDescription overrides a previously stored description'() {
         given:
         def td = new TransitionDefImpl<Object, TestContext>('t1', 's1', 's2')
+        td.beginConfigurer()
         td.withDescription('first')
 
         when:
@@ -148,6 +152,7 @@ class TransitionDefImplSpec extends Specification {
     def 'simpleOperation(id, Operation instance) should attach a simple operation def'() {
         given:
         def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
+        transitionDef.beginConfigurer()
 
         when:
         def returned = transitionDef.simpleOperation('op1', new FooOperation())
@@ -161,6 +166,7 @@ class TransitionDefImplSpec extends Specification {
     def 'simpleOperation(id, Operation class) should attach a simple operation def'() {
         given:
         def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
+        transitionDef.beginConfigurer()
 
         when:
         def returned = transitionDef.simpleOperation('op1', FooOperation)
@@ -174,6 +180,7 @@ class TransitionDefImplSpec extends Specification {
     def 'simpleOperation(id, Consumer) should attach a configured simple operation def'() {
         given:
         def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
+        transitionDef.beginConfigurer()
 
         when:
         def returned = transitionDef.simpleOperation('op1', { SimpleOperationDef<Object, Object> op ->
@@ -191,6 +198,7 @@ class TransitionDefImplSpec extends Specification {
     def 'simpleOperation(id, Consumer) should reject null configurer'() {
         given:
         def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
+        transitionDef.beginConfigurer()
 
         when:
         transitionDef.simpleOperation('op1', (Consumer<SimpleOperationDef<Object, Object>>) null)
@@ -202,6 +210,7 @@ class TransitionDefImplSpec extends Specification {
     def 'compositeOperation(id, Consumer) should attach a composite operation def'() {
         given:
         def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
+        transitionDef.beginConfigurer()
 
         when:
         def returned = transitionDef.compositeOperation('op1', { CompositeOperationDef<Object, Object> c ->
@@ -218,6 +227,7 @@ class TransitionDefImplSpec extends Specification {
     def 'compositeOperation(id, Consumer) should reject null configurer'() {
         given:
         def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
+        transitionDef.beginConfigurer()
 
         when:
         transitionDef.compositeOperation('op1', (Consumer<CompositeOperationDef<Object, Object>>) null)
@@ -229,6 +239,7 @@ class TransitionDefImplSpec extends Specification {
     def 'step(id) sugar should build a single-step composite with a deterministic id'() {
         given:
         def transitionDef = new TransitionDefImpl<Object, Object>('t-x', 'source', 'target')
+        transitionDef.beginConfigurer()
 
         when:
         transitionDef.step('foo')
@@ -245,6 +256,7 @@ class TransitionDefImplSpec extends Specification {
     def 'step(id) sugar should reject null or blank id'() {
         given:
         def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
+        transitionDef.beginConfigurer()
 
         when:
         transitionDef.step(id)

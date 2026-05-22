@@ -3,7 +3,6 @@
  *  * Copyright 2025 Victor Denisov
  *  *
  *  * Licensed under the Apache License, Version 2.0 (the "License");
- *  * you may not use this file except in compliance with the License.
  *
  */
 
@@ -23,13 +22,13 @@ class StateDefImplTransitionsToContextSpec extends Specification {
     static class CtxA { }
     static class CtxB { }
 
-    def 'transitionsTo(target, id) defaults the transition context to Object'() {
+    def 'transitionsTo(target, id, configurer) defaults the transition context to Object'() {
         given:
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1').transitionsTo('s2', 't')
-            .state('s2')
+            .state('s1', { s -> s.transitionsTo('s2', 't', {}) })
+            .state('s2', {})
 
         when:
         def td = smd.getTransition('t')
@@ -38,13 +37,13 @@ class StateDefImplTransitionsToContextSpec extends Specification {
         td.getContextType() == Object
     }
 
-    def 'transitionsTo(target, id, Class) pre-binds the transition context'() {
+    def 'transitionsTo(target, id, Class, configurer) pre-binds the transition context'() {
         given:
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1').transitionsTo('s2', 't', CtxA)
-            .state('s2')
+            .state('s1', { s -> s.transitionsTo('s2', 't', CtxA, {}) })
+            .state('s2', {})
 
         when:
         def td = smd.getTransition('t')
@@ -58,8 +57,8 @@ class StateDefImplTransitionsToContextSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1').transitionsTo('s2', 't', CtxA)
-            .state('s2')
+            .state('s1', { s -> s.transitionsTo('s2', 't', CtxA, {}) })
+            .state('s2', {})
         def sm = smd.build()
 
         when:
@@ -76,8 +75,8 @@ class StateDefImplTransitionsToContextSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1').transitionsTo('s2', 't', CtxA)
-            .state('s2')
+            .state('s1', { s -> s.transitionsTo('s2', 't', CtxA, {}) })
+            .state('s2', {})
         def sm = smd.build()
 
         when:
@@ -94,7 +93,7 @@ class StateDefImplTransitionsToContextSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
 
         when:
-        smd.state('s1').transitionsTo('s2', 't', null)
+        smd.state('s1', { s -> s.transitionsTo('s2', 't', (Class) null, {}) })
 
         then:
         thrown(TransfluxValidationException)

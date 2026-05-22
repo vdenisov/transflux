@@ -42,11 +42,11 @@ import java.util.function.Predicate;
  * a declarative DSL for building complex state machines in a readable and maintainable way.
  *
  * <p>The state machine is not parameterized by a single context type. Each transition declares
- * its own context type — either by {@code transitionsTo(target, id, Class<C>)} or by calling
- * {@link TransitionDef#usingContext(Class)} on the obtained transition def. SM-level reusable
- * components (steps, conditions, operations) are registered with an optional explicit
- * {@link Class} context tag via the typed overloads below, or grouped under a
- * {@link #useContext(Class, Consumer) useContext} scope.
+ * its own context type — either by {@code transitionsTo(target, id, Class<C>, configurer)} or
+ * by calling {@link TransitionDef#usingContext(Class)} inside the transition configurer body.
+ * SM-level reusable components (steps, conditions, operations) are registered with an optional
+ * explicit {@link Class} context tag via the typed overloads below, or grouped under a
+ * {@link #forContext(Class, Consumer) forContext} scope.
  *
  * @param <T> the type of entity managed by the state machine being defined
  */
@@ -59,7 +59,7 @@ public interface StateMachineDef<T> {
      * (steps, conditions, composite operations) tagged with {@code contextType}; the framework
      * verifies context compatibility at build time when a by-id reference resolves against them.
      *
-     * <p>Multiple invocations of {@code useContext} are permitted and accumulate, both for the
+     * <p>Multiple invocations of {@code forContext} are permitted and accumulate, both for the
      * same context class (further registrations land in the same logical bucket) and for
      * different context classes (each scope's registrations are tagged with their own class).
      *
@@ -73,7 +73,7 @@ public interface StateMachineDef<T> {
      *
      * @throws TransfluxValidationException if either argument is {@code null}
      */
-    <C> StateMachineDef<T> useContext(Class<C> contextType, Consumer<ContextScope<T, C>> configurer);
+    <C> StateMachineDef<T> forContext(Class<C> contextType, Consumer<ContextScope<T, C>> configurer);
 
     StateMachineDef<T> withName(String name);
 
@@ -278,9 +278,33 @@ public interface StateMachineDef<T> {
     <P, N> StateMachineDef<T> mapper(String id, Class<P> parentType, Class<N> childType,
                                      Function<P, N> mapTo);
 
-    StateDef<T> state(String stateId);
+    /**
+     * Declares a state on this state machine. The configurer is invoked synchronously against
+     * a freshly-constructed {@link StateDef} carrying {@code stateId}; the def becomes inert
+     * once the lambda returns.
+     *
+     * @param stateId the state ID; never {@code null} or blank
+     * @param configurer callback that configures the state; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, {@code stateId}
+     *         is blank, or another state with the same id has already been declared
+     */
+    StateMachineDef<T> state(String stateId, Consumer<StateDef<T>> configurer);
 
-    StateDef<T> state(Identifiable stateIdentifiable);
+    /**
+     * Declares a state on this state machine using an {@link Identifiable} as the id source.
+     *
+     * @param stateIdentifiable an identifiable providing the state id; never {@code null}
+     * @param configurer callback that configures the state; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         or another state with the same id has already been declared
+     */
+    StateMachineDef<T> state(Identifiable stateIdentifiable, Consumer<StateDef<T>> configurer);
 
     StateMachine<T> build();
 

@@ -23,9 +23,12 @@ import org.transflux.core.TestContext
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
+import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
 
-class NestedOperationIdUniquenessSpec extends Specification {
+import java.util.function.Consumer
+
+class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
 
     static class Entity {
         String state
@@ -49,11 +52,10 @@ class NestedOperationIdUniquenessSpec extends Specification {
 
     def 'step id and operation id share one namespace: step-then-operation rejected'() {
         given:
-        def smd = baseDef()
-            .step('shared', new NoOpStep())
-        smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, TestContext> c ->
+        def smd = baseDef({ t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, TestContext> c ->
             c.operation('shared', new NoOpOperation())
-        })
+        }) })
+        smd.step('shared', new NoOpStep())
 
         when:
         smd.build()
@@ -65,11 +67,10 @@ class NestedOperationIdUniquenessSpec extends Specification {
 
     def 'step id and operation id share one namespace: operation-then-step rejected'() {
         given:
-        def smd = baseDef()
-        smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, TestContext> c ->
+        def smd = baseDef({ t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, TestContext> c ->
             c.operation('shared', new NoOpOperation())
             c.step('s1', new NoOpStep())
-        })
+        }) })
         smd.step('shared', new NoOpStep())
 
         when:
@@ -82,13 +83,13 @@ class NestedOperationIdUniquenessSpec extends Specification {
 
     def 'same operation id with different instances across two composites is rejected'() {
         given:
-        def smd = multiTransitionDef()
-        smd.getTransition('t1').compositeOperation('outer1', { CompositeOperationDef<Entity, TestContext> c ->
-            c.operation('twin', new NoOpOperation())
-        })
-        smd.getTransition('t2').compositeOperation('outer2', { CompositeOperationDef<Entity, TestContext> c ->
-            c.operation('twin', new NoOpOperation())
-        })
+        def smd = multiTransitionDef(
+            { t -> t.compositeOperation('outer1', { CompositeOperationDef<Entity, TestContext> c ->
+                c.operation('twin', new NoOpOperation())
+            }) },
+            { t -> t.compositeOperation('outer2', { CompositeOperationDef<Entity, TestContext> c ->
+                c.operation('twin', new NoOpOperation())
+            }) })
 
         when:
         smd.build()
@@ -101,13 +102,13 @@ class NestedOperationIdUniquenessSpec extends Specification {
     def 'same operation id with the same instance across two composites is tolerated (idempotent)'() {
         given:
         def shared = new NoOpOperation()
-        def smd = multiTransitionDef()
-        smd.getTransition('t1').compositeOperation('outer1', { CompositeOperationDef<Entity, TestContext> c ->
-            c.operation('twin', shared)
-        })
-        smd.getTransition('t2').compositeOperation('outer2', { CompositeOperationDef<Entity, TestContext> c ->
-            c.operation('twin', shared)
-        })
+        def smd = multiTransitionDef(
+            { t -> t.compositeOperation('outer1', { CompositeOperationDef<Entity, TestContext> c ->
+                c.operation('twin', shared)
+            }) },
+            { t -> t.compositeOperation('outer2', { CompositeOperationDef<Entity, TestContext> c ->
+                c.operation('twin', shared)
+            }) })
 
         when:
         def sm = smd.build()
@@ -118,13 +119,13 @@ class NestedOperationIdUniquenessSpec extends Specification {
 
     def 'same operation id with the same class across two composites is tolerated (idempotent)'() {
         given:
-        def smd = multiTransitionDef()
-        smd.getTransition('t1').compositeOperation('outer1', { CompositeOperationDef<Entity, TestContext> c ->
-            c.operation('twin', NoOpOperation)
-        })
-        smd.getTransition('t2').compositeOperation('outer2', { CompositeOperationDef<Entity, TestContext> c ->
-            c.operation('twin', NoOpOperation)
-        })
+        def smd = multiTransitionDef(
+            { t -> t.compositeOperation('outer1', { CompositeOperationDef<Entity, TestContext> c ->
+                c.operation('twin', NoOpOperation)
+            }) },
+            { t -> t.compositeOperation('outer2', { CompositeOperationDef<Entity, TestContext> c ->
+                c.operation('twin', NoOpOperation)
+            }) })
 
         when:
         def sm = smd.build()
@@ -135,16 +136,15 @@ class NestedOperationIdUniquenessSpec extends Specification {
 
     def 'conditional-step id colliding with operation id is rejected'() {
         given:
-        def smd = baseDef()
-            .step('inner-a', new NoOpStep())
-        smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, TestContext> c ->
+        def smd = baseDef({ t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, TestContext> c ->
             c.operation('twin', new NoOpOperation())
             c.conditional('twin', { ConditionalStepDef<Entity, TestContext> cs ->
                 cs.branch('only', { BranchDef<Entity, TestContext> b ->
                     b.conditionExpression('true').step('inner-a')
                 })
             })
-        })
+        }) })
+        smd.step('inner-a', new NoOpStep())
 
         when:
         smd.build()
@@ -154,22 +154,23 @@ class NestedOperationIdUniquenessSpec extends Specification {
         e.message.contains('twin')
     }
 
-    private static StateMachineDefImpl<Entity> baseDef() {
+    private static StateMachineDefImpl<Entity> baseDef(Consumer<TransitionDef<Entity, TestContext>> transitionConfigurer) {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1').transitionsTo('s2', 't')
-            .state('s2')
+            .state('s1', { s -> s.transitionsTo('s2', 't', TestContext, transitionConfigurer) })
+            .state('s2', {})
         return smd
     }
 
-    private static StateMachineDefImpl<Entity> multiTransitionDef() {
+    private static StateMachineDefImpl<Entity> multiTransitionDef(Consumer<TransitionDef<Entity, TestContext>> t1Config,
+                                                                  Consumer<TransitionDef<Entity, TestContext>> t2Config) {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1').transitionsTo('s2', 't1')
-            .state('s2').transitionsTo('s3', 't2')
-            .state('s3')
+            .state('s1', { s -> s.transitionsTo('s2', 't1', TestContext, t1Config) })
+            .state('s2', { s -> s.transitionsTo('s3', 't2', TestContext, t2Config) })
+            .state('s3', {})
         return smd
     }
 }

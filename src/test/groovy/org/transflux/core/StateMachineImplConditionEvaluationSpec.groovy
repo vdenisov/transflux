@@ -23,8 +23,10 @@ import org.transflux.core.operation.Operation
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
+import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
 
+import java.util.function.Consumer
 import java.util.function.Predicate
 
 class StateMachineImplConditionEvaluationSpec extends Specification {
@@ -55,25 +57,26 @@ class StateMachineImplConditionEvaluationSpec extends Specification {
         }
     }
 
-    private static StateMachineDefImpl<Entity> baseDef(FlaggingOperation operation,
-                                                                    List<String> appliedStates) {
+    private static StateMachine<Entity> build(FlaggingOperation operation,
+                                              List<String> appliedStates,
+                                              Consumer<TransitionDef<Entity, TestContext>> extraConfig) {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> appliedStates.add(s); e.state = s } as StateApplier<Entity>)
-            .state('s1').transitionsTo('s2', 't')
-            .state('s2')
-        smd.getTransition('t').simpleOperation('op', operation)
-        return smd
+            .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, { t ->
+                t.simpleOperation('op', operation)
+                extraConfig.accept(t)
+            }) })
+            .state('s2', {})
+        return smd.build()
     }
 
     def 'successful pre-condition lets operation and applier run'() {
         given:
         def operation = new FlaggingOperation()
         def applied = []
-        def smd = baseDef(operation, applied)
-        smd.getTransition('t').preCondition('pre-ok', { e -> true } as Predicate)
-        def sm = smd.build()
+        def sm = build(operation, applied, { t -> t.preCondition('pre-ok', { e -> true } as Predicate) })
         def entity = new Entity('s1', 5)
 
         when:
@@ -89,9 +92,7 @@ class StateMachineImplConditionEvaluationSpec extends Specification {
         given:
         def operation = new FlaggingOperation()
         def applied = []
-        def smd = baseDef(operation, applied)
-        smd.getTransition('t').preCondition('pre-fails', { e -> false } as Predicate)
-        def sm = smd.build()
+        def sm = build(operation, applied, { t -> t.preCondition('pre-fails', { e -> false } as Predicate) })
         def entity = new Entity('s1', 5)
 
         when:
@@ -109,9 +110,7 @@ class StateMachineImplConditionEvaluationSpec extends Specification {
         given:
         def operation = new FlaggingOperation()
         def applied = []
-        def smd = baseDef(operation, applied)
-        smd.getTransition('t').postCondition('post-ok', { e -> true } as Predicate)
-        def sm = smd.build()
+        def sm = build(operation, applied, { t -> t.postCondition('post-ok', { e -> true } as Predicate) })
         def entity = new Entity('s1', 1)
 
         when:
@@ -127,9 +126,7 @@ class StateMachineImplConditionEvaluationSpec extends Specification {
         given:
         def operation = new FlaggingOperation()
         def applied = []
-        def smd = baseDef(operation, applied)
-        smd.getTransition('t').postCondition('post-fails', { e -> false } as Predicate)
-        def sm = smd.build()
+        def sm = build(operation, applied, { t -> t.postCondition('post-fails', { e -> false } as Predicate) })
         def entity = new Entity('s1', 1)
 
         when:
@@ -146,16 +143,14 @@ class StateMachineImplConditionEvaluationSpec extends Specification {
         given:
         def operation = new FlaggingOperation()
         def applied = []
-        def smd = baseDef(operation, applied)
         def secondInvocations = 0
         Predicate<Entity> secondProbe = { Entity e ->
             secondInvocations++
             true
         } as Predicate
-        smd.getTransition('t')
+        def sm = build(operation, applied, { t -> t
             .preCondition('first', { e -> false } as Predicate)
-            .preCondition('second', secondProbe)
-        def sm = smd.build()
+            .preCondition('second', secondProbe) })
         def entity = new Entity('s1', 1)
 
         when:
@@ -177,14 +172,14 @@ class StateMachineImplConditionEvaluationSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
             .condition('registered', { e -> e.value > 0 } as Predicate)
-            .state('s1').transitionsTo('s2', 't')
-            .state('s2')
-        smd.getTransition('t').simpleOperation('op', operation)
-        smd.getTransition('t')
-            .preCondition('pred', { Entity e -> e.value > 0 } as Predicate)
-            .preCondition('cls', RegistryProbeCondition)
-            .preCondition('expr', 'value > 0')
-            .preCondition('registered')
+            .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, { t ->
+                t.simpleOperation('op', operation)
+                    .preCondition('pred', { Entity e -> e.value > 0 } as Predicate)
+                    .preCondition('cls', RegistryProbeCondition)
+                    .preCondition('expr', 'value > 0')
+                    .preCondition('registered')
+            }) })
+            .state('s2', {})
         def sm = smd.build()
         def entity = new Entity('s1', 5)
 

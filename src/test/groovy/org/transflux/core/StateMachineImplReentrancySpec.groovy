@@ -26,7 +26,10 @@ import org.transflux.core.operation.Step
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
+import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
+
+import java.util.function.Consumer
 
 class StateMachineImplReentrancySpec extends Specification {
 
@@ -65,11 +68,9 @@ class StateMachineImplReentrancySpec extends Specification {
     def 'step that calls back into the same SM with the same entity raises TransfluxReentrancyException'() {
         given:
         def step = new ReentrantStep()
-        def smd = baseDef([])
-        smd.getTransition('t').compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
+        def sm = build([], { t -> t.compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
             c.step('reentrant', step)
-        })
-        def sm = smd.build()
+        }) })
         def entity = new Entity('e1', 's1')
         step.targetSm = sm
         step.targetEntity = entity
@@ -93,9 +94,7 @@ class StateMachineImplReentrancySpec extends Specification {
             sm.executeTransition(entity, 's2')
         } as Operation<Entity, TestContext>
 
-        def smd = baseDef([])
-        smd.getTransition('t').simpleOperation('op', op)
-        sm = smd.build()
+        sm = build([], { t -> t.simpleOperation('op', op) }) as StateMachineImpl<Entity>
         entity = new Entity('e1', 's1')
 
         when:
@@ -115,9 +114,7 @@ class StateMachineImplReentrancySpec extends Specification {
             return true
         } as Condition<Entity, TestContext>
 
-        def smd = baseDef([])
-        smd.getTransition('t').preCondition('reentrant-cond', cond)
-        sm = smd.build()
+        sm = build([], { t -> t.preCondition('reentrant-cond', cond) }) as StateMachineImpl<Entity>
         entity = new Entity('e1', 's1')
 
         when:
@@ -132,11 +129,9 @@ class StateMachineImplReentrancySpec extends Specification {
         given:
         def applied = []
         def step = new ReentrantStep()
-        def smd = baseDef(applied)
-        smd.getTransition('t').compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
+        def sm = build(applied, { t -> t.compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
             c.step('reentrant', step)
-        })
-        def sm = smd.build()
+        }) })
         def outer = new Entity('outer', 's1')
         def inner = new Entity('inner', 's1')
         step.targetSm = sm
@@ -159,17 +154,14 @@ class StateMachineImplReentrancySpec extends Specification {
         def innerApplied = []
         def step = new ReentrantStep()
 
-        def outerSmd = baseDef(outerApplied)
-        outerSmd.getTransition('t').compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
+        def outerSm = build(outerApplied, { t -> t.compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
             c.step('reentrant', step)
-        })
-        def outerSm = outerSmd.build()
+        }) })
 
-        def innerSmd = baseDef(innerApplied)
-        def innerSm = innerSmd.build()
+        def innerSm = build(innerApplied, { t -> })
 
         def entity = new Entity('shared', 's1')
-        step.targetSm = innerSm
+        step.targetSm = innerSm as StateMachineImpl<Entity>
         step.targetEntity = entity
         step.targetState = 's2'
 
@@ -179,15 +171,13 @@ class StateMachineImplReentrancySpec extends Specification {
         then:
         result.success
         outerApplied == ['s2']
-        // Inner call landed first, so state is 's2' before outer's applier runs (which sets it to 's2' again).
         innerApplied == ['s2']
         entity.state == 's2'
     }
 
     def 'guard is cleaned up after a successful transition: subsequent top-level call succeeds'() {
         given:
-        def smd = baseDef([])
-        def sm = smd.build()
+        def sm = build([], { t -> })
         def entity = new Entity('e1', 's1')
 
         when:
@@ -206,13 +196,11 @@ class StateMachineImplReentrancySpec extends Specification {
 
     def 'guard is cleaned up after a failed transition: subsequent top-level call succeeds'() {
         given:
-        def smd = baseDef([])
-        smd.getTransition('t').compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
+        def sm = build([], { t -> t.compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
             c.step('boom', { Entity e, TestContext ctx, Transition<Entity, TestContext> tr ->
                 throw new RuntimeException('boom')
             } as Step<Entity, TestContext>)
-        })
-        def sm = smd.build()
+        }) })
         def entity = new Entity('e1', 's1')
 
         when:
@@ -230,13 +218,14 @@ class StateMachineImplReentrancySpec extends Specification {
         second.error.message == 'boom'
     }
 
-    private static StateMachineDefImpl<Entity> baseDef(List<String> applied) {
+    private static StateMachine<Entity> build(List<String> applied,
+                                              Consumer<TransitionDef<Entity, TestContext>> transitionConfigurer) {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
-            .state('s1').transitionsTo('s2', 't')
-            .state('s2')
-        return smd
+            .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, transitionConfigurer) })
+            .state('s2', {})
+        return smd.build()
     }
 }

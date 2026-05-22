@@ -603,9 +603,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public <C> StateMachineDef<T> useContext(Class<C> contextType, Consumer<ContextScope<T, C>> configurer) {
+    public <C> StateMachineDef<T> forContext(Class<C> contextType, Consumer<ContextScope<T, C>> configurer) {
         requireNotNull(contextType, "Context type");
-        requireNotNull(configurer, "useContext configurer");
+        requireNotNull(configurer, "forContext configurer");
         ContextScopeImpl<T, C> scope = new ContextScopeImpl<>(this, contextType);
         configurer.accept(scope);
         return this;
@@ -705,39 +705,71 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateDef<T> state(String stateId) {
+    public StateMachineDef<T> state(String stateId, Consumer<StateDef<T>> configurer) {
+        requireNotBlank(stateId, "State ID");
+        requireNotNull(configurer, "State configurer");
+        StateDefImpl<T> stateDef = registerState(stateId);
+        stateDef.beginConfigurer();
+        try {
+            configurer.accept(stateDef);
+        } finally {
+            stateDef.endConfigurer();
+        }
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> state(Identifiable stateIdentifiable, Consumer<StateDef<T>> configurer) {
+        requireNotNull(stateIdentifiable, "State identifiable");
+        return state(stateIdentifiable.getId(), configurer);
+    }
+
+    private StateDefImpl<T> registerState(String stateId) {
         if (states.containsKey(stateId)) {
             throw new TransfluxValidationException("State ID " + stateId + " already defined");
         }
-
         var stateDef = new StateDefImpl<>(this, stateId);
         states.put(stateDef.getId(), stateDef);
         return stateDef;
     }
 
-    @Override
-    public StateDef<T> state(Identifiable stateIdentifiable) {
-        requireNotNull(stateIdentifiable, "State identifiable");
-
-        return state(stateIdentifiable.getId());
-    }
-
     /**
-     * Registers a transition between two states.
+     * Registers a transition between two states with pass-through ({@link Object}) context.
+     *
+     * <p>This is framework-internal infrastructure used by Transflux's own DSL; user code
+     * should not invoke it directly.
      *
      * @param sourceStateId the ID of the source state
      * @param targetStateId the ID of the target state
      * @param transitionId the unique identifier for the transition
+     *
+     * @return the newly registered transition def
      */
-    public void registerTransition(String sourceStateId, String targetStateId, String transitionId) {
-        registerTransition(sourceStateId, targetStateId, transitionId, null);
+    public TransitionDefImpl<T, Object> registerTransition(String sourceStateId, String targetStateId,
+                                                           String transitionId) {
+        return registerTransition(sourceStateId, targetStateId, transitionId, Object.class);
     }
 
-    public void registerTransition(String sourceStateId, String targetStateId, String transitionId,
-                                   Class<?> contextType) {
+    /**
+     * Registers a transition between two states tagged with the supplied context type.
+     *
+     * <p>This is framework-internal infrastructure used by Transflux's own DSL; user code
+     * should not invoke it directly.
+     *
+     * @param sourceStateId the ID of the source state
+     * @param targetStateId the ID of the target state
+     * @param transitionId the unique identifier for the transition
+     * @param contextType the transition's context class; never {@code null}
+     * @param <C> the context type
+     *
+     * @return the newly registered transition def
+     */
+    public <C> TransitionDefImpl<T, C> registerTransition(String sourceStateId, String targetStateId,
+                                                          String transitionId, Class<C> contextType) {
         requireNotBlank(sourceStateId, "Source state ID");
         requireNotBlank(targetStateId, "Target state ID");
         requireNotBlank(transitionId, "Transition ID");
+        requireNotNull(contextType, "Context type");
 
         if (transitionsById.containsKey(transitionId)) {
             throw new TransfluxValidationException("Transition ID " + transitionId + " already defined");
@@ -746,16 +778,10 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         var byTarget = transitionsBySourceTarget.computeIfAbsent(sourceStateId, k -> new LinkedHashMap<>());
         var list = byTarget.computeIfAbsent(targetStateId, k -> new ArrayList<>(1));
 
-        TransitionDefImpl<T, ?> def = createTransition(transitionId, sourceStateId, targetStateId, contextType);
+        TransitionDefImpl<T, C> def = new TransitionDefImpl<>(transitionId, sourceStateId, targetStateId, contextType);
         list.add(def);
         transitionsById.put(transitionId, def);
-    }
-
-    private <C> TransitionDefImpl<T, C> createTransition(String transitionId, String sourceStateId,
-                                                          String targetStateId, Class<?> contextType) {
-        @SuppressWarnings("unchecked")
-        Class<C> ctx = (Class<C>) (contextType != null ? contextType : Object.class);
-        return new TransitionDefImpl<>(transitionId, sourceStateId, targetStateId, ctx);
+        return def;
     }
 
     @Override

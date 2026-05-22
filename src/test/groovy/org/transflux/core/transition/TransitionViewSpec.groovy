@@ -59,8 +59,8 @@ class TransitionViewSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('foo-id', step)
-        smd.state(TRIAL).transitionsTo(ACTIVE, 't1')
-        smd.state(ACTIVE)
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', {}) })
+        smd.state(ACTIVE, {})
 
         def sm = (StateMachineImpl) smd.build()
         def entity = new TestEntity(state: 'TRIAL')
@@ -81,8 +81,8 @@ class TransitionViewSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL).transitionsTo(ACTIVE, 't1')
-        smd.state(ACTIVE)
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', {}) })
+        smd.state(ACTIVE, {})
 
         def sm = (StateMachineImpl) smd.build()
         def view = new TransitionView<TestEntity, TestContext>(
@@ -102,8 +102,8 @@ class TransitionViewSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL).transitionsTo(ACTIVE, 't1')
-        smd.state(ACTIVE)
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', {}) })
+        smd.state(ACTIVE, {})
 
         def sm = (StateMachineImpl) smd.build()
         def view = new TransitionView<TestEntity, TestContext>(
@@ -123,8 +123,8 @@ class TransitionViewSpec extends Specification {
         given:
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
-        smd.state(TRIAL).transitionsTo(ACTIVE, 't1')
-        smd.state(ACTIVE)
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', {}) })
+        smd.state(ACTIVE, {})
 
         def sm = (StateMachineImpl) smd.build()
 

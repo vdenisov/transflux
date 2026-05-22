@@ -170,8 +170,8 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('a', StepA)
-        smd.state(TRIAL).transitionsTo(ACTIVE, 't1')
-        smd.state(ACTIVE)
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', {}) })
+        smd.state(ACTIVE, {})
 
         when:
         def sm = (StateMachineImpl) smd.build()
@@ -187,7 +187,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('bad', CtorlessStep)
-        smd.state(TRIAL)
+        smd.state(TRIAL, {})
 
         when:
         smd.build()
@@ -204,10 +204,10 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL).transitionsTo(ACTIVE, 't1')
-        smd.state(ACTIVE)
-        smd.getTransition('t1')
-            .compositeOperation('op1', { c -> c.step('inline-a', stepInstance) })
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', { t ->
+            t.compositeOperation('op1', { c -> c.step('inline-a', stepInstance) })
+        }) })
+        smd.state(ACTIVE, {})
 
         when:
         def sm = (StateMachineImpl) smd.build()
@@ -224,10 +224,10 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('shared', stepInstance)
-        smd.state(TRIAL).transitionsTo(ACTIVE, 't1')
-        smd.state(ACTIVE)
-        smd.getTransition('t1')
-            .compositeOperation('op1', { c -> c.step('shared', stepInstance) })
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', { t ->
+            t.compositeOperation('op1', { c -> c.step('shared', stepInstance) })
+        }) })
+        smd.state(ACTIVE, {})
 
         when:
         def sm = (StateMachineImpl) smd.build()
@@ -241,14 +241,14 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL)
-            .transitionsTo(ACTIVE, 't1')
-            .transitionsTo(ACTIVE, 't2')
-        smd.state(ACTIVE)
-        smd.getTransition('t1')
-            .compositeOperation('op1', { c -> c.step('clash', new StepA()) })
-        smd.getTransition('t2')
-            .compositeOperation('op2', { c -> c.step('clash', new StepA()) })
+        smd.state(TRIAL, { s -> s
+            .transitionsTo(ACTIVE, 't1', { t ->
+                t.compositeOperation('op1', { c -> c.step('clash', new StepA()) })
+            })
+            .transitionsTo(ACTIVE, 't2', { t ->
+                t.compositeOperation('op2', { c -> c.step('clash', new StepA()) })
+            }) })
+        smd.state(ACTIVE, {})
 
         when:
         smd.build()
@@ -264,14 +264,14 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL)
-            .transitionsTo(ACTIVE, 't1')
-            .transitionsTo(ACTIVE, 't2')
-        smd.state(ACTIVE)
-        smd.getTransition('t1')
-            .compositeOperation('op1', { c -> c.step('shared-class', StepA) })
-        smd.getTransition('t2')
-            .compositeOperation('op2', { c -> c.step('shared-class', StepA) })
+        smd.state(TRIAL, { s -> s
+            .transitionsTo(ACTIVE, 't1', { t ->
+                t.compositeOperation('op1', { c -> c.step('shared-class', StepA) })
+            })
+            .transitionsTo(ACTIVE, 't2', { t ->
+                t.compositeOperation('op2', { c -> c.step('shared-class', StepA) })
+            }) })
+        smd.state(ACTIVE, {})
 
         when:
         def sm = (StateMachineImpl) smd.build()
@@ -285,15 +285,15 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL)
-            .transitionsTo(ACTIVE, 't-consumer')
-            .transitionsTo(ACTIVE, 't-provider')
-        smd.state(ACTIVE)
-        // Consumer composite references the id BEFORE the provider declares the inline.
-        smd.getTransition('t-consumer')
-            .compositeOperation('op-consumer', { c -> c.step('via-inline') })
-        smd.getTransition('t-provider')
-            .compositeOperation('op-provider', { c -> c.step('via-inline', new StepA()) })
+        smd.state(TRIAL, { s -> s
+            .transitionsTo(ACTIVE, 't-consumer', { t ->
+                // Consumer composite references the id BEFORE the provider declares the inline.
+                t.compositeOperation('op-consumer', { c -> c.step('via-inline') })
+            })
+            .transitionsTo(ACTIVE, 't-provider', { t ->
+                t.compositeOperation('op-provider', { c -> c.step('via-inline', new StepA()) })
+            }) })
+        smd.state(ACTIVE, {})
 
         when:
         def sm = (StateMachineImpl) smd.build()
@@ -307,7 +307,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL)
+        smd.state(TRIAL, {})
 
         when:
         def sm = (StateMachineImpl) smd.build()

@@ -18,32 +18,17 @@
 
 package org.transflux.core.operation
 
-import org.transflux.core.state.State
-import org.transflux.core.state.StateApplier
-import org.transflux.core.state.StateDef
-import org.transflux.core.state.StateDefImpl
-import org.transflux.core.state.StateImpl
-import org.transflux.core.state.StateResolver
-
-import org.transflux.core.Identifiable
-import org.transflux.core.StateMachine
-import org.transflux.core.StateMachineDef
-import org.transflux.core.StateMachineDefImpl
 import org.transflux.core.StateMachineImpl
 import org.transflux.core.TestContext
-import org.transflux.core.TestStateEnum
 import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
+import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
-import org.transflux.core.transition.TransitionDef
-import org.transflux.core.transition.TransitionDefImpl
-import org.transflux.core.transition.TransitionImpl
-import org.transflux.core.transition.TransitionResult
 import org.transflux.core.transition.TransitionView
-
 import spock.lang.Specification
 
-import static org.transflux.core.TestStateEnum.*
+import static org.transflux.core.TestStateEnum.ACTIVE
+import static org.transflux.core.TestStateEnum.TRIAL
 
 class CompositeOperationDefImplSpec extends Specification {
 
@@ -77,6 +62,7 @@ class CompositeOperationDefImplSpec extends Specification {
     }
 
     static class CtorlessStep implements Step<TestEntity, TestContext> {
+        @SuppressWarnings('unused')
         CtorlessStep(String unused) {
         }
 
@@ -101,8 +87,8 @@ class CompositeOperationDefImplSpec extends Specification {
         def sm = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-            .state(TRIAL).transitionsTo(ACTIVE, 't1')
-            .state(ACTIVE)
+            .state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', {}) })
+            .state(ACTIVE, {})
             .build()
         def composite = new CompositeOperationDefImpl<TestEntity, TestContext>('op1')
 
@@ -148,8 +134,8 @@ class CompositeOperationDefImplSpec extends Specification {
             .step('a-id', new AppendStep('a'))
             .step('b-id', new AppendStep('b'))
             .step('c-id', new AppendStep('c'))
-            .state(TRIAL).transitionsTo(ACTIVE, 't1')
-            .state(ACTIVE)
+            .state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', {}) })
+            .state(ACTIVE, {})
             .build()
 
         def composite = new CompositeOperationDefImpl<TestEntity, TestContext>('op1')
@@ -178,8 +164,8 @@ class CompositeOperationDefImplSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('known', new FooStep())
-            .state(TRIAL).transitionsTo(ACTIVE, 't1')
-            .state(ACTIVE)
+            .state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', {}) })
+            .state(ACTIVE, {})
             .build()
 
         def composite = new CompositeOperationDefImpl<TestEntity, TestContext>('op1')
@@ -199,10 +185,10 @@ class CompositeOperationDefImplSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL).transitionsTo(ACTIVE, 't1')
-        smd.state(ACTIVE)
-        smd.getTransition('t1')
-            .compositeOperation('op1', { CompositeOperationDef<TestEntity, TestContext> c -> c.step('foo-id', FooStep) })
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', { t ->
+            t.compositeOperation('op1', { CompositeOperationDef<TestEntity, TestContext> c -> c.step('foo-id', FooStep) })
+        }) })
+        smd.state(ACTIVE, {})
 
         def sm = (StateMachineImpl<TestEntity>) smd.build()
         def entity = new TestEntity('TRIAL')
@@ -220,10 +206,10 @@ class CompositeOperationDefImplSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL).transitionsTo(ACTIVE, 't1')
-        smd.state(ACTIVE)
-        smd.getTransition('t1')
-            .compositeOperation('op1', { CompositeOperationDef<TestEntity, TestContext> c -> c.step('bad-id', CtorlessStep) })
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', { t ->
+            t.compositeOperation('op1', { CompositeOperationDef<TestEntity, TestContext> c -> c.step('bad-id', CtorlessStep) })
+        }) })
+        smd.state(ACTIVE, {})
 
         when:
         smd.build()

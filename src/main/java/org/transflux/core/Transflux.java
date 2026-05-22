@@ -48,17 +48,15 @@ import org.transflux.core.exception.TransfluxValidationException;
  *     .forEntityType(Subscription.class)
  *     .withName("Subscription Lifecycle")
  *     .withStateResolver(subscription -> subscription.getStatus())
- *     .state("trial")
+ *     .state("trial", s -> s
  *         .withName("Trial Period")
- *         .transitionsTo("active", "upgrade")
- *         .transitionsTo("expired", "expire")
- *     .state("active")
+ *         .transitionsTo("active", "upgrade", t -> {})
+ *         .transitionsTo("expired", "expire", t -> {}))
+ *     .state("active", s -> s
  *         .withName("Active Subscription")
- *         .transitionsTo("cancelled", "cancel")
- *     .state("expired")
- *         .withName("Expired Subscription")
- *     .state("cancelled")
- *         .withName("Cancelled Subscription")
+ *         .transitionsTo("cancelled", "cancel", t -> {}))
+ *     .state("expired", s -> s.withName("Expired Subscription"))
+ *     .state("cancelled", s -> s.withName("Cancelled Subscription"))
  *     .build();
  * }</pre>
  * 

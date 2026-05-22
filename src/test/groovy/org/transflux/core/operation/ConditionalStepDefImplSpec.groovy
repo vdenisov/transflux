@@ -307,8 +307,8 @@ class ConditionalStepDefImplSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1').transitionsTo('s2', 't')
-            .state('s2')
+            .state('s1', { s -> s.transitionsTo('s2', 't', {}) })
+            .state('s2', {})
         return (StateMachineImpl<Entity>) smd.build()
     }
 }

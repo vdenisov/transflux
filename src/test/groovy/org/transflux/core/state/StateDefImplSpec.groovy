@@ -18,16 +18,8 @@
 
 package org.transflux.core.state
 
-import org.transflux.core.transition.Transition
-import org.transflux.core.transition.TransitionDef
-import org.transflux.core.transition.TransitionResult
-
 import org.transflux.core.Identifiable
-import org.transflux.core.StateMachine
-import org.transflux.core.StateMachineDef
 import org.transflux.core.StateMachineDefImpl
-import org.transflux.core.TestContext
-import org.transflux.core.TestStateEnum
 import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
 
@@ -36,7 +28,7 @@ import spock.lang.Unroll
 
 import static org.transflux.core.TestStateEnum.ACTIVE
 import static org.transflux.core.TestStateEnum.EXPIRED
-import static org.transflux.core.TestStateEnum.TRIAL 
+import static org.transflux.core.TestStateEnum.TRIAL
 
 class StateDefImplSpec extends Specification {
 
@@ -44,9 +36,10 @@ class StateDefImplSpec extends Specification {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
         def s = new StateDefImpl<Object>(smd, ACTIVE)
+        s.beginConfigurer()
 
         when:
-        s.transitionsTo(EXPIRED, "active-to-expired")
+        s.transitionsTo(EXPIRED, "active-to-expired", {})
 
         then:
         smd.getTransition("active-to-expired").with {
@@ -60,9 +53,10 @@ class StateDefImplSpec extends Specification {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
         def s = new StateDefImpl<Object>(smd, ACTIVE)
+        s.beginConfigurer()
 
         when:
-        s.transitionsTo("EXPIRED", "active-to-expired")
+        s.transitionsTo("EXPIRED", "active-to-expired", {})
 
         then:
         smd.getTransition("active-to-expired").with {
@@ -76,10 +70,11 @@ class StateDefImplSpec extends Specification {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
         def s = new StateDefImpl<>(smd, ACTIVE)
-        s.transitionsTo(EXPIRED, "active-to-expired")
+        s.beginConfigurer()
+        s.transitionsTo(EXPIRED, "active-to-expired", {})
 
         when:
-        s.transitionsTo(TRIAL, "active-to-expired")
+        s.transitionsTo(TRIAL, "active-to-expired", {})
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -90,7 +85,7 @@ class StateDefImplSpec extends Specification {
     def 'constructor with String id should validate: #scenario'() {
         when:
         new StateDefImpl<Object>(smd, stateId)
-        
+
         then:
         def e = thrown(TransfluxValidationException)
         e.message == expectedMessage
@@ -105,7 +100,7 @@ class StateDefImplSpec extends Specification {
     def 'constructor with Identifiable should validate: #scenario'() {
         when:
         new StateDefImpl<Object>(smd, identifiable)
-        
+
         then:
         def e = thrown(TransfluxValidationException)
         e.message == expectedMessage
@@ -121,10 +116,11 @@ class StateDefImplSpec extends Specification {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
         def s = new StateDefImpl<Object>(smd, 'S1')
-        
+        s.beginConfigurer()
+
         when:
         s.withName('name1').withName('name2')
-        
+
         then:
         s.name == 'name2'
     }
@@ -133,48 +129,40 @@ class StateDefImplSpec extends Specification {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
         def s = new StateDefImpl<Object>(smd, 'S1')
-        
+        s.beginConfigurer()
+
         when:
         s.withDescription('desc1').withDescription('desc2')
-        
+
         then:
         s.description == 'desc2'
-    }
-
-    def 'state method should delegate to StateMachineDef'() {
-        given:
-        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def s = new StateDefImpl<Object>(smd, 'S1')
-        
-        when:
-        def chained = s.state('S2')
-        
-        then:
-        chained != null
-        chained.id == "S2"
-        smd.getStates().containsKey("S2")
-    }
-
-    def 'build method should delegate to StateMachineDef'() {
-        given:
-        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def s = new StateDefImpl<Object>(smd, 'S1')
-        
-        when:
-        def machine = s.build()
-        
-        then:
-        machine != null
     }
 
     def 'transitionsTo should reject null Identifiable target'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
         def s = new StateDefImpl<Object>(smd, 'S')
+        s.beginConfigurer()
         when:
-        s.transitionsTo((Identifiable) null, 't')
+        s.transitionsTo((Identifiable) null, 't', {})
         then:
         def e = thrown(TransfluxValidationException)
         e.message == 'Target state identifiable cannot be null'
+    }
+
+    def 'mutator should throw after configurer returns'() {
+        given:
+        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
+        def s = new StateDefImpl<Object>(smd, 'S')
+        s.beginConfigurer()
+        s.endConfigurer()
+
+        when:
+        s.withName('x')
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("'withName'")
+        e.message.contains("'S'")
     }
 }

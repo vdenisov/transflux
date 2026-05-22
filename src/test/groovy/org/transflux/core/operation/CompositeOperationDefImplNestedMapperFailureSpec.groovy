@@ -18,12 +18,16 @@
 
 package org.transflux.core.operation
 
+import org.transflux.core.StateMachine
 import org.transflux.core.StateMachineDefImpl
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
+import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
 
-class NestedOperationMapperFailureSpec extends Specification {
+import java.util.function.Consumer
+
+class CompositeOperationDefImplNestedMapperFailureSpec extends Specification {
 
     static class Entity {
         String state
@@ -66,14 +70,12 @@ class NestedOperationMapperFailureSpec extends Specification {
 
     def 'mapTo failure surfaces as parent member failure — nested op never starts'() {
         given:
-        def smd = baseDef()
-        smd.operation('nested', ChildCtx, new ChildOp())
-            .mapper('failing-mapto', ParentCtx, ChildCtx, new FailingMapToMapper())
-        smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, ParentCtx> c ->
-            c.usingContext(ParentCtx)
-            c.operation('nested', 'failing-mapto')
-        })
-        def sm = smd.build()
+        def sm = build(
+            { smd -> smd.operation('nested', ChildCtx, new ChildOp())
+                .mapper('failing-mapto', ParentCtx, ChildCtx, new FailingMapToMapper()) },
+            { t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, ParentCtx> c ->
+                c.operation('nested', 'failing-mapto')
+            }) })
         def entity = new Entity('s1')
 
         when:
@@ -89,14 +91,12 @@ class NestedOperationMapperFailureSpec extends Specification {
 
     def 'mapFrom failure surfaces as parent failure — child completed but writeback blew up'() {
         given:
-        def smd = baseDef()
-        smd.operation('nested', ChildCtx, new ChildOp())
-            .mapper('failing-mapfrom', ParentCtx, ChildCtx, new FailingMapFromMapper())
-        smd.getTransition('t').compositeOperation('outer', { CompositeOperationDef<Entity, ParentCtx> c ->
-            c.usingContext(ParentCtx)
-            c.operation('nested', 'failing-mapfrom')
-        })
-        def sm = smd.build()
+        def sm = build(
+            { smd -> smd.operation('nested', ChildCtx, new ChildOp())
+                .mapper('failing-mapfrom', ParentCtx, ChildCtx, new FailingMapFromMapper()) },
+            { t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, ParentCtx> c ->
+                c.operation('nested', 'failing-mapfrom')
+            }) })
         def entity = new Entity('s1')
 
         when:
@@ -109,12 +109,14 @@ class NestedOperationMapperFailureSpec extends Specification {
         entity.trail == ['child-ran']
     }
 
-    private static StateMachineDefImpl<Entity> baseDef() {
+    private static StateMachine<Entity> build(Consumer<StateMachineDefImpl<Entity>> smdRegistrations,
+                                              Consumer<TransitionDef<Entity, ParentCtx>> transitionConfigurer) {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1').transitionsTo('s2', 't', ParentCtx)
-            .state('s2')
-        return smd
+        smdRegistrations.accept(smd)
+        smd.state('s1', { s -> s.transitionsTo('s2', 't', ParentCtx, transitionConfigurer) })
+            .state('s2', {})
+        return smd.build()
     }
 }

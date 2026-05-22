@@ -25,7 +25,7 @@ import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
 
-class NestedOperationCycleDetectionSpec extends Specification {
+class StateMachineDefImplNestedCycleDetectionSpec extends Specification {
 
     static class Entity {
         String state
@@ -45,7 +45,7 @@ class NestedOperationCycleDetectionSpec extends Specification {
     def 'composite referring to itself by id is rejected with a clear cycle message'() {
         given:
         def smd = baseDef()
-        smd.useContext(Ctx, { ContextScope<Entity, Ctx> scope ->
+        smd.forContext(Ctx, { ContextScope<Entity, Ctx> scope ->
             scope.compositeOperation('a', { CompositeOperationDef<Entity, Ctx> c ->
                 c.step('placeholder', new NoopStep()).operation('a')   // self-reference
             })
@@ -63,7 +63,7 @@ class NestedOperationCycleDetectionSpec extends Specification {
     def 'two composites referring to each other (A -> B -> A) are rejected'() {
         given:
         def smd = baseDef()
-        smd.useContext(Ctx, { ContextScope<Entity, Ctx> scope ->
+        smd.forContext(Ctx, { ContextScope<Entity, Ctx> scope ->
             scope.compositeOperation('a', { CompositeOperationDef<Entity, Ctx> c ->
                 c.step('placeholder-a', new NoopStep()).operation('b')
             }).compositeOperation('b', { CompositeOperationDef<Entity, Ctx> c ->
@@ -82,7 +82,7 @@ class NestedOperationCycleDetectionSpec extends Specification {
     def 'three composites forming A -> B -> C -> A are rejected'() {
         given:
         def smd = baseDef()
-        smd.useContext(Ctx, { ContextScope<Entity, Ctx> scope ->
+        smd.forContext(Ctx, { ContextScope<Entity, Ctx> scope ->
             scope.compositeOperation('a', { CompositeOperationDef<Entity, Ctx> c ->
                 c.step('pa', new NoopStep()).operation('b')
             }).compositeOperation('b', { CompositeOperationDef<Entity, Ctx> c ->
@@ -103,7 +103,7 @@ class NestedOperationCycleDetectionSpec extends Specification {
     def 'acyclic composite chain A -> B is accepted'() {
         given:
         def smd = baseDef()
-        smd.useContext(Ctx, { ContextScope<Entity, Ctx> scope ->
+        smd.forContext(Ctx, { ContextScope<Entity, Ctx> scope ->
             scope.compositeOperation('b', { CompositeOperationDef<Entity, Ctx> c ->
                 c.step('pb', new NoopStep())
             }).compositeOperation('a', { CompositeOperationDef<Entity, Ctx> c ->
@@ -122,8 +122,8 @@ class NestedOperationCycleDetectionSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1').transitionsTo('s2', 't')
-            .state('s2')
+            .state('s1', { s -> s.transitionsTo('s2', 't', {}) })
+            .state('s2', {})
         return smd
     }
 }

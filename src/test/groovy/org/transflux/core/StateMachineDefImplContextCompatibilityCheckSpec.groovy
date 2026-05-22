@@ -25,7 +25,7 @@ import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
 
-class ContextCompatibilityCheckSpec extends Specification {
+class StateMachineDefImplContextCompatibilityCheckSpec extends Specification {
 
     static class Entity {
         String state
@@ -52,7 +52,7 @@ class ContextCompatibilityCheckSpec extends Specification {
     def 'SM-level composite referencing a step declared for the same context builds cleanly'() {
         given:
         def smd = baseDef()
-        smd.useContext(CtxA, { ContextScope<Entity, CtxA> scope ->
+        smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
             scope.step('s', new StepA())
                 .compositeOperation('outer', { CompositeOperationDef<Entity, CtxA> c -> c.step('s') })
         })
@@ -67,8 +67,8 @@ class ContextCompatibilityCheckSpec extends Specification {
     def 'SM-level composite referencing a step declared for a different context is rejected at build'() {
         given:
         def smd = baseDef()
-        smd.useContext(CtxB, { ContextScope<Entity, CtxB> scope -> scope.step('s', new StepB()) })
-        smd.useContext(CtxA, { ContextScope<Entity, CtxA> scope ->
+        smd.forContext(CtxB, { ContextScope<Entity, CtxB> scope -> scope.step('s', new StepB()) })
+        smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
             scope.compositeOperation('outer', { CompositeOperationDef<Entity, CtxA> c ->
                 c.step('s')   // referencing CtxB-tagged step from CtxA-tagged composite
             })
@@ -85,10 +85,15 @@ class ContextCompatibilityCheckSpec extends Specification {
 
     def 'legacy (untagged) registrations skip the context-compatibility check'() {
         given:
-        def smd = baseDef()
-        smd.step('legacy-step', new StepA())   // no useContext block — no tag
-        smd.getTransition('t').compositeOperation('legacy-composite',
-            { CompositeOperationDef<Entity, Object> c -> c.step('legacy-step') })
+        def smd = new StateMachineDefImpl<Entity>()
+        smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+            .step('legacy-step', new StepA())   // no forContext block — no tag
+            .state('s1', { st -> st.transitionsTo('s2', 't', { t ->
+                t.compositeOperation('legacy-composite',
+                    { CompositeOperationDef<Entity, Object> c -> c.step('legacy-step') })
+            }) })
+            .state('s2', {})
 
         when:
         def sm = smd.build()
@@ -101,8 +106,8 @@ class ContextCompatibilityCheckSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1').transitionsTo('s2', 't')
-            .state('s2')
+            .state('s1', { s -> s.transitionsTo('s2', 't', {}) })
+            .state('s2', {})
         return smd
     }
 }

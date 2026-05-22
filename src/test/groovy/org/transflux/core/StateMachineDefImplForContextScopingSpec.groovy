@@ -25,7 +25,7 @@ import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
 
-class UseContextScopingSpec extends Specification {
+class StateMachineDefImplForContextScopingSpec extends Specification {
 
     static class Entity {
         String state
@@ -54,10 +54,10 @@ class UseContextScopingSpec extends Specification {
         }
     }
 
-    def 'useContext block registers a step tagged with the scope context'() {
+    def 'forContext block registers a step tagged with the scope context'() {
         given:
         def smd = baseDef()
-        smd.useContext(CtxA, { ContextScope<Entity, CtxA> scope ->
+        smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
             scope.step('s-a', new StepA())
         })
 
@@ -69,11 +69,11 @@ class UseContextScopingSpec extends Specification {
         smd.getComponentContextType('s-a') == CtxA
     }
 
-    def 'multiple useContext blocks with the same context class accumulate registrations'() {
+    def 'multiple forContext blocks with the same context class accumulate registrations'() {
         given:
         def smd = baseDef()
-        smd.useContext(CtxA, { ContextScope<Entity, CtxA> scope -> scope.step('s-a', new StepA()) })
-        smd.useContext(CtxA, { ContextScope<Entity, CtxA> scope -> scope.step('s-a2', new StepA()) })
+        smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope -> scope.step('s-a', new StepA()) })
+        smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope -> scope.step('s-a2', new StepA()) })
 
         when:
         smd.build()
@@ -83,11 +83,11 @@ class UseContextScopingSpec extends Specification {
         smd.getComponentContextType('s-a2') == CtxA
     }
 
-    def 'two useContext blocks with different context classes coexist'() {
+    def 'two forContext blocks with different context classes coexist'() {
         given:
         def smd = baseDef()
-        smd.useContext(CtxA, { ContextScope<Entity, CtxA> scope -> scope.step('s-a', new StepA()) })
-        smd.useContext(CtxB, { ContextScope<Entity, CtxB> scope -> scope.step('s-b', new StepB()) })
+        smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope -> scope.step('s-a', new StepA()) })
+        smd.forContext(CtxB, { ContextScope<Entity, CtxB> scope -> scope.step('s-b', new StepB()) })
 
         when:
         smd.build()
@@ -97,10 +97,10 @@ class UseContextScopingSpec extends Specification {
         smd.getComponentContextType('s-b') == CtxB
     }
 
-    def 'useContext registers an SM-level composite operation that can be referenced by id'() {
+    def 'forContext registers an SM-level composite operation that can be referenced by id'() {
         given:
         def smd = baseDef()
-        smd.useContext(CtxA, { ContextScope<Entity, CtxA> scope ->
+        smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
             scope.step('inner-step', new StepA())
                 .compositeOperation('outer', { CompositeOperationDef<Entity, CtxA> c ->
                     c.step('inner-step')
@@ -119,8 +119,8 @@ class UseContextScopingSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1').transitionsTo('s2', 't')
-            .state('s2')
+            .state('s1', { s -> s.transitionsTo('s2', 't', {}) })
+            .state('s2', {})
         return smd
     }
 }

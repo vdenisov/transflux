@@ -15,22 +15,13 @@
  *  * limitations under the License.
  *
  */
+//file:noinspection GroovyPointlessBoolean
 
 package org.transflux.core.state
 
-import org.transflux.core.transition.Transition
-import org.transflux.core.transition.TransitionDef
-import org.transflux.core.transition.TransitionResult
-
-import org.transflux.core.Identifiable
-import org.transflux.core.StateMachine
-import org.transflux.core.StateMachineDef
 import org.transflux.core.StateMachineDefImpl
-import org.transflux.core.TestContext
-import org.transflux.core.TestStateEnum
 import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
-
 import spock.lang.Specification
 import spock.lang.Unroll
 
@@ -40,8 +31,10 @@ class StateImplSpec extends Specification {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
         def stateDef = new StateDefImpl<Object>(smd, 'state1')
-            .withName('State Name')
+        stateDef.beginConfigurer()
+        stateDef.withName('State Name')
             .withDescription('State Description')
+        stateDef.endConfigurer()
 
         when:
         def state = new StateImpl(stateDef)
@@ -66,12 +59,14 @@ class StateImplSpec extends Specification {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
         def stateDef = new StateDefImpl<Object>(smd, id)
+        stateDef.beginConfigurer()
         if (name != null) {
             stateDef = stateDef.withName(name)
         }
         if (description != null) {
             stateDef = stateDef.withDescription(description)
         }
+        stateDef.endConfigurer()
         def state = new StateImpl(stateDef)
 
         when:
@@ -93,8 +88,10 @@ class StateImplSpec extends Specification {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
         def stateDef = new StateDefImpl<Object>(smd, 'state1')
-            .withName('Test Name')
+        stateDef.beginConfigurer()
+        stateDef.withName('Test Name')
             .withDescription('Test Description')
+        stateDef.endConfigurer()
         def state = new StateImpl(stateDef)
 
         when:
@@ -107,8 +104,10 @@ class StateImplSpec extends Specification {
     def 'equals should return true for states with same ID'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def stateDef1 = new StateDefImpl<Object>(smd, 'same-id').withName('Name1')
-        def stateDef2 = new StateDefImpl<Object>(smd, 'same-id').withName('Name2')
+        def stateDef1 = new StateDefImpl<Object>(smd, 'same-id')
+        stateDef1.beginConfigurer(); stateDef1.withName('Name1'); stateDef1.endConfigurer()
+        def stateDef2 = new StateDefImpl<Object>(smd, 'same-id')
+        stateDef2.beginConfigurer(); stateDef2.withName('Name2'); stateDef2.endConfigurer()
         def state1 = new StateImpl(stateDef1)
         def state2 = new StateImpl(stateDef2)
 
@@ -156,8 +155,10 @@ class StateImplSpec extends Specification {
     def 'hashCode should return same value for states with same ID'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def stateDef1 = new StateDefImpl<Object>(smd, 'same-id').withName('Name1')
-        def stateDef2 = new StateDefImpl<Object>(smd, 'same-id').withName('Name2')
+        def stateDef1 = new StateDefImpl<Object>(smd, 'same-id')
+        stateDef1.beginConfigurer(); stateDef1.withName('Name1'); stateDef1.endConfigurer()
+        def stateDef2 = new StateDefImpl<Object>(smd, 'same-id')
+        stateDef2.beginConfigurer(); stateDef2.withName('Name2'); stateDef2.endConfigurer()
         def state1 = new StateImpl(stateDef1)
         def state2 = new StateImpl(stateDef2)
 

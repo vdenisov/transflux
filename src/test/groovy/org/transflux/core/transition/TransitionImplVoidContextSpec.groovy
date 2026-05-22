@@ -3,7 +3,6 @@
  *  * Copyright 2025 Victor Denisov
  *  *
  *  * Licensed under the Apache License, Version 2.0 (the "License");
- *  * you may not use this file except in compliance with the License.
  *
  */
 
@@ -52,8 +51,8 @@ class TransitionImplVoidContextSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1').transitionsTo('s2', 't', Void)
-            .state('s2')
+            .state('s1', { s -> s.transitionsTo('s2', 't', Void, {}) })
+            .state('s2', {})
         def sm = smd.build()
 
         when:
@@ -68,9 +67,8 @@ class TransitionImplVoidContextSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1').transitionsTo('s2', 't')
-            .state('s2')
-        smd.getTransition('t').usingContext(ctx)
+            .state('s1', { s -> s.transitionsTo('s2', 't', { t -> t.usingContext(ctx) }) })
+            .state('s2', {})
         return smd
     }
 }

@@ -21,9 +21,12 @@ package org.transflux.core.state;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.transflux.core.Identifiable;
-import org.transflux.core.StateMachine;
 import org.transflux.core.StateMachineDefImpl;
 import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.transition.TransitionDef;
+import org.transflux.core.transition.TransitionDefImpl;
+
+import java.util.function.Consumer;
 
 import static org.transflux.core.ValidationUtils.requireNotBlank;
 import static org.transflux.core.ValidationUtils.requireNotNull;
@@ -42,6 +45,8 @@ public class StateDefImpl<T> implements StateDef<T> {
     private String description;
 
     private final StateMachineDefImpl<T> stateMachineDef;
+
+    private boolean configurerActive;
 
     public StateDefImpl(StateMachineDefImpl<T> smd, String id) {
         requireNotNull(smd, "State machine definition");
@@ -62,6 +67,7 @@ public class StateDefImpl<T> implements StateDef<T> {
 
     @Override
     public StateDefImpl<T> withName(String name) {
+        requireConfigurerActive("withName");
         warnIfSet(this.name, name, "Name", log);
         this.name = name;
         return this;
@@ -69,46 +75,89 @@ public class StateDefImpl<T> implements StateDef<T> {
 
     @Override
     public StateDefImpl<T> withDescription(String description) {
+        requireConfigurerActive("withDescription");
         warnIfSet(this.description, description, "Description", log);
         this.description = description;
         return this;
     }
 
     @Override
-    public StateDefImpl<T> transitionsTo(String targetStateId, String transitionId) {
-        stateMachineDef.registerTransition(id, targetStateId, transitionId, null);
+    public StateDefImpl<T> transitionsTo(String targetStateId, String transitionId,
+                                         Consumer<TransitionDef<T, Object>> configurer) {
+        requireConfigurerActive("transitionsTo");
+        requireNotBlank(targetStateId, "Target state ID");
+        requireNotBlank(transitionId, "Transition ID");
+        requireNotNull(configurer, "Transition configurer");
+        TransitionDefImpl<T, Object> td = stateMachineDef.<Object>registerTransition(
+            id, targetStateId, transitionId, Object.class);
+        runTransitionConfigurer(td, configurer);
         return this;
     }
 
     @Override
-    public StateDefImpl<T> transitionsTo(String targetStateId, String transitionId, Class<?> contextType) {
+    public <C> StateDefImpl<T> transitionsTo(String targetStateId, String transitionId,
+                                             Class<C> contextType,
+                                             Consumer<TransitionDef<T, C>> configurer) {
+        requireConfigurerActive("transitionsTo");
+        requireNotBlank(targetStateId, "Target state ID");
+        requireNotBlank(transitionId, "Transition ID");
         requireNotNull(contextType, "Context type");
-        stateMachineDef.registerTransition(id, targetStateId, transitionId, contextType);
+        requireNotNull(configurer, "Transition configurer");
+        TransitionDefImpl<T, C> td = stateMachineDef.registerTransition(
+            id, targetStateId, transitionId, contextType);
+        runTransitionConfigurer(td, configurer);
         return this;
     }
 
     @Override
-    public StateDefImpl<T> transitionsTo(Identifiable targetStateIdentifiable, String transitionId) {
+    public StateDefImpl<T> transitionsTo(Identifiable targetStateIdentifiable, String transitionId,
+                                         Consumer<TransitionDef<T, Object>> configurer) {
         requireNotNull(targetStateIdentifiable, "Target state identifiable");
-
-        return transitionsTo(targetStateIdentifiable.getId(), transitionId);
+        return transitionsTo(targetStateIdentifiable.getId(), transitionId, configurer);
     }
 
     @Override
-    public StateDef<T> state(String stateId) {
-        return stateMachineDef.state(stateId);
+    public <C> StateDefImpl<T> transitionsTo(Identifiable targetStateIdentifiable, String transitionId,
+                                             Class<C> contextType,
+                                             Consumer<TransitionDef<T, C>> configurer) {
+        requireNotNull(targetStateIdentifiable, "Target state identifiable");
+        return transitionsTo(targetStateIdentifiable.getId(), transitionId, contextType, configurer);
+    }
+
+    private static <T, C> void runTransitionConfigurer(TransitionDefImpl<T, C> td,
+                                                       Consumer<TransitionDef<T, C>> configurer) {
+        td.beginConfigurer();
+        try {
+            configurer.accept(td);
+        } finally {
+            td.endConfigurer();
+        }
+    }
+
+    /**
+     * Marks this def as actively under construction by its configurer lambda. Package-private
+     * — the enclosing {@code StateMachineDefImpl} flips this around the configurer invocation.
+     */
+    public void beginConfigurer() {
+        this.configurerActive = true;
+    }
+
+    /**
+     * Clears the configurer-active flag once the lambda returns.
+     */
+    public void endConfigurer() {
+        this.configurerActive = false;
+    }
+
+    private void requireConfigurerActive(String operation) {
+        if (!configurerActive) {
+            throw new TransfluxValidationException(
+                "Cannot call '" + operation + "' on state '" + id + "' after its configurer has returned. "
+                    + "The StateDef reference is inert; declare children inside the configurer lambda.");
+        }
     }
 
     @Override
-    public StateDef<T> state(Identifiable stateIdentifiable) {
-        return stateMachineDef.state(stateIdentifiable);
-    }
-
-    @Override
-    public StateMachine<T> build() {
-        return stateMachineDef.build();
-    }
-
     public String getId() {
         return id;
     }

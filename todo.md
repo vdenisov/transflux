@@ -235,29 +235,29 @@ Every by-id member accepts the same five forms:
 *Target: Lambda-configurer becomes the single declaration shape for every Def that owns children. The chained-return form on `StateDef` / `TransitionDef` is removed outright — it is inconsistent with every other Def and is the source of scope-leak bugs where a caller accidentally attaches a child to the wrong parent. The API is still pre-1.0; this is a breaking change to early users.*
 
 ### 2.6.1 `StateDef` lambda-configurer (replaces the chained form)
-- [ ] Add `StateMachineDef.state(String id, Consumer<StateDef<T>> configurer)` and the `Identifiable` overload, mirroring `compositeOperation(id, configurer)` / `conditional(id, configurer)` / `simpleOperation(id, configurer)` / `branch(id, configurer)`.
-- [ ] **Remove the chained `StateMachineDef.state(String id)` form** that returns a free-floating `StateDef<T>`. The state-id-only registration is replaced by `state(id, s -> {})` for the truly empty case; the no-arg form does not pull its weight once the configurer exists.
-- [ ] `StateDef`'s public surface no longer exposes anything callable *after* the configurer returns: the impl tracks "configurer in flight" and rejects post-return mutation calls with a clear error (see §2.6.3). The closed-over reference becomes inert.
+- [x] Add `StateMachineDef.state(String id, Consumer<StateDef<T>> configurer)` and the `Identifiable` overload, mirroring `compositeOperation(id, configurer)` / `conditional(id, configurer)` / `simpleOperation(id, configurer)` / `branch(id, configurer)`.
+- [x] **Remove the chained `StateMachineDef.state(String id)` form** that returns a free-floating `StateDef<T>`. The state-id-only registration is replaced by `state(id, s -> {})` for the truly empty case; the no-arg form does not pull its weight once the configurer exists.
+- [x] `StateDef`'s public surface no longer exposes anything callable *after* the configurer returns: the impl tracks "configurer in flight" and rejects post-return mutation calls with a clear error (see §2.6.3). The closed-over reference becomes inert.
 
 ### 2.6.2 `TransitionDef` lambda-configurer (replaces the chained form)
-- [ ] `StateDef.transitionsTo(String target, String id, Consumer<TransitionDef<T, ?>> configurer)` — pass-through context.
-- [ ] `<C> StateDef.transitionsTo(String target, String id, Class<C> contextType, Consumer<TransitionDef<T, C>> configurer)` — typed-context form.
-- [ ] **Remove all existing `StateDef.transitionsTo(...)` overloads that return a chainable `TransitionDef`.** Every transition declaration goes through a configurer. The bare-target `transitionsTo(target, id)` registration is replaced by `transitionsTo(target, id, t -> {})` for the empty case.
-- [ ] Configurer surface mirrors what the chained `TransitionDef` API exposed (operations, conditions, future triggers/listeners). Post-configurer mutation is rejected by the same scope guard as §2.6.1.
+- [x] `StateDef.transitionsTo(String target, String id, Consumer<TransitionDef<T, ?>> configurer)` — pass-through context.
+- [x] `<C> StateDef.transitionsTo(String target, String id, Class<C> contextType, Consumer<TransitionDef<T, C>> configurer)` — typed-context form.
+- [x] **Remove all existing `StateDef.transitionsTo(...)` overloads that return a chainable `TransitionDef`.** Every transition declaration goes through a configurer. The bare-target `transitionsTo(target, id)` registration is replaced by `transitionsTo(target, id, t -> {})` for the empty case.
+- [x] Configurer surface mirrors what the chained `TransitionDef` API exposed (operations, conditions, future triggers/listeners). Post-configurer mutation is rejected by the same scope guard as §2.6.1.
 
 ### 2.6.3 Scope guard (mandatory, not optional)
-- [ ] `StateDefImpl` and `TransitionDefImpl` track a `configurerActive` flag set on entry to the configurer and cleared on return. Every public mutating method (`transitionsTo`, `simpleOperation`, `compositeOperation`, `preCondition`, `postCondition`, `withName`, `withDescription`, future trigger/listener attachments) asserts the flag is set, throwing `TransfluxValidationException` with a message naming the offending def id when it isn't.
-- [ ] The reentrant case (a configurer that calls `transitionsTo(target, id, t -> ...)`, which sets `configurerActive` on the new `TransitionDef`) is fine — guards are per-def, not global.
+- [x] `StateDefImpl` and `TransitionDefImpl` track a `configurerActive` flag set on entry to the configurer and cleared on return. Every public mutating method (`transitionsTo`, `simpleOperation`, `compositeOperation`, `preCondition`, `postCondition`, `withName`, `withDescription`, future trigger/listener attachments) asserts the flag is set, throwing `TransfluxValidationException` with a message naming the offending def id when it isn't.
+- [x] The reentrant case (a configurer that calls `transitionsTo(target, id, t -> ...)`, which sets `configurerActive` on the new `TransitionDef`) is fine — guards are per-def, not global.
 
 ### 2.6.4 Rename `useContext` → `forContext`
-- [ ] Rename `StateMachineDef.useContext(Class<C>, Consumer<ContextScope<T, C>>)` to `forContext(...)`. Rationale: the `for/using` split is the semantic split — `forContext(C, scope -> ...)` is a **grouping** block ("for context C, register these"), whereas `usingContext(C)` on `TransitionDef` / `CompositeOperationDef` is a **property setter** ("this transition uses context C"). `useContext` blurred the boundary; `forContext` aligns the verb to the action.
-- [ ] Receiver type stays `ContextScope<T, C>` — the method *opens* a scope; the value handed to the configurer *is* a scope. Asymmetric naming is the same shape `compositeOperation(id, c -> ...)` already uses.
-- [ ] Internal helper names: `ContextScopeImpl` unchanged. `StateMachineDefImpl.useContext(...)` becomes `forContext(...)`.
-- [ ] Migrate every spec and every doc snippet from `useContext` → `forContext`. Spec rename: `UseContextScopingSpec` → `ForContextScopingSpec`.
+- [x] Rename `StateMachineDef.useContext(Class<C>, Consumer<ContextScope<T, C>>)` to `forContext(...)`. Rationale: the `for/using` split is the semantic split — `forContext(C, scope -> ...)` is a **grouping** block ("for context C, register these"), whereas `usingContext(C)` on `TransitionDef` / `CompositeOperationDef` is a **property setter** ("this transition uses context C"). `useContext` blurred the boundary; `forContext` aligns the verb to the action.
+- [x] Receiver type stays `ContextScope<T, C>` — the method *opens* a scope; the value handed to the configurer *is* a scope. Asymmetric naming is the same shape `compositeOperation(id, c -> ...)` already uses.
+- [x] Internal helper names: `ContextScopeImpl` unchanged. `StateMachineDefImpl.useContext(...)` becomes `forContext(...)`.
+- [x] Migrate every spec and every doc snippet from `useContext` → `forContext`. Spec rename: `UseContextScopingSpec` → `ForContextScopingSpec`.
 
 ### 2.6.5 Flat-shorthand policy (explicit decision, not a task)
 - The flat `smd.step(...)` / `smd.condition(...)` / `smd.operation(...)` / `smd.mapper(...)` overloads **stay** alongside `forContext(...)` blocks. Rationale: when a state machine registers a single one-off component, the flat form is meaningfully more compact than wrapping it in a one-line block. The typed flat overloads (`smd.step(id, Class<C>, Step<T, C>)`) already carry the context tag inline. `forContext(...)` is the right shape for *groups* of components sharing a context; the flat form is the right shape for *one-offs*. Both forms populate the same registry; they are stylistic, not semantic, alternatives.
-- [ ] Document the decision in `CLAUDE.md` ("DSL Shape" note) and in the user guide so the choice between forms is unambiguous to readers.
+- [x] Document the decision in `CLAUDE.md` ("DSL Shape" note) and in the user guide so the choice between forms is unambiguous to readers.
 
 ### 2.6.6 Multi-level `Registry` (composite-local scoping + Phase 6.2 seam)
 *Originally Step 3b of the Phase 2.5 plan. Pulled into 2.6 because it lands a final piece of DSL-shape consistency (component resolution semantics) and prepares the Phase 6.2 process-wide registry seam.*
@@ -345,6 +345,81 @@ Every by-id member accepts the same five forms:
   - Edge cases: `Void`-context transition, mid-flow context narrowing, multi-level registry resolution order (composite-local → enclosing → SM root).
 - [ ] Walk the example with the user, identify awkward DSL spots, fix the implementation, re-walk until clean.
 - [ ] Roll any polish fixes (spec coverage gaps, JavaDoc for new public types like `Registry`, `ContextScope`) into the 2.6 commit. The scratch doc itself is not committed.
+
+### 2.6.11 Def-hierarchy consolidation (dedupe + polymorphism)
+*Lands after 2.6.1–2.6.10. The current shape has the lambda-configurer DSL settled but the impl classes carry repeated `id` + `name` + `description` + `withName`/`withDescription` boilerplate across ~7 classes, the scope-guard triad is duplicated verbatim across `StateDefImpl` and `TransitionDefImpl`, and several places dispatch over sealed types with `instanceof` chains instead of polymorphic methods. Forward-looking benefit: Phase 3 trigger/listener defs inherit the metadata + scope-guard machinery for free.*
+
+*Records stay records.* The three sealed-record families (`MapperRef`, `ConditionDescriptor`, `ActionRef`) do not share state across variants and lose nothing by keeping their `equals` / `hashCode` / `toString` for free. Polymorphism for those is added via abstract methods on the sealed interface, not by switching to classes.
+
+*Guard unification uses class inheritance, not composition.* `ConfigurableDefImpl` (see 2.6.11b) is an abstract base; subclasses extend it. Composition with a `ConfigurerGuard` field was considered and rejected because the existing sealed `OperationDefImpl` already imposes an abstract layer, and the other six targets (`StateDefImpl`, `TransitionDefImpl`, `ConditionalStepDefImpl`, `BranchDefImpl`, `DefaultBranchDefImpl`, `ContextScopeImpl`) extend nothing today — inheritance gives the cleanest call sites without forcing per-def delegating boilerplate.
+
+#### 2.6.11a — `IdentifiedDefImpl` base for the `*DefImpl` family
+- [ ] Introduce `org.transflux.core.IdentifiedDefImpl<SELF>` (or similar) holding `id` + `name` + `description`, validating `id` in the constructor, and exposing `withName(String)` / `withDescription(String)` with `warnIfSet` logging. Subclass exposes covariant return via the `SELF` generic or a `protected SELF self()` hook.
+- [ ] Migrate to extend the new base: `StateDefImpl`, `TransitionDefImpl`, `MapperDefImpl`, `StepDefImpl`, `BranchDefImpl`, `ConditionalStepDefImpl`. `OperationDefImpl` (already sealed abstract over `SimpleOperationDefImpl` / `CompositeOperationDefImpl`) folds into the same shape.
+- [ ] The protected hook for the log message ("state '$id'", "transition '$id'", etc.) lives on the base via an abstract `defKind()` returning `"state"` / `"transition"` / etc.
+
+#### 2.6.11b — `ConfigurableDefImpl extends IdentifiedDefImpl` for scope-guarded defs
+- [ ] Introduce `ConfigurableDefImpl extends IdentifiedDefImpl` with a `private boolean configurerActive` field.
+- [ ] `public void beginConfigurer()` and `public void endConfigurer()` on the base — kept `public` rather than package-private because cross-package callers exist (`StateMachineDefImpl` in `core` calls `StateDefImpl` in `core.state`; `StateDefImpl` calls `TransitionDefImpl` in `core.transition`). Mark both as framework-internal in JavaDoc per the existing cross-package-visibility convention in `CLAUDE.md` ("user code should not invoke it directly").
+- [ ] `protected final void requireConfigurerActive(String operation)` reads the flag, uses the inherited `defKind()` from `IdentifiedDefImpl` to build the error message, and throws `TransfluxValidationException`. Subclasses call it directly from each mutator (no override needed).
+- [ ] Migrate `StateDefImpl` and `TransitionDefImpl` to extend it. Both keep their per-method `requireConfigurerActive("methodName")` calls — only the field and the helper move.
+- [ ] Add a static helper on `ConfigurableDefImpl`:
+
+  ```java
+  public static <D extends ConfigurableDefImpl<?>> void runConfigurer(D child, Consumer<? super D> configurer) {
+      child.beginConfigurer();
+      try { configurer.accept(child); } finally { child.endConfigurer(); }
+  }
+  ```
+
+  The `Consumer<? super D>` bound matches existing call-site conventions and avoids a wildcard-capture wrinkle at the typed-context overloads.
+- [ ] Migrate every existing open-coded begin/try/finally site to `runConfigurer(...)`. Today the sites are:
+  - `StateMachineDefImpl.state(String, Consumer<StateDef<T>>)` and the `Identifiable` overload
+  - `StateDefImpl.transitionsTo(...)` — all four configurer overloads
+
+  §2.6.12 introduces additional call sites (composite, conditional, branch, forContext); those use the same helper.
+- [ ] Document the expected shape in the "DSL Shape" note in `CLAUDE.md` so Phase 3 `TriggerDefImpl` / `ListenerDefImpl` follow it.
+
+#### 2.6.11c — Polymorphic dispatch over sealed types (kill instanceof chains)
+- [ ] `OperationDefImpl.buildBound(StateMachineImpl<T>)` — abstract method on the sealed base, with `SimpleOperationDefImpl` and `CompositeOperationDefImpl` overrides. Removes the 2-arm `instanceof` chain at `transition/TransitionDefImpl.java:194-202`.
+- [ ] `ConditionDescriptor.resolve(registry, path)` — abstract method on the sealed `ConditionDescriptor`, each of the five record variants implements it. Flattens the 5-arm chain at `condition/ConditionResolver.java:74-92`. `ConditionResolver.resolve` becomes a thin dispatch to `descriptor.resolve(...)`.
+- [ ] `MapperRef.validateAgainst(scopeContext, scopeLabel, kind, memberId, componentContext, mapperRegistry)` — abstract method on `MapperRef`. Each variant (`PassThrough`, `ById`, `InlineFunction`, `InlineMapper`) knows how to validate itself. Flattens `StateMachineDefImpl.checkMemberRef` (lines ~825-855).
+- [ ] `MapperRef.resolve(stateMachine)` returning `ResolvedContextMapping` — same pattern. Flattens the 4-arm chain at `operation/CompositeOperationDefImpl.java:388-410`.
+
+#### 2.6.11d — `ActionRef.collectInlineRegistrations(SmRegistry sink)` (optional, bigger)
+- [ ] Define a small `SmRegistry` (or reuse `StateMachineDefImpl`'s existing scoped-registration methods) as the visitor sink.
+- [ ] Add polymorphic `collectInlineRegistrations(...)` to each `ActionRef` variant: by-id variants no-op, inline-instance/class variants push themselves to the sink, `Conditional` recurses into its `BranchDef`s.
+- [ ] Replace `CompositeOperationDefImpl.getInlineStepInstances()` / `getInlineStepClasses()` / `getInlineOperationInstances()` / `getInlineOperationClasses()` accessors and `StateMachineDefImpl.walkCompositeForInlineMembers` (lines ~280-320) with a single `composite.collectInlineRegistrations(sink)` walk. Eliminates the parallel-maps reconstruction.
+- [ ] Defer this sub-item if 2.6.11a-c run long — the win is real but the surface is larger than the other three combined.
+
+#### 2.6.11e — Spec coverage
+- [ ] `IdentifiedDefImplSpec` — parameterized over each concrete subclass: validates id-in-constructor, `withName` / `withDescription` round-trip, override-warning behavior.
+- [ ] `ConfigurableDefImplSpec` — guard semantics tested against a minimal concrete subclass, plus regression covering both real users (`StateDefImpl` and `TransitionDefImpl`) via the migrated existing specs.
+- [ ] Existing specs (`ConditionResolverSpec`, `CompositeOperationDefImplSpec`, etc.) keep their black-box assertions — the refactor is internal.
+
+### 2.6.12 Broaden scope guard to every configurer-exposed def
+*Lands after 2.6.11b (the `ConfigurableDefImpl` base). Behavioral change: every Def passed to a user lambda rejects post-return mutation, not just `StateDef` / `TransitionDef`. Same bug shape — capture the def, mutate it after the configurer returns, silent scope leak — extended consistently. Kept separate from 2.6.11 because 2.6.11 is internal refactor with no behavior change; this step adds new runtime checks that user code can hit.*
+
+#### Defs to extend
+- [ ] `CompositeOperationDefImpl` — extend `ConfigurableDefImpl`, guard all mutators (`step(...)`, `operation(...)`, `conditional(...)`, `usingContext(...)`, `withName`/`withDescription`). Hosts: `TransitionDef.compositeOperation(id, c -> ...)` and `StateMachineDef.compositeOperation(id, Class<C>, c -> ...)`.
+- [ ] `SimpleOperationDefImpl` — guard `using(...)`, `withName`/`withDescription`. Host: `TransitionDef.simpleOperation(id, op -> ...)`.
+- [ ] `ConditionalStepDefImpl` — guard `branch(...)`, `defaultBranch(...)`, `onNoMatch(...)`, `withName`/`withDescription`. Host: `CompositeOperationDef.conditional(id, cs -> ...)`.
+- [ ] `BranchDefImpl` — guard `condition(...)` (all overloads), `conditionExpression(...)`, `step(...)` (all overloads). Host: `ConditionalStepDef.branch(id, b -> ...)`.
+- [ ] `DefaultBranchDefImpl` — guard `step(...)`. Host: `ConditionalStepDef.defaultBranch(d -> ...)`.
+- [ ] `ContextScopeImpl` — guard `step(...)`, `condition(...)`, `compositeOperation(...)`, `operation(...)`, `mapper(...)`. Host: `StateMachineDef.forContext(Class<C>, scope -> ...)`. The scope is a tagged pass-through to the SM, but capturing it and registering post-return would silently land registrations under a stale context tag — exactly the leak the guard is meant to catch.
+
+#### Configurer-runner call sites
+- [ ] Every parent that currently invokes one of the above's configurer (e.g. `TransitionDefImpl.compositeOperation`, `CompositeOperationDefImpl.conditional`, `ConditionalStepDefImpl.branch`, `StateMachineDefImpl.forContext`) must wrap the lambda invocation with the `runConfigurer(child, configurer)` helper introduced in 2.6.11b. Existing open-coded `configurer.accept(def)` calls migrate to `runConfigurer(def, configurer)`.
+
+#### Defs that stay un-guarded
+- `MapperDefImpl` and `StepDefImpl` — built via fluent SM-level registration calls, not exposed to a user lambda. No leak vector.
+
+#### Spec coverage
+- [ ] Per-def "post-return mutation throws" regression spec — one parameterized spec covering every newly guarded def, mirroring the shape used for `StateDef` / `TransitionDef` (capture the def, return from the configurer, attempt a mutator call, assert `TransfluxValidationException` with a message naming the def id).
+- [ ] Audit existing specs that construct these defs directly (e.g. `CompositeOperationDefImplSpec`, `ConditionalStepDefImplSpec`, `SimpleOperationDefImplSpec`) — those tests will need to call `beginConfigurer()` after construction, same pattern as the `StateDefImplSpec` / `TransitionDefImplSpec` migration in 2.6.7.
+
+#### Documentation
+- [ ] Update the "DSL Shape" note in `CLAUDE.md`: the post-configurer-rejection rule applies to *every* Def passed to a user lambda, not just `StateDef` / `TransitionDef`. List the guarded set explicitly so Phase 3 contributors know the expected default for new defs (triggers, listeners) is also "guarded".
 
 ---
 
