@@ -20,8 +20,8 @@ package org.transflux.core.impl;
 
 import org.transflux.core.operation.*;
 
-import org.transflux.core.Component;
-import org.transflux.core.Registry;
+import org.transflux.core.impl.Component;
+import org.transflux.core.impl.Registry;
 import org.transflux.core.impl.StateMachineImpl;
 import org.transflux.core.exception.TransfluxValidationException;
 

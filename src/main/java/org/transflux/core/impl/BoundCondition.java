@@ -34,7 +34,7 @@ import static org.transflux.core.impl.ValidationUtils.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-public record BoundCondition<T, C>(String id, Condition<T, C> condition) {
+record BoundCondition<T, C>(String id, Condition<T, C> condition) {
 
     public BoundCondition {
         requireNotBlank(id, "Bound condition ID");

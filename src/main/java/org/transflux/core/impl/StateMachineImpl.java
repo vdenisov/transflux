@@ -30,7 +30,7 @@ import org.transflux.core.impl.BoundOperation;
 import org.transflux.core.impl.BoundStep;
 import org.transflux.core.operation.Compensation;
 import org.transflux.core.operation.Step;
-import org.transflux.core.impl.StepPath;
+import org.transflux.core.transition.StepPath;
 import org.transflux.core.state.State;
 import org.transflux.core.state.StateApplier;
 import org.transflux.core.impl.StateDefImpl;

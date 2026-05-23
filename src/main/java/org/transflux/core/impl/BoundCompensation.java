@@ -19,6 +19,7 @@
 package org.transflux.core.impl;
 
 import org.transflux.core.operation.*;
+import org.transflux.core.transition.StepPath;
 
 import static org.transflux.core.impl.ValidationUtils.requireNotNull;
 

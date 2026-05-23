@@ -21,7 +21,7 @@ package org.transflux.core.impl;
 import org.transflux.core.operation.*;
 
 import org.springframework.lang.NonNull;
-import org.transflux.core.Registry;
+import org.transflux.core.impl.Registry;
 import org.transflux.core.impl.RegistryImpl;
 import org.transflux.core.impl.StateMachineDefImpl;
 import org.transflux.core.impl.StateMachineImpl;

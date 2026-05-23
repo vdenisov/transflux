@@ -16,7 +16,7 @@
  *
  */
 
-package org.transflux.core;
+package org.transflux.core.impl;
 
 import java.util.Optional;
 import java.util.Set;
@@ -42,7 +42,7 @@ import java.util.Set;
  *
  * @param <T> the entity type the surrounding state machine manages
  */
-public interface Registry<T> {
+interface Registry<T> {
 
     /**
      * Returns the component registered under {@code id} in this registry only — no

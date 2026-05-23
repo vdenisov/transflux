@@ -20,8 +20,8 @@ package org.transflux.core.impl;
 
 import org.transflux.core.transition.*;
 
-import org.transflux.core.Component;
-import org.transflux.core.Registry;
+import org.transflux.core.impl.Component;
+import org.transflux.core.impl.Registry;
 import org.transflux.core.impl.StateMachineDefImpl;
 import org.transflux.core.impl.StateMachineImpl;
 import org.transflux.core.exception.TransfluxValidationException;
@@ -33,7 +33,7 @@ import org.transflux.core.operation.ContextMapper;
 import org.transflux.core.operation.MapperDef;
 import org.transflux.core.impl.MapperDefImpl;
 import org.transflux.core.operation.Operation;
-import org.transflux.core.impl.StepPath;
+import org.transflux.core.transition.StepPath;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;

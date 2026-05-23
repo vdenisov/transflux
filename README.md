@@ -23,13 +23,13 @@ The project is in active design and the public API is unstable. **No releases ar
 - Coverage report: `target/site/jacoco/index.html`
 
 ## Package Structure
-- `org.transflux.core` — entry point (`Transflux`), `StateMachine` / `StateMachineDef`, the `Registry` / `Component` / `ContextScope` types, and the `Identifiable` marker.
+- `org.transflux.core` — entry point (`Transflux`), `StateMachine` / `StateMachineDef`, `ContextScope`, and the `Identifiable` marker.
 - `org.transflux.core.state` — `State`, `StateDef`, and the host-supplied `StateResolver` / `StateApplier` bridges.
-- `org.transflux.core.transition` — `Transition`, `TransitionDef`, and `TransitionResult`.
+- `org.transflux.core.transition` — `Transition`, `TransitionDef`, `TransitionResult`, and `StepPath` (the qualified-id value carrier in `TransitionResult.executedStepIds` / `compensatedStepIds`).
 - `org.transflux.core.operation` — `Operation`, `Step`, `Compensation`, `ContextMapper`, and their def-side types (`SimpleOperationDef` / `CompositeOperationDef` / `StepDef` / `MapperDef` / `ConditionalStepDef` / `BranchDef` / `DefaultBranchDef` / `NoMatchBehavior`).
 - `org.transflux.core.condition` — `Condition` and `ConditionDescriptor`.
 - `org.transflux.core.exception` — `TransfluxException` and its subclasses.
-- `org.transflux.core.impl` — framework-internal implementations: every `*Impl`, the bound-record / action-ref / mapper-ref infrastructure, the SpEL evaluation utilities (`ConditionResolver`, `SpelConditionEvaluator`, `ExpressionIdDerivation`), the runtime-internal `TransitionView`, and the shared utilities (`ValidationUtils`, `ThrowingUtils`, `ReflectionUtils`). User code should not depend on this package directly.
+- `org.transflux.core.impl` — framework-internal implementations: every `*Impl`, the `Registry` / `Component` lookup machinery, the bound-record / action-ref / mapper-ref infrastructure, the SpEL evaluation utilities (`ConditionResolver`, `SpelConditionEvaluator`, `ExpressionIdDerivation`), the runtime-internal `TransitionView`, and the shared utilities (`ValidationUtils`, `ThrowingUtils`, `ReflectionUtils`). User code should not depend on this package directly.
 
 ## Contributing and Workflow
 - Default branch: `main`.

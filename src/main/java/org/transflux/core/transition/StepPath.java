@@ -16,7 +16,7 @@
  *
  */
 
-package org.transflux.core.impl;
+package org.transflux.core.transition;
 
 import org.transflux.core.operation.*;
 

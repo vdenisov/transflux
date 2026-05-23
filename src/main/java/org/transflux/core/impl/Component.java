@@ -16,7 +16,7 @@
  *
  */
 
-package org.transflux.core;
+package org.transflux.core.impl;
 
 import org.transflux.core.impl.BoundCondition;
 import org.transflux.core.impl.BoundOperation;
@@ -39,7 +39,7 @@ import org.transflux.core.impl.BoundStep;
  *
  * @param <T> the entity type the surrounding state machine manages
  */
-public sealed interface Component<T> permits Component.Step, Component.Operation, Component.Condition {
+sealed interface Component<T> permits Component.Step, Component.Operation, Component.Condition {
 
     /**
      * Returns the framework-owned id of this component.

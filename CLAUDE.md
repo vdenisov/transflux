@@ -20,13 +20,13 @@ Transflux is a lightweight, embeddable microflow orchestration library (Java). I
 ## Architecture
 
 The core domain is split into a public API surface (six semantic subpackages) and a sibling implementation package:
-- `core` — `Transflux` entry point, the `StateMachine` / `StateMachineDef` interfaces, the `Registry` / `Component` / `ContextScope` types, and the `Identifiable` marker.
+- `core` — `Transflux` entry point, the `StateMachine` / `StateMachineDef` interfaces, `ContextScope`, and the `Identifiable` marker.
 - `core.state` — `State` / `StateDef` and the host-supplied `StateResolver` / `StateApplier`.
-- `core.transition` — `Transition` / `TransitionDef` and `TransitionResult`.
+- `core.transition` — `Transition` / `TransitionDef`, `TransitionResult`, and `StepPath` (qualified-id carrier exposed on `TransitionResult.executedStepIds` / `compensatedStepIds`).
 - `core.operation` — `Operation`, `Step`, `Compensation`, `ContextMapper`, and the `OperationDef` family (`SimpleOperationDef`, `CompositeOperationDef`, `ConditionalStepDef` and the per-branch sub-builders), `StepDef`, `MapperDef`, `BranchDef`, `DefaultBranchDef`, `NoMatchBehavior`.
 - `core.condition` — `Condition` and `ConditionDescriptor` (five-form sealed grammar: Reference, InstanceBased, ClassBased, PredicateBased, ExpressionBased).
 - `core.exception` — `TransfluxException` and its subclasses.
-- `core.impl` — framework-internal implementations: every `*Impl` (`StateMachineImpl`, `StateMachineDefImpl`, `StateImpl`, `StateDefImpl`, `TransitionImpl`, `TransitionDefImpl`, `OperationDefImpl` family, `StepDefImpl`, `ConditionalStepDefImpl`, `BranchDefImpl`, `DefaultBranchDefImpl`, `MapperDefImpl`, `RegistryImpl`, `ContextScopeImpl`), the bound-record / action-ref / mapper-ref infrastructure (`BoundAction`, `BoundStep`, `BoundOperation`, `BoundCompensation`, `BoundCondition`, `ActionRef`, `MapperRef`, `ResolvedContextMapping`, `ResolvedBranch`, `StepPath`), the SpEL evaluation utilities (`ConditionResolver`, `SpelConditionEvaluator`, `ExpressionIdDerivation`), the runtime-internal `TransitionView`, and the shared utilities (`ValidationUtils`, `ThrowingUtils`, `ReflectionUtils`). User code should not depend on this package directly.
+- `core.impl` — framework-internal implementations: every `*Impl` (`StateMachineImpl`, `StateMachineDefImpl`, `StateImpl`, `StateDefImpl`, `TransitionImpl`, `TransitionDefImpl`, `OperationDefImpl` family, `StepDefImpl`, `ConditionalStepDefImpl`, `BranchDefImpl`, `DefaultBranchDefImpl`, `MapperDefImpl`, `RegistryImpl`, `ContextScopeImpl`), the lookup machinery (`Registry`, `Component`), the bound-record / action-ref / mapper-ref infrastructure (`BoundAction`, `BoundStep`, `BoundOperation`, `BoundCompensation`, `BoundCondition`, `ActionRef`, `MapperRef`, `ResolvedContextMapping`, `ResolvedBranch`), the SpEL evaluation utilities (`ConditionResolver`, `SpelConditionEvaluator`, `ExpressionIdDerivation`), the runtime-internal `TransitionView`, and the shared utilities (`ValidationUtils`, `ThrowingUtils`, `ReflectionUtils`). User code should not depend on this package directly.
 
 **Definition vs. runtime split** — every concept has paired types:
 - `*Def` interfaces + `*DefImpl` classes — fluent builders that capture configuration (states, transitions, operations).
