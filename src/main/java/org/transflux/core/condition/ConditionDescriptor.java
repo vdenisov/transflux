@@ -33,7 +33,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * Reference, class, and predicate forms require an explicit non-blank id. The expression
  * form allows an optional id; when omitted, the id is auto-derived from the expression text
  * and the descriptor's position within the enclosing state machine (see
- * {@link ExpressionIdDerivation}).
+ * {@code ExpressionIdDerivation}).
  */
 public sealed interface ConditionDescriptor
     permits ConditionDescriptor.Reference,

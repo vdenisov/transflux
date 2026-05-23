@@ -276,10 +276,10 @@ Every by-id member accepts the same five forms:
 Once async branches land, the per-execution `TransitionView` state — context-override stack, active-scope stack, executed-step-ids list, compensation stack — must be branched per async branch rather than shared. The `Registry` itself is read-only after `flatten()` and is safe for concurrent reads; the threading risk lives on the view, not on the registry. Track this with the rest of the async work (Phase 4).
 
 ### 2.6.7 Migration & Spec Updates
-- [ ] Walk every Spock spec under `src/test/groovy`; rewrite chained `smd.state("a").transitionsTo("b", "t1").state("b")...` patterns into the lambda form. No backward-compatibility shims — the chained API is gone.
-- [ ] `StateDefImplSpec`, `StateDefImplTransitionsToContextSpec`, `StateMachineDefImplSpec`, `TransitionDefImplSpec`, `TransitionDefImplConditionsSpec`, `UseContextScopingSpec` → `ForContextScopingSpec`, etc. — all need their fixture setup updated. Audit `StateMachineDefImpl#baseDef`-style helpers across the test tree.
-- [ ] New `StateDefImplLambdaConfigurerSpec` — configurer wires transitions correctly; post-return mutation throws; nested `transitionsTo(target, id, t -> ...)` configurer guards work; reentrant guard fires on attempted misuse.
-- [ ] New `TransitionDefImplLambdaConfigurerSpec` — typed and untyped context overloads; configurer-surface parity with what the chained form exposed; post-return mutation rejected.
+- [x] Walk every Spock spec under `src/test/groovy`; rewrite chained `smd.state("a").transitionsTo("b", "t1").state("b")...` patterns into the lambda form. No backward-compatibility shims — the chained API is gone.
+- [x] `StateDefImplSpec`, `StateDefImplTransitionsToContextSpec`, `StateMachineDefImplSpec`, `TransitionDefImplSpec`, `TransitionDefImplConditionsSpec`, `UseContextScopingSpec` → `ForContextScopingSpec`, etc. — all need their fixture setup updated. Audit `StateMachineDefImpl#baseDef`-style helpers across the test tree.
+- [x] New `StateDefImplLambdaConfigurerSpec` — configurer wires transitions correctly; post-return mutation throws; nested `transitionsTo(target, id, t -> ...)` configurer guards work; reentrant guard fires on attempted misuse.
+- [x] New `TransitionDefImplLambdaConfigurerSpec` — typed and untyped context overloads; configurer-surface parity with what the chained form exposed; post-return mutation rejected.
 
 ### 2.6.8 Documentation Alignment
 - [ ] `requirements.md` — replace every chained-form example with the lambda-configurer form; rename every `useContext` reference to `forContext`. The chained form is not mentioned (it never existed in the 1.0 contract).
