@@ -20,6 +20,7 @@ package org.transflux.core.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.transflux.core.Identifiable;
 import org.transflux.core.StateMachine;
 import org.transflux.core.exception.TransfluxReentrancyException;
 import org.transflux.core.exception.TransfluxValidationException;
@@ -215,8 +216,33 @@ class StateMachineImpl<T> implements StateMachine<T> {
     }
 
     @Override
+    public TransitionResult<T> executeTransition(T entity, Identifiable targetState) {
+        requireNotNull(targetState, "Target state identifiable");
+        return executeTransition(entity, targetState.getId());
+    }
+
+    @Override
     public TransitionResult<T> executeTransition(T entity, String targetStateId, String transitionId) {
         return entity(entity).transitionTo(targetStateId, transitionId);
+    }
+
+    @Override
+    public TransitionResult<T> executeTransition(T entity, Identifiable targetState, Identifiable transition) {
+        requireNotNull(targetState, "Target state identifiable");
+        requireNotNull(transition, "Transition identifiable");
+        return executeTransition(entity, targetState.getId(), transition.getId());
+    }
+
+    @Override
+    public TransitionResult<T> executeTransition(T entity, Identifiable targetState, String transitionId) {
+        requireNotNull(targetState, "Target state identifiable");
+        return executeTransition(entity, targetState.getId(), transitionId);
+    }
+
+    @Override
+    public TransitionResult<T> executeTransition(T entity, String targetStateId, Identifiable transition) {
+        requireNotNull(transition, "Transition identifiable");
+        return executeTransition(entity, targetStateId, transition.getId());
     }
 
     @Override
@@ -448,6 +474,56 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
             verifyFireContext(transition, firingContext);
             return executeTransitionInternal(entity, firingContext, transition);
+        }
+
+        @Override
+        public TransitionResult<T> transitionTo(Identifiable targetState) {
+            requireNotNull(targetState, "Target state identifiable");
+            return transitionTo(targetState.getId());
+        }
+
+        @Override
+        public TransitionResult<T> transitionTo(Identifiable targetState, Identifiable transition) {
+            requireNotNull(targetState, "Target state identifiable");
+            requireNotNull(transition, "Transition identifiable");
+            return transitionTo(targetState.getId(), transition.getId());
+        }
+
+        @Override
+        public TransitionResult<T> transitionTo(Identifiable targetState, String transitionId) {
+            requireNotNull(targetState, "Target state identifiable");
+            return transitionTo(targetState.getId(), transitionId);
+        }
+
+        @Override
+        public TransitionResult<T> transitionTo(String targetStateId, Identifiable transition) {
+            requireNotNull(transition, "Transition identifiable");
+            return transitionTo(targetStateId, transition.getId());
+        }
+
+        @Override
+        public TransitionResult<T> transitionTo(Identifiable targetState, Object firingContext) {
+            requireNotNull(targetState, "Target state identifiable");
+            return transitionTo(targetState.getId(), firingContext);
+        }
+
+        @Override
+        public TransitionResult<T> transitionTo(Identifiable targetState, Identifiable transition, Object firingContext) {
+            requireNotNull(targetState, "Target state identifiable");
+            requireNotNull(transition, "Transition identifiable");
+            return transitionTo(targetState.getId(), transition.getId(), firingContext);
+        }
+
+        @Override
+        public TransitionResult<T> transitionTo(Identifiable targetState, String transitionId, Object firingContext) {
+            requireNotNull(targetState, "Target state identifiable");
+            return transitionTo(targetState.getId(), transitionId, firingContext);
+        }
+
+        @Override
+        public TransitionResult<T> transitionTo(String targetStateId, Identifiable transition, Object firingContext) {
+            requireNotNull(transition, "Transition identifiable");
+            return transitionTo(targetStateId, transition.getId(), firingContext);
         }
 
         private void verifyFireContext(BoundTransition<T, ?> transition, Object firingContext) {

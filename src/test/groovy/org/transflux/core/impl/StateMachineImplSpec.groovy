@@ -401,7 +401,7 @@ class StateMachineImplSpec extends Specification {
             .build()
 
         when:
-        sm.executeTransition(entity, targetStateId)
+        sm.executeTransition(entity, (String) targetStateId)
 
         then:
         def e = thrown(TransfluxValidationException)
