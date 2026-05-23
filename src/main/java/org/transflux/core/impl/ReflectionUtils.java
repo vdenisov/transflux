@@ -18,8 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.Transflux;
-
 import org.transflux.core.exception.TransfluxValidationException;
 
 import java.lang.reflect.InvocationTargetException;

@@ -18,37 +18,23 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.ContextScope;
-import org.transflux.core.Identifiable;
-import org.transflux.core.Preconditions;
-import org.transflux.core.StateMachine;
-import org.transflux.core.StateMachineDef;
-import org.transflux.core.Transflux;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.transflux.core.impl.BoundCondition;
+import org.transflux.core.ContextScope;
+import org.transflux.core.Identifiable;
+import org.transflux.core.StateMachine;
+import org.transflux.core.StateMachineDef;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.impl.ActionRef;
-import org.transflux.core.impl.BoundOperation;
-import org.transflux.core.impl.BoundStep;
 import org.transflux.core.operation.CompositeOperationDef;
-import org.transflux.core.impl.CompositeOperationDefImpl;
-import org.transflux.core.impl.ConditionalStepDefImpl;
 import org.transflux.core.operation.ContextMapper;
 import org.transflux.core.operation.MapperDef;
-import org.transflux.core.impl.MapperDefImpl;
-import org.transflux.core.impl.MapperRef;
 import org.transflux.core.operation.Operation;
-import org.transflux.core.impl.OperationDefImpl;
 import org.transflux.core.operation.Step;
 import org.transflux.core.state.StateApplier;
 import org.transflux.core.state.StateDef;
-import org.transflux.core.impl.StateDefImpl;
 import org.transflux.core.state.StateResolver;
 import org.transflux.core.transition.TransitionDef;
-import org.transflux.core.impl.TransitionDefImpl;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -60,9 +46,9 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
+import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
 import static org.transflux.core.impl.ValidationUtils.warnIfSet;
 
 /**

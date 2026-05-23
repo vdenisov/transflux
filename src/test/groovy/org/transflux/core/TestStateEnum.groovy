@@ -18,8 +18,6 @@
 
 package org.transflux.core
 
-import org.transflux.core.impl.*
-
 enum TestStateEnum implements Identifiable {
     TRIAL, ACTIVE, EXPIRED;
 

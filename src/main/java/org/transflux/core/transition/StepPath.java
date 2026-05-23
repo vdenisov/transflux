@@ -18,8 +18,6 @@
 
 package org.transflux.core.transition;
 
-import org.transflux.core.operation.*;
-
 import org.transflux.core.exception.TransfluxValidationException;
 
 import java.util.ArrayList;

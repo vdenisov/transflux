@@ -18,13 +18,12 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.operation.BranchDef;
-import org.transflux.core.operation.Step;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
+import org.transflux.core.operation.BranchDef;
+import org.transflux.core.operation.Step;
 
 import java.util.ArrayList;
 import java.util.Collections;

@@ -18,10 +18,9 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.state.State;
 import org.transflux.core.state.StateDef;
-
-import org.transflux.core.exception.TransfluxValidationException;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;

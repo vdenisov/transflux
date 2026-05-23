@@ -23,7 +23,6 @@ import org.springframework.expression.Expression;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
-import org.transflux.core.impl.ThrowingUtils;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.transition.Transition;
 

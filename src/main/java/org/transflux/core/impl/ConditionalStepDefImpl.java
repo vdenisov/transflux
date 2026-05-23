@@ -18,20 +18,15 @@
 
 package org.transflux.core.impl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.BranchDef;
 import org.transflux.core.operation.ConditionalStepDef;
 import org.transflux.core.operation.DefaultBranchDef;
 import org.transflux.core.operation.NoMatchBehavior;
 import org.transflux.core.operation.Step;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.transflux.core.impl.StateMachineImpl;
-import org.transflux.core.impl.BoundCondition;
-import org.transflux.core.impl.ConditionResolver;
-import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.transition.Transition;
-import org.transflux.core.impl.TransitionView;
 
 import java.util.ArrayList;
 import java.util.Collections;

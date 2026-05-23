@@ -18,16 +18,14 @@
 
 package org.transflux.core.impl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.Operation;
 import org.transflux.core.operation.SimpleOperationDef;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.transflux.core.impl.StateMachineDefImpl;
-import org.transflux.core.exception.TransfluxValidationException;
-
-import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
 import static org.transflux.core.Preconditions.requireNotNull;
+import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
 
 /**
  * Package-private implementation of {@link SimpleOperationDef}.

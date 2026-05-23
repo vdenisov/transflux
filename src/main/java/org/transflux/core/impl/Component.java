@@ -18,10 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.impl.BoundCondition;
-import org.transflux.core.impl.BoundOperation;
-import org.transflux.core.impl.BoundStep;
-
 /**
  * Unified runtime view of a reusable, id-keyed building block that lives in a {@link Registry}.
  * <p>

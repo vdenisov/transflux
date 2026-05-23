@@ -18,16 +18,12 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.state.State;
-import org.transflux.core.state.StateDef;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.transflux.core.Identifiable;
-import org.transflux.core.impl.StateMachineDefImpl;
 import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.state.StateDef;
 import org.transflux.core.transition.TransitionDef;
-import org.transflux.core.impl.TransitionDefImpl;
 
 import java.util.function.Consumer;
 

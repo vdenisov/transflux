@@ -18,8 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.*;
-
 import org.transflux.core.exception.TransfluxValidationException;
 
 /**

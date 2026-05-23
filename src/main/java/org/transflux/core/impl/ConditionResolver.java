@@ -20,14 +20,13 @@ package org.transflux.core.impl;
 
 import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
-
 import org.transflux.core.exception.TransfluxValidationException;
 
 import java.util.Map;
 import java.util.function.Predicate;
 
-import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
 import static org.transflux.core.Preconditions.requireNotNull;
+import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
 
 /**
  * Stateless resolver that turns a {@link ConditionDescriptor} into a {@link BoundCondition}

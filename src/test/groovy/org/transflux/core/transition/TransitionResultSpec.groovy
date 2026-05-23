@@ -18,9 +18,6 @@
 
 package org.transflux.core.transition
 
-import org.transflux.core.impl.*
-
-import org.transflux.core.transition.StepPath
 import spock.lang.Specification
 
 import java.time.Duration

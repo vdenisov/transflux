@@ -19,8 +19,6 @@
 package org.transflux.core.impl;
 
 import org.transflux.core.operation.Compensation;
-import org.transflux.core.operation.Operation;
-import org.transflux.core.operation.Step;
 import org.transflux.core.transition.StepPath;
 
 import static org.transflux.core.Preconditions.requireNotNull;

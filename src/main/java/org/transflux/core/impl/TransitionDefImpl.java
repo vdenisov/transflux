@@ -18,25 +18,17 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.transition.Transition;
-import org.transflux.core.transition.TransitionDef;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.transflux.core.Identifiable;
-import org.transflux.core.impl.StateMachineImpl;
-import org.transflux.core.impl.BoundCondition;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
-import org.transflux.core.impl.ConditionResolver;
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.impl.BoundOperation;
 import org.transflux.core.operation.CompositeOperationDef;
-import org.transflux.core.impl.CompositeOperationDefImpl;
 import org.transflux.core.operation.Operation;
-import org.transflux.core.impl.OperationDefImpl;
 import org.transflux.core.operation.SimpleOperationDef;
-import org.transflux.core.impl.SimpleOperationDefImpl;
+import org.transflux.core.transition.Transition;
+import org.transflux.core.transition.TransitionDef;
 
 import java.util.ArrayList;
 import java.util.Collections;

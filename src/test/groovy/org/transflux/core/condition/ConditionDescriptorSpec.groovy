@@ -18,25 +18,9 @@
 
 package org.transflux.core.condition
 
-import org.transflux.core.impl.*
 
-import org.transflux.core.state.State
-import org.transflux.core.state.StateApplier
-import org.transflux.core.state.StateDef
-import org.transflux.core.impl.StateDefImpl
-import org.transflux.core.state.StateResolver
-
-import org.transflux.core.Identifiable
-import org.transflux.core.StateMachine
-import org.transflux.core.StateMachineDef
-import org.transflux.core.impl.StateMachineDefImpl
-import org.transflux.core.impl.StateMachineImpl
-import org.transflux.core.TestContext
-import org.transflux.core.TestStateEnum
-import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.transition.Transition
-
 import spock.lang.Specification
 import spock.lang.Unroll
 

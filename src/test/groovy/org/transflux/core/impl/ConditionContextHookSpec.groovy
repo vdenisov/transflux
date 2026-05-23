@@ -18,26 +18,9 @@
 
 package org.transflux.core.impl
 
-import org.transflux.core.*
-import org.transflux.core.state.*
-import org.transflux.core.transition.*
-import org.transflux.core.operation.*
-import org.transflux.core.condition.*
-import org.transflux.core.exception.*
-
-import org.transflux.core.impl.*
-
-import org.transflux.core.transition.Transition
+import org.transflux.core.condition.Condition
 import spock.lang.Specification
 
-/**
- * Structural prep for child-context binding (Phase 2.5 §2.5.4 / requirements §4.5.2.5).
- *
- * <p>The Condition contract already takes context as an explicit parameter on each
- * {@link Condition#test} call, so any future caller wiring nested-operation pre/post
- * conditions can pass the child's context at evaluation time without touching the
- * condition-evaluator code path. These specs lock that contract in.
- */
 class ConditionContextHookSpec extends Specification {
 
     static class Entity {

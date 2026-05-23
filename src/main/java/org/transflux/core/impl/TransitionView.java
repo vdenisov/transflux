@@ -18,23 +18,13 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.transition.StepPath;
-import org.transflux.core.transition.Transition;
-
-import org.transflux.core.impl.Component;
-import org.transflux.core.impl.Registry;
-import org.transflux.core.impl.StateMachineDefImpl;
-import org.transflux.core.impl.StateMachineImpl;
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.impl.BoundCompensation;
-import org.transflux.core.impl.BoundOperation;
-import org.transflux.core.impl.BoundStep;
 import org.transflux.core.operation.Compensation;
 import org.transflux.core.operation.ContextMapper;
 import org.transflux.core.operation.MapperDef;
-import org.transflux.core.impl.MapperDefImpl;
 import org.transflux.core.operation.Operation;
 import org.transflux.core.transition.StepPath;
+import org.transflux.core.transition.Transition;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;

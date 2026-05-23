@@ -18,13 +18,9 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.transition.Transition;
 import org.transflux.core.transition.TransitionDef;
-
-import org.transflux.core.impl.StateMachineImpl;
-import org.transflux.core.impl.BoundCondition;
-import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.impl.BoundOperation;
 
 import java.util.Collections;
 import java.util.List;

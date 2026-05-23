@@ -9,25 +9,13 @@
 
 package org.transflux.core.impl
 
-import org.transflux.core.*
-import org.transflux.core.state.*
-import org.transflux.core.transition.*
-import org.transflux.core.operation.*
-import org.transflux.core.condition.*
-import org.transflux.core.exception.*
-
-import org.transflux.core.impl.*
-
+import org.transflux.core.StateMachine
+import org.transflux.core.StateMachineDef
+import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.state.StateResolver
 import spock.lang.Specification
 
-/**
- * Acceptance test for the per-transition context refactor. One StateMachine<Offer> drives three
- * transitions with three different context types, mirroring the user-story example: drafting an
- * offer (requires opening + proposal), submitting it (requires contact details), withdrawing it
- * (requires withdraw reason/code).
- */
 class StateMachineImplHeterogeneousTransitionsSpec extends Specification {
 
     static class Offer {

@@ -18,21 +18,15 @@
 
 package org.transflux.core.impl;
 
+import org.springframework.lang.NonNull;
+import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.CompositeOperationDef;
 import org.transflux.core.operation.ConditionalStepDef;
 import org.transflux.core.operation.ContextMapper;
 import org.transflux.core.operation.MapperDef;
 import org.transflux.core.operation.Operation;
 import org.transflux.core.operation.Step;
-
-import org.springframework.lang.NonNull;
-import org.transflux.core.impl.Registry;
-import org.transflux.core.impl.RegistryImpl;
-import org.transflux.core.impl.StateMachineDefImpl;
-import org.transflux.core.impl.StateMachineImpl;
-import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.transition.Transition;
-import org.transflux.core.impl.TransitionView;
 
 import java.util.ArrayList;
 import java.util.Collections;
