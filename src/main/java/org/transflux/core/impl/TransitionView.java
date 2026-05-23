@@ -42,17 +42,10 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * <p>
  * The framework builds a fresh {@code TransitionView} for each transition execution and hands
  * it to the underlying {@link Operation} as the {@code transition} parameter. Topology
- * accessors delegate to the static {@link TransitionImpl}; {@link #step(String)} and
- * {@link #operation(String)} run against the captured execution scope (entity, context, step-id
+ * accessors delegate to the static {@link TransitionImpl}; the dispatch methods declared on
+ * {@link Transition} run against the captured execution scope (entity, context, step-id
  * recorder, compensation stack) by resolving the id against the enclosing state machine's
  * registries.
- *
- * <p><b>Mapper-aware overloads.</b> Both {@code step(...)} and {@code operation(...)} accept an
- * optional mapper specification — a registered {@link MapperDef} by id, an inline {@link Function}
- * for read-only projection, or a fully-supplied {@link ContextMapper} instance — that bridges
- * the active context to whatever the referenced step or operation requires. Pass-through forms
- * are equivalent to mapper-less invocation and require the called step or operation's context
- * type to be assignable from the active context.
  *
  * <p>This is framework-internal runtime infrastructure intended only for use by Transflux's
  * own runtime; user code should not reference it directly.
@@ -110,101 +103,61 @@ class TransitionView<T, C> implements Transition<T, C> {
         StateMachineImpl.runBoundStep((BoundStep) boundStep, this);
     }
 
-    /**
-     * Dispatches a registered step under {@code id} with the supplied mapper, which must be
-     * registered on the enclosing state machine under {@code mapperId}.
-     *
-     * @param id the registered step id
-     * @param mapperId the registered mapper id
-     */
+    @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
-    void step(String id, String mapperId) {
+    public void step(String id, String mapperId) {
         requireNotBlank(mapperId, "Mapper reference ID");
         BoundStep<T, ?> boundStep = resolveStep(id);
         ContextMapper<Object, Object> mapper = resolveRegisteredMapper(mapperId);
         runChildStep((BoundStep) boundStep, mapper);
     }
 
-    /**
-     * Dispatches a registered step under {@code id} with an inline read-only parent-to-child
-     * function.
-     *
-     * @param id the registered step id
-     * @param inlineMapTo the parent-to-child projection
-     */
+    @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
-    void step(String id, Function<C, ?> inlineMapTo) {
+    public void step(String id, Function<C, ?> inlineMapTo) {
         requireNotNull(inlineMapTo, "Inline mapper function");
         BoundStep<T, ?> boundStep = resolveStep(id);
         ContextMapper<Object, Object> mapper = wrapFunction((Function) inlineMapTo);
         runChildStep((BoundStep) boundStep, mapper);
     }
 
-    /**
-     * Dispatches a registered step under {@code id} with an inline fully-supplied
-     * {@link ContextMapper}.
-     *
-     * @param id the registered step id
-     * @param inlineMapper the mapper
-     */
+    @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
-    void step(String id, ContextMapper<C, ?> inlineMapper) {
+    public void step(String id, ContextMapper<C, ?> inlineMapper) {
         requireNotNull(inlineMapper, "Inline mapper instance");
         BoundStep<T, ?> boundStep = resolveStep(id);
         ContextMapper<Object, Object> mapper = (ContextMapper<Object, Object>) inlineMapper;
         runChildStep((BoundStep) boundStep, mapper);
     }
 
-    /**
-     * Dispatches a registered operation under {@code id} in pass-through mode. The operation's
-     * context type must be assignable from this view's active context.
-     *
-     * @param id the registered operation id
-     */
+    @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
-    void operation(String id) {
+    public void operation(String id) {
         BoundOperation<T, ?> bound = resolveOperation(id);
         runChildOperation((BoundOperation) bound, null);
     }
 
-    /**
-     * Dispatches a registered operation under {@code id} with a registered mapper.
-     *
-     * @param id the registered operation id
-     * @param mapperId the registered mapper id
-     */
+    @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
-    void operation(String id, String mapperId) {
+    public void operation(String id, String mapperId) {
         requireNotBlank(mapperId, "Mapper reference ID");
         BoundOperation<T, ?> bound = resolveOperation(id);
         ContextMapper<Object, Object> mapper = resolveRegisteredMapper(mapperId);
         runChildOperation((BoundOperation) bound, mapper);
     }
 
-    /**
-     * Dispatches a registered operation under {@code id} with an inline read-only
-     * parent-to-child function.
-     *
-     * @param id the registered operation id
-     * @param inlineMapTo the parent-to-child projection
-     */
+    @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
-    void operation(String id, Function<C, ?> inlineMapTo) {
+    public void operation(String id, Function<C, ?> inlineMapTo) {
         requireNotNull(inlineMapTo, "Inline mapper function");
         BoundOperation<T, ?> bound = resolveOperation(id);
         ContextMapper<Object, Object> mapper = wrapFunction((Function) inlineMapTo);
         runChildOperation((BoundOperation) bound, mapper);
     }
 
-    /**
-     * Dispatches a registered operation under {@code id} with an inline fully-supplied
-     * {@link ContextMapper}.
-     *
-     * @param id the registered operation id
-     * @param inlineMapper the mapper
-     */
+    @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
-    void operation(String id, ContextMapper<C, ?> inlineMapper) {
+    public void operation(String id, ContextMapper<C, ?> inlineMapper) {
         requireNotNull(inlineMapper, "Inline mapper instance");
         BoundOperation<T, ?> bound = resolveOperation(id);
         ContextMapper<Object, Object> mapper = (ContextMapper<Object, Object>) inlineMapper;

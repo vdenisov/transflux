@@ -20,6 +20,9 @@ package org.transflux.core.transition;
 
 import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.operation.ContextMapper;
+
+import java.util.function.Function;
 
 /**
  * Represents a transition between states in a state machine, defining valid state changes
@@ -36,12 +39,19 @@ import org.transflux.core.exception.TransfluxValidationException;
  * to the Saga pattern.
  *
  * <p>Topology accessors ({@link #getId()}, {@link #getSourceStateId()}, {@link #getTargetStateId()})
- * are stable for the lifetime of the enclosing state machine. {@link #step(String)} is the
- * execution-scoped seam: it is only meaningful when an operation calls it from inside a
- * transition currently being executed, because the framework hands operations a per-execution
- * {@code Transition} view that carries the captured entity, context, and recorder. Calling
- * {@code step} against the static-topology object thrown by {@code getTransition(...)} on a
- * built state machine raises {@link TransfluxValidationException}.
+ * are stable for the lifetime of the enclosing state machine. The {@code step(...)} and
+ * {@code operation(...)} dispatch methods are execution-scoped: they are only meaningful when
+ * an operation calls them from inside a transition currently being executed, because the
+ * framework hands operations a per-execution {@code Transition} view that carries the
+ * captured entity, context, and recorder. Calling them against a static-topology object
+ * outside an active execution raises {@link TransfluxValidationException}.
+ *
+ * <p><b>Mapper-aware overloads.</b> Both {@code step(...)} and {@code operation(...)} accept an
+ * optional mapper specification — a registered {@code mapper} by id, an inline {@link Function}
+ * for read-only projection, or a fully-supplied {@link ContextMapper} instance — that bridges
+ * the active context to whatever the referenced step or operation requires. Pass-through forms
+ * (mapper-less) require the called step or operation's context type to be assignable from the
+ * active context.
  *
  * <p><b>Example usage from inside an operation:</b>
  * <pre>{@code
@@ -89,15 +99,101 @@ public interface Transition<T, C> extends Identifiable {
     String getTargetStateId();
 
     /**
-     * Executes the registered step against the current execution scope. Only valid while a
-     * transition is executing — i.e. on the per-execution {@code Transition} view handed to
-     * an {@code Operation}'s {@code execute(...)} method.
+     * Dispatches a registered step under {@code id} in pass-through mode. The step's context
+     * type must be assignable from the active context.
      *
      * @param id the registered step id
      *
-     * @throws TransfluxValidationException when called outside an active transition execution
+     * @throws TransfluxValidationException when called outside an active transition execution,
+     *         when no step is registered under {@code id} in the active scope, or when the
+     *         step's context type is not assignable from the active context
      */
     void step(String id);
 
-    //TODO: operation
+    /**
+     * Dispatches a registered step under {@code id}, applying the registered mapper identified
+     * by {@code mapperId} at the call boundary.
+     *
+     * @param id the registered step id
+     * @param mapperId the registered mapper id
+     *
+     * @throws TransfluxValidationException when {@code mapperId} is blank, when no step is
+     *         registered under {@code id}, or when no mapper is registered under {@code mapperId}
+     */
+    void step(String id, String mapperId);
+
+    /**
+     * Dispatches a registered step under {@code id} with an inline read-only parent-to-child
+     * projection. The supplied function is wrapped as a {@link ContextMapper} whose
+     * {@link ContextMapper#mapFrom(Object, Object) mapFrom} is a no-op.
+     *
+     * @param id the registered step id
+     * @param inlineMapTo the parent-to-child projection
+     *
+     * @throws TransfluxValidationException when {@code inlineMapTo} is {@code null} or no step
+     *         is registered under {@code id}
+     */
+    void step(String id, Function<C, ?> inlineMapTo);
+
+    /**
+     * Dispatches a registered step under {@code id} with an inline fully-supplied
+     * {@link ContextMapper}.
+     *
+     * @param id the registered step id
+     * @param inlineMapper the mapper to apply at the boundary
+     *
+     * @throws TransfluxValidationException when {@code inlineMapper} is {@code null} or no
+     *         step is registered under {@code id}
+     */
+    void step(String id, ContextMapper<C, ?> inlineMapper);
+
+    /**
+     * Dispatches a registered operation under {@code id} in pass-through mode. The operation's
+     * context type must be assignable from the active context.
+     *
+     * @param id the registered operation id
+     *
+     * @throws TransfluxValidationException when called outside an active transition execution,
+     *         when no operation is registered under {@code id} in the active scope, or when the
+     *         operation's context type is not assignable from the active context
+     */
+    void operation(String id);
+
+    /**
+     * Dispatches a registered operation under {@code id}, applying the registered mapper
+     * identified by {@code mapperId} at the call boundary.
+     *
+     * @param id the registered operation id
+     * @param mapperId the registered mapper id
+     *
+     * @throws TransfluxValidationException when {@code mapperId} is blank, when no operation
+     *         is registered under {@code id}, or when no mapper is registered under
+     *         {@code mapperId}
+     */
+    void operation(String id, String mapperId);
+
+    /**
+     * Dispatches a registered operation under {@code id} with an inline read-only
+     * parent-to-child projection. The supplied function is wrapped as a {@link ContextMapper}
+     * whose {@link ContextMapper#mapFrom(Object, Object) mapFrom} is a no-op.
+     *
+     * @param id the registered operation id
+     * @param inlineMapTo the parent-to-child projection
+     *
+     * @throws TransfluxValidationException when {@code inlineMapTo} is {@code null} or no
+     *         operation is registered under {@code id}
+     */
+    void operation(String id, Function<C, ?> inlineMapTo);
+
+    /**
+     * Dispatches a registered operation under {@code id} with an inline fully-supplied
+     * {@link ContextMapper}.
+     *
+     * @param id the registered operation id
+     * @param inlineMapper the mapper to apply at the boundary
+     *
+     * @throws TransfluxValidationException when {@code inlineMapper} is {@code null} or no
+     *         operation is registered under {@code id}
+     */
+    void operation(String id, ContextMapper<C, ?> inlineMapper);
 }

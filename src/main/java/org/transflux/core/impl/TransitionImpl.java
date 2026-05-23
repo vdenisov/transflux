@@ -19,12 +19,14 @@
 package org.transflux.core.impl;
 
 import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.operation.ContextMapper;
 import org.transflux.core.transition.Transition;
 import org.transflux.core.transition.TransitionDef;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
@@ -125,7 +127,47 @@ class TransitionImpl<T, C> implements Transition<T, C> {
 
     @Override
     public void step(String id) {
-        throw new TransfluxValidationException("Step invocation is only valid during transition execution");
+        throw outsideExecution();
+    }
+
+    @Override
+    public void step(String id, String mapperId) {
+        throw outsideExecution();
+    }
+
+    @Override
+    public void step(String id, Function<C, ?> inlineMapTo) {
+        throw outsideExecution();
+    }
+
+    @Override
+    public void step(String id, ContextMapper<C, ?> inlineMapper) {
+        throw outsideExecution();
+    }
+
+    @Override
+    public void operation(String id) {
+        throw outsideExecution();
+    }
+
+    @Override
+    public void operation(String id, String mapperId) {
+        throw outsideExecution();
+    }
+
+    @Override
+    public void operation(String id, Function<C, ?> inlineMapTo) {
+        throw outsideExecution();
+    }
+
+    @Override
+    public void operation(String id, ContextMapper<C, ?> inlineMapper) {
+        throw outsideExecution();
+    }
+
+    private static TransfluxValidationException outsideExecution() {
+        return new TransfluxValidationException(
+            "Step and operation dispatch are only valid during transition execution");
     }
 
     BoundOperation<T, C> getBoundOperation() {
