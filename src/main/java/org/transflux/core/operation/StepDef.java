@@ -27,9 +27,8 @@ import org.transflux.core.exception.TransfluxValidationException;
  * <p>
  * Pure {@link Step} executables carry no identity; identity, context type, and metadata live on
  * the def. The user supplies either an already-constructed {@code Step} instance or a class with
- * a public no-arg constructor; at build time the framework produces a {@code BoundStep} pairing
- * the step with this def's id so the runtime can track which step ran without {@code Step}
- * itself having to carry identity.
+ * a public no-arg constructor; at build time the framework pairs the step with this def's id so
+ * the runtime can track which step ran without {@code Step} itself having to carry identity.
  *
  * <p>The {@code id} and {@code contextType} are mandatory. Exactly one of {@link #using(Step)}
  * or {@link #using(Class)} must be called before the enclosing state machine is built; calling

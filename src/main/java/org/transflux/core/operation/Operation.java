@@ -25,8 +25,7 @@ import org.transflux.core.transition.Transition;
  * <p>
  * {@code Operation} is a functional contract only — it carries no identity. Identity, naming,
  * and description belong to the def side ({@link SimpleOperationDef} / {@link CompositeOperationDef}),
- * which pairs an {@code Operation} with framework-owned metadata into a package-private
- * {@code BoundOperation} that the runtime carries. The same {@code Operation} class can therefore
+ * which pairs the executable with its declared id. The same {@code Operation} class can therefore
  * be registered under multiple ids in the same state machine without any per-instance bookkeeping.
  *
  * <p>The method returns {@code void}: side effects on the entity and any results the caller

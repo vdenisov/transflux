@@ -293,9 +293,9 @@ public interface StateMachineDef<T> {
     /**
      * Registers an {@link Operation} instance against this state machine under the given id,
      * tagged with the supplied context class. The registered operation can be referenced by id
-     * from any number of call sites — composite members, {@code TransitionView.operation(...)}
-     * dispatches — that either pass through a compatible parent context or supply a mapper
-     * whose child type matches {@code contextType}.
+     * from any number of call sites — composite members, imperative dispatches from inside a
+     * running transition — that either pass through a compatible parent context or supply a
+     * mapper whose child type matches {@code contextType}.
      *
      * @param id the operation id
      * @param contextType the operation's declared context class; never {@code null}
@@ -323,7 +323,7 @@ public interface StateMachineDef<T> {
     /**
      * Registers a {@link ContextMapper} instance against this state machine under the given id,
      * with explicit parent and child type tokens. The registered mapper can be referenced by id
-     * from any call site (composite member, {@code TransitionView.operation(...)} dispatch,
+     * from any call site (composite member, imperative dispatch from inside a running transition,
      * {@code async} block) where its parent type is assignable from the call site's context and
      * its child type matches the called step or operation's required context.
      *

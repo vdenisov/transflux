@@ -28,8 +28,9 @@ import java.util.function.Function;
  * parent / child type tokens.
  * <p>
  * Mappers are a first-class reusable component: a single {@code MapperDef} can be referenced by
- * id from any number of call sites — a composite member, a {@code TransitionView.operation(...)}
- * dispatch, an {@code async} block — without each call site having to inline the mapping. The
+ * id from any number of call sites — a composite member, an imperative dispatch from inside a
+ * running transition, an {@code async} block — without each call site having to inline the
+ * mapping. The
  * mandatory {@code parentType} / {@code childType} tokens let the build pipeline verify that the
  * mapper's {@code P} aligns with each call site's parent context and the mapper's {@code N}
  * matches the called step or operation's required context.

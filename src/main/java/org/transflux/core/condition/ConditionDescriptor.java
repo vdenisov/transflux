@@ -31,9 +31,8 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * an arbitrary {@link Predicate} adapted to a {@link Condition}, or a SpEL expression string.
  * <p>
  * Reference, class, and predicate forms require an explicit non-blank id. The expression
- * form allows an optional id; when omitted, the id is auto-derived from the expression text
- * and the descriptor's position within the enclosing state machine (see
- * {@code ExpressionIdDerivation}).
+ * form allows an optional id; when omitted, the framework derives a stable id deterministically
+ * from the expression text and the descriptor's position within the enclosing state machine.
  */
 public sealed interface ConditionDescriptor
     permits ConditionDescriptor.Reference,
