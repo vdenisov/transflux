@@ -37,14 +37,11 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import static org.transflux.core.impl.ValidationUtils.requireNotBlank;
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Implementation of {@link CompositeOperationDef}.
- *
- * <p>This is framework-internal infrastructure; user code constructs composite operations
- * through the public {@link CompositeOperationDef} fluent API.
  * <p>
  * Holds the composite's member references in declaration order. References are not resolved
  * eagerly; they are resolved against the enclosing state machine's step, operation, and mapper
@@ -72,9 +69,6 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
      * construction. By-id refs declared inside this composite resolve against this registry,
      * which walks the parent chain up to the state-machine root.
      *
-     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
-     * should not invoke it directly.
-     *
      * @return the scope registry, or {@code null} if the state machine has not yet wired it
      */
     public RegistryImpl<T> getScopeRegistry() {
@@ -84,9 +78,6 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
     /**
      * Wires this composite's lexical-scope registry. Called once during state-machine
      * construction, before {@link #build(StateMachineImpl)} runs.
-     *
-     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
-     * should not invoke it directly.
      *
      * @param scopeRegistry the scope registry; never {@code null}
      */
@@ -227,9 +218,6 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
     /**
      * Returns the composite's action references in declaration order.
      *
-     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
-     * should not invoke it directly.
-     *
      * @return an unmodifiable view of the action ref list
      */
     public List<ActionRef<T, C>> getActionRefs() {
@@ -239,9 +227,6 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
     /**
      * Returns the ids of every step-by-id reference declared by this composite — used by the
      * build-time context-compatibility check.
-     *
-     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
-     * should not invoke it directly.
      *
      * @return the referenced step ids in declaration order
      */
@@ -259,9 +244,6 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
      * Returns the ids of every operation-by-id reference declared by this composite — used by
      * the build-time context-compatibility check and the cycle-detection pass.
      *
-     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
-     * should not invoke it directly.
-     *
      * @return the referenced operation ids in declaration order
      */
     public List<String> getOperationByIdReferenceIds() {
@@ -277,9 +259,6 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
     /**
      * Returns a map of {@code stepId -> Step} for every inline step instance contributed by
      * this composite, in declaration order.
-     *
-     * <p>This is framework-internal infrastructure used by the state-machine def to
-     * auto-register inline steps; user code should not invoke it directly.
      *
      * @return an unmodifiable map of step id to inline step instance
      */
@@ -298,9 +277,6 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
     /**
      * Returns a map of {@code stepId -> stepClass} for every inline step class contributed by
      * this composite, in declaration order.
-     *
-     * <p>This is framework-internal infrastructure used by the state-machine def to
-     * auto-register inline steps; user code should not invoke it directly.
      *
      * @return an unmodifiable map of step id to inline step class
      */
@@ -321,10 +297,6 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
      * {@link ActionRef.Conditional} reference contributed by this composite, in declaration
      * order.
      *
-     * <p>This is framework-internal infrastructure used by the state-machine def to walk into
-     * conditionals when collecting inline step registrations; user code should not invoke it
-     * directly.
-     *
      * @return an unmodifiable map of conditional id to conditional def
      */
     public Map<String, ConditionalStepDefImpl<T, C>> getConditionalDefs() {
@@ -343,9 +315,6 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
      * Returns a map of {@code operationId -> Operation} for every inline nested operation
      * instance contributed by this composite, in declaration order.
      *
-     * <p>This is framework-internal infrastructure used by the state-machine def to
-     * auto-register inline nested operations; user code should not invoke it directly.
-     *
      * @return an unmodifiable map of operation id to inline operation instance
      */
     public Map<String, Operation<T, C>> getInlineOperationInstances() {
@@ -363,9 +332,6 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
     /**
      * Returns a map of {@code operationId -> operationClass} for every inline nested operation
      * class contributed by this composite, in declaration order.
-     *
-     * <p>This is framework-internal infrastructure used by the state-machine def to
-     * auto-register inline nested operations; user code should not invoke it directly.
      *
      * @return an unmodifiable map of operation id to inline operation class
      */

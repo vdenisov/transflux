@@ -30,13 +30,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Predicate;
 
-import static org.transflux.core.impl.ValidationUtils.requireNotBlank;
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
- * Package-internal implementation of {@link BranchDef} used by {@link ConditionalStepDefImpl}.
- * <p>
- * This is framework-internal infrastructure; user code should not invoke it directly.
+ * Implementation of {@link BranchDef} used by {@link ConditionalStepDefImpl}.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution

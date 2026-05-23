@@ -20,7 +20,7 @@ package org.transflux.core.impl;
 
 import org.transflux.core.operation.*;
 
-import static org.transflux.core.impl.ValidationUtils.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotBlank;
 
 /**
  * Sealed base for concrete {@link OperationDef} implementations.

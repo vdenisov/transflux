@@ -18,83 +18,19 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.*;
-
 import org.slf4j.Logger;
-import org.transflux.core.exception.TransfluxValidationException;
 
 /**
- * Static helpers that turn the repeated null / blank / override-warning patterns into
- * one-liners.
- * <p>
- * Designed for use via {@code import static org.transflux.core.impl.ValidationUtils.*;}. All
- * methods that throw raise {@link TransfluxValidationException} so callers don't need to
- * import a separate exception type; the message format mirrors the hand-written checks the
- * helpers replace so existing log output and test assertions stay stable.
- *
- * <p><b>Examples:</b>
- * <pre>{@code
- * import static org.transflux.core.impl.ValidationUtils.*;
- *
- * void setName(String name) {
- *     warnIfSet(this.name, name, "Name", log);
- *     this.name = name;
- * }
- *
- * void setStateResolver(StateResolver<T> resolver) {
- *     requireNotNull(resolver, "State resolver");
- *     warnIfSet(this.stateResolver, resolver, "State resolver", log);
- *     this.stateResolver = resolver;
- * }
- *
- * void registerStep(String id, Step<T, C> step) {
- *     requireNotBlank(id, "Step ID");
- *     requireNotNull(step, "Step");
- *     // ...
- * }
- * }</pre>
+ * Internal helpers that complement {@link org.transflux.core.Preconditions} with the
+ * impl-only "last writer wins with a warning" setter pattern used across the {@code *DefImpl}
+ * classes. Argument-precondition checks ({@code requireNotNull}, {@code requireNotBlank})
+ * live on the public {@code Preconditions} class so they're reachable from public-API types
+ * such as {@link org.transflux.core.condition.ConditionDescriptor}.
  */
-public final class ValidationUtils {
+final class ValidationUtils {
 
     private ValidationUtils() {
         // utility class — no instances
-    }
-
-    /**
-     * Throws {@link TransfluxValidationException} if {@code value} is {@code null}; otherwise
-     * returns it unchanged so the helper can be inlined in field assignments.
-     *
-     * @param value the value to check
-     * @param fieldName the human-readable field name, used in the exception message
-     * @param <T> the value type
-     *
-     * @return {@code value}, guaranteed non-null
-     *
-     * @throws TransfluxValidationException if {@code value} is {@code null}
-     */
-    public static <T> T requireNotNull(T value, String fieldName) {
-        if (value == null) {
-            throw new TransfluxValidationException(fieldName + " cannot be null");
-        }
-        return value;
-    }
-
-    /**
-     * Throws {@link TransfluxValidationException} if {@code value} is {@code null} or blank;
-     * otherwise returns it unchanged.
-     *
-     * @param value the string to check
-     * @param fieldName the human-readable field name, used in the exception message
-     *
-     * @return {@code value}, guaranteed non-null and non-blank
-     *
-     * @throws TransfluxValidationException if {@code value} is {@code null} or blank
-     */
-    public static String requireNotBlank(String value, String fieldName) {
-        if (value == null || value.isBlank()) {
-            throw new TransfluxValidationException(fieldName + " cannot be null or blank");
-        }
-        return value;
     }
 
     /**
@@ -108,7 +44,7 @@ public final class ValidationUtils {
      * @param log the logger to emit the warning on
      * @param <T> the value type
      */
-    public static <T> void warnIfSet(T current, T incoming, String fieldName, Logger log) {
+    static <T> void warnIfSet(T current, T incoming, String fieldName, Logger log) {
         if (current != null) {
             log.warn("{} is already defined: {}. Overriding previous value with {}",
                     fieldName, current, incoming);

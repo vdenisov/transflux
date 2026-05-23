@@ -25,8 +25,8 @@ import org.slf4j.LoggerFactory;
 import org.transflux.core.exception.TransfluxValidationException;
 
 import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
-import static org.transflux.core.impl.ValidationUtils.requireNotBlank;
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Default {@link StepDef} implementation.
@@ -35,10 +35,6 @@ import static org.transflux.core.impl.ValidationUtils.requireNotNull;
  * the two source forms are mutually exclusive and last-write-wins.
  * {@link #buildBoundStep()} reflectively instantiates the class form when needed and produces a
  * {@link BoundStep} paired with this def's id.
- *
- * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
- * constructs step defs through the public {@link StepDef} surface and the
- * {@link org.transflux.core.StateMachineDef} registration overloads.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type this step requires

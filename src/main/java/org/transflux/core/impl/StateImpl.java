@@ -22,8 +22,8 @@ import org.transflux.core.state.*;
 
 import org.transflux.core.exception.TransfluxValidationException;
 
-import static org.transflux.core.impl.ValidationUtils.requireNotBlank;
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Default implementation of the {@link State} interface.

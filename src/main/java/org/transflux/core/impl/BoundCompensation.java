@@ -21,7 +21,7 @@ package org.transflux.core.impl;
 import org.transflux.core.operation.*;
 import org.transflux.core.transition.StepPath;
 
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Runtime binder that pairs a {@link Compensation} with the qualified {@link StepPath} of
@@ -29,9 +29,6 @@ import static org.transflux.core.impl.ValidationUtils.requireNotNull;
  * enclosing nested-operation ids, so compensation entries surface in
  * {@link org.transflux.core.transition.TransitionResult#getCompensatedStepIds()} under the
  * same qualified-path form as executed steps.
- *
- * <p>This is framework-internal infrastructure; user code should not construct or inspect
- * bound compensations directly.
  *
  * @param path the qualified step path the compensation was registered against; never
  *             {@code null}

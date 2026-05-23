@@ -45,8 +45,8 @@ import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
-import static org.transflux.core.impl.ValidationUtils.requireNotBlank;
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Definition implementation class for transitions between states in a state machine.
@@ -230,9 +230,6 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
      * Resolves this transition's pre-condition descriptors into {@link BoundCondition}
      * instances against the supplied registry.
      *
-     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
-     * should not invoke it directly.
-     *
      * @param registry the state machine's resolved condition registry, keyed by id
      *
      * @return an unmodifiable list of resolved bound pre-conditions, in declaration order
@@ -246,9 +243,6 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     /**
      * Resolves this transition's post-condition descriptors into {@link BoundCondition}
      * instances against the supplied registry.
-     *
-     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
-     * should not invoke it directly.
      *
      * @param registry the state machine's resolved condition registry, keyed by id
      *

@@ -51,8 +51,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.transflux.core.impl.ValidationUtils.requireNotBlank;
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Implementation of the {@link StateMachine} interface.
@@ -143,9 +143,6 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
     /**
      * Returns the {@link StateMachineDefImpl} this state machine was built from.
-     *
-     * <p>This is framework-internal infrastructure used by the per-execution view to resolve
-     * mapper references at dispatch time; user code should not invoke it directly.
      *
      * @return the def
      */

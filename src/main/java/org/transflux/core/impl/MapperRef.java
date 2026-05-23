@@ -22,8 +22,8 @@ import org.transflux.core.operation.*;
 
 import java.util.function.Function;
 
-import static org.transflux.core.impl.ValidationUtils.requireNotBlank;
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Call-site declaration of a {@link ContextMapper} reference. Captures the unresolved choice
@@ -41,10 +41,6 @@ import static org.transflux.core.impl.ValidationUtils.requireNotNull;
  *       the default no-op.</li>
  *   <li>{@link InlineMapper} — a fully-supplied {@link ContextMapper} instance.</li>
  * </ul>
- *
- * <p>This is framework-internal infrastructure used by the composite-member machinery and the
- * {@link org.transflux.core.transition.TransitionView TransitionView}; user code does not
- * construct {@code MapperRef} values directly — they are produced from the call-site overloads.
  */
 sealed interface MapperRef
     permits MapperRef.PassThrough, MapperRef.ById, MapperRef.InlineFunction, MapperRef.InlineMapper {

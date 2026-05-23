@@ -27,8 +27,8 @@ import org.transflux.core.exception.TransfluxValidationException;
 import java.util.function.Function;
 
 import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
-import static org.transflux.core.impl.ValidationUtils.requireNotBlank;
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Default {@link MapperDef} implementation.
@@ -37,10 +37,6 @@ import static org.transflux.core.impl.ValidationUtils.requireNotNull;
  * {@code ContextMapper} class, or an inline parent-to-child {@link Function} — plus the parent
  * and child type tokens used by the build-time call-site type-compatibility check. The three
  * source forms are last-write-wins.
- *
- * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
- * constructs mapper defs through the public {@link MapperDef} surface and the
- * {@link org.transflux.core.StateMachineDef} registration overloads.
  *
  * @param <P> the parent context type
  * @param <N> the child context type

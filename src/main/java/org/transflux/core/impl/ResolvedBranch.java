@@ -29,9 +29,6 @@ import java.util.List;
  * paired with its resolved {@link BoundCondition} and the ordered list of step ids the
  * branch will dispatch when its condition matches.
  *
- * <p>This is framework-internal infrastructure; user code should not construct or inspect
- * resolved branches directly.
- *
  * @param branchId the branch id
  * @param condition the resolved branch condition
  * @param stepIds the ordered step ids the branch dispatches when its condition matches

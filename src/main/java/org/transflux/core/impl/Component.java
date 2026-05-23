@@ -34,9 +34,6 @@ import org.transflux.core.impl.BoundStep;
  * variant overrides empty; subsequent phases (notably Phase 3, when listeners attach to
  * steps) plug their cross-cutting checks in here without retouching the registry pipeline.
  *
- * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
- * should not reference it directly.
- *
  * @param <T> the entity type the surrounding state machine manages
  */
 sealed interface Component<T> permits Component.Step, Component.Operation, Component.Condition {

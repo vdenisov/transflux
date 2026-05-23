@@ -22,8 +22,8 @@ import org.transflux.core.exception.TransfluxValidationException;
 
 import java.util.function.Predicate;
 
-import static org.transflux.core.impl.ValidationUtils.requireNotBlank;
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Discriminated representation of the four authoring forms a transition condition can take:

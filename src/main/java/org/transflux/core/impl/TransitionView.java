@@ -43,8 +43,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
 
-import static org.transflux.core.impl.ValidationUtils.requireNotBlank;
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Per-execution view of a {@link Transition}.
@@ -247,9 +247,6 @@ class TransitionView<T, C> implements Transition<T, C> {
      * id under a {@code parent-op-id/.../child-step-id} qualified path. Each push must be
      * paired with a matching {@link #exitOperation()} call.
      *
-     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
-     * should not invoke it directly.
-     *
      * @param operationId the nested-operation id to push; must be non-blank
      */
     public void enterOperation(String operationId) {
@@ -260,9 +257,6 @@ class TransitionView<T, C> implements Transition<T, C> {
     /**
      * Pops the most recently pushed nested-operation id from this view's operation-nesting
      * stack.
-     *
-     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
-     * should not invoke it directly.
      *
      * @throws TransfluxValidationException if the nesting stack is empty
      */
@@ -280,9 +274,6 @@ class TransitionView<T, C> implements Transition<T, C> {
      * the duration of the step's execution, and on successful return
      * {@link ContextMapper#mapFrom(Object, Object) mapFrom} folds any child-side changes back
      * into the active context.
-     *
-     * <p>This is framework-internal infrastructure used by composite executors and the
-     * mapper-aware {@code step(...)} overloads; user code should not invoke it directly.
      *
      * @param boundStep the bound step to run; never {@code null}
      * @param mapper the mapper to apply at the boundary; never {@code null}
@@ -305,9 +296,6 @@ class TransitionView<T, C> implements Transition<T, C> {
      * id on the operation-nesting stack so any step ids the operation drives are qualified
      * with this parent prefix. When {@code mapper} is {@code null} the operation runs
      * pass-through against the active context.
-     *
-     * <p>This is framework-internal infrastructure used by composite executors and the
-     * mapper-aware {@code operation(...)} overloads; user code should not invoke it directly.
      *
      * @param boundOperation the bound operation to run; never {@code null}
      * @param mapper the mapper to apply at the boundary, or {@code null} for pass-through
@@ -371,9 +359,6 @@ class TransitionView<T, C> implements Transition<T, C> {
      * {@code step(...)} / {@code operation(...)} resolution. Composite executors push their
      * own scope on entry to {@code execute} and pop on exit; simple operations do not push.
      *
-     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
-     * should not invoke it directly.
-     *
      * @param scopeRegistry the composite's scope registry; never {@code null}
      */
     public void pushScope(Registry<T> scopeRegistry) {
@@ -384,9 +369,6 @@ class TransitionView<T, C> implements Transition<T, C> {
     /**
      * Pops the most recently pushed scope registry. Must be paired with a preceding
      * {@link #pushScope(Registry)} call.
-     *
-     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
-     * should not invoke it directly.
      *
      * @throws TransfluxValidationException if the scope stack is empty
      */
@@ -402,9 +384,6 @@ class TransitionView<T, C> implements Transition<T, C> {
      * Returns the registry that {@code step(...)} / {@code operation(...)} resolution should
      * consult. When the scope stack is empty (e.g. a simple operation directly invoking
      * {@code view.step("id")}), this falls back to the state machine's root registry.
-     *
-     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
-     * should not invoke it directly.
      *
      * @return the active scope; never {@code null}
      */
@@ -451,9 +430,6 @@ class TransitionView<T, C> implements Transition<T, C> {
      * {@link org.transflux.core.operation.Step#getCompensation(Object, Object)} unconditionally
      * without first checking it for {@code null}.
      *
-     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
-     * should not invoke it directly.
-     *
      * @param localStepId the id of the step the compensation rolls back; must be non-blank
      * @param compensation the compensation callback; ignored when {@code null}
      */
@@ -468,9 +444,6 @@ class TransitionView<T, C> implements Transition<T, C> {
     /**
      * Drains the rollback stack and returns its contents in pop order, i.e. reverse order of
      * registration (LIFO). The stack is empty when this method returns.
-     *
-     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
-     * should not invoke it directly.
      *
      * @return an unmodifiable list of the popped compensations in LIFO order
      */

@@ -28,16 +28,13 @@ import org.transflux.core.operation.Step;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
-import static org.transflux.core.impl.ValidationUtils.requireNotBlank;
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Default {@link ContextScope} implementation. Forwards registrations to the enclosing
  * {@link StateMachineDefImpl}, tagging each registered id with this scope's context class so
  * the build pipeline can verify context compatibility for by-id references.
- *
- * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
- * should not reference it directly.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the context class this scope binds to

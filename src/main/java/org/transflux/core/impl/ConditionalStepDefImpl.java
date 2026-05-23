@@ -38,15 +38,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
-import static org.transflux.core.impl.ValidationUtils.requireNotBlank;
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
 import static org.transflux.core.impl.ValidationUtils.warnIfSet;
 
 /**
  * Implementation of {@link ConditionalStepDef}.
- *
- * <p>This is framework-internal infrastructure; user code constructs conditional steps
- * through the public {@link ConditionalStepDef} fluent API.
  *
  * <p>Holds the conditional's branches and optional default branch in declaration order. The
  * branches are validated at build time, not at configurer return — the configurer surface is
@@ -149,10 +146,6 @@ final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T, C> {
      * Returns an ordered map of {@code stepId -> Step} for every inline step instance held
      * by this conditional, across all branches and the default branch.
      *
-     * <p>This is framework-internal infrastructure used by the state-machine def to
-     * auto-register inline steps contributed by this conditional; user code should not
-     * invoke it directly.
-     *
      * @return an unmodifiable map of step id to inline step instance
      */
     public Map<String, Step<T, C>> getInlineStepInstances() {
@@ -170,10 +163,6 @@ final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T, C> {
      * Returns an ordered map of {@code stepId -> stepClass} for every inline step class held
      * by this conditional, across all branches and the default branch.
      *
-     * <p>This is framework-internal infrastructure used by the state-machine def to
-     * auto-register inline steps contributed by this conditional; user code should not
-     * invoke it directly.
-     *
      * @return an unmodifiable map of step id to inline step class
      */
     public Map<String, Class<? extends Step<T, C>>> getInlineStepClasses() {
@@ -190,10 +179,6 @@ final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T, C> {
     /**
      * Resolves this conditional into a {@link BoundStep} whose executable {@link Step} runs
      * the matching branch's steps against the supplied transition view.
-     *
-     * <p>This is framework-internal infrastructure used by the state-machine def to build
-     * the bound-step entry that the enclosing composite resolves the conditional's id
-     * against; user code should not invoke it directly.
      *
      * @param stateMachine the enclosing state machine; needed at execution time to resolve
      *                     each branch's step ids against the step registry

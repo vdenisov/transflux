@@ -23,7 +23,7 @@ The project is in active design and the public API is unstable. **No releases ar
 - Coverage report: `target/site/jacoco/index.html`
 
 ## Package Structure
-- `org.transflux.core` — entry point (`Transflux`), `StateMachine` / `StateMachineDef`, `ContextScope`, and the `Identifiable` marker.
+- `org.transflux.core` — entry point (`Transflux`), `StateMachine` / `StateMachineDef`, `ContextScope`, the `Identifiable` marker, and the `Preconditions` argument-precondition helpers.
 - `org.transflux.core.state` — `State`, `StateDef`, and the host-supplied `StateResolver` / `StateApplier` bridges.
 - `org.transflux.core.transition` — `Transition`, `TransitionDef`, `TransitionResult`, and `StepPath` (the qualified-id value carrier in `TransitionResult.executedStepIds` / `compensatedStepIds`).
 - `org.transflux.core.operation` — `Operation`, `Step`, `Compensation`, `ContextMapper`, and their def-side types (`SimpleOperationDef` / `CompositeOperationDef` / `StepDef` / `MapperDef` / `ConditionalStepDef` / `BranchDef` / `DefaultBranchDef` / `NoMatchBehavior`).

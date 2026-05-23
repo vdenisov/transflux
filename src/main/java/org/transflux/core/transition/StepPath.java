@@ -25,8 +25,8 @@ import org.transflux.core.exception.TransfluxValidationException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.transflux.core.impl.ValidationUtils.requireNotBlank;
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Immutable qualified identifier of an executed step.

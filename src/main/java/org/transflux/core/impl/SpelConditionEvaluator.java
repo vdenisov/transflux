@@ -31,7 +31,7 @@ import org.transflux.core.transition.Transition;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static org.transflux.core.impl.ValidationUtils.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotBlank;
 
 /**
  * Thread-safe SpEL evaluator that compiles each unique expression string at most once and

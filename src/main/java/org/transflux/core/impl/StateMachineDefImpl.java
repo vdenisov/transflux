@@ -56,8 +56,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
-import static org.transflux.core.impl.ValidationUtils.requireNotBlank;
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
 import static org.transflux.core.impl.ValidationUtils.warnIfSet;
 
 /**
@@ -262,9 +262,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * same {@code globalIds} set that already holds SM-level ids; a collision anywhere fails the
      * build with a {@link TransfluxValidationException}.
      *
-     * <p>This is framework-internal infrastructure used by {@link StateMachineImpl} during state
-     * machine construction; user code does not invoke it directly.
-     *
      * @param stateMachine the state machine under construction; conditional executors close
      *                     over it for runtime step lookup
      * @param rootRegistry the state-machine's root registry — the parent of every composite scope
@@ -320,9 +317,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * Flattens the scope registry of every composite operation declared on this state-machine
      * def. Called after every component has been bound into its appropriate registry so each
      * scope's {@link Registry#resolve(String)} becomes a single local-map lookup.
-     *
-     * <p>This is framework-internal infrastructure used by {@link StateMachineImpl} during state
-     * machine construction; user code does not invoke it directly.
      */
     void flattenCompositeScopes() {
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
@@ -608,9 +602,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     /**
      * Returns the {@link MapperDef} registered under {@code id}, or {@code null} if none.
      *
-     * <p>This is framework-internal infrastructure used by the build pipeline to resolve
-     * call-site mapper references; user code does not invoke it directly.
-     *
      * @param id the mapper id
      *
      * @return the registered mapper def, or {@code null}
@@ -678,9 +669,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     /**
      * Resolves the condition registrations into {@link BoundCondition} instances. Called from
      * {@link StateMachineImpl} during state machine construction.
-     *
-     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
-     * should not invoke it directly.
      */
     Map<String, BoundCondition<T, ?>> buildBoundConditions() {
         Map<String, BoundCondition<T, ?>> resolved = new LinkedHashMap<>();
@@ -696,9 +684,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * inline steps and conditionals are bound into their owning composite's scope by
      * {@link #bindCompositeScopes(StateMachineImpl, RegistryImpl, Map)} and are not included
      * here.
-     *
-     * <p>This is framework-internal infrastructure used by {@link StateMachineImpl} during state
-     * machine construction; user code does not invoke it directly.
      *
      * @return an unmodifiable map of SM-level step id to bound step
      */
@@ -871,9 +856,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     /**
      * Registers a transition between two states with pass-through ({@link Object}) context.
      *
-     * <p>This is framework-internal infrastructure used by Transflux's own DSL; user code
-     * should not invoke it directly.
-     *
      * @param sourceStateId the ID of the source state
      * @param targetStateId the ID of the target state
      * @param transitionId the unique identifier for the transition
@@ -887,9 +869,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     /**
      * Registers a transition between two states tagged with the supplied context type.
-     *
-     * <p>This is framework-internal infrastructure used by Transflux's own DSL; user code
-     * should not invoke it directly.
      *
      * @param sourceStateId the ID of the source state
      * @param targetStateId the ID of the target state

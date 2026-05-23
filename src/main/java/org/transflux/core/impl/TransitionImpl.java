@@ -29,8 +29,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import static org.transflux.core.impl.ValidationUtils.requireNotBlank;
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Default implementation of the {@link Transition} interface — the static-topology view.

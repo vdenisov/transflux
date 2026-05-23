@@ -26,7 +26,7 @@ import org.transflux.core.impl.StateMachineDefImpl;
 import org.transflux.core.exception.TransfluxValidationException;
 
 import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Package-private implementation of {@link SimpleOperationDef}.

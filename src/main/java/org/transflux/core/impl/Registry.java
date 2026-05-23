@@ -37,9 +37,6 @@ import java.util.Set;
  * at runtime. {@link #parent()} stays exposed as an introspection accessor for tooling and
  * diagnostics.
  *
- * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
- * should not reference it directly.
- *
  * @param <T> the entity type the surrounding state machine manages
  */
 interface Registry<T> {

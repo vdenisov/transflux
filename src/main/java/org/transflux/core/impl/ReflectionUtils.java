@@ -31,9 +31,6 @@ import java.lang.reflect.InvocationTargetException;
  * failures surface as {@link TransfluxValidationException} with a message that names the
  * failing class and distinguishes "no no-arg constructor" from "constructor exists but
  * instantiation failed".
- *
- * <p>This is framework-internal infrastructure used by Transflux's own def builders; user
- * code should not invoke it directly.
  */
 final class ReflectionUtils {
 

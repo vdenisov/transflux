@@ -28,15 +28,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static org.transflux.core.impl.ValidationUtils.requireNotBlank;
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Default {@link Registry} implementation. Maintains an insertion-ordered map of
  * {@link Component}s and exposes the parent-chain walk via {@link #resolve(String)}.
- *
- * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
- * should not reference it directly.
  *
  * @param <T> the entity type the surrounding state machine manages
  */

@@ -27,8 +27,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
 
-import static org.transflux.core.impl.ValidationUtils.requireNotBlank;
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Derives stable, deterministic ids for inline expression-based conditions whose authoring

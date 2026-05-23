@@ -25,10 +25,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Package-internal implementation of {@link DefaultBranchDef} used by
- * {@link ConditionalStepDefImpl}.
- * <p>
- * This is framework-internal infrastructure; user code should not invoke it directly.
+ * Implementation of {@link DefaultBranchDef} used by {@link ConditionalStepDefImpl}.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution

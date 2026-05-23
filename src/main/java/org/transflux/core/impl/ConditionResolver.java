@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.function.Predicate;
 
 import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Stateless resolver that turns a {@link ConditionDescriptor} into a {@link BoundCondition}
@@ -39,9 +39,6 @@ import static org.transflux.core.impl.ValidationUtils.requireNotNull;
  * context and transition view; expression-based descriptors are bound to the shared
  * {@link SpelConditionEvaluator}, with id auto-derived from the supplied path when the
  * descriptor omits an explicit id.
- *
- * <p>This is framework-internal infrastructure used by Transflux's own def builders; user
- * code should not invoke it directly.
  */
 final class ConditionResolver {
 

@@ -20,7 +20,7 @@ package org.transflux.core.impl;
 
 import org.transflux.core.operation.*;
 
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Build-time-resolved description of how to bridge a nested operation's parent-to-child
@@ -28,10 +28,6 @@ import static org.transflux.core.impl.ValidationUtils.requireNotNull;
  * parent's context object flows through unchanged) or {@linkplain #mapped(ContextMapper)
  * mapped} (a {@link ContextMapper} produces a separate child context on the way in and
  * optionally folds it back on the way out).
- *
- * <p>This is framework-internal infrastructure; user code drives nested-operation dispatch
- * through the by-id call-site grammar on {@link CompositeOperationDef} and never sees this
- * type directly.
  */
 final class ResolvedContextMapping {
     private static final ResolvedContextMapping PASS_THROUGH = new ResolvedContextMapping(null);

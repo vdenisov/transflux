@@ -20,14 +20,11 @@ package org.transflux.core.impl;
 
 import org.transflux.core.operation.*;
 
-import static org.transflux.core.impl.ValidationUtils.requireNotBlank;
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Runtime binder that pairs a pure {@link Step} with framework-owned identity.
- *
- * <p>This is framework-internal infrastructure; user code should not construct or
- * inspect bound steps directly.
  *
  * @param id the framework-owned step id; never {@code null} or blank
  * @param step the bound {@link Step} executable; never {@code null}

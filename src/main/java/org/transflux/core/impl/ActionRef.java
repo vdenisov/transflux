@@ -27,8 +27,8 @@ import org.transflux.core.exception.TransfluxValidationException;
 
 import java.util.Optional;
 
-import static org.transflux.core.impl.ValidationUtils.requireNotBlank;
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Package-private discriminated reference to an action inside a composite operation's

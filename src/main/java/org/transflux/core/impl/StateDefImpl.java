@@ -30,8 +30,8 @@ import org.transflux.core.impl.TransitionDefImpl;
 
 import java.util.function.Consumer;
 
-import static org.transflux.core.impl.ValidationUtils.requireNotBlank;
-import static org.transflux.core.impl.ValidationUtils.requireNotNull;
+import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
 import static org.transflux.core.impl.ValidationUtils.warnIfSet;
 
 /**

@@ -25,9 +25,6 @@ import org.transflux.core.operation.*;
  * letting a composite operation executor iterate a single ordered list of heterogeneous
  * actions and dispatch each one against its bound runtime.
  *
- * <p>This is framework-internal infrastructure; user code should not construct or inspect
- * bound actions directly.
- *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
