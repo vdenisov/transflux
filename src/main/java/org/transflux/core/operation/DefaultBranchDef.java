@@ -18,6 +18,7 @@
 
 package org.transflux.core.operation;
 
+import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 
 /**
@@ -43,6 +44,18 @@ public interface DefaultBranchDef<T, C> {
      *         blank
      */
     DefaultBranchDef<T, C> step(String registeredStepId);
+
+    /**
+     * {@link Identifiable} overload of {@link #step(String)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param registeredStep an identifiable supplying the step id
+     *
+     * @return this default branch def for chaining
+     *
+     * @throws TransfluxValidationException if {@code registeredStep} is {@code null}
+     */
+    DefaultBranchDef<T, C> step(Identifiable registeredStep);
 
     /**
      * Appends an inline {@link Step} instance under the supplied id. The step is

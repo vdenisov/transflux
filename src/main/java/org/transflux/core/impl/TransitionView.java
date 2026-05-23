@@ -18,6 +18,7 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.Compensation;
 import org.transflux.core.operation.ContextMapper;
@@ -131,6 +132,31 @@ class TransitionView<T, C> implements Transition<T, C> {
     }
 
     @Override
+    public void step(Identifiable registeredStep) {
+        requireNotNull(registeredStep, "Step identifiable");
+        step(registeredStep.getId());
+    }
+
+    @Override
+    public void step(Identifiable registeredStep, Identifiable mapper) {
+        requireNotNull(registeredStep, "Step identifiable");
+        requireNotNull(mapper, "Mapper identifiable");
+        step(registeredStep.getId(), mapper.getId());
+    }
+
+    @Override
+    public void step(Identifiable registeredStep, String mapperId) {
+        requireNotNull(registeredStep, "Step identifiable");
+        step(registeredStep.getId(), mapperId);
+    }
+
+    @Override
+    public void step(String id, Identifiable mapper) {
+        requireNotNull(mapper, "Mapper identifiable");
+        step(id, mapper.getId());
+    }
+
+    @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public void operation(String id) {
         BoundOperation<T, ?> bound = resolveOperation(id);
@@ -162,6 +188,31 @@ class TransitionView<T, C> implements Transition<T, C> {
         BoundOperation<T, ?> bound = resolveOperation(id);
         ContextMapper<Object, Object> mapper = (ContextMapper<Object, Object>) inlineMapper;
         runChildOperation((BoundOperation) bound, mapper);
+    }
+
+    @Override
+    public void operation(Identifiable registeredOperation) {
+        requireNotNull(registeredOperation, "Operation identifiable");
+        operation(registeredOperation.getId());
+    }
+
+    @Override
+    public void operation(Identifiable registeredOperation, Identifiable mapper) {
+        requireNotNull(registeredOperation, "Operation identifiable");
+        requireNotNull(mapper, "Mapper identifiable");
+        operation(registeredOperation.getId(), mapper.getId());
+    }
+
+    @Override
+    public void operation(Identifiable registeredOperation, String mapperId) {
+        requireNotNull(registeredOperation, "Operation identifiable");
+        operation(registeredOperation.getId(), mapperId);
+    }
+
+    @Override
+    public void operation(String id, Identifiable mapper) {
+        requireNotNull(mapper, "Mapper identifiable");
+        operation(id, mapper.getId());
     }
 
     T getEntity() {

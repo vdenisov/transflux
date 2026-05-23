@@ -148,6 +148,49 @@ public interface Transition<T, C> extends Identifiable {
     void step(String id, ContextMapper<C, ?> inlineMapper);
 
     /**
+     * {@link Identifiable} overload of {@link #step(String)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param registeredStep an identifiable supplying the step id
+     *
+     * @throws TransfluxValidationException if {@code registeredStep} is {@code null}
+     */
+    void step(Identifiable registeredStep);
+
+    /**
+     * {@link Identifiable} overload of {@link #step(String, String)} — both step and mapper
+     * supplied as identifiables.
+     *
+     * @param registeredStep an identifiable supplying the step id
+     * @param mapper an identifiable supplying the mapper id
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}
+     */
+    void step(Identifiable registeredStep, Identifiable mapper);
+
+    /**
+     * Mixed-form overload of {@link #step(String, String)} — step identifiable + mapper id.
+     *
+     * @param registeredStep an identifiable supplying the step id
+     * @param mapperId the registered mapper id
+     *
+     * @throws TransfluxValidationException if {@code registeredStep} is {@code null} or
+     *         {@code mapperId} is {@code null}/blank
+     */
+    void step(Identifiable registeredStep, String mapperId);
+
+    /**
+     * Mixed-form overload of {@link #step(String, String)} — step id + mapper identifiable.
+     *
+     * @param id the registered step id
+     * @param mapper an identifiable supplying the mapper id
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
+     *         {@code mapper} is {@code null}
+     */
+    void step(String id, Identifiable mapper);
+
+    /**
      * Dispatches a registered operation under {@code id} in pass-through mode. The operation's
      * context type must be assignable from the active context.
      *
@@ -196,4 +239,49 @@ public interface Transition<T, C> extends Identifiable {
      *         operation is registered under {@code id}
      */
     void operation(String id, ContextMapper<C, ?> inlineMapper);
+
+    /**
+     * {@link Identifiable} overload of {@link #operation(String)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param registeredOperation an identifiable supplying the operation id
+     *
+     * @throws TransfluxValidationException if {@code registeredOperation} is {@code null}
+     */
+    void operation(Identifiable registeredOperation);
+
+    /**
+     * {@link Identifiable} overload of {@link #operation(String, String)} — both operation
+     * and mapper supplied as identifiables.
+     *
+     * @param registeredOperation an identifiable supplying the operation id
+     * @param mapper an identifiable supplying the mapper id
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}
+     */
+    void operation(Identifiable registeredOperation, Identifiable mapper);
+
+    /**
+     * Mixed-form overload of {@link #operation(String, String)} — operation identifiable +
+     * mapper id.
+     *
+     * @param registeredOperation an identifiable supplying the operation id
+     * @param mapperId the registered mapper id
+     *
+     * @throws TransfluxValidationException if {@code registeredOperation} is {@code null}
+     *         or {@code mapperId} is {@code null}/blank
+     */
+    void operation(Identifiable registeredOperation, String mapperId);
+
+    /**
+     * Mixed-form overload of {@link #operation(String, String)} — operation id + mapper
+     * identifiable.
+     *
+     * @param id the registered operation id
+     * @param mapper an identifiable supplying the mapper id
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
+     *         {@code mapper} is {@code null}
+     */
+    void operation(String id, Identifiable mapper);
 }

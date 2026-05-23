@@ -18,6 +18,7 @@
 
 package org.transflux.core.operation;
 
+import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
 
@@ -51,6 +52,18 @@ public interface BranchDef<T, C> {
      *         or blank
      */
     BranchDef<T, C> condition(String registeredConditionId);
+
+    /**
+     * {@link Identifiable} overload of {@link #condition(String)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param registeredCondition an identifiable supplying the condition id
+     *
+     * @return this branch def for chaining
+     *
+     * @throws TransfluxValidationException if {@code registeredCondition} is {@code null}
+     */
+    BranchDef<T, C> condition(Identifiable registeredCondition);
 
     /**
      * Sets this branch's condition to a SpEL expression whose id is auto-derived from the
@@ -131,6 +144,18 @@ public interface BranchDef<T, C> {
      *         blank
      */
     BranchDef<T, C> step(String registeredStepId);
+
+    /**
+     * {@link Identifiable} overload of {@link #step(String)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param registeredStep an identifiable supplying the step id
+     *
+     * @return this branch def for chaining
+     *
+     * @throws TransfluxValidationException if {@code registeredStep} is {@code null}
+     */
+    BranchDef<T, C> step(Identifiable registeredStep);
 
     /**
      * Appends an inline {@link Step} instance under the supplied id. The step is

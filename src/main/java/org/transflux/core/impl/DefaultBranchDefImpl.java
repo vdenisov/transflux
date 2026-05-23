@@ -18,12 +18,15 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.Identifiable;
 import org.transflux.core.operation.DefaultBranchDef;
 import org.transflux.core.operation.Step;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Implementation of {@link DefaultBranchDef} used by {@link ConditionalStepDefImpl}.
@@ -46,6 +49,12 @@ final class DefaultBranchDefImpl<T, C> implements DefaultBranchDef<T, C> {
     public DefaultBranchDef<T, C> step(String registeredStepId) {
         actionRefs.add(ActionRef.byId(registeredStepId));
         return this;
+    }
+
+    @Override
+    public DefaultBranchDef<T, C> step(Identifiable registeredStep) {
+        requireNotNull(registeredStep, "Step identifiable");
+        return step(registeredStep.getId());
     }
 
     @Override

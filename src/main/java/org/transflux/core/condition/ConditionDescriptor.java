@@ -18,6 +18,7 @@
 
 package org.transflux.core.condition;
 
+import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 
 import java.util.function.Predicate;
@@ -60,6 +61,21 @@ public sealed interface ConditionDescriptor
      */
     static ConditionDescriptor ref(String id) {
         return new Reference(id);
+    }
+
+    /**
+     * {@link Identifiable} overload of {@link #ref(String)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param registeredCondition an identifiable supplying the registered condition id
+     *
+     * @return a reference descriptor
+     *
+     * @throws TransfluxValidationException if {@code registeredCondition} is {@code null}
+     */
+    static ConditionDescriptor ref(Identifiable registeredCondition) {
+        requireNotNull(registeredCondition, "Condition identifiable");
+        return ref(registeredCondition.getId());
     }
 
     /**

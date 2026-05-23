@@ -234,6 +234,19 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> step(String registeredStepId);
 
     /**
+     * {@link Identifiable} overload of {@link #step(String)} — delegates via
+     * {@link Identifiable#getId()}. Useful for enum-tagged step ids or passing a held-onto
+     * {@link org.transflux.core.operation.StepDef StepDef}.
+     *
+     * @param registeredStep an identifiable supplying the step id
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code registeredStep} is {@code null}
+     */
+    TransitionDef<T, C> step(Identifiable registeredStep);
+
+    /**
      * Appends a pre-condition that references a condition already registered on the enclosing
      * state machine through {@link org.transflux.core.StateMachineDef#condition StateMachineDef.condition(...)}.
      *
@@ -245,6 +258,18 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         blank
      */
     TransitionDef<T, C> preCondition(String registeredConditionId);
+
+    /**
+     * {@link Identifiable} overload of {@link #preCondition(String)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param registeredCondition an identifiable supplying the condition id
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code registeredCondition} is {@code null}
+     */
+    TransitionDef<T, C> preCondition(Identifiable registeredCondition);
 
     /**
      * Appends an inline SpEL pre-condition with an auto-derived id. The id is computed
@@ -328,6 +353,18 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         blank
      */
     TransitionDef<T, C> postCondition(String registeredConditionId);
+
+    /**
+     * {@link Identifiable} overload of {@link #postCondition(String)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param registeredCondition an identifiable supplying the condition id
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code registeredCondition} is {@code null}
+     */
+    TransitionDef<T, C> postCondition(Identifiable registeredCondition);
 
     /**
      * Appends an inline SpEL post-condition with an auto-derived id. The id is computed

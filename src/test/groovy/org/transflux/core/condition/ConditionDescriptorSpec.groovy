@@ -88,9 +88,9 @@ class ConditionDescriptorSpec extends Specification {
     }
 
     @Unroll
-    def "ref(...) should reject null or blank id (id='#id')"() {
+    def "ref(String) should reject null or blank id (id='#id')"() {
         when:
-        ConditionDescriptor.ref(id)
+        ConditionDescriptor.ref((String) id)
 
         then:
         def e = thrown(TransfluxValidationException)

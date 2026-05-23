@@ -20,6 +20,7 @@ package org.transflux.core.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
 import org.transflux.core.operation.BranchDef;
@@ -70,6 +71,12 @@ final class BranchDefImpl<T, C> implements BranchDef<T, C> {
     }
 
     @Override
+    public BranchDef<T, C> condition(Identifiable registeredCondition) {
+        requireNotNull(registeredCondition, "Condition identifiable");
+        return condition(registeredCondition.getId());
+    }
+
+    @Override
     public BranchDef<T, C> conditionExpression(String expression) {
         requireNotBlank(expression, "Expression");
         return setDescriptor(ConditionDescriptor.expression(expression));
@@ -107,6 +114,12 @@ final class BranchDefImpl<T, C> implements BranchDef<T, C> {
     public BranchDef<T, C> step(String registeredStepId) {
         actionRefs.add(ActionRef.byId(registeredStepId));
         return this;
+    }
+
+    @Override
+    public BranchDef<T, C> step(Identifiable registeredStep) {
+        requireNotNull(registeredStep, "Step identifiable");
+        return step(registeredStep.getId());
     }
 
     @Override

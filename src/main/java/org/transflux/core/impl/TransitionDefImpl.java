@@ -306,6 +306,12 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     }
 
     @Override
+    public TransitionDef<T, C> step(Identifiable registeredStep) {
+        requireNotNull(registeredStep, "Step identifiable");
+        return step(registeredStep.getId());
+    }
+
+    @Override
     public TransitionDef<T, C> withName(String name) {
         requireConfigurerActive("withName");
         if (this.name != null) {
@@ -340,6 +346,12 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
         requireConfigurerActive("preCondition");
         requireNotBlank(registeredConditionId, "Registered condition ID");
         return appendPreCondition(ConditionDescriptor.ref(registeredConditionId));
+    }
+
+    @Override
+    public TransitionDef<T, C> preCondition(Identifiable registeredCondition) {
+        requireNotNull(registeredCondition, "Condition identifiable");
+        return preCondition(registeredCondition.getId());
     }
 
     @Override
@@ -386,6 +398,12 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
         requireConfigurerActive("postCondition");
         requireNotBlank(registeredConditionId, "Registered condition ID");
         return appendPostCondition(ConditionDescriptor.ref(registeredConditionId));
+    }
+
+    @Override
+    public TransitionDef<T, C> postCondition(Identifiable registeredCondition) {
+        requireNotNull(registeredCondition, "Condition identifiable");
+        return postCondition(registeredCondition.getId());
     }
 
     @Override

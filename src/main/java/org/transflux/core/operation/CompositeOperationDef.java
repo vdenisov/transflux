@@ -18,6 +18,7 @@
 
 package org.transflux.core.operation;
 
+import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.transition.Transition;
 
@@ -118,6 +119,57 @@ public interface CompositeOperationDef<T, C> extends OperationDef<T, C> {
     CompositeOperationDef<T, C> step(String registeredStepId, ContextMapper<C, ?> inlineMapper);
 
     /**
+     * {@link Identifiable} overload of {@link #step(String)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param registeredStep an identifiable supplying the step id
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code registeredStep} is {@code null}
+     */
+    CompositeOperationDef<T, C> step(Identifiable registeredStep);
+
+    /**
+     * {@link Identifiable} overload of {@link #step(String, String)} — both step and mapper
+     * supplied as identifiables.
+     *
+     * @param registeredStep an identifiable supplying the step id
+     * @param mapper an identifiable supplying the mapper id
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}
+     */
+    CompositeOperationDef<T, C> step(Identifiable registeredStep, Identifiable mapper);
+
+    /**
+     * Mixed-form overload of {@link #step(String, String)} — step identifiable + mapper id.
+     *
+     * @param registeredStep an identifiable supplying the step id
+     * @param mapperId the registered mapper id
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code registeredStep} is {@code null} or
+     *         {@code mapperId} is {@code null}/blank
+     */
+    CompositeOperationDef<T, C> step(Identifiable registeredStep, String mapperId);
+
+    /**
+     * Mixed-form overload of {@link #step(String, String)} — step id + mapper identifiable.
+     *
+     * @param registeredStepId the registered step id
+     * @param mapper an identifiable supplying the mapper id
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code registeredStepId} is {@code null}/blank
+     *         or {@code mapper} is {@code null}
+     */
+    CompositeOperationDef<T, C> step(String registeredStepId, Identifiable mapper);
+
+    /**
      * Appends an inline step instance. The step is auto-registered on the enclosing state
      * machine under {@code id} at build time and can be referenced by id from elsewhere. Inline
      * steps are typed against this composite's {@code C} and always run pass-through.
@@ -215,6 +267,59 @@ public interface CompositeOperationDef<T, C> extends OperationDef<T, C> {
      *         or {@code inlineMapper} is {@code null}
      */
     CompositeOperationDef<T, C> operation(String registeredOperationId, ContextMapper<C, ?> inlineMapper);
+
+    /**
+     * {@link Identifiable} overload of {@link #operation(String)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param registeredOperation an identifiable supplying the operation id
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code registeredOperation} is {@code null}
+     */
+    CompositeOperationDef<T, C> operation(Identifiable registeredOperation);
+
+    /**
+     * {@link Identifiable} overload of {@link #operation(String, String)} — both operation
+     * and mapper supplied as identifiables.
+     *
+     * @param registeredOperation an identifiable supplying the operation id
+     * @param mapper an identifiable supplying the mapper id
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}
+     */
+    CompositeOperationDef<T, C> operation(Identifiable registeredOperation, Identifiable mapper);
+
+    /**
+     * Mixed-form overload of {@link #operation(String, String)} — operation identifiable +
+     * mapper id.
+     *
+     * @param registeredOperation an identifiable supplying the operation id
+     * @param mapperId the registered mapper id
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code registeredOperation} is {@code null}
+     *         or {@code mapperId} is {@code null}/blank
+     */
+    CompositeOperationDef<T, C> operation(Identifiable registeredOperation, String mapperId);
+
+    /**
+     * Mixed-form overload of {@link #operation(String, String)} — operation id + mapper
+     * identifiable.
+     *
+     * @param registeredOperationId the registered operation id
+     * @param mapper an identifiable supplying the mapper id
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code registeredOperationId} is {@code null}/blank
+     *         or {@code mapper} is {@code null}
+     */
+    CompositeOperationDef<T, C> operation(String registeredOperationId, Identifiable mapper);
 
     /**
      * Appends an inline nested operation instance. The operation is auto-registered on the

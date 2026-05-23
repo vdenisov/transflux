@@ -240,7 +240,7 @@ class TransitionDefImplConditionsSpec extends Specification {
         td.beginConfigurer()
 
         when:
-        td.preCondition(id)
+        td.preCondition((String) id)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -343,7 +343,7 @@ class TransitionDefImplConditionsSpec extends Specification {
         td.beginConfigurer()
 
         when:
-        td.postCondition(id)
+        td.postCondition((String) id)
 
         then:
         def e = thrown(TransfluxValidationException)

@@ -19,6 +19,7 @@
 package org.transflux.core.impl;
 
 import org.springframework.lang.NonNull;
+import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.CompositeOperationDef;
 import org.transflux.core.operation.ConditionalStepDef;
@@ -121,6 +122,31 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
     }
 
     @Override
+    public CompositeOperationDefImpl<T, C> step(Identifiable registeredStep) {
+        requireNotNull(registeredStep, "Step identifiable");
+        return step(registeredStep.getId());
+    }
+
+    @Override
+    public CompositeOperationDefImpl<T, C> step(Identifiable registeredStep, Identifiable mapper) {
+        requireNotNull(registeredStep, "Step identifiable");
+        requireNotNull(mapper, "Mapper identifiable");
+        return step(registeredStep.getId(), mapper.getId());
+    }
+
+    @Override
+    public CompositeOperationDefImpl<T, C> step(Identifiable registeredStep, String mapperId) {
+        requireNotNull(registeredStep, "Step identifiable");
+        return step(registeredStep.getId(), mapperId);
+    }
+
+    @Override
+    public CompositeOperationDefImpl<T, C> step(String registeredStepId, Identifiable mapper) {
+        requireNotNull(mapper, "Mapper identifiable");
+        return step(registeredStepId, mapper.getId());
+    }
+
+    @Override
     public CompositeOperationDefImpl<T, C> step(String id, Step<T, C> step) {
         actionRefs.add(ActionRef.inline(id, step));
         return this;
@@ -172,6 +198,31 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
         requireNotNull(inlineMapper, "Inline mapper instance");
         actionRefs.add(ActionRef.operationById(registeredOperationId, MapperRef.inline(inlineMapper)));
         return this;
+    }
+
+    @Override
+    public CompositeOperationDefImpl<T, C> operation(Identifiable registeredOperation) {
+        requireNotNull(registeredOperation, "Operation identifiable");
+        return operation(registeredOperation.getId());
+    }
+
+    @Override
+    public CompositeOperationDefImpl<T, C> operation(Identifiable registeredOperation, Identifiable mapper) {
+        requireNotNull(registeredOperation, "Operation identifiable");
+        requireNotNull(mapper, "Mapper identifiable");
+        return operation(registeredOperation.getId(), mapper.getId());
+    }
+
+    @Override
+    public CompositeOperationDefImpl<T, C> operation(Identifiable registeredOperation, String mapperId) {
+        requireNotNull(registeredOperation, "Operation identifiable");
+        return operation(registeredOperation.getId(), mapperId);
+    }
+
+    @Override
+    public CompositeOperationDefImpl<T, C> operation(String registeredOperationId, Identifiable mapper) {
+        requireNotNull(mapper, "Mapper identifiable");
+        return operation(registeredOperationId, mapper.getId());
     }
 
     @Override
