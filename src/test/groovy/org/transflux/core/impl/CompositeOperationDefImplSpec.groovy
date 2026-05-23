@@ -19,60 +19,26 @@
 package org.transflux.core.impl
 
 import org.transflux.core.Identifiable
+import org.transflux.core.StateMachine
 import org.transflux.core.TestContext
 import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.operation.CompositeOperationDef
+import org.transflux.core.operation.ContextMapper
 import org.transflux.core.operation.Operation
 import org.transflux.core.operation.Step
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
+import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
 import spock.lang.Unroll
+
+import java.util.function.Consumer
 
 import static org.transflux.core.TestStateEnum.ACTIVE
 import static org.transflux.core.TestStateEnum.TRIAL
 
 class CompositeOperationDefImplSpec extends Specification {
-
-    static class TestEntity {
-        String state
-        List<String> trail = []
-
-        TestEntity(String state) {
-            this.state = state
-        }
-    }
-
-    static class AppendStep implements Step<TestEntity, TestContext> {
-        final String tag
-
-        AppendStep(String tag) {
-            this.tag = tag
-        }
-
-        @Override
-        void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
-            entity.trail << tag
-        }
-    }
-
-    static class FooStep implements Step<TestEntity, TestContext> {
-        @Override
-        void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
-            entity.trail << 'foo'
-        }
-    }
-
-    static class CtorlessStep implements Step<TestEntity, TestContext> {
-        @SuppressWarnings('unused')
-        CtorlessStep(String unused) {
-        }
-
-        @Override
-        void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
-        }
-    }
 
     def "constructor should reject null/blank id"() {
         when:
@@ -226,20 +192,6 @@ class CompositeOperationDefImplSpec extends Specification {
         e.message.contains('CtorlessStep')
     }
 
-    private static Identifiable identifiable(String value) {
-        return { -> value } as Identifiable
-    }
-
-    static class IdOverloadStep implements Step<Object, Object> {
-        @Override
-        void execute(Object e, Object c, Transition<Object, Object> t) {}
-    }
-
-    static class IdOverloadOp implements Operation<Object, Object> {
-        @Override
-        void execute(Object e, Object c, Transition<Object, Object> t) {}
-    }
-
     @Unroll
     def 'tier-1 step #variant accepts Identifiable refs'() {
         given:
@@ -354,5 +306,198 @@ class CompositeOperationDefImplSpec extends Specification {
         'operation(null, Operation)'             | { c -> c.operation((Identifiable) null, new IdOverloadOp()) }
         'operation(null, Class)'                 | { c -> c.operation((Identifiable) null, IdOverloadOp) }
         'conditional(null, Consumer)'            | { c -> c.conditional((Identifiable) null, { cs -> }) }
+    }
+
+    def 'usingContext(SMContext) accepts when the supplied class matches the SM context type'() {
+        given:
+        def smd = new StateMachineDefImpl<CtxAssertEntity>()
+        smd.forEntityType(CtxAssertEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<CtxAssertEntity>)
+            .state('s1', { s -> s.transitionsTo('s2', 't', { t ->
+                t.compositeOperation('outer', { CompositeOperationDef<CtxAssertEntity, CtxAssertCorrectCtx> c ->
+                    c.usingContext(CtxAssertCorrectCtx).step('s1', new CtxAssertNoopStep())
+                })
+            }) })
+            .state('s2', {})
+
+        when:
+        def sm = smd.build()
+
+        then:
+        sm != null
+    }
+
+    def 'usingContext is a no-op when the SM did not declare a context type'() {
+        given:
+        def smd = new StateMachineDefImpl<CtxAssertEntity>()
+        smd.forEntityType(CtxAssertEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<CtxAssertEntity>)
+            .state('s1', { s -> s.transitionsTo('s2', 't', { t ->
+                t.compositeOperation('outer', { CompositeOperationDef<CtxAssertEntity, CtxAssertCorrectCtx> c ->
+                    c.usingContext(CtxAssertCorrectCtx).step('s1', new CtxAssertNoopStep())
+                })
+            }) })
+            .state('s2', {})
+
+        when:
+        def sm = smd.build()
+
+        then:
+        sm != null
+    }
+
+    def 'mapTo failure surfaces as parent member failure — nested op never starts'() {
+        given:
+        def sm = buildNestedFail(
+            { smd -> smd.operation('nested', NestedFailChildCtx, new NestedFailChildOp())
+                .mapper('failing-mapto', NestedFailParentCtx, NestedFailChildCtx, new FailingMapToMapper()) },
+            { t -> t.compositeOperation('outer', { CompositeOperationDef<NestedFailEntity, NestedFailParentCtx> c ->
+                c.operation('nested', 'failing-mapto')
+            }) })
+        def entity = new NestedFailEntity('s1')
+
+        when:
+        def result = sm.entity(entity).transitionTo('s2', new NestedFailParentCtx())
+
+        then:
+        !result.success
+        result.error instanceof RuntimeException
+        result.error.message == 'mapTo-boom'
+        result.executedStepIds.isEmpty()
+        entity.trail == []
+    }
+
+    def 'mapFrom failure surfaces as parent failure — child completed but writeback blew up'() {
+        given:
+        def sm = buildNestedFail(
+            { smd -> smd.operation('nested', NestedFailChildCtx, new NestedFailChildOp())
+                .mapper('failing-mapfrom', NestedFailParentCtx, NestedFailChildCtx, new FailingMapFromMapper()) },
+            { t -> t.compositeOperation('outer', { CompositeOperationDef<NestedFailEntity, NestedFailParentCtx> c ->
+                c.operation('nested', 'failing-mapfrom')
+            }) })
+        def entity = new NestedFailEntity('s1')
+
+        when:
+        def result = sm.entity(entity).transitionTo('s2', new NestedFailParentCtx())
+
+        then:
+        !result.success
+        result.error instanceof RuntimeException
+        result.error.message == 'mapFrom-boom'
+        entity.trail == ['child-ran']
+    }
+
+    private static Identifiable identifiable(String value) {
+        return { -> value } as Identifiable
+    }
+
+    private static StateMachine<NestedFailEntity> buildNestedFail(Consumer<StateMachineDefImpl<NestedFailEntity>> smdRegistrations,
+                                                                  Consumer<TransitionDef<NestedFailEntity, NestedFailParentCtx>> transitionConfigurer) {
+        def smd = new StateMachineDefImpl<NestedFailEntity>()
+        smd.forEntityType(NestedFailEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<NestedFailEntity>)
+        smdRegistrations.accept(smd)
+        smd.state('s1', { s -> s.transitionsTo('s2', 't', NestedFailParentCtx, transitionConfigurer) })
+            .state('s2', {})
+        return smd.build()
+    }
+
+    static class TestEntity {
+        String state
+        List<String> trail = []
+
+        TestEntity(String state) {
+            this.state = state
+        }
+    }
+
+    static class AppendStep implements Step<TestEntity, TestContext> {
+        final String tag
+
+        AppendStep(String tag) {
+            this.tag = tag
+        }
+
+        @Override
+        void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
+            entity.trail << tag
+        }
+    }
+
+    static class FooStep implements Step<TestEntity, TestContext> {
+        @Override
+        void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
+            entity.trail << 'foo'
+        }
+    }
+
+    static class CtorlessStep implements Step<TestEntity, TestContext> {
+        @SuppressWarnings('unused')
+        CtorlessStep(String unused) {
+        }
+
+        @Override
+        void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
+        }
+    }
+
+    static class IdOverloadStep implements Step<Object, Object> {
+        @Override
+        void execute(Object e, Object c, Transition<Object, Object> t) {}
+    }
+
+    static class IdOverloadOp implements Operation<Object, Object> {
+        @Override
+        void execute(Object e, Object c, Transition<Object, Object> t) {}
+    }
+
+    static class CtxAssertEntity {
+        String state
+
+        CtxAssertEntity(String state) { this.state = state }
+    }
+
+    static class CtxAssertCorrectCtx { }
+
+    static class CtxAssertNoopStep implements Step<CtxAssertEntity, CtxAssertCorrectCtx> {
+        @Override
+        void execute(CtxAssertEntity entity, CtxAssertCorrectCtx context, Transition<CtxAssertEntity, CtxAssertCorrectCtx> transition) { }
+    }
+
+    static class NestedFailEntity {
+        String state
+        List<String> trail = []
+
+        NestedFailEntity(String state) { this.state = state }
+    }
+
+    static class NestedFailParentCtx { }
+
+    static class NestedFailChildCtx { }
+
+    static class NestedFailChildOp implements Operation<NestedFailEntity, NestedFailChildCtx> {
+        @Override
+        void execute(NestedFailEntity entity, NestedFailChildCtx context, Transition<NestedFailEntity, NestedFailChildCtx> transition) {
+            entity.trail << 'child-ran'
+        }
+    }
+
+    static class FailingMapToMapper implements ContextMapper<NestedFailParentCtx, NestedFailChildCtx> {
+        @Override
+        NestedFailChildCtx mapTo(NestedFailParentCtx p) {
+            throw new RuntimeException('mapTo-boom')
+        }
+    }
+
+    static class FailingMapFromMapper implements ContextMapper<NestedFailParentCtx, NestedFailChildCtx> {
+        @Override
+        NestedFailChildCtx mapTo(NestedFailParentCtx p) {
+            return new NestedFailChildCtx()
+        }
+
+        @Override
+        void mapFrom(NestedFailParentCtx p, NestedFailChildCtx n) {
+            throw new RuntimeException('mapFrom-boom')
+        }
     }
 }

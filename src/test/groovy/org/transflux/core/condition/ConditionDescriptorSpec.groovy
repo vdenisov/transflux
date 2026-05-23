@@ -29,17 +29,6 @@ import java.util.function.Predicate
 
 class ConditionDescriptorSpec extends Specification {
 
-    private static Identifiable id(String value) {
-        return { -> value } as Identifiable
-    }
-
-    static class SampleCondition implements Condition<Object, Object> {
-        @Override
-        boolean test(Object entity, Object context, Transition<Object, Object> transition) {
-            true
-        }
-    }
-
     def "ref(...) should produce a Reference descriptor carrying the supplied id"() {
         when:
         def d = ConditionDescriptor.ref('cond-a')
@@ -189,5 +178,16 @@ class ConditionDescriptorSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.toLowerCase().contains('identifiable')
+    }
+
+    private static Identifiable id(String value) {
+        return { -> value } as Identifiable
+    }
+
+    static class SampleCondition implements Condition<Object, Object> {
+        @Override
+        boolean test(Object entity, Object context, Transition<Object, Object> transition) {
+            true
+        }
     }
 }

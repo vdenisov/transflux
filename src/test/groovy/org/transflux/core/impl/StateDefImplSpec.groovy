@@ -21,6 +21,7 @@ package org.transflux.core.impl
 import org.transflux.core.Identifiable
 import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
+import org.transflux.core.state.StateResolver
 import spock.lang.Specification
 import spock.lang.Unroll
 
@@ -164,10 +165,6 @@ class StateDefImplSpec extends Specification {
         e.message.contains("'S'")
     }
 
-    private static Identifiable identifiable(String value) {
-        return { -> value } as Identifiable
-    }
-
     def 'transitionsTo(String target, Identifiable transition, Consumer) registers the transition under the identifiable id'() {
         given:
         def smd = new StateMachineDefImpl<>()
@@ -261,4 +258,95 @@ class StateDefImplSpec extends Specification {
             { s -> s.transitionsTo(identifiable('s2'), (Identifiable) null, String, { t -> }) },
         ]
     }
+
+    def 'transitionsTo(target, id, configurer) defaults the transition context to Object'() {
+        given:
+        def smd = new StateMachineDefImpl<CtxBoundEntity>()
+        smd.forEntityType(CtxBoundEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<CtxBoundEntity>)
+            .state('s1', { s -> s.transitionsTo('s2', 't', {}) })
+            .state('s2', {})
+
+        when:
+        def td = smd.getTransition('t')
+
+        then:
+        td.getContextType() == Object
+    }
+
+    def 'transitionsTo(target, id, Class, configurer) pre-binds the transition context'() {
+        given:
+        def smd = new StateMachineDefImpl<CtxBoundEntity>()
+        smd.forEntityType(CtxBoundEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<CtxBoundEntity>)
+            .state('s1', { s -> s.transitionsTo('s2', 't', CtxBoundA, {}) })
+            .state('s2', {})
+
+        when:
+        def td = smd.getTransition('t')
+
+        then:
+        td.getContextType() == CtxBoundA
+    }
+
+    def 'pre-bound transition rejects fire calls with a wrong context type'() {
+        given:
+        def smd = new StateMachineDefImpl<CtxBoundEntity>()
+        smd.forEntityType(CtxBoundEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<CtxBoundEntity>)
+            .state('s1', { s -> s.transitionsTo('s2', 't', CtxBoundA, {}) })
+            .state('s2', {})
+        def sm = smd.build()
+
+        when:
+        sm.entity(new CtxBoundEntity('s1')).transitionTo('s2', new CtxBoundB())
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains('CtxBoundA')
+        e.message.contains('CtxBoundB')
+    }
+
+    def 'pre-bound transition accepts fire calls with the matching context type'() {
+        given:
+        def smd = new StateMachineDefImpl<CtxBoundEntity>()
+        smd.forEntityType(CtxBoundEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<CtxBoundEntity>)
+            .state('s1', { s -> s.transitionsTo('s2', 't', CtxBoundA, {}) })
+            .state('s2', {})
+        def sm = smd.build()
+
+        when:
+        def result = sm.entity(new CtxBoundEntity('s1')).transitionTo('s2', new CtxBoundA())
+
+        then:
+        result.success
+    }
+
+    def 'transitionsTo with null contextType raises validation error'() {
+        given:
+        def smd = new StateMachineDefImpl<CtxBoundEntity>()
+        smd.forEntityType(CtxBoundEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<CtxBoundEntity>)
+
+        when:
+        smd.state('s1', { s -> s.transitionsTo('s2', 't', (Class) null, {}) })
+
+        then:
+        thrown(TransfluxValidationException)
+    }
+
+    private static Identifiable identifiable(String value) {
+        return { -> value } as Identifiable
+    }
+
+    static class CtxBoundEntity {
+        String state
+
+        CtxBoundEntity(String state) { this.state = state }
+    }
+
+    static class CtxBoundA { }
+
+    static class CtxBoundB { }
 }

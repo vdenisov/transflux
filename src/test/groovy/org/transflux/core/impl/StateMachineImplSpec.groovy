@@ -638,39 +638,6 @@ class StateMachineImplSpec extends Specification {
         appliedState[entity] == 'ACTIVE'
     }
 
-    static enum IdState implements Identifiable {
-        S1, S2
-
-        @Override
-        String getId() { name() }
-    }
-
-    static enum IdTransition implements Identifiable {
-        T1
-
-        @Override
-        String getId() { name() }
-    }
-
-    static class IdEntity {
-        String state
-
-        IdEntity(String state) { this.state = state }
-    }
-
-    static class IdCtx {
-        String input
-    }
-
-    private StateMachine<IdEntity> identifiableOverloadSm() {
-        return Transflux.<IdEntity> defineStateMachine()
-            .forEntityType(IdEntity)
-            .withStateResolver({ e -> e.state } as StateResolver<IdEntity>)
-            .state('S1', { s -> s.transitionsTo('S2', 'T1', IdCtx, { t -> }) })
-            .state('S2', {})
-            .build()
-    }
-
     @Unroll
     def 'EntityBinding.transitionTo #variant succeeds with Identifiable args'() {
         given:
@@ -760,5 +727,38 @@ class StateMachineImplSpec extends Specification {
         '(entity, null, identifiable)'           | { s, e -> s.executeTransition(e, (Identifiable) null, IdTransition.T1) }
         '(entity, null, string)'                 | { s, e -> s.executeTransition(e, (Identifiable) null, 'T1') }
         '(entity, string, null)'                 | { s, e -> s.executeTransition(e, 'S2', (Identifiable) null) }
+    }
+
+    private StateMachine<IdEntity> identifiableOverloadSm() {
+        return Transflux.<IdEntity> defineStateMachine()
+            .forEntityType(IdEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<IdEntity>)
+            .state('S1', { s -> s.transitionsTo('S2', 'T1', IdCtx, { t -> }) })
+            .state('S2', {})
+            .build()
+    }
+
+    static enum IdState implements Identifiable {
+        S1, S2
+
+        @Override
+        String getId() { name() }
+    }
+
+    static enum IdTransition implements Identifiable {
+        T1
+
+        @Override
+        String getId() { name() }
+    }
+
+    static class IdEntity {
+        String state
+
+        IdEntity(String state) { this.state = state }
+    }
+
+    static class IdCtx {
+        String input
     }
 }

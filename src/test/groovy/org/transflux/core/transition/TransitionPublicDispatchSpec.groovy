@@ -39,65 +39,6 @@ import java.util.function.Function
  */
 class TransitionPublicDispatchSpec extends Specification {
 
-    private static Identifiable id(String value) {
-        return { -> value } as Identifiable
-    }
-
-    static class Entity {
-        String state
-        List<String> trail = []
-
-        Entity(String state) { this.state = state }
-    }
-
-    static class ParentCtx {
-        String input
-        String output
-    }
-
-    static class ChildCtx {
-        String input
-        String output
-    }
-
-    static class ChildStep implements Step<Entity, ChildCtx> {
-        @Override
-        void execute(Entity entity, ChildCtx context, Transition<Entity, ChildCtx> transition) {
-            context.output = 'step-saw-' + context.input
-            entity.trail << ('step:' + context.input)
-        }
-    }
-
-    static class ChildOperation implements Operation<Entity, ChildCtx> {
-        @Override
-        void execute(Entity entity, ChildCtx context, Transition<Entity, ChildCtx> transition) {
-            context.output = 'op-saw-' + context.input
-            entity.trail << ('op:' + context.input)
-        }
-    }
-
-    static class PNMapper implements ContextMapper<ParentCtx, ChildCtx> {
-        @Override
-        ChildCtx mapTo(ParentCtx p) {
-            def c = new ChildCtx()
-            c.input = p.input
-            return c
-        }
-
-        @Override
-        void mapFrom(ParentCtx p, ChildCtx c) {
-            p.output = c.output
-        }
-    }
-
-    /** Pass-through child op typed against the parent context. */
-    static class ParentPassThroughOp implements Operation<Entity, ParentCtx> {
-        @Override
-        void execute(Entity entity, ParentCtx context, Transition<Entity, ParentCtx> transition) {
-            entity.trail << ('pt:' + context.input)
-        }
-    }
-
     def 'transition.step(id, mapperId) resolves the registered mapper and runs the child step'() {
         given:
         def sm = build(
@@ -368,5 +309,64 @@ class TransitionPublicDispatchSpec extends Specification {
         smd.state('s1', { s -> s.transitionsTo('s2', 't', ParentCtx, transitionConfigurer) })
             .state('s2', {})
         return smd.build()
+    }
+
+    private static Identifiable id(String value) {
+        return { -> value } as Identifiable
+    }
+
+    static class Entity {
+        String state
+        List<String> trail = []
+
+        Entity(String state) { this.state = state }
+    }
+
+    static class ParentCtx {
+        String input
+        String output
+    }
+
+    static class ChildCtx {
+        String input
+        String output
+    }
+
+    static class ChildStep implements Step<Entity, ChildCtx> {
+        @Override
+        void execute(Entity entity, ChildCtx context, Transition<Entity, ChildCtx> transition) {
+            context.output = 'step-saw-' + context.input
+            entity.trail << ('step:' + context.input)
+        }
+    }
+
+    static class ChildOperation implements Operation<Entity, ChildCtx> {
+        @Override
+        void execute(Entity entity, ChildCtx context, Transition<Entity, ChildCtx> transition) {
+            context.output = 'op-saw-' + context.input
+            entity.trail << ('op:' + context.input)
+        }
+    }
+
+    static class PNMapper implements ContextMapper<ParentCtx, ChildCtx> {
+        @Override
+        ChildCtx mapTo(ParentCtx p) {
+            def c = new ChildCtx()
+            c.input = p.input
+            return c
+        }
+
+        @Override
+        void mapFrom(ParentCtx p, ChildCtx c) {
+            p.output = c.output
+        }
+    }
+
+    /** Pass-through child op typed against the parent context. */
+    static class ParentPassThroughOp implements Operation<Entity, ParentCtx> {
+        @Override
+        void execute(Entity entity, ParentCtx context, Transition<Entity, ParentCtx> transition) {
+            entity.trail << ('pt:' + context.input)
+        }
     }
 }

@@ -26,7 +26,9 @@ import org.transflux.core.operation.CompositeOperationDef
 import org.transflux.core.operation.Operation
 import org.transflux.core.operation.SimpleOperationDef
 import org.transflux.core.operation.Step
+import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
+import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
 import spock.lang.Unroll
 
@@ -138,18 +140,6 @@ class TransitionDefImplSpec extends Specification {
         'getId'            | 'transition-1' | 'source'          | 'target'          | 'transition-1'
         'getSourceStateId' | 't1'           | 'source-state-id' | 'target'          | 'source-state-id'
         'getTargetStateId' | 't1'           | 'source'          | 'target-state-id' | 'target-state-id'
-    }
-
-    static class FooStep implements Step<Object, Object> {
-        @Override
-        void execute(Object entity, Object context, Transition<Object, Object> transition) {
-        }
-    }
-
-    static class FooOperation implements Operation<Object, Object> {
-        @Override
-        void execute(Object entity, Object context, Transition<Object, Object> transition) {
-        }
     }
 
     def 'simpleOperation(id, Operation instance) should attach a simple operation def'() {
@@ -282,18 +272,42 @@ class TransitionDefImplSpec extends Specification {
         result == "TransitionDefImpl{id='t1', sourceStateId='source', targetStateId='target'}"
     }
 
-    private static Identifiable identifiable(String value) {
-        return { -> value } as Identifiable
+    def 'TransitionDef defaults to Object context when usingContext is not called'() {
+        given:
+        def td = new TransitionDefImpl<UsingCtxEntity, Object>('t1', 's1', 's2')
+
+        expect:
+        td.getContextType() == Object
     }
 
-    static class IdOverloadOp implements Operation<Object, Object> {
-        @Override
-        void execute(Object e, Object c, Transition<Object, Object> t) {}
+    def "usingContext narrows the transition's context type and re-types the builder"() {
+        given:
+        def td = new TransitionDefImpl<UsingCtxEntity, Void>('t1', 's1', 's2', Void)
+        td.beginConfigurer()
+
+        when:
+        TransitionDef<UsingCtxEntity, UsingCtx> retyped = td.usingContext(UsingCtx)
+
+        then:
+        retyped.getContextType() == UsingCtx
+        td.getContextType() == UsingCtx
     }
 
-    static class IdOverloadCond implements Condition<Object, Object> {
-        @Override
-        boolean test(Object e, Object c, Transition<Object, Object> t) { true }
+    def "transition's contextType is reachable from the bound transition record"() {
+        given:
+        def smd = new StateMachineDefImpl<UsingCtxEntity>()
+        smd.forEntityType(UsingCtxEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<UsingCtxEntity>)
+            .state('s1', { s -> s.transitionsTo('s2', 't1', { t -> t.usingContext(UsingCtx) }) })
+            .state('s2', {})
+        def sm = (StateMachineImpl) smd.build()
+
+        when:
+        def transition = sm.getTransition('t1')
+
+        then:
+        transition instanceof BoundTransition
+        transition.contextType() == UsingCtx
     }
 
     def 'step(Identifiable) delegates to step(String)'() {
@@ -443,5 +457,39 @@ class TransitionDefImplSpec extends Specification {
         'addEventTrigger(null, BiPredicate)'     | { d -> d.addEventTrigger((Identifiable) null, { i, e -> true } as BiPredicate) }
         'addDataTrigger(null)'                   | { d -> d.addDataTrigger((Identifiable) null) }
         'addDataTrigger(null, Predicate)'        | { d -> d.addDataTrigger((Identifiable) null, { e -> true } as Predicate) }
+    }
+
+    private static Identifiable identifiable(String value) {
+        return { -> value } as Identifiable
+    }
+
+    static class FooStep implements Step<Object, Object> {
+        @Override
+        void execute(Object entity, Object context, Transition<Object, Object> transition) {
+        }
+    }
+
+    static class FooOperation implements Operation<Object, Object> {
+        @Override
+        void execute(Object entity, Object context, Transition<Object, Object> transition) {
+        }
+    }
+
+    static class UsingCtxEntity {
+        String state
+
+        UsingCtxEntity(String state) { this.state = state }
+    }
+
+    static class UsingCtx { }
+
+    static class IdOverloadOp implements Operation<Object, Object> {
+        @Override
+        void execute(Object e, Object c, Transition<Object, Object> t) {}
+    }
+
+    static class IdOverloadCond implements Condition<Object, Object> {
+        @Override
+        boolean test(Object e, Object c, Transition<Object, Object> t) { true }
     }
 }

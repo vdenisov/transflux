@@ -257,30 +257,6 @@ class StateMachineDefImplSpec extends Specification {
         e.message == 'Entity type cannot be null'
     }
 
-    static class IdOverloadStep implements Step<Object, Object> {
-        @Override
-        void execute(Object e, Object c, Transition<Object, Object> t) {}
-    }
-
-    static class IdOverloadCondition implements Condition<Object, Object> {
-        @Override
-        boolean test(Object e, Object c, Transition<Object, Object> t) { true }
-    }
-
-    static class IdOverloadOperation implements Operation<Object, Object> {
-        @Override
-        void execute(Object e, Object c, Transition<Object, Object> t) {}
-    }
-
-    static class IdOverloadMapper implements ContextMapper<Object, Object> {
-        @Override
-        Object mapTo(Object p) { p }
-    }
-
-    private static Identifiable identifiable(String value) {
-        return { -> value } as Identifiable
-    }
-
     @Unroll
     def 'step Identifiable overload accepted: #variant'() {
         given:
@@ -370,5 +346,29 @@ class StateMachineDefImplSpec extends Specification {
         'compositeOperation(null, Class, Consumer)'      | { d -> d.compositeOperation((Identifiable) null, Object, { c -> c.step('x') }) }
         'operation(null, Class, Operation)'              | { d -> d.operation((Identifiable) null, Object, new IdOverloadOperation()) }
         'mapper(null, parent, child, ContextMapper)'     | { d -> d.mapper((Identifiable) null, Object, Object, new IdOverloadMapper()) }
+    }
+
+    private static Identifiable identifiable(String value) {
+        return { -> value } as Identifiable
+    }
+
+    static class IdOverloadStep implements Step<Object, Object> {
+        @Override
+        void execute(Object e, Object c, Transition<Object, Object> t) {}
+    }
+
+    static class IdOverloadCondition implements Condition<Object, Object> {
+        @Override
+        boolean test(Object e, Object c, Transition<Object, Object> t) { true }
+    }
+
+    static class IdOverloadOperation implements Operation<Object, Object> {
+        @Override
+        void execute(Object e, Object c, Transition<Object, Object> t) {}
+    }
+
+    static class IdOverloadMapper implements ContextMapper<Object, Object> {
+        @Override
+        Object mapTo(Object p) { p }
     }
 }

@@ -306,19 +306,6 @@ class ConditionalStepDefImplSpec extends Specification {
         (descriptor as ConditionDescriptor.ExpressionBased).expression() == 'entity.value > 0'
     }
 
-    private static StateMachineImpl<Entity> stateMachine() {
-        def smd = new StateMachineDefImpl<Entity>()
-        smd.forEntityType(Entity)
-            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1', { s -> s.transitionsTo('s2', 't', {}) })
-            .state('s2', {})
-        return (StateMachineImpl<Entity>) smd.build()
-    }
-
-    private static Identifiable identifiable(String value) {
-        return { -> value } as Identifiable
-    }
-
     def 'ConditionalStepDef.branch(Identifiable, Consumer) registers a branch under the identifiable id'() {
         given:
         def cond = new ConditionalStepDefImpl<Object, Object>('c1')
@@ -402,5 +389,18 @@ class ConditionalStepDefImplSpec extends Specification {
 
         then:
         thrown(TransfluxValidationException)
+    }
+
+    private static StateMachineImpl<Entity> stateMachine() {
+        def smd = new StateMachineDefImpl<Entity>()
+        smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+            .state('s1', { s -> s.transitionsTo('s2', 't', {}) })
+            .state('s2', {})
+        return (StateMachineImpl<Entity>) smd.build()
+    }
+
+    private static Identifiable identifiable(String value) {
+        return { -> value } as Identifiable
     }
 }
