@@ -59,7 +59,7 @@ import static org.transflux.core.impl.ValidationUtils.requireNotNull;
  *
  * @param <T> the type of entity managed by this state machine
  */
-public class StateMachineImpl<T> implements StateMachine<T> {
+class StateMachineImpl<T> implements StateMachine<T> {
     private static final Logger log = LoggerFactory.getLogger(StateMachineImpl.class);
 
     // TODO Phase 4: extend across the async-submission boundary (§4.5.3.4) via

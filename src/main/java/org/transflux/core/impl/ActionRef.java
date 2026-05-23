@@ -50,7 +50,7 @@ import static org.transflux.core.impl.ValidationUtils.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-public sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationRef {
+sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationRef {
 
     String id();
 

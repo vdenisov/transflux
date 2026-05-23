@@ -38,7 +38,7 @@ import static org.transflux.core.impl.ValidationUtils.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-public record BoundCompensation<T, C>(StepPath path, Compensation<T, C> compensation) {
+record BoundCompensation<T, C>(StepPath path, Compensation<T, C> compensation) {
 
     public BoundCompensation {
         requireNotNull(path, "Bound compensation step path");

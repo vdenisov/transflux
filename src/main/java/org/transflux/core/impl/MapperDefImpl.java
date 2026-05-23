@@ -45,7 +45,7 @@ import static org.transflux.core.impl.ValidationUtils.requireNotNull;
  * @param <P> the parent context type
  * @param <N> the child context type
  */
-public final class MapperDefImpl<P, N> implements MapperDef<P, N> {
+final class MapperDefImpl<P, N> implements MapperDef<P, N> {
     private static final Logger log = LoggerFactory.getLogger(MapperDefImpl.class);
 
     private final String id;

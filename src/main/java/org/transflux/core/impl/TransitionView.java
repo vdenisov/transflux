@@ -69,7 +69,7 @@ import static org.transflux.core.impl.ValidationUtils.requireNotNull;
  * @param <T> the entity type the enclosing state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-public class TransitionView<T, C> implements Transition<T, C> {
+class TransitionView<T, C> implements Transition<T, C> {
     private final StateMachineImpl<T> stateMachine;
     private final TransitionImpl<T, C> boundTransition;
 

@@ -43,7 +43,7 @@ import static org.transflux.core.impl.ValidationUtils.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type this step requires
  */
-public final class StepDefImpl<T, C> implements StepDef<T, C> {
+final class StepDefImpl<T, C> implements StepDef<T, C> {
     private static final Logger log = LoggerFactory.getLogger(StepDefImpl.class);
 
     private final String id;

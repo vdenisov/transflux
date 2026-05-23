@@ -63,7 +63,7 @@ import static org.transflux.core.impl.ValidationUtils.requireNotNull;
  * @param <T> the entity type managed by the enclosing state machine
  * @param <C> the host-supplied context type carried through transition execution
  */
-public class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
+class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     private static final Logger log = LoggerFactory.getLogger(TransitionDefImpl.class);
 
     private final String id;

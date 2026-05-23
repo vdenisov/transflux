@@ -44,7 +44,7 @@ import org.transflux.core.exception.TransfluxValidationException;
  *     "Invalid SpEL expression '" + expression + "'");
  * }</pre>
  */
-public final class ThrowingUtils {
+final class ThrowingUtils {
 
     private ThrowingUtils() {
         // utility class — no instances
@@ -56,7 +56,7 @@ public final class ThrowingUtils {
      * @param <T> the supplied value type
      */
     @FunctionalInterface
-    public interface ThrowingSupplier<T> {
+    interface ThrowingSupplier<T> {
         T get() throws Exception;
     }
 
@@ -64,7 +64,7 @@ public final class ThrowingUtils {
      * A {@link Runnable}-shaped lambda type that may throw any exception.
      */
     @FunctionalInterface
-    public interface ThrowingRunnable {
+    interface ThrowingRunnable {
         void run() throws Exception;
     }
 

@@ -51,7 +51,7 @@ import static org.transflux.core.impl.ValidationUtils.requireNotNull;
  * @param <T> the entity type the enclosing state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-public class TransitionImpl<T, C> implements Transition<T, C> {
+class TransitionImpl<T, C> implements Transition<T, C> {
     private final String id;
     private final String sourceStateId;
     private final String targetStateId;

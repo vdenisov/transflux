@@ -271,7 +271,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @param conditionRegistry the resolved SM-wide condition registry
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public void bindCompositeScopes(StateMachineImpl<T> stateMachine,
+    void bindCompositeScopes(StateMachineImpl<T> stateMachine,
                                     RegistryImpl<T> rootRegistry,
                                     Map<String, BoundCondition<T, ?>> conditionRegistry) {
         Map<String, Object> canonical = new HashMap<>();
@@ -324,7 +324,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * <p>This is framework-internal infrastructure used by {@link StateMachineImpl} during state
      * machine construction; user code does not invoke it directly.
      */
-    public void flattenCompositeScopes() {
+    void flattenCompositeScopes() {
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             OperationDefImpl<T, ?> op = td.getOperationDef();
             if (op instanceof CompositeOperationDefImpl<T, ?> composite) {
@@ -615,7 +615,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      *
      * @return the registered mapper def, or {@code null}
      */
-    public MapperDef<?, ?> getMapperDef(String id) {
+    MapperDef<?, ?> getMapperDef(String id) {
         return mapperRegistrations.get(id);
     }
 
@@ -682,7 +682,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
      * should not invoke it directly.
      */
-    public Map<String, BoundCondition<T, ?>> buildBoundConditions() {
+    Map<String, BoundCondition<T, ?>> buildBoundConditions() {
         Map<String, BoundCondition<T, ?>> resolved = new LinkedHashMap<>();
         for (Map.Entry<String, ConditionRegistration<T>> e : conditionRegistrations.entrySet()) {
             resolved.put(e.getKey(), e.getValue().toBoundCondition(e.getKey()));
@@ -702,7 +702,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      *
      * @return an unmodifiable map of SM-level step id to bound step
      */
-    public Map<String, BoundStep<T, ?>> buildBoundSteps() {
+    Map<String, BoundStep<T, ?>> buildBoundSteps() {
         Map<String, BoundStep<T, ?>> resolved = new LinkedHashMap<>();
         for (Map.Entry<String, StepRegistration<T>> e : stepRegistrations.entrySet()) {
             resolved.put(e.getKey(), e.getValue().toBoundStep(e.getKey()));
@@ -714,7 +714,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * Resolves the operation registrations into {@link BoundOperation} instances. Framework-internal.
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public Map<String, BoundOperation<T, ?>> buildBoundOperationsIncrementally(
+    Map<String, BoundOperation<T, ?>> buildBoundOperationsIncrementally(
             StateMachineImpl<T> stateMachine,
             Consumer<BoundOperation<T, ?>> afterBuild) {
         Map<String, BoundOperation<T, ?>> resolved = new LinkedHashMap<>();
@@ -756,11 +756,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         componentContextTypes.put(id, contextType);
     }
 
-    public Class<?> getComponentContextType(String id) {
+    Class<?> getComponentContextType(String id) {
         return componentContextTypes.get(id);
     }
 
-    public CompositeOperationDefImpl<T, ?> getSmCompositeOperation(String id) {
+    CompositeOperationDefImpl<T, ?> getSmCompositeOperation(String id) {
         return smCompositeOperations.get(id);
     }
 
@@ -880,7 +880,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      *
      * @return the newly registered transition def
      */
-    public TransitionDefImpl<T, Object> registerTransition(String sourceStateId, String targetStateId,
+    TransitionDefImpl<T, Object> registerTransition(String sourceStateId, String targetStateId,
                                                            String transitionId) {
         return registerTransition(sourceStateId, targetStateId, transitionId, Object.class);
     }
@@ -899,7 +899,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      *
      * @return the newly registered transition def
      */
-    public <C> TransitionDefImpl<T, C> registerTransition(String sourceStateId, String targetStateId,
+    <C> TransitionDefImpl<T, C> registerTransition(String sourceStateId, String targetStateId,
                                                           String transitionId, Class<C> contextType) {
         requireNotBlank(sourceStateId, "Source state ID");
         requireNotBlank(targetStateId, "Target state ID");
@@ -1059,11 +1059,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         return stateApplier;
     }
 
-    public Map<String, StateDefImpl<T>> getStates() {
+    Map<String, StateDefImpl<T>> getStates() {
         return states;
     }
 
-    public Map<String, TransitionDefImpl<T, ?>> getTransitionsById() {
+    Map<String, TransitionDefImpl<T, ?>> getTransitionsById() {
         return transitionsById;
     }
 

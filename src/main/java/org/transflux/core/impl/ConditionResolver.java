@@ -43,7 +43,7 @@ import static org.transflux.core.impl.ValidationUtils.requireNotNull;
  * <p>This is framework-internal infrastructure used by Transflux's own def builders; user
  * code should not invoke it directly.
  */
-public final class ConditionResolver {
+final class ConditionResolver {
 
     private ConditionResolver() {
         // utility class — no instances

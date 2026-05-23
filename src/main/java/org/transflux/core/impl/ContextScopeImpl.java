@@ -42,7 +42,7 @@ import static org.transflux.core.impl.ValidationUtils.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the context class this scope binds to
  */
-public final class ContextScopeImpl<T, C> implements ContextScope<T, C> {
+final class ContextScopeImpl<T, C> implements ContextScope<T, C> {
 
     private final StateMachineDefImpl<T> smd;
     private final Class<C> contextType;

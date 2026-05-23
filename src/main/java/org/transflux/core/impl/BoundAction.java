@@ -31,7 +31,7 @@ import org.transflux.core.operation.*;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-public sealed interface BoundAction<T, C> permits BoundStep, BoundOperation {
+sealed interface BoundAction<T, C> permits BoundStep, BoundOperation {
 
     /**
      * Returns the framework-owned id of this action.

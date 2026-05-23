@@ -35,7 +35,7 @@ import java.lang.reflect.InvocationTargetException;
  * <p>This is framework-internal infrastructure used by Transflux's own def builders; user
  * code should not invoke it directly.
  */
-public final class ReflectionUtils {
+final class ReflectionUtils {
 
     private ReflectionUtils() {
         // utility class — no instances

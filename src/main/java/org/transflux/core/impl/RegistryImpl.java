@@ -40,7 +40,7 @@ import static org.transflux.core.impl.ValidationUtils.requireNotNull;
  *
  * @param <T> the entity type the surrounding state machine manages
  */
-public final class RegistryImpl<T> implements Registry<T> {
+final class RegistryImpl<T> implements Registry<T> {
 
     private final Map<String, Component<T>> components = new LinkedHashMap<>();
     private final Registry<T> parent;

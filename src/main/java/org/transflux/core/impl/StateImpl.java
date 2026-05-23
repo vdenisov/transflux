@@ -37,7 +37,7 @@ import static org.transflux.core.impl.ValidationUtils.requireNotNull;
  * state machine construction and should not be instantiated directly by client code.
  * 
  */
-public class StateImpl<T> implements State<T> {
+class StateImpl<T> implements State<T> {
     private final String id;
     private final String name;
     private final String description;

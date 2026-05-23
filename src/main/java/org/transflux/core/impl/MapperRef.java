@@ -46,7 +46,7 @@ import static org.transflux.core.impl.ValidationUtils.requireNotNull;
  * {@link org.transflux.core.transition.TransitionView TransitionView}; user code does not
  * construct {@code MapperRef} values directly — they are produced from the call-site overloads.
  */
-public sealed interface MapperRef
+sealed interface MapperRef
     permits MapperRef.PassThrough, MapperRef.ById, MapperRef.InlineFunction, MapperRef.InlineMapper {
 
     /**

@@ -39,7 +39,7 @@ import static org.transflux.core.impl.ValidationUtils.warnIfSet;
  *
  * @param <T> the type of entity managed by the state machine
  */
-public class StateDefImpl<T> implements StateDef<T> {
+class StateDefImpl<T> implements StateDef<T> {
     private static final Logger log = LoggerFactory.getLogger(StateDefImpl.class);
 
     private final String id;

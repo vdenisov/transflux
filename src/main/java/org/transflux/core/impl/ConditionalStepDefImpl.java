@@ -62,7 +62,7 @@ import static org.transflux.core.impl.ValidationUtils.warnIfSet;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-public final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T, C> {
+final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T, C> {
     private static final Logger log = LoggerFactory.getLogger(ConditionalStepDefImpl.class);
 
     private final String id;

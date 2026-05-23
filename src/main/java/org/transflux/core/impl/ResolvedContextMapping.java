@@ -33,7 +33,7 @@ import static org.transflux.core.impl.ValidationUtils.requireNotNull;
  * through the by-id call-site grammar on {@link CompositeOperationDef} and never sees this
  * type directly.
  */
-public final class ResolvedContextMapping {
+final class ResolvedContextMapping {
     private static final ResolvedContextMapping PASS_THROUGH = new ResolvedContextMapping(null);
 
     private final ContextMapper<Object, Object> mapper;
