@@ -69,7 +69,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
     private final StateApplier<T> stateApplier;
 
     private final Map<String, State<T>> states = new LinkedHashMap<>();
-    private final Map<String, TransitionImpl<T, ?>> transitions = new LinkedHashMap<>();
+    private final Map<String, BoundTransition<T, ?>> transitions = new LinkedHashMap<>();
     private final Registry<T> componentRegistry;
     private final StateMachineDefImpl<T> def;
 
@@ -117,9 +117,9 @@ class StateMachineImpl<T> implements StateMachine<T> {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private <C> TransitionImpl<T, C> buildTransition(TransitionDefImpl<T, C> td,
+    private <C> BoundTransition<T, C> buildTransition(TransitionDefImpl<T, C> td,
                                                       Map<String, BoundCondition<T, ?>> conditionRegistry) {
-        return new TransitionImpl<>(td, this, (Map) conditionRegistry);
+        return BoundTransition.from(td, this, (Map) conditionRegistry);
     }
 
     private Class<?> effectiveContextType(StateMachineDefImpl<T> def, String id) {
@@ -199,7 +199,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
         return states;
     }
 
-    Map<String, TransitionImpl<T, ?>> getTransitions() {
+    Map<String, BoundTransition<T, ?>> getTransitions() {
         return transitions;
     }
 
@@ -246,8 +246,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
         return stateId;
     }
 
-    @Override
-    public State<T> getState(String stateId) {
+    State<T> getState(String stateId) {
         requireNotBlank(stateId, "State ID");
 
         State<T> state = states.get(stateId);
@@ -258,11 +257,10 @@ class StateMachineImpl<T> implements StateMachine<T> {
         return state;
     }
 
-    @Override
-    public Transition<T, ?> getTransition(String transitionId) {
+    BoundTransition<T, ?> getTransition(String transitionId) {
         requireNotBlank(transitionId, "Transition ID");
 
-        Transition<T, ?> transition = transitions.get(transitionId);
+        BoundTransition<T, ?> transition = transitions.get(transitionId);
         if (transition == null) {
             throw new TransfluxValidationException("Transition '" + transitionId + "' does not exist");
         }
@@ -270,10 +268,10 @@ class StateMachineImpl<T> implements StateMachine<T> {
         return transition;
     }
 
-    private TransitionImpl<T, ?> findTransition(String sourceStateId, String targetStateId) {
+    private BoundTransition<T, ?> findTransition(String sourceStateId, String targetStateId) {
         var matchingTransitions = transitions.values().stream()
-            .filter(t -> t.getSourceStateId().equals(sourceStateId)
-                      && t.getTargetStateId().equals(targetStateId))
+            .filter(t -> t.sourceStateId().equals(sourceStateId)
+                      && t.targetStateId().equals(targetStateId))
             .toList();
 
         if (matchingTransitions.isEmpty()) {
@@ -296,10 +294,10 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
     @SuppressWarnings({"unchecked"})
     private <C> TransitionResult<T> executeTransitionInternal(T entity, Object firingContext,
-                                                                 TransitionImpl<T, C> transition) {
-        String sourceStateId = transition.getSourceStateId();
-        String targetStateId = transition.getTargetStateId();
-        String transitionId = transition.getId();
+                                                                 BoundTransition<T, C> transition) {
+        String sourceStateId = transition.sourceStateId();
+        String targetStateId = transition.targetStateId();
+        String transitionId = transition.id();
 
         EntityKey key = new EntityKey(this, entity);
         Set<EntityKey> inFlight = IN_FLIGHT.get();
@@ -316,7 +314,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
         TransitionView<T, C> view = new TransitionView<>(this, transition, entity, context);
 
         try {
-            for (BoundCondition<T, C> pc : transition.getBoundPreConditions()) {
+            for (BoundCondition<T, C> pc : transition.boundPreConditions()) {
                 if (!pc.condition().test(entity, context, view)) {
                     return TransitionResult.failure(
                         entity, sourceStateId, targetStateId, transitionId,
@@ -326,12 +324,12 @@ class StateMachineImpl<T> implements StateMachine<T> {
                 }
             }
 
-            BoundOperation<T, C> boundOperation = transition.getBoundOperation();
+            BoundOperation<T, C> boundOperation = transition.boundOperation();
             if (boundOperation != null) {
                 boundOperation.operation().execute(entity, context, view);
             }
 
-            for (BoundCondition<T, C> pc : transition.getBoundPostConditions()) {
+            for (BoundCondition<T, C> pc : transition.boundPostConditions()) {
                 if (!pc.condition().test(entity, context, view)) {
                     return TransitionResult.failure(
                         entity, sourceStateId, targetStateId, transitionId,
@@ -422,7 +420,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
             requireNotBlank(targetStateId, "Target state ID");
 
             String currentStateId = resolveCurrentState(entity);
-            TransitionImpl<T, ?> transition = findTransition(currentStateId, targetStateId);
+            BoundTransition<T, ?> transition = findTransition(currentStateId, targetStateId);
             verifyFireContext(transition, firingContext);
             return executeTransitionInternal(entity, firingContext, transition);
         }
@@ -433,32 +431,31 @@ class StateMachineImpl<T> implements StateMachine<T> {
             requireNotBlank(transitionId, "Transition ID");
 
             String currentStateId = resolveCurrentState(entity);
-            Transition<T, ?> abstractTransition = StateMachineImpl.this.getTransition(transitionId);
+            BoundTransition<T, ?> transition = StateMachineImpl.this.getTransition(transitionId);
 
-            if (!abstractTransition.getSourceStateId().equals(currentStateId)) {
+            if (!transition.sourceStateId().equals(currentStateId)) {
                 throw new TransfluxValidationException(
                     String.format("Entity is in state '%s' but transition '%s' requires source state '%s'",
-                        currentStateId, transitionId, abstractTransition.getSourceStateId())
+                        currentStateId, transitionId, transition.sourceStateId())
                 );
             }
-            if (!abstractTransition.getTargetStateId().equals(targetStateId)) {
+            if (!transition.targetStateId().equals(targetStateId)) {
                 throw new TransfluxValidationException(
                     String.format("Transition '%s' leads to state '%s' but target state '%s' was requested",
-                        transitionId, abstractTransition.getTargetStateId(), targetStateId)
+                        transitionId, transition.targetStateId(), targetStateId)
                 );
             }
 
-            TransitionImpl<T, ?> impl = (TransitionImpl<T, ?>) abstractTransition;
-            verifyFireContext(impl, firingContext);
-            return executeTransitionInternal(entity, firingContext, impl);
+            verifyFireContext(transition, firingContext);
+            return executeTransitionInternal(entity, firingContext, transition);
         }
 
-        private void verifyFireContext(TransitionImpl<T, ?> transition, Object firingContext) {
-            Class<?> expected = transition.getContextType();
+        private void verifyFireContext(BoundTransition<T, ?> transition, Object firingContext) {
+            Class<?> expected = transition.contextType();
             if (expected == Void.class) {
                 if (firingContext != null) {
                     throw new TransfluxValidationException(
-                        "Context type mismatch: transition '" + transition.getId()
+                        "Context type mismatch: transition '" + transition.id()
                             + "' expects Void (no context) but received "
                             + firingContext.getClass().getName());
                 }
@@ -469,7 +466,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
             }
             if (!expected.isInstance(firingContext)) {
                 throw new TransfluxValidationException(
-                    "Context type mismatch: transition '" + transition.getId()
+                    "Context type mismatch: transition '" + transition.id()
                         + "' expects " + expected.getName()
                         + " but received " + firingContext.getClass().getName());
             }

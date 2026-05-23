@@ -119,19 +119,4 @@ class TransitionViewSpec extends Specification {
         id << [null, '', '  ']
     }
 
-    def "TransitionImpl.step(id) on the static-topology object should throw"() {
-        given:
-        def smd = Transflux.<TestEntity> defineStateMachine()
-            .forEntityType(TestEntity)
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', {}) })
-        smd.state(ACTIVE, {})
-
-        def sm = (StateMachineImpl) smd.build()
-
-        when:
-        sm.getTransition('t1').step('foo')
-
-        then:
-        thrown(TransfluxValidationException)
-    }
 }

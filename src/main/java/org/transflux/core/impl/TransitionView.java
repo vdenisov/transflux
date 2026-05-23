@@ -42,10 +42,10 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * <p>
  * The framework builds a fresh {@code TransitionView} for each transition execution and hands
  * it to the underlying {@link Operation} as the {@code transition} parameter. Topology
- * accessors delegate to the static {@link TransitionImpl}; the dispatch methods declared on
- * {@link Transition} run against the captured execution scope (entity, context, step-id
- * recorder, compensation stack) by resolving the id against the enclosing state machine's
- * registries.
+ * accessors delegate to the {@link BoundTransition} record that carries the resolved
+ * per-transition data; the dispatch methods declared on {@link Transition} run against the
+ * captured execution scope (entity, context, step-id recorder, compensation stack) by
+ * resolving the id against the enclosing state machine's registries.
  *
  * <p>This is framework-internal runtime infrastructure intended only for use by Transflux's
  * own runtime; user code should not reference it directly.
@@ -55,7 +55,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  */
 class TransitionView<T, C> implements Transition<T, C> {
     private final StateMachineImpl<T> stateMachine;
-    private final TransitionImpl<T, C> boundTransition;
+    private final BoundTransition<T, C> boundTransition;
 
     private final T entity;
     private final C context;
@@ -70,7 +70,7 @@ class TransitionView<T, C> implements Transition<T, C> {
 
     private final Deque<String> operationStack = new ArrayDeque<>();
 
-    TransitionView(StateMachineImpl<T> stateMachine, TransitionImpl<T, C> boundTransition,
+    TransitionView(StateMachineImpl<T> stateMachine, BoundTransition<T, C> boundTransition,
                    T entity, C context) {
         requireNotNull(stateMachine, "State machine");
         requireNotNull(boundTransition, "Bound transition");
@@ -83,17 +83,17 @@ class TransitionView<T, C> implements Transition<T, C> {
 
     @Override
     public String getId() {
-        return boundTransition.getId();
+        return boundTransition.id();
     }
 
     @Override
     public String getSourceStateId() {
-        return boundTransition.getSourceStateId();
+        return boundTransition.sourceStateId();
     }
 
     @Override
     public String getTargetStateId() {
-        return boundTransition.getTargetStateId();
+        return boundTransition.targetStateId();
     }
 
     @Override

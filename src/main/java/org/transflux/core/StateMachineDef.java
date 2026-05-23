@@ -412,23 +412,4 @@ public interface StateMachineDef<T> {
      * @throws TransfluxValidationException if the definition is incomplete or inconsistent
      */
     StateMachine<T> build();
-
-    /**
-     * Looks up a transition by source/target state ids.
-     *
-     * @param sourceStateId the source state id
-     * @param targetStateId the target state id
-     *
-     * @return the matching transition def, or {@code null} if none exists
-     */
-    TransitionDef<T, ?> getTransition(String sourceStateId, String targetStateId);
-
-    /**
-     * Looks up a transition by its id.
-     *
-     * @param transitionId the transition id
-     *
-     * @return the matching transition def, or {@code null} if none exists
-     */
-    TransitionDef<T, ?> getTransition(String transitionId);
 }

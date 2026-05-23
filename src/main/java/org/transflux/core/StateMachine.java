@@ -19,8 +19,6 @@
 package org.transflux.core;
 
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.state.State;
-import org.transflux.core.transition.Transition;
 import org.transflux.core.transition.TransitionResult;
 
 /**
@@ -129,28 +127,6 @@ public interface StateMachine<T> {
      * @throws TransfluxValidationException if the state cannot be resolved or is invalid
      */
     String resolveCurrentState(T entity);
-
-    /**
-     * Retrieves a state by its identifier.
-     *
-     * @param stateId the state identifier
-     *
-     * @return the state with the given ID
-     *
-     * @throws TransfluxValidationException if no state exists with the given ID
-     */
-    State<T> getState(String stateId);
-
-    /**
-     * Retrieves a transition by its identifier.
-     *
-     * @param transitionId the transition identifier
-     *
-     * @return the transition with the given ID
-     *
-     * @throws TransfluxValidationException if no transition exists with the given ID
-     */
-    Transition<T, ?> getTransition(String transitionId);
 
     /**
      * Fluent execution scope returned by {@link StateMachine#entity(Object)}.

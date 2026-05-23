@@ -1044,8 +1044,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         return transitionsById;
     }
 
-    @Override
-    public TransitionDef<T, ?> getTransition(String sourceStateId, String targetStateId) {
+    TransitionDef<T, ?> getTransition(String sourceStateId, String targetStateId) {
         var byTarget = transitionsBySourceTarget.get(sourceStateId);
         if (byTarget == null) {
             throw new TransfluxValidationException("Source state '" + sourceStateId + "' not found");
@@ -1137,8 +1136,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             }
         }
 
-    @Override
-    public TransitionDef<T, ?> getTransition(String transitionId) {
+    TransitionDef<T, ?> getTransition(String transitionId) {
         var td = transitionsById.get(transitionId);
         if (td == null) {
             throw new TransfluxValidationException("Transition '" + transitionId + "' not found");

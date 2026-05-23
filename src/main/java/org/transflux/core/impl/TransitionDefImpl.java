@@ -175,7 +175,7 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     }
 
     /**
-     * Package-private hook used by {@link TransitionImpl} to materialize the runtime
+     * Package-private hook used by {@link BoundTransition} to materialize the runtime
      * {@link BoundOperation}, or {@code null} when this transition has no operation attached.
      *
      * @param stateMachine the enclosing state machine; required by composite operations to

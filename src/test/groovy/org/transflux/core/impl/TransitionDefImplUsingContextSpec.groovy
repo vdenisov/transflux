@@ -55,20 +55,20 @@ class TransitionDefImplUsingContextSpec extends Specification {
         td.getContextType() == TheCtx   // same underlying impl
     }
 
-    def "transition's contextType is reachable from the runtime TransitionImpl"() {
+    def "transition's contextType is reachable from the bound transition record"() {
         given:
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .state('s1', { s -> s.transitionsTo('s2', 't1', { t -> t.usingContext(TheCtx) }) })
             .state('s2', {})
-        def sm = smd.build()
+        def sm = (StateMachineImpl) smd.build()
 
         when:
         def transition = sm.getTransition('t1')
 
         then:
-        transition instanceof TransitionImpl
-        ((TransitionImpl) transition).getContextType() == TheCtx
+        transition instanceof BoundTransition
+        transition.contextType() == TheCtx
     }
 }
