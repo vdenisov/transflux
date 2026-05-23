@@ -1408,43 +1408,64 @@ StateMachine<Subscription> stateMachine = Transflux.defineStateMachine()
 
 #### 4.2.1 StateMachine Definition
 
+Every DSL method that takes a `String id` accepts an `Identifiable` sibling that delegates via `.getId()`. The idiomatic Java pattern is to tag state and transition ids with an enum so refactor-rename catches every reference site at compile time:
+
 ```java
+enum SubState implements Identifiable {
+    TRIAL, ACTIVE, SUSPENDED, CANCELLED, EXPIRED;
+
+    @Override public String getId() { return name(); }
+}
+
+enum SubTransition implements Identifiable {
+    TRIAL_TO_ACTIVE, ACTIVE_TO_SUSPENDED, ACTIVE_TO_EXPIRED, SUSPENDED_TO_CANCELLED;
+
+    @Override public String getId() { return name(); }
+}
+
 StateMachine<Subscription> subscriptionStateMachine = Transflux.defineStateMachine()
     .forEntityType(Subscription.class)
     .withName("subscription-state-machine")
     .withVersion("1.0.0")
-    
+
     // State resolver — read the current state
     .withStateResolver(SubscriptionStateResolver.class)
     // Alternatives:
     //   .withStateResolver(entity -> entity.getStatus())     // lambda
     //   .withStateResolver("entity.status")                  // SpEL
-    
+
     // State applier — finalize the transition by writing the new state
     .withStateApplier(SubscriptionStateApplier.class)
     // Alternatives:
     //   .withStateApplier((entity, newState) -> entity.setStatus(newState))
     //   .withStateApplier("entity.status")                   // SpEL property path
-    
-    // Define states
-    .state("trial", s -> s
+
+    // Define states — both Identifiable and String forms accepted everywhere.
+    .state(SubState.TRIAL, s -> s
         .withDescription("Initial trial state")
-        .transitionsTo("active", "trial-to-active", t -> {}))
+        .transitionsTo(SubState.ACTIVE, SubTransition.TRIAL_TO_ACTIVE, t -> {}))
 
-    .state("active", s -> s
+    .state(SubState.ACTIVE, s -> s
         .withDescription("Active subscription state")
-        .transitionsTo("suspended", "active-to-suspended", t -> {})
-        .transitionsTo("expired", "active-to-expired", t -> {}))
+        .transitionsTo(SubState.SUSPENDED, SubTransition.ACTIVE_TO_SUSPENDED, t -> {})
+        .transitionsTo(SubState.EXPIRED, SubTransition.ACTIVE_TO_EXPIRED, t -> {}))
 
-    .state("suspended", s -> s
+    .state(SubState.SUSPENDED, s -> s
         .withDescription("Suspended subscription state")
-        .transitionsTo("cancelled", "suspended-to-cancelled", t -> {}))
+        .transitionsTo(SubState.CANCELLED, SubTransition.SUSPENDED_TO_CANCELLED, t -> {}))
 
-    .state("cancelled", s -> {})
-    .state("expired", s -> {})
+    .state(SubState.CANCELLED, s -> {})
+    .state(SubState.EXPIRED, s -> {})
 
     .build();
+
+// Host-side firing also accepts the Identifiable forms.
+TransitionResult<Subscription> result = subscriptionStateMachine
+    .entity(subscription)
+    .transitionTo(SubState.ACTIVE, SubTransition.TRIAL_TO_ACTIVE, context);
 ```
+
+The plain-String forms remain valid and equivalent — pick the enum form when the same id is referenced from multiple call sites; pick the String form for one-off ids that have no other reference.
 
 #### 4.2.2 Advanced State Configuration
 

@@ -289,53 +289,55 @@ Once async branches land, the per-execution `TransitionView` state — context-o
 ### 2.6.9 `Identifiable` overload parity (all three tiers)
 *Currently only states and event triggers expose `Identifiable` overloads. The audit found ~65 String-only sites that benefit from a symmetric `Identifiable` overload. Each overload is a one-line delegate calling `.getId()` on the supplied `Identifiable`. Bonus: every `*Def` already extends `Identifiable`, so reference-site overloads automatically accept a held-onto `StateDef` / `TransitionDef` / `StepDef` / etc., enabling the "register-then-pass-the-def" pattern alongside enum-constant tagging.*
 
+#### Prerequisites (landed before tier work)
+- [x] **Promote `Transition<T, C>` public dispatch surface.** Before adding `Identifiable` overloads, the public `Transition<T, C>` interface only declared `step(String)` — the mapper-aware step variants and the full `operation(...)` quartet existed only as package-private methods on `TransitionView`. Lifted to the public interface, with `TransitionImpl`'s eight throwing dispatch methods routed through a single shared helper.
+- [x] **Sever `TransitionImpl` from `Transition<T, C>`; rename to `BoundTransition`.** Once the public surface is coherent, the static-topology object stops implementing the runtime interface entirely — it becomes a framework-internal record in the `Bound*` family. `TransitionView` is the only `Transition<T, C>` implementor. Eliminates the "implement-an-interface-to-throw" smell.
+- [x] **Trim introspection accessors.** `StateMachine.getState(String)` / `getTransition(String)` and `StateMachineDef.getTransition(String, String)` had no production callers; only specs exercised them. The single-arg `StateMachine.getTransition` had one internal caller that was demoted to a package-private helper. All four removed from the public surface; same-package specs continue using the package-private impls for introspection. **Follow-up:** if a real catalog / diagnostics use case materialises before 1.0, reconsider — but only with that use case in hand.
+
 #### Tier 1 — Reference sites (highest value)
 *Sites that look up something declared elsewhere. Enum-tagged ids give compile-checked refactoring safety here — the primary use case for `Identifiable`.*
-- [ ] `StateDef.transitionsTo(...)` — already accepts `Identifiable` for target; no Tier-1 work needed beyond what exists (the `transitionId` side is a definition, see Tier 3).
-- [ ] `TransitionDef.step(Identifiable registeredStep)` (by-id step ref).
-- [ ] `TransitionDef.preCondition(Identifiable registeredCondition)` and `postCondition(Identifiable registeredCondition)`.
-- [ ] `CompositeOperationDef.step(Identifiable registeredStep)`, `step(Identifiable registeredStep, Identifiable mapper)`, `step(Identifiable registeredStep, String mapperId)`, `step(String registeredStepId, Identifiable mapper)` — every combination of step ref + mapper ref.
-- [ ] `CompositeOperationDef.operation(Identifiable registeredOperation)` and the same matrix of step-ref-times-mapper-ref combinations as above.
-- [ ] `TransitionView.step(Identifiable)` and `step(Identifiable, Identifiable mapper)` plus mixed-form overloads — same matrix.
-- [ ] `TransitionView.operation(Identifiable)` and the matching matrix.
-- [ ] `ConditionDescriptor.ref(Identifiable)` and the four named factory forms (`instanceBased`, `classBased`, `predicate`, `expression`) — wherever an id parameter identifies a registered component or auto-derived reference.
+- [x] `StateDef.transitionsTo(...)` — already accepts `Identifiable` for target; no Tier-1 work needed beyond what exists (the `transitionId` side is a definition, see Tier 3).
+- [x] `TransitionDef.step(Identifiable registeredStep)` (by-id step ref).
+- [x] `TransitionDef.preCondition(Identifiable registeredCondition)` and `postCondition(Identifiable registeredCondition)`.
+- [x] `CompositeOperationDef.step(Identifiable registeredStep)`, `step(Identifiable registeredStep, Identifiable mapper)`, `step(Identifiable registeredStep, String mapperId)`, `step(String registeredStepId, Identifiable mapper)` — every combination of step ref + mapper ref.
+- [x] `CompositeOperationDef.operation(Identifiable registeredOperation)` and the same matrix of step-ref-times-mapper-ref combinations as above.
+- [x] `Transition.step(Identifiable)` and `step(Identifiable, Identifiable mapper)` plus mixed-form overloads — same matrix. (Lives on the public `Transition<T, C>` interface, not `TransitionView` — see Prerequisites above.)
+- [x] `Transition.operation(Identifiable)` and the matching matrix.
+- [x] `ConditionDescriptor.ref(Identifiable)`. The other four named factory forms (`instanceBased`, `classBased`, `predicate`, `expression`) take a String id as the *new* descriptor's id, not as a reference to a registered component — they belong to Tier 3 conceptually but are skipped: the existing String-only forms suffice, and adding Identifiable siblings to factory methods that *create* identity adds confusion without payoff.
 
 #### Tier 2 — Runtime entry points (high value)
 *Host-facing API. Where workflow code wires transitions and looks up runtime types — heavy enum usage pays off most here.*
-- [ ] `EntityBinding.transitionTo(Identifiable targetState)`.
-- [ ] `EntityBinding.transitionTo(Identifiable targetState, Object context)`.
-- [ ] `EntityBinding.transitionTo(Identifiable targetState, Identifiable transition)`.
-- [ ] `EntityBinding.transitionTo(Identifiable targetState, Identifiable transition, Object context)`.
-- [ ] `StateMachine.executeTransition(T entity, Identifiable targetState)` and `executeTransition(T entity, Identifiable targetState, Identifiable transition)`.
-- [ ] `StateMachine.getState(Identifiable)`.
-- [ ] `StateMachine.getTransition(Identifiable transition)`.
-- [ ] `StateMachine.getTransition(Identifiable sourceState, Identifiable targetState)`.
-- [ ] `StateMachineDef.getTransition(Identifiable transition)`.
-- [ ] `StateMachineDef.getTransition(Identifiable sourceState, Identifiable targetState)`.
+- [x] `EntityBinding.transitionTo(Identifiable targetState)`.
+- [x] `EntityBinding.transitionTo(Identifiable targetState, Object context)`.
+- [x] `EntityBinding.transitionTo(Identifiable targetState, Identifiable transition)`.
+- [x] `EntityBinding.transitionTo(Identifiable targetState, Identifiable transition, Object context)`.
+- [x] `EntityBinding.transitionTo(...)` mixed-form overloads (`(Identifiable, String)`, `(String, Identifiable)`, with and without context).
+- [x] `StateMachine.executeTransition(T entity, Identifiable targetState)` and `executeTransition(T entity, Identifiable targetState, Identifiable transition)` plus the two mixed forms.
+- [N/A] `StateMachine.getState(Identifiable)`, `StateMachine.getTransition(Identifiable transition)`, `StateMachine.getTransition(Identifiable sourceState, Identifiable targetState)`, `StateMachineDef.getTransition(Identifiable transition)`, `StateMachineDef.getTransition(Identifiable sourceState, Identifiable targetState)` — superseded by the introspection-accessor trim under Prerequisites above. These methods no longer exist on the public surface; no Identifiable overloads needed.
 
 #### Tier 3 — Definition sites (symmetry / consistency)
 *Pure consistency win. The user is creating the name, so the immediate ergonomic gain is smaller — but a `*Def`-as-`Identifiable` parameter lets callers reuse an already-registered def as the source of an id when defining a derived component. Adds uniformity: every DSL method that takes an id accepts both forms.*
-- [ ] `StateMachineDef.step(Identifiable, ...)` — all four overloads (with/without `Class<C>`, instance/class).
-- [ ] `StateMachineDef.condition(Identifiable, ...)` — all six overloads (instance/class/predicate/expression × untyped/typed).
-- [ ] `StateMachineDef.operation(Identifiable, Class<C>, ...)` — instance and class forms.
-- [ ] `StateMachineDef.compositeOperation(Identifiable, Class<C>, Consumer<...>)`.
-- [ ] `StateMachineDef.mapper(Identifiable, ...)` — instance / class / Function forms.
-- [ ] `StateDef.transitionsTo(String|Identifiable target, Identifiable transition, ...)` — adds the `Identifiable transitionId` side alongside the existing `Identifiable target` side.
-- [ ] `TransitionDef.simpleOperation(Identifiable, ...)` and `compositeOperation(Identifiable, ...)`.
-- [ ] `TransitionDef.preCondition(Identifiable, Condition)` / `(Identifiable, Class)` / `(Identifiable, Predicate)` / `(Identifiable, String expression)` inline forms; matching `postCondition(...)`.
-- [ ] `TransitionDef.addManualTrigger(Identifiable)`, `addEventTrigger(Identifiable, ...)` (where the *first* arg is the trigger id, not the event), `addDataTrigger(Identifiable, ...)`.
-- [ ] `CompositeOperationDef.step(Identifiable, Step<T, C>)` / `step(Identifiable, Class<? extends Step<T, C>>)` inline registration.
-- [ ] `CompositeOperationDef.operation(Identifiable, Operation<T, C>)` / `operation(Identifiable, Class<? extends Operation<T, C>>)`.
-- [ ] `CompositeOperationDef.conditional(Identifiable, Consumer<...>)`.
-- [ ] `ConditionalStepDef.branch(Identifiable, Consumer<BranchDef>)`.
-- [ ] `ContextScope.step / condition / operation / compositeOperation` — every `Identifiable` overload mirrors the matching `StateMachineDef` method inside `forContext` blocks.
+- [x] `StateMachineDef.step(Identifiable, ...)` — all four overloads (with/without `Class<C>`, instance/class).
+- [x] `StateMachineDef.condition(Identifiable, ...)` — all eight overloads (instance/class/predicate/expression × untyped/typed).
+- [x] `StateMachineDef.operation(Identifiable, Class<C>, ...)` — instance and class forms.
+- [x] `StateMachineDef.compositeOperation(Identifiable, Class<C>, Consumer<...>)`.
+- [x] `StateMachineDef.mapper(Identifiable, ...)` — instance / class / Function forms.
+- [x] `StateDef.transitionsTo(String|Identifiable target, Identifiable transition, ...)` — adds the `Identifiable transitionId` side alongside the existing `Identifiable target` side.
+- [x] `TransitionDef.simpleOperation(Identifiable, ...)` and `compositeOperation(Identifiable, ...)`.
+- [x] `TransitionDef.preCondition(Identifiable, Condition)` / `(Identifiable, Class)` / `(Identifiable, Predicate)` / `(Identifiable, String expression)` inline forms; matching `postCondition(...)`.
+- [x] `TransitionDef.addManualTrigger(Identifiable)`, `addEventTrigger(Identifiable, ...)` (where the *first* arg is the trigger id, not the event), `addDataTrigger(Identifiable, ...)`. One intentional gap: a bare single-arg `addEventTrigger(Identifiable triggerIdentifiable)` is not added — its signature would collide with the existing `addEventTrigger(Identifiable event)` (the event-id form). Callers wanting an Identifiable trigger id pair it with at least one more arg (eventId / event / BiPredicate).
+- [x] `CompositeOperationDef.step(Identifiable, Step<T, C>)` / `step(Identifiable, Class<? extends Step<T, C>>)` inline registration.
+- [x] `CompositeOperationDef.operation(Identifiable, Operation<T, C>)` / `operation(Identifiable, Class<? extends Operation<T, C>>)`.
+- [x] `CompositeOperationDef.conditional(Identifiable, Consumer<...>)`.
+- [x] `ConditionalStepDef.branch(Identifiable, Consumer<BranchDef>)`.
+- [x] `ContextScope.step / condition / operation / compositeOperation` — every `Identifiable` overload mirrors the matching `StateMachineDef` method inside `forContext` blocks.
 
 #### Spec coverage
-- [ ] One parameterized spec per affected interface (`StateMachineDefImplIdentifiableOverloadsSpec`, `TransitionDefImplIdentifiableOverloadsSpec`, `CompositeOperationDefImplIdentifiableOverloadsSpec`, `TransitionViewIdentifiableOverloadsSpec`, etc.). Each verifies: (a) the `Identifiable` overload registers / resolves identically to the matching `String` overload; (b) passing a registered `*Def` instance works as the `Identifiable` (the "register-then-reference" pattern); (c) `null` `Identifiable` is rejected with a clear message.
+- [x] One parameterized spec per affected interface (`StateMachineDefImplIdentifiableOverloadsSpec`, `TransitionDefImplIdentifiableOverloadsSpec` + `TransitionDefImplIdentifiableTier3OverloadsSpec`, `CompositeOperationDefImplIdentifiableOverloadsSpec` + `CompositeOperationDefImplIdentifiableTier3OverloadsSpec`, `TransitionIdentifiableOverloadsSpec`, `BranchDefImplIdentifiableOverloadsSpec`, `ConditionalStepDefImplIdentifiableOverloadsSpec`, `ContextScopeImplIdentifiableOverloadsSpec`, `StateMachineImplIdentifiableOverloadsSpec`, `StateDefImplIdentifiableOverloadsSpec`, `ConditionDescriptorIdentifiableOverloadsSpec`, plus the new `TransitionPublicDispatchSpec` for the prerequisite surface and the renamed `BoundTransitionSpec`). Each verifies: (a) the `Identifiable` overload registers / resolves identically to the matching `String` overload; (b) passing a registered `*Def` instance works as the `Identifiable` (the "register-then-reference" pattern); (c) `null` `Identifiable` is rejected with a clear message.
 
 #### Documentation
-- [ ] `CLAUDE.md` — short paragraph documenting the parity rule: every DSL method that takes a `String id` exposes an `Identifiable` overload that delegates via `.getId()`. New methods added in later phases are expected to follow the rule.
-- [ ] `requirements.md` — the canonical examples lean on enum-constant `Identifiable` ids where idiomatic (states, transition ids, trigger / event ids).
+- [x] `CLAUDE.md` — short paragraph documenting the parity rule: every DSL method that takes a `String id` exposes an `Identifiable` overload that delegates via `.getId()`. New methods added in later phases are expected to follow the rule. Also captures the null-disambiguation trap (`(String) null` cast at call sites where both overloads apply).
+- [x] `requirements.md` — the canonical examples lean on enum-constant `Identifiable` ids where idiomatic (states, transition ids, trigger / event ids).
 
 ### 2.6.10 Offer-state-machine worked example (DSL polish gate)
 *Originally Step 5 of the Phase 2.5 plan. Last task in 2.6 — after all DSL-shape changes have landed, walk a realistic workflow end-to-end against the final API to catch awkward grammar before Phase 3 multiplies the surface.*
