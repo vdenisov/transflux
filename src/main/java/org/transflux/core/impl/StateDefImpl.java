@@ -123,6 +123,38 @@ class StateDefImpl<T> implements StateDef<T> {
         return transitionsTo(targetStateIdentifiable.getId(), transitionId, contextType, configurer);
     }
 
+    @Override
+    public StateDefImpl<T> transitionsTo(String targetStateId, Identifiable transitionIdentifiable,
+                                         Consumer<TransitionDef<T, Object>> configurer) {
+        requireNotNull(transitionIdentifiable, "Transition identifiable");
+        return transitionsTo(targetStateId, transitionIdentifiable.getId(), configurer);
+    }
+
+    @Override
+    public <C> StateDefImpl<T> transitionsTo(String targetStateId, Identifiable transitionIdentifiable,
+                                             Class<C> contextType,
+                                             Consumer<TransitionDef<T, C>> configurer) {
+        requireNotNull(transitionIdentifiable, "Transition identifiable");
+        return transitionsTo(targetStateId, transitionIdentifiable.getId(), contextType, configurer);
+    }
+
+    @Override
+    public StateDefImpl<T> transitionsTo(Identifiable targetStateIdentifiable, Identifiable transitionIdentifiable,
+                                         Consumer<TransitionDef<T, Object>> configurer) {
+        requireNotNull(targetStateIdentifiable, "Target state identifiable");
+        requireNotNull(transitionIdentifiable, "Transition identifiable");
+        return transitionsTo(targetStateIdentifiable.getId(), transitionIdentifiable.getId(), configurer);
+    }
+
+    @Override
+    public <C> StateDefImpl<T> transitionsTo(Identifiable targetStateIdentifiable, Identifiable transitionIdentifiable,
+                                             Class<C> contextType,
+                                             Consumer<TransitionDef<T, C>> configurer) {
+        requireNotNull(targetStateIdentifiable, "Target state identifiable");
+        requireNotNull(transitionIdentifiable, "Transition identifiable");
+        return transitionsTo(targetStateIdentifiable.getId(), transitionIdentifiable.getId(), contextType, configurer);
+    }
+
     private static <T, C> void runTransitionConfigurer(TransitionDefImpl<T, C> td,
                                                        Consumer<TransitionDef<T, C>> configurer) {
         td.beginConfigurer();

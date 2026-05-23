@@ -168,6 +168,16 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> simpleOperation(String id, Operation<T, C> operation);
 
     /**
+     * {@link Identifiable} overload of {@link #simpleOperation(String, Operation)}.
+     *
+     * @param operationIdentifiable an identifiable supplying the operation id
+     * @param operation the operation instance
+     *
+     * @return this transition def for chaining
+     */
+    TransitionDef<T, C> simpleOperation(Identifiable operationIdentifiable, Operation<T, C> operation);
+
+    /**
      * Attaches a simple operation using an {@link Operation} class. The framework instantiates
      * it via its public no-arg constructor at state machine build time.
      *
@@ -180,6 +190,16 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         {@code operationClass} is {@code null}
      */
     TransitionDef<T, C> simpleOperation(String id, Class<? extends Operation<T, C>> operationClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #simpleOperation(String, Class)}.
+     *
+     * @param operationIdentifiable an identifiable supplying the operation id
+     * @param operationClass the operation class
+     *
+     * @return this transition def for chaining
+     */
+    TransitionDef<T, C> simpleOperation(Identifiable operationIdentifiable, Class<? extends Operation<T, C>> operationClass);
 
     /**
      * Attaches a simple operation built through a fluent configurer. Use this form when you
@@ -202,6 +222,16 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> simpleOperation(String id, Consumer<SimpleOperationDef<T, C>> configurer);
 
     /**
+     * {@link Identifiable} overload of {@link #simpleOperation(String, Consumer)}.
+     *
+     * @param operationIdentifiable an identifiable supplying the operation id
+     * @param configurer the fluent configurer
+     *
+     * @return this transition def for chaining
+     */
+    TransitionDef<T, C> simpleOperation(Identifiable operationIdentifiable, Consumer<SimpleOperationDef<T, C>> configurer);
+
+    /**
      * Attaches a composite operation built through a fluent configurer. The composite must
      * declare at least one step.
      * <p>
@@ -219,6 +249,16 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         without any steps
      */
     TransitionDef<T, C> compositeOperation(String id, Consumer<CompositeOperationDef<T, C>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #compositeOperation(String, Consumer)}.
+     *
+     * @param operationIdentifiable an identifiable supplying the operation id
+     * @param configurer the fluent configurer
+     *
+     * @return this transition def for chaining
+     */
+    TransitionDef<T, C> compositeOperation(Identifiable operationIdentifiable, Consumer<CompositeOperationDef<T, C>> configurer);
 
     /**
      * Convenience: attaches a single-step composite operation that references a step already
@@ -299,6 +339,16 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> preCondition(String id, Condition<T, C> condition);
 
     /**
+     * {@link Identifiable} overload of {@link #preCondition(String, Condition)}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param condition the condition instance
+     *
+     * @return this transition def for chaining
+     */
+    TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, Condition<T, C> condition);
+
+    /**
      * Appends a pre-condition built from a {@link Condition} class under the given id. The
      * class is reflectively instantiated through its public no-arg constructor when the state
      * machine is built.
@@ -312,6 +362,16 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         {@code conditionClass} is {@code null}
      */
     TransitionDef<T, C> preCondition(String id, Class<? extends Condition<T, C>> conditionClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #preCondition(String, Class)}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param conditionClass the condition class
+     *
+     * @return this transition def for chaining
+     */
+    TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass);
 
     /**
      * Appends a pre-condition built from a {@link Predicate} over the entity under the given
@@ -329,6 +389,16 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> preCondition(String id, Predicate<T> predicate);
 
     /**
+     * {@link Identifiable} overload of {@link #preCondition(String, Predicate)}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param predicate the entity predicate
+     *
+     * @return this transition def for chaining
+     */
+    TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, Predicate<T> predicate);
+
+    /**
      * Appends a pre-condition built from a SpEL expression under the given id.
      *
      * @param id the condition id; never {@code null} or blank
@@ -340,6 +410,16 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         {@code null} or blank
      */
     TransitionDef<T, C> preCondition(String id, String expression);
+
+    /**
+     * {@link Identifiable} overload of {@link #preCondition(String, String)}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param expression the SpEL expression text
+     *
+     * @return this transition def for chaining
+     */
+    TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, String expression);
 
     /**
      * Appends a post-condition that references a condition already registered on the enclosing
@@ -394,6 +474,16 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> postCondition(String id, Condition<T, C> condition);
 
     /**
+     * {@link Identifiable} overload of {@link #postCondition(String, Condition)}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param condition the condition instance
+     *
+     * @return this transition def for chaining
+     */
+    TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, Condition<T, C> condition);
+
+    /**
      * Appends a post-condition built from a {@link Condition} class under the given id. The
      * class is reflectively instantiated through its public no-arg constructor when the state
      * machine is built.
@@ -407,6 +497,16 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         {@code conditionClass} is {@code null}
      */
     TransitionDef<T, C> postCondition(String id, Class<? extends Condition<T, C>> conditionClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #postCondition(String, Class)}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param conditionClass the condition class
+     *
+     * @return this transition def for chaining
+     */
+    TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass);
 
     /**
      * Appends a post-condition built from a {@link Predicate} over the entity under the given
@@ -424,6 +524,16 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> postCondition(String id, Predicate<T> predicate);
 
     /**
+     * {@link Identifiable} overload of {@link #postCondition(String, Predicate)}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param predicate the entity predicate
+     *
+     * @return this transition def for chaining
+     */
+    TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, Predicate<T> predicate);
+
+    /**
      * Appends a post-condition built from a SpEL expression under the given id.
      *
      * @param id the condition id; never {@code null} or blank
@@ -435,6 +545,16 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         {@code null} or blank
      */
     TransitionDef<T, C> postCondition(String id, String expression);
+
+    /**
+     * {@link Identifiable} overload of {@link #postCondition(String, String)}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param expression the SpEL expression text
+     *
+     * @return this transition def for chaining
+     */
+    TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, String expression);
 
     /**
      * Placeholder for the trigger framework.
@@ -453,6 +573,16 @@ public interface TransitionDef<T, C> extends Identifiable {
      */
     // TODO: trigger framework
     TransitionDef<T, C> addManualTrigger(String id);
+
+    /**
+     * {@link Identifiable} overload of {@link #addManualTrigger(String)}.
+     *
+     * @param triggerIdentifiable an identifiable supplying the trigger id
+     *
+     * @return this transition def for chaining
+     */
+    // TODO: trigger framework
+    TransitionDef<T, C> addManualTrigger(Identifiable triggerIdentifiable);
 
     /**
      * Placeholder for the trigger framework.
@@ -476,6 +606,17 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> addEventTrigger(String id, String eventId);
 
     /**
+     * {@link Identifiable} overload of {@link #addEventTrigger(String, String)}.
+     *
+     * @param triggerIdentifiable an identifiable supplying the trigger id
+     * @param eventId event id
+     *
+     * @return this transition def for chaining
+     */
+    // TODO: trigger framework
+    TransitionDef<T, C> addEventTrigger(Identifiable triggerIdentifiable, String eventId);
+
+    /**
      * Placeholder for the trigger framework.
      *
      * @param event event identifier
@@ -495,6 +636,18 @@ public interface TransitionDef<T, C> extends Identifiable {
      */
     // TODO: trigger framework
     TransitionDef<T, C> addEventTrigger(String id, Identifiable event);
+
+    /**
+     * {@link Identifiable} overload of {@link #addEventTrigger(String, Identifiable)} — both
+     * trigger id and event supplied as identifiables.
+     *
+     * @param triggerIdentifiable an identifiable supplying the trigger id
+     * @param event event identifier
+     *
+     * @return this transition def for chaining
+     */
+    // TODO: trigger framework
+    TransitionDef<T, C> addEventTrigger(Identifiable triggerIdentifiable, Identifiable event);
 
     /**
      * Placeholder for the trigger framework.
@@ -518,6 +671,17 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> addEventTrigger(String id, BiPredicate<String, T> condition);
 
     /**
+     * {@link Identifiable} overload of {@link #addEventTrigger(String, BiPredicate)}.
+     *
+     * @param triggerIdentifiable an identifiable supplying the trigger id
+     * @param condition event-id / entity matcher
+     *
+     * @return this transition def for chaining
+     */
+    // TODO: trigger framework
+    TransitionDef<T, C> addEventTrigger(Identifiable triggerIdentifiable, BiPredicate<String, T> condition);
+
+    /**
      * Placeholder for the trigger framework.
      *
      * @param id trigger id
@@ -526,6 +690,16 @@ public interface TransitionDef<T, C> extends Identifiable {
      */
     // TODO: trigger framework
     TransitionDef<T, C> addDataTrigger(String id);
+
+    /**
+     * {@link Identifiable} overload of {@link #addDataTrigger(String)}.
+     *
+     * @param triggerIdentifiable an identifiable supplying the trigger id
+     *
+     * @return this transition def for chaining
+     */
+    // TODO: trigger framework
+    TransitionDef<T, C> addDataTrigger(Identifiable triggerIdentifiable);
 
     /**
      * Placeholder for the trigger framework.
@@ -547,4 +721,15 @@ public interface TransitionDef<T, C> extends Identifiable {
      */
     // TODO: trigger framework
     TransitionDef<T, C> addDataTrigger(String id, Predicate<T> condition);
+
+    /**
+     * {@link Identifiable} overload of {@link #addDataTrigger(String, Predicate)}.
+     *
+     * @param triggerIdentifiable an identifiable supplying the trigger id
+     * @param condition entity matcher
+     *
+     * @return this transition def for chaining
+     */
+    // TODO: trigger framework
+    TransitionDef<T, C> addDataTrigger(Identifiable triggerIdentifiable, Predicate<T> condition);
 }

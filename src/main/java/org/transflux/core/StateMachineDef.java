@@ -145,6 +145,17 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> step(String id, Step<T, ?> step);
 
     /**
+     * {@link Identifiable} overload of {@link #step(String, Step)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param stepIdentifiable an identifiable supplying the step id
+     * @param step the step instance
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> step(Identifiable stepIdentifiable, Step<T, ?> step);
+
+    /**
      * Registers a step class against this state machine under the given id, without a
      * declared context type.
      *
@@ -154,6 +165,17 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     StateMachineDef<T> step(String id, Class<? extends Step<T, ?>> stepClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #step(String, Class)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param stepIdentifiable an identifiable supplying the step id
+     * @param stepClass the step class
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> step(Identifiable stepIdentifiable, Class<? extends Step<T, ?>> stepClass);
 
     /**
      * Registers a step instance against this state machine under the given id, tagged with
@@ -170,6 +192,19 @@ public interface StateMachineDef<T> {
     <C> StateMachineDef<T> step(String id, Class<C> contextType, Step<T, C> step);
 
     /**
+     * {@link Identifiable} overload of {@link #step(String, Class, Step)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param stepIdentifiable an identifiable supplying the step id
+     * @param contextType the step's declared context class
+     * @param step the step instance
+     * @param <C> the context class
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> step(Identifiable stepIdentifiable, Class<C> contextType, Step<T, C> step);
+
+    /**
      * Registers a step class against this state machine under the given id, tagged with
      * the supplied context class.
      *
@@ -183,6 +218,19 @@ public interface StateMachineDef<T> {
     <C> StateMachineDef<T> step(String id, Class<C> contextType, Class<? extends Step<T, C>> stepClass);
 
     /**
+     * {@link Identifiable} overload of {@link #step(String, Class, Class)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param stepIdentifiable an identifiable supplying the step id
+     * @param contextType the step's declared context class
+     * @param stepClass the step class
+     * @param <C> the context class
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> step(Identifiable stepIdentifiable, Class<C> contextType, Class<? extends Step<T, C>> stepClass);
+
+    /**
      * Registers a condition instance against this state machine under the given id, without
      * a declared context type.
      *
@@ -192,6 +240,17 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     StateMachineDef<T> condition(String id, Condition<T, ?> condition);
+
+    /**
+     * {@link Identifiable} overload of {@link #condition(String, Condition)} — delegates
+     * via {@link Identifiable#getId()}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param condition the condition instance
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> condition(Identifiable conditionIdentifiable, Condition<T, ?> condition);
 
     /**
      * Registers a condition class against this state machine under the given id, without
@@ -205,6 +264,17 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> condition(String id, Class<? extends Condition<T, ?>> conditionClass);
 
     /**
+     * {@link Identifiable} overload of {@link #condition(String, Class)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param conditionClass the condition class
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> condition(Identifiable conditionIdentifiable, Class<? extends Condition<T, ?>> conditionClass);
+
+    /**
      * Registers an entity-only predicate as a condition under the given id.
      *
      * @param id the condition id
@@ -215,6 +285,17 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> condition(String id, Predicate<T> predicate);
 
     /**
+     * {@link Identifiable} overload of {@link #condition(String, Predicate)} — delegates
+     * via {@link Identifiable#getId()}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param predicate the entity predicate
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> condition(Identifiable conditionIdentifiable, Predicate<T> predicate);
+
+    /**
      * Registers a SpEL expression as a condition under the given id.
      *
      * @param id the condition id
@@ -223,6 +304,17 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     StateMachineDef<T> condition(String id, String spelExpression);
+
+    /**
+     * {@link Identifiable} overload of {@link #condition(String, String)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param spelExpression the SpEL expression source
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> condition(Identifiable conditionIdentifiable, String spelExpression);
 
     /**
      * Registers a condition instance against this state machine under the given id, tagged
@@ -238,6 +330,19 @@ public interface StateMachineDef<T> {
     <C> StateMachineDef<T> condition(String id, Class<C> contextType, Condition<T, C> condition);
 
     /**
+     * {@link Identifiable} overload of {@link #condition(String, Class, Condition)} —
+     * delegates via {@link Identifiable#getId()}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param contextType the condition's declared context class
+     * @param condition the condition instance
+     * @param <C> the context class
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> condition(Identifiable conditionIdentifiable, Class<C> contextType, Condition<T, C> condition);
+
+    /**
      * Registers a condition class against this state machine under the given id, tagged
      * with the supplied context class.
      *
@@ -249,6 +354,19 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     <C> StateMachineDef<T> condition(String id, Class<C> contextType, Class<? extends Condition<T, C>> conditionClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #condition(String, Class, Class)} — delegates
+     * via {@link Identifiable#getId()}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param contextType the condition's declared context class
+     * @param conditionClass the condition class
+     * @param <C> the context class
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> condition(Identifiable conditionIdentifiable, Class<C> contextType, Class<? extends Condition<T, C>> conditionClass);
 
     /**
      * Registers an entity-only predicate as a condition under the given id, tagged with
@@ -264,6 +382,19 @@ public interface StateMachineDef<T> {
     <C> StateMachineDef<T> conditionPredicate(String id, Class<C> contextType, Predicate<T> predicate);
 
     /**
+     * {@link Identifiable} overload of {@link #conditionPredicate(String, Class, Predicate)}
+     * — delegates via {@link Identifiable#getId()}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param contextType the condition's declared context class
+     * @param predicate the entity predicate
+     * @param <C> the context class
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> conditionPredicate(Identifiable conditionIdentifiable, Class<C> contextType, Predicate<T> predicate);
+
+    /**
      * Registers a SpEL expression as a condition under the given id, tagged with the
      * supplied context class.
      *
@@ -275,6 +406,19 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     <C> StateMachineDef<T> conditionExpression(String id, Class<C> contextType, String spelExpression);
+
+    /**
+     * {@link Identifiable} overload of {@link #conditionExpression(String, Class, String)} —
+     * delegates via {@link Identifiable#getId()}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param contextType the condition's declared context class
+     * @param spelExpression the SpEL expression source
+     * @param <C> the context class
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> conditionExpression(Identifiable conditionIdentifiable, Class<C> contextType, String spelExpression);
 
     /**
      * Registers a composite operation against this state machine under the given id, tagged
@@ -289,6 +433,20 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     <C> StateMachineDef<T> compositeOperation(String id, Class<C> contextType, Consumer<CompositeOperationDef<T, C>> configurer);
+
+    /**
+     * {@link Identifiable} overload of
+     * {@link #compositeOperation(String, Class, Consumer)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param operationIdentifiable an identifiable supplying the operation id
+     * @param contextType the composite's declared context class
+     * @param configurer callback that declares the composite's members
+     * @param <C> the composite's context type
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> compositeOperation(Identifiable operationIdentifiable, Class<C> contextType, Consumer<CompositeOperationDef<T, C>> configurer);
 
     /**
      * Registers an {@link Operation} instance against this state machine under the given id,
@@ -307,6 +465,19 @@ public interface StateMachineDef<T> {
     <C> StateMachineDef<T> operation(String id, Class<C> contextType, Operation<T, C> operation);
 
     /**
+     * {@link Identifiable} overload of {@link #operation(String, Class, Operation)} —
+     * delegates via {@link Identifiable#getId()}.
+     *
+     * @param operationIdentifiable an identifiable supplying the operation id
+     * @param contextType the operation's declared context class
+     * @param operation the operation instance
+     * @param <C> the operation's context type
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> operation(Identifiable operationIdentifiable, Class<C> contextType, Operation<T, C> operation);
+
+    /**
      * Registers an {@link Operation} class against this state machine under the given id,
      * tagged with the supplied context class. The framework instantiates it via its public
      * no-arg constructor at build time.
@@ -319,6 +490,19 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     <C> StateMachineDef<T> operation(String id, Class<C> contextType, Class<? extends Operation<T, C>> operationClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #operation(String, Class, Class)} — delegates
+     * via {@link Identifiable#getId()}.
+     *
+     * @param operationIdentifiable an identifiable supplying the operation id
+     * @param contextType the operation's declared context class
+     * @param operationClass the operation class
+     * @param <C> the operation's context type
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> operation(Identifiable operationIdentifiable, Class<C> contextType, Class<? extends Operation<T, C>> operationClass);
 
     /**
      * Registers a {@link ContextMapper} instance against this state machine under the given id,
@@ -343,6 +527,22 @@ public interface StateMachineDef<T> {
                                      ContextMapper<P, N> mapper);
 
     /**
+     * {@link Identifiable} overload of {@link #mapper(String, Class, Class, ContextMapper)}
+     * — delegates via {@link Identifiable#getId()}.
+     *
+     * @param mapperIdentifiable an identifiable supplying the mapper id
+     * @param parentType the parent context class
+     * @param childType the child context class
+     * @param mapper the mapper instance
+     * @param <P> the parent context type
+     * @param <N> the child context type
+     *
+     * @return this state machine def for chaining
+     */
+    <P, N> StateMachineDef<T> mapper(Identifiable mapperIdentifiable, Class<P> parentType, Class<N> childType,
+                                     ContextMapper<P, N> mapper);
+
+    /**
      * Registers a {@link ContextMapper} class against this state machine under the given id.
      * The framework instantiates it via its public no-arg constructor at build time.
      *
@@ -356,6 +556,22 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     <P, N> StateMachineDef<T> mapper(String id, Class<P> parentType, Class<N> childType,
+                                     Class<? extends ContextMapper<P, N>> mapperClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #mapper(String, Class, Class, Class)} —
+     * delegates via {@link Identifiable#getId()}.
+     *
+     * @param mapperIdentifiable an identifiable supplying the mapper id
+     * @param parentType the parent context class
+     * @param childType the child context class
+     * @param mapperClass the mapper class
+     * @param <P> the parent context type
+     * @param <N> the child context type
+     *
+     * @return this state machine def for chaining
+     */
+    <P, N> StateMachineDef<T> mapper(Identifiable mapperIdentifiable, Class<P> parentType, Class<N> childType,
                                      Class<? extends ContextMapper<P, N>> mapperClass);
 
     /**
@@ -374,6 +590,22 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     <P, N> StateMachineDef<T> mapper(String id, Class<P> parentType, Class<N> childType,
+                                     Function<P, N> mapTo);
+
+    /**
+     * {@link Identifiable} overload of {@link #mapper(String, Class, Class, Function)} —
+     * delegates via {@link Identifiable#getId()}.
+     *
+     * @param mapperIdentifiable an identifiable supplying the mapper id
+     * @param parentType the parent context class
+     * @param childType the child context class
+     * @param mapTo the parent-to-child projection
+     * @param <P> the parent context type
+     * @param <N> the child context type
+     *
+     * @return this state machine def for chaining
+     */
+    <P, N> StateMachineDef<T> mapper(Identifiable mapperIdentifiable, Class<P> parentType, Class<N> childType,
                                      Function<P, N> mapTo);
 
     /**

@@ -153,9 +153,21 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
     }
 
     @Override
+    public CompositeOperationDefImpl<T, C> step(Identifiable stepIdentifiable, Step<T, C> step) {
+        requireNotNull(stepIdentifiable, "Step identifiable");
+        return step(stepIdentifiable.getId(), step);
+    }
+
+    @Override
     public CompositeOperationDefImpl<T, C> step(String id, Class<? extends Step<T, C>> stepClass) {
         actionRefs.add(ActionRef.inline(id, stepClass));
         return this;
+    }
+
+    @Override
+    public CompositeOperationDefImpl<T, C> step(Identifiable stepIdentifiable, Class<? extends Step<T, C>> stepClass) {
+        requireNotNull(stepIdentifiable, "Step identifiable");
+        return step(stepIdentifiable.getId(), stepClass);
     }
 
     @Override
@@ -168,6 +180,12 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
         actionRefs.add(ActionRef.conditional(id, def));
 
         return this;
+    }
+
+    @Override
+    public CompositeOperationDefImpl<T, C> conditional(Identifiable conditionalIdentifiable, Consumer<ConditionalStepDef<T, C>> configurer) {
+        requireNotNull(conditionalIdentifiable, "Conditional identifiable");
+        return conditional(conditionalIdentifiable.getId(), configurer);
     }
 
     @Override
@@ -232,9 +250,21 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
     }
 
     @Override
+    public CompositeOperationDefImpl<T, C> operation(Identifiable operationIdentifiable, Operation<T, C> operation) {
+        requireNotNull(operationIdentifiable, "Operation identifiable");
+        return operation(operationIdentifiable.getId(), operation);
+    }
+
+    @Override
     public CompositeOperationDefImpl<T, C> operation(String id, Class<? extends Operation<T, C>> operationClass) {
         actionRefs.add(ActionRef.operationInline(id, operationClass));
         return this;
+    }
+
+    @Override
+    public CompositeOperationDefImpl<T, C> operation(Identifiable operationIdentifiable, Class<? extends Operation<T, C>> operationClass) {
+        requireNotNull(operationIdentifiable, "Operation identifiable");
+        return operation(operationIdentifiable.getId(), operationClass);
     }
 
     @Override

@@ -63,7 +63,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
 
         when:
-        smd.step(id, new StepA())
+        smd.step((String) id, new StepA())
 
         then:
         def e = thrown(TransfluxValidationException)

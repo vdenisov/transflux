@@ -154,4 +154,72 @@ public interface StateDef<T> extends Identifiable {
      */
     <C> StateDef<T> transitionsTo(Identifiable targetStateIdentifiable, String transitionId,
                                   Class<C> contextType, Consumer<TransitionDef<T, C>> configurer);
+
+    /**
+     * Declares an outgoing transition with pass-through context, with the transition id supplied
+     * by an {@link Identifiable}.
+     *
+     * @param targetStateId the ID of the target state
+     * @param transitionIdentifiable an identifiable providing the transition id
+     * @param configurer callback that configures the transition; never {@code null}
+     *
+     * @return this StateDef instance for chaining inside the configurer body
+     *
+     * @throws TransfluxValidationException if any argument is {@code null}, the target id is
+     *         blank, or the transition id is blank
+     */
+    StateDef<T> transitionsTo(String targetStateId, Identifiable transitionIdentifiable,
+                              Consumer<TransitionDef<T, Object>> configurer);
+
+    /**
+     * Declares an outgoing typed-context transition, with the transition id supplied by an
+     * {@link Identifiable}.
+     *
+     * @param targetStateId the ID of the target state
+     * @param transitionIdentifiable an identifiable providing the transition id
+     * @param contextType the transition's context class
+     * @param configurer callback that configures the transition; never {@code null}
+     * @param <C> the transition context type
+     *
+     * @return this StateDef instance for chaining inside the configurer body
+     *
+     * @throws TransfluxValidationException if any argument is {@code null}, the target id is
+     *         blank, or the transition id is blank
+     */
+    <C> StateDef<T> transitionsTo(String targetStateId, Identifiable transitionIdentifiable,
+                                  Class<C> contextType, Consumer<TransitionDef<T, C>> configurer);
+
+    /**
+     * Declares an outgoing pass-through-context transition where both target state and transition
+     * id are supplied as {@link Identifiable}s.
+     *
+     * @param targetStateIdentifiable an identifiable providing the target state ID
+     * @param transitionIdentifiable an identifiable providing the transition id
+     * @param configurer callback that configures the transition; never {@code null}
+     *
+     * @return this StateDef instance for chaining inside the configurer body
+     *
+     * @throws TransfluxValidationException if any argument is {@code null}, the target id is
+     *         blank, or the transition id is blank
+     */
+    StateDef<T> transitionsTo(Identifiable targetStateIdentifiable, Identifiable transitionIdentifiable,
+                              Consumer<TransitionDef<T, Object>> configurer);
+
+    /**
+     * Declares an outgoing typed-context transition where both target state and transition id
+     * are supplied as {@link Identifiable}s.
+     *
+     * @param targetStateIdentifiable an identifiable providing the target state ID
+     * @param transitionIdentifiable an identifiable providing the transition id
+     * @param contextType the transition's context class
+     * @param configurer callback that configures the transition; never {@code null}
+     * @param <C> the transition context type
+     *
+     * @return this StateDef instance for chaining inside the configurer body
+     *
+     * @throws TransfluxValidationException if any argument is {@code null}, the target id is
+     *         blank, or the transition id is blank
+     */
+    <C> StateDef<T> transitionsTo(Identifiable targetStateIdentifiable, Identifiable transitionIdentifiable,
+                                  Class<C> contextType, Consumer<TransitionDef<T, C>> configurer);
 }

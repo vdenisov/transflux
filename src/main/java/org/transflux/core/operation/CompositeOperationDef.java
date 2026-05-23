@@ -185,6 +185,16 @@ public interface CompositeOperationDef<T, C> extends OperationDef<T, C> {
     CompositeOperationDef<T, C> step(String id, Step<T, C> step);
 
     /**
+     * {@link Identifiable} overload of {@link #step(String, Step)} for inline registration.
+     *
+     * @param stepIdentifiable an identifiable supplying the step id
+     * @param step the step instance
+     *
+     * @return this def for chaining
+     */
+    CompositeOperationDef<T, C> step(Identifiable stepIdentifiable, Step<T, C> step);
+
+    /**
      * Appends an inline step class. The framework reflectively instantiates the class via its
      * public no-arg constructor at state-machine build time and auto-registers it under
      * {@code id}. Inline steps always run pass-through.
@@ -200,6 +210,16 @@ public interface CompositeOperationDef<T, C> extends OperationDef<T, C> {
     CompositeOperationDef<T, C> step(String id, Class<? extends Step<T, C>> stepClass);
 
     /**
+     * {@link Identifiable} overload of {@link #step(String, Class)} for inline registration.
+     *
+     * @param stepIdentifiable an identifiable supplying the step id
+     * @param stepClass the step class
+     *
+     * @return this def for chaining
+     */
+    CompositeOperationDef<T, C> step(Identifiable stepIdentifiable, Class<? extends Step<T, C>> stepClass);
+
+    /**
      * Appends a multi-branch conditional step under the supplied id. The supplied configurer
      * defines the branches, optional default branch, and no-match behavior.
      *
@@ -213,6 +233,16 @@ public interface CompositeOperationDef<T, C> extends OperationDef<T, C> {
      *         {@code configurer} is {@code null}
      */
     CompositeOperationDef<T, C> conditional(String id, Consumer<ConditionalStepDef<T, C>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #conditional(String, Consumer)}.
+     *
+     * @param conditionalIdentifiable an identifiable supplying the conditional step id
+     * @param configurer callback that configures the conditional
+     *
+     * @return this def for chaining
+     */
+    CompositeOperationDef<T, C> conditional(Identifiable conditionalIdentifiable, Consumer<ConditionalStepDef<T, C>> configurer);
 
     /**
      * Appends a pass-through reference to a nested operation that is registered on the
@@ -337,6 +367,17 @@ public interface CompositeOperationDef<T, C> extends OperationDef<T, C> {
     CompositeOperationDef<T, C> operation(String id, Operation<T, C> operation);
 
     /**
+     * {@link Identifiable} overload of {@link #operation(String, Operation)} for inline
+     * registration.
+     *
+     * @param operationIdentifiable an identifiable supplying the operation id
+     * @param operation the operation instance
+     *
+     * @return this def for chaining
+     */
+    CompositeOperationDef<T, C> operation(Identifiable operationIdentifiable, Operation<T, C> operation);
+
+    /**
      * Appends an inline nested operation class. The framework reflectively instantiates the
      * class via its public no-arg constructor at state-machine build time and auto-registers it
      * under {@code id}. Inline operations always run pass-through.
@@ -350,6 +391,17 @@ public interface CompositeOperationDef<T, C> extends OperationDef<T, C> {
      *         {@code operationClass} is {@code null}
      */
     CompositeOperationDef<T, C> operation(String id, Class<? extends Operation<T, C>> operationClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #operation(String, Class)} for inline
+     * registration.
+     *
+     * @param operationIdentifiable an identifiable supplying the operation id
+     * @param operationClass the operation class
+     *
+     * @return this def for chaining
+     */
+    CompositeOperationDef<T, C> operation(Identifiable operationIdentifiable, Class<? extends Operation<T, C>> operationClass);
 
     /**
      * Records a runtime type-assertion that the composite's declared context generic

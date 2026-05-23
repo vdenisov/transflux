@@ -32,50 +32,6 @@ import static org.transflux.core.TestStateEnum.TRIAL
 
 class StateMachineDefImplSpec extends Specification {
 
-    def "getTransition by source and target should return single transition"() {
-        given:
-        def smd = Transflux.defineStateMachine()
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, "trial-to-active", {}) })
-        smd.state(ACTIVE, {})
-
-        when:
-        def td = smd.getTransition(TRIAL.id, ACTIVE.id)
-
-        then:
-        td.id == "trial-to-active"
-        td.sourceStateId == TRIAL.id
-        td.targetStateId == ACTIVE.id
-    }
-
-    def "getTransition by source and target should error when no transition exists"() {
-        given:
-        def smd = Transflux.defineStateMachine()
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, "trial-to-active", {}) })
-        smd.state(ACTIVE, {})
-
-        when:
-        smd.getTransition(TRIAL.id, EXPIRED.id)
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message == "No transitions found for source state 'TRIAL' and target state 'EXPIRED'"
-    }
-
-    def "getTransition by source and target should error when multiple transitions exist"() {
-        given:
-        def smd = Transflux.defineStateMachine()
-        smd.state(TRIAL, { s -> s
-            .transitionsTo(ACTIVE, "trial-to-active", {})
-            .transitionsTo(ACTIVE, "trial-to-active-2", {}) })
-
-        when:
-        smd.getTransition(TRIAL.id, ACTIVE.id)
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message == "Multiple transitions found for source state 'TRIAL' and target state 'ACTIVE', use transition ID instead"
-    }
-
     def "getTransition by id should return correct transition definition"() {
         given:
         def smd = Transflux.defineStateMachine()
@@ -293,16 +249,4 @@ class StateMachineDefImplSpec extends Specification {
         e.message == 'Entity type cannot be null'
     }
 
-    def "getTransition should error when source state not found"() {
-        given:
-        def smd = Transflux.defineStateMachine()
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't-1', {}) })
-
-        when:
-        smd.getTransition(EXPIRED.id, ACTIVE.id)
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message == "Source state 'EXPIRED' not found"
-    }
 }

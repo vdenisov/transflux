@@ -57,6 +57,16 @@ public interface ContextScope<T, C> {
     ContextScope<T, C> step(String id, Step<T, C> step);
 
     /**
+     * {@link Identifiable} overload of {@link #step(String, Step)}.
+     *
+     * @param stepIdentifiable an identifiable supplying the step id
+     * @param step the step instance
+     *
+     * @return this scope for chaining
+     */
+    ContextScope<T, C> step(Identifiable stepIdentifiable, Step<T, C> step);
+
+    /**
      * Registers a step class under {@code id}, tagged with this scope's context class. The
      * framework instantiates the class via its public no-arg constructor at build time.
      *
@@ -72,6 +82,16 @@ public interface ContextScope<T, C> {
     ContextScope<T, C> step(String id, Class<? extends Step<T, C>> stepClass);
 
     /**
+     * {@link Identifiable} overload of {@link #step(String, Class)}.
+     *
+     * @param stepIdentifiable an identifiable supplying the step id
+     * @param stepClass the step class
+     *
+     * @return this scope for chaining
+     */
+    ContextScope<T, C> step(Identifiable stepIdentifiable, Class<? extends Step<T, C>> stepClass);
+
+    /**
      * Registers a condition instance under {@code id}, tagged with this scope's context class.
      *
      * @param id the condition id
@@ -82,6 +102,16 @@ public interface ContextScope<T, C> {
     ContextScope<T, C> condition(String id, Condition<T, C> condition);
 
     /**
+     * {@link Identifiable} overload of {@link #condition(String, Condition)}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param condition the condition instance
+     *
+     * @return this scope for chaining
+     */
+    ContextScope<T, C> condition(Identifiable conditionIdentifiable, Condition<T, C> condition);
+
+    /**
      * Registers a condition class under {@code id}, tagged with this scope's context class.
      *
      * @param id the condition id
@@ -90,6 +120,16 @@ public interface ContextScope<T, C> {
      * @return this scope for chaining
      */
     ContextScope<T, C> condition(String id, Class<? extends Condition<T, C>> conditionClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #condition(String, Class)}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param conditionClass the condition class
+     *
+     * @return this scope for chaining
+     */
+    ContextScope<T, C> condition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass);
 
     /**
      * Registers an entity-only predicate as a condition under {@code id}, tagged with this
@@ -104,6 +144,16 @@ public interface ContextScope<T, C> {
     ContextScope<T, C> condition(String id, Predicate<T> predicate);
 
     /**
+     * {@link Identifiable} overload of {@link #condition(String, Predicate)}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param predicate the predicate
+     *
+     * @return this scope for chaining
+     */
+    ContextScope<T, C> condition(Identifiable conditionIdentifiable, Predicate<T> predicate);
+
+    /**
      * Registers a SpEL expression as a condition under {@code id}, tagged with this scope's
      * context class.
      *
@@ -113,6 +163,16 @@ public interface ContextScope<T, C> {
      * @return this scope for chaining
      */
     ContextScope<T, C> condition(String id, String spelExpression);
+
+    /**
+     * {@link Identifiable} overload of {@link #condition(String, String)}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param spelExpression the SpEL expression text
+     *
+     * @return this scope for chaining
+     */
+    ContextScope<T, C> condition(Identifiable conditionIdentifiable, String spelExpression);
 
     /**
      * Registers a composite operation under {@code id}, tagged with this scope's context class.
@@ -132,6 +192,16 @@ public interface ContextScope<T, C> {
     ContextScope<T, C> compositeOperation(String id, Consumer<CompositeOperationDef<T, C>> configurer);
 
     /**
+     * {@link Identifiable} overload of {@link #compositeOperation(String, Consumer)}.
+     *
+     * @param operationIdentifiable an identifiable supplying the composite operation id
+     * @param configurer callback that configures the composite
+     *
+     * @return this scope for chaining
+     */
+    ContextScope<T, C> compositeOperation(Identifiable operationIdentifiable, Consumer<CompositeOperationDef<T, C>> configurer);
+
+    /**
      * Registers an {@link Operation} instance under {@code id}, tagged with this scope's
      * context class.
      *
@@ -141,6 +211,16 @@ public interface ContextScope<T, C> {
      * @return this scope for chaining
      */
     ContextScope<T, C> operation(String id, Operation<T, C> operation);
+
+    /**
+     * {@link Identifiable} overload of {@link #operation(String, Operation)}.
+     *
+     * @param operationIdentifiable an identifiable supplying the operation id
+     * @param operation the operation instance
+     *
+     * @return this scope for chaining
+     */
+    ContextScope<T, C> operation(Identifiable operationIdentifiable, Operation<T, C> operation);
 
     /**
      * Registers an {@link Operation} class under {@code id}, tagged with this scope's context
@@ -153,4 +233,14 @@ public interface ContextScope<T, C> {
      * @return this scope for chaining
      */
     ContextScope<T, C> operation(String id, Class<? extends Operation<T, C>> operationClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #operation(String, Class)}.
+     *
+     * @param operationIdentifiable an identifiable supplying the operation id
+     * @param operationClass the operation class
+     *
+     * @return this scope for chaining
+     */
+    ContextScope<T, C> operation(Identifiable operationIdentifiable, Class<? extends Operation<T, C>> operationClass);
 }

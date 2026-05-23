@@ -20,6 +20,7 @@ package org.transflux.core.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.BranchDef;
 import org.transflux.core.operation.ConditionalStepDef;
@@ -119,6 +120,12 @@ final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T, C> {
         configurer.accept(branch);
         branches.add(branch);
         return this;
+    }
+
+    @Override
+    public ConditionalStepDef<T, C> branch(Identifiable branchIdentifiable, Consumer<BranchDef<T, C>> configurer) {
+        requireNotNull(branchIdentifiable, "Branch identifiable");
+        return branch(branchIdentifiable.getId(), configurer);
     }
 
     @Override

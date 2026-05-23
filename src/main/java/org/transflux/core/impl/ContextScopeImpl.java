@@ -19,6 +19,7 @@
 package org.transflux.core.impl;
 
 import org.transflux.core.ContextScope;
+import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.operation.CompositeOperationDef;
 import org.transflux.core.operation.Operation;
@@ -118,5 +119,59 @@ final class ContextScopeImpl<T, C> implements ContextScope<T, C> {
         requireNotNull(operationClass, "Operation class");
         smd.registerScopedOperation(id, operationClass, contextType);
         return this;
+    }
+
+    @Override
+    public ContextScope<T, C> step(Identifiable stepIdentifiable, Step<T, C> step) {
+        requireNotNull(stepIdentifiable, "Step identifiable");
+        return step(stepIdentifiable.getId(), step);
+    }
+
+    @Override
+    public ContextScope<T, C> step(Identifiable stepIdentifiable, Class<? extends Step<T, C>> stepClass) {
+        requireNotNull(stepIdentifiable, "Step identifiable");
+        return step(stepIdentifiable.getId(), stepClass);
+    }
+
+    @Override
+    public ContextScope<T, C> condition(Identifiable conditionIdentifiable, Condition<T, C> condition) {
+        requireNotNull(conditionIdentifiable, "Condition identifiable");
+        return condition(conditionIdentifiable.getId(), condition);
+    }
+
+    @Override
+    public ContextScope<T, C> condition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass) {
+        requireNotNull(conditionIdentifiable, "Condition identifiable");
+        return condition(conditionIdentifiable.getId(), conditionClass);
+    }
+
+    @Override
+    public ContextScope<T, C> condition(Identifiable conditionIdentifiable, Predicate<T> predicate) {
+        requireNotNull(conditionIdentifiable, "Condition identifiable");
+        return condition(conditionIdentifiable.getId(), predicate);
+    }
+
+    @Override
+    public ContextScope<T, C> condition(Identifiable conditionIdentifiable, String spelExpression) {
+        requireNotNull(conditionIdentifiable, "Condition identifiable");
+        return condition(conditionIdentifiable.getId(), spelExpression);
+    }
+
+    @Override
+    public ContextScope<T, C> compositeOperation(Identifiable operationIdentifiable, Consumer<CompositeOperationDef<T, C>> configurer) {
+        requireNotNull(operationIdentifiable, "Operation identifiable");
+        return compositeOperation(operationIdentifiable.getId(), configurer);
+    }
+
+    @Override
+    public ContextScope<T, C> operation(Identifiable operationIdentifiable, Operation<T, C> operation) {
+        requireNotNull(operationIdentifiable, "Operation identifiable");
+        return operation(operationIdentifiable.getId(), operation);
+    }
+
+    @Override
+    public ContextScope<T, C> operation(Identifiable operationIdentifiable, Class<? extends Operation<T, C>> operationClass) {
+        requireNotNull(operationIdentifiable, "Operation identifiable");
+        return operation(operationIdentifiable.getId(), operationClass);
     }
 }

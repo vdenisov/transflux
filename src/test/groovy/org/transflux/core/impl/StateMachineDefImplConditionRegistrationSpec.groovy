@@ -64,7 +64,7 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
 
         when:
-        smd.condition(id, new CondA())
+        smd.condition((String) id, new CondA())
 
         then:
         def e = thrown(TransfluxValidationException)

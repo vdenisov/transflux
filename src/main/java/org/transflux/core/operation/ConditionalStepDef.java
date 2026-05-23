@@ -79,6 +79,18 @@ public interface ConditionalStepDef<T, C> extends Identifiable {
     ConditionalStepDef<T, C> branch(String branchId, Consumer<BranchDef<T, C>> configurer);
 
     /**
+     * {@link Identifiable} overload of {@link #branch(String, Consumer)}.
+     *
+     * @param branchIdentifiable an identifiable supplying the branch id
+     * @param configurer callback that configures the new branch
+     *
+     * @return this conditional def for chaining
+     *
+     * @throws TransfluxValidationException if {@code branchIdentifiable} is {@code null}
+     */
+    ConditionalStepDef<T, C> branch(Identifiable branchIdentifiable, Consumer<BranchDef<T, C>> configurer);
+
+    /**
      * Defines the default branch. The supplied configurer must append at least one step.
      * The default branch may be declared at most once.
      *

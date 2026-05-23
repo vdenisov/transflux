@@ -266,12 +266,24 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     }
 
     @Override
+    public TransitionDef<T, C> simpleOperation(Identifiable operationIdentifiable, Operation<T, C> operation) {
+        requireNotNull(operationIdentifiable, "Operation identifiable");
+        return simpleOperation(operationIdentifiable.getId(), operation);
+    }
+
+    @Override
     public TransitionDef<T, C> simpleOperation(String id, Class<? extends Operation<T, C>> operationClass) {
         requireConfigurerActive("simpleOperation");
         SimpleOperationDefImpl<T, C> def = newSimpleOperationDef(id);
         def.using(operationClass);
         attachOperation(def);
         return this;
+    }
+
+    @Override
+    public TransitionDef<T, C> simpleOperation(Identifiable operationIdentifiable, Class<? extends Operation<T, C>> operationClass) {
+        requireNotNull(operationIdentifiable, "Operation identifiable");
+        return simpleOperation(operationIdentifiable.getId(), operationClass);
     }
 
     @Override
@@ -285,6 +297,12 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     }
 
     @Override
+    public TransitionDef<T, C> simpleOperation(Identifiable operationIdentifiable, Consumer<SimpleOperationDef<T, C>> configurer) {
+        requireNotNull(operationIdentifiable, "Operation identifiable");
+        return simpleOperation(operationIdentifiable.getId(), configurer);
+    }
+
+    @Override
     public TransitionDef<T, C> compositeOperation(String id, Consumer<CompositeOperationDef<T, C>> configurer) {
         requireConfigurerActive("compositeOperation");
         requireNotNull(configurer, "Composite operation configurer");
@@ -292,6 +310,12 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
         configurer.accept(composite);
         attachOperation(composite);
         return this;
+    }
+
+    @Override
+    public TransitionDef<T, C> compositeOperation(Identifiable operationIdentifiable, Consumer<CompositeOperationDef<T, C>> configurer) {
+        requireNotNull(operationIdentifiable, "Operation identifiable");
+        return compositeOperation(operationIdentifiable.getId(), configurer);
     }
 
     @Override
@@ -370,11 +394,23 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     }
 
     @Override
+    public TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, Condition<T, C> condition) {
+        requireNotNull(conditionIdentifiable, "Condition identifiable");
+        return preCondition(conditionIdentifiable.getId(), condition);
+    }
+
+    @Override
     public TransitionDef<T, C> preCondition(String id, Class<? extends Condition<T, C>> conditionClass) {
         requireConfigurerActive("preCondition");
         requireNotBlank(id, "Condition ID");
         requireNotNull(conditionClass, "Condition class");
         return appendPreCondition(ConditionDescriptor.classBased(id, conditionClass));
+    }
+
+    @Override
+    public TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass) {
+        requireNotNull(conditionIdentifiable, "Condition identifiable");
+        return preCondition(conditionIdentifiable.getId(), conditionClass);
     }
 
     @Override
@@ -386,11 +422,23 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     }
 
     @Override
+    public TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, Predicate<T> predicate) {
+        requireNotNull(conditionIdentifiable, "Condition identifiable");
+        return preCondition(conditionIdentifiable.getId(), predicate);
+    }
+
+    @Override
     public TransitionDef<T, C> preCondition(String id, String expression) {
         requireConfigurerActive("preCondition");
         requireNotBlank(id, "Condition ID");
         requireNotBlank(expression, "Expression");
         return appendPreCondition(ConditionDescriptor.expression(id, expression));
+    }
+
+    @Override
+    public TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, String expression) {
+        requireNotNull(conditionIdentifiable, "Condition identifiable");
+        return preCondition(conditionIdentifiable.getId(), expression);
     }
 
     @Override
@@ -422,11 +470,23 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     }
 
     @Override
+    public TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, Condition<T, C> condition) {
+        requireNotNull(conditionIdentifiable, "Condition identifiable");
+        return postCondition(conditionIdentifiable.getId(), condition);
+    }
+
+    @Override
     public TransitionDef<T, C> postCondition(String id, Class<? extends Condition<T, C>> conditionClass) {
         requireConfigurerActive("postCondition");
         requireNotBlank(id, "Condition ID");
         requireNotNull(conditionClass, "Condition class");
         return appendPostCondition(ConditionDescriptor.classBased(id, conditionClass));
+    }
+
+    @Override
+    public TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass) {
+        requireNotNull(conditionIdentifiable, "Condition identifiable");
+        return postCondition(conditionIdentifiable.getId(), conditionClass);
     }
 
     @Override
@@ -438,11 +498,23 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     }
 
     @Override
+    public TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, Predicate<T> predicate) {
+        requireNotNull(conditionIdentifiable, "Condition identifiable");
+        return postCondition(conditionIdentifiable.getId(), predicate);
+    }
+
+    @Override
     public TransitionDef<T, C> postCondition(String id, String expression) {
         requireConfigurerActive("postCondition");
         requireNotBlank(id, "Condition ID");
         requireNotBlank(expression, "Expression");
         return appendPostCondition(ConditionDescriptor.expression(id, expression));
+    }
+
+    @Override
+    public TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, String expression) {
+        requireNotNull(conditionIdentifiable, "Condition identifiable");
+        return postCondition(conditionIdentifiable.getId(), expression);
     }
 
     private TransitionDef<T, C> appendPreCondition(ConditionDescriptor descriptor) {
@@ -466,6 +538,12 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     }
 
     @Override
+    public TransitionDef<T, C> addManualTrigger(Identifiable triggerIdentifiable) {
+        requireNotNull(triggerIdentifiable, "Trigger identifiable");
+        return addManualTrigger(triggerIdentifiable.getId());
+    }
+
+    @Override
     public TransitionDef<T, C> addEventTrigger(String id) {
         throw new UnsupportedOperationException("Triggers not yet implemented");
     }
@@ -473,6 +551,12 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     @Override
     public TransitionDef<T, C> addEventTrigger(String id, String eventId) {
         throw new UnsupportedOperationException("Triggers not yet implemented");
+    }
+
+    @Override
+    public TransitionDef<T, C> addEventTrigger(Identifiable triggerIdentifiable, String eventId) {
+        requireNotNull(triggerIdentifiable, "Trigger identifiable");
+        return addEventTrigger(triggerIdentifiable.getId(), eventId);
     }
 
     @Override
@@ -486,6 +570,12 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     }
 
     @Override
+    public TransitionDef<T, C> addEventTrigger(Identifiable triggerIdentifiable, Identifiable event) {
+        requireNotNull(triggerIdentifiable, "Trigger identifiable");
+        return addEventTrigger(triggerIdentifiable.getId(), event);
+    }
+
+    @Override
     public TransitionDef<T, C> addEventTrigger(BiPredicate<String, T> condition) {
         throw new UnsupportedOperationException("Triggers not yet implemented");
     }
@@ -496,8 +586,20 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     }
 
     @Override
+    public TransitionDef<T, C> addEventTrigger(Identifiable triggerIdentifiable, BiPredicate<String, T> condition) {
+        requireNotNull(triggerIdentifiable, "Trigger identifiable");
+        return addEventTrigger(triggerIdentifiable.getId(), condition);
+    }
+
+    @Override
     public TransitionDef<T, C> addDataTrigger(String id) {
         throw new UnsupportedOperationException("Triggers not yet implemented");
+    }
+
+    @Override
+    public TransitionDef<T, C> addDataTrigger(Identifiable triggerIdentifiable) {
+        requireNotNull(triggerIdentifiable, "Trigger identifiable");
+        return addDataTrigger(triggerIdentifiable.getId());
     }
 
     @Override
@@ -508,6 +610,12 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     @Override
     public TransitionDef<T, C> addDataTrigger(String id, Predicate<T> condition) {
         throw new UnsupportedOperationException("Triggers not yet implemented");
+    }
+
+    @Override
+    public TransitionDef<T, C> addDataTrigger(Identifiable triggerIdentifiable, Predicate<T> condition) {
+        requireNotNull(triggerIdentifiable, "Trigger identifiable");
+        return addDataTrigger(triggerIdentifiable.getId(), condition);
     }
 
     private SimpleOperationDefImpl<T, C> newSimpleOperationDef(String operationId) {
