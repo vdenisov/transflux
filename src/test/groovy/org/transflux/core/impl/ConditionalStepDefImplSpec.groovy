@@ -18,6 +18,7 @@
 
 package org.transflux.core.impl
 
+import org.transflux.core.Identifiable
 import org.transflux.core.TestContext
 import org.transflux.core.condition.Condition
 import org.transflux.core.condition.ConditionDescriptor
@@ -312,5 +313,94 @@ class ConditionalStepDefImplSpec extends Specification {
             .state('s1', { s -> s.transitionsTo('s2', 't', {}) })
             .state('s2', {})
         return (StateMachineImpl<Entity>) smd.build()
+    }
+
+    private static Identifiable identifiable(String value) {
+        return { -> value } as Identifiable
+    }
+
+    def 'ConditionalStepDef.branch(Identifiable, Consumer) registers a branch under the identifiable id'() {
+        given:
+        def cond = new ConditionalStepDefImpl<Object, Object>('c1')
+
+        when:
+        cond.branch(identifiable('b1'), { b -> b.condition('any'); b.step('x') })
+
+        then:
+        cond.branches.size() == 1
+        cond.branches[0].branchId == 'b1'
+    }
+
+    def 'ConditionalStepDef.branch(Identifiable, Consumer) rejects null Identifiable'() {
+        given:
+        def cond = new ConditionalStepDefImpl<Object, Object>('c1')
+
+        when:
+        cond.branch((Identifiable) null, { b -> })
+
+        then:
+        thrown(TransfluxValidationException)
+    }
+
+    def 'BranchDef.condition(Identifiable) sets a reference descriptor with the given id'() {
+        given:
+        def branch = new BranchDefImpl<Object, Object>('b1')
+
+        when:
+        branch.condition(identifiable('my-cond'))
+
+        then:
+        branch.descriptor != null
+        branch.descriptor.id() == 'my-cond'
+    }
+
+    def 'BranchDef.step(Identifiable) appends a by-id reference'() {
+        given:
+        def branch = new BranchDefImpl<Object, Object>('b1')
+
+        when:
+        branch.step(identifiable('my-step'))
+
+        then:
+        branch.actionRefs.size() == 1
+        branch.actionRefs[0].id() == 'my-step'
+    }
+
+    def 'DefaultBranchDef.step(Identifiable) appends a by-id reference'() {
+        given:
+        def defaultBranch = new DefaultBranchDefImpl<Object, Object>()
+
+        when:
+        defaultBranch.step(identifiable('my-step'))
+
+        then:
+        defaultBranch.actionRefs.size() == 1
+        defaultBranch.actionRefs[0].id() == 'my-step'
+    }
+
+    @Unroll
+    def 'BranchDef Identifiable overloads reject null: #method'() {
+        given:
+        def branch = new BranchDefImpl<Object, Object>('b1')
+
+        when:
+        branch."$method"(null)
+
+        then:
+        thrown(TransfluxValidationException)
+
+        where:
+        method << ['condition', 'step']
+    }
+
+    def 'DefaultBranchDef Identifiable overload rejects null'() {
+        given:
+        def defaultBranch = new DefaultBranchDefImpl<Object, Object>()
+
+        when:
+        defaultBranch.step((Identifiable) null)
+
+        then:
+        thrown(TransfluxValidationException)
     }
 }

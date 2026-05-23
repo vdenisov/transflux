@@ -163,4 +163,102 @@ class StateDefImplSpec extends Specification {
         e.message.contains("'withName'")
         e.message.contains("'S'")
     }
+
+    private static Identifiable identifiable(String value) {
+        return { -> value } as Identifiable
+    }
+
+    def 'transitionsTo(String target, Identifiable transition, Consumer) registers the transition under the identifiable id'() {
+        given:
+        def smd = new StateMachineDefImpl<>()
+        smd.forEntityType(Object)
+        smd.state('s2', {})
+
+        when:
+        smd.state('s1', { s ->
+            s.transitionsTo('s2', identifiable('t1'), { t -> })
+        })
+
+        then:
+        smd.getTransition('t1') != null
+    }
+
+    def 'transitionsTo(String target, Identifiable transition, Class<C>, Consumer) registers a typed transition'() {
+        given:
+        def smd = new StateMachineDefImpl<>()
+        smd.forEntityType(Object)
+        smd.state('s2', {})
+
+        when:
+        smd.state('s1', { s ->
+            s.transitionsTo('s2', identifiable('t1'), String, { t -> })
+        })
+
+        then:
+        smd.getTransition('t1') != null
+        smd.getTransition('t1').contextType == String
+    }
+
+    def 'transitionsTo(Identifiable target, Identifiable transition, Consumer) registers the transition'() {
+        given:
+        def smd = new StateMachineDefImpl<>()
+        smd.forEntityType(Object)
+        smd.state('s2', {})
+
+        when:
+        smd.state('s1', { s ->
+            s.transitionsTo(identifiable('s2'), identifiable('t1'), { t -> })
+        })
+
+        then:
+        smd.getTransition('t1') != null
+        smd.getTransition('t1').targetStateId == 's2'
+    }
+
+    def 'transitionsTo(Identifiable target, Identifiable transition, Class<C>, Consumer) registers a typed transition'() {
+        given:
+        def smd = new StateMachineDefImpl<>()
+        smd.forEntityType(Object)
+        smd.state('s2', {})
+
+        when:
+        smd.state('s1', { s ->
+            s.transitionsTo(identifiable('s2'), identifiable('t1'), String, { t -> })
+        })
+
+        then:
+        smd.getTransition('t1') != null
+        smd.getTransition('t1').contextType == String
+    }
+
+    @Unroll
+    def 'transitionsTo Identifiable overloads reject null'() {
+        given:
+        def smd = new StateMachineDefImpl<>()
+        smd.forEntityType(Object)
+        smd.state('s2', {})
+        Throwable caught = null
+
+        when:
+        try {
+            smd.state('s1', { s ->
+                action.call(s)
+            })
+        } catch (Throwable t) {
+            caught = t
+        }
+
+        then:
+        caught instanceof TransfluxValidationException
+
+        where:
+        action << [
+            { s -> s.transitionsTo('s2', (Identifiable) null, { t -> }) },
+            { s -> s.transitionsTo('s2', (Identifiable) null, String, { t -> }) },
+            { s -> s.transitionsTo((Identifiable) null, identifiable('t1'), { t -> }) },
+            { s -> s.transitionsTo((Identifiable) null, identifiable('t1'), String, { t -> }) },
+            { s -> s.transitionsTo(identifiable('s2'), (Identifiable) null, { t -> }) },
+            { s -> s.transitionsTo(identifiable('s2'), (Identifiable) null, String, { t -> }) },
+        ]
+    }
 }

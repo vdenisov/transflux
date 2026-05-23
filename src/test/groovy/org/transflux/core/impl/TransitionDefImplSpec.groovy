@@ -18,7 +18,9 @@
 
 package org.transflux.core.impl
 
+import org.transflux.core.Identifiable
 import org.transflux.core.TestContext
+import org.transflux.core.condition.Condition
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.operation.CompositeOperationDef
 import org.transflux.core.operation.Operation
@@ -28,7 +30,9 @@ import org.transflux.core.transition.Transition
 import spock.lang.Specification
 import spock.lang.Unroll
 
+import java.util.function.BiPredicate
 import java.util.function.Consumer
+import java.util.function.Predicate
 
 class TransitionDefImplSpec extends Specification {
 
@@ -276,5 +280,168 @@ class TransitionDefImplSpec extends Specification {
 
         then:
         result == "TransitionDefImpl{id='t1', sourceStateId='source', targetStateId='target'}"
+    }
+
+    private static Identifiable identifiable(String value) {
+        return { -> value } as Identifiable
+    }
+
+    static class IdOverloadOp implements Operation<Object, Object> {
+        @Override
+        void execute(Object e, Object c, Transition<Object, Object> t) {}
+    }
+
+    static class IdOverloadCond implements Condition<Object, Object> {
+        @Override
+        boolean test(Object e, Object c, Transition<Object, Object> t) { true }
+    }
+
+    def 'step(Identifiable) delegates to step(String)'() {
+        given:
+        def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
+        td.beginConfigurer()
+
+        when:
+        td.step(identifiable('my-step'))
+
+        then:
+        td.getOperationDef() != null
+    }
+
+    def 'preCondition(Identifiable) delegates to preCondition(String)'() {
+        given:
+        def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
+        td.beginConfigurer()
+
+        when:
+        td.preCondition(identifiable('my-cond'))
+
+        then:
+        !td.preConditionDescriptors.isEmpty()
+        td.preConditionDescriptors[0].id() == 'my-cond'
+    }
+
+    def 'postCondition(Identifiable) delegates to postCondition(String)'() {
+        given:
+        def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
+        td.beginConfigurer()
+
+        when:
+        td.postCondition(identifiable('my-cond'))
+
+        then:
+        !td.postConditionDescriptors.isEmpty()
+        td.postConditionDescriptors[0].id() == 'my-cond'
+    }
+
+    @Unroll
+    def 'tier-1 Identifiable overload rejects null: #method'() {
+        given:
+        def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
+        td.beginConfigurer()
+
+        when:
+        td."$method"(null)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.toLowerCase().contains('identifiable')
+
+        where:
+        method << ['step', 'preCondition', 'postCondition']
+    }
+
+    @Unroll
+    def 'tier-3 simpleOperation/compositeOperation Identifiable overload accepted: #variant'() {
+        given:
+        def td = new TransitionDefImpl<Object, Object>('t', 's1', 's2')
+        td.beginConfigurer()
+
+        when:
+        action.call(td)
+
+        then:
+        notThrown(Exception)
+
+        where:
+        variant                                     | action
+        'simpleOperation(Id, Operation)'            | { d -> d.simpleOperation(identifiable('op1'), new IdOverloadOp()) }
+        'simpleOperation(Id, Class)'                | { d -> d.simpleOperation(identifiable('op2'), IdOverloadOp) }
+        'simpleOperation(Id, Consumer)'             | { d -> d.simpleOperation(identifiable('op3'), { o -> o.using(new IdOverloadOp()) }) }
+        'compositeOperation(Id, Consumer)'          | { d -> d.compositeOperation(identifiable('op4'), { c -> c.step('anything') }) }
+    }
+
+    @Unroll
+    def 'tier-3 preCondition Identifiable overload accepted: #variant'() {
+        given:
+        def td = new TransitionDefImpl<Object, Object>('t', 's1', 's2')
+        td.beginConfigurer()
+
+        when:
+        action.call(td)
+
+        then:
+        td.preConditionDescriptors.size() == 1
+
+        where:
+        variant                                  | action
+        'preCondition(Id, Condition)'            | { d -> d.preCondition(identifiable('pc1'), new IdOverloadCond()) }
+        'preCondition(Id, Class)'                | { d -> d.preCondition(identifiable('pc2'), IdOverloadCond) }
+        'preCondition(Id, Predicate)'            | { d -> d.preCondition(identifiable('pc3'), { e -> true } as Predicate) }
+        'preCondition(Id, String)'               | { d -> d.preCondition(identifiable('pc4'), 'true') }
+    }
+
+    @Unroll
+    def 'tier-3 postCondition Identifiable overload accepted: #variant'() {
+        given:
+        def td = new TransitionDefImpl<Object, Object>('t', 's1', 's2')
+        td.beginConfigurer()
+
+        when:
+        action.call(td)
+
+        then:
+        td.postConditionDescriptors.size() == 1
+
+        where:
+        variant                                  | action
+        'postCondition(Id, Condition)'           | { d -> d.postCondition(identifiable('pc1'), new IdOverloadCond()) }
+        'postCondition(Id, Class)'               | { d -> d.postCondition(identifiable('pc2'), IdOverloadCond) }
+        'postCondition(Id, Predicate)'           | { d -> d.postCondition(identifiable('pc3'), { e -> true } as Predicate) }
+        'postCondition(Id, String)'              | { d -> d.postCondition(identifiable('pc4'), 'true') }
+    }
+
+    @Unroll
+    def 'tier-3 Identifiable overload rejects null: #variant'() {
+        given:
+        def td = new TransitionDefImpl<Object, Object>('t', 's1', 's2')
+        td.beginConfigurer()
+
+        when:
+        action.call(td)
+
+        then:
+        thrown(TransfluxValidationException)
+
+        where:
+        variant                                  | action
+        'simpleOperation(null, Operation)'       | { d -> d.simpleOperation((Identifiable) null, new IdOverloadOp()) }
+        'simpleOperation(null, Class)'           | { d -> d.simpleOperation((Identifiable) null, IdOverloadOp) }
+        'simpleOperation(null, Consumer)'        | { d -> d.simpleOperation((Identifiable) null, { o -> }) }
+        'compositeOperation(null, Consumer)'     | { d -> d.compositeOperation((Identifiable) null, { c -> }) }
+        'preCondition(null, Condition)'          | { d -> d.preCondition((Identifiable) null, new IdOverloadCond()) }
+        'preCondition(null, Class)'              | { d -> d.preCondition((Identifiable) null, IdOverloadCond) }
+        'preCondition(null, Predicate)'          | { d -> d.preCondition((Identifiable) null, { e -> true } as Predicate) }
+        'preCondition(null, String)'             | { d -> d.preCondition((Identifiable) null, 'true') }
+        'postCondition(null, Condition)'         | { d -> d.postCondition((Identifiable) null, new IdOverloadCond()) }
+        'postCondition(null, Class)'             | { d -> d.postCondition((Identifiable) null, IdOverloadCond) }
+        'postCondition(null, Predicate)'         | { d -> d.postCondition((Identifiable) null, { e -> true } as Predicate) }
+        'postCondition(null, String)'            | { d -> d.postCondition((Identifiable) null, 'true') }
+        'addManualTrigger(null)'                 | { d -> d.addManualTrigger((Identifiable) null) }
+        'addEventTrigger(null, String)'          | { d -> d.addEventTrigger((Identifiable) null, 'evt') }
+        'addEventTrigger(null, Identifiable)'    | { d -> d.addEventTrigger((Identifiable) null, identifiable('evt')) }
+        'addEventTrigger(null, BiPredicate)'     | { d -> d.addEventTrigger((Identifiable) null, { i, e -> true } as BiPredicate) }
+        'addDataTrigger(null)'                   | { d -> d.addDataTrigger((Identifiable) null) }
+        'addDataTrigger(null, Predicate)'        | { d -> d.addDataTrigger((Identifiable) null, { e -> true } as Predicate) }
     }
 }

@@ -18,14 +18,17 @@
 
 package org.transflux.core.impl
 
+import org.transflux.core.Identifiable
 import org.transflux.core.TestContext
 import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.operation.CompositeOperationDef
+import org.transflux.core.operation.Operation
 import org.transflux.core.operation.Step
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
+import spock.lang.Unroll
 
 import static org.transflux.core.TestStateEnum.ACTIVE
 import static org.transflux.core.TestStateEnum.TRIAL
@@ -221,5 +224,135 @@ class CompositeOperationDefImplSpec extends Specification {
         def e = thrown(TransfluxValidationException)
         e.message.contains('no accessible no-arg constructor')
         e.message.contains('CtorlessStep')
+    }
+
+    private static Identifiable identifiable(String value) {
+        return { -> value } as Identifiable
+    }
+
+    static class IdOverloadStep implements Step<Object, Object> {
+        @Override
+        void execute(Object e, Object c, Transition<Object, Object> t) {}
+    }
+
+    static class IdOverloadOp implements Operation<Object, Object> {
+        @Override
+        void execute(Object e, Object c, Transition<Object, Object> t) {}
+    }
+
+    @Unroll
+    def 'tier-1 step #variant accepts Identifiable refs'() {
+        given:
+        def composite = new CompositeOperationDefImpl<Object, Object>('outer')
+
+        when:
+        action.call(composite)
+
+        then:
+        composite.actionRefs.size() == 1
+
+        where:
+        variant                                       | action
+        'step(Identifiable)'                          | { c -> c.step(identifiable('my-step')) }
+        'step(Identifiable, Identifiable)'            | { c -> c.step(identifiable('my-step'), identifiable('my-mapper')) }
+        'step(Identifiable, String mapperId)'         | { c -> c.step(identifiable('my-step'), 'my-mapper') }
+        'step(String stepId, Identifiable mapper)'    | { c -> c.step('my-step', identifiable('my-mapper')) }
+    }
+
+    @Unroll
+    def 'tier-1 operation #variant accepts Identifiable refs'() {
+        given:
+        def composite = new CompositeOperationDefImpl<Object, Object>('outer')
+
+        when:
+        action.call(composite)
+
+        then:
+        composite.actionRefs.size() == 1
+
+        where:
+        variant                                           | action
+        'operation(Identifiable)'                         | { c -> c.operation(identifiable('my-op')) }
+        'operation(Identifiable, Identifiable)'           | { c -> c.operation(identifiable('my-op'), identifiable('my-mapper')) }
+        'operation(Identifiable, String mapperId)'        | { c -> c.operation(identifiable('my-op'), 'my-mapper') }
+        'operation(String opId, Identifiable mapper)'     | { c -> c.operation('my-op', identifiable('my-mapper')) }
+    }
+
+    def 'tier-1 Identifiable overloads accept any Identifiable (e.g. a held-onto *Def reference)'() {
+        given:
+        def composite = new CompositeOperationDefImpl<Object, Object>('outer')
+        def heldDef = new TransitionDefImpl<Object, Object>('held-id', 's1', 's2')
+
+        when:
+        composite.step(heldDef)
+
+        then:
+        composite.actionRefs.size() == 1
+        composite.actionRefs[0].id() == 'held-id'
+    }
+
+    @Unroll
+    def 'tier-1 #variant rejects null Identifiable arg'() {
+        given:
+        def composite = new CompositeOperationDefImpl<Object, Object>('outer')
+
+        when:
+        action.call(composite)
+
+        then:
+        thrown(TransfluxValidationException)
+
+        where:
+        variant                                       | action
+        'step(null)'                                  | { c -> c.step((Identifiable) null) }
+        'step(null, identifiable)'                    | { c -> c.step((Identifiable) null, identifiable('m')) }
+        'step(null, mapperId)'                        | { c -> c.step((Identifiable) null, 'm') }
+        'step(identifiable, null)'                    | { c -> c.step(identifiable('s'), (Identifiable) null) }
+        'step(stepId, null)'                          | { c -> c.step('s', (Identifiable) null) }
+        'operation(null)'                             | { c -> c.operation((Identifiable) null) }
+        'operation(null, identifiable)'               | { c -> c.operation((Identifiable) null, identifiable('m')) }
+        'operation(null, mapperId)'                   | { c -> c.operation((Identifiable) null, 'm') }
+        'operation(identifiable, null)'               | { c -> c.operation(identifiable('o'), (Identifiable) null) }
+        'operation(opId, null)'                       | { c -> c.operation('o', (Identifiable) null) }
+    }
+
+    @Unroll
+    def 'tier-3 inline Identifiable overload accepted: #variant'() {
+        given:
+        def composite = new CompositeOperationDefImpl<Object, Object>('outer')
+
+        when:
+        action.call(composite)
+
+        then:
+        composite.actionRefs.size() == 1
+
+        where:
+        variant                                  | action
+        'step(Id, Step)'                         | { c -> c.step(identifiable('s1'), new IdOverloadStep()) }
+        'step(Id, Class)'                        | { c -> c.step(identifiable('s2'), IdOverloadStep) }
+        'operation(Id, Operation)'               | { c -> c.operation(identifiable('o1'), new IdOverloadOp()) }
+        'operation(Id, Class)'                   | { c -> c.operation(identifiable('o2'), IdOverloadOp) }
+        'conditional(Id, Consumer)'              | { c -> c.conditional(identifiable('cond1'), { cs -> cs.branch('b', { b -> b.condition('any'); b.step('x') }) }) }
+    }
+
+    @Unroll
+    def 'tier-3 #variant rejects null Identifiable'() {
+        given:
+        def composite = new CompositeOperationDefImpl<Object, Object>('outer')
+
+        when:
+        action.call(composite)
+
+        then:
+        thrown(TransfluxValidationException)
+
+        where:
+        variant                                  | action
+        'step(null, Step)'                       | { c -> c.step((Identifiable) null, new IdOverloadStep()) }
+        'step(null, Class)'                      | { c -> c.step((Identifiable) null, IdOverloadStep) }
+        'operation(null, Operation)'             | { c -> c.operation((Identifiable) null, new IdOverloadOp()) }
+        'operation(null, Class)'                 | { c -> c.operation((Identifiable) null, IdOverloadOp) }
+        'conditional(null, Consumer)'            | { c -> c.conditional((Identifiable) null, { cs -> }) }
     }
 }

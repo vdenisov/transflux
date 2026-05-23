@@ -20,11 +20,19 @@ package org.transflux.core.impl
 
 import org.transflux.core.Identifiable
 import org.transflux.core.Transflux
+import org.transflux.core.condition.Condition
 import org.transflux.core.exception.TransfluxValidationException
+import org.transflux.core.operation.ContextMapper
+import org.transflux.core.operation.Operation
+import org.transflux.core.operation.Step
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
+import org.transflux.core.transition.Transition
 import spock.lang.Specification
 import spock.lang.Unroll
+
+import java.util.function.Function
+import java.util.function.Predicate
 
 import static org.transflux.core.TestStateEnum.ACTIVE
 import static org.transflux.core.TestStateEnum.EXPIRED
@@ -249,4 +257,118 @@ class StateMachineDefImplSpec extends Specification {
         e.message == 'Entity type cannot be null'
     }
 
+    static class IdOverloadStep implements Step<Object, Object> {
+        @Override
+        void execute(Object e, Object c, Transition<Object, Object> t) {}
+    }
+
+    static class IdOverloadCondition implements Condition<Object, Object> {
+        @Override
+        boolean test(Object e, Object c, Transition<Object, Object> t) { true }
+    }
+
+    static class IdOverloadOperation implements Operation<Object, Object> {
+        @Override
+        void execute(Object e, Object c, Transition<Object, Object> t) {}
+    }
+
+    static class IdOverloadMapper implements ContextMapper<Object, Object> {
+        @Override
+        Object mapTo(Object p) { p }
+    }
+
+    private static Identifiable identifiable(String value) {
+        return { -> value } as Identifiable
+    }
+
+    @Unroll
+    def 'step Identifiable overload accepted: #variant'() {
+        given:
+        def smd = new StateMachineDefImpl<>()
+        smd.forEntityType(Object)
+
+        when:
+        action.call(smd)
+
+        then:
+        notThrown(Exception)
+
+        where:
+        variant                                | action
+        'step(Id, Step)'                       | { d -> d.step(identifiable('s1'), new IdOverloadStep()) }
+        'step(Id, Class)'                      | { d -> d.step(identifiable('s2'), IdOverloadStep) }
+        'step(Id, Class<C>, Step)'             | { d -> d.step(identifiable('s3'), Object, new IdOverloadStep()) }
+        'step(Id, Class<C>, Class)'            | { d -> d.step(identifiable('s4'), Object, IdOverloadStep) }
+    }
+
+    @Unroll
+    def 'condition Identifiable overload accepted: #variant'() {
+        given:
+        def smd = new StateMachineDefImpl<>()
+        smd.forEntityType(Object)
+
+        when:
+        action.call(smd)
+
+        then:
+        notThrown(Exception)
+
+        where:
+        variant                                          | action
+        'condition(Id, Condition)'                       | { d -> d.condition(identifiable('c1'), new IdOverloadCondition()) }
+        'condition(Id, Class)'                           | { d -> d.condition(identifiable('c2'), IdOverloadCondition) }
+        'condition(Id, Predicate)'                       | { d -> d.condition(identifiable('c3'), { e -> true } as Predicate) }
+        'condition(Id, String spel)'                     | { d -> d.condition(identifiable('c4'), 'true') }
+        'condition(Id, Class<C>, Condition)'             | { d -> d.condition(identifiable('c5'), Object, new IdOverloadCondition()) }
+        'condition(Id, Class<C>, Class)'                 | { d -> d.condition(identifiable('c6'), Object, IdOverloadCondition) }
+        'conditionPredicate(Id, Class<C>, Predicate)'    | { d -> d.conditionPredicate(identifiable('c7'), Object, { e -> true } as Predicate) }
+        'conditionExpression(Id, Class<C>, String)'      | { d -> d.conditionExpression(identifiable('c8'), Object, 'true') }
+    }
+
+    @Unroll
+    def 'operation/composite/mapper Identifiable overload accepted: #variant'() {
+        given:
+        def smd = new StateMachineDefImpl<>()
+        smd.forEntityType(Object)
+
+        when:
+        action.call(smd)
+
+        then:
+        notThrown(Exception)
+
+        where:
+        variant                                          | action
+        'compositeOperation(Id, Class<C>, Consumer)'     | { d -> d.compositeOperation(identifiable('co1'), Object, { c -> c.step('any') }) }
+        'operation(Id, Class<C>, Operation)'             | { d -> d.operation(identifiable('o1'), Object, new IdOverloadOperation()) }
+        'operation(Id, Class<C>, Class)'                 | { d -> d.operation(identifiable('o2'), Object, IdOverloadOperation) }
+        'mapper(Id, parent, child, ContextMapper)'       | { d -> d.mapper(identifiable('m1'), Object, Object, new IdOverloadMapper()) }
+        'mapper(Id, parent, child, Class)'               | { d -> d.mapper(identifiable('m2'), Object, Object, IdOverloadMapper) }
+        'mapper(Id, parent, child, Function)'            | { d -> d.mapper(identifiable('m3'), Object, Object, { p -> p } as Function) }
+    }
+
+    @Unroll
+    def 'Identifiable overload rejects null: #variant'() {
+        given:
+        def smd = new StateMachineDefImpl<>()
+        smd.forEntityType(Object)
+
+        when:
+        action.call(smd)
+
+        then:
+        thrown(TransfluxValidationException)
+
+        where:
+        variant                                          | action
+        'step(null, Step)'                               | { d -> d.step((Identifiable) null, new IdOverloadStep()) }
+        'step(null, Class)'                              | { d -> d.step((Identifiable) null, IdOverloadStep) }
+        'condition(null, Condition)'                     | { d -> d.condition((Identifiable) null, new IdOverloadCondition()) }
+        'condition(null, Class)'                         | { d -> d.condition((Identifiable) null, IdOverloadCondition) }
+        'condition(null, Predicate)'                     | { d -> d.condition((Identifiable) null, { e -> true } as Predicate) }
+        'condition(null, String spel)'                   | { d -> d.condition((Identifiable) null, 'true') }
+        'compositeOperation(null, Class, Consumer)'      | { d -> d.compositeOperation((Identifiable) null, Object, { c -> c.step('x') }) }
+        'operation(null, Class, Operation)'              | { d -> d.operation((Identifiable) null, Object, new IdOverloadOperation()) }
+        'mapper(null, parent, child, ContextMapper)'     | { d -> d.mapper((Identifiable) null, Object, Object, new IdOverloadMapper()) }
+    }
 }
