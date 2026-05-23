@@ -251,7 +251,7 @@ public final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T,
             defaultStepIds = collectStepIds(defaultBranch.getActionRefs());
         }
 
-        Step<T, C> executor = new ConditionalStepExecutor(stateMachine, resolvedBranches,
+        Step<T, C> executor = new ConditionalStepExecutor(resolvedBranches,
                                                           defaultStepIds, noMatchBehavior, id);
         return BoundStep.of(id, executor);
     }
@@ -287,25 +287,22 @@ public final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T,
      * order and dispatches the first matching branch's steps through the central step
      * runner.
      * <p>
-     * Branch steps are resolved by id at execution time rather than at build time: each
-     * invocation looks up the bound step on the enclosing state machine. This sidesteps the
-     * build-order dependency between the bound-step registry and this executor — by the time
-     * {@link #execute(Object, Object, Transition)} runs, the state machine is fully
-     * constructed and every referenced id is resolvable.
+     * Branch steps are resolved by id at execution time via {@link TransitionView#step(String)},
+     * which consults the active composite scope and walks the parent chain up to the root
+     * registry. This sidesteps the build-order dependency between the bound-step registry and
+     * this executor — by the time {@link #execute(Object, Object, Transition)} runs, the state
+     * machine is fully constructed and every referenced id is resolvable.
      */
     private final class ConditionalStepExecutor implements Step<T, C> {
-        private final StateMachineImpl<T> stateMachine;
         private final List<ResolvedBranch<T, C>> resolvedBranches;
         private final List<String> defaultStepIds;
         private final NoMatchBehavior noMatchBehavior;
         private final String conditionalId;
 
-        ConditionalStepExecutor(StateMachineImpl<T> stateMachine,
-                                List<ResolvedBranch<T, C>> resolvedBranches,
+        ConditionalStepExecutor(List<ResolvedBranch<T, C>> resolvedBranches,
                                 List<String> defaultStepIds,
                                 NoMatchBehavior noMatchBehavior,
                                 String conditionalId) {
-            this.stateMachine = stateMachine;
             this.resolvedBranches = resolvedBranches;
             this.defaultStepIds = defaultStepIds;
             this.noMatchBehavior = noMatchBehavior;
@@ -344,16 +341,9 @@ public final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T,
             }
         }
 
-        @SuppressWarnings({"unchecked", "rawtypes"})
         private void dispatchStepIds(List<String> stepIds, TransitionView<T, C> view) {
             for (String stepId : stepIds) {
-                BoundStep<T, C> bound = (BoundStep<T, C>) (BoundStep) stateMachine.getBoundStep(stepId);
-                if (bound == null) {
-                    throw new TransfluxValidationException(
-                        "Conditional step '" + conditionalId + "' references unknown step id '"
-                            + stepId + "'");
-                }
-                StateMachineImpl.runBoundStep(bound, view);
+                view.step(stepId);
             }
         }
     }

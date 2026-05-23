@@ -27,8 +27,9 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
  * mapped} (a {@link ContextMapper} produces a separate child context on the way in and
  * optionally folds it back on the way out).
  *
- * <p>This is framework-internal infrastructure; user code constructs nested-operation defs
- * through the public {@link NestedOperationDef} surface and never sees this type directly.
+ * <p>This is framework-internal infrastructure; user code drives nested-operation dispatch
+ * through the by-id call-site grammar on {@link CompositeOperationDef} and never sees this
+ * type directly.
  */
 public final class ResolvedContextMapping {
     private static final ResolvedContextMapping PASS_THROUGH = new ResolvedContextMapping(null);

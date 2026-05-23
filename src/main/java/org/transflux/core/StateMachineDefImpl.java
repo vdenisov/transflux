@@ -45,6 +45,7 @@ import org.transflux.core.transition.TransitionDefImpl;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -80,8 +81,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private final Map<String, ConditionRegistration<T>> conditionRegistrations = new LinkedHashMap<>();
 
     private final Map<String, OperationRegistration<T>> operationRegistrations = new LinkedHashMap<>();
-
-    private final Map<String, ConditionalStepDefImpl<T, ?>> conditionalStepRegistrations = new LinkedHashMap<>();
 
     private final Map<String, CompositeOperationDefImpl<T, ?>> smCompositeOperations = new LinkedHashMap<>();
 
@@ -217,10 +216,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             throw new TransfluxValidationException(
                 "ID '" + id + "' is already registered as a step");
         }
-        if (conditionalStepRegistrations.containsKey(id)) {
-            throw new TransfluxValidationException(
-                "ID '" + id + "' is already registered as a conditional step");
-        }
     }
 
     private void registerOperationInstance(String id, Operation<T, ?> operation) {
@@ -253,70 +248,214 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         throw new TransfluxValidationException("Operation ID '" + id + "' is already registered");
     }
 
-    private void registerInlineOperations(Map<String, ? extends Operation<T, ?>> instances,
-                                          Map<String, ? extends Class<? extends Operation<T, ?>>> classes) {
-        for (Map.Entry<String, ? extends Operation<T, ?>> e : instances.entrySet()) {
-            registerOperationInstance(e.getKey(), e.getValue());
+    /**
+     * Wires a {@link RegistryImpl} scope onto every composite operation declared on this
+     * state-machine def — both the SM-level composites and those embedded in transitions — and
+     * populates each scope with the composite's inline-declared members (steps, operations) and
+     * the bound steps for the conditionals it owns. Each scope's parent is the supplied root
+     * registry, so by-id refs from inside a composite first check the composite-local entries
+     * and fall back to root.
+     *
+     * <p>This pass also enforces SM-wide id uniqueness: every composite-local id is added to the
+     * same {@code globalIds} set that already holds SM-level ids; a collision anywhere fails the
+     * build with a {@link TransfluxValidationException}.
+     *
+     * <p>This is framework-internal infrastructure used by {@link StateMachineImpl} during state
+     * machine construction; user code does not invoke it directly.
+     *
+     * @param stateMachine the state machine under construction; conditional executors close
+     *                     over it for runtime step lookup
+     * @param rootRegistry the state-machine's root registry — the parent of every composite scope
+     * @param conditionRegistry the resolved SM-wide condition registry
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public void bindCompositeScopes(StateMachineImpl<T> stateMachine,
+                                    RegistryImpl<T> rootRegistry,
+                                    Map<String, BoundCondition<T, ?>> conditionRegistry) {
+        Map<String, Object> canonical = new HashMap<>();
+
+        for (Map.Entry<String, StepRegistration<T>> e : stepRegistrations.entrySet()) {
+            canonical.put(e.getKey(), payloadOf(e.getValue()));
         }
 
-        for (Map.Entry<String, ? extends Class<? extends Operation<T, ?>>> e : classes.entrySet()) {
-            registerOperationClass(e.getKey(), e.getValue());
+        for (Map.Entry<String, OperationRegistration<T>> e : operationRegistrations.entrySet()) {
+            canonical.put(e.getKey(), payloadOf(e.getValue()));
         }
-    }
 
-    private void collectInlineMemberRegistrations() {
+        canonical.putAll(conditionRegistrations);
+
+        for (String id : smCompositeOperations.keySet()) {
+            canonical.put(id, smCompositeOperations.get(id));
+        }
+
+        for (String id : mapperRegistrations.keySet()) {
+            canonical.put(id, mapperRegistrations.get(id));
+        }
+
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             OperationDefImpl<T, ?> op = td.getOperationDef();
             if (op instanceof CompositeOperationDefImpl<T, ?> composite) {
-                walkCompositeForInlineMembers(composite);
+                bindCompositeScope((CompositeOperationDefImpl) composite, rootRegistry,
+                                   canonical, stateMachine, (Map) conditionRegistry);
+            }
+        }
+
+        for (CompositeOperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
+            bindCompositeScope((CompositeOperationDefImpl) composite, rootRegistry,
+                               canonical, stateMachine, (Map) conditionRegistry);
+        }
+    }
+
+    private static <T> Object payloadOf(StepRegistration<T> reg) {
+        return reg.instance != null ? reg.instance : reg.stepClass;
+    }
+
+    private static <T> Object payloadOf(OperationRegistration<T> reg) {
+        return reg.instance != null ? reg.instance : reg.operationClass;
+    }
+
+    /**
+     * Flattens the scope registry of every composite operation declared on this state-machine
+     * def. Called after every component has been bound into its appropriate registry so each
+     * scope's {@link Registry#resolve(String)} becomes a single local-map lookup.
+     *
+     * <p>This is framework-internal infrastructure used by {@link StateMachineImpl} during state
+     * machine construction; user code does not invoke it directly.
+     */
+    public void flattenCompositeScopes() {
+        for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
+            OperationDefImpl<T, ?> op = td.getOperationDef();
+            if (op instanceof CompositeOperationDefImpl<T, ?> composite) {
+                RegistryImpl<T> scope = composite.getScopeRegistry();
+                if (scope != null) {
+                    scope.flatten();
+                }
             }
         }
         for (CompositeOperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
-            walkCompositeForInlineMembers(composite);
+            RegistryImpl<T> scope = composite.getScopeRegistry();
+            if (scope != null) {
+                scope.flatten();
+            }
         }
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private void walkCompositeForInlineMembers(CompositeOperationDefImpl<T, ?> composite) {
-        registerInlineSteps((Map) composite.getInlineStepInstances(),
-                            (Map) composite.getInlineStepClasses());
-        registerInlineOperations(composite.getInlineOperationInstances(),
-                                 composite.getInlineOperationClasses());
+    private <C> void bindCompositeScope(CompositeOperationDefImpl<T, C> composite,
+                                        RegistryImpl<T> rootRegistry,
+                                        Map<String, Object> canonical,
+                                        StateMachineImpl<T> stateMachine,
+                                        Map<String, BoundCondition<T, C>> conditionRegistry) {
+        RegistryImpl<T> scope = new RegistryImpl<>(rootRegistry);
+        composite.setScopeRegistry(scope);
 
-        for (Map.Entry<String, ?> e : composite.getConditionalDefs().entrySet()) {
+        Class<C> compositeCtx = composite.contextType();
+
+        // Inline steps declared directly on the composite.
+        for (Map.Entry<String, Step<T, C>> e : composite.getInlineStepInstances().entrySet()) {
+            registerInlineStepInScope(scope, canonical, e.getKey(), e.getValue(), compositeCtx);
+        }
+        for (Map.Entry<String, Class<? extends Step<T, C>>> e : composite.getInlineStepClasses().entrySet()) {
+            registerInlineStepClassInScope(scope, canonical, e.getKey(), (Class) e.getValue(), compositeCtx);
+        }
+
+        // Inline operations declared directly on the composite.
+        for (Map.Entry<String, Operation<T, C>> e : composite.getInlineOperationInstances().entrySet()) {
+            registerInlineOperationInScope(scope, canonical, e.getKey(), e.getValue(), compositeCtx);
+        }
+        for (Map.Entry<String, Class<? extends Operation<T, C>>> e : composite.getInlineOperationClasses().entrySet()) {
+            registerInlineOperationClassInScope(scope, canonical, e.getKey(), (Class) e.getValue(), compositeCtx);
+        }
+
+        // Conditionals: inline steps inside their branches plus the conditional's own bound step.
+        for (Map.Entry<String, ConditionalStepDefImpl<T, C>> e : composite.getConditionalDefs().entrySet()) {
+            ConditionalStepDefImpl<T, C> conditional = e.getValue();
+
+            for (Map.Entry<String, Step<T, C>> ie : conditional.getInlineStepInstances().entrySet()) {
+                registerInlineStepInScope(scope, canonical, ie.getKey(), ie.getValue(), compositeCtx);
+            }
+            for (Map.Entry<String, Class<? extends Step<T, C>>> ie : conditional.getInlineStepClasses().entrySet()) {
+                registerInlineStepClassInScope(scope, canonical, ie.getKey(), (Class) ie.getValue(), compositeCtx);
+            }
+
             String conditionalId = e.getKey();
-            ConditionalStepDefImpl<T, ?> conditional = (ConditionalStepDefImpl<T, ?>) e.getValue();
-
-            registerInlineSteps((Map) conditional.getInlineStepInstances(),
-                                (Map) conditional.getInlineStepClasses());
-
-            ConditionalStepDefImpl<T, ?> existing = conditionalStepRegistrations.get(conditionalId);
-            if (existing != null && existing != conditional) {
-                throw new TransfluxValidationException(
-                    "Conditional step ID '" + conditionalId + "' is already registered");
+            claimCanonical(canonical, conditionalId, conditional);
+            if (scope.get(conditionalId).isPresent()) {
+                continue;
             }
-
-            if (stepRegistrations.containsKey(conditionalId)) {
-                throw new TransfluxValidationException(
-                    "Step ID '" + conditionalId + "' is already registered");
-            }
-            if (operationRegistrations.containsKey(conditionalId)) {
-                throw new TransfluxValidationException(
-                    "ID '" + conditionalId + "' is already registered as an operation");
-            }
-            conditionalStepRegistrations.put(conditionalId, conditional);
+            BoundStep<T, C> boundConditional = conditional.buildBoundStep(stateMachine, conditionRegistry);
+            scope.register(new Component.Step<>(conditionalId, null, null, compositeCtx, boundConditional));
         }
     }
 
-    private void registerInlineSteps(Map<String, Step<T, ?>> instances,
-                                     Map<String, Class<? extends Step<T, ?>>> classes) {
-        for (Map.Entry<String, Step<T, ?>> e : instances.entrySet()) {
-            registerStepInstance(e.getKey(), e.getValue());
+    private <C> void registerInlineStepInScope(RegistryImpl<T> scope, Map<String, Object> canonical,
+                                               String id, Step<T, C> step, Class<C> contextType) {
+        claimCanonical(canonical, id, step);
+        if (scope.get(id).isPresent()) {
+            return;
         }
+        BoundStep<T, C> bound = BoundStep.of(id, step);
+        scope.register(new Component.Step<>(id, null, null, contextType, bound));
+    }
 
-        for (Map.Entry<String, Class<? extends Step<T, ?>>> e : classes.entrySet()) {
-            registerStepClass(e.getKey(), e.getValue());
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private <C> void registerInlineStepClassInScope(RegistryImpl<T> scope, Map<String, Object> canonical,
+                                                    String id, Class<? extends Step<T, C>> stepClass,
+                                                    Class<C> contextType) {
+        claimCanonical(canonical, id, stepClass);
+        if (scope.get(id).isPresent()) {
+            return;
         }
+        Step<T, C> resolved = (Step<T, C>) instantiateNoArg((Class) stepClass, "Step");
+        BoundStep<T, C> bound = BoundStep.of(id, resolved);
+        scope.register(new Component.Step<>(id, null, null, contextType, bound));
+    }
+
+    private <C> void registerInlineOperationInScope(RegistryImpl<T> scope, Map<String, Object> canonical,
+                                                    String id, Operation<T, C> operation,
+                                                    Class<C> contextType) {
+        claimCanonical(canonical, id, operation);
+        if (scope.get(id).isPresent()) {
+            return;
+        }
+        BoundOperation<T, C> bound = BoundOperation.of(id, null, null, operation);
+        scope.register(new Component.Operation<>(id, null, null, contextType, bound));
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private <C> void registerInlineOperationClassInScope(RegistryImpl<T> scope, Map<String, Object> canonical,
+                                                         String id, Class<? extends Operation<T, C>> operationClass,
+                                                         Class<C> contextType) {
+        claimCanonical(canonical, id, operationClass);
+        if (scope.get(id).isPresent()) {
+            return;
+        }
+        Operation<T, C> resolved = (Operation<T, C>) instantiateNoArg((Class) operationClass, "Operation");
+        BoundOperation<T, C> bound = BoundOperation.of(id, null, null, resolved);
+        scope.register(new Component.Operation<>(id, null, null, contextType, bound));
+    }
+
+    /**
+     * Records the canonical payload for {@code id} in the per-build global table. Idempotent
+     * for an existing identical payload (same instance reference, or equal {@link Class}
+     * object) — mirrors the idempotency rules of the SM-level {@code registerStepInstance} /
+     * {@code registerStepClass} pair and friends. A different payload under the same id raises
+     * {@link TransfluxValidationException}, enforcing SM-wide id uniqueness.
+     */
+    private void claimCanonical(Map<String, Object> canonical, String id, Object payload) {
+        Object existing = canonical.get(id);
+        if (existing == null) {
+            canonical.put(id, payload);
+            return;
+        }
+        if (existing == payload) {
+            return;
+        }
+        if (existing instanceof Class<?> && payload instanceof Class<?> && existing.equals(payload)) {
+            return;
+        }
+        throw new TransfluxValidationException(
+            "Component id '" + id + "' is already registered");
     }
 
     @Override
@@ -551,27 +690,21 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
-     * Resolves the step registrations into {@link BoundStep} instances. Framework-internal.
+     * Resolves the SM-level step registrations into {@link BoundStep} instances. Composite-local
+     * inline steps and conditionals are bound into their owning composite's scope by
+     * {@link #bindCompositeScopes(StateMachineImpl, RegistryImpl, Map)} and are not included
+     * here.
+     *
+     * <p>This is framework-internal infrastructure used by {@link StateMachineImpl} during state
+     * machine construction; user code does not invoke it directly.
+     *
+     * @return an unmodifiable map of SM-level step id to bound step
      */
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    public Map<String, BoundStep<T, ?>> buildBoundSteps(StateMachineImpl<T> stateMachine,
-                                                         Map<String, BoundCondition<T, ?>> conditionRegistry) {
-        collectInlineMemberRegistrations();
-
+    public Map<String, BoundStep<T, ?>> buildBoundSteps() {
         Map<String, BoundStep<T, ?>> resolved = new LinkedHashMap<>();
         for (Map.Entry<String, StepRegistration<T>> e : stepRegistrations.entrySet()) {
             resolved.put(e.getKey(), e.getValue().toBoundStep(e.getKey()));
         }
-
-        for (Map.Entry<String, ConditionalStepDefImpl<T, ?>> e : conditionalStepRegistrations.entrySet()) {
-            if (resolved.containsKey(e.getKey())) {
-                throw new TransfluxValidationException(
-                    "Step ID '" + e.getKey() + "' is already registered");
-            }
-            ConditionalStepDefImpl raw = e.getValue();
-            resolved.put(e.getKey(), raw.buildBoundStep(stateMachine, conditionRegistry));
-        }
-
         return Collections.unmodifiableMap(resolved);
     }
 
@@ -680,7 +813,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
                 "Composite operation id '" + id + "' is already registered at SM level");
         }
         if (stepRegistrations.containsKey(id) || operationRegistrations.containsKey(id)
-            || conditionRegistrations.containsKey(id) || conditionalStepRegistrations.containsKey(id)) {
+            || conditionRegistrations.containsKey(id)) {
             throw new TransfluxValidationException(
                 "Component id '" + id + "' is already registered");
         }

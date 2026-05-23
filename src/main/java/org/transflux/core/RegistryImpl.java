@@ -113,4 +113,25 @@ public final class RegistryImpl<T> implements Registry<T> {
     public Registry<T> parent() {
         return parent;
     }
+
+    /**
+     * Copies every ancestor entry that is visible through {@link #resolve(String)} but not held
+     * locally into the local map. After this call, {@link #resolve(String)} is a single local-map
+     * lookup with no parent-chain traversal. {@link #parent()} is left in place as a public
+     * introspection accessor.
+     *
+     * <p>Safe to call once per registry, at the end of the state-machine build pipeline, after
+     * every ancestor's local entries are settled.
+     */
+    public void flatten() {
+        Registry<T> ancestor = parent;
+        while (ancestor != null) {
+            for (String id : ancestor.ids()) {
+                if (!components.containsKey(id)) {
+                    ancestor.get(id).ifPresent(c -> components.put(c.id(), c));
+                }
+            }
+            ancestor = ancestor.parent();
+        }
+    }
 }

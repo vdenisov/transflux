@@ -18,6 +18,7 @@
 
 package org.transflux.core.operation
 
+import org.transflux.core.RegistryImpl
 import org.transflux.core.StateMachineImpl
 import org.transflux.core.TestContext
 import org.transflux.core.Transflux
@@ -91,6 +92,7 @@ class CompositeOperationDefImplSpec extends Specification {
             .state(ACTIVE, {})
             .build()
         def composite = new CompositeOperationDefImpl<TestEntity, TestContext>('op1')
+        composite.scopeRegistry = new RegistryImpl<TestEntity>(((StateMachineImpl<TestEntity>) sm).componentRegistry)
 
         when:
         composite.build((StateMachineImpl<TestEntity>) sm)
@@ -140,6 +142,7 @@ class CompositeOperationDefImplSpec extends Specification {
 
         def composite = new CompositeOperationDefImpl<TestEntity, TestContext>('op1')
             .step('c-id').step('a-id').step('b-id')
+        composite.scopeRegistry = new RegistryImpl<TestEntity>(((StateMachineImpl<TestEntity>) sm).componentRegistry)
 
         def entity = new TestEntity('TRIAL')
         def view = new TransitionView<TestEntity, TestContext>(
@@ -170,6 +173,7 @@ class CompositeOperationDefImplSpec extends Specification {
 
         def composite = new CompositeOperationDefImpl<TestEntity, TestContext>('op1')
             .step('known').step('missing')
+        composite.scopeRegistry = new RegistryImpl<TestEntity>(((StateMachineImpl<TestEntity>) sm).componentRegistry)
 
         when:
         composite.build((StateMachineImpl<TestEntity>) sm)

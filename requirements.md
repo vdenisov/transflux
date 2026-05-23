@@ -29,7 +29,7 @@ The following are explicitly **out of scope** for the 1.0 release. Several are t
 - **No scheduler.** The library has no internal scheduler, timer, or background thread that polls for work or evaluates triggers automatically. All evaluation is host-initiated.
 - **No automatic data-change detection.** Data-based triggers in 1.0 are evaluated only on explicit `processDataChange(...)` calls from the host. No ORM hooks, no field watchers.
 - **No distributed coordination.** No clustering, no distributed locks, no cluster-aware triggers, no cross-node state synchronization. Transflux runs in a single JVM and treats entities as in-memory objects.
-- **No long-running / durable executions.** A transition is an in-process operation that begins and completes (or fails and compensates) within a single JVM lifetime. There is no checkpoint/resume capability.
+- **No long-running / durable executions.** A transition is an in-process operation that begins and completes (or fails and compensates) within a single JVM lifetime. There is no checkpoint/resume capability. Hot-swap of the state machine *definition* is supported (§2.7); a single execution still runs to completion atomically against the snapshot active at its start, regardless of any definition swaps that happen mid-execution.
 - **No UI or workflow editor.** Visualization, diagrams, and editing tools are not part of the library deliverable. IDE plugin tooling is tracked separately in `ide-plugin-roadmap.md`.
 - **No forced-state API.** With no persistence, the library cannot meaningfully "force" an entity into a state. The host is responsible for placing entities into an initial state through its own model (see §2.2.3).
 - **No built-in observability backends.** Transflux exposes hooks (e.g., a `MetricsCollector` SPI) but does not ship with first-party Micrometer / OpenTelemetry integration in 1.0 (see §7.2).
@@ -50,13 +50,13 @@ The `StateApplier<T>` is invoked **once**, after all post-conditions have passed
 
 #### 2.1.2 Thread Safety
 
-A `StateMachine<T>` instance is safe for concurrent use across threads and across entities. The library guarantees only that its own internal data structures are not corrupted under concurrent use.
+A `StateMachine<T>` handle (see §2.7) is safe for concurrent use across threads and across entities. The library guarantees only that its own internal data structures are not corrupted under concurrent use, and that snapshot reads, `generation()`, and `replaceDefinition(...)` are coherent without host-side synchronisation.
 
 Concurrent transitions on the **same entity** are the host's responsibility to serialize; the framework does not lock or queue per-entity work. Hosts that need single-writer semantics must enforce them externally (database row locks, application-level mutexes, single-threaded executors, etc.).
 
 #### 2.1.3 Reentrancy
 
-Reentrancy is **fail-fast**. Invoking a transition from within a listener, operation, step, or condition on the same `StateMachine<T>` instance for the same entity throws `TransfluxReentrancyException`. Triggering a transition on a *different* entity from within an executing transition is permitted (provided the host is prepared to handle the implications).
+Reentrancy is **fail-fast**. Invoking a transition from within a listener, operation, step, or condition on the same `StateMachine<T>` snapshot for the same entity throws `TransfluxReentrancyException`. The guard keys on the snapshot the in-flight execution is running against (see §2.7) — a definition swap that produces a new snapshot does not lift the guard for any execution already in flight against the previous one. Triggering a transition on a *different* entity from within an executing transition is permitted (provided the host is prepared to handle the implications).
 
 #### 2.1.4 TransitionResult
 
@@ -294,6 +294,101 @@ StateMachine
 - **Compensation Stack** — LIFO execution of registered compensation actions.
 - **Validation vs. runtime errors** — `TransfluxValidationException` is thrown for definition/lookup errors; all other failure modes (failed conditions, failed steps, post-condition violations, unhandled exceptions inside steps) are reported through `TransitionResult` after compensation has run.
 
+### 2.6 Definition Sourcing
+
+The YAML DSL needs bytes; Transflux does not impose where those bytes live. The framework owns parsing and validation; a host-supplied `DefinitionSource` SPI owns retrieval. This lets a host back state-machine definitions with classpath resources (the common default), the filesystem, a relational database, a Git repository, an object store, an HTTP API, or any composition of these — without requiring the framework to know about any of them.
+
+#### 2.6.1 The `DefinitionSource` Contract
+
+```java
+public interface DefinitionSource {
+    Optional<DefinitionResource> open(String identifier);
+}
+
+public final class DefinitionResource implements AutoCloseable {
+    String identifier();         // canonical id, threaded into validation error messages
+    InputStream bytes();         // the raw YAML
+    Optional<Instant> lastModified();   // optional, used by Post-1.0 reload watchers
+    Optional<String> etag();             // optional, used by Post-1.0 reload watchers
+    @Override void close();
+}
+```
+
+#### 2.6.2 Identifier Model
+
+Identifiers passed to `open(...)` are **opaque, source-defined strings**. The framework imposes no path semantics — no relative-path resolution, no implicit `.yml` suffix, no slash interpretation. A `path:` (or `ref:`) field on an `imports:` entry, on `apiVersion: transflux/v1` documents, or anywhere else an external definition is referenced, is handed verbatim to the configured source.
+
+This means hosts can choose URI-like schemes (`db://workflows/subscription`, `git://main/operations/payment.yml`), bare ids (`subscription`, `payment-flow`), or filesystem-style paths (`components/shared-components.yml`) — whichever fits the source. A `CompositeDefinitionSource` ships with the framework and routes by **scheme prefix**: `cp:` to a classpath source, `file:` to a filesystem source, anything else to host-registered sources.
+
+#### 2.6.3 Ships-With Implementations
+
+- **`ClasspathDefinitionSource`** — resolves identifiers against the JVM classpath. The default when a host wires no other source.
+- **`FileSystemDefinitionSource(Path root)`** — resolves identifiers as paths under a configured root, with traversal-rejection (`..` segments) and symlink-policy controls.
+- **`CompositeDefinitionSource`** — routes by scheme prefix or by ordered fallback, depending on configuration. Useful for "classpath defaults + DB overlay" or "DB primary, filesystem fallback."
+
+Hosts implement their own for database / Git / remote sources.
+
+#### 2.6.4 Error Reporting
+
+Every validation error raised against a definition loaded through a `DefinitionSource` carries the resource's identifier in the message — both the directly-failing resource and the import chain that reached it. A condition descriptor failing inside `db://workflows/subscription` imported by `git://main/root.yml` surfaces as:
+
+```
+git://main/root.yml -> imports/db://workflows/subscription -> condition 'foo': ...
+```
+
+#### 2.6.5 Caching
+
+The framework parses each loaded resource exactly once per `StateMachine` build. It does **not** cache parsed definitions across builds; a swap (§2.7) re-loads through the source on every call. Sources are free to cache bytes themselves; the framework treats every `open(...)` as a fresh request.
+
+### 2.7 State Machine Handle
+
+`StateMachine<T>` is the **host-facing handle**. The immutable, fully-built per-version data — states, transitions, registries, resolved bound steps and operations — lives in an internal `StateMachineSnapshot<T>` that the handle holds and atomically replaces. From the host's point of view, a `StateMachine<T>` is one logical entity over the lifetime of the JVM; what's behind it can change.
+
+#### 2.7.1 Snapshot Semantics
+
+- **Every external entry point** (`entity(...)`, `executeTransition(...)`, `processEvent(...)`, `processDataChange(...)`, `getTransition(...)`, `getState(...)`, `resolveCurrentState(...)`, catalog lookups) captures the current snapshot at the top of the call and runs against that snapshot for the duration of the call. A swap mid-call does not affect the in-flight call.
+- **`TransitionView`** holds the snapshot it was constructed with; every callback into the view — `view.step(...)`, `view.operation(...)`, compensation drains, condition evaluations — resolves against that snapshot. An execution that started before the swap finishes against the pre-swap topology.
+- **New invocations** after the swap see the new snapshot.
+
+#### 2.7.2 Replacing the Definition
+
+```java
+public interface StateMachine<T> {
+    long generation();
+    long replaceDefinition(StateMachineDef<T> newDef);
+    // ... existing API ...
+}
+```
+
+`replaceDefinition(newDef)`:
+
+1. **Validates the new def in full.** All build-time checks (state graph coherence, condition resolution, composite refs, context compatibility, cycle detection, id uniqueness) run before any snapshot is constructed. A `TransfluxValidationException` thrown here leaves the current snapshot in place; the swap did not happen.
+2. **Enforces entity-type compatibility.** The new def's `entityType()` must be `==` the current snapshot's `entityType()`. Replacing a `StateMachine<Foo>`'s definition with a `StateMachineDef<Bar>` — even a `Bar` that extends `Foo`, or a `Foo` subtype — is rejected with a `TransfluxValidationException`. The entity type is the handle's identity contract; widening or narrowing it would break every host call site that already holds the handle.
+3. **Builds a new `StateMachineSnapshot<T>`** from the validated def.
+4. **CAS-swaps** the snapshot reference. The previous snapshot's in-flight executions retain their reference and continue uninterrupted.
+5. **Increments `generation()`** and returns the new generation number for the caller's diagnostics, audit logs, and metrics.
+
+`generation()` starts at `1` after `build()` and increments by exactly `1` per successful swap; failed swaps do not increment it. Generation numbers are monotonic per-handle and are not comparable across handles.
+
+#### 2.7.3 Use Cases
+
+- **Java DSL hot-swap (1.0).** Host builds a fresh `StateMachineDef<T>` (manually, or by re-running its own configuration code against new inputs) and calls `sm.replaceDefinition(newDef)`. Useful for admin endpoints, blue/green topology testing, config-driven workflow changes, and integration tests that replay multiple topologies against a fixed entity.
+- **YAML hot-swap (1.0).** Host loads YAML via its `DefinitionSource`, builds a `StateMachineDef<T>` via the YAML loader, and calls `sm.replaceDefinition(newDef)`. The mechanism is identical — YAML is just one source of defs.
+- **Automatic watcher-driven reload (Post-1.0).** A `ReloadableDefinitionSource` extension (§7.2) exposes a change-notification hook; a host-supplied or framework-supplied driver calls `replaceDefinition` when the source reports a change.
+
+#### 2.7.4 Concurrency Guarantees
+
+- `replaceDefinition` is safe to call from any thread. Concurrent swaps are serialised internally; only one wins per generation increment.
+- `generation()` returns a `long` that is a coherent read of the current generation.
+- The handle imposes no host-side synchronisation requirement for ordinary reads.
+- **In-flight isolation:** an execution started against generation N runs against generation N's snapshot regardless of how many swaps happen during it. The reentrancy guard (§2.1.3) still applies per-snapshot — an in-flight execution that reenters into the *handle* (rather than its own snapshot reference) is rejected the same way.
+
+#### 2.7.5 What Replacing the Definition Does *Not* Do
+
+- It does **not** migrate, freeze, redirect, or otherwise act on entities currently in states that the new def may have removed or renamed. The framework treats this as a host concern, identical to the equivalent in a host that does not use Transflux: if you change the meaning of "state X" or remove it, you owe your entities a migration story. Transflux's job is to make the swap atomic and to keep in-flight transitions correct against the topology they started under; everything else is application-level.
+- It does **not** invalidate, drain, or wait for in-flight executions. Long-running stays a non-goal (§1.3).
+- It does **not** notify listeners. Listener delivery is per-execution, not per-handle.
+
 ---
 
 ## 3. YAML-based DSL Specification
@@ -494,11 +589,14 @@ transitions:
 
 #### 3.1.4 Library Imports
 
+Each `path:` value is an **opaque identifier** handed verbatim to the configured `DefinitionSource` (§2.6). The framework does not interpret it as a filesystem path, classpath resource, or URI — that's the source's job. A filesystem-style example reads naturally and is the most common default (`ClasspathDefinitionSource` interprets such strings as classpath resources, `FileSystemDefinitionSource` interprets them as paths under a configured root), but any string the configured source understands is valid: `cp:components/shared.yml`, `db://workflows/subscription/imports/payment`, `git://main/operations.yml`, and so on.
+
 ```yaml
 apiVersion: transflux/v1
 
 # Import component libraries
-# All component IDs must be unique across all imported definitions
+# All component IDs must be unique across all imported definitions.
+# Each `path:` is an opaque identifier; the configured DefinitionSource (§2.6) resolves it.
 imports:
 - path: components/shared-components.yml
 - path: components/subscription-specific-components.yml
@@ -1649,14 +1747,20 @@ For every by-id member declared inside a composite, the build pipeline checks:
 - **Mapper by id:** the registered mapper's `parentType` must be assignable from the caller's context and its `childType` must be assignable to the called member's required context. Mismatches are rejected at build time.
 - **Inline `Function<C, ?>` or `ContextMapper<C, ?>`:** type-checked at the source where the lambda or class is declared (Java compile-time generics); runtime alignment is enforced at first dispatch when the user-supplied value is invoked.
 
-##### 4.5.2.5 Identity and Uniqueness
+##### 4.5.2.5 Identity, Uniqueness, and Visibility
 
-Component identifiers are unique **across the entire state machine**, regardless of nesting depth. Inline-defined and registry-registered components share one ID space. Two consequences:
+Component identifiers are unique **across the entire state machine** — uniqueness is a global property regardless of nesting depth. Two sibling composites cannot independently host an inline component with the same id under two different payloads; one must be renamed. The same instance or the same class registered under the same id in multiple places is treated idempotently and does not trigger a collision.
 
-- Promoting an inline nested operation to a top-level reusable operation (or inlining a top-level one) is an ID-preserving refactor — no rename is required.
-- Two sibling composites cannot independently host an inline operation with the same id; one must be renamed.
+**Visibility, however, is lexical.** A component inline-declared inside a composite (`composite.step("foo", new FooStep())` and friends) is reachable only from inside that composite's lexical subtree — its own action refs, its conditional branches, and any imperative `view.step("foo")` / `view.operation("foo")` issued while that composite is on the call stack. Sibling composites cannot resolve another composite's inline ids by reference: doing so raises a build-time error ("unknown step id in scope"). SM-level (root) registrations are reachable from every composite via the parent-chain walk.
 
-Despite the global uniqueness rule, nested operations remain externally addressable via their id (e.g., as the target of a `ref:` descriptor or a registry lookup). "Inline" vs. "top-level" is a definition-site convenience, not a visibility scope.
+Two practical consequences:
+
+- Promoting an inline nested registration to a top-level reusable component (or inlining a top-level one) is a payload-preserving refactor and produces no silent override. Global uniqueness blocks an accidental shadow at promotion time; lexical visibility blocks an accidental shadow at inlining time.
+- "Inline" vs. "top-level" *is* a visibility scope — not merely a definition-site convenience. An inline component is intentionally private to its composite. To expose a component to multiple callers, register it at SM level (or in the appropriate `forContext(...)` scope, which still lands at root).
+
+External addressability — using a component id as the target of a YAML `ref:` descriptor, a registry lookup, or any other cross-state-machine handle — applies only to root-registered components. Inline composite members have no externally-stable name; their id is meaningful only within their lexical scope.
+
+At runtime, every composite owns a `Registry` whose parent is the enclosing scope's registry (root in 2.6.6; a process-wide registry once Phase 6.2 lands). Resolution walks the chain local-first and is flattened at the end of state-machine construction so by-id lookups are a single map operation thereafter. The framework never relies on the parent-chain walk at runtime hot paths.
 
 ##### 4.5.2.6 Result Reporting
 
@@ -2115,6 +2219,7 @@ The themes below are deferred to one or more post-1.0 releases. They are grouped
 - **Observability** — first-party Micrometer metrics, OpenTelemetry tracing, structured logging with MDC, health-check framework, dashboard templates.
 - **Testing Framework** — `TestStateMachine` harness, transition-path recording, AssertJ-style assertion DSL — shipped as a separate artifact (`transflux-test` or similar).
 - **IDE Tooling** — JetBrains and VSCode plugins (syntax highlighting, cross-language navigation, validation, visualization). Tracked separately in `ide-plugin-roadmap.md` and likely a separate repository.
-- **Advanced DSL Features** — YAML anchors / template inheritance, parameterized components, hot reload in development mode, dynamic runtime reconfiguration (blue/green with rollback).
+- **Advanced DSL Features** — YAML anchors / template inheritance, parameterized components.
+- **Watcher-driven definition reload** — `ReloadableDefinitionSource` extension to `DefinitionSource` (§2.6) exposing a change-notification hook; a built-in driver that polls or subscribes to the source and calls `replaceDefinition` (§2.7) when the source signals a change. The manual swap primitive ships in 1.0; this Post-1.0 work is the convenience layer that makes reload automatic. Includes file-watcher and database-change-feed drivers as ships-with options.
 - **Resilience Patterns** — Resilience4j integration, configurable retry strategies, circuit breakers, exponential backoff.
 - **Plugin System** — extension points, plugin discovery and loading, plugin lifecycle management; built-in plugins for database persistence, message-queue integration, REST API for external triggers, and monitoring/alerting.

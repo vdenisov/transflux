@@ -18,6 +18,8 @@
 
 package org.transflux.core.transition;
 
+import org.transflux.core.Component;
+import org.transflux.core.Registry;
 import org.transflux.core.StateMachineDefImpl;
 import org.transflux.core.StateMachineImpl;
 import org.transflux.core.exception.TransfluxValidationException;
@@ -73,6 +75,8 @@ public class TransitionView<T, C> implements Transition<T, C> {
     private final C context;
 
     private final Deque<Object> contextOverrideStack = new ArrayDeque<>();
+
+    private final Deque<Registry<T>> scopeStack = new ArrayDeque<>();
 
     private final List<StepPath> executedStepIds = new ArrayList<>();
 
@@ -330,20 +334,80 @@ public class TransitionView<T, C> implements Transition<T, C> {
 
     private BoundStep<T, ?> resolveStep(String id) {
         requireNotBlank(id, "Step ID");
-        BoundStep<T, ?> bound = stateMachine.getBoundStep(id);
-        if (bound == null) {
-            throw new TransfluxValidationException("No step registered with id '" + id + "'");
+
+        Component<T> component = activeScope().resolve(id)
+            .orElseThrow(() -> new TransfluxValidationException(
+                "No step registered with id '" + id + "' in the active scope"));
+
+        if (!(component instanceof Component.Step<T, ?> step)) {
+            throw new TransfluxValidationException(
+                "Id '" + id + "' is registered as a " + component.getClass().getSimpleName().toLowerCase()
+                    + ", not a step");
         }
-        return bound;
+
+        return step.bound();
     }
 
     private BoundOperation<T, ?> resolveOperation(String id) {
         requireNotBlank(id, "Operation ID");
-        BoundOperation<T, ?> bound = stateMachine.getBoundOperation(id);
-        if (bound == null) {
-            throw new TransfluxValidationException("No operation registered with id '" + id + "'");
+
+        Component<T> component = activeScope().resolve(id)
+            .orElseThrow(() -> new TransfluxValidationException(
+                "No operation registered with id '" + id + "' in the active scope"));
+
+        if (!(component instanceof Component.Operation<T, ?> op)) {
+            throw new TransfluxValidationException(
+                "Id '" + id + "' is registered as a " + component.getClass().getSimpleName().toLowerCase()
+                    + ", not an operation");
         }
-        return bound;
+
+        return op.bound();
+    }
+
+    /**
+     * Pushes {@code scopeRegistry} as the active lexical scope for subsequent imperative
+     * {@code step(...)} / {@code operation(...)} resolution. Composite executors push their
+     * own scope on entry to {@code execute} and pop on exit; simple operations do not push.
+     *
+     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
+     * should not invoke it directly.
+     *
+     * @param scopeRegistry the composite's scope registry; never {@code null}
+     */
+    public void pushScope(Registry<T> scopeRegistry) {
+        requireNotNull(scopeRegistry, "Scope registry");
+        scopeStack.push(scopeRegistry);
+    }
+
+    /**
+     * Pops the most recently pushed scope registry. Must be paired with a preceding
+     * {@link #pushScope(Registry)} call.
+     *
+     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
+     * should not invoke it directly.
+     *
+     * @throws TransfluxValidationException if the scope stack is empty
+     */
+    public void popScope() {
+        if (scopeStack.isEmpty()) {
+            throw new TransfluxValidationException(
+                "popScope() called with no matching pushScope()");
+        }
+        scopeStack.pop();
+    }
+
+    /**
+     * Returns the registry that {@code step(...)} / {@code operation(...)} resolution should
+     * consult. When the scope stack is empty (e.g. a simple operation directly invoking
+     * {@code view.step("id")}), this falls back to the state machine's root registry.
+     *
+     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
+     * should not invoke it directly.
+     *
+     * @return the active scope; never {@code null}
+     */
+    public Registry<T> activeScope() {
+        return scopeStack.isEmpty() ? stateMachine.getComponentRegistry() : scopeStack.peek();
     }
 
     private ContextMapper<Object, Object> resolveRegisteredMapper(String mapperId) {

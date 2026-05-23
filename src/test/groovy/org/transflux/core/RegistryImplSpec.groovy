@@ -156,6 +156,59 @@ class RegistryImplSpec extends Specification {
         registry.ids() == ['s1'] as Set
     }
 
+    def 'flatten copies visible ancestor entries into the local map without changing resolve semantics'() {
+        given:
+        def root = new RegistryImpl<Entity>()
+        def rootBound = BoundStep.<Entity, Ctx> of('s-root', new NoopStep())
+        root.register(new Component.Step<>('s-root', null, null, Ctx, rootBound))
+
+        def child = new RegistryImpl<Entity>(root)
+        def childBound = BoundStep.<Entity, Ctx> of('s-child', new NoopStep())
+        child.register(new Component.Step<>('s-child', null, null, Ctx, childBound))
+
+        when:
+        child.flatten()
+
+        then:
+        // After flatten the local map holds both entries.
+        child.ids() == ['s-child', 's-root'] as Set
+        // resolve still returns the same components.
+        ((Component.Step) child.resolve('s-root').get()).bound() == rootBound
+        ((Component.Step) child.resolve('s-child').get()).bound() == childBound
+    }
+
+    def 'flatten leaves the parent unchanged and keeps parent() in place'() {
+        given:
+        def root = new RegistryImpl<Entity>()
+        root.register(new Component.Step<>('s-root', null, null, Ctx,
+            BoundStep.<Entity, Ctx> of('s-root', new NoopStep())))
+        def child = new RegistryImpl<Entity>(root)
+
+        when:
+        child.flatten()
+
+        then:
+        root.ids() == ['s-root'] as Set
+        child.parent() == root
+    }
+
+    def 'flatten does not overwrite a local entry with an ancestor entry that shares its id'() {
+        given:
+        def root = new RegistryImpl<Entity>()
+        def rootBound = BoundStep.<Entity, Ctx> of('s1', new NoopStep())
+        root.register(new Component.Step<>('s1', null, null, Ctx, rootBound))
+
+        def child = new RegistryImpl<Entity>(root)
+        def childBound = BoundStep.<Entity, Ctx> of('s1', new NoopStep())
+        child.register(new Component.Step<>('s1', null, null, Ctx, childBound))
+
+        when:
+        child.flatten()
+
+        then:
+        ((Component.Step) child.resolve('s1').get()).bound() == childBound
+    }
+
     def 'register rejects when the same id is already taken by a different component kind'() {
         given:
         def registry = new RegistryImpl<Entity>()

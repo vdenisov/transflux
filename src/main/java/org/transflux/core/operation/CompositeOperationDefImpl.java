@@ -19,6 +19,8 @@
 package org.transflux.core.operation;
 
 import org.springframework.lang.NonNull;
+import org.transflux.core.Registry;
+import org.transflux.core.RegistryImpl;
 import org.transflux.core.StateMachineDefImpl;
 import org.transflux.core.StateMachineImpl;
 import org.transflux.core.exception.TransfluxValidationException;
@@ -57,8 +59,37 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
 
     private Class<C> declaredContextType;
 
+    private RegistryImpl<T> scopeRegistry;
+
     public CompositeOperationDefImpl(String id) {
         super(id);
+    }
+
+    /**
+     * Returns this composite's lexical-scope registry, populated during state-machine
+     * construction. By-id refs declared inside this composite resolve against this registry,
+     * which walks the parent chain up to the state-machine root.
+     *
+     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
+     * should not invoke it directly.
+     *
+     * @return the scope registry, or {@code null} if the state machine has not yet wired it
+     */
+    public RegistryImpl<T> getScopeRegistry() {
+        return scopeRegistry;
+    }
+
+    /**
+     * Wires this composite's lexical-scope registry. Called once during state-machine
+     * construction, before {@link #build(StateMachineImpl)} runs.
+     *
+     * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
+     * should not invoke it directly.
+     *
+     * @param scopeRegistry the scope registry; never {@code null}
+     */
+    public void setScopeRegistry(RegistryImpl<T> scopeRegistry) {
+        this.scopeRegistry = scopeRegistry;
     }
 
     @Override
@@ -370,14 +401,20 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
                     + "' has no members; call step(...) or operation(...) at least once before build");
         }
 
+        if (scopeRegistry == null) {
+            throw new TransfluxValidationException(
+                "CompositeOperationDef '" + getId()
+                    + "' has no scope registry; state-machine construction did not wire it");
+        }
+
         List<CompositeMember<T, C>> members = new ArrayList<>(actionRefs.size());
         for (ActionRef<T, C> ref : actionRefs) {
-            BoundAction<T, C> bound = ref.resolve(stateMachine, getId());
+            BoundAction<T, C> bound = ref.resolve(stateMachine, scopeRegistry, getId());
             ResolvedContextMapping mapping = resolveMapping(stateMachine, ref);
             members.add(new CompositeMember<>(bound, mapping));
         }
 
-        Operation<T, C> executor = new CompositeOperationExecutor<>(members);
+        Operation<T, C> executor = new CompositeOperationExecutor<>(members, scopeRegistry);
 
         return BoundOperation.of(getId(), getName(), getDescription(), executor);
     }
@@ -471,9 +508,11 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
     @SuppressWarnings("ClassCanBeRecord")
     private static final class CompositeOperationExecutor<T, C> implements Operation<T, C> {
         private final List<CompositeMember<T, C>> members;
+        private final Registry<T> scopeRegistry;
 
-        CompositeOperationExecutor(List<CompositeMember<T, C>> members) {
+        CompositeOperationExecutor(List<CompositeMember<T, C>> members, Registry<T> scopeRegistry) {
             this.members = members;
+            this.scopeRegistry = scopeRegistry;
         }
 
         @Override
@@ -486,8 +525,13 @@ public final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C
 
             @SuppressWarnings("unchecked")
             TransitionView<T, C> view = (TransitionView<T, C>) rawView;
-            for (CompositeMember<T, C> member : members) {
-                dispatchMember(view, member);
+            view.pushScope(scopeRegistry);
+            try {
+                for (CompositeMember<T, C> member : members) {
+                    dispatchMember(view, member);
+                }
+            } finally {
+                view.popScope();
             }
         }
 

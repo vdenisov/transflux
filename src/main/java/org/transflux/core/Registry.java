@@ -25,10 +25,17 @@ import java.util.Set;
  * Unified id-keyed lookup over the framework's reusable building blocks — steps, operations,
  * and conditions — held as {@link Component} variants.
  * <p>
- * Every {@link StateMachineImpl} owns one root {@code Registry}. The parent-chain seam
- * ({@link #parent()}) is in place for a future process-wide / DI-aware parent registry
- * supplied by Phase 6.2's {@code ComponentFactory} SPI; in Phase 2.5 every root registry
- * is parentless, so {@link #resolve(String)} behaves identically to {@link #get(String)}.
+ * Lookup is scope-aware. Every {@link StateMachineImpl} owns one root {@code Registry} that
+ * holds SM-level registrations; every {@code CompositeOperationDefImpl} owns its own
+ * {@code Registry} whose {@link #parent()} is the enclosing scope's registry (root in 2.6.6;
+ * a process-wide registry once Phase 6.2 lands). Inline composite members live in the
+ * composite's own registry only — visibility is lexical. {@link #resolve(String)} walks the
+ * parent chain on a local miss; {@link #get(String)} is local-only.
+ *
+ * <p>After state-machine construction the registry chain is flattened
+ * ({@link RegistryImpl#flatten()}), so {@code resolve(id)} becomes a single local-map lookup
+ * at runtime. {@link #parent()} stays exposed as an introspection accessor for tooling and
+ * diagnostics.
  *
  * <p>This is framework-internal infrastructure used by Transflux's own runtime; user code
  * should not reference it directly.
@@ -49,8 +56,9 @@ public interface Registry<T> {
 
     /**
      * Returns the component registered under {@code id}, walking the parent chain when the
-     * local registry has no entry. In Phase 2.5 root registries are parentless and this
-     * collapses to {@link #get(String)}.
+     * local registry has no entry. After {@link RegistryImpl#flatten()} every visible
+     * ancestor entry has been copied into the local map and {@code resolve} no longer
+     * traverses the parent chain.
      *
      * @param id the component id
      *

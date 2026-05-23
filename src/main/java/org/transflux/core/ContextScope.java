@@ -28,7 +28,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**
- * Context-typed registration scope handed to a {@link StateMachineDef#useContext(Class, Consumer)}
+ * Context-typed registration scope handed to a {@link StateMachineDef#forContext(Class, Consumer)}
  * configurer.
  * <p>
  * Every reusable component (step, condition, composite operation) registered via this scope is

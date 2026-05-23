@@ -103,11 +103,13 @@ public class StateMachineImpl<T> implements StateMachine<T> {
             registry.register(new Component.Condition(bc.id(), null, null, ctx, bc));
         }
 
-        Map<String, BoundStep<T, ?>> boundSteps = def.buildBoundSteps(this, conditionRegistry);
+        Map<String, BoundStep<T, ?>> boundSteps = def.buildBoundSteps();
         for (BoundStep<T, ?> bs : boundSteps.values()) {
             Class<?> ctx = effectiveContextType(def, bs.id());
             registry.register(new Component.Step(bs.id(), null, null, ctx, bs));
         }
+
+        def.bindCompositeScopes(this, registry, conditionRegistry);
 
         def.buildBoundOperationsIncrementally(this, bo -> {
             Class<?> ctx = effectiveContextType(def, bo.id());
@@ -117,6 +119,9 @@ public class StateMachineImpl<T> implements StateMachine<T> {
         for (TransitionDefImpl<T, ?> td : def.getTransitionsById().values()) {
             this.transitions.put(td.getId(), buildTransition(td, conditionRegistry));
         }
+
+        registry.flatten();
+        def.flattenCompositeScopes();
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})

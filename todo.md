@@ -259,16 +259,21 @@ Every by-id member accepts the same five forms:
 - The flat `smd.step(...)` / `smd.condition(...)` / `smd.operation(...)` / `smd.mapper(...)` overloads **stay** alongside `forContext(...)` blocks. Rationale: when a state machine registers a single one-off component, the flat form is meaningfully more compact than wrapping it in a one-line block. The typed flat overloads (`smd.step(id, Class<C>, Step<T, C>)`) already carry the context tag inline. `forContext(...)` is the right shape for *groups* of components sharing a context; the flat form is the right shape for *one-offs*. Both forms populate the same registry; they are stylistic, not semantic, alternatives.
 - [x] Document the decision in `CLAUDE.md` ("DSL Shape" note) and in the user guide so the choice between forms is unambiguous to readers.
 
-### 2.6.6 Multi-level `Registry` (composite-local scoping + Phase 6.2 seam)
+### 2.6.6 Multi-level `Registry` (composite-local visibility + Phase 6.2 seam) ✓
 *Originally Step 3b of the Phase 2.5 plan. Pulled into 2.6 because it lands a final piece of DSL-shape consistency (component resolution semantics) and prepares the Phase 6.2 process-wide registry seam.*
-- [ ] `Registry<T>` interface gains `parent()` returning the optional enclosing registry; `resolve(id)` walks `parent()` on miss; `get(id)` stays local-only. `RegistryImpl<T>` accepts an optional parent at construction.
-- [ ] `StateMachineImpl<T>` owns one root `Registry<T>` (no parent in 2.6; Phase 6.2 supplies one).
-- [ ] Each `CompositeOperationDefImpl` exposes a per-composite `Registry<T>` whose `parent()` is the enclosing scope's registry (root SM or enclosing composite). Inline-registered composite members go into the composite's local registry; SM-level registrations stay on the root.
-- [ ] By-id resolution at runtime (`view.step("id")` / `view.operation("id")` / composite `ActionRef.resolve`) walks the active scope's registry chain: local first, then ancestors. Same id at multiple levels resolves to the innermost (shadowing).
-- [ ] Id-namespace uniqueness rule: still SM-wide for the canonical case, but **a composite-local inline registration with the same id as an ancestor's is permitted and shadows the ancestor for that composite's subtree**. (Confirm this matches §4.5.2.5 in `requirements.md`; if not, decide which wins — the section may need an addendum.)
-- [ ] Existing `StateMachineImpl.getBoundStep(String)` / `getBoundOperation(String)` accessors stay as thin wrappers over the root registry; non-breaking for callers outside the resolution path.
-- [ ] **Build-time flattening (rolled in here, not split out).** After all registrations settle but before runtime, each registry's chain is walked once and reachable components are copied into the registry's local map. At runtime, `resolve(id)` is a single map lookup with no `parent()` traversal. Shadowing is preserved because the bottom-up flattening writes parent entries first and lets local entries overwrite them. `parent()` stays as a public introspection accessor for tooling / diagnostics; `resolve(...)` no longer needs it.
-- [ ] New `RegistryResolutionSpec` — local hit, parent-walk hit, shadowing (innermost wins), not-found returns `Optional.empty()`, flattened-mode parity (resolution result before and after build-time flattening is identical).
+*Semantics: ids stay **globally unique** across the entire SM (no shadowing); composite-local inline registrations are **lexically visible** only inside the enclosing composite's subtree. `requirements.md` §4.5.2.5 rewritten to capture the uniqueness-vs-visibility split.*
+- [x] `Registry<T>` interface keeps `parent()` returning the optional enclosing registry; `resolve(id)` walks `parent()` on miss; `get(id)` stays local-only. `RegistryImpl<T>` accepts an optional parent at construction.
+- [x] `StateMachineImpl<T>` owns one root `Registry<T>` (no parent in 2.6; Phase 6.2 supplies one).
+- [x] Each `CompositeOperationDefImpl` exposes a per-composite `Registry<T>` whose `parent()` is the root SM registry. Inline-registered composite members (steps, operations, conditionals, and inline steps inside conditional branches) go into the composite's local registry; SM-level registrations stay on the root.
+- [x] By-id resolution at build time (`CompositeOperationDefImpl.build(stateMachine)` → `ActionRef.resolve(stateMachine, scopeRegistry, ...)`) walks the active scope's registry chain: local first, then ancestors. Global uniqueness is enforced at build time: same id at multiple distinct scopes under conflicting payloads is rejected.
+- [x] By-id resolution at runtime (`view.step("id")` / `view.operation("id")`) consults `TransitionView.activeScope()`, which is the topmost pushed composite scope (or SM root when no composite is on the call stack). `CompositeOperationExecutor` push/pops its scope around `execute`.
+- [x] Id-namespace uniqueness rule: SM-wide global uniqueness, with per-build canonical-payload idempotency (same instance / same class under the same id is a no-op across composites). Conflicting payloads under the same id are rejected at build time.
+- [x] Existing `StateMachineImpl.getBoundStep(String)` / `getBoundOperation(String)` accessors stay as thin wrappers over the root registry; non-breaking for callers outside the resolution path.
+- [x] **Build-time flattening.** After all registrations settle, every registry's chain is walked once via `RegistryImpl.flatten()` and reachable components are copied into the local map. At runtime, `resolve(id)` is a single map lookup with no `parent()` traversal. `parent()` stays as a public introspection accessor for tooling / diagnostics.
+- [x] `RegistryImplSpec` extended with flatten coverage: copy of ancestor entries, parent unchanged, no overwrite of local entries. `StateMachineDefImplStepRegistrationSpec` covers composite-local visibility (a by-id reference to a sibling composite's inline id is rejected at build time as "unknown step id in scope").
+
+#### Async thread-safety note (deferred to Phase 4)
+Once async branches land, the per-execution `TransitionView` state — context-override stack, active-scope stack, executed-step-ids list, compensation stack — must be branched per async branch rather than shared. The `Registry` itself is read-only after `flatten()` and is safe for concurrent reads; the threading risk lives on the view, not on the registry. Track this with the rest of the async work (Phase 4).
 
 ### 2.6.7 Migration & Spec Updates
 - [ ] Walk every Spock spec under `src/test/groovy`; rewrite chained `smd.state("a").transitionsTo("b", "t1").state("b")...` patterns into the lambda form. No backward-compatibility shims — the chained API is gone.
@@ -562,10 +567,16 @@ Every by-id member accepts the same five forms:
 - [ ] Circular reference detection.
 - [ ] Component dependency graph.
 
-### 5.4 Imports and Namespacing
-- [ ] YAML import system with relative/absolute path resolution.
-- [ ] Cross-file component references.
-- [ ] Namespace collision detection (all IDs unique within type across imports).
+### 5.4 Definition Sourcing SPI
+*Lands before §5.5 (parsing) — the loader consumes a `DefinitionSource`, not a `Path` or classloader. Per `requirements.md` §2.6.*
+- [ ] `DefinitionSource` interface: `Optional<DefinitionResource> open(String identifier)`.
+- [ ] `DefinitionResource` AutoCloseable carrying `identifier()`, `bytes()`, optional `lastModified()`, optional `etag()`.
+- [ ] Identifiers are **opaque, source-defined strings** — no path canonicalisation, no implicit `.yml` suffix, no relative-to-importer resolution by the framework. Hosts pick the scheme; the source decides what to make of it.
+- [ ] Ships-with implementations: `ClasspathDefinitionSource` (default), `FileSystemDefinitionSource(Path root)` (with `..`-traversal rejection and symlink policy), `CompositeDefinitionSource` (route by scheme prefix or by ordered fallback).
+- [ ] Error reporting threads the resource identifier into every validation error message, including the full import chain.
+- [ ] The framework never caches parsed definitions across builds; sources may cache bytes themselves. A fresh `replaceDefinition` (§5.8) re-loads through the source on every call.
+- [ ] **Imports flow through the source.** Cross-file `path:` references on `imports:` are handed verbatim to the source, not resolved to filesystem paths.
+- [ ] Cross-file ID-uniqueness detection still happens after the source has assembled the byte stream — it's a property of the combined definition, not the source.
 - [ ] Circular import detection.
 
 ### 5.5 YAML DSL Parsing
@@ -580,10 +591,34 @@ Every by-id member accepts the same five forms:
 - [ ] Validation against the JSON Schema.
 - [ ] Conversion from YAML model to runtime `*Def` builders, then to runtime instances.
 
-### 5.6 Specifications
+### 5.6 `StateMachine` as Handle + `replaceDefinition`
+*Per `requirements.md` §2.7. The handle abstraction is API-shape work that lands in Phase 5 because the YAML loader is its first non-trivial caller and `DefinitionSource`-driven swap is the use case that justifies the contract. Watcher-driven automatic reload is Post-1.0 (§7.2).*
+- [ ] **`StateMachine<T>` becomes the host-facing handle.** The immutable per-version data — states, transitions, registries, bound steps/operations — moves into an internal `StateMachineSnapshot<T>` (a renamed-and-internalised `StateMachineImpl`). The current `StateMachineImpl` symbol stays as the snapshot type or gets renamed to make the role explicit; external callers continue to depend on `StateMachine<T>` and see no source-incompatible change.
+- [ ] **Every external entry point on `StateMachine<T>`** (`entity(...)`, `executeTransition(...)`, `processEvent(...)`, `processDataChange(...)`, `getTransition(...)`, `getState(...)`, `resolveCurrentState(...)`, future catalog accessors) captures the current snapshot at the top of the call and delegates against that snapshot. Snapshot capture happens exactly once per top-level call; mid-call swaps never split a transition between versions.
+- [ ] **`TransitionView`** holds the snapshot reference it was constructed with — no change to the view's own internals beyond pointing at a snapshot instead of the SM. `view.step(...)` / `view.operation(...)` / scope-stack resolution all run against the snapshot.
+- [ ] **`long generation()`** on `StateMachine<T>`. Starts at `1` after `build()`. Monotonic per-handle, incremented by exactly `1` per successful swap.
+- [ ] **`long replaceDefinition(StateMachineDef<T> newDef)`** on `StateMachine<T>`:
+  - Full validation runs first (state graph, condition resolution, composite refs, context compatibility, cycle detection, id uniqueness). Any `TransfluxValidationException` leaves the existing snapshot in place; nothing was swapped.
+  - **Entity-type compatibility check** — the new def's `entityType()` must be `==` the current snapshot's `entityType()`. Replacing a `StateMachine<Foo>`'s definition with a `StateMachineDef<Bar>` (including subtypes/supertypes of `Foo`) is rejected with a `TransfluxValidationException` whose message names both types. The entity type is the handle's identity contract.
+  - Builds a new `StateMachineSnapshot<T>` from the validated def.
+  - CAS-swaps the snapshot reference (concurrent swaps are serialised; only one wins per generation).
+  - Increments `generation()` and returns the new generation number.
+  - In-flight executions hold their own snapshot reference and finish on the pre-swap topology — required by §2.7's atomicity guarantee. The reentrancy guard keys on `(snapshot, entity)`, which already gives the right semantics.
+- [ ] `StateMachine.build()` (and the existing `Transflux.defineStateMachine()...build()` chain) returns the handle unchanged from today's signature; the handle starts at generation `1`.
+- [ ] **No host-side synchronisation requirement** for ordinary reads. The snapshot reference is held in a `volatile` field (or equivalent atomic primitive). `generation()` and snapshot reads are coherent without external locking.
+- [ ] **Specs:**
+  - Atomic-or-nothing semantics: a validation failure inside `replaceDefinition` leaves `generation()` unchanged and the current snapshot's behaviour intact.
+  - Entity-type compatibility rejection covers identical types, supertypes, subtypes, and unrelated types — only `==` passes.
+  - In-flight isolation: a transition started against generation N completes against generation N's snapshot even when concurrent threads swap to generations N+1, N+2 during the call.
+  - Generation monotonicity: failed swaps don't bump; successful swaps bump by exactly 1.
+  - `StateMachine<T>` as handle: existing specs that construct `Transflux.defineStateMachine()...build()` and call `.entity(...).transitionTo(...)` continue to pass unchanged — confirms the source-compat contract.
+- [ ] **Java DSL hot-swap demo spec** — a state machine is built, transitioned once against generation 1, has its definition replaced with a topologically different (but entity-type-compatible) one, transitioned again against generation 2. Covers the manual-swap use case end-to-end.
+- [ ] **YAML hot-swap demo spec** — same exercise driven through the §5.4 source, demonstrating that YAML reload is just "build a new def via the source + call `replaceDefinition`."
+
+### 5.7 Specifications
 - [ ] Parser specs for each top-level element.
 - [ ] Reference Grammar specs (ref vs. inline; bare string vs. block).
-- [ ] Import resolution specs.
+- [ ] Import resolution specs (through §5.4's `DefinitionSource`).
 - [ ] Schema validation error message specs.
 - [ ] DSL parity check: a single non-trivial state machine expressed in both DSLs produces equivalent runtime instances.
 

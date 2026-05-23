@@ -18,8 +18,12 @@
 
 package org.transflux.core.operation;
 
+import org.transflux.core.Component;
+import org.transflux.core.Registry;
 import org.transflux.core.StateMachineImpl;
 import org.transflux.core.exception.TransfluxValidationException;
+
+import java.util.Optional;
 
 import static org.transflux.core.ValidationUtils.requireNotBlank;
 import static org.transflux.core.ValidationUtils.requireNotNull;
@@ -32,9 +36,9 @@ import static org.transflux.core.ValidationUtils.requireNotNull;
  * {@link CompositeOperationDef}) or a nested operation (recorded via the {@code operation(...)}
  * overloads). The partitioning is expressed through two sealed sub-interfaces —
  * {@link StepRef} and {@link OperationRef} — each of which knows how to
- * {@linkplain #resolve(StateMachineImpl, String) resolve} itself against the appropriate
- * registry on the enclosing state machine. The composite executor never has to ask which
- * kind a ref is; it just calls {@code resolve}.
+ * {@linkplain #resolve(StateMachineImpl, org.transflux.core.Registry, String) resolve} itself
+ * against the enclosing composite's lexical scope registry. The composite executor never has
+ * to ask which kind a ref is; it just calls {@code resolve}.
  * <p>
  * By-id variants carry a {@link MapperRef} capturing the call-site mapper choice (pass-through,
  * registered by id, inline function, or inline mapper instance). Inline-registration variants
@@ -59,21 +63,24 @@ public sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.Ope
     }
 
     /**
-     * Resolves this ref against the supplied state machine's registries and returns the
-     * matching {@link BoundAction}. The two sealed sub-interfaces each pick the correct
-     * registry — {@link StepRef} looks up steps, {@link OperationRef} looks up operations.
+     * Resolves this ref against the enclosing composite's lexical-scope {@link Registry} and
+     * returns the matching {@link BoundAction}. The two sealed sub-interfaces each pick the
+     * correct {@link Component} variant — {@link StepRef} expects a {@link Component.Step},
+     * {@link OperationRef} expects a {@link Component.Operation}.
      *
-     * @param stateMachine the enclosing state machine carrying the step and operation
-     *                     registries
+     * @param stateMachine the enclosing state machine, retained for error reporting
+     * @param scopeRegistry the enclosing composite's scope registry; resolution walks the
+     *                      parent chain up to the state-machine root
      * @param enclosingCompositeId the id of the composite that declared this ref, surfaced
      *                             in the error message when the ref does not resolve
      *
      * @return the bound action; never {@code null}
      *
      * @throws TransfluxValidationException if no entry is registered under {@link #id()} in
-     *         the registry this ref resolves against
+     *         the scope chain, or the matched entry is of the wrong kind
      */
-    BoundAction<T, C> resolve(StateMachineImpl<T> stateMachine, String enclosingCompositeId);
+    BoundAction<T, C> resolve(StateMachineImpl<T> stateMachine, Registry<T> scopeRegistry,
+                              String enclosingCompositeId);
 
     static <T, C> ActionRef<T, C> byId(String id) {
         return new ById<>(id, MapperRef.passThrough());
@@ -112,10 +119,8 @@ public sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.Ope
     }
 
     /**
-     * Marker sub-interface for refs that resolve against the state machine's step registry.
-     * The {@code resolve} default looks the id up via
-     * {@link StateMachineImpl#getBoundStep(String)} and throws
-     * {@link TransfluxValidationException} on miss.
+     * Marker sub-interface for refs that resolve to a {@link Component.Step} entry in the
+     * composite's lexical scope.
      *
      * @param <T> the entity type the surrounding state machine manages
      * @param <C> the host-supplied context type carried through transition execution
@@ -125,22 +130,31 @@ public sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.Ope
 
         @Override
         @SuppressWarnings({"unchecked"})
-        default BoundAction<T, C> resolve(StateMachineImpl<T> stateMachine, String enclosingCompositeId) {
-            BoundStep<T, ?> bound = stateMachine.getBoundStep(id());
-            if (bound == null) {
+        default BoundAction<T, C> resolve(StateMachineImpl<T> stateMachine, Registry<T> scopeRegistry,
+                                          String enclosingCompositeId) {
+            Optional<Component<T>> resolved = scopeRegistry.resolve(id());
+            if (resolved.isEmpty()) {
                 throw new TransfluxValidationException(
                     "CompositeOperationDef '" + enclosingCompositeId
-                        + "' references unknown step id '" + id() + "'");
+                        + "' references unknown step id '" + id() + "' in its scope");
             }
-            return (BoundAction<T, C>) bound;
+
+            Component<T> component = resolved.get();
+            if (!(component instanceof Component.Step<T, ?> step)) {
+                throw new TransfluxValidationException(
+                    "CompositeOperationDef '" + enclosingCompositeId
+                        + "' references id '" + id() + "' which is registered as a "
+                        + component.getClass().getSimpleName().toLowerCase()
+                        + ", not a step");
+            }
+
+            return (BoundAction<T, C>) step.bound();
         }
     }
 
     /**
-     * Marker sub-interface for refs that resolve against the state machine's operation
-     * registry. The {@code resolve} default looks the id up via
-     * {@link StateMachineImpl#getBoundOperation(String)} and throws
-     * {@link TransfluxValidationException} on miss.
+     * Marker sub-interface for refs that resolve to a {@link Component.Operation} entry in the
+     * composite's lexical scope.
      *
      * @param <T> the entity type the surrounding state machine manages
      * @param <C> the host-supplied context type carried through transition execution
@@ -152,14 +166,25 @@ public sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.Ope
 
         @Override
         @SuppressWarnings({"unchecked"})
-        default BoundAction<T, C> resolve(StateMachineImpl<T> stateMachine, String enclosingCompositeId) {
-            BoundOperation<T, ?> bound = stateMachine.getBoundOperation(id());
-            if (bound == null) {
+        default BoundAction<T, C> resolve(StateMachineImpl<T> stateMachine, Registry<T> scopeRegistry,
+                                          String enclosingCompositeId) {
+            Optional<Component<T>> resolved = scopeRegistry.resolve(id());
+            if (resolved.isEmpty()) {
                 throw new TransfluxValidationException(
                     "CompositeOperationDef '" + enclosingCompositeId
-                        + "' references unknown operation id '" + id() + "'");
+                        + "' references unknown operation id '" + id() + "' in its scope");
             }
-            return (BoundAction<T, C>) bound;
+
+            Component<T> component = resolved.get();
+            if (!(component instanceof Component.Operation<T, ?> op)) {
+                throw new TransfluxValidationException(
+                    "CompositeOperationDef '" + enclosingCompositeId
+                        + "' references id '" + id() + "' which is registered as a "
+                        + component.getClass().getSimpleName().toLowerCase()
+                        + ", not an operation");
+            }
+
+            return (BoundAction<T, C>) op.bound();
         }
     }
 

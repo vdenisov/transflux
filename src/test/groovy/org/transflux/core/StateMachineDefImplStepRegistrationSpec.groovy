@@ -117,7 +117,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
             .step('shared', instance)
 
         when:
-        def map = ((StateMachineDefImpl) smd).buildBoundSteps(null, [:])
+        def map = ((StateMachineDefImpl) smd).buildBoundSteps()
 
         then:
         map.keySet() == ['shared'] as Set
@@ -131,7 +131,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
             .step('shared', StepA)
 
         when:
-        def map = ((StateMachineDefImpl) smd).buildBoundSteps(null, [:])
+        def map = ((StateMachineDefImpl) smd).buildBoundSteps()
 
         then:
         map.keySet() == ['shared'] as Set
@@ -198,7 +198,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         e.message.contains('CtorlessStep')
     }
 
-    def "inline instance reference inside a composite should auto-register on the SM"() {
+    def "inline instance reference inside a composite is lexically scoped to that composite and not visible at SM root"() {
         given:
         def stepInstance = new StepA()
         def smd = Transflux.<TestEntity> defineStateMachine()
@@ -213,11 +213,11 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def sm = (StateMachineImpl) smd.build()
 
         then:
-        sm.getBoundStep('inline-a') != null
-        sm.getBoundStep('inline-a').step.is(stepInstance)
+        // Inline composite members live in the composite's scope, not the SM root.
+        sm.getBoundStep('inline-a') == null
     }
 
-    def "explicit registration and matching inline instance under same id should coexist"() {
+    def "explicit registration and matching inline instance under same id should coexist (idempotent)"() {
         given:
         def stepInstance = new StepA()
         def smd = Transflux.<TestEntity> defineStateMachine()
@@ -233,6 +233,8 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def sm = (StateMachineImpl) smd.build()
 
         then:
+        // SM-level registration survives; inline registration of the same instance is treated
+        // as an idempotent no-op and does not collide.
         sm.getBoundStep('shared').step.is(stepInstance)
     }
 
@@ -259,7 +261,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         e.message.contains('already registered')
     }
 
-    def "two composites referencing the same inline class under the same id should be a no-op"() {
+    def "two composites referencing the same inline class under the same id are idempotent (each composite has its own scope entry)"() {
         given:
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
@@ -277,17 +279,20 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def sm = (StateMachineImpl) smd.build()
 
         then:
-        sm.getBoundStep('shared-class') != null
+        // Same class across two composites is idempotent; the build succeeds.
+        // The id is composite-local — it lives in each composite's scope, not the SM root.
+        sm != null
+        sm.getBoundStep('shared-class') == null
     }
 
-    def "byId reference should resolve to an inline registration declared in another composite, regardless of declaration order"() {
+    def "by-id reference cannot resolve an inline registration declared in a sibling composite"() {
         given:
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
         smd.state(TRIAL, { s -> s
             .transitionsTo(ACTIVE, 't-consumer', { t ->
-                // Consumer composite references the id BEFORE the provider declares the inline.
+                // Consumer composite references an id only declared in another composite below.
                 t.compositeOperation('op-consumer', { c -> c.step('via-inline') })
             })
             .transitionsTo(ACTIVE, 't-provider', { t ->
@@ -296,10 +301,12 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         smd.state(ACTIVE, {})
 
         when:
-        def sm = (StateMachineImpl) smd.build()
+        smd.build()
 
         then:
-        sm.getBoundStep('via-inline') != null
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("'via-inline'")
+        e.message.contains('unknown step id')
     }
 
     def "getBoundStep should return null for unknown id"() {
