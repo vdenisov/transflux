@@ -81,7 +81,7 @@ final class ThrowingUtils {
      *
      * @throws TransfluxValidationException if {@code supplier} throws any exception
      */
-    public static <T> T sneakyGet(ThrowingSupplier<T> supplier, String errorMessage) {
+    static <T> T sneakyGet(ThrowingSupplier<T> supplier, String errorMessage) {
         try {
             return supplier.get();
         } catch (Exception e) {
@@ -99,7 +99,7 @@ final class ThrowingUtils {
      *
      * @throws TransfluxValidationException if {@code runnable} throws any exception
      */
-    public static void sneakyRun(ThrowingRunnable runnable, String errorMessage) {
+    static void sneakyRun(ThrowingRunnable runnable, String errorMessage) {
         try {
             runnable.run();
         } catch (Exception e) {

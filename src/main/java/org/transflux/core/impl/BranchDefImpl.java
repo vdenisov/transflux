@@ -18,7 +18,8 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.operation.*;
+import org.transflux.core.operation.BranchDef;
+import org.transflux.core.operation.Step;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

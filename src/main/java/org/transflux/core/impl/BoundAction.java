@@ -18,7 +18,7 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.operation.*;
+import org.transflux.core.operation.Operation;
 
 /**
  * Sealed marker type implemented by both {@link BoundStep} and {@link BoundOperation},

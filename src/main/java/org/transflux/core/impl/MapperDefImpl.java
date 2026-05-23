@@ -18,7 +18,8 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.operation.*;
+import org.transflux.core.operation.ContextMapper;
+import org.transflux.core.operation.MapperDef;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,7 +56,7 @@ final class MapperDefImpl<P, N> implements MapperDef<P, N> {
     private Class<? extends ContextMapper<P, N>> mapperClass;
     private Function<P, N> mapToFn;
 
-    public MapperDefImpl(String id, Class<P> parentType, Class<N> childType) {
+    MapperDefImpl(String id, Class<P> parentType, Class<N> childType) {
         requireNotBlank(id, "Mapper ID");
         requireNotNull(parentType, "Mapper parent type");
         requireNotNull(childType, "Mapper child type");
@@ -140,7 +141,7 @@ final class MapperDefImpl<P, N> implements MapperDef<P, N> {
      *
      * @throws TransfluxValidationException if no source has been set
      */
-    public ContextMapper<P, N> buildMapper() {
+    ContextMapper<P, N> buildMapper() {
         if (mapperInstance != null) {
             return mapperInstance;
         }

@@ -18,7 +18,7 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.*;
+import org.transflux.core.Transflux;
 
 import org.transflux.core.exception.TransfluxValidationException;
 
@@ -57,7 +57,7 @@ final class ReflectionUtils {
      * @throws TransfluxValidationException if {@code type} has no accessible no-arg
      *         constructor, or if instantiation fails for any other reason
      */
-    public static <T> T instantiateNoArg(Class<? extends T> type, String typeName) {
+    static <T> T instantiateNoArg(Class<? extends T> type, String typeName) {
         try {
             return type.getDeclaredConstructor().newInstance();
         } catch (NoSuchMethodException e) {

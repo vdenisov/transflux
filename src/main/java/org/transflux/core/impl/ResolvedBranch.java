@@ -18,7 +18,7 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.operation.*;
+import org.transflux.core.operation.Step;
 
 import org.transflux.core.impl.BoundCondition;
 

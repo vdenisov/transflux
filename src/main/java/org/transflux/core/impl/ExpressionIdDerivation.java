@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.condition.*;
 
 import org.transflux.core.impl.ThrowingUtils;
 import org.transflux.core.exception.TransfluxValidationException;

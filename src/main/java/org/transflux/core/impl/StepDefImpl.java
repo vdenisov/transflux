@@ -18,7 +18,8 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.operation.*;
+import org.transflux.core.operation.Step;
+import org.transflux.core.operation.StepDef;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,7 +52,7 @@ final class StepDefImpl<T, C> implements StepDef<T, C> {
     private Step<T, C> stepInstance;
     private Class<? extends Step<T, C>> stepClass;
 
-    public StepDefImpl(String id, Class<C> contextType) {
+    StepDefImpl(String id, Class<C> contextType) {
         requireNotBlank(id, "Step ID");
         requireNotNull(contextType, "Step context type");
         this.id = id;
@@ -119,7 +120,7 @@ final class StepDefImpl<T, C> implements StepDef<T, C> {
      *
      * @throws TransfluxValidationException if no step source has been set
      */
-    public BoundStep<T, C> buildBoundStep() {
+    BoundStep<T, C> buildBoundStep() {
         if (stepInstance == null && stepClass == null) {
             throw new TransfluxValidationException(
                 "StepDef '" + id + "' has no step set; call using(...) before build");

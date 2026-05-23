@@ -18,7 +18,8 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.transition.*;
+import org.transflux.core.transition.Transition;
+import org.transflux.core.transition.TransitionDef;
 
 import org.transflux.core.impl.StateMachineImpl;
 import org.transflux.core.impl.BoundCondition;
@@ -75,7 +76,7 @@ class TransitionImpl<T, C> implements Transition<T, C> {
      *
      * @throws TransfluxValidationException if the transition definition is null or has invalid properties
      */
-    public TransitionImpl(TransitionDefImpl<T, C> transitionDef, StateMachineImpl<T> stateMachine,
+    TransitionImpl(TransitionDefImpl<T, C> transitionDef, StateMachineImpl<T> stateMachine,
                           Map<String, BoundCondition<T, C>> conditionRegistry) {
         validateTransitionDef(transitionDef);
         requireNotNull(conditionRegistry, "Condition registry");
@@ -131,7 +132,7 @@ class TransitionImpl<T, C> implements Transition<T, C> {
         throw new TransfluxValidationException("Step invocation is only valid during transition execution");
     }
 
-    public BoundOperation<T, C> getBoundOperation() {
+    BoundOperation<T, C> getBoundOperation() {
         return boundOperation;
     }
 
@@ -141,7 +142,7 @@ class TransitionImpl<T, C> implements Transition<T, C> {
      *
      * @return the declared context class; never {@code null}
      */
-    public Class<C> getContextType() {
+    Class<C> getContextType() {
         return contextType;
     }
 
@@ -150,7 +151,7 @@ class TransitionImpl<T, C> implements Transition<T, C> {
      *
      * @return an unmodifiable list of bound pre-conditions; never {@code null}
      */
-    public List<BoundCondition<T, C>> getBoundPreConditions() {
+    List<BoundCondition<T, C>> getBoundPreConditions() {
         return Collections.unmodifiableList(boundPreConditions);
     }
 
@@ -159,7 +160,7 @@ class TransitionImpl<T, C> implements Transition<T, C> {
      *
      * @return an unmodifiable list of bound post-conditions; never {@code null}
      */
-    public List<BoundCondition<T, C>> getBoundPostConditions() {
+    List<BoundCondition<T, C>> getBoundPostConditions() {
         return Collections.unmodifiableList(boundPostConditions);
     }
 

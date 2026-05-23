@@ -18,7 +18,8 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.transition.*;
+import org.transflux.core.transition.Transition;
+import org.transflux.core.transition.TransitionDef;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -94,11 +95,11 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
      * @throws TransfluxValidationException if any parameter is null or blank
      */
     @SuppressWarnings("unchecked")
-    public TransitionDefImpl(String id, String sourceStateId, String targetStateId) {
+    TransitionDefImpl(String id, String sourceStateId, String targetStateId) {
         this(id, sourceStateId, targetStateId, (Class<C>) Object.class);
     }
 
-    public TransitionDefImpl(String id, String sourceStateId, String targetStateId, Class<C> contextType) {
+    TransitionDefImpl(String id, String sourceStateId, String targetStateId, Class<C> contextType) {
         requireNotBlank(id, "Transition ID");
         requireNotBlank(sourceStateId, "Source state ID");
         requireNotBlank(targetStateId, "Target state ID");
@@ -132,14 +133,14 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
      * Marks this def as actively under construction by its configurer lambda. Package-private
      * — the enclosing {@code StateDefImpl} flips this around the configurer invocation.
      */
-    public void beginConfigurer() {
+    void beginConfigurer() {
         this.configurerActive = true;
     }
 
     /**
      * Clears the configurer-active flag once the lambda returns.
      */
-    public void endConfigurer() {
+    void endConfigurer() {
         this.configurerActive = false;
     }
 
@@ -190,7 +191,7 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
      *
      * @return the bound operation, or {@code null}
      */
-    public BoundOperation<T, C> buildBoundOperation(StateMachineImpl<T> stateMachine) {
+    BoundOperation<T, C> buildBoundOperation(StateMachineImpl<T> stateMachine) {
         if (operationDef == null) {
             return null;
         }
@@ -204,7 +205,7 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
             "Unsupported operation def: " + operationDef.getClass().getName());
     }
 
-    public OperationDefImpl<T, C> getOperationDef() {
+    OperationDefImpl<T, C> getOperationDef() {
         return operationDef;
     }
 
@@ -213,7 +214,7 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
      *
      * @return an unmodifiable view of the pre-condition descriptor list
      */
-    public List<ConditionDescriptor> getPreConditionDescriptors() {
+    List<ConditionDescriptor> getPreConditionDescriptors() {
         return Collections.unmodifiableList(preConditions);
     }
 
@@ -222,7 +223,7 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
      *
      * @return an unmodifiable view of the post-condition descriptor list
      */
-    public List<ConditionDescriptor> getPostConditionDescriptors() {
+    List<ConditionDescriptor> getPostConditionDescriptors() {
         return Collections.unmodifiableList(postConditions);
     }
 
@@ -236,7 +237,7 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
      *
      * @throws TransfluxValidationException if any descriptor cannot be resolved
      */
-    public List<BoundCondition<T, C>> buildBoundPreConditions(Map<String, BoundCondition<T, C>> registry) {
+    List<BoundCondition<T, C>> buildBoundPreConditions(Map<String, BoundCondition<T, C>> registry) {
         return buildBoundConditionList(preConditions, registry, "pre");
     }
 
@@ -250,7 +251,7 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
      *
      * @throws TransfluxValidationException if any descriptor cannot be resolved
      */
-    public List<BoundCondition<T, C>> buildBoundPostConditions(Map<String, BoundCondition<T, C>> registry) {
+    List<BoundCondition<T, C>> buildBoundPostConditions(Map<String, BoundCondition<T, C>> registry) {
         return buildBoundConditionList(postConditions, registry, "post");
     }
 
@@ -334,11 +335,11 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
         return this;
     }
 
-    public String getName() {
+    String getName() {
         return name;
     }
 
-    public String getDescription() {
+    String getDescription() {
         return description;
     }
 

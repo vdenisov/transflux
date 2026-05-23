@@ -18,7 +18,8 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.transition.*;
+import org.transflux.core.transition.StepPath;
+import org.transflux.core.transition.Transition;
 
 import org.transflux.core.impl.Component;
 import org.transflux.core.impl.Registry;
@@ -86,7 +87,7 @@ class TransitionView<T, C> implements Transition<T, C> {
 
     private final Deque<String> operationStack = new ArrayDeque<>();
 
-    public TransitionView(StateMachineImpl<T> stateMachine, TransitionImpl<T, C> boundTransition,
+    TransitionView(StateMachineImpl<T> stateMachine, TransitionImpl<T, C> boundTransition,
                    T entity, C context) {
         requireNotNull(stateMachine, "State machine");
         requireNotNull(boundTransition, "Bound transition");
@@ -127,7 +128,7 @@ class TransitionView<T, C> implements Transition<T, C> {
      * @param mapperId the registered mapper id
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public void step(String id, String mapperId) {
+    void step(String id, String mapperId) {
         requireNotBlank(mapperId, "Mapper reference ID");
         BoundStep<T, ?> boundStep = resolveStep(id);
         ContextMapper<Object, Object> mapper = resolveRegisteredMapper(mapperId);
@@ -142,7 +143,7 @@ class TransitionView<T, C> implements Transition<T, C> {
      * @param inlineMapTo the parent-to-child projection
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public void step(String id, Function<C, ?> inlineMapTo) {
+    void step(String id, Function<C, ?> inlineMapTo) {
         requireNotNull(inlineMapTo, "Inline mapper function");
         BoundStep<T, ?> boundStep = resolveStep(id);
         ContextMapper<Object, Object> mapper = wrapFunction((Function) inlineMapTo);
@@ -157,7 +158,7 @@ class TransitionView<T, C> implements Transition<T, C> {
      * @param inlineMapper the mapper
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public void step(String id, ContextMapper<C, ?> inlineMapper) {
+    void step(String id, ContextMapper<C, ?> inlineMapper) {
         requireNotNull(inlineMapper, "Inline mapper instance");
         BoundStep<T, ?> boundStep = resolveStep(id);
         ContextMapper<Object, Object> mapper = (ContextMapper<Object, Object>) inlineMapper;
@@ -171,7 +172,7 @@ class TransitionView<T, C> implements Transition<T, C> {
      * @param id the registered operation id
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public void operation(String id) {
+    void operation(String id) {
         BoundOperation<T, ?> bound = resolveOperation(id);
         runChildOperation((BoundOperation) bound, null);
     }
@@ -183,7 +184,7 @@ class TransitionView<T, C> implements Transition<T, C> {
      * @param mapperId the registered mapper id
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public void operation(String id, String mapperId) {
+    void operation(String id, String mapperId) {
         requireNotBlank(mapperId, "Mapper reference ID");
         BoundOperation<T, ?> bound = resolveOperation(id);
         ContextMapper<Object, Object> mapper = resolveRegisteredMapper(mapperId);
@@ -198,7 +199,7 @@ class TransitionView<T, C> implements Transition<T, C> {
      * @param inlineMapTo the parent-to-child projection
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public void operation(String id, Function<C, ?> inlineMapTo) {
+    void operation(String id, Function<C, ?> inlineMapTo) {
         requireNotNull(inlineMapTo, "Inline mapper function");
         BoundOperation<T, ?> bound = resolveOperation(id);
         ContextMapper<Object, Object> mapper = wrapFunction((Function) inlineMapTo);
@@ -213,31 +214,31 @@ class TransitionView<T, C> implements Transition<T, C> {
      * @param inlineMapper the mapper
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public void operation(String id, ContextMapper<C, ?> inlineMapper) {
+    void operation(String id, ContextMapper<C, ?> inlineMapper) {
         requireNotNull(inlineMapper, "Inline mapper instance");
         BoundOperation<T, ?> bound = resolveOperation(id);
         ContextMapper<Object, Object> mapper = (ContextMapper<Object, Object>) inlineMapper;
         runChildOperation((BoundOperation) bound, mapper);
     }
 
-    public T getEntity() {
+    T getEntity() {
         return entity;
     }
 
     @SuppressWarnings("unchecked")
-    public C getContext() {
+    C getContext() {
         return contextOverrideStack.isEmpty() ? context : (C) contextOverrideStack.peek();
     }
 
-    public StateMachineImpl<T> getStateMachine() {
+    StateMachineImpl<T> getStateMachine() {
         return stateMachine;
     }
 
-    public void recordExecutedStepId(String localStepId) {
+    void recordExecutedStepId(String localStepId) {
         executedStepIds.add(qualifyStepPath(localStepId));
     }
 
-    public List<StepPath> getExecutedStepIds() {
+    List<StepPath> getExecutedStepIds() {
         return Collections.unmodifiableList(executedStepIds);
     }
 
@@ -249,7 +250,7 @@ class TransitionView<T, C> implements Transition<T, C> {
      *
      * @param operationId the nested-operation id to push; must be non-blank
      */
-    public void enterOperation(String operationId) {
+    void enterOperation(String operationId) {
         requireNotBlank(operationId, "Operation ID");
         operationStack.push(operationId);
     }
@@ -260,7 +261,7 @@ class TransitionView<T, C> implements Transition<T, C> {
      *
      * @throws TransfluxValidationException if the nesting stack is empty
      */
-    public void exitOperation() {
+    void exitOperation() {
         if (operationStack.isEmpty()) {
             throw new TransfluxValidationException(
                 "exitOperation() called with no matching enterOperation()");
@@ -279,7 +280,7 @@ class TransitionView<T, C> implements Transition<T, C> {
      * @param mapper the mapper to apply at the boundary; never {@code null}
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public void runChildStep(BoundStep<T, Object> boundStep, ContextMapper<Object, Object> mapper) {
+    void runChildStep(BoundStep<T, Object> boundStep, ContextMapper<Object, Object> mapper) {
         Object active = getContext();
         Object child = mapper.mapTo(active);
         contextOverrideStack.push(child);
@@ -301,7 +302,7 @@ class TransitionView<T, C> implements Transition<T, C> {
      * @param mapper the mapper to apply at the boundary, or {@code null} for pass-through
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public void runChildOperation(BoundOperation<T, Object> boundOperation, ContextMapper<Object, Object> mapper) {
+    void runChildOperation(BoundOperation<T, Object> boundOperation, ContextMapper<Object, Object> mapper) {
         Object active = getContext();
         enterOperation(boundOperation.id());
         try {
@@ -361,7 +362,7 @@ class TransitionView<T, C> implements Transition<T, C> {
      *
      * @param scopeRegistry the composite's scope registry; never {@code null}
      */
-    public void pushScope(Registry<T> scopeRegistry) {
+    void pushScope(Registry<T> scopeRegistry) {
         requireNotNull(scopeRegistry, "Scope registry");
         scopeStack.push(scopeRegistry);
     }
@@ -372,7 +373,7 @@ class TransitionView<T, C> implements Transition<T, C> {
      *
      * @throws TransfluxValidationException if the scope stack is empty
      */
-    public void popScope() {
+    void popScope() {
         if (scopeStack.isEmpty()) {
             throw new TransfluxValidationException(
                 "popScope() called with no matching pushScope()");
@@ -387,7 +388,7 @@ class TransitionView<T, C> implements Transition<T, C> {
      *
      * @return the active scope; never {@code null}
      */
-    public Registry<T> activeScope() {
+    Registry<T> activeScope() {
         return scopeStack.isEmpty() ? stateMachine.getComponentRegistry() : scopeStack.peek();
     }
 
@@ -433,7 +434,7 @@ class TransitionView<T, C> implements Transition<T, C> {
      * @param localStepId the id of the step the compensation rolls back; must be non-blank
      * @param compensation the compensation callback; ignored when {@code null}
      */
-    public void pushCompensation(String localStepId, Compensation<T, C> compensation) {
+    void pushCompensation(String localStepId, Compensation<T, C> compensation) {
         requireNotBlank(localStepId, "Step ID");
         if (compensation == null) {
             return;
@@ -447,7 +448,7 @@ class TransitionView<T, C> implements Transition<T, C> {
      *
      * @return an unmodifiable list of the popped compensations in LIFO order
      */
-    public List<BoundCompensation<T, C>> drainCompensationsLifo() {
+    List<BoundCompensation<T, C>> drainCompensationsLifo() {
         if (compensationStack.isEmpty()) {
             return Collections.emptyList();
         }

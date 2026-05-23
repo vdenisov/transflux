@@ -18,7 +18,12 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.operation.*;
+import org.transflux.core.operation.CompositeOperationDef;
+import org.transflux.core.operation.ConditionalStepDef;
+import org.transflux.core.operation.ContextMapper;
+import org.transflux.core.operation.MapperDef;
+import org.transflux.core.operation.Operation;
+import org.transflux.core.operation.Step;
 
 import org.springframework.lang.NonNull;
 import org.transflux.core.impl.Registry;
@@ -60,7 +65,7 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
 
     private RegistryImpl<T> scopeRegistry;
 
-    public CompositeOperationDefImpl(String id) {
+    CompositeOperationDefImpl(String id) {
         super(id);
     }
 
@@ -71,7 +76,7 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
      *
      * @return the scope registry, or {@code null} if the state machine has not yet wired it
      */
-    public RegistryImpl<T> getScopeRegistry() {
+    RegistryImpl<T> getScopeRegistry() {
         return scopeRegistry;
     }
 
@@ -81,7 +86,7 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
      *
      * @param scopeRegistry the scope registry; never {@code null}
      */
-    public void setScopeRegistry(RegistryImpl<T> scopeRegistry) {
+    void setScopeRegistry(RegistryImpl<T> scopeRegistry) {
         this.scopeRegistry = scopeRegistry;
     }
 
@@ -220,7 +225,7 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
      *
      * @return an unmodifiable view of the action ref list
      */
-    public List<ActionRef<T, C>> getActionRefs() {
+    List<ActionRef<T, C>> getActionRefs() {
         return Collections.unmodifiableList(actionRefs);
     }
 
@@ -230,7 +235,7 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
      *
      * @return the referenced step ids in declaration order
      */
-    public List<String> getStepByIdReferenceIds() {
+    List<String> getStepByIdReferenceIds() {
         List<String> ids = new ArrayList<>();
         for (ActionRef<T, C> ref : actionRefs) {
             if (ref instanceof ActionRef.ById<T, C> r) {
@@ -246,7 +251,7 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
      *
      * @return the referenced operation ids in declaration order
      */
-    public List<String> getOperationByIdReferenceIds() {
+    List<String> getOperationByIdReferenceIds() {
         List<String> ids = new ArrayList<>();
         for (ActionRef<T, C> ref : actionRefs) {
             if (ref instanceof ActionRef.OperationById<T, C> r) {
@@ -262,7 +267,7 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
      *
      * @return an unmodifiable map of step id to inline step instance
      */
-    public Map<String, Step<T, C>> getInlineStepInstances() {
+    Map<String, Step<T, C>> getInlineStepInstances() {
         Map<String, Step<T, C>> result = new LinkedHashMap<>();
 
         for (ActionRef<T, C> ref : actionRefs) {
@@ -280,7 +285,7 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
      *
      * @return an unmodifiable map of step id to inline step class
      */
-    public Map<String, Class<? extends Step<T, C>>> getInlineStepClasses() {
+    Map<String, Class<? extends Step<T, C>>> getInlineStepClasses() {
         Map<String, Class<? extends Step<T, C>>> result = new LinkedHashMap<>();
 
         for (ActionRef<T, C> ref : actionRefs) {
@@ -299,7 +304,7 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
      *
      * @return an unmodifiable map of conditional id to conditional def
      */
-    public Map<String, ConditionalStepDefImpl<T, C>> getConditionalDefs() {
+    Map<String, ConditionalStepDefImpl<T, C>> getConditionalDefs() {
         Map<String, ConditionalStepDefImpl<T, C>> result = new LinkedHashMap<>();
 
         for (ActionRef<T, C> ref : actionRefs) {
@@ -317,7 +322,7 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
      *
      * @return an unmodifiable map of operation id to inline operation instance
      */
-    public Map<String, Operation<T, C>> getInlineOperationInstances() {
+    Map<String, Operation<T, C>> getInlineOperationInstances() {
         Map<String, Operation<T, C>> result = new LinkedHashMap<>();
 
         for (ActionRef<T, C> ref : actionRefs) {
@@ -335,7 +340,7 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
      *
      * @return an unmodifiable map of operation id to inline operation class
      */
-    public Map<String, Class<? extends Operation<T, C>>> getInlineOperationClasses() {
+    Map<String, Class<? extends Operation<T, C>>> getInlineOperationClasses() {
         Map<String, Class<? extends Operation<T, C>>> result = new LinkedHashMap<>();
 
         for (ActionRef<T, C> ref : actionRefs) {
@@ -362,7 +367,7 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
      * @throws TransfluxValidationException if the composite has no members, or any referenced
      *         id is not registered on the state machine
      */
-    public BoundOperation<T, C> build(StateMachineImpl<T> stateMachine) {
+    BoundOperation<T, C> build(StateMachineImpl<T> stateMachine) {
         if (actionRefs.isEmpty()) {
             throw new TransfluxValidationException(
                 "CompositeOperationDef '" + getId()

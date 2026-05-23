@@ -18,7 +18,7 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.operation.*;
+import org.transflux.core.operation.Operation;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
@@ -37,7 +37,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
 record BoundOperation<T, C>(String id, String name, String description, Operation<T, C> operation)
     implements BoundAction<T, C> {
 
-    public BoundOperation {
+    BoundOperation {
         requireNotBlank(id, "Bound operation ID");
         requireNotNull(operation, "Bound operation");
     }
@@ -54,7 +54,7 @@ record BoundOperation<T, C>(String id, String name, String description, Operatio
      *
      * @return a fresh bound operation
      */
-    public static <T, C> BoundOperation<T, C> of(String id,
+    static <T, C> BoundOperation<T, C> of(String id,
                                           String name,
                                           String description,
                                           Operation<T, C> operation) {

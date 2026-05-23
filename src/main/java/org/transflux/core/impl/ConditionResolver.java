@@ -18,7 +18,8 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.condition.*;
+import org.transflux.core.condition.Condition;
+import org.transflux.core.condition.ConditionDescriptor;
 
 import org.transflux.core.exception.TransfluxValidationException;
 
@@ -63,7 +64,7 @@ final class ConditionResolver {
      *         a class-based descriptor's class cannot be instantiated through a no-arg
      *         constructor, or if any other input is invalid
      */
-    public static <T, C> BoundCondition<T, C> resolve(ConditionDescriptor descriptor,
+    static <T, C> BoundCondition<T, C> resolve(ConditionDescriptor descriptor,
                                                       Map<String, BoundCondition<T, C>> registry,
                                                       String path) {
         requireNotNull(descriptor, "Condition descriptor");

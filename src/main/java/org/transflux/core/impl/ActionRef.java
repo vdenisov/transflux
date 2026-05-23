@@ -18,7 +18,9 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.operation.*;
+import org.transflux.core.operation.CompositeOperationDef;
+import org.transflux.core.operation.Operation;
+import org.transflux.core.operation.Step;
 
 import org.transflux.core.impl.Component;
 import org.transflux.core.impl.Registry;

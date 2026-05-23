@@ -18,7 +18,9 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.*;
+import org.transflux.core.ContextScope;
+import org.transflux.core.Preconditions;
+import org.transflux.core.Transflux;
 
 import org.transflux.core.condition.Condition;
 import org.transflux.core.operation.CompositeOperationDef;

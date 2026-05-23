@@ -18,7 +18,7 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.operation.*;
+import org.transflux.core.operation.Step;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
@@ -33,7 +33,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  */
 record BoundStep<T, C>(String id, Step<T, C> step) implements BoundAction<T, C> {
 
-    public BoundStep {
+    BoundStep {
         requireNotBlank(id, "Bound step ID");
         requireNotNull(step, "Bound step");
     }
@@ -48,7 +48,7 @@ record BoundStep<T, C>(String id, Step<T, C> step) implements BoundAction<T, C> 
      *
      * @return a fresh bound step
      */
-    public static <T, C> BoundStep<T, C> of(String id, Step<T, C> step) {
+    static <T, C> BoundStep<T, C> of(String id, Step<T, C> step) {
         return new BoundStep<>(id, step);
     }
 }

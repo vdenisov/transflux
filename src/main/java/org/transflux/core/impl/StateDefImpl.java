@@ -18,7 +18,8 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.state.*;
+import org.transflux.core.state.State;
+import org.transflux.core.state.StateDef;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,7 +51,7 @@ class StateDefImpl<T> implements StateDef<T> {
 
     private boolean configurerActive;
 
-    public StateDefImpl(StateMachineDefImpl<T> smd, String id) {
+    StateDefImpl(StateMachineDefImpl<T> smd, String id) {
         requireNotNull(smd, "State machine definition");
         requireNotBlank(id, "State ID");
 
@@ -58,7 +59,7 @@ class StateDefImpl<T> implements StateDef<T> {
         this.id = id;
     }
 
-    public StateDefImpl(StateMachineDefImpl<T> smd, Identifiable identifiable) {
+    StateDefImpl(StateMachineDefImpl<T> smd, Identifiable identifiable) {
         requireNotNull(smd, "State machine definition");
         requireNotNull(identifiable, "Identifiable for state ID");
         requireNotBlank(identifiable.getId(), "State ID");
@@ -140,14 +141,14 @@ class StateDefImpl<T> implements StateDef<T> {
      * Marks this def as actively under construction by its configurer lambda. Package-private
      * — the enclosing {@code StateMachineDefImpl} flips this around the configurer invocation.
      */
-    public void beginConfigurer() {
+    void beginConfigurer() {
         this.configurerActive = true;
     }
 
     /**
      * Clears the configurer-active flag once the lambda returns.
      */
-    public void endConfigurer() {
+    void endConfigurer() {
         this.configurerActive = false;
     }
 
@@ -164,11 +165,11 @@ class StateDefImpl<T> implements StateDef<T> {
         return id;
     }
 
-    public String getName() {
+    String getName() {
         return name;
     }
 
-    public String getDescription() {
+    String getDescription() {
         return description;
     }
 

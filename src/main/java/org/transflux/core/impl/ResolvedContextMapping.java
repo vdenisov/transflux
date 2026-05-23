@@ -18,7 +18,8 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.operation.*;
+import org.transflux.core.operation.ContextMapper;
+import org.transflux.core.operation.Operation;
 
 import static org.transflux.core.Preconditions.requireNotNull;
 
@@ -43,7 +44,7 @@ final class ResolvedContextMapping {
      *
      * @return the pass-through mapping
      */
-    public static ResolvedContextMapping passThrough() {
+    static ResolvedContextMapping passThrough() {
         return PASS_THROUGH;
     }
 
@@ -55,7 +56,7 @@ final class ResolvedContextMapping {
      *
      * @return the mapped mapping
      */
-    public static ResolvedContextMapping mapped(ContextMapper<Object, Object> mapper) {
+    static ResolvedContextMapping mapped(ContextMapper<Object, Object> mapper) {
         requireNotNull(mapper, "Context mapper");
         return new ResolvedContextMapping(mapper);
     }
@@ -65,7 +66,7 @@ final class ResolvedContextMapping {
      *
      * @return {@code true} if pass-through; {@code false} if mapped
      */
-    public boolean isPassThrough() {
+    boolean isPassThrough() {
         return mapper == null;
     }
 
@@ -74,7 +75,7 @@ final class ResolvedContextMapping {
      *
      * @return the mapper or {@code null}
      */
-    public ContextMapper<Object, Object> mapper() {
+    ContextMapper<Object, Object> mapper() {
         return mapper;
     }
 }

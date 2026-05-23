@@ -18,7 +18,8 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.state.*;
+import org.transflux.core.state.State;
+import org.transflux.core.state.StateDef;
 
 import org.transflux.core.exception.TransfluxValidationException;
 
@@ -53,7 +54,7 @@ class StateImpl<T> implements State<T> {
      *
      * @throws TransfluxValidationException if the state definition is null or has invalid properties
      */
-    public StateImpl(StateDefImpl<T> stateDef) {
+    StateImpl(StateDefImpl<T> stateDef) {
         validateStateDef(stateDef);
         this.id = stateDef.getId();
         this.name = stateDef.getName();

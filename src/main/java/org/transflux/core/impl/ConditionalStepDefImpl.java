@@ -18,7 +18,11 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.operation.*;
+import org.transflux.core.operation.BranchDef;
+import org.transflux.core.operation.ConditionalStepDef;
+import org.transflux.core.operation.DefaultBranchDef;
+import org.transflux.core.operation.NoMatchBehavior;
+import org.transflux.core.operation.Step;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,7 +74,7 @@ final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T, C> {
     private DefaultBranchDefImpl<T, C> defaultBranch;
     private NoMatchBehavior noMatchBehavior = NoMatchBehavior.WARN;
 
-    public ConditionalStepDefImpl(String id) {
+    ConditionalStepDefImpl(String id) {
         requireNotBlank(id, "Conditional step ID");
         this.id = id;
     }
@@ -80,15 +84,15 @@ final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T, C> {
         return id;
     }
 
-    public String getName() {
+    String getName() {
         return name;
     }
 
-    public String getDescription() {
+    String getDescription() {
         return description;
     }
 
-    public NoMatchBehavior getNoMatchBehavior() {
+    NoMatchBehavior getNoMatchBehavior() {
         return noMatchBehavior;
     }
 
@@ -148,7 +152,7 @@ final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T, C> {
      *
      * @return an unmodifiable map of step id to inline step instance
      */
-    public Map<String, Step<T, C>> getInlineStepInstances() {
+    Map<String, Step<T, C>> getInlineStepInstances() {
         Map<String, Step<T, C>> result = new LinkedHashMap<>();
         for (BranchDefImpl<T, C> branch : branches) {
             collectInlineInstances(branch.getActionRefs(), result);
@@ -165,7 +169,7 @@ final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T, C> {
      *
      * @return an unmodifiable map of step id to inline step class
      */
-    public Map<String, Class<? extends Step<T, C>>> getInlineStepClasses() {
+    Map<String, Class<? extends Step<T, C>>> getInlineStepClasses() {
         Map<String, Class<? extends Step<T, C>>> result = new LinkedHashMap<>();
         for (BranchDefImpl<T, C> branch : branches) {
             collectInlineClasses(branch.getActionRefs(), result);
@@ -191,7 +195,7 @@ final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T, C> {
      *         branches, or the default branch are violated, or if any condition descriptor
      *         cannot be resolved
      */
-    public BoundStep<T, C> buildBoundStep(StateMachineImpl<T> stateMachine,
+    BoundStep<T, C> buildBoundStep(StateMachineImpl<T> stateMachine,
                                           Map<String, BoundCondition<T, C>> conditionRegistry) {
         requireNotNull(stateMachine, "State machine");
         requireNotNull(conditionRegistry, "Condition registry");

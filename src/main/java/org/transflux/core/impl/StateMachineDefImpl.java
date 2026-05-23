@@ -18,7 +18,12 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.*;
+import org.transflux.core.ContextScope;
+import org.transflux.core.Identifiable;
+import org.transflux.core.Preconditions;
+import org.transflux.core.StateMachine;
+import org.transflux.core.StateMachineDef;
+import org.transflux.core.Transflux;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

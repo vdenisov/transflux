@@ -18,7 +18,8 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.operation.*;
+import org.transflux.core.operation.Operation;
+import org.transflux.core.operation.SimpleOperationDef;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,13 +41,13 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-final class SimpleOperationDefImpl<T, C> extends OperationDefImpl<T, C> implements SimpleOperationDef<T, C> {
+public final class SimpleOperationDefImpl<T, C> extends OperationDefImpl<T, C> implements SimpleOperationDef<T, C> {
     private static final Logger log = LoggerFactory.getLogger(SimpleOperationDefImpl.class);
 
     private Operation<T, C> operationInstance;
     private Class<? extends Operation<T, C>> operationClass;
 
-    public SimpleOperationDefImpl(String id) {
+    SimpleOperationDefImpl(String id) {
         super(id);
     }
 
@@ -86,7 +87,7 @@ final class SimpleOperationDefImpl<T, C> extends OperationDefImpl<T, C> implemen
         return this;
     }
 
-    public BoundOperation<T, C> build() {
+    BoundOperation<T, C> build() {
         if (operationInstance == null && operationClass == null) {
             throw new TransfluxValidationException(
                 "SimpleOperationDef '" + getId() + "' has no operation set; call using(...) before build");

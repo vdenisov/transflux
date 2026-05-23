@@ -18,7 +18,8 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.operation.*;
+import org.transflux.core.operation.DefaultBranchDef;
+import org.transflux.core.operation.Step;
 
 import java.util.ArrayList;
 import java.util.Collections;

@@ -18,7 +18,8 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.*;
+import org.transflux.core.Preconditions;
+import org.transflux.core.Transflux;
 
 import org.transflux.core.exception.TransfluxValidationException;
 
@@ -45,7 +46,7 @@ final class RegistryImpl<T> implements Registry<T> {
     /**
      * Creates a parentless root registry. Equivalent to {@code new RegistryImpl<>(null)}.
      */
-    public RegistryImpl() {
+    RegistryImpl() {
         this(null);
     }
 
@@ -54,7 +55,7 @@ final class RegistryImpl<T> implements Registry<T> {
      *
      * @param parent the parent registry, or {@code null}
      */
-    public RegistryImpl(Registry<T> parent) {
+    RegistryImpl(Registry<T> parent) {
         this.parent = parent;
     }
 
@@ -69,7 +70,7 @@ final class RegistryImpl<T> implements Registry<T> {
      * @throws TransfluxValidationException if the id is already taken by a different
      *         component, or if {@link Component#validate()} fails
      */
-    public void register(Component<T> component) {
+    void register(Component<T> component) {
         requireNotNull(component, "Component");
         requireNotBlank(component.id(), "Component id");
         component.validate();
@@ -122,7 +123,7 @@ final class RegistryImpl<T> implements Registry<T> {
      * <p>Safe to call once per registry, at the end of the state-machine build pipeline, after
      * every ancestor's local entries are settled.
      */
-    public void flatten() {
+    void flatten() {
         Registry<T> ancestor = parent;
         while (ancestor != null) {
             for (String id : ancestor.ids()) {

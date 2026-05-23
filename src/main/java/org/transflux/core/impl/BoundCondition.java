@@ -18,7 +18,7 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.condition.*;
+import org.transflux.core.condition.Condition;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
@@ -33,7 +33,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  */
 record BoundCondition<T, C>(String id, Condition<T, C> condition) {
 
-    public BoundCondition {
+    BoundCondition {
         requireNotBlank(id, "Bound condition ID");
         requireNotNull(condition, "Bound condition");
     }
@@ -48,7 +48,7 @@ record BoundCondition<T, C>(String id, Condition<T, C> condition) {
      *
      * @return a fresh bound condition
      */
-    public static <T, C> BoundCondition<T, C> of(String id, Condition<T, C> condition) {
+    static <T, C> BoundCondition<T, C> of(String id, Condition<T, C> condition) {
         return new BoundCondition<>(id, condition);
     }
 
@@ -63,7 +63,7 @@ record BoundCondition<T, C>(String id, Condition<T, C> condition) {
      *
      * @return a bound condition that evaluates {@code expression} on each call
      */
-    public static <T, C> BoundCondition<T, C> fromExpression(String id, String expression) {
+    static <T, C> BoundCondition<T, C> fromExpression(String id, String expression) {
         requireNotBlank(expression, "Expression");
         String expr = expression;
         Condition<T, C> condition = (entity, ctx, transition) ->

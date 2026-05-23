@@ -18,7 +18,9 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.*;
+import org.transflux.core.Preconditions;
+import org.transflux.core.StateMachine;
+import org.transflux.core.Transflux;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,7 +86,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
     private final StateMachineDefImpl<T> def;
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public StateMachineImpl(StateMachineDefImpl<T> def) {
+    StateMachineImpl(StateMachineDefImpl<T> def) {
         this.def = def;
         this.entityType = def.getEntityType();
         this.name = def.getName();
@@ -137,7 +139,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
         return declared != null ? declared : Object.class;
     }
 
-    public Registry<T> getComponentRegistry() {
+    Registry<T> getComponentRegistry() {
         return componentRegistry;
     }
 
@@ -146,12 +148,12 @@ class StateMachineImpl<T> implements StateMachine<T> {
      *
      * @return the def
      */
-    public StateMachineDefImpl<T> getDef() {
+    StateMachineDefImpl<T> getDef() {
         return def;
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public BoundStep<T, ?> getBoundStep(String id) {
+    BoundStep<T, ?> getBoundStep(String id) {
         return componentRegistry.resolve(id)
             .filter(Component.Step.class::isInstance)
             .map(c -> ((Component.Step) c).bound())
@@ -159,7 +161,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public BoundOperation<T, ?> getBoundOperation(String id) {
+    BoundOperation<T, ?> getBoundOperation(String id) {
         return componentRegistry.resolve(id)
             .filter(Component.Operation.class::isInstance)
             .map(c -> ((Component.Operation) c).bound())
@@ -171,7 +173,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
      * dispatches the step's {@link Step#execute(Object, Object, Transition)} against the same
      * view.
      */
-    public static <T, C> void runBoundStep(BoundStep<T, C> boundStep, TransitionView<T, C> view) {
+    static <T, C> void runBoundStep(BoundStep<T, C> boundStep, TransitionView<T, C> view) {
         Step<T, C> step = boundStep.step();
         Compensation<T, C> compensation = step.getCompensation(view.getEntity(), view.getContext());
 
@@ -181,35 +183,35 @@ class StateMachineImpl<T> implements StateMachine<T> {
         view.recordExecutedStepId(boundStep.id());
     }
 
-    public Class<T> getEntityType() {
+    Class<T> getEntityType() {
         return entityType;
     }
 
-    public String getName() {
+    String getName() {
         return name;
     }
 
-    public String getDescription() {
+    String getDescription() {
         return description;
     }
 
-    public String getVersion() {
+    String getVersion() {
         return version;
     }
 
-    public StateResolver<T> getStateResolver() {
+    StateResolver<T> getStateResolver() {
         return stateResolver;
     }
 
-    public StateApplier<T> getStateApplier() {
+    StateApplier<T> getStateApplier() {
         return stateApplier;
     }
 
-    public Map<String, State<T>> getStates() {
+    Map<String, State<T>> getStates() {
         return states;
     }
 
-    public Map<String, TransitionImpl<T, ?>> getTransitions() {
+    Map<String, TransitionImpl<T, ?>> getTransitions() {
         return transitions;
     }
 
