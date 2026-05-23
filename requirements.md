@@ -1427,37 +1427,22 @@ StateMachine<Subscription> subscriptionStateMachine = Transflux.defineStateMachi
     //   .withStateApplier("entity.status")                   // SpEL property path
     
     // Define states
-    .state("trial")
+    .state("trial", s -> s
         .withDescription("Initial trial state")
-        .transitionsTo("active")
-        .end()
-        
-    .state("active")
-        .withDescription("Active subscription state")
-        .transitionsTo("suspended", "expired")
-        .end()
-        
-    .state("suspended")
-        .withDescription("Suspended subscription state")
-        .transitionsTo("cancelled")
-        .end()
-        
-    .state("cancelled", "expired")
-        .end()
-        
-    .build();
+        .transitionsTo("active", "trial-to-active", t -> {}))
 
-// Alternative compact syntax
-StateMachine<Subscription> compactStateMachine = Transflux.defineStateMachine()
-    .forEntityType(Subscription.class)
-    .withStateResolver("entity.status")
-    .withStateApplier("entity.status")
-    .states(
-        state("trial").transitionsTo("active"),
-        state("active").transitionsTo("suspended", "expired"),
-        state("suspended").transitionsTo("cancelled"),
-        state("cancelled", "expired")
-    )
+    .state("active", s -> s
+        .withDescription("Active subscription state")
+        .transitionsTo("suspended", "active-to-suspended", t -> {})
+        .transitionsTo("expired", "active-to-expired", t -> {}))
+
+    .state("suspended", s -> s
+        .withDescription("Suspended subscription state")
+        .transitionsTo("cancelled", "suspended-to-cancelled", t -> {}))
+
+    .state("cancelled", s -> {})
+    .state("expired", s -> {})
+
     .build();
 ```
 
@@ -1467,20 +1452,20 @@ StateMachine<Subscription> compactStateMachine = Transflux.defineStateMachine()
 StateMachine<Subscription> stateMachine = Transflux.defineStateMachine()
     .forEntityType(Subscription.class)
     
-    .state("active")
+    .state("active", s -> s
         .withDescription("Active subscription state")
         .withMetadata("displayName", "Active")
-        
+
         // State entry/exit listeners
         .onEntry(SubscriptionActivatedListener.class)
         .onEntry(NotificationListener.class, config -> config
             .property("template", "subscription-activated")
             .property("async", true))
         .onExit(SubscriptionDeactivatedListener.class)
-        
-        .transitionsTo("suspended", "expired")
-        .end()
-        
+
+        .transitionsTo("suspended", "active-to-suspended", t -> {})
+        .transitionsTo("expired", "active-to-expired", t -> {}))
+
     .build();
 ```
 
@@ -1569,61 +1554,51 @@ trialActiveTransition
 #### 4.4.2 Composite Operation (Declarative Style)
 
 ```java
-trialActiveTransition.setOperation(
-    compositeOperation("complex-subscription-activation")
-        .withDescription("Complex subscription activation with multiple steps")
-        .usingContext(ComplexSubscriptionContext.class)
-        
-        // Sequential steps
-        .step("prepare-billing-actor", PrepareBillingActorStep.class)
-        
-        .step("validate-payment-method", ValidatePaymentMethodStep.class)
-            .withCompensation(PaymentValidationCompensation.class)
-        
-        // Multi-branch conditional
-        .conditional("subscription-tier-routing")
-            .branch("premium-tier")
-                .condition(PremiumTierPredicate.class)
-                .step("premium-tier-processing", PremiumTierStep.class)
-                .step("vip-notification", VipNotificationStep.class)
-            .end()
-            
-            .branch("standard-tier")
-                .condition(s -> "STANDARD".equals(s.getTier()) && s.getPriority() >= 5)
-                .step("standard-tier-processing", StandardTierStep.class)
-            .end()
-            
-            .branch("enterprise-customer")
-                .condition(EnterpriseCustomerPredicate.class)
-                .step("enterprise-processing", EnterpriseProcessingStep.class)
-                .step("account-manager-notification", AccountManagerNotificationStep.class)
-            .end()
-            
-            .defaultBranch()
-                .step("basic-processing", BasicProcessingStep.class)
-                .step("standard-notification", StandardNotificationStep.class)
-            .end()
-        .end()
-        
-        .step("finalize", FinalizeSubscriptionActivationStep.class)
-        
-        // Error handling
-        .onException(RecoverableException.class)
-            .matching(e -> e.getCode() == RECOVERABLE_ERROR)
-            .compensateWith(RecoverableCompensation.class)
-        .onAllExceptions()
-            .compensateWith(GeneralCompensation.class)
-        
-        // Async part — anchored to a sync step. Use startBefore for join-point kickoff,
-        // startAfter when the async work depends on the named step completing first.
-        .async()
-            .startBefore("finalize")             // OR: .startAfter("last-business-step")
-            .step("async-notifications", AsyncNotificationStep.class)
-            .step("external-integrations", ExternalIntegrationStep.class)
-        .end()
-        
-    .end()
-);
+trialActiveTransition.compositeOperation("complex-subscription-activation", c -> c
+    .withDescription("Complex subscription activation with multiple steps")
+    .usingContext(ComplexSubscriptionContext.class)
+
+    // Sequential steps
+    .step("prepare-billing-actor", PrepareBillingActorStep.class)
+
+    .step("validate-payment-method", ValidatePaymentMethodStep.class, s -> s
+        .withCompensation(PaymentValidationCompensation.class))
+
+    // Multi-branch conditional
+    .conditional("subscription-tier-routing", cs -> cs
+        .branch("premium-tier", b -> b
+            .condition(PremiumTierPredicate.class)
+            .step("premium-tier-processing", PremiumTierStep.class)
+            .step("vip-notification", VipNotificationStep.class))
+
+        .branch("standard-tier", b -> b
+            .condition(s -> "STANDARD".equals(s.getTier()) && s.getPriority() >= 5)
+            .step("standard-tier-processing", StandardTierStep.class))
+
+        .branch("enterprise-customer", b -> b
+            .condition(EnterpriseCustomerPredicate.class)
+            .step("enterprise-processing", EnterpriseProcessingStep.class)
+            .step("account-manager-notification", AccountManagerNotificationStep.class))
+
+        .defaultBranch(d -> d
+            .step("basic-processing", BasicProcessingStep.class)
+            .step("standard-notification", StandardNotificationStep.class)))
+
+    .step("finalize", FinalizeSubscriptionActivationStep.class)
+
+    // Error handling
+    .onException(RecoverableException.class, h -> h
+        .matching(e -> e.getCode() == RECOVERABLE_ERROR)
+        .compensateWith(RecoverableCompensation.class))
+    .onAllExceptions(h -> h
+        .compensateWith(GeneralCompensation.class))
+
+    // Async part — anchored to a sync step. Use startBefore for join-point kickoff,
+    // startAfter when the async work depends on the named step completing first.
+    .async(a -> a
+        .startBefore("finalize")             // OR: .startAfter("last-business-step")
+        .step("async-notifications", AsyncNotificationStep.class)
+        .step("external-integrations", ExternalIntegrationStep.class)));
 ```
 
 > **Async semantics.** Exactly one anchor must be specified; the Java DSL mirrors the YAML form (§3.4.2). Use `startBefore(stepId)` to kick off async work at a join point — common when conditional branches converge on a downstream step. Use `startAfter(stepId)` when the async work must observe the results of the named step (e.g., post-action notifications about completed business logic).
@@ -1812,17 +1787,15 @@ For a JSON-friendly POJO context, Transflux ships an optional `JacksonForkableCo
 When an async branch needs a distinctly-shaped context — e.g., a notification subflow that needs only an order id and a customer email — declare a mapper at the `async` call site using the same call-site grammar as nested operations (§4.5.2.1). The mapper is supplied positionally, exactly as for sync members:
 
 ```java
-.async()
+.async(a -> a
     .startAfter("finalize")
-    .step("send-receipt", "notification-from-order")     // by registered mapper id
-.end()
+    .step("send-receipt", "notification-from-order"))    // by registered mapper id
 
 // or with an inline projection at the call site:
-.async()
+.async(a -> a
     .startAfter("finalize")
     .step("send-receipt", parent ->
-        new AsyncNotificationCtx(parent.getOrderId(), parent.getCustomerId()))
-.end()
+        new AsyncNotificationCtx(parent.getOrderId(), parent.getCustomerId())))
 ```
 
 `mapTo` runs once on the enclosing sync thread before the async branch is submitted; the constructed context is what the branch sees. `mapFrom` is **not** supported on async blocks, because async results do not merge back synchronously into the parent context — supplying a full `ContextMapper` with a non-default `mapFrom` on an async call site is rejected at definition time. Surfacing of async outcomes follows the result-handling design in §4.10 rather than the mapper pattern.
@@ -1890,17 +1863,16 @@ public class ValidatePrerequisitesStep
 #### 4.6.2 Step Configuration
 
 ```java
-compositeOperation("complex-operation")
-    .step("validate-prerequisites", ValidatePrerequisitesStep.class)
-        .withCompensation(ValidationCompensation.class)
-        
+compositeOperation("complex-operation", c -> c
+    .step("validate-prerequisites", ValidatePrerequisitesStep.class, s -> s
+        .withCompensation(ValidationCompensation.class))
+
     // Step with custom error handling
-    .step("risky-step", RiskyStep.class)
-        .onException(SpecificException.class)
-            .compensateWith(SpecificCompensation.class)
-        .onException(Exception.class)
-            .compensateWith(GeneralCompensation.class)
-    .end();
+    .step("risky-step", RiskyStep.class, s -> s
+        .onException(SpecificException.class, h -> h
+            .compensateWith(SpecificCompensation.class))
+        .onException(Exception.class, h -> h
+            .compensateWith(GeneralCompensation.class))));
 ```
 
 ### 4.7 Conditions and Validators
