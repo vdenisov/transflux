@@ -8,7 +8,9 @@
 
 package org.transflux.core.transition
 
-import org.transflux.core.StateMachineDefImpl
+import org.transflux.core.impl.*
+
+import org.transflux.core.impl.StateMachineDefImpl
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.state.StateResolver
 import spock.lang.Specification

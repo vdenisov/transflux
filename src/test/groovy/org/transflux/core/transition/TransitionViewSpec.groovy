@@ -18,7 +18,9 @@
 
 package org.transflux.core.transition
 
-import org.transflux.core.StateMachineImpl
+import org.transflux.core.impl.*
+
+import org.transflux.core.impl.StateMachineImpl
 import org.transflux.core.TestContext
 import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException

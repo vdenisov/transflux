@@ -18,12 +18,14 @@
 
 package org.transflux.core.transition
 
+import org.transflux.core.impl.*
+
 import org.transflux.core.StateMachine
-import org.transflux.core.StateMachineDefImpl
+import org.transflux.core.impl.StateMachineDefImpl
 import org.transflux.core.operation.ContextMapper
 import org.transflux.core.operation.Operation
 import org.transflux.core.operation.Step
-import org.transflux.core.operation.StepPath
+import org.transflux.core.impl.StepPath
 import org.transflux.core.state.StateResolver
 import spock.lang.Specification
 

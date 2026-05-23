@@ -18,6 +18,8 @@
 
 package org.transflux.core
 
+import org.transflux.core.impl.*
+
 
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.operation.Operation
@@ -26,7 +28,7 @@ import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import org.transflux.core.transition.TransitionResult
-import org.transflux.core.transition.TransitionView
+import org.transflux.core.impl.TransitionView
 import spock.lang.Specification
 import spock.lang.Unroll
 

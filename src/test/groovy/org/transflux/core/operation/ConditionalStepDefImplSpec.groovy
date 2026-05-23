@@ -18,8 +18,10 @@
 
 package org.transflux.core.operation
 
-import org.transflux.core.StateMachineDefImpl
-import org.transflux.core.StateMachineImpl
+import org.transflux.core.impl.*
+
+import org.transflux.core.impl.StateMachineDefImpl
+import org.transflux.core.impl.StateMachineImpl
 import org.transflux.core.TestContext
 import org.transflux.core.condition.Condition
 import org.transflux.core.condition.ConditionDescriptor

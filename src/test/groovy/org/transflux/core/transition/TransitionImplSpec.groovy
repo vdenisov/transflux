@@ -19,7 +19,9 @@
 
 package org.transflux.core.transition
 
-import org.transflux.core.condition.BoundCondition
+import org.transflux.core.impl.*
+
+import org.transflux.core.impl.BoundCondition
 import org.transflux.core.exception.TransfluxValidationException
 import spock.lang.Specification
 import spock.lang.Unroll

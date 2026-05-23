@@ -18,14 +18,16 @@
 
 package org.transflux.core.operation
 
-import org.transflux.core.RegistryImpl
-import org.transflux.core.StateMachineImpl
+import org.transflux.core.impl.*
+
+import org.transflux.core.impl.RegistryImpl
+import org.transflux.core.impl.StateMachineImpl
 import org.transflux.core.TestContext
 import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
-import org.transflux.core.transition.TransitionView
+import org.transflux.core.impl.TransitionView
 import spock.lang.Specification
 
 import static org.transflux.core.TestStateEnum.ACTIVE

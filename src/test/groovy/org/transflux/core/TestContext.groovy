@@ -18,6 +18,8 @@
 
 package org.transflux.core
 
+import org.transflux.core.impl.*
+
 /**
  * Minimal mutable POJO used as the context type in specs that need a non-null context.
  */

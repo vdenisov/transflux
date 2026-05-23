@@ -18,12 +18,14 @@
 
 package org.transflux.core
 
+import org.transflux.core.impl.*
+
 
 import org.transflux.core.exception.TransfluxValidationException
 import spock.lang.Specification
 
-import static org.transflux.core.ThrowingUtils.sneakyGet
-import static org.transflux.core.ThrowingUtils.sneakyRun
+import static org.transflux.core.impl.ThrowingUtils.sneakyGet
+import static org.transflux.core.impl.ThrowingUtils.sneakyRun
 
 class ThrowingUtilsSpec extends Specification {
 

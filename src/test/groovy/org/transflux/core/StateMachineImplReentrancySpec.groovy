@@ -18,6 +18,8 @@
 
 package org.transflux.core
 
+import org.transflux.core.impl.*
+
 import org.transflux.core.condition.Condition
 import org.transflux.core.exception.TransfluxReentrancyException
 import org.transflux.core.operation.CompositeOperationDef

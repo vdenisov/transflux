@@ -19,7 +19,7 @@
 package org.transflux.core.transition;
 
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.operation.StepPath;
+import org.transflux.core.impl.StepPath;
 
 import java.time.Duration;
 import java.time.Instant;

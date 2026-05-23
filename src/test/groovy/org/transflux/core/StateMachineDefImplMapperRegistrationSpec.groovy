@@ -18,9 +18,11 @@
 
 package org.transflux.core
 
+import org.transflux.core.impl.*
+
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.operation.ContextMapper
-import org.transflux.core.operation.MapperDefImpl
+import org.transflux.core.impl.MapperDefImpl
 import spock.lang.Specification
 
 import java.util.function.Function

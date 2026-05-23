@@ -18,7 +18,9 @@
 
 package org.transflux.core.operation
 
-import org.transflux.core.StateMachineDefImpl
+import org.transflux.core.impl.*
+
+import org.transflux.core.impl.StateMachineDefImpl
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import spock.lang.Specification

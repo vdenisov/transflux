@@ -18,6 +18,8 @@
 
 package org.transflux.core.transition
 
+import org.transflux.core.impl.*
+
 import org.transflux.core.TestContext
 import org.transflux.core.condition.Condition
 import org.transflux.core.condition.ConditionDescriptor

@@ -18,6 +18,8 @@
 
 package org.transflux.core
 
+import org.transflux.core.impl.*
+
 
 import org.transflux.core.exception.TransfluxValidationException
 import spock.lang.Specification

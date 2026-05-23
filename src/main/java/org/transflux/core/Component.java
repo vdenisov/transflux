@@ -18,9 +18,9 @@
 
 package org.transflux.core;
 
-import org.transflux.core.condition.BoundCondition;
-import org.transflux.core.operation.BoundOperation;
-import org.transflux.core.operation.BoundStep;
+import org.transflux.core.impl.BoundCondition;
+import org.transflux.core.impl.BoundOperation;
+import org.transflux.core.impl.BoundStep;
 
 /**
  * Unified runtime view of a reusable, id-keyed building block that lives in a {@link Registry}.

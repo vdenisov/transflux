@@ -19,7 +19,9 @@
 
 package org.transflux.core.state
 
-import org.transflux.core.StateMachineDefImpl
+import org.transflux.core.impl.*
+
+import org.transflux.core.impl.StateMachineDefImpl
 import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
 import spock.lang.Specification

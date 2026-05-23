@@ -18,14 +18,16 @@
 
 package org.transflux.core
 
+import org.transflux.core.impl.*
+
 import org.slf4j.Logger
 import org.transflux.core.exception.TransfluxValidationException
 import spock.lang.Specification
 import spock.lang.Unroll
 
-import static org.transflux.core.ValidationUtils.requireNotBlank
-import static org.transflux.core.ValidationUtils.requireNotNull
-import static org.transflux.core.ValidationUtils.warnIfSet
+import static org.transflux.core.impl.ValidationUtils.requireNotBlank
+import static org.transflux.core.impl.ValidationUtils.requireNotNull
+import static org.transflux.core.impl.ValidationUtils.warnIfSet
 
 class ValidationUtilsSpec extends Specification {
 

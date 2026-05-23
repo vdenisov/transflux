@@ -18,10 +18,12 @@
 
 package org.transflux.core
 
+import org.transflux.core.impl.*
+
 
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.operation.BoundOperation
-import org.transflux.core.operation.BoundStep
+import org.transflux.core.impl.BoundOperation
+import org.transflux.core.impl.BoundStep
 import org.transflux.core.operation.Operation
 import org.transflux.core.operation.Step
 import org.transflux.core.transition.Transition

@@ -18,6 +18,8 @@
 
 package org.transflux.core.condition
 
+import org.transflux.core.impl.*
+
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
 

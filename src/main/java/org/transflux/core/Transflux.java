@@ -19,6 +19,7 @@
 package org.transflux.core;
 
 import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.impl.StateMachineDefImpl;
 
 /**
  * Main entry point and factory class for the Transflux microflow orchestration library.

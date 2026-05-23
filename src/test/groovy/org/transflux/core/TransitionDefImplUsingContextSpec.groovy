@@ -18,10 +18,12 @@
 
 package org.transflux.core
 
+import org.transflux.core.impl.*
+
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.TransitionDef
-import org.transflux.core.transition.TransitionDefImpl
-import org.transflux.core.transition.TransitionImpl
+import org.transflux.core.impl.TransitionDefImpl
+import org.transflux.core.impl.TransitionImpl
 import spock.lang.Specification
 
 class TransitionDefImplUsingContextSpec extends Specification {
