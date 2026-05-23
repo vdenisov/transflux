@@ -142,34 +142,93 @@ public sealed interface ConditionDescriptor
         return new ExpressionBased(id, expression);
     }
 
+    /**
+     * Descriptor variant referencing a condition registered elsewhere on the state machine.
+     *
+     * @param id the registered condition id
+     */
     record Reference(String id) implements ConditionDescriptor {
+        /**
+         * Validates the supplied id.
+         *
+         * @param id the registered condition id
+         */
         public Reference {
             requireNotBlank(id, "Condition reference ID");
         }
     }
 
+    /**
+     * Descriptor variant binding a condition class for reflective instantiation.
+     *
+     * @param id the condition id
+     * @param conditionClass the condition class to instantiate
+     */
     record ClassBased(String id, Class<? extends Condition<?, ?>> conditionClass) implements ConditionDescriptor {
+        /**
+         * Validates the supplied id and class.
+         *
+         * @param id the condition id
+         * @param conditionClass the condition class
+         */
         public ClassBased {
             requireNotBlank(id, "Condition ID");
             requireNotNull(conditionClass, "Condition class");
         }
     }
 
+    /**
+     * Descriptor variant wrapping a pre-built condition instance.
+     *
+     * @param id the condition id
+     * @param condition the condition instance
+     */
     record InstanceBased(String id, Condition<?, ?> condition) implements ConditionDescriptor {
+        /**
+         * Validates the supplied id and condition instance.
+         *
+         * @param id the condition id
+         * @param condition the condition instance
+         */
         public InstanceBased {
             requireNotBlank(id, "Condition ID");
             requireNotNull(condition, "Condition");
         }
     }
 
+    /**
+     * Descriptor variant adapting an entity predicate to a condition.
+     *
+     * @param id the condition id
+     * @param predicate the entity predicate
+     */
     record PredicateBased(String id, Predicate<?> predicate) implements ConditionDescriptor {
+        /**
+         * Validates the supplied id and predicate.
+         *
+         * @param id the condition id
+         * @param predicate the entity predicate
+         */
         public PredicateBased {
             requireNotBlank(id, "Condition ID");
             requireNotNull(predicate, "Predicate");
         }
     }
 
+    /**
+     * Descriptor variant carrying a SpEL expression source. The id may be {@code null}, in
+     * which case it is auto-derived from the expression text and the descriptor's position.
+     *
+     * @param id the explicit condition id, or {@code null} for auto-derivation
+     * @param expression the SpEL expression source
+     */
     record ExpressionBased(String id, String expression) implements ConditionDescriptor {
+        /**
+         * Validates the supplied expression source.
+         *
+         * @param id the explicit condition id, or {@code null} for auto-derivation
+         * @param expression the SpEL expression source
+         */
         public ExpressionBased {
             requireNotBlank(expression, "Expression");
         }

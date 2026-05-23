@@ -399,28 +399,115 @@ public interface TransitionDef<T, C> extends Identifiable {
      */
     TransitionDef<T, C> postCondition(String id, String expression);
 
+    /**
+     * Placeholder for the trigger framework.
+     *
+     * @return this transition def for chaining
+     */
     // TODO: trigger framework
     TransitionDef<T, C> addManualTrigger();
+
+    /**
+     * Placeholder for the trigger framework.
+     *
+     * @param id trigger id
+     *
+     * @return this transition def for chaining
+     */
     // TODO: trigger framework
     TransitionDef<T, C> addManualTrigger(String id);
 
+    /**
+     * Placeholder for the trigger framework.
+     *
+     * @param id trigger id
+     *
+     * @return this transition def for chaining
+     */
     // TODO: trigger framework
     TransitionDef<T, C> addEventTrigger(String id);
+
+    /**
+     * Placeholder for the trigger framework.
+     *
+     * @param id trigger id
+     * @param eventId event id
+     *
+     * @return this transition def for chaining
+     */
     // TODO: trigger framework
     TransitionDef<T, C> addEventTrigger(String id, String eventId);
+
+    /**
+     * Placeholder for the trigger framework.
+     *
+     * @param event event identifier
+     *
+     * @return this transition def for chaining
+     */
     // TODO: trigger framework
     TransitionDef<T, C> addEventTrigger(Identifiable event);
+
+    /**
+     * Placeholder for the trigger framework.
+     *
+     * @param id trigger id
+     * @param event event identifier
+     *
+     * @return this transition def for chaining
+     */
     // TODO: trigger framework
     TransitionDef<T, C> addEventTrigger(String id, Identifiable event);
+
+    /**
+     * Placeholder for the trigger framework.
+     *
+     * @param condition event-id / entity matcher
+     *
+     * @return this transition def for chaining
+     */
     // TODO: trigger framework
     TransitionDef<T, C> addEventTrigger(BiPredicate<String, T> condition);
+
+    /**
+     * Placeholder for the trigger framework.
+     *
+     * @param id trigger id
+     * @param condition event-id / entity matcher
+     *
+     * @return this transition def for chaining
+     */
     // TODO: trigger framework
     TransitionDef<T, C> addEventTrigger(String id, BiPredicate<String, T> condition);
 
+    /**
+     * Placeholder for the trigger framework.
+     *
+     * @param id trigger id
+     *
+     * @return this transition def for chaining
+     */
     // TODO: trigger framework
     TransitionDef<T, C> addDataTrigger(String id);
+
+    /**
+     * Placeholder for the trigger framework.
+     *
+     * @param condition entity matcher
+     *
+     * @return this transition def for chaining
+     */
     // TODO: trigger framework
     TransitionDef<T, C> addDataTrigger(Predicate<T> condition);
+
+    /**
+     * Placeholder for the trigger framework.
+     *
+     * @param id trigger id
+     * @param condition entity matcher
+     *
+     * @return this transition def for chaining
+     */
     // TODO: trigger framework
     TransitionDef<T, C> addDataTrigger(String id, Predicate<T> condition);
 }

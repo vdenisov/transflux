@@ -34,10 +34,17 @@ import org.transflux.core.StateMachine;
  */
 public class TransfluxReentrancyException extends TransfluxException {
 
+    /**
+     * @param message the detail message
+     */
     public TransfluxReentrancyException(String message) {
         super(message);
     }
 
+    /**
+     * @param message the detail message
+     * @param cause the underlying cause
+     */
     public TransfluxReentrancyException(String message, Throwable cause) {
         super(message, cause);
     }

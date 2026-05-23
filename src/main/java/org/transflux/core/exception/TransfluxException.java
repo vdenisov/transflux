@@ -35,10 +35,17 @@ package org.transflux.core.exception;
  */
 public class TransfluxException extends RuntimeException {
 
+    /**
+     * @param message the detail message
+     */
     public TransfluxException(String message) {
         super(message);
     }
 
+    /**
+     * @param message the detail message
+     * @param cause the underlying cause
+     */
     public TransfluxException(String message, Throwable cause) {
         super(message, cause);
     }

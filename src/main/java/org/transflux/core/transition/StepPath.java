@@ -45,6 +45,11 @@ import static org.transflux.core.Preconditions.requireNotNull;
  */
 public record StepPath(List<String> segments) {
 
+    /**
+     * Validates the segment list and stores an unmodifiable copy.
+     *
+     * @param segments the ordered path segments
+     */
     public StepPath {
         requireNotNull(segments, "Step path segments");
 

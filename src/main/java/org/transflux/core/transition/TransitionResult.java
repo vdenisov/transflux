@@ -96,6 +96,14 @@ public class TransitionResult<T> {
     /**
      * Creates a successful transition result with default timing (both timestamps set to now)
      * and empty step lists.
+     *
+     * @param entity the entity that transitioned
+     * @param sourceStateId the state the entity left
+     * @param targetStateId the state the entity reached
+     * @param transitionId the id of the transition that fired
+     * @param <T> the entity type
+     *
+     * @return a successful result
      */
     public static <T> TransitionResult<T> success(T entity, String sourceStateId,
                                                   String targetStateId, String transitionId) {
@@ -105,6 +113,16 @@ public class TransitionResult<T> {
 
     /**
      * Creates a successful transition result with explicit timestamps and empty step lists.
+     *
+     * @param entity the entity that transitioned
+     * @param sourceStateId the state the entity left
+     * @param targetStateId the state the entity reached
+     * @param transitionId the id of the transition that fired
+     * @param startedAt when execution began
+     * @param completedAt when execution finished
+     * @param <T> the entity type
+     *
+     * @return a successful result
      */
     public static <T> TransitionResult<T> success(T entity, String sourceStateId,
                                                   String targetStateId, String transitionId,
@@ -115,6 +133,17 @@ public class TransitionResult<T> {
 
     /**
      * Creates a successful transition result with full execution metadata.
+     *
+     * @param entity the entity that transitioned
+     * @param sourceStateId the state the entity left
+     * @param targetStateId the state the entity reached
+     * @param transitionId the id of the transition that fired
+     * @param executedStepIds ordered paths of steps that ran
+     * @param startedAt when execution began
+     * @param completedAt when execution finished
+     * @param <T> the entity type
+     *
+     * @return a successful result
      */
     public static <T> TransitionResult<T> success(T entity, String sourceStateId,
                                                   String targetStateId, String transitionId,
@@ -126,6 +155,15 @@ public class TransitionResult<T> {
 
     /**
      * Creates a failed transition result with default timing and empty step lists.
+     *
+     * @param entity the entity that attempted to transition
+     * @param sourceStateId the state the entity was in
+     * @param targetStateId the state that was targeted
+     * @param transitionId the id of the transition that fired
+     * @param error the failure cause
+     * @param <T> the entity type
+     *
+     * @return a failed result
      */
     public static <T> TransitionResult<T> failure(T entity, String sourceStateId,
                                                   String targetStateId, String transitionId,
@@ -136,6 +174,17 @@ public class TransitionResult<T> {
 
     /**
      * Creates a failed transition result with explicit timestamps and empty step lists.
+     *
+     * @param entity the entity that attempted to transition
+     * @param sourceStateId the state the entity was in
+     * @param targetStateId the state that was targeted
+     * @param transitionId the id of the transition that fired
+     * @param error the failure cause
+     * @param startedAt when execution began
+     * @param completedAt when execution finished
+     * @param <T> the entity type
+     *
+     * @return a failed result
      */
     public static <T> TransitionResult<T> failure(T entity, String sourceStateId,
                                                   String targetStateId, String transitionId,
@@ -148,6 +197,19 @@ public class TransitionResult<T> {
     /**
      * Creates a failed transition result with full execution metadata, including
      * the steps that ran and the compensations that were executed during rollback.
+     *
+     * @param entity the entity that attempted to transition
+     * @param sourceStateId the state the entity was in
+     * @param targetStateId the state that was targeted
+     * @param transitionId the id of the transition that fired
+     * @param error the failure cause
+     * @param executedStepIds ordered paths of steps that ran before the failure
+     * @param compensatedStepIds ordered paths of compensations that ran during rollback
+     * @param startedAt when execution began
+     * @param completedAt when execution finished
+     * @param <T> the entity type
+     *
+     * @return a failed result
      */
     public static <T> TransitionResult<T> failure(T entity, String sourceStateId,
                                                   String targetStateId, String transitionId,
@@ -159,30 +221,51 @@ public class TransitionResult<T> {
                 error, executedStepIds, compensatedStepIds, startedAt, completedAt);
     }
 
+    /**
+     * @return {@code true} if the transition completed successfully
+     */
     public boolean isSuccess() {
         return success;
     }
 
+    /**
+     * @return {@code true} if the transition failed
+     */
     public boolean isFailure() {
         return !success;
     }
 
+    /**
+     * @return the entity passed into the transition
+     */
     public T getEntity() {
         return entity;
     }
 
+    /**
+     * @return the source state id, or {@code null} if not recorded
+     */
     public String getSourceStateId() {
         return sourceStateId;
     }
 
+    /**
+     * @return the target state id
+     */
     public String getTargetStateId() {
         return targetStateId;
     }
 
+    /**
+     * @return the id of the transition that fired
+     */
     public String getTransitionId() {
         return transitionId;
     }
 
+    /**
+     * @return the failure cause on a failed result, or {@code null} on success
+     */
     public Throwable getError() {
         return error;
     }
@@ -217,10 +300,16 @@ public class TransitionResult<T> {
         return compensatedStepIds;
     }
 
+    /**
+     * @return when transition execution began
+     */
     public Instant getStartedAt() {
         return startedAt;
     }
 
+    /**
+     * @return when transition execution finished
+     */
     public Instant getCompletedAt() {
         return completedAt;
     }

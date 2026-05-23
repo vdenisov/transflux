@@ -84,6 +84,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private final Map<String, TransitionDefImpl<T, ?>> transitionsById = new LinkedHashMap<>();
     private final Map<String, Map<String, List<TransitionDefImpl<T, ?>>>> transitionsBySourceTarget = new LinkedHashMap<>();
 
+    /** Creates an empty definition. */
     public StateMachineDefImpl() {
     }
 
@@ -1005,26 +1006,32 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         visited.add(id);
     }
 
+    /** @return the bound entity class */
     public Class<T> getEntityType() {
         return entityType;
     }
 
+    /** @return the state machine name, or {@code null} if unset */
     public String getName() {
         return name;
     }
 
+    /** @return the state machine description, or {@code null} if unset */
     public String getDescription() {
         return description;
     }
 
+    /** @return the state machine version, or {@code null} if unset */
     public String getVersion() {
         return version;
     }
 
+    /** @return the state resolver, or {@code null} if unset */
     public StateResolver<T> getStateResolver() {
         return stateResolver;
     }
 
+    /** @return the state applier, or {@code null} if unset */
     public StateApplier<T> getStateApplier() {
         return stateApplier;
     }

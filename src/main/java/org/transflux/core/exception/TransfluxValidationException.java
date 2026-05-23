@@ -33,10 +33,17 @@ import org.transflux.core.transition.TransitionResult;
  * failures throw this type.
  */
 public class TransfluxValidationException extends TransfluxException {
+    /**
+     * @param message the detail message
+     */
     public TransfluxValidationException(String message) {
         super(message);
     }
 
+    /**
+     * @param message the detail message
+     * @param cause the underlying cause
+     */
     public TransfluxValidationException(String message, Throwable cause) {
         super(message, cause);
     }

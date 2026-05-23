@@ -52,6 +52,13 @@ import java.util.function.Predicate;
  */
 public interface StateMachineDef<T> {
 
+    /**
+     * Binds the entity type this state machine operates on.
+     *
+     * @param entityType the entity class; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
     StateMachineDef<T> forEntityType(Class<T> entityType);
 
     /**
@@ -75,14 +82,50 @@ public interface StateMachineDef<T> {
      */
     <C> StateMachineDef<T> forContext(Class<C> contextType, Consumer<ContextScope<T, C>> configurer);
 
+    /**
+     * Sets the optional state machine name. Used for diagnostics only.
+     *
+     * @param name human-readable name
+     *
+     * @return this state machine def for chaining
+     */
     StateMachineDef<T> withName(String name);
 
+    /**
+     * Sets the optional state machine description. Used for diagnostics only.
+     *
+     * @param description human-readable description
+     *
+     * @return this state machine def for chaining
+     */
     StateMachineDef<T> withDescription(String description);
 
+    /**
+     * Sets the optional state machine version. Used for diagnostics only.
+     *
+     * @param version version string
+     *
+     * @return this state machine def for chaining
+     */
     StateMachineDef<T> withVersion(String version);
 
+    /**
+     * Sets the {@link StateResolver} used to read the current state from an entity.
+     *
+     * @param stateResolver the resolver; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
     StateMachineDef<T> withStateResolver(StateResolver<T> stateResolver);
 
+    /**
+     * Sets the optional {@link StateApplier} used to write the new state to an entity after
+     * a successful transition.
+     *
+     * @param stateApplier the applier, or {@code null} to leave state-write to the host
+     *
+     * @return this state machine def for chaining
+     */
     StateMachineDef<T> withStateApplier(StateApplier<T> stateApplier);
 
     /**
@@ -142,46 +185,94 @@ public interface StateMachineDef<T> {
     /**
      * Registers a condition instance against this state machine under the given id, without
      * a declared context type.
+     *
+     * @param id the condition id
+     * @param condition the condition instance; never {@code null}
+     *
+     * @return this state machine def for chaining
      */
     StateMachineDef<T> condition(String id, Condition<T, ?> condition);
 
     /**
      * Registers a condition class against this state machine under the given id, without
      * a declared context type.
+     *
+     * @param id the condition id
+     * @param conditionClass the condition class; never {@code null}
+     *
+     * @return this state machine def for chaining
      */
     StateMachineDef<T> condition(String id, Class<? extends Condition<T, ?>> conditionClass);
 
     /**
      * Registers an entity-only predicate as a condition under the given id.
+     *
+     * @param id the condition id
+     * @param predicate the entity predicate; never {@code null}
+     *
+     * @return this state machine def for chaining
      */
     StateMachineDef<T> condition(String id, Predicate<T> predicate);
 
     /**
      * Registers a SpEL expression as a condition under the given id.
+     *
+     * @param id the condition id
+     * @param spelExpression the SpEL expression source; never {@code null}/blank
+     *
+     * @return this state machine def for chaining
      */
     StateMachineDef<T> condition(String id, String spelExpression);
 
     /**
      * Registers a condition instance against this state machine under the given id, tagged
      * with the supplied context class.
+     *
+     * @param id the condition id
+     * @param contextType the condition's declared context class; never {@code null}
+     * @param condition the condition instance; never {@code null}
+     * @param <C> the context class
+     *
+     * @return this state machine def for chaining
      */
     <C> StateMachineDef<T> condition(String id, Class<C> contextType, Condition<T, C> condition);
 
     /**
      * Registers a condition class against this state machine under the given id, tagged
      * with the supplied context class.
+     *
+     * @param id the condition id
+     * @param contextType the condition's declared context class; never {@code null}
+     * @param conditionClass the condition class; never {@code null}
+     * @param <C> the context class
+     *
+     * @return this state machine def for chaining
      */
     <C> StateMachineDef<T> condition(String id, Class<C> contextType, Class<? extends Condition<T, C>> conditionClass);
 
     /**
      * Registers an entity-only predicate as a condition under the given id, tagged with
      * the supplied context class.
+     *
+     * @param id the condition id
+     * @param contextType the condition's declared context class; never {@code null}
+     * @param predicate the entity predicate; never {@code null}
+     * @param <C> the context class
+     *
+     * @return this state machine def for chaining
      */
     <C> StateMachineDef<T> conditionPredicate(String id, Class<C> contextType, Predicate<T> predicate);
 
     /**
      * Registers a SpEL expression as a condition under the given id, tagged with the
      * supplied context class.
+     *
+     * @param id the condition id
+     * @param contextType the condition's declared context class; never {@code null}
+     * @param spelExpression the SpEL expression source; never {@code null}/blank
+     * @param <C> the context class
+     *
+     * @return this state machine def for chaining
      */
     <C> StateMachineDef<T> conditionExpression(String id, Class<C> contextType, String spelExpression);
 
@@ -189,6 +280,13 @@ public interface StateMachineDef<T> {
      * Registers a composite operation against this state machine under the given id, tagged
      * with the supplied context class. The configurer is invoked synchronously against a
      * freshly-constructed composite def.
+     *
+     * @param id the operation id
+     * @param contextType the composite's declared context class; never {@code null}
+     * @param configurer callback that declares the composite's members; never {@code null}
+     * @param <C> the composite's context type
+     *
+     * @return this state machine def for chaining
      */
     <C> StateMachineDef<T> compositeOperation(String id, Class<C> contextType, Consumer<CompositeOperationDef<T, C>> configurer);
 
@@ -306,9 +404,31 @@ public interface StateMachineDef<T> {
      */
     StateMachineDef<T> state(Identifiable stateIdentifiable, Consumer<StateDef<T>> configurer);
 
+    /**
+     * Finalizes the definition and builds the runtime state machine.
+     *
+     * @return the built {@link StateMachine}
+     *
+     * @throws TransfluxValidationException if the definition is incomplete or inconsistent
+     */
     StateMachine<T> build();
 
+    /**
+     * Looks up a transition by source/target state ids.
+     *
+     * @param sourceStateId the source state id
+     * @param targetStateId the target state id
+     *
+     * @return the matching transition def, or {@code null} if none exists
+     */
     TransitionDef<T, ?> getTransition(String sourceStateId, String targetStateId);
 
+    /**
+     * Looks up a transition by its id.
+     *
+     * @param transitionId the transition id
+     *
+     * @return the matching transition def, or {@code null} if none exists
+     */
     TransitionDef<T, ?> getTransition(String transitionId);
 }

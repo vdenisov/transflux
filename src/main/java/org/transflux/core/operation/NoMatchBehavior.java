@@ -35,7 +35,10 @@ package org.transflux.core.operation;
  * to {@code SILENT}.
  */
 public enum NoMatchBehavior {
+    /** Log a warning and skip the conditional step; the enclosing transition continues. */
     WARN,
+    /** Skip the conditional step without logging; appropriate for guard-style conditionals. */
     SILENT,
+    /** Fail the conditional step and unwind the enclosing transition. */
     ERROR
 }
