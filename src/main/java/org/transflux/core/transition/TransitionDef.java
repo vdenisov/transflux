@@ -259,6 +259,40 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> compositeOperation(Identifiable operationIdentifiable, Consumer<CompositeOperationDef<T, C>> configurer);
 
     /**
+     * Attaches an operation already registered on the enclosing state machine through
+     * {@link org.transflux.core.StateMachineDef#operation(String, Class, Operation) StateMachineDef.operation(...)}
+     * (or its class / configurer / composite variants). The registered operation's id appears
+     * verbatim in {@link TransitionResult#getExecutedPath()} when the transition fires; no
+     * wrapper composite is synthesized.
+     *
+     * <p>The registered operation's declared context type must be assignable from this
+     * transition's context type — the same pass-through compatibility rule that applies to
+     * by-id references inside composites. {@code Object.class}-typed registered operations are
+     * always reachable.
+     *
+     * @param registeredOperationId the registered operation id; never {@code null} or blank
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code registeredOperationId} is {@code null} or
+     *         blank, or if at build time no operation is registered under this id, or the
+     *         registered operation's context type is incompatible with this transition's
+     */
+    TransitionDef<T, C> operation(String registeredOperationId);
+
+    /**
+     * {@link Identifiable} overload of {@link #operation(String)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param registeredOperation an identifiable supplying the operation id
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code registeredOperation} is {@code null}
+     */
+    TransitionDef<T, C> operation(Identifiable registeredOperation);
+
+    /**
      * Appends a pre-condition that references a condition already registered on the enclosing
      * state machine through {@link org.transflux.core.StateMachineDef#condition StateMachineDef.condition(...)}.
      *

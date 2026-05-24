@@ -620,6 +620,98 @@ class StateMachineImplSpec extends Specification {
         context.tag == 'e1:stamped'
     }
 
+    def "transitionTo with a by-id SM-level operation reference records the registered id verbatim"() {
+        given:
+        def appliedState = [:] as Map<TestEntity, String>
+        def captured = []
+        def smOp = { TestEntity entity, TestContext ctx, Transition<TestEntity, TestContext> tx ->
+            captured << entity.id
+            ctx.tag = 'sm-op-ran'
+        } as Operation<TestEntity, TestContext>
+
+        def smd = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .withStateApplier({ entity, target -> appliedState[entity] = target } as StateApplier<TestEntity>)
+            .operation('sm-level-activate', TestContext, smOp)
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', TestContext, { t -> t.operation('sm-level-activate') }) })
+        smd.state(ACTIVE, {})
+
+        def sm = smd.build()
+        def entity = new TestEntity('e1', 'TRIAL')
+        def context = new TestContext()
+
+        when:
+        def result = sm.entity(entity).transitionTo('ACTIVE', context)
+
+        then:
+        result.success
+        // Registered op id appears verbatim — no wrapper composite, no synthesized id.
+        result.executedPath*.toString() == ['sm-level-activate']
+        captured == ['e1']
+        context.tag == 'sm-op-ran'
+        appliedState[entity] == 'ACTIVE'
+    }
+
+    def "by-id operation reference rejects an unknown id at build time"() {
+        given:
+        def smd = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.operation('nonexistent') }) })
+        smd.state(ACTIVE, {})
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("'trial-to-active'")
+        e.message.contains("'nonexistent'")
+        e.message.toLowerCase().contains('unknown operation')
+    }
+
+    def "by-id operation reference rejects a kind mismatch (id is a step, not an operation)"() {
+        given:
+        def smd = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .step('actually-a-step', new ContextStampStep())
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.operation('actually-a-step') }) })
+        smd.state(ACTIVE, {})
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("'actually-a-step'")
+        e.message.toLowerCase().contains('not an operation')
+    }
+
+    def "by-id operation reference rejects context-type incompatibility"() {
+        given:
+        // IdCtx and TestContext are unrelated types; an IdCtx-typed op cannot be attached to a
+        // TestContext-typed transition (the SM-level op's required context is not assignable
+        // from the transition's context).
+        def narrowOp = { TestEntity e, IdCtx b, Transition<TestEntity, IdCtx> tx -> } as Operation<TestEntity, IdCtx>
+        def smd = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .operation('narrow-op', IdCtx, narrowOp)
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', TestContext, { t -> t.operation('narrow-op') }) })
+        smd.state(ACTIVE, {})
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("'trial-to-active'")
+        e.message.contains("'narrow-op'")
+        e.message.toLowerCase().contains('not assignable')
+    }
+
     def "transitionTo without an attached operation should still apply state and return empty executedPath"() {
         given:
         def appliedState = [:] as Map<TestEntity, String>

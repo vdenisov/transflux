@@ -318,7 +318,90 @@ class TransitionDefImplSpec extends Specification {
         e.message.toLowerCase().contains('identifiable')
 
         where:
-        method << ['preCondition', 'postCondition']
+        method << ['preCondition', 'postCondition', 'operation']
+    }
+
+    def 'operation(String) stores the registered op id and clears any prior operationDef'() {
+        given:
+        def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
+        td.beginConfigurer()
+
+        when:
+        td.operation('my-registered-op')
+
+        then:
+        td.registeredOperationRefId == 'my-registered-op'
+        td.operationDef == null
+    }
+
+    def 'operation(Identifiable) delegates to operation(String)'() {
+        given:
+        def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
+        td.beginConfigurer()
+
+        when:
+        td.operation(identifiable('my-registered-op'))
+
+        then:
+        td.registeredOperationRefId == 'my-registered-op'
+    }
+
+    def 'operation(null) and operation(blank) are rejected'() {
+        given:
+        def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
+        td.beginConfigurer()
+
+        when:
+        td.operation(id as String)
+
+        then:
+        thrown(TransfluxValidationException)
+
+        where:
+        id << [null, '', '  ']
+    }
+
+    def 'operation(...) followed by simpleOperation(...) overrides with a warning'() {
+        given:
+        def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
+        td.beginConfigurer()
+
+        when:
+        td.operation('first')
+        td.simpleOperation('second', new IdOverloadOp())
+
+        then:
+        td.registeredOperationRefId == null
+        td.operationDef != null
+        td.operationDef.id == 'second'
+    }
+
+    def 'simpleOperation(...) followed by operation(...) overrides with a warning'() {
+        given:
+        def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
+        td.beginConfigurer()
+
+        when:
+        td.simpleOperation('first', new IdOverloadOp())
+        td.operation('second')
+
+        then:
+        td.operationDef == null
+        td.registeredOperationRefId == 'second'
+    }
+
+    def 'operation(...) is rejected after the configurer returns (scope guard)'() {
+        given:
+        def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
+        td.beginConfigurer()
+        td.endConfigurer()
+
+        when:
+        td.operation('after-the-fact')
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("'t1'")
     }
 
     @Unroll

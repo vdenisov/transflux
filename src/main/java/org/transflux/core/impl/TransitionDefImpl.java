@@ -64,6 +64,7 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     private final String targetStateId;
 
     private OperationDefImpl<T, C> operationDef;
+    private String registeredOperationRefId;
     private Class<C> contextType;
 
     private String name;
@@ -183,7 +184,33 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
      *
      * @return the bound operation, or {@code null}
      */
+    @SuppressWarnings({"unchecked"})
     BoundOperation<T, C> buildBoundOperation(StateMachineImpl<T> stateMachine) {
+        if (registeredOperationRefId != null) {
+            Component<T> component = stateMachine.getComponentRegistry()
+                .resolve(registeredOperationRefId).orElse(null);
+            if (component == null) {
+                throw new TransfluxValidationException(
+                    "Transition '" + this.id + "' references unknown operation id '"
+                        + registeredOperationRefId + "'");
+            }
+            if (!(component instanceof Component.Operation<T, ?> opComp)) {
+                throw new TransfluxValidationException(
+                    "Transition '" + this.id + "' references id '" + registeredOperationRefId
+                        + "' which is registered as a "
+                        + component.getClass().getSimpleName().toLowerCase()
+                        + ", not an operation");
+            }
+            Class<?> opCtx = stateMachine.getDef().getComponentContextType(registeredOperationRefId);
+            Class<?> txCtx = this.contextType != null ? this.contextType : Object.class;
+            if (opCtx != null && opCtx != Object.class && !opCtx.isAssignableFrom(txCtx)) {
+                throw new TransfluxValidationException(
+                    "Transition '" + this.id + "' (context " + txCtx.getName()
+                        + ") cannot attach SM-level operation '" + registeredOperationRefId
+                        + "' (context " + opCtx.getName() + "): context types are not assignable");
+            }
+            return (BoundOperation<T, C>) opComp.bound();
+        }
         if (operationDef == null) {
             return null;
         }
@@ -316,6 +343,24 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     public TransitionDef<T, C> compositeOperation(Identifiable operationIdentifiable, Consumer<CompositeOperationDef<T, C>> configurer) {
         requireNotNull(operationIdentifiable, "Operation identifiable");
         return compositeOperation(operationIdentifiable.getId(), configurer);
+    }
+
+    @Override
+    public TransitionDef<T, C> operation(String registeredOperationId) {
+        requireConfigurerActive("operation");
+        requireNotBlank(registeredOperationId, "Operation reference ID");
+        if (this.operationDef != null || this.registeredOperationRefId != null) {
+            log.warn("Operation is already defined for transition '{}'; overriding previous value", this.id);
+        }
+        this.operationDef = null;
+        this.registeredOperationRefId = registeredOperationId;
+        return this;
+    }
+
+    @Override
+    public TransitionDef<T, C> operation(Identifiable registeredOperation) {
+        requireNotNull(registeredOperation, "Operation identifiable");
+        return operation(registeredOperation.getId());
     }
 
     @Override
@@ -650,9 +695,10 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     }
 
     private void attachOperation(OperationDefImpl<T, C> def) {
-        if (this.operationDef != null) {
+        if (this.operationDef != null || this.registeredOperationRefId != null) {
             log.warn("Operation is already defined for transition '{}'; overriding previous value", this.id);
         }
+        this.registeredOperationRefId = null;
         this.operationDef = def;
     }
 

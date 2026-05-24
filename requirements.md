@@ -1223,8 +1223,10 @@ triggers:
   - id: pending-and-expedited
     type: data
     condition:
-      # Expedite if pending and the request is marked as expedited in context
-      expression: "entity.status == 'PENDING' && (context?.expedited ?: false)"
+      # Expedite if pending and the request is marked as expedited in context.
+      # SpEL binding: entity is the evaluation root (bare property access),
+      # context is bound as the named variable #context.
+      expression: "entity.status == 'PENDING' && (#context?.expedited ?: false)"
 ```
 
 ---
