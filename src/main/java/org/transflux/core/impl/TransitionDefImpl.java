@@ -56,10 +56,9 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <T> the entity type managed by the enclosing state machine
  * @param <C> the host-supplied context type carried through transition execution
  */
-class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
+class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>> implements TransitionDef<T, C> {
     private static final Logger log = LoggerFactory.getLogger(TransitionDefImpl.class);
 
-    private final String id;
     private final String sourceStateId;
     private final String targetStateId;
 
@@ -67,13 +66,8 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     private String registeredOperationRefId;
     private Class<C> contextType;
 
-    private String name;
-    private String description;
-
     private final List<ConditionDescriptor> preConditions = new ArrayList<>();
     private final List<ConditionDescriptor> postConditions = new ArrayList<>();
-
-    private boolean configurerActive;
 
     /**
      * Constructs a new TransitionDefImpl with the specified parameters.
@@ -93,12 +87,11 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     }
 
     TransitionDefImpl(String id, String sourceStateId, String targetStateId, Class<C> contextType) {
-        requireNotBlank(id, "Transition ID");
+        super(id, "transition", "Transition ID");
         requireNotBlank(sourceStateId, "Source state ID");
         requireNotBlank(targetStateId, "Target state ID");
         requireNotNull(contextType, "Transition context type");
 
-        this.id = id;
         this.sourceStateId = sourceStateId;
         this.targetStateId = targetStateId;
         this.contextType = contextType;
@@ -116,43 +109,10 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
         requireNotNull(contextType, "Transition context type");
         if (this.contextType != null && this.contextType != Object.class && this.contextType != contextType) {
             log.warn("Transition '{}' context type already declared as {}; overriding with {}",
-                this.id, this.contextType.getName(), contextType.getName());
+                getId(), this.contextType.getName(), contextType.getName());
         }
         this.contextType = (Class<C>) contextType;
         return (TransitionDef<T, C2>) this;
-    }
-
-    /**
-     * Marks this def as actively under construction by its configurer lambda. Package-private
-     * — the enclosing {@code StateDefImpl} flips this around the configurer invocation.
-     */
-    void beginConfigurer() {
-        this.configurerActive = true;
-    }
-
-    /**
-     * Clears the configurer-active flag once the lambda returns.
-     */
-    void endConfigurer() {
-        this.configurerActive = false;
-    }
-
-    private void requireConfigurerActive(String operation) {
-        if (!configurerActive) {
-            throw new TransfluxValidationException(
-                "Cannot call '" + operation + "' on transition '" + id + "' after its configurer has returned. "
-                    + "The TransitionDef reference is inert; declare children inside the configurer lambda.");
-        }
-    }
-
-    /**
-     * Returns the unique identifier of this transition.
-     *
-     * @return the transition ID
-     */
-    @Override
-    public String getId() {
-        return id;
     }
 
     /**
@@ -191,12 +151,12 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
                 .resolve(registeredOperationRefId).orElse(null);
             if (component == null) {
                 throw new TransfluxValidationException(
-                    "Transition '" + this.id + "' references unknown operation id '"
+                    "Transition '" + getId() + "' references unknown operation id '"
                         + registeredOperationRefId + "'");
             }
             if (!(component instanceof Component.Operation<T, ?> opComp)) {
                 throw new TransfluxValidationException(
-                    "Transition '" + this.id + "' references id '" + registeredOperationRefId
+                    "Transition '" + getId() + "' references id '" + registeredOperationRefId
                         + "' which is registered as a "
                         + component.getClass().getSimpleName().toLowerCase()
                         + ", not an operation");
@@ -205,7 +165,7 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
             Class<?> txCtx = this.contextType != null ? this.contextType : Object.class;
             if (opCtx != null && opCtx != Object.class && !opCtx.isAssignableFrom(txCtx)) {
                 throw new TransfluxValidationException(
-                    "Transition '" + this.id + "' (context " + txCtx.getName()
+                    "Transition '" + getId() + "' (context " + txCtx.getName()
                         + ") cannot attach SM-level operation '" + registeredOperationRefId
                         + "' (context " + opCtx.getName() + "): context types are not assignable");
             }
@@ -277,7 +237,7 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     @Override
     public String toString() {
         return "TransitionDefImpl{" +
-            "id='" + id + '\'' +
+            "id='" + getId() + '\'' +
             ", sourceStateId='" + sourceStateId + '\'' +
             ", targetStateId='" + targetStateId + '\'' +
             '}';
@@ -350,7 +310,7 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
         requireConfigurerActive("operation");
         requireNotBlank(registeredOperationId, "Operation reference ID");
         if (this.operationDef != null || this.registeredOperationRefId != null) {
-            log.warn("Operation is already defined for transition '{}'; overriding previous value", this.id);
+            log.warn("Operation is already defined for transition '{}'; overriding previous value", getId());
         }
         this.operationDef = null;
         this.registeredOperationRefId = registeredOperationId;
@@ -361,36 +321,6 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     public TransitionDef<T, C> operation(Identifiable registeredOperation) {
         requireNotNull(registeredOperation, "Operation identifiable");
         return operation(registeredOperation.getId());
-    }
-
-    @Override
-    public TransitionDef<T, C> withName(String name) {
-        requireConfigurerActive("withName");
-        if (this.name != null) {
-            log.warn("Name is already defined for transition '{}': {}. Overriding previous value with {}",
-                this.id, this.name, name);
-        }
-        this.name = name;
-        return this;
-    }
-
-    @Override
-    public TransitionDef<T, C> withDescription(String description) {
-        requireConfigurerActive("withDescription");
-        if (this.description != null) {
-            log.warn("Description is already defined for transition '{}': {}. Overriding previous value with {}",
-                this.id, this.description, description);
-        }
-        this.description = description;
-        return this;
-    }
-
-    String getName() {
-        return name;
-    }
-
-    String getDescription() {
-        return description;
     }
 
     @Override
@@ -696,7 +626,7 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
 
     private void attachOperation(OperationDefImpl<T, C> def) {
         if (this.operationDef != null || this.registeredOperationRefId != null) {
-            log.warn("Operation is already defined for transition '{}'; overriding previous value", this.id);
+            log.warn("Operation is already defined for transition '{}'; overriding previous value", getId());
         }
         this.registeredOperationRefId = null;
         this.operationDef = def;
@@ -711,7 +641,7 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
         }
         List<BoundCondition<T, C>> bound = new ArrayList<>(descriptors.size());
         for (int i = 0; i < descriptors.size(); i++) {
-            String path = "transition:" + id + ":" + slot + "[" + i + "]";
+            String path = "transition:" + getId() + ":" + slot + "[" + i + "]";
             bound.add(ConditionResolver.resolve(descriptors.get(i), registry, path));
         }
         return Collections.unmodifiableList(bound);

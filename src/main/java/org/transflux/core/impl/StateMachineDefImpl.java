@@ -1037,12 +1037,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotBlank(stateId, "State ID");
         requireNotNull(configurer, "State configurer");
         StateDefImpl<T> stateDef = registerState(stateId);
-        stateDef.beginConfigurer();
-        try {
-            configurer.accept(stateDef);
-        } finally {
-            stateDef.endConfigurer();
-        }
+        ConfigurableDefImpl.runConfigurer(stateDef, configurer);
         return this;
     }
 

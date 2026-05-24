@@ -18,10 +18,7 @@
 
 package org.transflux.core.impl;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.transflux.core.Identifiable;
-import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.state.StateDef;
 import org.transflux.core.transition.TransitionDef;
 
@@ -29,55 +26,28 @@ import java.util.function.Consumer;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
-import static org.transflux.core.impl.ValidationUtils.warnIfSet;
 
 /**
  * Builder implementation class for defining states within a state machine definition.
  *
  * @param <T> the type of entity managed by the state machine
  */
-class StateDefImpl<T> implements StateDef<T> {
-    private static final Logger log = LoggerFactory.getLogger(StateDefImpl.class);
-
-    private final String id;
-    private String name;
-    private String description;
+class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements StateDef<T> {
 
     private final StateMachineDefImpl<T> stateMachineDef;
 
-    private boolean configurerActive;
-
     StateDefImpl(StateMachineDefImpl<T> smd, String id) {
+        super(id, "state", "State ID");
         requireNotNull(smd, "State machine definition");
-        requireNotBlank(id, "State ID");
 
         this.stateMachineDef = smd;
-        this.id = id;
     }
 
     StateDefImpl(StateMachineDefImpl<T> smd, Identifiable identifiable) {
+        super(requireNotNullThenGetId(identifiable), "state", "State ID");
         requireNotNull(smd, "State machine definition");
-        requireNotNull(identifiable, "Identifiable for state ID");
-        requireNotBlank(identifiable.getId(), "State ID");
 
         this.stateMachineDef = smd;
-        this.id = identifiable.getId();
-    }
-
-    @Override
-    public StateDefImpl<T> withName(String name) {
-        requireConfigurerActive("withName");
-        warnIfSet(this.name, name, "Name", log);
-        this.name = name;
-        return this;
-    }
-
-    @Override
-    public StateDefImpl<T> withDescription(String description) {
-        requireConfigurerActive("withDescription");
-        warnIfSet(this.description, description, "Description", log);
-        this.description = description;
-        return this;
     }
 
     @Override
@@ -88,8 +58,8 @@ class StateDefImpl<T> implements StateDef<T> {
         requireNotBlank(transitionId, "Transition ID");
         requireNotNull(configurer, "Transition configurer");
         TransitionDefImpl<T, Object> td = stateMachineDef.<Object>registerTransition(
-            id, targetStateId, transitionId, Object.class);
-        runTransitionConfigurer(td, configurer);
+            getId(), targetStateId, transitionId, Object.class);
+        ConfigurableDefImpl.runConfigurer(td, configurer);
         return this;
     }
 
@@ -103,8 +73,8 @@ class StateDefImpl<T> implements StateDef<T> {
         requireNotNull(contextType, "Context type");
         requireNotNull(configurer, "Transition configurer");
         TransitionDefImpl<T, C> td = stateMachineDef.registerTransition(
-            id, targetStateId, transitionId, contextType);
-        runTransitionConfigurer(td, configurer);
+            getId(), targetStateId, transitionId, contextType);
+        ConfigurableDefImpl.runConfigurer(td, configurer);
         return this;
     }
 
@@ -155,59 +125,17 @@ class StateDefImpl<T> implements StateDef<T> {
         return transitionsTo(targetStateIdentifiable.getId(), transitionIdentifiable.getId(), contextType, configurer);
     }
 
-    private static <T, C> void runTransitionConfigurer(TransitionDefImpl<T, C> td,
-                                                       Consumer<TransitionDef<T, C>> configurer) {
-        td.beginConfigurer();
-        try {
-            configurer.accept(td);
-        } finally {
-            td.endConfigurer();
-        }
+    private static String requireNotNullThenGetId(Identifiable identifiable) {
+        requireNotNull(identifiable, "Identifiable for state ID");
+        return identifiable.getId();
     }
-
-    /**
-     * Marks this def as actively under construction by its configurer lambda. Package-private
-     * — the enclosing {@code StateMachineDefImpl} flips this around the configurer invocation.
-     */
-    void beginConfigurer() {
-        this.configurerActive = true;
-    }
-
-    /**
-     * Clears the configurer-active flag once the lambda returns.
-     */
-    void endConfigurer() {
-        this.configurerActive = false;
-    }
-
-    private void requireConfigurerActive(String operation) {
-        if (!configurerActive) {
-            throw new TransfluxValidationException(
-                "Cannot call '" + operation + "' on state '" + id + "' after its configurer has returned. "
-                    + "The StateDef reference is inert; declare children inside the configurer lambda.");
-        }
-    }
-
-    @Override
-    public String getId() {
-        return id;
-    }
-
-    String getName() {
-        return name;
-    }
-
-    String getDescription() {
-        return description;
-    }
-
 
     @Override
     public String toString() {
         return "StateDef{" +
-            "id='" + id + '\'' +
-            ", name='" + name + '\'' +
-            ", description='" + description + '\'' +
+            "id='" + getId() + '\'' +
+            ", name='" + getName() + '\'' +
+            ", description='" + getDescription() + '\'' +
             ", stateMachineDef=" + stateMachineDef +
             '}';
     }
