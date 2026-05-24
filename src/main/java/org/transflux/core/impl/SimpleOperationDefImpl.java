@@ -24,6 +24,9 @@ import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.Operation;
 import org.transflux.core.operation.SimpleOperationDef;
 
+import java.util.Map;
+import java.util.Optional;
+
 import static org.transflux.core.Preconditions.requireNotNull;
 import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
 
@@ -85,7 +88,8 @@ public final class SimpleOperationDefImpl<T, C> extends OperationDefImpl<T, C> i
         return this;
     }
 
-    BoundOperation<T, C> build() {
+    @Override
+    BoundOperation<T, C> buildBound(StateMachineImpl<T> stateMachine) {
         if (operationInstance == null && operationClass == null) {
             throw new TransfluxValidationException(
                 "SimpleOperationDef '" + getId() + "' has no operation set; call using(...) before build");
@@ -96,5 +100,28 @@ public final class SimpleOperationDefImpl<T, C> extends OperationDefImpl<T, C> i
             : instantiateNoArg(operationClass, "Operation");
 
         return BoundOperation.of(getId(), getName(), getDescription(), resolved);
+    }
+
+    @Override
+    void checkRefs(Class<?> scopeContext, String scopeLabel, StateMachineDefImpl<T> smDef) {
+        // Simple operations have no member references to validate.
+    }
+
+    @Override
+    void bindScope(StateMachineImpl<T> stateMachine,
+                   RegistryImpl<T> rootRegistry,
+                   Map<String, Object> canonical,
+                   Map<String, BoundCondition<T, ?>> conditionRegistry) {
+        // Simple operations have no scope registry.
+    }
+
+    @Override
+    void flattenScope() {
+        // Simple operations have no scope registry to flatten.
+    }
+
+    @Override
+     Optional<String> scanScopeFor(String id, String excludingId) {
+        return Optional.empty();
     }
 }

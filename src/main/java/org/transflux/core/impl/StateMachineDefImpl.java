@@ -283,7 +283,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @param rootRegistry the state-machine's root registry — the parent of every composite scope
      * @param conditionRegistry the resolved SM-wide condition registry
      */
-    @SuppressWarnings({"unchecked", "rawtypes"})
     void bindCompositeScopes(StateMachineImpl<T> stateMachine,
                                     RegistryImpl<T> rootRegistry,
                                     Map<String, BoundCondition<T, ?>> conditionRegistry) {
@@ -309,15 +308,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             OperationDefImpl<T, ?> op = td.getOperationDef();
-            if (op instanceof CompositeOperationDefImpl<T, ?> composite) {
-                bindCompositeScope((CompositeOperationDefImpl) composite, rootRegistry,
-                                   canonical, stateMachine, (Map) conditionRegistry);
+            if (op != null) {
+                op.bindScope(stateMachine, rootRegistry, canonical, conditionRegistry);
             }
         }
 
         for (CompositeOperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
-            bindCompositeScope((CompositeOperationDefImpl) composite, rootRegistry,
-                               canonical, stateMachine, (Map) conditionRegistry);
+            composite.bindScope(stateMachine, rootRegistry, canonical, conditionRegistry);
         }
     }
 
@@ -333,8 +330,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     Optional<String> findInlineSiblingScope(String id, String excludingCompositeId) {
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             OperationDefImpl<T, ?> op = td.getOperationDef();
-            if (op instanceof CompositeOperationDefImpl<T, ?> composite) {
-                Optional<String> hit = scanComposite(composite, id, excludingCompositeId);
+            if (op != null) {
+                Optional<String> hit = op.scanScopeFor(id, excludingCompositeId);
                 if (hit.isPresent()) {
                     return hit;
                 }
@@ -342,21 +339,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
 
         for (CompositeOperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
-            Optional<String> hit = scanComposite(composite, id, excludingCompositeId);
+            Optional<String> hit = composite.scanScopeFor(id, excludingCompositeId);
             if (hit.isPresent()) {
                 return hit;
-            }
-        }
-
-        return Optional.empty();
-    }
-
-    private Optional<String> scanComposite(CompositeOperationDefImpl<T, ?> composite,
-                                           String id, String excludingCompositeId) {
-        if (!composite.getId().equals(excludingCompositeId)) {
-            RegistryImpl<T> scope = composite.getScopeRegistry();
-            if (scope != null && scope.get(id).isPresent()) {
-                return Optional.of(composite.getId());
             }
         }
 
@@ -379,60 +364,20 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     void flattenCompositeScopes() {
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             OperationDefImpl<T, ?> op = td.getOperationDef();
-            if (op instanceof CompositeOperationDefImpl<T, ?> composite) {
-                RegistryImpl<T> scope = composite.getScopeRegistry();
-                if (scope != null) {
-                    scope.flatten();
-                }
+            if (op != null) {
+                op.flattenScope();
             }
         }
 
         for (CompositeOperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
-            RegistryImpl<T> scope = composite.getScopeRegistry();
-            if (scope != null) {
-                scope.flatten();
-            }
+            composite.flattenScope();
         }
     }
 
-    private <C> void bindCompositeScope(CompositeOperationDefImpl<T, C> composite,
-                                        RegistryImpl<T> rootRegistry,
-                                        Map<String, Object> canonical,
-                                        StateMachineImpl<T> stateMachine,
-                                        Map<String, BoundCondition<T, C>> conditionRegistry) {
-        RegistryImpl<T> scope = new RegistryImpl<>(rootRegistry);
-        composite.setScopeRegistry(scope);
-
-        Class<C> compositeCtx = composite.contextType();
-
-        // Inline steps + operations declared directly on the composite.
-        registerInlineSteps(scope, canonical,
-            composite.getInlineStepInstances(), composite.getInlineStepClasses(), compositeCtx);
-        registerInlineOperations(scope, canonical,
-            composite.getInlineOperationInstances(), composite.getInlineOperationClasses(), compositeCtx);
-
-        // Conditionals: inline steps inside their branches plus the conditional's own bound step.
-        for (Map.Entry<String, ConditionalStepDefImpl<T, C>> e : composite.getConditionalDefs().entrySet()) {
-            ConditionalStepDefImpl<T, C> conditional = e.getValue();
-
-            registerInlineSteps(scope, canonical,
-                conditional.getInlineStepInstances(), conditional.getInlineStepClasses(), compositeCtx);
-
-            String conditionalId = e.getKey();
-            claimCanonical(canonical, conditionalId, conditional, "Conditional step");
-            if (scope.get(conditionalId).isPresent()) {
-                continue;
-            }
-
-            BoundStep<T, C> boundConditional = conditional.buildBoundStep(stateMachine, conditionRegistry);
-            scope.register(new Component.Step<>(conditionalId, null, null, compositeCtx, boundConditional));
-        }
-    }
-
-    private <C> void registerInlineSteps(RegistryImpl<T> scope, Map<String, Object> canonical,
-                                         Map<String, Step<T, C>> instances,
-                                         Map<String, Class<? extends Step<T, C>>> classes,
-                                         Class<C> contextType) {
+    static <T, C> void registerInlineSteps(RegistryImpl<T> scope, Map<String, Object> canonical,
+                                           Map<String, Step<T, C>> instances,
+                                           Map<String, Class<? extends Step<T, C>>> classes,
+                                           Class<C> contextType) {
         for (Map.Entry<String, Step<T, C>> e : instances.entrySet()) {
             registerInlineStepInScope(scope, canonical, e.getKey(), e.getValue(), contextType);
         }
@@ -442,10 +387,10 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
     }
 
-    private <C> void registerInlineOperations(RegistryImpl<T> scope, Map<String, Object> canonical,
-                                              Map<String, Operation<T, C>> instances,
-                                              Map<String, Class<? extends Operation<T, C>>> classes,
-                                              Class<C> contextType) {
+    static <T, C> void registerInlineOperations(RegistryImpl<T> scope, Map<String, Object> canonical,
+                                                Map<String, Operation<T, C>> instances,
+                                                Map<String, Class<? extends Operation<T, C>>> classes,
+                                                Class<C> contextType) {
         for (Map.Entry<String, Operation<T, C>> e : instances.entrySet()) {
             registerInlineOperationInScope(scope, canonical, e.getKey(), e.getValue(), contextType);
         }
@@ -455,8 +400,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
     }
 
-    private <C> void registerInlineStepInScope(RegistryImpl<T> scope, Map<String, Object> canonical,
-                                               String id, Step<T, C> step, Class<C> contextType) {
+    private static <T, C> void registerInlineStepInScope(RegistryImpl<T> scope, Map<String, Object> canonical,
+                                                         String id, Step<T, C> step, Class<C> contextType) {
         claimCanonical(canonical, id, step, "Step");
         if (scope.get(id).isPresent()) {
             return;
@@ -467,9 +412,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private <C> void registerInlineStepClassInScope(RegistryImpl<T> scope, Map<String, Object> canonical,
-                                                    String id, Class<? extends Step<T, C>> stepClass,
-                                                    Class<C> contextType) {
+    private static <T, C> void registerInlineStepClassInScope(RegistryImpl<T> scope, Map<String, Object> canonical,
+                                                               String id, Class<? extends Step<T, C>> stepClass,
+                                                               Class<C> contextType) {
         claimCanonical(canonical, id, stepClass, "Step");
         if (scope.get(id).isPresent()) {
             return;
@@ -480,9 +425,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         scope.register(new Component.Step<>(id, null, null, contextType, bound));
     }
 
-    private <C> void registerInlineOperationInScope(RegistryImpl<T> scope, Map<String, Object> canonical,
-                                                    String id, Operation<T, C> operation,
-                                                    Class<C> contextType) {
+    private static <T, C> void registerInlineOperationInScope(RegistryImpl<T> scope, Map<String, Object> canonical,
+                                                               String id, Operation<T, C> operation,
+                                                               Class<C> contextType) {
         claimCanonical(canonical, id, operation, "Operation");
         if (scope.get(id).isPresent()) {
             return;
@@ -493,9 +438,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private <C> void registerInlineOperationClassInScope(RegistryImpl<T> scope, Map<String, Object> canonical,
-                                                         String id, Class<? extends Operation<T, C>> operationClass,
-                                                         Class<C> contextType) {
+    private static <T, C> void registerInlineOperationClassInScope(RegistryImpl<T> scope, Map<String, Object> canonical,
+                                                                    String id, Class<? extends Operation<T, C>> operationClass,
+                                                                    Class<C> contextType) {
         claimCanonical(canonical, id, operationClass, "Operation");
         if (scope.get(id).isPresent()) {
             return;
@@ -513,7 +458,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * {@code registerStepClass} pair and friends. A different payload under the same id raises
      * {@link TransfluxValidationException}, enforcing SM-wide id uniqueness.
      */
-    private void claimCanonical(Map<String, Object> canonical, String id, Object payload, String kind) {
+    static void claimCanonical(Map<String, Object> canonical, String id, Object payload, String kind) {
         Object existing = canonical.get(id);
 
         if (existing == null) {
@@ -662,7 +607,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     @SuppressWarnings("unchecked")
     public <C> StateMachineDef<T> conditionPredicate(String id, Class<C> contextType, Predicate<T> predicate) {
         requireNotNull(predicate, "Predicate");
-        BiPredicate<T, C> adapted = (BiPredicate<T, C>) (BiPredicate<T, ?>) adaptEntityPredicate(predicate);
+        BiPredicate<T, C> adapted = (BiPredicate<T, C>) adaptEntityPredicate(predicate);
         return conditionPredicate(id, contextType, adapted);
     }
 
@@ -925,7 +870,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
                     "Operation ID '" + e.getKey() + "' is already registered");
             }
             CompositeOperationDefImpl raw = e.getValue();
-            BoundOperation<T, ?> bo = raw.build(stateMachine);
+            BoundOperation<T, ?> bo = raw.buildBound(stateMachine);
             afterBuild.accept(bo);
         }
     }
@@ -951,6 +896,14 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     Class<?> getComponentContextType(String id) {
         return componentContextTypes.get(id);
+    }
+
+    Class<?> componentContextTypeOrDefault(String id) {
+        return componentContextTypes.getOrDefault(id, Object.class);
+    }
+
+    Map<String, MapperDefImpl<?, ?>> getMapperRegistrations() {
+        return mapperRegistrations;
     }
 
     CompositeOperationDefImpl<T, ?> getSmCompositeOperation(String id) {
@@ -1107,75 +1060,15 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             Class<?> transitionContext = td.getContextType();
             OperationDefImpl<T, ?> op = td.getOperationDef();
-            if (op instanceof CompositeOperationDefImpl<T, ?> composite) {
-                checkCompositeRefs(composite, transitionContext,
-                    "transition '" + td.getId() + "'");
+            if (op != null) {
+                op.checkRefs(transitionContext, "transition '" + td.getId() + "'", this);
             }
         }
         for (Map.Entry<String, CompositeOperationDefImpl<T, ?>> e : smCompositeOperations.entrySet()) {
             Class<?> scopeContext = componentContextTypes.get(e.getKey());
-            checkCompositeRefs(e.getValue(), scopeContext,
-                "SM-level composite '" + e.getKey() + "'");
+            e.getValue().checkRefs(scopeContext, "SM-level composite '" + e.getKey() + "'", this);
         }
         detectCompositeCycles();
-    }
-
-    private void checkCompositeRefs(CompositeOperationDefImpl<T, ?> composite,
-                                    Class<?> scopeContext,
-                                    String scopeLabel) {
-        if (scopeContext == null) {
-            scopeContext = Object.class;
-        }
-
-        for (ActionRef<T, ?> ref : composite.getActionRefs()) {
-            if (ref instanceof ActionRef.ById<T, ?> stepRef) {
-                Class<?> componentCtx = componentContextTypes.getOrDefault(stepRef.id(), Object.class);
-                checkMemberRef(scopeContext, scopeLabel, "step", stepRef.id(),
-                    componentCtx, stepRef.mapperRef());
-            } else if (ref instanceof ActionRef.OperationById<T, ?> opRef) {
-                Class<?> componentCtx = componentContextTypes.getOrDefault(opRef.id(), Object.class);
-                checkMemberRef(scopeContext, scopeLabel, "operation", opRef.id(),
-                    componentCtx, opRef.mapperRef());
-            }
-        }
-    }
-
-    private void checkMemberRef(Class<?> scopeContext, String scopeLabel, String kind,
-                                String memberId, Class<?> componentContext, MapperRef mapperRef) {
-        if (mapperRef instanceof MapperRef.PassThrough) {
-            if (componentContext == Object.class || componentContext.isAssignableFrom(scopeContext)) {
-                return;
-            }
-            throw new TransfluxValidationException(
-                "Context type mismatch: " + scopeLabel + " (context " + scopeContext.getName()
-                    + ") references " + kind + " '" + memberId
-                    + "' declared for context " + componentContext.getName()
-                    + " without a mapper; supply a mapper to bridge the boundary");
-        }
-        if (mapperRef instanceof MapperRef.ById byId) {
-            MapperDefImpl<?, ?> mapperDef = mapperRegistrations.get(byId.mapperId());
-            if (mapperDef == null) {
-                throw new TransfluxValidationException(
-                    scopeLabel + " references unknown mapper '" + byId.mapperId() + "' at " + kind
-                        + " '" + memberId + "'");
-            }
-            Class<?> mapperParent = mapperDef.parentType();
-            Class<?> mapperChild = mapperDef.childType();
-            if (!mapperParent.isAssignableFrom(scopeContext)) {
-                throw new TransfluxValidationException(
-                    "Mapper '" + byId.mapperId() + "' parent type " + mapperParent.getName()
-                        + " is not assignable from " + scopeLabel + " context " + scopeContext.getName());
-            }
-            if (componentContext != Object.class && !componentContext.isAssignableFrom(mapperChild)) {
-                throw new TransfluxValidationException(
-                    "Mapper '" + byId.mapperId() + "' child type " + mapperChild.getName()
-                        + " is not assignable to " + kind + " '" + memberId + "' context "
-                        + componentContext.getName());
-            }
-        }
-        // Inline Function and inline ContextMapper forms cannot be reliably introspected at
-        // build time (generic-parameter erasure); their P/N alignment is checked at first
-        // dispatch when the user-supplied value is invoked.
     }
 
     private void detectCompositeCycles() {

@@ -63,7 +63,7 @@ class CompositeOperationDefImplSpec extends Specification {
         composite.scopeRegistry = new RegistryImpl<TestEntity>(((StateMachineImpl<TestEntity>) sm).componentRegistry)
 
         when:
-        composite.build((StateMachineImpl<TestEntity>) sm)
+        composite.buildBound((StateMachineImpl<TestEntity>) sm)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -121,7 +121,7 @@ class CompositeOperationDefImplSpec extends Specification {
         )
 
         when:
-        def bound = composite.build((StateMachineImpl<TestEntity>) sm)
+        def bound = composite.buildBound((StateMachineImpl<TestEntity>) sm)
         bound.operation.execute(entity, view.context, view)
 
         then:
@@ -144,7 +144,7 @@ class CompositeOperationDefImplSpec extends Specification {
         composite.scopeRegistry = new RegistryImpl<TestEntity>(((StateMachineImpl<TestEntity>) sm).componentRegistry)
 
         when:
-        composite.build((StateMachineImpl<TestEntity>) sm)
+        composite.buildBound((StateMachineImpl<TestEntity>) sm)
 
         then:
         def e = thrown(TransfluxValidationException)

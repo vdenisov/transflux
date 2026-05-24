@@ -18,9 +18,11 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.ContextMapper;
 import org.transflux.core.operation.MapperDef;
 
+import java.util.Map;
 import java.util.function.Function;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
@@ -45,6 +47,42 @@ import static org.transflux.core.Preconditions.requireNotNull;
  */
 sealed interface MapperRef
     permits MapperRef.PassThrough, MapperRef.ById, MapperRef.InlineFunction, MapperRef.InlineMapper {
+
+    /**
+     * Resolves this reference into a runtime {@link ResolvedContextMapping} suitable for
+     * dispatch. The by-id form looks up the registered {@link MapperDef} on the state machine;
+     * the two inline forms wrap their captured value directly.
+     *
+     * @param stateMachine the state machine whose mapper registry the by-id form consults
+     * @param enclosingId the id of the composite that declared this reference, surfaced in the
+     *                    error message when a by-id reference does not resolve
+     *
+     * @return the resolved mapping
+     *
+     * @throws TransfluxValidationException if the by-id form references an unknown mapper id
+     */
+    ResolvedContextMapping resolve(StateMachineImpl<?> stateMachine, String enclosingId);
+
+    /**
+     * Validates this reference at build time against the call-site's scope context and the
+     * referenced component's required context. Pass-through and by-id forms enforce assignment
+     * compatibility; the two inline forms defer to first-dispatch (erasure prevents reliable
+     * build-time introspection).
+     *
+     * @param scopeContext the call site's enclosing context type
+     * @param scopeLabel a human-readable label for the call site, used in error messages
+     *                   (e.g. {@code "transition 'submit'"})
+     * @param kind the component kind, used in error messages (e.g. {@code "step"} or
+     *             {@code "operation"})
+     * @param memberId the referenced component's id, used in error messages
+     * @param componentContext the referenced component's required context type
+     * @param mapperRegistry the SM-level mapper registry, consulted by the by-id form
+     *
+     * @throws TransfluxValidationException on a context-compatibility violation
+     */
+    void validateAgainst(Class<?> scopeContext, String scopeLabel, String kind,
+                         String memberId, Class<?> componentContext,
+                         Map<String, MapperDefImpl<?, ?>> mapperRegistry);
 
     /**
      * Returns the singleton {@link PassThrough} reference.
@@ -93,8 +131,28 @@ sealed interface MapperRef
      * The build-time check verifies that the parent's context class is assignable to the called
      * step or operation's required context class.
      */
+    @SuppressWarnings("ClassEscapesDefinedScope")
     record PassThrough() implements MapperRef {
         static final PassThrough INSTANCE = new PassThrough();
+
+        @Override
+        public ResolvedContextMapping resolve(StateMachineImpl<?> stateMachine, String enclosingId) {
+            return ResolvedContextMapping.passThrough();
+        }
+
+        @Override
+        public void validateAgainst(Class<?> scopeContext, String scopeLabel, String kind,
+                                    String memberId, Class<?> componentContext,
+                                    Map<String, MapperDefImpl<?, ?>> mapperRegistry) {
+            if (componentContext == Object.class || componentContext.isAssignableFrom(scopeContext)) {
+                return;
+            }
+            throw new TransfluxValidationException(
+                "Context type mismatch: " + scopeLabel + " (context " + scopeContext.getName()
+                    + ") references " + kind + " '" + memberId
+                    + "' declared for context " + componentContext.getName()
+                    + " without a mapper; supply a mapper to bridge the boundary");
+        }
     }
 
     /**
@@ -104,9 +162,48 @@ sealed interface MapperRef
      *
      * @param mapperId the mapper id; never {@code null} or blank
      */
+    @SuppressWarnings("ClassEscapesDefinedScope")
     record ById(String mapperId) implements MapperRef {
         public ById {
             requireNotBlank(mapperId, "Mapper reference ID");
+        }
+
+        @Override
+        public ResolvedContextMapping resolve(StateMachineImpl<?> stateMachine, String enclosingId) {
+            MapperDef<?, ?> mapperDef = stateMachine.getDef().getMapperDef(mapperId);
+            if (mapperDef == null) {
+                throw new TransfluxValidationException(
+                    "CompositeOperationDef '" + enclosingId + "' references unknown mapper id '"
+                        + mapperId + "'");
+            }
+            @SuppressWarnings("unchecked")
+            MapperDefImpl<Object, Object> impl = (MapperDefImpl<Object, Object>) mapperDef;
+            return ResolvedContextMapping.mapped(impl.buildMapper());
+        }
+
+        @Override
+        public void validateAgainst(Class<?> scopeContext, String scopeLabel, String kind,
+                                    String memberId, Class<?> componentContext,
+                                    Map<String, MapperDefImpl<?, ?>> mapperRegistry) {
+            MapperDefImpl<?, ?> mapperDef = mapperRegistry.get(mapperId);
+            if (mapperDef == null) {
+                throw new TransfluxValidationException(
+                    scopeLabel + " references unknown mapper '" + mapperId + "' at " + kind
+                        + " '" + memberId + "'");
+            }
+            Class<?> mapperParent = mapperDef.parentType();
+            Class<?> mapperChild = mapperDef.childType();
+            if (!mapperParent.isAssignableFrom(scopeContext)) {
+                throw new TransfluxValidationException(
+                    "Mapper '" + mapperId + "' parent type " + mapperParent.getName()
+                        + " is not assignable from " + scopeLabel + " context " + scopeContext.getName());
+            }
+            if (componentContext != Object.class && !componentContext.isAssignableFrom(mapperChild)) {
+                throw new TransfluxValidationException(
+                    "Mapper '" + mapperId + "' child type " + mapperChild.getName()
+                        + " is not assignable to " + kind + " '" + memberId + "' context "
+                        + componentContext.getName());
+            }
         }
     }
 
@@ -116,9 +213,27 @@ sealed interface MapperRef
      *
      * @param fn the parent-to-child projection; never {@code null}
      */
+    @SuppressWarnings("ClassEscapesDefinedScope")
     record InlineFunction(Function<?, ?> fn) implements MapperRef {
         public InlineFunction {
             requireNotNull(fn, "Inline mapper function");
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public ResolvedContextMapping resolve(StateMachineImpl<?> stateMachine, String enclosingId) {
+            Function<Object, Object> typed = (Function<Object, Object>) fn;
+            ContextMapper<Object, Object> wrapper = typed::apply;
+            return ResolvedContextMapping.mapped(wrapper);
+        }
+
+        @Override
+        public void validateAgainst(Class<?> scopeContext, String scopeLabel, String kind,
+                                    String memberId, Class<?> componentContext,
+                                    Map<String, MapperDefImpl<?, ?>> mapperRegistry) {
+            // Generic-parameter erasure prevents reliable build-time introspection of the
+            // function's parent / child types; alignment is checked at first dispatch when the
+            // user-supplied value is invoked.
         }
     }
 
@@ -127,9 +242,23 @@ sealed interface MapperRef
      *
      * @param mapper the mapper; never {@code null}
      */
+    @SuppressWarnings("ClassEscapesDefinedScope")
     record InlineMapper(ContextMapper<?, ?> mapper) implements MapperRef {
         public InlineMapper {
             requireNotNull(mapper, "Inline mapper instance");
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public ResolvedContextMapping resolve(StateMachineImpl<?> stateMachine, String enclosingId) {
+            return ResolvedContextMapping.mapped((ContextMapper<Object, Object>) mapper);
+        }
+
+        @Override
+        public void validateAgainst(Class<?> scopeContext, String scopeLabel, String kind,
+                                    String memberId, Class<?> componentContext,
+                                    Map<String, MapperDefImpl<?, ?>> mapperRegistry) {
+            // Same erasure constraint as InlineFunction — deferred to first dispatch.
         }
     }
 }

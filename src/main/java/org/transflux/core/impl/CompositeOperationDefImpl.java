@@ -18,13 +18,11 @@
 
 package org.transflux.core.impl;
 
-import org.springframework.lang.NonNull;
 import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.CompositeOperationDef;
 import org.transflux.core.operation.ConditionalStepDef;
 import org.transflux.core.operation.ContextMapper;
-import org.transflux.core.operation.MapperDef;
 import org.transflux.core.operation.Operation;
 import org.transflux.core.operation.Step;
 import org.transflux.core.transition.Transition;
@@ -45,7 +43,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * <p>
  * Holds the composite's member references in declaration order. References are not resolved
  * eagerly; they are resolved against the enclosing state machine's step, operation, and mapper
- * registries when {@link #build(StateMachineImpl)} is invoked during state-machine
+ * registries when {@link #buildBound(StateMachineImpl)} is invoked during state-machine
  * construction. Inline references contributed by this composite must already have been
  * registered with the state-machine def before that point.
  *
@@ -65,19 +63,8 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
     }
 
     /**
-     * Returns this composite's lexical-scope registry, populated during state-machine
-     * construction. By-id refs declared inside this composite resolve against this registry,
-     * which walks the parent chain up to the state-machine root.
-     *
-     * @return the scope registry, or {@code null} if the state machine has not yet wired it
-     */
-    RegistryImpl<T> getScopeRegistry() {
-        return scopeRegistry;
-    }
-
-    /**
      * Wires this composite's lexical-scope registry. Called once during state-machine
-     * construction, before {@link #build(StateMachineImpl)} runs.
+     * construction, before {@link #buildBound(StateMachineImpl)} runs.
      *
      * @param scopeRegistry the scope registry; never {@code null}
      */
@@ -305,24 +292,8 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
     }
 
     /**
-     * Returns the ids of every step-by-id reference declared by this composite — used by the
-     * build-time context-compatibility check.
-     *
-     * @return the referenced step ids in declaration order
-     */
-    List<String> getStepByIdReferenceIds() {
-        List<String> ids = new ArrayList<>();
-        for (ActionRef<T, C> ref : actionRefs) {
-            if (ref instanceof ActionRef.ById<T, C> r) {
-                ids.add(r.id());
-            }
-        }
-        return Collections.unmodifiableList(ids);
-    }
-
-    /**
      * Returns the ids of every operation-by-id reference declared by this composite — used by
-     * the build-time context-compatibility check and the cycle-detection pass.
+     * the cycle-detection pass.
      *
      * @return the referenced operation ids in declaration order
      */
@@ -442,7 +413,8 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
      * @throws TransfluxValidationException if the composite has no members, or any referenced
      *         id is not registered on the state machine
      */
-    BoundOperation<T, C> build(StateMachineImpl<T> stateMachine) {
+    @Override
+    BoundOperation<T, C> buildBound(StateMachineImpl<T> stateMachine) {
         if (actionRefs.isEmpty()) {
             throw new TransfluxValidationException(
                 "CompositeOperationDef '" + getId()
@@ -458,7 +430,7 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
         List<CompositeMember<T, C>> members = new ArrayList<>(actionRefs.size());
         for (ActionRef<T, C> ref : actionRefs) {
             BoundAction<T, C> bound = ref.resolve(stateMachine, scopeRegistry, getId());
-            ResolvedContextMapping mapping = resolveMapping(stateMachine, ref);
+            ResolvedContextMapping mapping = ref.mapperRef().resolve(stateMachine, getId());
             members.add(new CompositeMember<>(bound, mapping));
         }
 
@@ -467,59 +439,73 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
         return BoundOperation.of(getId(), getName(), getDescription(), executor);
     }
 
-    private ResolvedContextMapping resolveMapping(StateMachineImpl<T> stateMachine, ActionRef<T, C> ref) {
-        MapperRef mapperRef = ref.mapperRef();
+    @Override
+    void checkRefs(Class<?> scopeContext, String scopeLabel, StateMachineDefImpl<T> smDef) {
+        Class<?> effectiveScope = scopeContext != null ? scopeContext : Object.class;
 
-        if (mapperRef instanceof MapperRef.PassThrough) {
-            return ResolvedContextMapping.passThrough();
+        for (ActionRef<T, C> ref : actionRefs) {
+            if (ref instanceof ActionRef.ById<T, ?> stepRef) {
+                Class<?> componentCtx = smDef.componentContextTypeOrDefault(stepRef.id());
+                stepRef.mapperRef().validateAgainst(effectiveScope, scopeLabel, "step",
+                    stepRef.id(), componentCtx, smDef.getMapperRegistrations());
+            } else if (ref instanceof ActionRef.OperationById<T, ?> opRef) {
+                Class<?> componentCtx = smDef.componentContextTypeOrDefault(opRef.id());
+                opRef.mapperRef().validateAgainst(effectiveScope, scopeLabel, "operation",
+                    opRef.id(), componentCtx, smDef.getMapperRegistrations());
+            }
         }
-
-        if (mapperRef instanceof MapperRef.ById byId) {
-            var impl = resolveMapperDef(stateMachine, byId);
-            return ResolvedContextMapping.mapped(impl.buildMapper());
-        }
-
-        if (mapperRef instanceof MapperRef.InlineFunction inlineFn) {
-            @SuppressWarnings("unchecked")
-            Function<Object, Object> fn = (Function<Object, Object>) inlineFn.fn();
-            return ResolvedContextMapping.mapped(new InlineFunctionMapper(fn));
-        }
-
-        if (mapperRef instanceof MapperRef.InlineMapper inlineMapper) {
-            @SuppressWarnings("unchecked")
-            ContextMapper<Object, Object> m = (ContextMapper<Object, Object>) inlineMapper.mapper();
-            return ResolvedContextMapping.mapped(m);
-        }
-
-        throw new TransfluxValidationException(
-            "CompositeOperationDef '" + getId() + "' has unsupported mapper reference: "
-                + mapperRef.getClass().getName());
     }
 
-    @NonNull
-    private MapperDefImpl<Object, Object> resolveMapperDef(StateMachineImpl<T> stateMachine, MapperRef.ById byId) {
-        StateMachineDefImpl<T> def = stateMachine.getDef();
-        MapperDef<?, ?> mapperDef = def.getMapperDef(byId.mapperId());
-        if (mapperDef == null) {
-            throw new TransfluxValidationException(
-                "CompositeOperationDef '" + getId() + "' references unknown mapper id '"
-                    + byId.mapperId() + "'");
-        }
+    @Override
+    void bindScope(StateMachineImpl<T> stateMachine,
+                   RegistryImpl<T> rootRegistry,
+                   Map<String, Object> canonical,
+                   Map<String, BoundCondition<T, ?>> conditionRegistry) {
         @SuppressWarnings("unchecked")
-        MapperDefImpl<Object, Object> impl = (MapperDefImpl<Object, Object>) mapperDef;
-        return impl;
+        Map<String, BoundCondition<T, C>> typedConditions = (Map<String, BoundCondition<T, C>>) (Map<?, ?>) conditionRegistry;
+
+        RegistryImpl<T> scope = new RegistryImpl<>(rootRegistry);
+        setScopeRegistry(scope);
+
+        Class<C> compositeCtx = contextType();
+
+        // Inline steps + operations declared directly on the composite.
+        StateMachineDefImpl.registerInlineSteps(scope, canonical,
+            getInlineStepInstances(), getInlineStepClasses(), compositeCtx);
+        StateMachineDefImpl.registerInlineOperations(scope, canonical,
+            getInlineOperationInstances(), getInlineOperationClasses(), compositeCtx);
+
+        // Conditionals: inline steps inside their branches plus the conditional's own bound step.
+        for (Map.Entry<String, ConditionalStepDefImpl<T, C>> e : getConditionalDefs().entrySet()) {
+            ConditionalStepDefImpl<T, C> conditional = e.getValue();
+
+            StateMachineDefImpl.registerInlineSteps(scope, canonical,
+                conditional.getInlineStepInstances(), conditional.getInlineStepClasses(), compositeCtx);
+
+            String conditionalId = e.getKey();
+            StateMachineDefImpl.claimCanonical(canonical, conditionalId, conditional, "Conditional step");
+            if (scope.get(conditionalId).isPresent()) {
+                continue;
+            }
+
+            BoundStep<T, C> boundConditional = conditional.buildBoundStep(stateMachine, typedConditions);
+            scope.register(new Component.Step<>(conditionalId, null, null, compositeCtx, boundConditional));
+        }
     }
 
-    /**
-     * Adapter that exposes a parent-to-child {@link Function} as a {@link ContextMapper} whose
-     * {@link ContextMapper#mapFrom(Object, Object) mapFrom} is the default no-op.
-     */
-    private record InlineFunctionMapper(Function<Object, Object> mapTo) implements ContextMapper<Object, Object> {
-
-        @Override
-        public Object mapTo(Object parentContext) {
-            return mapTo.apply(parentContext);
+    @Override
+    void flattenScope() {
+        if (scopeRegistry != null) {
+            scopeRegistry.flatten();
         }
+    }
+
+    @Override
+    java.util.Optional<String> scanScopeFor(String id, String excludingId) {
+        if (!getId().equals(excludingId) && scopeRegistry != null && scopeRegistry.get(id).isPresent()) {
+            return java.util.Optional.of(getId());
+        }
+        return java.util.Optional.empty();
     }
 
     /**

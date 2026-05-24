@@ -174,14 +174,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         if (operationDef == null) {
             return null;
         }
-        if (operationDef instanceof SimpleOperationDefImpl<T, C> simple) {
-            return simple.build();
-        }
-        if (operationDef instanceof CompositeOperationDefImpl<T, C> composite) {
-            return composite.build(stateMachine);
-        }
-        throw new TransfluxValidationException(
-            "Unsupported operation def: " + operationDef.getClass().getName());
+        return operationDef.buildBound(stateMachine);
     }
 
     OperationDefImpl<T, C> getOperationDef() {

@@ -92,7 +92,7 @@ class SimpleOperationDefImplSpec extends Specification {
         def def_ = new SimpleOperationDefImpl<Object, Object>('op1').withName('n').withDescription('d').using(op)
 
         when:
-        def bound = def_.build()
+        def bound = def_.buildBound(null)
 
         then:
         bound.id() == 'op1'
@@ -106,7 +106,7 @@ class SimpleOperationDefImplSpec extends Specification {
         def def_ = new SimpleOperationDefImpl<Object, Object>('op1').using(NoopOp)
 
         when:
-        def bound = def_.build()
+        def bound = def_.buildBound(null)
 
         then:
         bound.operation() instanceof NoopOp
@@ -119,7 +119,7 @@ class SimpleOperationDefImplSpec extends Specification {
         def def_ = new SimpleOperationDefImpl<Object, Object>('op1').using(first).using(second)
 
         when:
-        def bound = def_.build()
+        def bound = def_.buildBound(null)
 
         then:
         bound.operation().is(second)
@@ -130,7 +130,7 @@ class SimpleOperationDefImplSpec extends Specification {
         def def_ = new SimpleOperationDefImpl<Object, Object>('op1').using(new NoopOp()).using(NoopOp)
 
         when:
-        def bound = def_.build()
+        def bound = def_.buildBound(null)
 
         then:
         bound.operation() instanceof NoopOp
@@ -156,7 +156,7 @@ class SimpleOperationDefImplSpec extends Specification {
 
     def "build without using(...) should fail with a clear message"() {
         when:
-        new SimpleOperationDefImpl<Object, Object>('op1').build()
+        new SimpleOperationDefImpl<Object, Object>('op1').buildBound(null)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -166,7 +166,7 @@ class SimpleOperationDefImplSpec extends Specification {
 
     def "build with a class lacking a no-arg constructor should fail-fast"() {
         when:
-        new SimpleOperationDefImpl<Object, Object>('op1').using(CtorlessOp).build()
+        new SimpleOperationDefImpl<Object, Object>('op1').using(CtorlessOp).buildBound(null)
 
         then:
         def e = thrown(TransfluxValidationException)
