@@ -25,6 +25,7 @@ import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
 
+import java.util.function.BiPredicate
 import java.util.function.Predicate
 
 class TransitionDefImplConditionsSpec extends Specification {
@@ -104,11 +105,11 @@ class TransitionDefImplConditionsSpec extends Specification {
         (descriptor as ConditionDescriptor.ClassBased).conditionClass() == AlwaysTrueCondition
     }
 
-    def 'preCondition with id + Predicate appends a PredicateBased descriptor'() {
+    def 'preCondition with id + BiPredicate appends a PredicateBased descriptor'() {
         given:
         def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
         td.beginConfigurer()
-        Predicate<Entity> predicate = { e -> true } as Predicate
+        BiPredicate<Entity, TestContext> predicate = { e, c -> true } as BiPredicate
 
         when:
         td.preCondition('pre-predicate', predicate)
@@ -119,6 +120,32 @@ class TransitionDefImplConditionsSpec extends Specification {
         descriptor instanceof ConditionDescriptor.PredicateBased
         descriptor.id() == 'pre-predicate'
         (descriptor as ConditionDescriptor.PredicateBased).predicate().is(predicate)
+    }
+
+    def 'preCondition with id + Predicate appends a PredicateBased descriptor that ignores the context'() {
+        given:
+        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        td.beginConfigurer()
+        def calls = []
+        Predicate<Entity> predicate = { e -> calls << e; true } as Predicate
+
+        when:
+        td.preCondition('pre-predicate', predicate)
+
+        then:
+        td.preConditionDescriptors.size() == 1
+        def descriptor = td.preConditionDescriptors[0]
+        descriptor instanceof ConditionDescriptor.PredicateBased
+        descriptor.id() == 'pre-predicate'
+
+        when:
+        def adapted = (descriptor as ConditionDescriptor.PredicateBased).predicate() as BiPredicate<Entity, TestContext>
+        def entity = new Entity(value: 7)
+        def result = adapted.test(entity, new TestContext())
+
+        then:
+        result
+        calls == [entity]
     }
 
     def 'preCondition with id + expression appends an ExpressionBased descriptor'() {
@@ -201,11 +228,11 @@ class TransitionDefImplConditionsSpec extends Specification {
         (descriptor as ConditionDescriptor.ClassBased).conditionClass() == AlwaysTrueCondition
     }
 
-    def 'postCondition with id + Predicate appends a PredicateBased descriptor'() {
+    def 'postCondition with id + BiPredicate appends a PredicateBased descriptor'() {
         given:
         def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
         td.beginConfigurer()
-        Predicate<Entity> predicate = { e -> true } as Predicate
+        BiPredicate<Entity, TestContext> predicate = { e, c -> true } as BiPredicate
 
         when:
         td.postCondition('post-predicate', predicate)
@@ -216,6 +243,32 @@ class TransitionDefImplConditionsSpec extends Specification {
         descriptor instanceof ConditionDescriptor.PredicateBased
         descriptor.id() == 'post-predicate'
         (descriptor as ConditionDescriptor.PredicateBased).predicate().is(predicate)
+    }
+
+    def 'postCondition with id + Predicate appends a PredicateBased descriptor that ignores the context'() {
+        given:
+        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        td.beginConfigurer()
+        def calls = []
+        Predicate<Entity> predicate = { e -> calls << e; true } as Predicate
+
+        when:
+        td.postCondition('post-predicate', predicate)
+
+        then:
+        td.postConditionDescriptors.size() == 1
+        def descriptor = td.postConditionDescriptors[0]
+        descriptor instanceof ConditionDescriptor.PredicateBased
+        descriptor.id() == 'post-predicate'
+
+        when:
+        def adapted = (descriptor as ConditionDescriptor.PredicateBased).predicate() as BiPredicate<Entity, TestContext>
+        def entity = new Entity(value: 11)
+        def result = adapted.test(entity, new TestContext())
+
+        then:
+        result
+        calls == [entity]
     }
 
     def 'postCondition with id + expression appends an ExpressionBased descriptor'() {

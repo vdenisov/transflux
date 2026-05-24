@@ -414,6 +414,20 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     }
 
     @Override
+    public TransitionDef<T, C> preCondition(String id, BiPredicate<T, C> predicate) {
+        requireConfigurerActive("preCondition");
+        requireNotBlank(id, "Condition ID");
+        requireNotNull(predicate, "Predicate");
+        return appendPreCondition(ConditionDescriptor.predicate(id, predicate));
+    }
+
+    @Override
+    public TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate) {
+        requireNotNull(conditionIdentifiable, "Condition identifiable");
+        return preCondition(conditionIdentifiable.getId(), predicate);
+    }
+
+    @Override
     public TransitionDef<T, C> preCondition(String id, Predicate<T> predicate) {
         requireConfigurerActive("preCondition");
         requireNotBlank(id, "Condition ID");
@@ -487,6 +501,20 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     public TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass) {
         requireNotNull(conditionIdentifiable, "Condition identifiable");
         return postCondition(conditionIdentifiable.getId(), conditionClass);
+    }
+
+    @Override
+    public TransitionDef<T, C> postCondition(String id, BiPredicate<T, C> predicate) {
+        requireConfigurerActive("postCondition");
+        requireNotBlank(id, "Condition ID");
+        requireNotNull(predicate, "Predicate");
+        return appendPostCondition(ConditionDescriptor.predicate(id, predicate));
+    }
+
+    @Override
+    public TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate) {
+        requireNotNull(conditionIdentifiable, "Condition identifiable");
+        return postCondition(conditionIdentifiable.getId(), predicate);
     }
 
     @Override
@@ -600,6 +628,22 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     public TransitionDef<T, C> addDataTrigger(Identifiable triggerIdentifiable) {
         requireNotNull(triggerIdentifiable, "Trigger identifiable");
         return addDataTrigger(triggerIdentifiable.getId());
+    }
+
+    @Override
+    public TransitionDef<T, C> addDataTrigger(BiPredicate<T, C> condition) {
+        throw new UnsupportedOperationException("Triggers not yet implemented");
+    }
+
+    @Override
+    public TransitionDef<T, C> addDataTrigger(String id, BiPredicate<T, C> condition) {
+        throw new UnsupportedOperationException("Triggers not yet implemented");
+    }
+
+    @Override
+    public TransitionDef<T, C> addDataTrigger(Identifiable triggerIdentifiable, BiPredicate<T, C> condition) {
+        requireNotNull(triggerIdentifiable, "Trigger identifiable");
+        return addDataTrigger(triggerIdentifiable.getId(), condition);
     }
 
     @Override

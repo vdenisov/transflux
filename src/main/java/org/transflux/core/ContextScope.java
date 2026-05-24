@@ -24,6 +24,7 @@ import org.transflux.core.operation.CompositeOperationDef;
 import org.transflux.core.operation.Operation;
 import org.transflux.core.operation.Step;
 
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -132,9 +133,29 @@ public interface ContextScope<T, C> {
     ContextScope<T, C> condition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass);
 
     /**
-     * Registers an entity-only predicate as a condition under {@code id}, tagged with this
-     * scope's context class. The predicate is adapted into a {@link Condition} that ignores
-     * the context.
+     * Registers an {@code (entity, context)} predicate as a condition under {@code id},
+     * tagged with this scope's context class.
+     *
+     * @param id the condition id
+     * @param predicate the predicate; never {@code null}
+     *
+     * @return this scope for chaining
+     */
+    ContextScope<T, C> condition(String id, BiPredicate<T, C> predicate);
+
+    /**
+     * {@link Identifiable} overload of {@link #condition(String, BiPredicate)}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param predicate the predicate
+     *
+     * @return this scope for chaining
+     */
+    ContextScope<T, C> condition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate);
+
+    /**
+     * Convenience overload of {@link #condition(String, BiPredicate)} accepting an entity-only
+     * {@link Predicate}; the context is ignored at evaluation time.
      *
      * @param id the condition id
      * @param predicate the predicate; never {@code null}
@@ -147,7 +168,7 @@ public interface ContextScope<T, C> {
      * {@link Identifiable} overload of {@link #condition(String, Predicate)}.
      *
      * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param predicate the predicate
+     * @param predicate the entity predicate
      *
      * @return this scope for chaining
      */

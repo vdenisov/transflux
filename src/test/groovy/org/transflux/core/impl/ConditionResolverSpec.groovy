@@ -26,6 +26,7 @@ import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
 
+import java.util.function.BiPredicate
 import java.util.function.Predicate
 
 class ConditionResolverSpec extends Specification {
@@ -92,7 +93,7 @@ class ConditionResolverSpec extends Specification {
         e.message.contains('no accessible no-arg constructor')
     }
 
-    def "should adapt a PredicateBased descriptor into an entity-only Condition"() {
+    def "should adapt a PredicateBased descriptor built from a Predicate into an entity-only Condition"() {
         given:
         Predicate<Entity> p = { e -> e.value > 0 }
 
@@ -104,6 +105,21 @@ class ConditionResolverSpec extends Specification {
         resolved.id == 'a'
         resolved.condition.test(new Entity(value: 1), null, null)
         !resolved.condition.test(new Entity(value: 0), null, null)
+    }
+
+    def "should adapt a PredicateBased descriptor built from a BiPredicate into a context-aware Condition"() {
+        given:
+        BiPredicate<Entity, TestContext> p = { e, c -> e.value > 0 && c?.tag == 'enabled' }
+
+        when:
+        def resolved = ConditionResolver.resolve(
+            ConditionDescriptor.predicate('a', p), [:], 'path')
+
+        then:
+        resolved.id == 'a'
+        resolved.condition.test(new Entity(value: 1), new TestContext(tag: 'enabled'), null)
+        !resolved.condition.test(new Entity(value: 1), new TestContext(tag: 'disabled'), null)
+        !resolved.condition.test(new Entity(value: 0), new TestContext(tag: 'enabled'), null)
     }
 
     def "should auto-derive id for an ExpressionBased descriptor with no explicit id"() {

@@ -1078,8 +1078,10 @@ preConditions:
   - condition:
       class: com.example.conditions.PaymentMethodValidCondition
 
-# 3. Inline predicate-based — a Predicate<T>-style class (lighter than Condition<T>;
-#    useful for stateless boolean tests without DI or rich failure metadata)
+# 3. Inline predicate-based — a BiPredicate<T, C>-style class (lighter than Condition<T>;
+#    useful for stateless boolean tests over (entity, context) without DI or rich failure
+#    metadata). The Java DSL also exposes a Predicate<T> convenience overload for entity-only
+#    tests; the context is ignored at evaluation time.
 preConditions:
   - condition:
       predicate: com.example.predicates.PaymentMethodValidPredicate
@@ -1101,7 +1103,7 @@ preConditions:
 **Form comparison:**
 - A **`Condition<T, C>` instance** (form 5, Java DSL only) is the right choice when the host already has a configured `Condition` (DI-wired, holds runtime state) and wants to attach it to a single site without re-routing through the `StateMachineDef.condition(id, ...)` registry.
 - A **`Condition<T, C>`** implementation class (form 2) is the full-featured *class-shaped* form: it can hold injected dependencies, return rich failure metadata (error codes, messages), and is the appropriate choice for reusable, framework-aware conditions instantiated by the framework or DI container.
-- A **`Predicate<T>`** (form 3) is the minimal shape — a simple boolean test. Useful for stateless conditions where rich metadata is unnecessary.
+- A **`BiPredicate<T, C>`** (form 3) is the minimal shape — a simple boolean test over `(entity, context)`. Useful for stateless conditions where rich metadata is unnecessary. The Java DSL accepts a `Predicate<T>` convenience overload for entity-only tests.
 - An **expression** (form 4) is for one-off inline logic that doesn't justify a Java class.
 - A **reference** (form 1) shares a single definition across many transitions.
 
@@ -1942,7 +1944,7 @@ trialActiveTransition
     .addPreCondition("entity.paymentMethodId != null");
 ```
 
-The four authoring forms above (reference, full `Condition<T>`, `Predicate<T>`, SpEL expression) map exactly to the four YAML-expressible forms of the Condition Descriptor (§3.6.1). The Java DSL additionally accepts a fifth `InstanceBased` form — `.addPreCondition("id", existingConditionInstance)` — for attaching a pre-built `Condition<T, C>` instance under an explicit id without routing through the `StateMachineDef.condition(...)` registry.
+The four authoring forms above (reference, full `Condition<T>`, `BiPredicate<T, C>` — or its convenience `Predicate<T>` overload, SpEL expression) map exactly to the four YAML-expressible forms of the Condition Descriptor (§3.6.1). The Java DSL additionally accepts a fifth `InstanceBased` form — `.addPreCondition("id", existingConditionInstance)` — for attaching a pre-built `Condition<T, C>` instance under an explicit id without routing through the `StateMachineDef.condition(...)` registry.
 
 #### 4.7.2 Advanced Condition Configuration
 

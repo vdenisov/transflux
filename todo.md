@@ -136,7 +136,7 @@ Patch releases (`x.y.z`) ship between minor releases for bug fixes and security 
 
 - [x] **Condition Framework**
   - [x] `Condition<T, C>` interface — pure functional contract; ids live on the def side (`StateMachineDef.condition(id, ...)` registry and `ConditionDescriptor`).
-  - [x] `Predicate<T>`-style lightweight conditions.
+  - [x] `BiPredicate<T, C>`-style lightweight conditions, with a `Predicate<T>` convenience overload for entity-only tests.
   - [x] Pre/Post condition wiring on transitions.
   - [x] **Condition Descriptor** — the five-form grammar from requirements §3.6.1:
     - [x] Reference (by id).

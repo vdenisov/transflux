@@ -41,6 +41,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -506,11 +507,23 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> condition(String id, Predicate<T> predicate) {
+    public StateMachineDef<T> condition(String id, BiPredicate<T, ?> predicate) {
         requireNotBlank(id, "Condition ID");
         requireNotNull(predicate, "Predicate");
         registerConditionPredicate(id, predicate);
         return this;
+    }
+
+    @Override
+    public StateMachineDef<T> condition(Identifiable conditionIdentifiable, BiPredicate<T, ?> predicate) {
+        requireNotNull(conditionIdentifiable, "Condition identifiable");
+        return condition(conditionIdentifiable.getId(), predicate);
+    }
+
+    @Override
+    public StateMachineDef<T> condition(String id, Predicate<T> predicate) {
+        requireNotNull(predicate, "Predicate");
+        return condition(id, adaptEntityPredicate(predicate));
     }
 
     @Override
@@ -566,13 +579,27 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public <C> StateMachineDef<T> conditionPredicate(String id, Class<C> contextType, Predicate<T> predicate) {
+    public <C> StateMachineDef<T> conditionPredicate(String id, Class<C> contextType, BiPredicate<T, C> predicate) {
         requireNotBlank(id, "Condition ID");
         requireNotNull(contextType, "Context type");
         requireNotNull(predicate, "Predicate");
         registerConditionPredicate(id, predicate);
         tagContextType(id, contextType);
         return this;
+    }
+
+    @Override
+    public <C> StateMachineDef<T> conditionPredicate(Identifiable conditionIdentifiable, Class<C> contextType, BiPredicate<T, C> predicate) {
+        requireNotNull(conditionIdentifiable, "Condition identifiable");
+        return conditionPredicate(conditionIdentifiable.getId(), contextType, predicate);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <C> StateMachineDef<T> conditionPredicate(String id, Class<C> contextType, Predicate<T> predicate) {
+        requireNotNull(predicate, "Predicate");
+        BiPredicate<T, C> adapted = (BiPredicate<T, C>) (BiPredicate<T, ?>) adaptEntityPredicate(predicate);
+        return conditionPredicate(id, contextType, adapted);
     }
 
     @Override
@@ -754,7 +781,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         throw new TransfluxValidationException("Condition ID '" + id + "' is already registered");
     }
 
-    private void registerConditionPredicate(String id, Predicate<T> predicate) {
+    private void registerConditionPredicate(String id, BiPredicate<T, ?> predicate) {
         ConditionRegistration<T> existing = conditionRegistrations.get(id);
         if (existing == null) {
             conditionRegistrations.put(id, ConditionRegistration.ofPredicate(predicate));
@@ -766,6 +793,10 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
 
         throw new TransfluxValidationException("Condition ID '" + id + "' is already registered");
+    }
+
+    private static <T> BiPredicate<T, Object> adaptEntityPredicate(Predicate<T> predicate) {
+        return (entity, context) -> predicate.test(entity);
     }
 
     private void registerConditionExpression(String id, String expression) {
@@ -882,7 +913,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         tagContextType(id, contextType);
     }
 
-    <C> void registerScopedCondition(String id, Predicate<T> predicate, Class<C> contextType) {
+    <C> void registerScopedCondition(String id, BiPredicate<T, C> predicate, Class<C> contextType) {
         registerConditionPredicate(id, predicate);
         tagContextType(id, contextType);
     }
@@ -1198,7 +1229,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
 
     private record ConditionRegistration<T>(Condition<T, ?> instance, Class<? extends Condition<T, ?>> conditionClass,
-                                            Predicate<T> predicate, String expression) {
+                                            BiPredicate<T, ?> predicate, String expression) {
 
         static <T> ConditionRegistration<T> ofInstance(Condition<T, ?> instance) {
                 return new ConditionRegistration<>(instance, null, null, null);
@@ -1208,7 +1239,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
                 return new ConditionRegistration<>(null, conditionClass, null, null);
             }
 
-            static <T> ConditionRegistration<T> ofPredicate(Predicate<T> predicate) {
+            static <T> ConditionRegistration<T> ofPredicate(BiPredicate<T, ?> predicate) {
                 return new ConditionRegistration<>(null, null, predicate, null);
             }
 
@@ -1225,8 +1256,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
                     return BoundCondition.of(id, (Condition) instantiateNoArg((Class) conditionClass, "Condition"));
                 }
                 if (predicate != null) {
-                    Predicate<T> p = predicate;
-                    Condition<T, Object> adapted = (entity, ctx, transition) -> p.test(entity);
+                    BiPredicate<T, Object> p = (BiPredicate<T, Object>) predicate;
+                    Condition<T, Object> adapted = (entity, ctx, transition) -> p.test(entity, ctx);
                     return BoundCondition.of(id, (Condition) adapted);
                 }
                 return BoundCondition.fromExpression(id, expression);

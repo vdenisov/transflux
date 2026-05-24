@@ -32,6 +32,7 @@ import org.transflux.core.transition.Transition
 import spock.lang.Specification
 import spock.lang.Unroll
 
+import java.util.function.BiPredicate
 import java.util.function.Predicate
 
 class ConditionalStepDefImplSpec extends Specification {
@@ -273,10 +274,10 @@ class ConditionalStepDefImplSpec extends Specification {
         (descriptor as ConditionDescriptor.ClassBased).conditionClass() == AlwaysTrueCondition
     }
 
-    def 'BranchDef.condition(id, Predicate) builds a PredicateBased descriptor'() {
+    def 'BranchDef.condition(id, BiPredicate) builds a PredicateBased descriptor'() {
         given:
         def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1')
-        Predicate<Entity> predicate = { e -> true } as Predicate
+        BiPredicate<Entity, TestContext> predicate = { e, c -> true } as BiPredicate
 
         when:
         cond.branch('b1', { BranchDef<Entity, TestContext> b ->
@@ -288,6 +289,32 @@ class ConditionalStepDefImplSpec extends Specification {
         descriptor instanceof ConditionDescriptor.PredicateBased
         descriptor.id() == 'pred'
         (descriptor as ConditionDescriptor.PredicateBased).predicate().is(predicate)
+    }
+
+    def 'BranchDef.condition(id, Predicate) builds a PredicateBased descriptor that ignores the context'() {
+        given:
+        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1')
+        def calls = []
+        Predicate<Entity> predicate = { e -> calls << e; true } as Predicate
+
+        when:
+        cond.branch('b1', { BranchDef<Entity, TestContext> b ->
+            b.condition('pred', predicate).step('s1', new NoopStep())
+        })
+
+        then:
+        def descriptor = cond.branches[0].descriptor
+        descriptor instanceof ConditionDescriptor.PredicateBased
+        descriptor.id() == 'pred'
+
+        when:
+        def adapted = (descriptor as ConditionDescriptor.PredicateBased).predicate() as BiPredicate<Entity, TestContext>
+        def entity = new Entity(value: 13)
+        def result = adapted.test(entity, new TestContext())
+
+        then:
+        result
+        calls == [entity]
     }
 
     def 'BranchDef.condition(id, expression) builds an ExpressionBased descriptor with explicit id'() {

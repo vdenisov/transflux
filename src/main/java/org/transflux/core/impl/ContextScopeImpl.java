@@ -25,6 +25,7 @@ import org.transflux.core.operation.CompositeOperationDef;
 import org.transflux.core.operation.Operation;
 import org.transflux.core.operation.Step;
 
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -82,10 +83,19 @@ final class ContextScopeImpl<T, C> implements ContextScope<T, C> {
     }
 
     @Override
-    public ContextScope<T, C> condition(String id, Predicate<T> predicate) {
+    public ContextScope<T, C> condition(String id, BiPredicate<T, C> predicate) {
         requireNotBlank(id, "Condition ID");
         requireNotNull(predicate, "Predicate");
         smd.registerScopedCondition(id, predicate, contextType);
+        return this;
+    }
+
+    @Override
+    public ContextScope<T, C> condition(String id, Predicate<T> predicate) {
+        requireNotBlank(id, "Condition ID");
+        requireNotNull(predicate, "Predicate");
+        BiPredicate<T, C> adapted = (entity, ctx) -> predicate.test(entity);
+        smd.registerScopedCondition(id, adapted, contextType);
         return this;
     }
 
@@ -143,6 +153,12 @@ final class ContextScopeImpl<T, C> implements ContextScope<T, C> {
     public ContextScope<T, C> condition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass) {
         requireNotNull(conditionIdentifiable, "Condition identifiable");
         return condition(conditionIdentifiable.getId(), conditionClass);
+    }
+
+    @Override
+    public ContextScope<T, C> condition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate) {
+        requireNotNull(conditionIdentifiable, "Condition identifiable");
+        return condition(conditionIdentifiable.getId(), predicate);
     }
 
     @Override

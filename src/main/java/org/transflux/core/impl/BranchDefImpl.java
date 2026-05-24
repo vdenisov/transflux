@@ -29,6 +29,7 @@ import org.transflux.core.operation.Step;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
@@ -97,10 +98,29 @@ final class BranchDefImpl<T, C> implements BranchDef<T, C> {
     }
 
     @Override
+    public BranchDef<T, C> condition(String id, BiPredicate<T, C> predicate) {
+        requireNotBlank(id, "Condition ID");
+        requireNotNull(predicate, "Predicate");
+        return setDescriptor(ConditionDescriptor.predicate(id, predicate));
+    }
+
+    @Override
+    public BranchDef<T, C> condition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate) {
+        requireNotNull(conditionIdentifiable, "Condition identifiable");
+        return condition(conditionIdentifiable.getId(), predicate);
+    }
+
+    @Override
     public BranchDef<T, C> condition(String id, Predicate<T> predicate) {
         requireNotBlank(id, "Condition ID");
         requireNotNull(predicate, "Predicate");
         return setDescriptor(ConditionDescriptor.predicate(id, predicate));
+    }
+
+    @Override
+    public BranchDef<T, C> condition(Identifiable conditionIdentifiable, Predicate<T> predicate) {
+        requireNotNull(conditionIdentifiable, "Condition identifiable");
+        return condition(conditionIdentifiable.getId(), predicate);
     }
 
     @Override

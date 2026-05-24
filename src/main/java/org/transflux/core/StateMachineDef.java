@@ -29,6 +29,7 @@ import org.transflux.core.state.StateDef;
 import org.transflux.core.state.StateResolver;
 import org.transflux.core.transition.TransitionDef;
 
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -275,7 +276,29 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> condition(Identifiable conditionIdentifiable, Class<? extends Condition<T, ?>> conditionClass);
 
     /**
-     * Registers an entity-only predicate as a condition under the given id.
+     * Registers an {@code (entity, context)} predicate as a condition under the given id.
+     *
+     * @param id the condition id
+     * @param predicate the predicate; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> condition(String id, BiPredicate<T, ?> predicate);
+
+    /**
+     * {@link Identifiable} overload of {@link #condition(String, BiPredicate)} — delegates
+     * via {@link Identifiable#getId()}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param predicate the predicate
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> condition(Identifiable conditionIdentifiable, BiPredicate<T, ?> predicate);
+
+    /**
+     * Convenience overload of {@link #condition(String, BiPredicate)} accepting an entity-only
+     * {@link Predicate}; the context is ignored at evaluation time.
      *
      * @param id the condition id
      * @param predicate the entity predicate; never {@code null}
@@ -369,8 +392,34 @@ public interface StateMachineDef<T> {
     <C> StateMachineDef<T> condition(Identifiable conditionIdentifiable, Class<C> contextType, Class<? extends Condition<T, C>> conditionClass);
 
     /**
-     * Registers an entity-only predicate as a condition under the given id, tagged with
-     * the supplied context class.
+     * Registers an {@code (entity, context)} predicate as a condition under the given id,
+     * tagged with the supplied context class.
+     *
+     * @param id the condition id
+     * @param contextType the condition's declared context class; never {@code null}
+     * @param predicate the predicate; never {@code null}
+     * @param <C> the context class
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> conditionPredicate(String id, Class<C> contextType, BiPredicate<T, C> predicate);
+
+    /**
+     * {@link Identifiable} overload of {@link #conditionPredicate(String, Class, BiPredicate)}
+     * — delegates via {@link Identifiable#getId()}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param contextType the condition's declared context class
+     * @param predicate the predicate
+     * @param <C> the context class
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> conditionPredicate(Identifiable conditionIdentifiable, Class<C> contextType, BiPredicate<T, C> predicate);
+
+    /**
+     * Convenience overload of {@link #conditionPredicate(String, Class, BiPredicate)}
+     * accepting an entity-only {@link Predicate}; the context is ignored at evaluation time.
      *
      * @param id the condition id
      * @param contextType the condition's declared context class; never {@code null}

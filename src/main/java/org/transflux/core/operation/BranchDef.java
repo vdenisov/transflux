@@ -22,6 +22,7 @@ import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
 
+import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 
 /**
@@ -30,8 +31,9 @@ import java.util.function.Predicate;
  * A branch carries exactly one condition selector and one or more steps to run when the
  * selector evaluates to {@code true}. The condition overload set mirrors the
  * pre/post-condition grammar offered on transitions: a reference to a registered condition,
- * an inline {@link Condition} instance, a {@link Condition} class, a {@link Predicate} over
- * the entity, or a SpEL expression — either with an auto-derived id or an explicit one.
+ * an inline {@link Condition} instance, a {@link Condition} class, a {@link BiPredicate} over
+ * {@code (entity, context)} (or a {@link Predicate} over the entity alone), or a SpEL
+ * expression — either with an auto-derived id or an explicit one.
  *
  * <p>If a configurer calls more than one of the {@code condition(...)} overloads, the last
  * call wins and a warning is logged.
@@ -107,11 +109,35 @@ public interface BranchDef<T, C> {
     BranchDef<T, C> condition(String id, Class<? extends Condition<T, C>> conditionClass);
 
     /**
-     * Sets this branch's condition to an entity-only {@link Predicate}, adapted into a
-     * {@link Condition} that ignores the context and transition view.
+     * Sets this branch's condition to a {@link BiPredicate} over {@code (entity, context)},
+     * adapted into a {@link Condition} that ignores the transition view.
      *
      * @param id the condition id
-     * @param predicate the predicate over the entity
+     * @param predicate the predicate
+     *
+     * @return this branch def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
+     *         {@code predicate} is {@code null}
+     */
+    BranchDef<T, C> condition(String id, BiPredicate<T, C> predicate);
+
+    /**
+     * {@link Identifiable} overload of {@link #condition(String, BiPredicate)}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param predicate the predicate
+     *
+     * @return this branch def for chaining
+     */
+    BranchDef<T, C> condition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate);
+
+    /**
+     * Convenience overload of {@link #condition(String, BiPredicate)} accepting an entity-only
+     * {@link Predicate}; the context is ignored at evaluation time.
+     *
+     * @param id the condition id
+     * @param predicate the entity predicate
      *
      * @return this branch def for chaining
      *
@@ -119,6 +145,16 @@ public interface BranchDef<T, C> {
      *         {@code predicate} is {@code null}
      */
     BranchDef<T, C> condition(String id, Predicate<T> predicate);
+
+    /**
+     * {@link Identifiable} overload of {@link #condition(String, Predicate)}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param predicate the entity predicate
+     *
+     * @return this branch def for chaining
+     */
+    BranchDef<T, C> condition(Identifiable conditionIdentifiable, Predicate<T> predicate);
 
     /**
      * Sets this branch's condition to a SpEL expression under an explicit id.

@@ -23,7 +23,7 @@ import org.transflux.core.condition.ConditionDescriptor;
 import org.transflux.core.exception.TransfluxValidationException;
 
 import java.util.Map;
-import java.util.function.Predicate;
+import java.util.function.BiPredicate;
 
 import static org.transflux.core.Preconditions.requireNotNull;
 import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
@@ -35,8 +35,9 @@ import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
  * Reference descriptors are looked up against the state machine's condition registry;
  * class-based descriptors are reflectively instantiated through their public no-arg
  * constructor; instance-based descriptors return the wrapped {@code Condition} as-is;
- * predicate-based descriptors are adapted into {@code Condition} instances that ignore the
- * context and transition view; expression-based descriptors are bound to the shared
+ * predicate-based descriptors are adapted into {@code Condition} instances that pass the
+ * entity and context through to the underlying predicate (ignoring the transition view);
+ * expression-based descriptors are bound to the shared
  * {@link SpelConditionEvaluator}, with id auto-derived from the supplied path when the
  * descriptor omits an explicit id.
  */
@@ -121,8 +122,8 @@ final class ConditionResolver {
 
     @SuppressWarnings("unchecked")
     private static <T, C> BoundCondition<T, C> resolvePredicateBased(ConditionDescriptor.PredicateBased descriptor) {
-        Predicate<T> predicate = (Predicate<T>) descriptor.predicate();
-        Condition<T, C> adapted = (entity, ctx, transition) -> predicate.test(entity);
+        BiPredicate<T, C> predicate = (BiPredicate<T, C>) descriptor.predicate();
+        Condition<T, C> adapted = (entity, ctx, transition) -> predicate.test(entity, ctx);
         return BoundCondition.of(descriptor.id(), adapted);
     }
 

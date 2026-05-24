@@ -21,19 +21,22 @@ package org.transflux.core.condition;
 import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 
+import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
- * Discriminated representation of the four authoring forms a transition condition can take:
+ * Discriminated representation of the five authoring forms a transition condition can take:
  * a reference to a previously registered condition, a class to be reflectively instantiated,
- * an arbitrary {@link Predicate} adapted to a {@link Condition}, or a SpEL expression string.
+ * a pre-built {@link Condition} instance, a {@link BiPredicate} over {@code (entity, context)}
+ * adapted to a {@link Condition}, or a SpEL expression string.
  * <p>
- * Reference, class, and predicate forms require an explicit non-blank id. The expression
- * form allows an optional id; when omitted, the framework derives a stable id deterministically
- * from the expression text and the descriptor's position within the enclosing state machine.
+ * Reference, class, instance, and predicate forms require an explicit non-blank id. The
+ * expression form allows an optional id; when omitted, the framework derives a stable id
+ * deterministically from the expression text and the descriptor's position within the
+ * enclosing state machine.
  */
 public sealed interface ConditionDescriptor
     permits ConditionDescriptor.Reference,
@@ -111,8 +114,8 @@ public sealed interface ConditionDescriptor
     }
 
     /**
-     * Creates a descriptor that adapts a {@link Predicate} over the entity into a
-     * {@link Condition} under the given id.
+     * Creates a descriptor that adapts a {@link BiPredicate} over {@code (entity, context)}
+     * into a {@link Condition} under the given id.
      *
      * @param id the condition id; never {@code null} or blank
      * @param predicate the predicate; never {@code null}
@@ -122,8 +125,29 @@ public sealed interface ConditionDescriptor
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code predicate} is {@code null}
      */
-    static ConditionDescriptor predicate(String id, Predicate<?> predicate) {
+    static ConditionDescriptor predicate(String id, BiPredicate<?, ?> predicate) {
         return new PredicateBased(id, predicate);
+    }
+
+    /**
+     * Convenience overload for entity-only predicates. The supplied {@link Predicate} is
+     * adapted to a {@link BiPredicate} that ignores the context and delegates to
+     * {@link Predicate#test(Object)}.
+     *
+     * @param id the condition id; never {@code null} or blank
+     * @param predicate the entity predicate; never {@code null}
+     *
+     * @return a predicate-based descriptor
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
+     *         {@code predicate} is {@code null}
+     */
+    @SuppressWarnings("unchecked")
+    static ConditionDescriptor predicate(String id, Predicate<?> predicate) {
+        requireNotNull(predicate, "Predicate");
+        Predicate<Object> typed = (Predicate<Object>) predicate;
+        BiPredicate<Object, Object> adapted = (entity, context) -> typed.test(entity);
+        return new PredicateBased(id, adapted);
     }
 
     /**
@@ -212,17 +236,17 @@ public sealed interface ConditionDescriptor
     }
 
     /**
-     * Descriptor variant adapting an entity predicate to a condition.
+     * Descriptor variant adapting an {@code (entity, context)} predicate to a condition.
      *
      * @param id the condition id
-     * @param predicate the entity predicate
+     * @param predicate the entity-and-context predicate
      */
-    record PredicateBased(String id, Predicate<?> predicate) implements ConditionDescriptor {
+    record PredicateBased(String id, BiPredicate<?, ?> predicate) implements ConditionDescriptor {
         /**
          * Validates the supplied id and predicate.
          *
          * @param id the condition id
-         * @param predicate the entity predicate
+         * @param predicate the entity-and-context predicate
          */
         public PredicateBased {
             requireNotBlank(id, "Condition ID");

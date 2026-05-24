@@ -25,6 +25,7 @@ import org.transflux.core.transition.Transition
 import spock.lang.Specification
 import spock.lang.Unroll
 
+import java.util.function.BiPredicate
 import java.util.function.Predicate
 
 class ConditionDescriptorSpec extends Specification {
@@ -48,9 +49,9 @@ class ConditionDescriptorSpec extends Specification {
         (d as ConditionDescriptor.ClassBased).conditionClass() == SampleCondition
     }
 
-    def "predicate(...) should produce a PredicateBased descriptor carrying id and predicate"() {
+    def "predicate(id, BiPredicate) should produce a PredicateBased descriptor carrying id and predicate"() {
         given:
-        Predicate<Object> p = { o -> true }
+        BiPredicate<Object, Object> p = { o, c -> true }
 
         when:
         def d = ConditionDescriptor.predicate('cond-a', p)
@@ -59,6 +60,27 @@ class ConditionDescriptorSpec extends Specification {
         d instanceof ConditionDescriptor.PredicateBased
         d.id() == 'cond-a'
         (d as ConditionDescriptor.PredicateBased).predicate().is(p)
+    }
+
+    def "predicate(id, Predicate) convenience overload adapts to a BiPredicate that ignores the context"() {
+        given:
+        def calls = []
+        Predicate<Object> p = { o -> calls << o; true }
+
+        when:
+        def d = ConditionDescriptor.predicate('cond-a', p)
+
+        then:
+        d instanceof ConditionDescriptor.PredicateBased
+        d.id() == 'cond-a'
+
+        when:
+        def adapted = (d as ConditionDescriptor.PredicateBased).predicate() as BiPredicate<Object, Object>
+        def result = adapted.test('entity-x', 'context-y')
+
+        then:
+        result
+        calls == ['entity-x']
     }
 
     def "expression(expr) should produce an ExpressionBased descriptor with null id"() {
@@ -130,6 +152,15 @@ class ConditionDescriptorSpec extends Specification {
     def "predicate(...) should reject null predicate"() {
         when:
         ConditionDescriptor.predicate('cond-a', (Predicate) null)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == 'Predicate cannot be null'
+    }
+
+    def "predicate(id, BiPredicate) should reject null predicate"() {
+        when:
+        ConditionDescriptor.predicate('cond-a', (BiPredicate) null)
 
         then:
         def e = thrown(TransfluxValidationException)

@@ -374,8 +374,8 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass);
 
     /**
-     * Appends a pre-condition built from a {@link Predicate} over the entity under the given
-     * id. The predicate is adapted into a {@link Condition} that ignores the context and the
+     * Appends a pre-condition built from a {@link BiPredicate} over {@code (entity, context)}
+     * under the given id. The predicate is adapted into a {@link Condition} that ignores the
      * transition view.
      *
      * @param id the condition id; never {@code null} or blank
@@ -385,6 +385,27 @@ public interface TransitionDef<T, C> extends Identifiable {
      *
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code predicate} is {@code null}
+     */
+    TransitionDef<T, C> preCondition(String id, BiPredicate<T, C> predicate);
+
+    /**
+     * {@link Identifiable} overload of {@link #preCondition(String, BiPredicate)}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param predicate the predicate
+     *
+     * @return this transition def for chaining
+     */
+    TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate);
+
+    /**
+     * Convenience overload of {@link #preCondition(String, BiPredicate)} accepting an
+     * entity-only {@link Predicate}; the context is ignored at evaluation time.
+     *
+     * @param id the condition id; never {@code null} or blank
+     * @param predicate the entity predicate; never {@code null}
+     *
+     * @return this transition def for chaining
      */
     TransitionDef<T, C> preCondition(String id, Predicate<T> predicate);
 
@@ -509,8 +530,8 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass);
 
     /**
-     * Appends a post-condition built from a {@link Predicate} over the entity under the given
-     * id. The predicate is adapted into a {@link Condition} that ignores the context and the
+     * Appends a post-condition built from a {@link BiPredicate} over {@code (entity, context)}
+     * under the given id. The predicate is adapted into a {@link Condition} that ignores the
      * transition view.
      *
      * @param id the condition id; never {@code null} or blank
@@ -520,6 +541,27 @@ public interface TransitionDef<T, C> extends Identifiable {
      *
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code predicate} is {@code null}
+     */
+    TransitionDef<T, C> postCondition(String id, BiPredicate<T, C> predicate);
+
+    /**
+     * {@link Identifiable} overload of {@link #postCondition(String, BiPredicate)}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param predicate the predicate
+     *
+     * @return this transition def for chaining
+     */
+    TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate);
+
+    /**
+     * Convenience overload of {@link #postCondition(String, BiPredicate)} accepting an
+     * entity-only {@link Predicate}; the context is ignored at evaluation time.
+     *
+     * @param id the condition id; never {@code null} or blank
+     * @param predicate the entity predicate; never {@code null}
+     *
+     * @return this transition def for chaining
      */
     TransitionDef<T, C> postCondition(String id, Predicate<T> predicate);
 
@@ -704,6 +746,39 @@ public interface TransitionDef<T, C> extends Identifiable {
     /**
      * Placeholder for the trigger framework.
      *
+     * @param condition entity-and-context matcher
+     *
+     * @return this transition def for chaining
+     */
+    // TODO: trigger framework
+    TransitionDef<T, C> addDataTrigger(BiPredicate<T, C> condition);
+
+    /**
+     * Placeholder for the trigger framework.
+     *
+     * @param id trigger id
+     * @param condition entity-and-context matcher
+     *
+     * @return this transition def for chaining
+     */
+    // TODO: trigger framework
+    TransitionDef<T, C> addDataTrigger(String id, BiPredicate<T, C> condition);
+
+    /**
+     * {@link Identifiable} overload of {@link #addDataTrigger(String, BiPredicate)}.
+     *
+     * @param triggerIdentifiable an identifiable supplying the trigger id
+     * @param condition entity-and-context matcher
+     *
+     * @return this transition def for chaining
+     */
+    // TODO: trigger framework
+    TransitionDef<T, C> addDataTrigger(Identifiable triggerIdentifiable, BiPredicate<T, C> condition);
+
+    /**
+     * Convenience overload of {@link #addDataTrigger(BiPredicate)} accepting an entity-only
+     * {@link Predicate}; the context is ignored at evaluation time.
+     *
      * @param condition entity matcher
      *
      * @return this transition def for chaining
@@ -712,7 +787,8 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> addDataTrigger(Predicate<T> condition);
 
     /**
-     * Placeholder for the trigger framework.
+     * Convenience overload of {@link #addDataTrigger(String, BiPredicate)} accepting an
+     * entity-only {@link Predicate}; the context is ignored at evaluation time.
      *
      * @param id trigger id
      * @param condition entity matcher
