@@ -41,6 +41,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -320,6 +321,48 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
     }
 
+    /**
+     * Walks every known composite operation def — both transition-attached top-level composites
+     * and SM-level registered composites — and returns the id of the first composite whose
+     * <em>local</em> scope registry contains an entry under {@code id}, excluding the composite
+     * that originated the search. Used by {@link ActionRef} resolution to enrich
+     * "unknown id" diagnostics when an id exists inline in a sibling composite's subtree.
+     *
+     * <p>Returns {@link Optional#empty()} when no matching sibling registration exists.
+     */
+    Optional<String> findInlineSiblingScope(String id, String excludingCompositeId) {
+        for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
+            OperationDefImpl<T, ?> op = td.getOperationDef();
+            if (op instanceof CompositeOperationDefImpl<T, ?> composite) {
+                Optional<String> hit = scanComposite(composite, id, excludingCompositeId);
+                if (hit.isPresent()) {
+                    return hit;
+                }
+            }
+        }
+
+        for (CompositeOperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
+            Optional<String> hit = scanComposite(composite, id, excludingCompositeId);
+            if (hit.isPresent()) {
+                return hit;
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    private Optional<String> scanComposite(CompositeOperationDefImpl<T, ?> composite,
+                                           String id, String excludingCompositeId) {
+        if (!composite.getId().equals(excludingCompositeId)) {
+            RegistryImpl<T> scope = composite.getScopeRegistry();
+            if (scope != null && scope.get(id).isPresent()) {
+                return Optional.of(composite.getId());
+            }
+        }
+
+        return Optional.empty();
+    }
+
     private static <T> Object payloadOf(StepRegistration<T> reg) {
         return reg.instance != null ? reg.instance : reg.stepClass;
     }
@@ -343,6 +386,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
                 }
             }
         }
+
         for (CompositeOperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
             RegistryImpl<T> scope = composite.getScopeRegistry();
             if (scope != null) {
@@ -375,10 +419,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
                 conditional.getInlineStepInstances(), conditional.getInlineStepClasses(), compositeCtx);
 
             String conditionalId = e.getKey();
-            claimCanonical(canonical, conditionalId, conditional);
+            claimCanonical(canonical, conditionalId, conditional, "Conditional step");
             if (scope.get(conditionalId).isPresent()) {
                 continue;
             }
+
             BoundStep<T, C> boundConditional = conditional.buildBoundStep(stateMachine, conditionRegistry);
             scope.register(new Component.Step<>(conditionalId, null, null, compositeCtx, boundConditional));
         }
@@ -391,6 +436,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         for (Map.Entry<String, Step<T, C>> e : instances.entrySet()) {
             registerInlineStepInScope(scope, canonical, e.getKey(), e.getValue(), contextType);
         }
+
         for (Map.Entry<String, Class<? extends Step<T, C>>> e : classes.entrySet()) {
             registerInlineStepClassInScope(scope, canonical, e.getKey(), e.getValue(), contextType);
         }
@@ -403,6 +449,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         for (Map.Entry<String, Operation<T, C>> e : instances.entrySet()) {
             registerInlineOperationInScope(scope, canonical, e.getKey(), e.getValue(), contextType);
         }
+
         for (Map.Entry<String, Class<? extends Operation<T, C>>> e : classes.entrySet()) {
             registerInlineOperationClassInScope(scope, canonical, e.getKey(), e.getValue(), contextType);
         }
@@ -410,10 +457,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     private <C> void registerInlineStepInScope(RegistryImpl<T> scope, Map<String, Object> canonical,
                                                String id, Step<T, C> step, Class<C> contextType) {
-        claimCanonical(canonical, id, step);
+        claimCanonical(canonical, id, step, "Step");
         if (scope.get(id).isPresent()) {
             return;
         }
+
         BoundStep<T, C> bound = BoundStep.of(id, step);
         scope.register(new Component.Step<>(id, null, null, contextType, bound));
     }
@@ -422,10 +470,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private <C> void registerInlineStepClassInScope(RegistryImpl<T> scope, Map<String, Object> canonical,
                                                     String id, Class<? extends Step<T, C>> stepClass,
                                                     Class<C> contextType) {
-        claimCanonical(canonical, id, stepClass);
+        claimCanonical(canonical, id, stepClass, "Step");
         if (scope.get(id).isPresent()) {
             return;
         }
+
         Step<T, C> resolved = (Step<T, C>) instantiateNoArg((Class) stepClass, "Step");
         BoundStep<T, C> bound = BoundStep.of(id, resolved);
         scope.register(new Component.Step<>(id, null, null, contextType, bound));
@@ -434,10 +483,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private <C> void registerInlineOperationInScope(RegistryImpl<T> scope, Map<String, Object> canonical,
                                                     String id, Operation<T, C> operation,
                                                     Class<C> contextType) {
-        claimCanonical(canonical, id, operation);
+        claimCanonical(canonical, id, operation, "Operation");
         if (scope.get(id).isPresent()) {
             return;
         }
+
         BoundOperation<T, C> bound = BoundOperation.of(id, null, null, operation);
         scope.register(new Component.Operation<>(id, null, null, contextType, bound));
     }
@@ -446,10 +496,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private <C> void registerInlineOperationClassInScope(RegistryImpl<T> scope, Map<String, Object> canonical,
                                                          String id, Class<? extends Operation<T, C>> operationClass,
                                                          Class<C> contextType) {
-        claimCanonical(canonical, id, operationClass);
+        claimCanonical(canonical, id, operationClass, "Operation");
         if (scope.get(id).isPresent()) {
             return;
         }
+
         Operation<T, C> resolved = (Operation<T, C>) instantiateNoArg((Class) operationClass, "Operation");
         BoundOperation<T, C> bound = BoundOperation.of(id, null, null, resolved);
         scope.register(new Component.Operation<>(id, null, null, contextType, bound));
@@ -462,20 +513,33 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * {@code registerStepClass} pair and friends. A different payload under the same id raises
      * {@link TransfluxValidationException}, enforcing SM-wide id uniqueness.
      */
-    private void claimCanonical(Map<String, Object> canonical, String id, Object payload) {
+    private void claimCanonical(Map<String, Object> canonical, String id, Object payload, String kind) {
         Object existing = canonical.get(id);
+
         if (existing == null) {
             canonical.put(id, payload);
             return;
         }
+
         if (existing == payload) {
             return;
         }
+
         if (existing instanceof Class<?> && payload instanceof Class<?> && existing.equals(payload)) {
             return;
         }
+
         throw new TransfluxValidationException(
-            "Component id '" + id + "' is already registered");
+            kind + " id '" + id + "' is already registered with payload '"
+                + payloadClassName(existing) + "'; cannot re-register with '"
+                + payloadClassName(payload) + "'.");
+    }
+
+    private static String payloadClassName(Object payload) {
+        if (payload instanceof Class<?> cls) {
+            return cls.getName();
+        }
+        return payload.getClass().getName();
     }
 
     @Override

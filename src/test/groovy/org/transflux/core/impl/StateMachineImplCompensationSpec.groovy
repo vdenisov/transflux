@@ -181,8 +181,8 @@ class StateMachineImplCompensationSpec extends Specification {
         !result.success
         result.error instanceof RuntimeException
         result.error.message == 'boom'
-        result.executedStepIds*.toString() == ['s1', 's2']
-        result.compensatedStepIds*.toString() == ['s2', 's1']
+        result.executedPath*.toString() == ['op', 'op/s1', 'op/s2']
+        result.compensatedPath*.toString() == ['op/s2', 'op/s1']
         entity.trail == ['a', 'b', '-b', '-a']
         applied.isEmpty()
     }
@@ -202,8 +202,8 @@ class StateMachineImplCompensationSpec extends Specification {
         then:
         !result.success
         result.error.message == 'execute-blew-up-b'
-        result.executedStepIds*.toString() == ['s1']
-        result.compensatedStepIds*.toString() == ['s2', 's1']
+        result.executedPath*.toString() == ['op', 'op/s1']
+        result.compensatedPath*.toString() == ['op/s2', 'op/s1']
         entity.trail == ['a', 'b', '-b', '-a']
         applied.isEmpty()
     }
@@ -224,8 +224,8 @@ class StateMachineImplCompensationSpec extends Specification {
         then:
         !result.success
         result.error.message == 'external-service-failed-at-5'
-        result.executedStepIds == []
-        result.compensatedStepIds*.toString() == ['create']
+        result.executedPath*.toString() == ['op']
+        result.compensatedPath*.toString() == ['op/create']
         createdIds == ['entity-0', 'entity-1', 'entity-2', 'entity-3', 'entity-4']
         deletedIds == ['entity-0', 'entity-1', 'entity-2', 'entity-3', 'entity-4']
         applied.isEmpty()
@@ -246,8 +246,8 @@ class StateMachineImplCompensationSpec extends Specification {
 
         then:
         !result.success
-        result.executedStepIds*.toString() == ['s1', 's2']
-        result.compensatedStepIds*.toString() == ['s1']
+        result.executedPath*.toString() == ['op', 'op/s1', 'op/s2']
+        result.compensatedPath*.toString() == ['op/s1']
         entity.trail == ['a', 'b', '-a']
         applied.isEmpty()
     }
@@ -267,13 +267,13 @@ class StateMachineImplCompensationSpec extends Specification {
 
         then:
         !result.success
-        result.executedStepIds*.toString() == ['s1', 's2']
-        result.compensatedStepIds*.toString() == ['s2', 's1']
+        result.executedPath*.toString() == ['op', 'op/s1', 'op/s2']
+        result.compensatedPath*.toString() == ['op/s2', 'op/s1']
         entity.trail == ['a', 'b', '-a']
         applied.isEmpty()
     }
 
-    def 'pre-condition failure: no compensation runs, compensatedStepIds is empty'() {
+    def 'pre-condition failure: no compensation runs, compensatedPath is empty'() {
         given:
         def applied = []
         def sm = build(applied, { t -> t
@@ -288,8 +288,8 @@ class StateMachineImplCompensationSpec extends Specification {
 
         then:
         !result.success
-        result.executedStepIds.isEmpty()
-        result.compensatedStepIds.isEmpty()
+        result.executedPath.isEmpty()
+        result.compensatedPath.isEmpty()
         entity.trail.isEmpty()
         applied.isEmpty()
     }
@@ -310,8 +310,8 @@ class StateMachineImplCompensationSpec extends Specification {
 
         then:
         !result.success
-        result.executedStepIds*.toString() == ['s1', 's2']
-        result.compensatedStepIds.isEmpty()
+        result.executedPath*.toString() == ['op', 'op/s1', 'op/s2']
+        result.compensatedPath.isEmpty()
         entity.trail == ['a', 'b']
         applied.isEmpty()
     }
@@ -340,8 +340,8 @@ class StateMachineImplCompensationSpec extends Specification {
 
         then:
         !result.success
-        result.executedStepIds*.toString() == ['s1', 'dynamic', 's2']
-        result.compensatedStepIds*.toString() == ['dynamic', 's1']
+        result.executedPath*.toString() == ['op', 'op/s1', 'op/dynamic', 'op/s2']
+        result.compensatedPath*.toString() == ['op/dynamic', 'op/s1']
         entity.trail == ['a', 'dyn', '-dyn', '-a']
         applied.isEmpty()
     }

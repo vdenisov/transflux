@@ -64,8 +64,8 @@ public class TransitionResult<T> {
     private final String targetStateId;
     private final String transitionId;
     private final Throwable error;
-    private final List<StepPath> executedStepIds;
-    private final List<StepPath> compensatedStepIds;
+    private final List<StepPath> executedPath;
+    private final List<StepPath> compensatedPath;
     private final Instant startedAt;
     private final Instant completedAt;
 
@@ -75,8 +75,8 @@ public class TransitionResult<T> {
                              String targetStateId,
                              String transitionId,
                              Throwable error,
-                             List<StepPath> executedStepIds,
-                             List<StepPath> compensatedStepIds,
+                             List<StepPath> executedPath,
+                             List<StepPath> compensatedPath,
                              Instant startedAt,
                              Instant completedAt) {
         this.success = success;
@@ -85,10 +85,10 @@ public class TransitionResult<T> {
         this.targetStateId = targetStateId;
         this.transitionId = transitionId;
         this.error = error;
-        this.executedStepIds = Collections.unmodifiableList(
-                executedStepIds == null ? new ArrayList<>() : new ArrayList<>(executedStepIds));
-        this.compensatedStepIds = Collections.unmodifiableList(
-                compensatedStepIds == null ? new ArrayList<>() : new ArrayList<>(compensatedStepIds));
+        this.executedPath = Collections.unmodifiableList(
+                executedPath == null ? new ArrayList<>() : new ArrayList<>(executedPath));
+        this.compensatedPath = Collections.unmodifiableList(
+                compensatedPath == null ? new ArrayList<>() : new ArrayList<>(compensatedPath));
         this.startedAt = startedAt;
         this.completedAt = completedAt;
     }
@@ -138,7 +138,7 @@ public class TransitionResult<T> {
      * @param sourceStateId the state the entity left
      * @param targetStateId the state the entity reached
      * @param transitionId the id of the transition that fired
-     * @param executedStepIds ordered paths of steps that ran
+     * @param executedPath ordered paths of steps that ran
      * @param startedAt when execution began
      * @param completedAt when execution finished
      * @param <T> the entity type
@@ -147,10 +147,10 @@ public class TransitionResult<T> {
      */
     public static <T> TransitionResult<T> success(T entity, String sourceStateId,
                                                   String targetStateId, String transitionId,
-                                                  List<StepPath> executedStepIds,
+                                                  List<StepPath> executedPath,
                                                   Instant startedAt, Instant completedAt) {
         return new TransitionResult<>(true, entity, sourceStateId, targetStateId, transitionId,
-                null, executedStepIds, null, startedAt, completedAt);
+                null, executedPath, null, startedAt, completedAt);
     }
 
     /**
@@ -203,8 +203,8 @@ public class TransitionResult<T> {
      * @param targetStateId the state that was targeted
      * @param transitionId the id of the transition that fired
      * @param error the failure cause
-     * @param executedStepIds ordered paths of steps that ran before the failure
-     * @param compensatedStepIds ordered paths of compensations that ran during rollback
+     * @param executedPath ordered paths of steps that ran before the failure
+     * @param compensatedPath ordered paths of compensations that ran during rollback
      * @param startedAt when execution began
      * @param completedAt when execution finished
      * @param <T> the entity type
@@ -214,11 +214,11 @@ public class TransitionResult<T> {
     public static <T> TransitionResult<T> failure(T entity, String sourceStateId,
                                                   String targetStateId, String transitionId,
                                                   Throwable error,
-                                                  List<StepPath> executedStepIds,
-                                                  List<StepPath> compensatedStepIds,
+                                                  List<StepPath> executedPath,
+                                                  List<StepPath> compensatedPath,
                                                   Instant startedAt, Instant completedAt) {
         return new TransitionResult<>(false, entity, sourceStateId, targetStateId, transitionId,
-                error, executedStepIds, compensatedStepIds, startedAt, completedAt);
+                error, executedPath, compensatedPath, startedAt, completedAt);
     }
 
     /**
@@ -281,8 +281,8 @@ public class TransitionResult<T> {
      *
      * @return the executed step paths; never {@code null}
      */
-    public List<StepPath> getExecutedStepIds() {
-        return executedStepIds;
+    public List<StepPath> getExecutedPath() {
+        return executedPath;
     }
 
     /**
@@ -290,14 +290,14 @@ public class TransitionResult<T> {
      * <p>
      * The list is unmodifiable and reflects compensations in LIFO order relative to their
      * registration. Empty on successful transitions. Each entry shares the same qualified-path
-     * shape as {@link #getExecutedStepIds()}: compensations registered by a step inside a
+     * shape as {@link #getExecutedPath()}: compensations registered by a step inside a
      * nested operation carry the full enclosing-operation chain; top-level compensations
      * appear under a single-segment path.
      *
      * @return the compensated step paths; never {@code null}
      */
-    public List<StepPath> getCompensatedStepIds() {
-        return compensatedStepIds;
+    public List<StepPath> getCompensatedPath() {
+        return compensatedPath;
     }
 
     /**
@@ -331,11 +331,11 @@ public class TransitionResult<T> {
         if (success) {
             return String.format("TransitionResult{success=true, transition=%s, %s -> %s, steps=%d, duration=%s}",
                                transitionId, sourceStateId, targetStateId,
-                               executedStepIds.size(), getDuration());
+                               executedPath.size(), getDuration());
         } else {
             return String.format("TransitionResult{success=false, transition=%s, %s -> %s, steps=%d, compensated=%d, error=%s}",
                                transitionId, sourceStateId, targetStateId,
-                               executedStepIds.size(), compensatedStepIds.size(),
+                               executedPath.size(), compensatedPath.size(),
                                error != null ? error.getMessage() : "unknown");
         }
     }

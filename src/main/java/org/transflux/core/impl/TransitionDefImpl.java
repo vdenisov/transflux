@@ -319,23 +319,6 @@ class TransitionDefImpl<T, C> implements TransitionDef<T, C> {
     }
 
     @Override
-    public TransitionDef<T, C> step(String registeredStepId) {
-        requireConfigurerActive("step");
-        requireNotBlank(registeredStepId, "Step ID");
-        CompositeOperationDefImpl<T, C> composite =
-            new CompositeOperationDefImpl<>("transition-" + this.id + "-op");
-        composite.step(registeredStepId);
-        attachOperation(composite);
-        return this;
-    }
-
-    @Override
-    public TransitionDef<T, C> step(Identifiable registeredStep) {
-        requireNotNull(registeredStep, "Step identifiable");
-        return step(registeredStep.getId());
-    }
-
-    @Override
     public TransitionDef<T, C> withName(String name) {
         requireConfigurerActive("withName");
         if (this.name != null) {

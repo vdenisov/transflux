@@ -229,38 +229,6 @@ class TransitionDefImplSpec extends Specification {
         thrown(TransfluxValidationException)
     }
 
-    def 'step(id) sugar should build a single-step composite with a deterministic id'() {
-        given:
-        def transitionDef = new TransitionDefImpl<Object, Object>('t-x', 'source', 'target')
-        transitionDef.beginConfigurer()
-
-        when:
-        transitionDef.step('foo')
-
-        then:
-        transitionDef.operationDef instanceof CompositeOperationDefImpl
-        transitionDef.operationDef.id == 'transition-t-x-op'
-        def composite = (CompositeOperationDefImpl<Object, Object>) transitionDef.operationDef
-        // A by-id reference produces no inline instance or inline class registration.
-        composite.inlineStepInstances.isEmpty()
-        composite.inlineStepClasses.isEmpty()
-    }
-
-    def 'step(id) sugar should reject null or blank id'() {
-        given:
-        def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
-        transitionDef.beginConfigurer()
-
-        when:
-        transitionDef.step(id)
-
-        then:
-        thrown(TransfluxValidationException)
-
-        where:
-        id << [null, '', '  ']
-    }
-
     def 'toString should include all fields'() {
         given:
         def transitionDef = new TransitionDefImpl('t1', 'source', 'target')
@@ -310,18 +278,6 @@ class TransitionDefImplSpec extends Specification {
         transition.contextType() == UsingCtx
     }
 
-    def 'step(Identifiable) delegates to step(String)'() {
-        given:
-        def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
-        td.beginConfigurer()
-
-        when:
-        td.step(identifiable('my-step'))
-
-        then:
-        td.getOperationDef() != null
-    }
-
     def 'preCondition(Identifiable) delegates to preCondition(String)'() {
         given:
         def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
@@ -362,7 +318,7 @@ class TransitionDefImplSpec extends Specification {
         e.message.toLowerCase().contains('identifiable')
 
         where:
-        method << ['step', 'preCondition', 'postCondition']
+        method << ['preCondition', 'postCondition']
     }
 
     @Unroll

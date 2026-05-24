@@ -38,7 +38,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  *
  * <p>The {@link #toString()} representation is the segments joined by {@code "/"}, matching
  * the qualified-path format described in
- * {@link org.transflux.core.transition.TransitionResult#getExecutedStepIds()}.
+ * {@link org.transflux.core.transition.TransitionResult#getExecutedPath()}.
  *
  * @param segments the ordered path segments; never {@code null}, never empty, no segment
  *                 may be {@code null} or blank

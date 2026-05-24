@@ -40,8 +40,8 @@ class TransitionResultSpec extends Specification {
         result.targetStateId == "T"
         result.transitionId == "tx"
         result.error == null
-        result.executedStepIds == []
-        result.compensatedStepIds == []
+        result.executedPath == []
+        result.compensatedPath == []
         result.startedAt != null
         result.completedAt != null
         result.duration == Duration.ZERO || result.duration.toNanos() >= 0
@@ -70,8 +70,8 @@ class TransitionResultSpec extends Specification {
         def result = TransitionResult.success("entity", "S", "T", "tx", steps, start, start)
 
         then:
-        result.executedStepIds == [StepPath.of("step-a"), StepPath.of("step-b"), StepPath.of("step-c")]
-        result.compensatedStepIds == []
+        result.executedPath == [StepPath.of("step-a"), StepPath.of("step-b"), StepPath.of("step-c")]
+        result.compensatedPath == []
     }
 
     def "failure factory should capture the error"() {
@@ -85,8 +85,8 @@ class TransitionResultSpec extends Specification {
         !result.success
         result.failure
         result.error.is(error)
-        result.executedStepIds == []
-        result.compensatedStepIds == []
+        result.executedPath == []
+        result.compensatedPath == []
     }
 
     def "failure factory with full metadata should preserve step lists"() {
@@ -101,31 +101,31 @@ class TransitionResultSpec extends Specification {
                 "entity", "S", "T", "tx", error, executed, compensated, start, start)
 
         then:
-        result.executedStepIds == [StepPath.of("s1"), StepPath.of("s2")]
-        result.compensatedStepIds == [StepPath.of("c-s2"), StepPath.of("c-s1")]
+        result.executedPath == [StepPath.of("s1"), StepPath.of("s2")]
+        result.compensatedPath == [StepPath.of("c-s2"), StepPath.of("c-s1")]
         result.error.is(error)
     }
 
-    def "executedStepIds should be unmodifiable"() {
+    def "executedPath should be unmodifiable"() {
         given:
         def result = TransitionResult.success("entity", "S", "T", "tx",
                 [StepPath.of("s1")], Instant.now(), Instant.now())
 
         when:
-        result.executedStepIds.add(StepPath.of("intruder"))
+        result.executedPath.add(StepPath.of("intruder"))
 
         then:
         thrown(UnsupportedOperationException)
     }
 
-    def "compensatedStepIds should be unmodifiable"() {
+    def "compensatedPath should be unmodifiable"() {
         given:
         def result = TransitionResult.failure(
                 "entity", "S", "T", "tx", new RuntimeException(),
                 [], [StepPath.of("c1")], Instant.now(), Instant.now())
 
         when:
-        result.compensatedStepIds.add(StepPath.of("intruder"))
+        result.compensatedPath.add(StepPath.of("intruder"))
 
         then:
         thrown(UnsupportedOperationException)
@@ -141,7 +141,7 @@ class TransitionResultSpec extends Specification {
         steps.add(StepPath.of("s3"))
 
         then:
-        result.executedStepIds == [StepPath.of("s1"), StepPath.of("s2")]
+        result.executedPath == [StepPath.of("s1"), StepPath.of("s2")]
     }
 
     def "duration should be null when either timestamp is missing"() {

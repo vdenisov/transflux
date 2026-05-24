@@ -39,6 +39,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -149,12 +150,8 @@ class StateMachineImpl<T> implements StateMachine<T> {
             .orElse(null);
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    BoundOperation<T, ?> getBoundOperation(String id) {
-        return componentRegistry.resolve(id)
-            .filter(Component.Operation.class::isInstance)
-            .map(c -> ((Component.Operation) c).bound())
-            .orElse(null);
+    Optional<String> findInlineSiblingScope(String id, String excludingCompositeId) {
+        return def.findInlineSiblingScope(id, excludingCompositeId);
     }
 
     /**
@@ -169,7 +166,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
         view.pushCompensation(boundStep.id(), compensation);
         step.execute(view.getEntity(), view.getContext(), view);
 
-        view.recordExecutedStepId(boundStep.id());
+        view.recordExecutedId(boundStep.id());
     }
 
     Class<T> getEntityType() {
@@ -308,10 +305,14 @@ class StateMachineImpl<T> implements StateMachine<T> {
         }
 
         if (matchingTransitions.size() > 1) {
+            String candidateIds = matchingTransitions.stream()
+                .map(BoundTransition::id)
+                .collect(Collectors.joining(", ", "[", "]"));
+
             throw new TransfluxValidationException(
-                String.format("Multiple transitions exist from state '%s' to state '%s'. " +
+                String.format("Multiple transitions exist from state '%s' to state '%s': %s. " +
                            "Please specify the transition ID explicitly.",
-                           sourceStateId, targetStateId)
+                           sourceStateId, targetStateId, candidateIds)
             );
         }
 
@@ -346,13 +347,19 @@ class StateMachineImpl<T> implements StateMachine<T> {
                         entity, sourceStateId, targetStateId, transitionId,
                         new TransfluxValidationException("Pre-condition '" + pc.id()
                             + "' failed for transition '" + transitionId + "'"),
-                        view.getExecutedStepIds(), null, startedAt, Instant.now());
+                        view.getExecutedPath(), null, startedAt, Instant.now());
                 }
             }
 
             BoundOperation<T, C> boundOperation = transition.boundOperation();
             if (boundOperation != null) {
-                boundOperation.operation().execute(entity, context, view);
+                view.recordExecutedId(boundOperation.id());
+                view.enterOperation(boundOperation.id());
+                try {
+                    boundOperation.operation().execute(entity, context, view);
+                } finally {
+                    view.exitOperation();
+                }
             }
 
             for (BoundCondition<T, C> pc : transition.boundPostConditions()) {
@@ -361,7 +368,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
                         entity, sourceStateId, targetStateId, transitionId,
                         new TransfluxValidationException("Post-condition '" + pc.id()
                             + "' failed for transition '" + transitionId + "'"),
-                        view.getExecutedStepIds(), null, startedAt, Instant.now());
+                        view.getExecutedPath(), null, startedAt, Instant.now());
                 }
             }
 
@@ -370,14 +377,14 @@ class StateMachineImpl<T> implements StateMachine<T> {
             }
 
             return TransitionResult.success(entity, sourceStateId, targetStateId, transitionId,
-                    view.getExecutedStepIds(), startedAt, Instant.now());
+                    view.getExecutedPath(), startedAt, Instant.now());
 
         } catch (Exception e) {
             List<BoundCompensation<T, C>> drained = view.drainCompensationsLifo();
-            List<StepPath> compensatedStepIds = new ArrayList<>(drained.size());
+            List<StepPath> compensatedPath = new ArrayList<>(drained.size());
 
             for (BoundCompensation<T, C> bc : drained) {
-                compensatedStepIds.add(bc.path());
+                compensatedPath.add(bc.path());
                 try {
                     bc.compensation().compensate(entity, context);
                 } catch (Exception ce) {
@@ -391,8 +398,8 @@ class StateMachineImpl<T> implements StateMachine<T> {
                                             targetStateId,
                                             transitionId,
                                             e,
-                                            view.getExecutedStepIds(),
-                                            compensatedStepIds,
+                                            view.getExecutedPath(),
+                                            compensatedPath,
                                             startedAt,
                                             Instant.now());
         } finally {

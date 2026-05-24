@@ -115,11 +115,13 @@ class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
         then:
         result.success
         entity.trail == ['top', 'a', 'b', 'after']
-        result.executedStepIds == [
-            StepPath.of('top'),
-            StepPath.of('nested-op', 'inner-a'),
-            StepPath.of('nested-op', 'inner-b'),
-            StepPath.of('after')]
+        result.executedPath == [
+            StepPath.of('outer'),
+            StepPath.of('outer', 'top'),
+            StepPath.of('outer', 'nested-op'),
+            StepPath.of('outer', 'nested-op', 'inner-a'),
+            StepPath.of('outer', 'nested-op', 'inner-b'),
+            StepPath.of('outer', 'after')]
         applied == ['s2']
     }
 
@@ -138,9 +140,11 @@ class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
 
         then:
         result.success
-        result.executedStepIds == [
-            StepPath.of('nested-op', 'inner-a'),
-            StepPath.of('nested-op', 'inner-b')]
+        result.executedPath == [
+            StepPath.of('outer'),
+            StepPath.of('outer', 'nested-op'),
+            StepPath.of('outer', 'nested-op', 'inner-a'),
+            StepPath.of('outer', 'nested-op', 'inner-b')]
     }
 
     def 'by-id nested-op ref resolves an inline-registered operation from another composite'() {
@@ -163,14 +167,17 @@ class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
 
         then:
         result.success
-        result.executedStepIds == [
-            StepPath.of('shared', 'inner-a'),
-            StepPath.of('shared', 'inner-b'),
-            StepPath.of('shared', 'inner-a'),
-            StepPath.of('shared', 'inner-b')]
+        result.executedPath == [
+            StepPath.of('outer'),
+            StepPath.of('outer', 'shared'),
+            StepPath.of('outer', 'shared', 'inner-a'),
+            StepPath.of('outer', 'shared', 'inner-b'),
+            StepPath.of('outer', 'shared'),
+            StepPath.of('outer', 'shared', 'inner-a'),
+            StepPath.of('outer', 'shared', 'inner-b')]
     }
 
-    def 'qualified paths apply to compensatedStepIds too'() {
+    def 'qualified paths apply to compensatedPath too'() {
         given:
         def applied = []
         def sm = build(applied,
@@ -186,7 +193,7 @@ class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
         then:
         !result.success
         result.error.message == 'nested-boom'
-        result.compensatedStepIds == [StepPath.of('nested-op', 'comp-step')]
+        result.compensatedPath == [StepPath.of('outer', 'nested-op', 'comp-step')]
         // The applier never runs on failure.
         applied.isEmpty()
         // The compensation ran, leaving its trail entry.
@@ -208,9 +215,11 @@ class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
 
         then:
         result.success
-        result.executedStepIds == [
-            StepPath.of('only-op', 'inner-a'),
-            StepPath.of('only-op', 'inner-b')]
+        result.executedPath == [
+            StepPath.of('outer'),
+            StepPath.of('outer', 'only-op'),
+            StepPath.of('outer', 'only-op', 'inner-a'),
+            StepPath.of('outer', 'only-op', 'inner-b')]
     }
 
     def 'by-id ref to an unknown operation id fails at SM build time'() {

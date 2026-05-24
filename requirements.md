@@ -65,8 +65,8 @@ Transition execution (via `transitionTo(...)`, `processEvent(...)`, `processData
 - `boolean isSuccess()` — terminal outcome.
 - `String getTargetState()` — final state (post-transition on success; pre-transition on rolled-back failure).
 - `Throwable getError()` — present iff `isSuccess()` is `false`.
-- `List<String> getExecutedStepIds()` — ordered list of steps that ran. Steps belonging to a nested operation are reported as **qualified paths** (`parent-op-id/child-step-id`, recursively for deeper nesting); top-level steps appear under their bare id. See §4.5.2 for nested-operation semantics.
-- `List<String> getCompensatedStepIds()` — ordered list of compensations that ran (empty on success). Same qualified-path encoding as `getExecutedStepIds()`.
+- `List<StepPath> getExecutedPath()` — ordered list of executed entries (steps and operations alike), in invocation order. Operation invocations and the steps inside them are both recorded; an entry for an operation appears immediately before any sub-entries it produces. Nested entries are reported as **qualified paths** (`parent-op-id/child-id`, recursively for deeper nesting); top-level entries appear under their bare id. See §4.5.2 for nested-operation semantics.
+- `List<StepPath> getCompensatedPath()` — ordered list of compensations that ran (empty on success). Compensations are step-level only — operations don't directly compensate — so this list carries step entries exclusively. Same qualified-path encoding as `getExecutedPath()`.
 - Timing metadata (start/end timestamps; per-step durations).
 
 Business outcomes (failed conditions, failed steps, post-condition violations) are reported through `TransitionResult` rather than thrown. **Configuration and validation errors** — invalid definitions, missing transitions, unknown states, illegal builder usage — throw `TransfluxValidationException` synchronously.
@@ -191,6 +191,8 @@ Manages shared state during transition execution.
 - The host populates the context before invocation; the host reads results after the transition completes.
 
 Context access in concurrent (async) execution paths is governed by the rules in §4.5.3 — by default the sync and async paths share the same context reference; isolation is opt-in via the `ForkableContext` interface.
+
+**Null ctx for Object-typed components from Void callers.** A transition declared with `Void.class` context (see §2.2.4) rejects any non-null firing value at the dispatch boundary. A composite member or imperative `view.step` / `view.operation` call inside that transition may still pass through to an `Object.class`-typed reusable component — the build-time pass-through check admits this unconditionally, since `Object.class` components are by definition context-agnostic. At runtime, the component's `ctx` parameter receives `null`. Component bodies registered under `Object.class` are expected to tolerate `null` ctx; the canonical reason to register under `Object.class` is "this component ignores ctx," which the null-tolerance follows from.
 
 #### 2.2.8 Trigger System
 
@@ -1026,7 +1028,7 @@ operations:
 3. Once a branch is executed, no further conditions are evaluated.
 4. If no branch conditions match, the `default` branch is executed.
 5. If no `default` branch is defined and no conditions match, the outcome is configurable through the `NoMatchBehavior` enumeration on the conditional step:
-   - **`WARN`** (default) — log a warning and continue. The conditional step itself completes without dispatching any inner steps; its id is recorded on `executedStepIds`.
+   - **`WARN`** (default) — log a warning and continue. The conditional step itself completes without dispatching any inner steps; its id is recorded on `executedPath`.
    - **`SILENT`** — same as `WARN` but without logging. Suits the guard pattern (`if (cond) { ... }` with no `else`), where a no-match is the deliberate, expected outcome.
    - **`ERROR`** — raise a transition failure. The conditional step fails, the operation fails, and any registered compensations run.
 
@@ -1469,6 +1471,15 @@ TransitionResult<Subscription> result = subscriptionStateMachine
 
 The plain-String forms remain valid and equivalent — pick the enum form when the same id is referenced from multiple call sites; pick the String form for one-off ids that have no other reference.
 
+**Idiomatic enum-state resolver/applier pairing.** When the entity stores its state as an enum implementing `Identifiable` (e.g. `SubState` above is also the entity's state field type), the canonical two-lambda pairing converts to/from the enum's `name()` directly:
+
+```java
+.withStateResolver(s -> s.getStatus().name())
+.withStateApplier((s, newState) -> s.setStatus(SubState.valueOf(newState)))
+```
+
+Two lines, honest about where the bidirectional binding lives. The framework intentionally ships no sugar around this — the host owns how state is stored, and the explicit `.name()` / `.valueOf(...)` pair surfaces that decision at the SM definition rather than hiding it behind a typed shortcut.
+
 #### 4.2.2 Advanced State Configuration
 
 ```java
@@ -1710,6 +1721,8 @@ The mandatory `Class<P>` / `Class<N>` tokens let the build pipeline verify that 
 
 ##### 4.5.2.3 Worked Example — One Child, N Callers
 
+The idiomatic mapper id follows the pattern `<child>-from-<parent>` (e.g. `payment-from-order`, `billing-from-send`, `address-from-order`). The convention reads naturally at call sites — `.operation("charge-card", "payment-from-order")` says "call the charge-card operation, mapping from the order-side context" — and makes the boundary direction obvious to the reader. The worked example below uses this convention throughout.
+
 A reusable `ChargeCard` operation knows only `PaymentCtx`. Three different parent flows each have their own context shape and call into the same child via three different mappers, registered once on the state machine:
 
 ```java
@@ -1762,7 +1775,7 @@ At runtime, every composite owns a `Registry` whose parent is the enclosing scop
 
 ##### 4.5.2.6 Result Reporting
 
-`TransitionResult.getExecutedStepIds()` and `getCompensatedStepIds()` (see §2.1.4) report steps belonging to nested operations as **qualified paths** of the form `parent-op-id/child-step-id`, recursively for deeper nesting. Top-level steps appear under their bare id. The qualified form preserves the structural distinction between a step that ran at the top level and a step that ran inside a nested operation, even when the same step id is reused across parents. The same encoding applies whether the nested operation was dispatched by a composite executor or imperatively via `view.operation("id"[, mapperSpec])`.
+`TransitionResult.getExecutedPath()` and `getCompensatedPath()` (see §2.1.4) report executed entries — both steps and operations — belonging to nested invocations as **qualified paths** of the form `parent-op-id/child-id`, recursively for deeper nesting. Top-level entries appear under their bare id. Every operation invocation records its own entry (the operation id, qualified by any enclosing operation ids) **before** any sub-entries it produces; a plain `Operation` body that runs no inner steps still appears as a single entry, so operations driving critical non-step logic remain observable in the result. The qualified form preserves the structural distinction between an entry that ran at the top level and one that ran inside a nested operation, even when the same id is reused across parents. The same encoding applies whether the nested operation was dispatched by a composite executor or imperatively via `view.operation("id"[, mapperSpec])`. Compensations are step-level only — operations don't directly compensate — so `getCompensatedPath()` carries step entries exclusively.
 
 ##### 4.5.2.7 Failure and Compensation
 
@@ -1945,6 +1958,8 @@ trialActiveTransition
 ```
 
 The four authoring forms above (reference, full `Condition<T>`, `BiPredicate<T, C>` — or its convenience `Predicate<T>` overload, SpEL expression) map exactly to the four YAML-expressible forms of the Condition Descriptor (§3.6.1). The Java DSL additionally accepts a fifth `InstanceBased` form — `.addPreCondition("id", existingConditionInstance)` — for attaching a pre-built `Condition<T, C>` instance under an explicit id without routing through the `StateMachineDef.condition(...)` registry.
+
+**Typed condition-registration names on `StateMachineDef`.** Typed-context (i.e. `Class<C>`-tagged) registrations of the lighter condition forms on `StateMachineDef` use distinguishing names — `conditionPredicate(id, Class<C>, BiPredicate|Predicate)` and `conditionExpression(id, Class<C>, String)` — because Java erasure makes them indistinguishable from `condition(id, Class<? extends Condition<T,C>>)` at the call site. Untyped forms keep the single `condition(...)` name; instance and class typed forms stay as `condition(id, Class<C>, ...)`. The asymmetry is a forced consequence of erasure, not a design preference. Inside `forContext(...)` blocks the typed context is carried implicitly by the scope, so `ContextScope` registrations use the single `condition(...)` name across all four lighter forms — there is no `conditionPredicate` / `conditionExpression` on `ContextScope`.
 
 #### 4.7.2 Advanced Condition Configuration
 

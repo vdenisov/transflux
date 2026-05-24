@@ -36,9 +36,9 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * {@link CompositeOperationDef}) or a nested operation (recorded via the {@code operation(...)}
  * overloads). The partitioning is expressed through two sealed sub-interfaces —
  * {@link StepRef} and {@link OperationRef} — each of which knows how to
- * {@linkplain #resolve(StateMachineImpl, org.transflux.core.Registry, String) resolve} itself
- * against the enclosing composite's lexical scope registry. The composite executor never has
- * to ask which kind a ref is; it just calls {@code resolve}.
+ * {@linkplain #resolve(StateMachineImpl, Registry, String) resolve} itself against the
+ * enclosing composite's lexical scope registry. The composite executor never has to ask which
+ * kind a ref is; it just calls {@code resolve}.
  * <p>
  * By-id variants carry a {@link MapperRef} capturing the call-site mapper choice (pass-through,
  * registered by id, inline function, or inline mapper instance). Inline-registration variants
@@ -81,6 +81,24 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
      */
     BoundAction<T, C> resolve(StateMachineImpl<T> stateMachine, Registry<T> scopeRegistry,
                               String enclosingCompositeId);
+
+    /**
+     * Builds the "unknown id" diagnostic for a failing resolution, enriching it with
+     * sibling-scope information when an inline registration of the same id exists in another
+     * composite under the SM. Shared by both {@link StepRef} and {@link OperationRef}; the
+     * {@code kind} argument carries the human-readable component kind (e.g. {@code "step"} or
+     * {@code "operation"}) for substitution into the message.
+     */
+    static String unknownIdMessage(String id, StateMachineImpl<?> stateMachine,
+                                   String enclosingCompositeId, String kind) {
+        String base = "CompositeOperationDef '" + enclosingCompositeId
+            + "' references unknown " + kind + " id '" + id + "' in its scope";
+        return stateMachine.findInlineSiblingScope(id, enclosingCompositeId)
+            .map(siblingId -> base + ". An inline " + kind + " with this id is registered in sibling composite '"
+                + siblingId + "' — inline registrations are only visible inside their own composite's subtree."
+                + " Move to SM root if shared use is intended.")
+            .orElse(base);
+    }
 
     static <T, C> ActionRef<T, C> byId(String id) {
         return new ById<>(id, MapperRef.passThrough());
@@ -125,6 +143,7 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
      * @param <T> the entity type the surrounding state machine manages
      * @param <C> the host-supplied context type carried through transition execution
      */
+    @SuppressWarnings("ClassEscapesDefinedScope")
     sealed interface StepRef<T, C> extends ActionRef<T, C>
         permits ActionRef.ById, ActionRef.InlineInstance, ActionRef.InlineClass, ActionRef.Conditional {
 
@@ -135,8 +154,7 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
             Optional<Component<T>> resolved = scopeRegistry.resolve(id());
             if (resolved.isEmpty()) {
                 throw new TransfluxValidationException(
-                    "CompositeOperationDef '" + enclosingCompositeId
-                        + "' references unknown step id '" + id() + "' in its scope");
+                    unknownIdMessage(id(), stateMachine, enclosingCompositeId, "step"));
             }
 
             Component<T> component = resolved.get();
@@ -159,6 +177,7 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
      * @param <T> the entity type the surrounding state machine manages
      * @param <C> the host-supplied context type carried through transition execution
      */
+    @SuppressWarnings("ClassEscapesDefinedScope")
     sealed interface OperationRef<T, C> extends ActionRef<T, C>
         permits ActionRef.OperationById,
                 ActionRef.OperationInlineInstance,
@@ -171,8 +190,7 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
             Optional<Component<T>> resolved = scopeRegistry.resolve(id());
             if (resolved.isEmpty()) {
                 throw new TransfluxValidationException(
-                    "CompositeOperationDef '" + enclosingCompositeId
-                        + "' references unknown operation id '" + id() + "' in its scope");
+                    unknownIdMessage(id(), stateMachine, enclosingCompositeId, "operation"));
             }
 
             Component<T> component = resolved.get();

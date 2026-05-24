@@ -261,6 +261,10 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def e = thrown(TransfluxValidationException)
         e.message.contains("'clash'")
         e.message.contains('already registered')
+        // Enriched message: names the kind plus both payload class names.
+        e.message.startsWith('Step id')
+        e.message.contains(StepA.class.name)
+        e.message.contains('cannot re-register')
     }
 
     def "two composites referencing the same inline class under the same id are idempotent (each composite has its own scope entry)"() {
@@ -309,6 +313,32 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def e = thrown(TransfluxValidationException)
         e.message.contains("'via-inline'")
         e.message.contains('unknown step id')
+        // Sibling-scope diagnostic: message names the sibling composite hosting the inline registration.
+        e.message.contains("sibling composite 'op-provider'")
+        e.message.contains('inline registrations are only visible inside')
+        e.message.contains('Move to SM root')
+    }
+
+    def "unknown step id error stays simple when no sibling composite hosts the id"() {
+        given:
+        def smd = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+        smd.state(TRIAL, { s -> s
+            .transitionsTo(ACTIVE, 't-consumer', { t ->
+                t.compositeOperation('op-consumer', { c -> c.step('truly-missing') })
+            }) })
+        smd.state(ACTIVE, {})
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("'truly-missing'")
+        e.message.contains('unknown step id')
+        e.message.contains("'op-consumer'")
+        !e.message.contains('sibling composite')
     }
 
     def "getBoundStep should return null for unknown id"() {

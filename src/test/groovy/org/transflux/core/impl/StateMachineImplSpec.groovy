@@ -369,6 +369,9 @@ class StateMachineImplSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains("Multiple transitions exist from state 'TRIAL' to state 'ACTIVE'")
+        e.message.contains("trial-to-active-1")
+        e.message.contains("trial-to-active-2")
+        e.message.contains("Please specify the transition ID explicitly.")
     }
 
     def "executeTransition with ID should throw when entity not in correct source state"() {
@@ -422,7 +425,7 @@ class StateMachineImplSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('stamp', new ContextStampStep())
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.step('stamp') }) })
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.compositeOperation('flow', { c -> c.step('stamp') }) }) })
         smd.state(ACTIVE, {})
 
         def sm = (StateMachineImpl<TestEntity>) smd.build()
@@ -436,7 +439,7 @@ class StateMachineImplSpec extends Specification {
         then:
         ctx.tag == 'e1:stamped'
         ctx.counter == 1
-        view.executedStepIds*.toString() == ['stamp']
+        view.executedPath*.toString() == ['stamp']
     }
 
     def "TransitionResult toString should provide readable output"() {
@@ -501,7 +504,7 @@ class StateMachineImplSpec extends Specification {
         }
     }
 
-    def "transitionTo should run the attached composite operation and populate executedStepIds in order"() {
+    def "transitionTo should run the attached composite operation and populate executedPath in order"() {
         given:
         def appliedState = [:] as Map<TestEntity, String>
         def smd = Transflux.<TestEntity> defineStateMachine()
@@ -524,7 +527,7 @@ class StateMachineImplSpec extends Specification {
 
         then:
         result.success
-        result.executedStepIds*.toString() == ['stamp', 'bump', 'bump']
+        result.executedPath*.toString() == ['flow', 'flow/stamp', 'flow/bump', 'flow/bump']
         result.sourceStateId == 'TRIAL'
         result.targetStateId == 'ACTIVE'
         context.tag == 'e1:stamped'
@@ -555,7 +558,7 @@ class StateMachineImplSpec extends Specification {
 
         then:
         result.success
-        result.executedStepIds == []
+        result.executedPath*.toString() == ['activate']
         context.tag == 'simple-ran'
         appliedState[entity] == 'ACTIVE'
     }
@@ -581,7 +584,7 @@ class StateMachineImplSpec extends Specification {
 
         then:
         result.success
-        result.executedStepIds*.toString() == ['stamp', 'bump']
+        result.executedPath*.toString() == ['orchestrator', 'orchestrator/stamp', 'orchestrator/bump']
         context.tag == 'e1:stamped'
         context.counter == 2
         appliedState[entity] == 'ACTIVE'
@@ -612,12 +615,12 @@ class StateMachineImplSpec extends Specification {
         !result.success
         result.error instanceof IllegalStateException
         result.error.message == 'step blew up'
-        result.executedStepIds*.toString() == ['stamp']
+        result.executedPath*.toString() == ['flow', 'flow/stamp']
         applierInvocations == 0
         context.tag == 'e1:stamped'
     }
 
-    def "transitionTo without an attached operation should still apply state and return empty executedStepIds"() {
+    def "transitionTo without an attached operation should still apply state and return empty executedPath"() {
         given:
         def appliedState = [:] as Map<TestEntity, String>
         def sm = Transflux.<TestEntity> defineStateMachine()
@@ -634,7 +637,7 @@ class StateMachineImplSpec extends Specification {
 
         then:
         result.success
-        result.executedStepIds == []
+        result.executedPath == []
         appliedState[entity] == 'ACTIVE'
     }
 

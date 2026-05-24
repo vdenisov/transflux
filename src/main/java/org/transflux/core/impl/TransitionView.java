@@ -65,7 +65,7 @@ class TransitionView<T, C> implements Transition<T, C> {
 
     private final Deque<Registry<T>> scopeStack = new ArrayDeque<>();
 
-    private final List<StepPath> executedStepIds = new ArrayList<>();
+    private final List<StepPath> executedPath = new ArrayList<>();
 
     private final Deque<BoundCompensation<T, C>> compensationStack = new ArrayDeque<>();
 
@@ -228,17 +228,17 @@ class TransitionView<T, C> implements Transition<T, C> {
         return stateMachine;
     }
 
-    void recordExecutedStepId(String localStepId) {
-        executedStepIds.add(qualifyStepPath(localStepId));
+    void recordExecutedId(String localStepId) {
+        executedPath.add(qualifyStepPath(localStepId));
     }
 
-    List<StepPath> getExecutedStepIds() {
-        return Collections.unmodifiableList(executedStepIds);
+    List<StepPath> getExecutedPath() {
+        return Collections.unmodifiableList(executedPath);
     }
 
     /**
      * Pushes the supplied nested-operation id onto this view's operation-nesting stack. While
-     * the stack is non-empty every {@link #recordExecutedStepId(String)} call records the step
+     * the stack is non-empty every {@link #recordExecutedId(String)} call records the step
      * id under a {@code parent-op-id/.../child-step-id} qualified path. Each push must be
      * paired with a matching {@link #exitOperation()} call.
      *
@@ -298,13 +298,14 @@ class TransitionView<T, C> implements Transition<T, C> {
     @SuppressWarnings({"unchecked", "rawtypes"})
     void runChildOperation(BoundOperation<T, Object> boundOperation, ContextMapper<Object, Object> mapper) {
         Object active = getContext();
+        Object child = mapper == null ? null : mapper.mapTo(active);
+        recordExecutedId(boundOperation.id());
         enterOperation(boundOperation.id());
         try {
             if (mapper == null) {
                 ((Operation) boundOperation.operation()).execute(entity, active, this);
                 return;
             }
-            Object child = mapper.mapTo(active);
             contextOverrideStack.push(child);
             try {
                 ((Operation) boundOperation.operation()).execute(entity, child, this);

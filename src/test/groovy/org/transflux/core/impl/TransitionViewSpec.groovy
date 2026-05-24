@@ -73,7 +73,7 @@ class TransitionViewSpec extends Specification {
         then:
         entity.trail == ['foo']
         ctx.counter == 1
-        view.executedStepIds*.toString() == ['foo-id']
+        view.executedPath*.toString() == ['foo-id']
     }
 
     def "view.step(id) should throw for an unknown id"() {

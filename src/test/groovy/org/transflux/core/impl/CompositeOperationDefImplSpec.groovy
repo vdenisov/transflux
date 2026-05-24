@@ -126,7 +126,7 @@ class CompositeOperationDefImplSpec extends Specification {
 
         then:
         entity.trail == ['c', 'a', 'b']
-        view.executedStepIds*.toString() == ['c-id', 'a-id', 'b-id']
+        view.executedPath*.toString() == ['c-id', 'a-id', 'b-id']
     }
 
     def "build should reject reference to unknown step id"() {
@@ -363,7 +363,9 @@ class CompositeOperationDefImplSpec extends Specification {
         !result.success
         result.error instanceof RuntimeException
         result.error.message == 'mapTo-boom'
-        result.executedStepIds.isEmpty()
+        // mapTo failure surfaces as parent failure; the nested op never starts, so only the
+        // outer composite's own entry is recorded.
+        result.executedPath*.toString() == ['outer']
         entity.trail == []
     }
 

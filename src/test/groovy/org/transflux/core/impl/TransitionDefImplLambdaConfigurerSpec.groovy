@@ -121,7 +121,6 @@ class TransitionDefImplLambdaConfigurerSpec extends Specification {
         'usingContext'       || { TransitionDef t -> t.usingContext(Ctx) }
         'simpleOperation'    || { TransitionDef t -> t.simpleOperation('op', new NoopOp()) }
         'compositeOperation' || { TransitionDef t -> t.compositeOperation('co', { c -> }) }
-        'step'               || { TransitionDef t -> t.step('s') }
         'preCondition'       || { TransitionDef t -> t.preCondition('p', { ent -> true }) }
         'postCondition'      || { TransitionDef t -> t.postCondition('p', { ent -> true }) }
     }

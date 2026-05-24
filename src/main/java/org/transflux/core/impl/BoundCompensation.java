@@ -27,7 +27,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * Runtime binder that pairs a {@link Compensation} with the qualified {@link StepPath} of
  * the step whose effects it rolls back. The path captures both the step's local id and any
  * enclosing nested-operation ids, so compensation entries surface in
- * {@link org.transflux.core.transition.TransitionResult#getCompensatedStepIds()} under the
+ * {@link org.transflux.core.transition.TransitionResult#getCompensatedPath()} under the
  * same qualified-path form as executed steps.
  *
  * @param path the qualified step path the compensation was registered against; never

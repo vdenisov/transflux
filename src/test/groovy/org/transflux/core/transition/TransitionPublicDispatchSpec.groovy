@@ -109,7 +109,7 @@ class TransitionPublicDispatchSpec extends Specification {
         result.success
         ctx.output == 'step-saw-baz'
         entity.trail == ['step:baz']
-        result.executedStepIds == [StepPath.of('child-step')]
+        result.executedPath == [StepPath.of('outer'), StepPath.of('outer', 'child-step')]
     }
 
     def 'transition.operation(id) runs the registered operation in pass-through mode'() {

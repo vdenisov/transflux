@@ -64,9 +64,6 @@ import java.util.function.Predicate;
  *     .step("validate-cart")
  *     .step("compute-total")
  *     .step("charge", ChargeStep.class))
- *
- * // Sugar for a single-step composite that references a registered step:
- * .step("validate-cart")
  * }</pre>
  *
  * Each method returns {@code TransitionDef<T, C>} so chained calls stay scoped to the
@@ -88,6 +85,7 @@ import java.util.function.Predicate;
  * @param <T> the entity type managed by the enclosing state machine
  * @param <C> the host-supplied context type carried through transition execution
  */
+@SuppressWarnings("GrazieInspection")
 public interface TransitionDef<T, C> extends Identifiable {
 
     /**
@@ -259,32 +257,6 @@ public interface TransitionDef<T, C> extends Identifiable {
      * @return this transition def for chaining
      */
     TransitionDef<T, C> compositeOperation(Identifiable operationIdentifiable, Consumer<CompositeOperationDef<T, C>> configurer);
-
-    /**
-     * Convenience: attaches a single-step composite operation that references a step already
-     * registered on the enclosing state machine. The composite is assigned a deterministic id
-     * derived from this transition's id ({@code "transition-{transitionId}-op"}).
-     *
-     * @param registeredStepId the registered step id
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if {@code registeredStepId} is {@code null} or blank
-     */
-    TransitionDef<T, C> step(String registeredStepId);
-
-    /**
-     * {@link Identifiable} overload of {@link #step(String)} — delegates via
-     * {@link Identifiable#getId()}. Useful for enum-tagged step ids or passing a held-onto
-     * {@link org.transflux.core.operation.StepDef StepDef}.
-     *
-     * @param registeredStep an identifiable supplying the step id
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if {@code registeredStep} is {@code null}
-     */
-    TransitionDef<T, C> step(Identifiable registeredStep);
 
     /**
      * Appends a pre-condition that references a condition already registered on the enclosing
