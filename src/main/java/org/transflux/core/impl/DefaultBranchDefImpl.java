@@ -45,6 +45,12 @@ final class DefaultBranchDefImpl<T, C> implements DefaultBranchDef<T, C> {
         return Collections.unmodifiableList(actionRefs);
     }
 
+    void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
+        for (ActionRef<T, C> ref : actionRefs) {
+            ref.collectInlineRegistrations(sink);
+        }
+    }
+
     @Override
     public DefaultBranchDef<T, C> step(String registeredStepId) {
         actionRefs.add(ActionRef.byId(registeredStepId));

@@ -32,7 +32,6 @@ import org.transflux.core.transition.Transition;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -149,37 +148,18 @@ final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T, C> {
     }
 
     /**
-     * Returns an ordered map of {@code stepId -> Step} for every inline step instance held
-     * by this conditional, across all branches and the default branch.
-     *
-     * @return an unmodifiable map of step id to inline step instance
+     * Walks every branch (and the default branch, if present) and forwards each branch's
+     * action refs to the supplied sink. Used by {@link CompositeOperationDefImpl#bindScope}
+     * to populate the enclosing composite's scope with the conditional's inline step
+     * registrations.
      */
-    Map<String, Step<T, C>> getInlineStepInstances() {
-        Map<String, Step<T, C>> result = new LinkedHashMap<>();
+    void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
         for (BranchDefImpl<T, C> branch : branches) {
-            collectInlineInstances(branch.getActionRefs(), result);
+            branch.collectInlineRegistrations(sink);
         }
         if (defaultBranch != null) {
-            collectInlineInstances(defaultBranch.getActionRefs(), result);
+            defaultBranch.collectInlineRegistrations(sink);
         }
-        return Collections.unmodifiableMap(result);
-    }
-
-    /**
-     * Returns an ordered map of {@code stepId -> stepClass} for every inline step class held
-     * by this conditional, across all branches and the default branch.
-     *
-     * @return an unmodifiable map of step id to inline step class
-     */
-    Map<String, Class<? extends Step<T, C>>> getInlineStepClasses() {
-        Map<String, Class<? extends Step<T, C>>> result = new LinkedHashMap<>();
-        for (BranchDefImpl<T, C> branch : branches) {
-            collectInlineClasses(branch.getActionRefs(), result);
-        }
-        if (defaultBranch != null) {
-            collectInlineClasses(defaultBranch.getActionRefs(), result);
-        }
-        return Collections.unmodifiableMap(result);
     }
 
     /**
@@ -247,24 +227,6 @@ final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T, C> {
         Step<T, C> executor = new ConditionalStepExecutor(resolvedBranches,
                                                           defaultStepIds, noMatchBehavior, id);
         return BoundStep.of(id, executor);
-    }
-
-    private static <T, C> void collectInlineInstances(List<ActionRef<T, C>> refs,
-                                                      Map<String, Step<T, C>> out) {
-        for (ActionRef<T, C> ref : refs) {
-            if (ref instanceof ActionRef.InlineInstance<T, C> ii) {
-                out.put(ii.id(), ii.step());
-            }
-        }
-    }
-
-    private static <T, C> void collectInlineClasses(List<ActionRef<T, C>> refs,
-                                                    Map<String, Class<? extends Step<T, C>>> out) {
-        for (ActionRef<T, C> ref : refs) {
-            if (ref instanceof ActionRef.InlineClass<T, C> ic) {
-                out.put(ic.id(), ic.stepClass());
-            }
-        }
     }
 
     private static <T, C> List<String> collectStepIds(List<ActionRef<T, C>> refs) {

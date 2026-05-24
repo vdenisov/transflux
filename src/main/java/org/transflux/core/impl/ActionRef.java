@@ -83,6 +83,17 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
                               String enclosingCompositeId);
 
     /**
+     * Deposits any inline-registration payloads this ref carries into the supplied sink. By-id
+     * variants no-op (they contribute nothing to the enclosing composite's local scope); inline
+     * step / operation variants push themselves into the sink; the {@link Conditional} variant
+     * recurses into its branches' inline steps and then registers the conditional's own bound
+     * step. Drives the scope-binding pass on {@link CompositeOperationDefImpl}.
+     */
+    default void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
+        // by-id variants contribute no inline registration; override in inline variants
+    }
+
+    /**
      * Builds the "unknown id" diagnostic for a failing resolution, enriching it with
      * sibling-scope information when an inline registration of the same id exists in another
      * composite under the SM. Shared by both {@link StepRef} and {@link OperationRef}; the
@@ -213,24 +224,43 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
         }
     }
 
+    @SuppressWarnings("ClassEscapesDefinedScope")
     record InlineInstance<T, C>(String id, Step<T, C> step) implements StepRef<T, C> {
         public InlineInstance {
             requireNotBlank(id, "Step reference ID");
             requireNotNull(step, "Inline step instance");
         }
+
+        @Override
+        public void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
+            sink.registerInlineStep(id, step);
+        }
     }
 
+    @SuppressWarnings("ClassEscapesDefinedScope")
     record InlineClass<T, C>(String id, Class<? extends Step<T, C>> stepClass) implements StepRef<T, C> {
         public InlineClass {
             requireNotBlank(id, "Step reference ID");
             requireNotNull(stepClass, "Inline step class");
         }
+
+        @Override
+        public void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
+            sink.registerInlineStepClass(id, stepClass);
+        }
     }
 
+    @SuppressWarnings("ClassEscapesDefinedScope")
     record Conditional<T, C>(String id, ConditionalStepDefImpl<T, C> def) implements StepRef<T, C> {
         public Conditional {
             requireNotBlank(id, "Step reference ID");
             requireNotNull(def, "Conditional step def");
+        }
+
+        @Override
+        public void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
+            def.collectInlineRegistrations(sink);
+            sink.registerConditional(id, def);
         }
     }
 
@@ -241,17 +271,29 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
         }
     }
 
+    @SuppressWarnings("ClassEscapesDefinedScope")
     record OperationInlineInstance<T, C>(String id, Operation<T, C> operation) implements OperationRef<T, C> {
         public OperationInlineInstance {
             requireNotBlank(id, "Operation reference ID");
             requireNotNull(operation, "Inline operation instance");
         }
+
+        @Override
+        public void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
+            sink.registerInlineOperation(id, operation);
+        }
     }
 
+    @SuppressWarnings("ClassEscapesDefinedScope")
     record OperationInlineClass<T, C>(String id, Class<? extends Operation<T, C>> operationClass) implements OperationRef<T, C> {
         public OperationInlineClass {
             requireNotBlank(id, "Operation reference ID");
             requireNotNull(operationClass, "Inline operation class");
+        }
+
+        @Override
+        public void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
+            sink.registerInlineOperationClass(id, operationClass);
         }
     }
 }

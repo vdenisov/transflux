@@ -65,6 +65,12 @@ final class BranchDefImpl<T, C> implements BranchDef<T, C> {
         return Collections.unmodifiableList(actionRefs);
     }
 
+    void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
+        for (ActionRef<T, C> ref : actionRefs) {
+            ref.collectInlineRegistrations(sink);
+        }
+    }
+
     @Override
     public BranchDef<T, C> condition(String registeredConditionId) {
         requireNotBlank(registeredConditionId, "Registered condition ID");

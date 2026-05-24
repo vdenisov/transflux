@@ -29,7 +29,6 @@ import org.transflux.core.transition.Transition;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -308,94 +307,15 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
     }
 
     /**
-     * Returns a map of {@code stepId -> Step} for every inline step instance contributed by
-     * this composite, in declaration order.
-     *
-     * @return an unmodifiable map of step id to inline step instance
+     * Walks this composite's action refs and forwards each to the supplied sink. By-id refs
+     * no-op; inline step / operation refs push themselves; conditional refs recurse into their
+     * branches and then register their own bound step. Drives the scope-binding pass in
+     * {@link #bindScope}.
      */
-    Map<String, Step<T, C>> getInlineStepInstances() {
-        Map<String, Step<T, C>> result = new LinkedHashMap<>();
-
+    void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
         for (ActionRef<T, C> ref : actionRefs) {
-            if (ref instanceof ActionRef.InlineInstance<T, C> ii) {
-                result.put(ii.id(), ii.step());
-            }
+            ref.collectInlineRegistrations(sink);
         }
-
-        return Collections.unmodifiableMap(result);
-    }
-
-    /**
-     * Returns a map of {@code stepId -> stepClass} for every inline step class contributed by
-     * this composite, in declaration order.
-     *
-     * @return an unmodifiable map of step id to inline step class
-     */
-    Map<String, Class<? extends Step<T, C>>> getInlineStepClasses() {
-        Map<String, Class<? extends Step<T, C>>> result = new LinkedHashMap<>();
-
-        for (ActionRef<T, C> ref : actionRefs) {
-            if (ref instanceof ActionRef.InlineClass<T, C> ic) {
-                result.put(ic.id(), ic.stepClass());
-            }
-        }
-
-        return Collections.unmodifiableMap(result);
-    }
-
-    /**
-     * Returns an ordered map of {@code conditionalId -> ConditionalStepDefImpl} for every
-     * {@link ActionRef.Conditional} reference contributed by this composite, in declaration
-     * order.
-     *
-     * @return an unmodifiable map of conditional id to conditional def
-     */
-    Map<String, ConditionalStepDefImpl<T, C>> getConditionalDefs() {
-        Map<String, ConditionalStepDefImpl<T, C>> result = new LinkedHashMap<>();
-
-        for (ActionRef<T, C> ref : actionRefs) {
-            if (ref instanceof ActionRef.Conditional<T, C> cond) {
-                result.put(cond.id(), cond.def());
-            }
-        }
-
-        return Collections.unmodifiableMap(result);
-    }
-
-    /**
-     * Returns a map of {@code operationId -> Operation} for every inline nested operation
-     * instance contributed by this composite, in declaration order.
-     *
-     * @return an unmodifiable map of operation id to inline operation instance
-     */
-    Map<String, Operation<T, C>> getInlineOperationInstances() {
-        Map<String, Operation<T, C>> result = new LinkedHashMap<>();
-
-        for (ActionRef<T, C> ref : actionRefs) {
-            if (ref instanceof ActionRef.OperationInlineInstance<T, C> oi) {
-                result.put(oi.id(), oi.operation());
-            }
-        }
-
-        return Collections.unmodifiableMap(result);
-    }
-
-    /**
-     * Returns a map of {@code operationId -> operationClass} for every inline nested operation
-     * class contributed by this composite, in declaration order.
-     *
-     * @return an unmodifiable map of operation id to inline operation class
-     */
-    Map<String, Class<? extends Operation<T, C>>> getInlineOperationClasses() {
-        Map<String, Class<? extends Operation<T, C>>> result = new LinkedHashMap<>();
-
-        for (ActionRef<T, C> ref : actionRefs) {
-            if (ref instanceof ActionRef.OperationInlineClass<T, C> oc) {
-                result.put(oc.id(), oc.operationClass());
-            }
-        }
-
-        return Collections.unmodifiableMap(result);
     }
 
     /**
@@ -467,30 +387,9 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
         RegistryImpl<T> scope = new RegistryImpl<>(rootRegistry);
         setScopeRegistry(scope);
 
-        Class<C> compositeCtx = contextType();
-
-        // Inline steps + operations declared directly on the composite.
-        StateMachineDefImpl.registerInlineSteps(scope, canonical,
-            getInlineStepInstances(), getInlineStepClasses(), compositeCtx);
-        StateMachineDefImpl.registerInlineOperations(scope, canonical,
-            getInlineOperationInstances(), getInlineOperationClasses(), compositeCtx);
-
-        // Conditionals: inline steps inside their branches plus the conditional's own bound step.
-        for (Map.Entry<String, ConditionalStepDefImpl<T, C>> e : getConditionalDefs().entrySet()) {
-            ConditionalStepDefImpl<T, C> conditional = e.getValue();
-
-            StateMachineDefImpl.registerInlineSteps(scope, canonical,
-                conditional.getInlineStepInstances(), conditional.getInlineStepClasses(), compositeCtx);
-
-            String conditionalId = e.getKey();
-            StateMachineDefImpl.claimCanonical(canonical, conditionalId, conditional, "Conditional step");
-            if (scope.get(conditionalId).isPresent()) {
-                continue;
-            }
-
-            BoundStep<T, C> boundConditional = conditional.buildBoundStep(stateMachine, typedConditions);
-            scope.register(new Component.Step<>(conditionalId, null, null, compositeCtx, boundConditional));
-        }
+        InlineRegistrationSink<T, C> sink = new InlineRegistrationSink<>(
+            stateMachine, scope, canonical, contextType(), typedConditions);
+        collectInlineRegistrations(sink);
     }
 
     @Override
