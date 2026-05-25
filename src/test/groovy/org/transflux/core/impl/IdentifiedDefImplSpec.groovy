@@ -18,8 +18,12 @@
 
 package org.transflux.core.impl
 
+import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
 import spock.lang.Specification
+import spock.lang.Unroll
+
+import java.util.function.Function
 
 class IdentifiedDefImplSpec extends Specification {
 
@@ -122,6 +126,60 @@ class IdentifiedDefImplSpec extends Specification {
         def ex = thrown(TransfluxValidationException)
         ex.message.contains("test 'foo'")
         ex.message.contains("'withDescription'")
+    }
+
+    @Unroll
+    def 'concrete subclass #subclass rejects blank id with its own idLabel'() {
+        when:
+        factory.apply('   ')
+
+        then:
+        def ex = thrown(TransfluxValidationException)
+        ex.message.contains(expectedIdLabel)
+
+        where:
+        subclass            | factory                                                                                                || expectedIdLabel
+        'StateDefImpl'      | ({ id -> new StateDefImpl(Transflux.defineStateMachine() as StateMachineDefImpl, id) } as Function) || 'State ID'
+        'TransitionDefImpl' | ({ id -> new TransitionDefImpl(id, 'src', 'tgt') } as Function)                                     || 'Transition ID'
+    }
+
+    @Unroll
+    def 'concrete subclass #subclass surfaces its own kind in defLabel-driven guard messages'() {
+        given:
+        def def_ = factory.apply('my-id') as IdentifiedDefImpl
+
+        when: 'mutation outside the configurer-active window'
+        def_.withName('x')
+
+        then:
+        def ex = thrown(TransfluxValidationException)
+        ex.message.contains("${expectedKind} 'my-id'")
+        ex.message.contains("'withName'")
+
+        where:
+        subclass            | factory                                                                                                || expectedKind
+        'StateDefImpl'      | ({ id -> new StateDefImpl(Transflux.defineStateMachine() as StateMachineDefImpl, id) } as Function) || 'state'
+        'TransitionDefImpl' | ({ id -> new TransitionDefImpl(id, 'src', 'tgt') } as Function)                                     || 'transition'
+    }
+
+    @Unroll
+    def 'concrete subclass #subclass round-trips withName/withDescription via the inherited base'() {
+        given:
+        def def_ = factory.apply('my-id') as IdentifiedDefImpl
+        def_.beginConfigurer()
+
+        when:
+        def_.withName('the name')
+        def_.withDescription('the description')
+
+        then:
+        def_.getName() == 'the name'
+        def_.getDescription() == 'the description'
+
+        where:
+        subclass             | factory
+        'StateDefImpl'       | ({ id -> new StateDefImpl(Transflux.defineStateMachine() as StateMachineDefImpl, id) } as Function)
+        'TransitionDefImpl'  | ({ id -> new TransitionDefImpl(id, 'src', 'tgt') } as Function)
     }
 
     private static class TestDef extends IdentifiedDefImpl<TestDef> {
