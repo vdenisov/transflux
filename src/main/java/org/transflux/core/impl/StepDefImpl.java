@@ -26,7 +26,6 @@ import org.transflux.core.operation.StepDef;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
-import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
 
 /**
  * Default {@link StepDef} implementation.
@@ -44,18 +43,17 @@ final class StepDefImpl<T, C> implements StepDef<T, C> {
 
     private final String id;
     private final Class<C> contextType;
+    private final InstanceOrClassSource<Step<T, C>> source;
 
     private String name;
     private String description;
-
-    private Step<T, C> stepInstance;
-    private Class<? extends Step<T, C>> stepClass;
 
     StepDefImpl(String id, Class<C> contextType) {
         requireNotBlank(id, "Step ID");
         requireNotNull(contextType, "Step context type");
         this.id = id;
         this.contextType = contextType;
+        this.source = new InstanceOrClassSource<>(log, "Step source", "StepDef '" + id + "'");
     }
 
     @Override
@@ -81,22 +79,14 @@ final class StepDefImpl<T, C> implements StepDef<T, C> {
     @Override
     public StepDefImpl<T, C> using(Step<T, C> step) {
         requireNotNull(step, "Step");
-        if (this.stepInstance != null || this.stepClass != null) {
-            log.warn("Step source already defined for StepDef '{}'; overriding previous value", id);
-        }
-        this.stepInstance = step;
-        this.stepClass = null;
+        source.setInstance(step);
         return this;
     }
 
     @Override
     public StepDefImpl<T, C> using(Class<? extends Step<T, C>> stepClass) {
         requireNotNull(stepClass, "Step class");
-        if (this.stepInstance != null || this.stepClass != null) {
-            log.warn("Step source already defined for StepDef '{}'; overriding previous value", id);
-        }
-        this.stepClass = stepClass;
-        this.stepInstance = null;
+        source.setClass(stepClass);
         return this;
     }
 
@@ -120,15 +110,6 @@ final class StepDefImpl<T, C> implements StepDef<T, C> {
      * @throws TransfluxValidationException if no step source has been set
      */
     BoundStep<T, C> buildBoundStep() {
-        if (stepInstance == null && stepClass == null) {
-            throw new TransfluxValidationException(
-                "StepDef '" + id + "' has no step set; call using(...) before build");
-        }
-
-        Step<T, C> resolved = stepInstance != null
-            ? stepInstance
-            : instantiateNoArg(stepClass, "Step");
-
-        return BoundStep.of(id, resolved);
+        return BoundStep.of(id, source.resolve("Step"));
     }
 }

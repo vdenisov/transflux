@@ -168,7 +168,7 @@ Patch releases (`x.y.z`) ship between minor releases for bug fixes and security 
 
 ### 2.5.1 Reusable Component Types (def-side anchors)
 - [x] `OperationDef` gains `Class<C> contextType()` accessor (default `Object.class`; overridden by composite to return `declaredContextType`).
-- [x] Introduce `StepDef<T, C>` def-side anchor with id, optional name/description, mandatory `Class<C> contextType()`, `using(Step|Class)` source forms, and `buildBoundStep()`. (Pulled forward from the original Phase 3.7 plan.)
+- [x] Introduce `StepDef<T, C>` def-side anchor with id, optional name/description, mandatory `Class<C> contextType()`, `using(Step|Class)` source forms, and `buildBoundStep()`. (Pulled forward from the original Phase 3.7 plan as a public-API down-payment; the lambda-configurer entry point that actually instantiates `StepDefImpl` lands in 2.6.13.)
 - [x] Introduce `MapperDef<P, N>` def-side anchor with id, mandatory `parentType` / `childType`, three source forms (`ContextMapper` instance, `ContextMapper` class, `Function<P, N>` wrapped with default no-op `mapFrom`), and `buildMapper()`.
 - [x] Promote `ContextMapper<P, N>` to a first-class reusable component: `default void mapFrom(P, N) {}` so "read-only" mappers are a one-method override.
 
@@ -426,16 +426,16 @@ Once async branches land, the per-execution `TransitionView` state — context-o
 - [x] Replaced `CompositeOperationDefImpl.getInlineStepInstances()` / `getInlineStepClasses()` / `getInlineOperationInstances()` / `getInlineOperationClasses()` / `getConditionalDefs()` accessors and the `StateMachineDefImpl.registerInlineSteps` / `registerInlineOperations` (plus the four private `registerInline*InScope` helpers) with a single `composite.collectInlineRegistrations(sink)` walk inside `bindScope`. Eliminates the parallel-maps reconstruction on both the Composite and Conditional sides.
 
 #### 2.6.11e — `InstanceOrClassSource<X>` helper for the "instance XOR class" pattern
-- [ ] Introduce a small package-private helper (`InstanceOrClassSource<X>` or similar) encapsulating the "instance XOR class, last-write-wins with warning, build resolves via `instantiateNoArg`" pattern duplicated across `SimpleOperationDefImpl`, `StepDefImpl`, and `MapperDefImpl`. Exposes `setInstance(X)`, `setClass(Class<? extends X>)`, and `resolve(String kindLabel)` returning the executable.
-- [ ] Migrate `SimpleOperationDefImpl` and `StepDefImpl` to hold a single `InstanceOrClassSource<Operation<T,C>>` / `InstanceOrClassSource<Step<T,C>>` field; their `using(...)` overloads delegate; their `build()` / `buildBoundStep()` calls `source.resolve(...)`.
-- [ ] Migrate `MapperDefImpl` similarly: a `InstanceOrClassSource<ContextMapper<P,N>>` for the instance/class slots, with the inline `Function<P,N>` form kept as a separate field (the mapper is a 3-form source — the helper covers the two that overlap with Step/SimpleOp).
-- [ ] No behavior change — the override-with-warning semantics and `using(...)` last-write-wins precedence are preserved verbatim. Pure dedupe.
-- [ ] Defer this sub-item if 2.6.11a-d run long; the helper is internal and small but touches three production classes plus their specs.
+- [x] Introduced `InstanceOrClassSource<X>` (package-private, in `core.impl`) encapsulating the "instance XOR class, last-write-wins with warning, resolve via `instantiateNoArg`" pattern. Exposes `setInstance(X)`, `setClass(Class<? extends X>)`, `isSet()`, `clear()`, `resolve(String kindLabel)`, plus a static `resolveStatic(instance, klass, kindLabel)` for immutable two-slot call sites. Null-checking stayed at the caller (the require-not-null message varies per call site — e.g. "Step" vs "Context mapper" — so the helper takes already-validated arguments).
+- [x] Migrated `SimpleOperationDefImpl` and `StepDefImpl` to hold a single `InstanceOrClassSource<...>` field; their `using(...)` overloads delegate; their `build()` / `buildBoundStep()` calls `source.resolve(...)`.
+- [x] Migrated `MapperDefImpl` similarly: `InstanceOrClassSource<ContextMapper<P,N>>` for the instance/class slots, with the inline `Function<P,N>` form kept as a separate field. `buildMapper()` first checks the Function form, then `source.isSet()` → `source.resolve(...)`, then throws the verbatim "no source set" message (the third form means the helper's own missing-source throw doesn't fit). A small `warnIfFunctionSet()` covers the cross-form override warning when `using(Function)` follows `using(ContextMapper)` or vice versa.
+- [x] Bonus: dedupes the resolution half of three immutable records in `StateMachineDefImpl` (`StepRegistration.toBoundStep`, `OperationRegistration.toBoundOperation`, `ConditionRegistration.toBoundCondition`) via `InstanceOrClassSource.resolveStatic(...)`. The records stay immutable (write-once via static factories); only their `instance != null ? instance : instantiateNoArg(...)` ternaries collapse. The static import of `instantiateNoArg` in `StateMachineDefImpl` is gone.
+- [x] No behavior change — override-with-warning semantics, `using(...)` last-write-wins precedence, warning text, and missing-source error messages all preserved verbatim.
 
 #### 2.6.11f — Spec coverage
 - [ ] `IdentifiedDefImplSpec` — parameterized over each concrete subclass: validates id-in-constructor, `withName` / `withDescription` round-trip, override-warning behavior.
 - [ ] `ConfigurableDefImplSpec` — guard semantics tested against a minimal concrete subclass (covering both an id-bearing variant and an id-less variant so the `defLabel()` plumbing is exercised both ways), plus regression covering the migrated real users via their existing specs.
-- [ ] `InstanceOrClassSourceSpec` — instance-then-class override warns and replaces; class-then-instance ditto; `resolve` on an unset source throws with the supplied kind label; `resolve` instantiates the class form via `instantiateNoArg`.
+- [x] `InstanceOrClassSourceSpec` — covers instance-then-class / class-then-instance / instance-then-instance override-warns-and-replaces, resolve-on-unset throws with the supplied (lower-cased) kind label, resolve instantiates the class form via `instantiateNoArg` and propagates "no no-arg ctor" failures, `clear()` empties silently, and the static `resolveStatic` overload returns instance-when-set / instantiates-when-not. (Landed alongside 2.6.11e — moved up from 2.6.11f so the helper has direct coverage at introduction.)
 - [ ] Existing specs (`ConditionResolverSpec`, `CompositeOperationDefImplSpec`, etc.) keep their black-box assertions — the refactor is internal.
 
 ### 2.6.12 Broaden scope guard to every configurer-exposed def
@@ -461,6 +461,32 @@ Once async branches land, the per-execution `TransitionView` state — context-o
 
 #### Documentation
 - [ ] Update the "DSL Shape" note in `CLAUDE.md`: the post-configurer-rejection rule applies to *every* Def passed to a user lambda, not just `StateDef` / `TransitionDef`. List the guarded set explicitly so Phase 3 contributors know the expected default for new defs (triggers, listeners) is also "guarded".
+
+### 2.6.13 Pull-forward of Phase 3.7: StepDef lambda wiring + dead-code cleanup
+*The 2.6.11a `IdentifiedDefImpl` refactor inadvertently completed the impl-side half of Phase 3.7 step 2: the `name` / `description` field + accessors + override-warning behavior are now centralized for every id-bearing `*DefImpl`. This phase finishes the public-API symmetry by finally wiring the dormant `StepDef` / `StepDefImpl` (introduced in 2.5.1 as a Phase-3.7 down-payment) to a real entry point, and clears a batch of dead getters that accumulated around the same area. The `Describable` super-interface part of Phase 3.7 step 1 is parked there for separate decision — see §3.7's "Parked: Describable super-interface" note.*
+
+#### StepDef / SimpleOperationDef lambda-configurer entry points
+- [ ] Add `StateMachineDef.step(String id, Class<C> contextType, Consumer<StepDef<T, C>> configurer)` and the `Identifiable` sibling overload. Inside the configurer the user calls `.using(Step | Class)`, `.withName(...)`, `.withDescription(...)`. The framework runs the configurer via `ConfigurableDefImpl.runConfigurer(...)` (once `StepDefImpl` extends `ConfigurableDefImpl`, see below), then registers the resulting `StepDefImpl` into the same SM-level step registry the existing flat `step(...)` overloads populate.
+- [ ] Add `StateMachineDef.simpleOperation(String id, Class<C> contextType, Consumer<SimpleOperationDef<T, C>> configurer)` and the `Identifiable` sibling overload. Same pattern, registering into the SM-level operation registry. Today `simpleOperation` only exists on `TransitionDef`; the SM-level entry-point form was previously missing.
+- [ ] `StepDefImpl` migrates to extend `IdentifiedDefImpl` (currently it open-codes its own `id` + `name` + `description` fields). The migration mirrors what 2.6.11a did for `StateDefImpl` / `TransitionDefImpl` — no behavior change, the base already exists.
+- [ ] `StepDefImpl` also extends `ConfigurableDefImpl` (transitively via `IdentifiedDefImpl`); the new lambda overloads run its configurer via `runConfigurer(...)`. The configurer guard's behavioral payoff per 2.6.12 — post-return mutation rejected — applies here too.
+- [ ] Mirror the registration pipeline: the new lambda overloads create a `StepDefImpl` / `SimpleOperationDefImpl`, run the configurer, then call into the existing `StepRegistration.ofInstance/ofClass` (or `OperationRegistration` equivalent) populating logic. The bridge collapses the orphan: `StepDefImpl.buildBoundStep()` finally has a real call site (or, equivalently, the registration record's `toBoundStep` consumes the def's resolved state). Choose whichever path produces the smallest diff; the goal is one entry point per def, not two parallel paths.
+- [ ] Existing flat `step(id, Step)` / `step(id, Class, Step)` / `step(id, Class, Class)` overloads stay as sugar for the no-metadata case. Phase 3.7 §526 already specifies this.
+
+#### Dead-code cleanup (bundled here for context)
+- [ ] Delete `TransitionView.getStateMachine()` — no callers; the `stateMachine` field stays (used internally).
+- [ ] Delete `StateMachineImpl` accessors that mirror def metadata: `getEntityType()`, `getName()`, `getDescription()`, `getVersion()`, `getStateResolver()`, `getStates()`, `getTransitions()`. Their backing fields (`entityType`, `name`, `description`, `version`) also go — set in the constructor from `def`, never read. `stateApplier` and `stateResolver` fields stay because they're used internally; `getStateApplier()` stays because it's exercised by `StateMachineDefImplSpec`. Callers wanting SM metadata go through `getDef()`.
+- [ ] Once the lambda-overload wiring lands, `StepDefImpl.buildBoundStep()` either has a caller (keep) or is folded into the registration record's resolution path (delete). The check at the end of the phase is "no method in `core.impl` is uncalled."
+
+#### Spec coverage
+- [ ] `StateMachineDefImplStepRegistrationSpec` and `StateMachineDefImplSpec` gain coverage for the new lambda overloads: configurer captures id + ctx + name + description + source; flat overloads still register identically; the configurer guard rejects post-return mutation.
+- [ ] Same shape for `simpleOperation` lambda overloads on `StateMachineDefImpl`.
+
+#### What this phase deliberately does NOT do
+- `Describable` super-interface (Phase 3.7 step 1) — parked there for a separate yes/no decision; see §3.7.
+- `ConditionDef` introduction (Phase 3.7 step 3) — intersects the sealed `ConditionDescriptor` grammar in `core.condition`. Bigger redesign; waits.
+- `mapper` / `condition` / `preCondition` / `postCondition` lambda-configurer overloads (Phase 3.7 step 4 remainder) — wait until listeners or YAML alignment surface concrete need.
+- Listener-payload metadata shape (Phase 3.7 step 6) — pinned alongside `*Listener` interfaces in Phase 3.5.
 
 ---
 
@@ -512,19 +538,26 @@ Once async branches land, the per-execution `TransitionView` state — context-o
 - [ ] Data trigger specs covering all four Condition Descriptor forms.
 - [ ] Listener-ordering specs covering the execution flow.
 
-### 3.7 Component Metadata Model
-*Prerequisite for §3.5 Listeners — listener payloads, diagnostic logging, and (later) the YAML DSL all need a uniform way to read `name` and `description` off any framework def. The Phase 2 design deliberately deferred this until there was a real consumer.* `StepDef<T, C>` already ships in Phase 2.5 (call-site context mapping needed `contextType()` on every component); the metadata work below builds on that anchor.
-- [ ] Introduce a `Describable extends Identifiable` interface declaring `getName()` and `getDescription()` as default-`null` methods.
-- [ ] Make `StateMachineDef`, `StateDef`, `TransitionDef`, `OperationDef`, `StepDef`, `MapperDef` implement `Describable`; each `*DefImpl` overrides one or both methods to return its stored value.
-- [ ] Add `ConditionDef<T, C>` (mandatory id, optional name/description) covering the existing four authoring flavours (instance, class, predicate, expression).
+### 3.7 Component Metadata Model (remainder after 2.6.13)
+*Phase 2.6.13 pulled forward the `step` / `simpleOperation` lambda-configurer overloads — they only depended on the `IdentifiedDefImpl` base that landed in 2.6.11a and unblocked themselves. The items below remain: the `Describable` super-interface is parked pending a real consumer (see note); `ConditionDef` requires new design that intersects the sealed `ConditionDescriptor` grammar; the remaining lambda-configurer overloads either depend on `ConditionDef` or wait on consumer demand; listener-payload shape pins down alongside `*Listener` interfaces.*
+
+#### Parked: `Describable` super-interface (needs additional consideration)
+- [ ] **Decision pending.** The original Phase 3.7 plan proposed introducing `Describable extends Identifiable` (default-`null` `getName()` / `getDescription()`) and retrofitting six public Def interfaces. The analysis done alongside 2.6.13 found:
+  - Each Def interface already declares `getName()` / `getDescription()` independently. Collapsing them into a super-interface is cosmetic — no behavior change.
+  - The presumed consumers (`StateListener`, `TransitionListener`, diagnostic logging) all know the *concrete* Def type they hold; none of them need polymorphic metadata access. The polymorphic case that would justify a common super-type does not yet exist.
+  - Per CLAUDE.md's "Don't design for hypothetical future requirements", introducing a new public-API type now means exporting a symbol whose removal would be a breaking change, for speculative payoff.
+- [ ] **To resolve before this task is closed**: (a) confirm Phase 3.5's listener payload shape — does any single listener method want to receive metadata for *more than one* Def kind without committing to a specific type? (b) confirm Phase 5's YAML serialization path — does it walk Defs polymorphically or per-kind? If both answers are "per-kind", drop this item entirely (the per-interface declarations stay). If either answer is "polymorphic", introduce `Describable` then.
+
+#### Outstanding items
+- [ ] Add `ConditionDef<T, C>` (mandatory id, optional name/description) covering the existing four authoring flavours (instance, class, predicate, expression). Design pass needs to reconcile the new def with the sealed `ConditionDescriptor` grammar in `core.condition` — `ConditionDef` likely becomes a builder that produces a `ConditionDescriptor`, with name/description as fields on the def that survive into the bound side.
 - [ ] Add lambda-configurer overloads where step / condition / operation / mapper registrations exist:
-  - [ ] `StateMachineDef.step(String id, Class<C> contextType, Consumer<StepDef<T, C>> configurer)`
-  - [ ] `StateMachineDef.condition(String id, Consumer<ConditionDef<T, C>> configurer)`
-  - [ ] `StateMachineDef.operation(String id, Class<C> contextType, Consumer<SimpleOperationDef<T, C>> configurer)`
+  - [x] *(Done in 2.6.13)* `StateMachineDef.step(String id, Class<C> contextType, Consumer<StepDef<T, C>> configurer)`
+  - [x] *(Done in 2.6.13)* `StateMachineDef.simpleOperation(String id, Class<C> contextType, Consumer<SimpleOperationDef<T, C>> configurer)`
+  - [ ] `StateMachineDef.condition(String id, Consumer<ConditionDef<T, C>> configurer)` *(depends on `ConditionDef` above)*
   - [ ] `StateMachineDef.mapper(String id, Class<P> parentType, Class<N> childType, Consumer<MapperDef<P, N>> configurer)`
-  - [ ] `TransitionDef.preCondition(String id, Consumer<ConditionDef<T, C>> configurer)` and `postCondition(...)` mirror
-- [ ] Existing flat overloads stay as sugar for the no-metadata case.
-- [ ] Listener payloads (§3.5) surface `id` + `name` + `description` from the relevant def — concrete shape pinned down alongside the `*Listener` interfaces.
+  - [ ] `TransitionDef.preCondition(String id, Consumer<ConditionDef<T, C>> configurer)` and `postCondition(...)` mirror *(depends on `ConditionDef`)*
+- [x] *(Done in 2.6.13)* Existing flat overloads stay as sugar for the no-metadata case.
+- [ ] Listener payloads (§3.5) surface `id` + `name` + `description` from the relevant def — concrete shape pinned down alongside the `*Listener` interfaces. **Resolution of the `Describable` parked item depends on what shape this lands at.**
 
 ---
 

@@ -20,7 +20,6 @@ package org.transflux.core.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.Operation;
 import org.transflux.core.operation.SimpleOperationDef;
 
@@ -28,7 +27,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.transflux.core.Preconditions.requireNotNull;
-import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
 
 /**
  * Package-private implementation of {@link SimpleOperationDef}.
@@ -45,34 +43,24 @@ import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
 public final class SimpleOperationDefImpl<T, C> extends OperationDefImpl<T, C> implements SimpleOperationDef<T, C> {
     private static final Logger log = LoggerFactory.getLogger(SimpleOperationDefImpl.class);
 
-    private Operation<T, C> operationInstance;
-    private Class<? extends Operation<T, C>> operationClass;
+    private final InstanceOrClassSource<Operation<T, C>> source;
 
     SimpleOperationDefImpl(String id) {
         super(id);
+        this.source = new InstanceOrClassSource<>(log, "Operation source", "SimpleOperationDef '" + id + "'");
     }
 
     @Override
     public SimpleOperationDefImpl<T, C> using(Operation<T, C> operation) {
         requireNotNull(operation, "Operation");
-        if (this.operationInstance != null || this.operationClass != null) {
-            log.warn("Operation source already defined for SimpleOperationDef '{}'; overriding previous value",
-                getId());
-        }
-        this.operationInstance = operation;
-        this.operationClass = null;
+        source.setInstance(operation);
         return this;
     }
 
     @Override
     public SimpleOperationDefImpl<T, C> using(Class<? extends Operation<T, C>> operationClass) {
         requireNotNull(operationClass, "Operation class");
-        if (this.operationInstance != null || this.operationClass != null) {
-            log.warn("Operation source already defined for SimpleOperationDef '{}'; overriding previous value",
-                getId());
-        }
-        this.operationClass = operationClass;
-        this.operationInstance = null;
+        source.setClass(operationClass);
         return this;
     }
 
@@ -90,16 +78,7 @@ public final class SimpleOperationDefImpl<T, C> extends OperationDefImpl<T, C> i
 
     @Override
     BoundOperation<T, C> buildBound(StateMachineImpl<T> stateMachine) {
-        if (operationInstance == null && operationClass == null) {
-            throw new TransfluxValidationException(
-                "SimpleOperationDef '" + getId() + "' has no operation set; call using(...) before build");
-        }
-
-        Operation<T, C> resolved = operationInstance != null
-            ? operationInstance
-            : instantiateNoArg(operationClass, "Operation");
-
-        return BoundOperation.of(getId(), getName(), getDescription(), resolved);
+        return BoundOperation.of(getId(), getName(), getDescription(), source.resolve("Operation"));
     }
 
     @Override

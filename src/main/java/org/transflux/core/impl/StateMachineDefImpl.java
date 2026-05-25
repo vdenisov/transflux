@@ -49,7 +49,6 @@ import java.util.function.Predicate;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
-import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
 import static org.transflux.core.impl.ValidationUtils.warnIfSet;
 
 /**
@@ -1079,7 +1078,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
             @SuppressWarnings({"unchecked", "rawtypes"})
             BoundStep<T, ?> toBoundStep(String id) {
-                Step<T, ?> resolved = instance != null ? instance : (Step<T, ?>) instantiateNoArg((Class) stepClass, "Step");
+                Step<T, ?> resolved = InstanceOrClassSource.resolve(instance, (Class) stepClass, "Step");
                 return BoundStep.of(id, (Step) resolved);
             }
         }
@@ -1096,9 +1095,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
             @SuppressWarnings({"unchecked", "rawtypes"})
             BoundOperation<T, ?> toBoundOperation(String id) {
-                Operation<T, ?> resolved = instance != null
-                    ? instance
-                    : (Operation<T, ?>) instantiateNoArg((Class) operationClass, "Operation");
+                Operation<T, ?> resolved = InstanceOrClassSource.resolve(instance, (Class) operationClass, "Operation");
                 return BoundOperation.of(id, null, null, (Operation) resolved);
             }
         }
@@ -1128,7 +1125,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
                     return BoundCondition.of(id, (Condition) instance);
                 }
                 if (conditionClass != null) {
-                    return BoundCondition.of(id, (Condition) instantiateNoArg((Class) conditionClass, "Condition"));
+                    return BoundCondition.of(id, (Condition) InstanceOrClassSource.resolve(null, (Class) conditionClass, "Condition"));
                 }
                 if (predicate != null) {
                     BiPredicate<T, Object> p = (BiPredicate<T, Object>) predicate;

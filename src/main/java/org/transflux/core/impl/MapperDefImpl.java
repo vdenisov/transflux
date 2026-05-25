@@ -28,7 +28,6 @@ import java.util.function.Function;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
-import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
 
 /**
  * Default {@link MapperDef} implementation.
@@ -48,11 +47,10 @@ final class MapperDefImpl<P, N> implements MapperDef<P, N> {
     private final Class<P> parentType;
     private final Class<N> childType;
 
+    private final InstanceOrClassSource<ContextMapper<P, N>> source;
+
     private String name;
     private String description;
-
-    private ContextMapper<P, N> mapperInstance;
-    private Class<? extends ContextMapper<P, N>> mapperClass;
     private Function<P, N> mapToFn;
 
     MapperDefImpl(String id, Class<P> parentType, Class<N> childType) {
@@ -62,6 +60,7 @@ final class MapperDefImpl<P, N> implements MapperDef<P, N> {
         this.id = id;
         this.parentType = parentType;
         this.childType = childType;
+        this.source = new InstanceOrClassSource<>(log, "Mapper source", "MapperDef '" + id + "'");
     }
 
     @Override
@@ -92,9 +91,8 @@ final class MapperDefImpl<P, N> implements MapperDef<P, N> {
     @Override
     public MapperDefImpl<P, N> using(ContextMapper<P, N> mapper) {
         requireNotNull(mapper, "Context mapper");
-        warnIfSourceSet();
-        this.mapperInstance = mapper;
-        this.mapperClass = null;
+        warnIfFunctionSet();
+        source.setInstance(mapper);
         this.mapToFn = null;
         return this;
     }
@@ -102,9 +100,8 @@ final class MapperDefImpl<P, N> implements MapperDef<P, N> {
     @Override
     public MapperDefImpl<P, N> using(Class<? extends ContextMapper<P, N>> mapperClass) {
         requireNotNull(mapperClass, "Context mapper class");
-        warnIfSourceSet();
-        this.mapperClass = mapperClass;
-        this.mapperInstance = null;
+        warnIfFunctionSet();
+        source.setClass(mapperClass);
         this.mapToFn = null;
         return this;
     }
@@ -112,10 +109,11 @@ final class MapperDefImpl<P, N> implements MapperDef<P, N> {
     @Override
     public MapperDefImpl<P, N> using(Function<P, N> mapTo) {
         requireNotNull(mapTo, "mapTo function");
-        warnIfSourceSet();
+        if (source.isSet() || mapToFn != null) {
+            log.warn("Mapper source already defined for MapperDef '{}'; overriding previous value", id);
+        }
         this.mapToFn = mapTo;
-        this.mapperInstance = null;
-        this.mapperClass = null;
+        source.clear();
         return this;
     }
 
@@ -141,22 +139,19 @@ final class MapperDefImpl<P, N> implements MapperDef<P, N> {
      * @throws TransfluxValidationException if no source has been set
      */
     ContextMapper<P, N> buildMapper() {
-        if (mapperInstance != null) {
-            return mapperInstance;
-        }
-        if (mapperClass != null) {
-            return instantiateNoArg(mapperClass, "ContextMapper");
-        }
         if (mapToFn != null) {
             Function<P, N> fn = mapToFn;
             return fn::apply;
+        }
+        if (source.isSet()) {
+            return source.resolve("ContextMapper");
         }
         throw new TransfluxValidationException(
             "MapperDef '" + id + "' has no source set; call using(...) before build");
     }
 
-    private void warnIfSourceSet() {
-        if (mapperInstance != null || mapperClass != null || mapToFn != null) {
+    private void warnIfFunctionSet() {
+        if (mapToFn != null) {
             log.warn("Mapper source already defined for MapperDef '{}'; overriding previous value", id);
         }
     }
