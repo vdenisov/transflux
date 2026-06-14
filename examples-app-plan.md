@@ -298,7 +298,7 @@ transflux-examples-contracting-spring/         — Spring Boot sibling (Phase 6)
 
 ## 8. 1.0 Quality Gate Addition
 
-Proposed addition to `todo.md` §6.9 (1.0 Quality Gates):
+Proposed addition to `docs/roadmap/phase-6-integration-release.md` §6.9 (1.0 Quality Gates):
 
 > - [ ] Contracting sample module (`transflux-examples-contracting`) and its Spring sibling build successfully, all specs pass, and every item in the 1.0 contract summary is exercised by at least one location in the sample. The reverse-index table in `examples-app-plan.md` §4 is up to date.
 

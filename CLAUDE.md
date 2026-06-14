@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Transflux is a lightweight, embeddable microflow orchestration library (Java). It coordinates state changes for business entities — transitions, sequencing, pre-/post-conditions, triggers, listeners, and Saga-like compensations — without providing its own persistence. Project status: Phase 2 (Operations, Steps & Conditions) complete; Phase 2.5 (Nested Operations) is the next phase. The public API is unstable.
 
-`requirements.md` is the canonical spec for the vision and component model; consult it before designing new core abstractions. `todo.md` tracks phased implementation work.
+`requirements.md` is the canonical spec for the vision and component model; consult it before designing new core abstractions. `todo.md` is the roadmap index (phase map, versioning policy, 1.0 contract, post-1.0 themes). Per-phase task breakdowns live one-file-per-phase: **remaining** phases under `docs/roadmap/`, **shipped** phases (verbatim) under `docs/history/`. A phase moves from `docs/roadmap/` to `docs/history/` when it ships. The toolchain/dependency/cadence baseline is in `docs/project-baseline.md`.
 
 ## Build & Test
 

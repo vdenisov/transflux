@@ -193,7 +193,7 @@ There is no Phase 1–3 sample work. Earlier phases of the core library do not y
 
 ## 1.0 Readiness Contribution
 
-The sample module is part of the 1.0 quality gate (proposed addition to `todo.md` §6.9). At 1.0 release time:
+The sample module is part of the 1.0 quality gate (proposed addition to `docs/roadmap/phase-6-integration-release.md` §6.9). At 1.0 release time:
 
 - [ ] Both sample modules build and test cleanly.
 - [ ] Every 1.0 contract feature is demonstrated by the sample.
