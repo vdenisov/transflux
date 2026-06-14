@@ -224,10 +224,6 @@ class TransitionView<T, C> implements Transition<T, C> {
         return contextOverrideStack.isEmpty() ? context : (C) contextOverrideStack.peek();
     }
 
-    StateMachineImpl<T> getStateMachine() {
-        return stateMachine;
-    }
-
     void recordExecutedId(String localStepId) {
         executedPath.add(qualifyStepPath(localStepId));
     }

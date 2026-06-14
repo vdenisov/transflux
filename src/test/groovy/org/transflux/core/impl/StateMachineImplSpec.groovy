@@ -60,11 +60,11 @@ class StateMachineImplSpec extends Specification {
 
         expect:
         sm != null
-        sm.name == "Test SM"
-        sm.entityType == TestEntity
-        sm.states.size() == 2
-        sm.transitions.size() == 1
-        sm.stateResolver != null
+        sm.getDef().getName() == "Test SM"
+        sm.getDef().getEntityType() == TestEntity
+        sm.getDef().getStates().size() == 2
+        sm.getDef().getTransitionsById().size() == 1
+        sm.getDef().getStateResolver() != null
     }
 
     def "resolveCurrentState should return entity's current state"() {

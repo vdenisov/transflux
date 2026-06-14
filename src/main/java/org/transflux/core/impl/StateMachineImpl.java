@@ -61,12 +61,6 @@ class StateMachineImpl<T> implements StateMachine<T> {
     //   SM for the same entity.
     private static final ThreadLocal<Set<EntityKey>> IN_FLIGHT = ThreadLocal.withInitial(HashSet::new);
 
-    private final Class<T> entityType;
-
-    private final String name;
-    private final String description;
-    private final String version;
-
     private final StateResolver<T> stateResolver;
     private final StateApplier<T> stateApplier;
 
@@ -78,10 +72,6 @@ class StateMachineImpl<T> implements StateMachine<T> {
     @SuppressWarnings({"unchecked", "rawtypes"})
     StateMachineImpl(StateMachineDefImpl<T> def) {
         this.def = def;
-        this.entityType = def.getEntityType();
-        this.name = def.getName();
-        this.description = def.getDescription();
-        this.version = def.getVersion();
         this.stateResolver = def.getStateResolver();
         this.stateApplier = def.getStateApplier();
 
@@ -169,36 +159,8 @@ class StateMachineImpl<T> implements StateMachine<T> {
         view.recordExecutedId(boundStep.id());
     }
 
-    Class<T> getEntityType() {
-        return entityType;
-    }
-
-    String getName() {
-        return name;
-    }
-
-    String getDescription() {
-        return description;
-    }
-
-    String getVersion() {
-        return version;
-    }
-
-    StateResolver<T> getStateResolver() {
-        return stateResolver;
-    }
-
     StateApplier<T> getStateApplier() {
         return stateApplier;
-    }
-
-    Map<String, State<T>> getStates() {
-        return states;
-    }
-
-    Map<String, BoundTransition<T, ?>> getTransitions() {
-        return transitions;
     }
 
     @Override
