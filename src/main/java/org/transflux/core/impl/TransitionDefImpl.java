@@ -302,9 +302,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     public TransitionDef<T, C> operation(String registeredOperationId) {
         requireConfigurerActive("operation");
         requireNotBlank(registeredOperationId, "Operation reference ID");
-        if (this.operationDef != null || this.registeredOperationRefId != null) {
-            log.warn("Operation is already defined for transition '{}'; overriding previous value", getId());
-        }
+        warnIfOperationSet();
         this.operationDef = null;
         this.registeredOperationRefId = registeredOperationId;
         return this;
@@ -618,11 +616,15 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     private void attachOperation(OperationDefImpl<T, C, ?> def) {
+        warnIfOperationSet();
+        this.registeredOperationRefId = null;
+        this.operationDef = def;
+    }
+
+    private void warnIfOperationSet() {
         if (this.operationDef != null || this.registeredOperationRefId != null) {
             log.warn("Operation is already defined for transition '{}'; overriding previous value", getId());
         }
-        this.registeredOperationRefId = null;
-        this.operationDef = def;
     }
 
     private List<BoundCondition<T, C>> buildBoundConditionList(List<ConditionDescriptor> descriptors,

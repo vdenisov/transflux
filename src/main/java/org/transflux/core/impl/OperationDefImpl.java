@@ -77,13 +77,11 @@ sealed abstract class OperationDefImpl<T, C, SELF extends OperationDefImpl<T, C,
      * {@link RegistryImpl} under {@code rootRegistry} and registers its inline members and
      * conditional bound steps into it.
      *
-     * @param stateMachine the state machine under construction
      * @param rootRegistry the SM root registry that scopes parent to
      * @param canonical the per-build canonical-payload table enforcing SM-wide id uniqueness
      * @param conditionRegistry the resolved SM-wide condition registry
      */
-    abstract void bindScope(StateMachineImpl<T> stateMachine,
-                            RegistryImpl<T> rootRegistry,
+    abstract void bindScope(RegistryImpl<T> rootRegistry,
                             Map<String, Object> canonical,
                             Map<String, BoundCondition<T, ?>> conditionRegistry);
 

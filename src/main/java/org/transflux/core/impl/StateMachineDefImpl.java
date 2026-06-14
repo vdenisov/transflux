@@ -38,12 +38,17 @@ import org.transflux.core.state.StateDef;
 import org.transflux.core.state.StateResolver;
 import org.transflux.core.transition.TransitionDef;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -306,13 +311,10 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * same {@code globalIds} set that already holds SM-level ids; a collision anywhere fails the
      * build with a {@link TransfluxValidationException}.
      *
-     * @param stateMachine the state machine under construction; conditional executors close
-     *                     over it for runtime step lookup
      * @param rootRegistry the state-machine's root registry — the parent of every composite scope
      * @param conditionRegistry the resolved SM-wide condition registry
      */
-    void bindCompositeScopes(StateMachineImpl<T> stateMachine,
-                                    RegistryImpl<T> rootRegistry,
+    void bindCompositeScopes(RegistryImpl<T> rootRegistry,
                                     Map<String, BoundCondition<T, ?>> conditionRegistry) {
         Map<String, Object> canonical = new HashMap<>();
 
@@ -337,12 +339,12 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             OperationDefImpl<T, ?, ?> op = td.getOperationDef();
             if (op != null) {
-                op.bindScope(stateMachine, rootRegistry, canonical, conditionRegistry);
+                op.bindScope(rootRegistry, canonical, conditionRegistry);
             }
         }
 
         for (CompositeOperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
-            composite.bindScope(stateMachine, rootRegistry, canonical, conditionRegistry);
+            composite.bindScope(rootRegistry, canonical, conditionRegistry);
         }
     }
 
@@ -822,7 +824,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     /**
      * Resolves the SM-level step registrations into {@link BoundStep} instances. Composite-local
      * inline steps and conditionals are bound into their owning composite's scope by
-     * {@link #bindCompositeScopes(StateMachineImpl, RegistryImpl, Map)} and are not included
+     * {@link #bindCompositeScopes(RegistryImpl, Map)} and are not included
      * here.
      *
      * @return an unmodifiable map of SM-level step id to bound step
@@ -842,7 +844,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     @SuppressWarnings({"unchecked", "rawtypes"})
     void buildBoundOperationsIncrementally(StateMachineImpl<T> stateMachine,
                                            Consumer<BoundOperation<T, ?>> afterBuild) {
-        java.util.Set<String> seen = new java.util.HashSet<>();
+        Set<String> seen = new HashSet<>();
         for (Map.Entry<String, OperationRegistration<T>> e : operationRegistrations.entrySet()) {
             BoundOperation<T, ?> bo = e.getValue().toBoundOperation(e.getKey(), stateMachine);
             seen.add(e.getKey());
@@ -1056,8 +1058,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     private void detectCompositeCycles() {
-        java.util.Set<String> visited = new java.util.HashSet<>();
-        java.util.Deque<String> stack = new java.util.ArrayDeque<>();
+        Set<String> visited = new HashSet<>();
+        Deque<String> stack = new ArrayDeque<>();
         for (String id : smCompositeOperations.keySet()) {
             if (!visited.contains(id)) {
                 dfsComposite(id, visited, stack);
@@ -1065,9 +1067,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
     }
 
-    private void dfsComposite(String id, java.util.Set<String> visited, java.util.Deque<String> stack) {
+    private void dfsComposite(String id, Set<String> visited, Deque<String> stack) {
         if (stack.contains(id)) {
-            java.util.List<String> path = new ArrayList<>(stack);
+            List<String> path = new ArrayList<>(stack);
             path.add(id);
             int start = path.indexOf(id);
             throw new TransfluxValidationException(

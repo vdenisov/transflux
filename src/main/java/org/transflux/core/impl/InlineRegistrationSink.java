@@ -29,27 +29,23 @@ import static org.transflux.core.impl.StateMachineDefImpl.claimCanonical;
 /**
  * Visitor sink for the polymorphic {@code collectInlineRegistrations} walk over a composite's
  * action refs and its conditionals' branch refs. Bundles the per-composite locals
- * ({@link RegistryImpl scope}, canonical-payload table, context type, conditions registry, and
- * the enclosing {@link StateMachineImpl}) so each variant override can deposit its inline
- * registration with a single call.
+ * ({@link RegistryImpl scope}, canonical-payload table, context type, conditions registry) so
+ * each variant override can deposit its inline registration with a single call.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type of the enclosing composite
  */
 final class InlineRegistrationSink<T, C> {
 
-    private final StateMachineImpl<T> stateMachine;
     private final RegistryImpl<T> scope;
     private final Map<String, Object> canonical;
     private final Class<C> contextType;
     private final Map<String, BoundCondition<T, C>> conditionRegistry;
 
-    InlineRegistrationSink(StateMachineImpl<T> stateMachine,
-                           RegistryImpl<T> scope,
+    InlineRegistrationSink(RegistryImpl<T> scope,
                            Map<String, Object> canonical,
                            Class<C> contextType,
                            Map<String, BoundCondition<T, C>> conditionRegistry) {
-        this.stateMachine = stateMachine;
         this.scope = scope;
         this.canonical = canonical;
         this.contextType = contextType;
@@ -101,7 +97,7 @@ final class InlineRegistrationSink<T, C> {
         if (scope.get(id).isPresent()) {
             return;
         }
-        BoundStep<T, C> bound = def.buildBoundStep(stateMachine, conditionRegistry);
+        BoundStep<T, C> bound = def.buildBoundStep(conditionRegistry);
         scope.register(new Component.Step<>(id, contextType, bound));
     }
 }

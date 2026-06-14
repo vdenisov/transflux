@@ -27,7 +27,6 @@ import org.transflux.core.operation.BranchDef
 import org.transflux.core.operation.DefaultBranchDef
 import org.transflux.core.operation.NoMatchBehavior
 import org.transflux.core.operation.Step
-import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
 import spock.lang.Unroll
@@ -109,7 +108,7 @@ class ConditionalStepDefImplSpec extends Specification {
             .branch('b1', { BranchDef<Entity, TestContext> b -> b.step('s1', new NoopStep()) })
 
         when:
-        cond.buildBoundStep(stateMachine(), [:])
+        cond.buildBoundStep([:])
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -123,7 +122,7 @@ class ConditionalStepDefImplSpec extends Specification {
             .branch('b1', { BranchDef<Entity, TestContext> b -> b.condition('b1-cond', { e -> true } as Predicate) })
 
         when:
-        cond.buildBoundStep(stateMachine(), [:])
+        cond.buildBoundStep([:])
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -140,7 +139,7 @@ class ConditionalStepDefImplSpec extends Specification {
             .defaultBranch({ DefaultBranchDef<Entity, TestContext> d -> })
 
         when:
-        cond.buildBoundStep(stateMachine(), [:])
+        cond.buildBoundStep([:])
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -154,7 +153,7 @@ class ConditionalStepDefImplSpec extends Specification {
             .defaultBranch({ DefaultBranchDef<Entity, TestContext> d -> d.step('s1', new NoopStep()) })
 
         when:
-        cond.buildBoundStep(stateMachine(), [:])
+        cond.buildBoundStep([:])
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -392,6 +391,112 @@ class ConditionalStepDefImplSpec extends Specification {
         defaultBranch.actionRefs[0].id() == 'my-step'
     }
 
+    def 'BranchDef.condition(Identifiable, Condition) builds an InstanceBased descriptor under the id'() {
+        given:
+        def branch = new BranchDefImpl<Entity, TestContext>('b1').tap { beginConfigurer() }
+        Condition<Entity, TestContext> condition = { e, c, t -> true } as Condition
+
+        when:
+        branch.condition(identifiable('inst'), condition)
+
+        then:
+        branch.descriptor instanceof ConditionDescriptor.InstanceBased
+        branch.descriptor.id() == 'inst'
+        (branch.descriptor as ConditionDescriptor.InstanceBased).condition().is(condition)
+    }
+
+    def 'BranchDef.condition(Identifiable, Class) builds a ClassBased descriptor under the id'() {
+        given:
+        def branch = new BranchDefImpl<Entity, TestContext>('b1').tap { beginConfigurer() }
+
+        when:
+        branch.condition(identifiable('cls'), AlwaysTrueCondition)
+
+        then:
+        branch.descriptor instanceof ConditionDescriptor.ClassBased
+        branch.descriptor.id() == 'cls'
+        (branch.descriptor as ConditionDescriptor.ClassBased).conditionClass() == AlwaysTrueCondition
+    }
+
+    def 'BranchDef.condition(Identifiable, expression) builds an ExpressionBased descriptor under the id'() {
+        given:
+        def branch = new BranchDefImpl<Entity, TestContext>('b1').tap { beginConfigurer() }
+
+        when:
+        branch.condition(identifiable('expr'), 'entity.value > 0')
+
+        then:
+        branch.descriptor instanceof ConditionDescriptor.ExpressionBased
+        branch.descriptor.id() == 'expr'
+        (branch.descriptor as ConditionDescriptor.ExpressionBased).expression() == 'entity.value > 0'
+    }
+
+    def 'BranchDef.step(Identifiable, Step) appends an inline step under the id'() {
+        given:
+        def branch = new BranchDefImpl<Entity, TestContext>('b1').tap { beginConfigurer() }
+
+        when:
+        branch.step(identifiable('inline-step'), new NoopStep())
+
+        then:
+        branch.actionRefs.size() == 1
+        branch.actionRefs[0].id() == 'inline-step'
+    }
+
+    def 'BranchDef.step(Identifiable, Class) appends an inline step class under the id'() {
+        given:
+        def branch = new BranchDefImpl<Entity, TestContext>('b1').tap { beginConfigurer() }
+
+        when:
+        branch.step(identifiable('inline-step'), NoopStep)
+
+        then:
+        branch.actionRefs.size() == 1
+        branch.actionRefs[0].id() == 'inline-step'
+    }
+
+    def 'DefaultBranchDef.step(Identifiable, Step) appends an inline step under the id'() {
+        given:
+        def defaultBranch = new DefaultBranchDefImpl<Entity, TestContext>().tap { beginConfigurer() }
+
+        when:
+        defaultBranch.step(identifiable('inline-step'), new NoopStep())
+
+        then:
+        defaultBranch.actionRefs.size() == 1
+        defaultBranch.actionRefs[0].id() == 'inline-step'
+    }
+
+    def 'DefaultBranchDef.step(Identifiable, Class) appends an inline step class under the id'() {
+        given:
+        def defaultBranch = new DefaultBranchDefImpl<Entity, TestContext>().tap { beginConfigurer() }
+
+        when:
+        defaultBranch.step(identifiable('inline-step'), NoopStep)
+
+        then:
+        defaultBranch.actionRefs.size() == 1
+        defaultBranch.actionRefs[0].id() == 'inline-step'
+    }
+
+    def 'BranchDef two-arg Identifiable overloads reject null identifiable'() {
+        given:
+        def branch = new BranchDefImpl<Entity, TestContext>('b1').tap { beginConfigurer() }
+        Condition<Entity, TestContext> condition = { e, c, t -> true } as Condition
+
+        when:
+        branch.condition((Identifiable) null, condition)
+
+        then:
+        thrown(TransfluxValidationException)
+
+        when:
+        branch.step((Identifiable) null, new NoopStep())
+
+        then:
+        thrown(TransfluxValidationException)
+    }
+
     @Unroll
     def 'BranchDef Identifiable overloads reject null: #method'() {
         given:
@@ -416,15 +521,6 @@ class ConditionalStepDefImplSpec extends Specification {
 
         then:
         thrown(TransfluxValidationException)
-    }
-
-    private static StateMachineImpl<Entity> stateMachine() {
-        def smd = new StateMachineDefImpl<Entity>()
-        smd.forEntityType(Entity)
-            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1', { s -> s.transitionsTo('s2', 't', {}) })
-            .state('s2', {})
-        return (StateMachineImpl<Entity>) smd.build()
     }
 
     private static Identifiable identifiable(String value) {

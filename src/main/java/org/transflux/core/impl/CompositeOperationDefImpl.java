@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -380,8 +381,7 @@ final class CompositeOperationDefImpl<T, C>
     }
 
     @Override
-    void bindScope(StateMachineImpl<T> stateMachine,
-                   RegistryImpl<T> rootRegistry,
+    void bindScope(RegistryImpl<T> rootRegistry,
                    Map<String, Object> canonical,
                    Map<String, BoundCondition<T, ?>> conditionRegistry) {
         @SuppressWarnings("unchecked")
@@ -391,7 +391,7 @@ final class CompositeOperationDefImpl<T, C>
         setScopeRegistry(scope);
 
         InlineRegistrationSink<T, C> sink = new InlineRegistrationSink<>(
-            stateMachine, scope, canonical, contextType(), typedConditions);
+            scope, canonical, contextType(), typedConditions);
         collectInlineRegistrations(sink);
     }
 
@@ -403,11 +403,11 @@ final class CompositeOperationDefImpl<T, C>
     }
 
     @Override
-    java.util.Optional<String> scanScopeFor(String id, String excludingId) {
+    Optional<String> scanScopeFor(String id, String excludingId) {
         if (!getId().equals(excludingId) && scopeRegistry != null && scopeRegistry.get(id).isPresent()) {
-            return java.util.Optional.of(getId());
+            return Optional.of(getId());
         }
-        return java.util.Optional.empty();
+        return Optional.empty();
     }
 
     /**

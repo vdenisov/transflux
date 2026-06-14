@@ -72,6 +72,20 @@ public interface DefaultBranchDef<T, C> {
     DefaultBranchDef<T, C> step(String id, Step<T, C> step);
 
     /**
+     * {@link Identifiable} overload of {@link #step(String, Step)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param stepIdentifiable an identifiable supplying the step id
+     * @param step the step instance
+     *
+     * @return this default branch def for chaining
+     *
+     * @throws TransfluxValidationException if {@code stepIdentifiable} or {@code step} is
+     *         {@code null}
+     */
+    DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Step<T, C> step);
+
+    /**
      * Appends an inline {@link Step} class under the supplied id. The framework reflectively
      * instantiates the class through its public no-arg constructor at state-machine build
      * time and auto-registers it.
@@ -85,4 +99,18 @@ public interface DefaultBranchDef<T, C> {
      *         {@code stepClass} is {@code null}
      */
     DefaultBranchDef<T, C> step(String id, Class<? extends Step<T, C>> stepClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #step(String, Class)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param stepIdentifiable an identifiable supplying the step id
+     * @param stepClass the step class
+     *
+     * @return this default branch def for chaining
+     *
+     * @throws TransfluxValidationException if {@code stepIdentifiable} or {@code stepClass} is
+     *         {@code null}
+     */
+    DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Class<? extends Step<T, C>> stepClass);
 }

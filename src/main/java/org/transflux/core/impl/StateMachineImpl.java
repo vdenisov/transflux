@@ -54,7 +54,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
 class StateMachineImpl<T> implements StateMachine<T> {
     private static final Logger log = LoggerFactory.getLogger(StateMachineImpl.class);
 
-    // TODO Phase 4: extend across the async-submission boundary (§4.5.3.4) via
+    // TODO: extend the reentrancy guard across the async-submission boundary via
     //   capture/restore — the enclosing thread snapshots this set on submission and
     //   the worker installs it before entering the SM, so logical reentrancy stays
     //   detected when an operation spawns async work that calls back into the same
@@ -81,6 +81,14 @@ class StateMachineImpl<T> implements StateMachine<T> {
         RegistryImpl<T> registry = new RegistryImpl<>();
         this.componentRegistry = registry;
 
+        // The order below is load-bearing:
+        //  1. SM-level conditions and steps populate the root registry first, so that
+        //  2. composite scopes (bindCompositeScopes) and operations (buildBoundOperations...)
+        //     can resolve by-id refs against the root via the parent chain, and finally
+        //  3. flatten() runs strictly last (root, then composite scopes), collapsing each chain
+        //     so runtime resolve() is a single map lookup. Composite refs are resolved against
+        //     the still-chained scopes during build, so flattening earlier — or switching
+        //     build-time resolution from resolve() to get() — breaks root fallback.
         Map<String, BoundCondition<T, ?>> conditionRegistry = def.buildBoundConditions();
         for (BoundCondition<T, ?> bc : conditionRegistry.values()) {
             Class<?> ctx = effectiveContextType(def, bc.id());
@@ -93,7 +101,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
             registry.register(new Component.Step(bs.id(), ctx, bs));
         }
 
-        def.bindCompositeScopes(this, registry, conditionRegistry);
+        def.bindCompositeScopes(registry, conditionRegistry);
 
         def.buildBoundOperationsIncrementally(this, bo -> {
             Class<?> ctx = effectiveContextType(def, bo.id());

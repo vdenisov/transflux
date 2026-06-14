@@ -51,7 +51,6 @@ final class MapperDefImpl<P, N> implements MapperDef<P, N> {
 
     private String name;
     private String description;
-    private Function<P, N> mapToFn;
 
     MapperDefImpl(String id, Class<P> parentType, Class<N> childType) {
         requireNotBlank(id, "Mapper ID");
@@ -91,29 +90,22 @@ final class MapperDefImpl<P, N> implements MapperDef<P, N> {
     @Override
     public MapperDefImpl<P, N> using(ContextMapper<P, N> mapper) {
         requireNotNull(mapper, "Context mapper");
-        warnIfFunctionSet();
         source.setInstance(mapper);
-        this.mapToFn = null;
         return this;
     }
 
     @Override
     public MapperDefImpl<P, N> using(Class<? extends ContextMapper<P, N>> mapperClass) {
         requireNotNull(mapperClass, "Context mapper class");
-        warnIfFunctionSet();
         source.setClass(mapperClass);
-        this.mapToFn = null;
         return this;
     }
 
     @Override
     public MapperDefImpl<P, N> using(Function<P, N> mapTo) {
         requireNotNull(mapTo, "mapTo function");
-        if (source.isSet() || mapToFn != null) {
-            log.warn("Mapper source already defined for MapperDef '{}'; overriding previous value", id);
-        }
-        this.mapToFn = mapTo;
-        source.clear();
+        ContextMapper<P, N> wrapped = mapTo::apply;
+        source.setInstance(wrapped);
         return this;
     }
 
@@ -139,20 +131,10 @@ final class MapperDefImpl<P, N> implements MapperDef<P, N> {
      * @throws TransfluxValidationException if no source has been set
      */
     ContextMapper<P, N> buildMapper() {
-        if (mapToFn != null) {
-            Function<P, N> fn = mapToFn;
-            return fn::apply;
+        if (!source.isSet()) {
+            throw new TransfluxValidationException(
+                "MapperDef '" + id + "' has no source set; call using(...) before build");
         }
-        if (source.isSet()) {
-            return source.resolve("ContextMapper");
-        }
-        throw new TransfluxValidationException(
-            "MapperDef '" + id + "' has no source set; call using(...) before build");
-    }
-
-    private void warnIfFunctionSet() {
-        if (mapToFn != null) {
-            log.warn("Mapper source already defined for MapperDef '{}'; overriding previous value", id);
-        }
+        return source.resolve("ContextMapper");
     }
 }

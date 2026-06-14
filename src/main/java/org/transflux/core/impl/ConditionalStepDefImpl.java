@@ -45,14 +45,14 @@ import static org.transflux.core.Preconditions.requireNotNull;
  *
  * <p>Holds the conditional's branches and optional default branch in declaration order. The
  * branches are validated at build time, not at configurer return — the configurer surface is
- * permissive and validation is centralised in {@link #buildBoundStep(StateMachineImpl, Map)}.
+ * permissive and validation is centralized in {@link #buildBoundStep(Map)}.
  *
  * <p><b>Build-time resolution.</b> Branch conditions are resolved eagerly against the
  * supplied condition registry. Branch step refs are <em>not</em> resolved eagerly: the
- * executor closes over the {@link StateMachineImpl} and resolves each child step by id at
- * execution time via {@link StateMachineImpl#getBoundStep(String)}. This sidesteps the
- * build-order dependency between the bound-step registry and the conditional executor that
- * lives in that very registry.
+ * executor resolves each child step by id at execution time via
+ * {@link TransitionView#step(String)}, which consults the active composite scope and walks the
+ * parent chain up to the root registry. This sidesteps the build-order dependency between the
+ * bound-step registry and the conditional executor that lives in that very registry.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
@@ -137,8 +137,6 @@ final class ConditionalStepDefImpl<T, C>
      * Resolves this conditional into a {@link BoundStep} whose executable {@link Step} runs
      * the matching branch's steps against the supplied transition view.
      *
-     * @param stateMachine the enclosing state machine; needed at execution time to resolve
-     *                     each branch's step ids against the step registry
      * @param conditionRegistry the resolved state-machine condition registry, used to bind
      *                          each branch's condition descriptor
      *
@@ -148,9 +146,7 @@ final class ConditionalStepDefImpl<T, C>
      *         branches, or the default branch are violated, or if any condition descriptor
      *         cannot be resolved
      */
-    BoundStep<T, C> buildBoundStep(StateMachineImpl<T> stateMachine,
-                                          Map<String, BoundCondition<T, C>> conditionRegistry) {
-        requireNotNull(stateMachine, "State machine");
+    BoundStep<T, C> buildBoundStep(Map<String, BoundCondition<T, C>> conditionRegistry) {
         requireNotNull(conditionRegistry, "Condition registry");
 
         if (branches.isEmpty()) {

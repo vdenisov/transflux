@@ -94,6 +94,20 @@ public interface BranchDef<T, C> {
     BranchDef<T, C> condition(String id, Condition<T, C> condition);
 
     /**
+     * {@link Identifiable} overload of {@link #condition(String, Condition)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param condition the condition instance
+     *
+     * @return this branch def for chaining
+     *
+     * @throws TransfluxValidationException if {@code conditionIdentifiable} or {@code condition}
+     *         is {@code null}
+     */
+    BranchDef<T, C> condition(Identifiable conditionIdentifiable, Condition<T, C> condition);
+
+    /**
      * Sets this branch's condition to a {@link Condition} class under the supplied id; the
      * framework reflectively instantiates the class through its public no-arg constructor at
      * state-machine build time.
@@ -107,6 +121,20 @@ public interface BranchDef<T, C> {
      *         {@code conditionClass} is {@code null}
      */
     BranchDef<T, C> condition(String id, Class<? extends Condition<T, C>> conditionClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #condition(String, Class)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param conditionClass the condition class
+     *
+     * @return this branch def for chaining
+     *
+     * @throws TransfluxValidationException if {@code conditionIdentifiable} or
+     *         {@code conditionClass} is {@code null}
+     */
+    BranchDef<T, C> condition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass);
 
     /**
      * Sets this branch's condition to a {@link BiPredicate} over {@code (entity, context)},
@@ -170,6 +198,20 @@ public interface BranchDef<T, C> {
     BranchDef<T, C> condition(String id, String expression);
 
     /**
+     * {@link Identifiable} overload of {@link #condition(String, String)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param conditionIdentifiable an identifiable supplying the condition id
+     * @param expression the SpEL expression text
+     *
+     * @return this branch def for chaining
+     *
+     * @throws TransfluxValidationException if {@code conditionIdentifiable} is {@code null} or
+     *         {@code expression} is {@code null}/blank
+     */
+    BranchDef<T, C> condition(Identifiable conditionIdentifiable, String expression);
+
+    /**
      * Appends a reference to a step registered on the enclosing state machine.
      *
      * @param registeredStepId the registered step id
@@ -208,6 +250,20 @@ public interface BranchDef<T, C> {
     BranchDef<T, C> step(String id, Step<T, C> step);
 
     /**
+     * {@link Identifiable} overload of {@link #step(String, Step)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param stepIdentifiable an identifiable supplying the step id
+     * @param step the step instance
+     *
+     * @return this branch def for chaining
+     *
+     * @throws TransfluxValidationException if {@code stepIdentifiable} or {@code step} is
+     *         {@code null}
+     */
+    BranchDef<T, C> step(Identifiable stepIdentifiable, Step<T, C> step);
+
+    /**
      * Appends an inline {@link Step} class under the supplied id. The framework reflectively
      * instantiates the class through its public no-arg constructor at state-machine build
      * time and auto-registers it.
@@ -221,4 +277,18 @@ public interface BranchDef<T, C> {
      *         {@code stepClass} is {@code null}
      */
     BranchDef<T, C> step(String id, Class<? extends Step<T, C>> stepClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #step(String, Class)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param stepIdentifiable an identifiable supplying the step id
+     * @param stepClass the step class
+     *
+     * @return this branch def for chaining
+     *
+     * @throws TransfluxValidationException if {@code stepIdentifiable} or {@code stepClass} is
+     *         {@code null}
+     */
+    BranchDef<T, C> step(Identifiable stepIdentifiable, Class<? extends Step<T, C>> stepClass);
 }

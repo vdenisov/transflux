@@ -123,33 +123,6 @@ class InstanceOrClassSourceSpec extends Specification {
         source.resolve('Widget') instanceof WidgetImpl
     }
 
-    def 'clear empties both slots without logging'() {
-        given:
-        def source = newSource()
-        source.setInstance(new WidgetImpl())
-
-        when:
-        source.clear()
-
-        then:
-        !source.isSet()
-        0 * log.warn(_, _, _)
-    }
-
-    def 'setInstance after clear does not warn'() {
-        given:
-        def source = newSource()
-        source.setInstance(new WidgetImpl(tag: 'first'))
-        source.clear()
-
-        when:
-        source.setInstance(new WidgetImpl(tag: 'fresh'))
-
-        then:
-        0 * log.warn(_, _, _)
-        source.isSet()
-    }
-
     def 'resolve propagates instantiateNoArg failure when class has no no-arg constructor'() {
         given:
         def source = newSource()

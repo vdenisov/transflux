@@ -66,11 +66,6 @@ final class InstanceOrClassSource<X> {
         return instance != null || klass != null;
     }
 
-    void clear() {
-        this.instance = null;
-        this.klass = null;
-    }
-
     X resolve(String kindLabel) {
         if (instance != null) {
             return instance;

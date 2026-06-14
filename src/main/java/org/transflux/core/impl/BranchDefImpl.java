@@ -78,6 +78,7 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
 
     @Override
     public BranchDef<T, C> condition(String registeredConditionId) {
+        requireConfigurerActive("condition");
         requireNotBlank(registeredConditionId, "Registered condition ID");
         return setDescriptor(ConditionDescriptor.ref(registeredConditionId));
     }
@@ -90,26 +91,42 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
 
     @Override
     public BranchDef<T, C> conditionExpression(String expression) {
+        requireConfigurerActive("condition");
         requireNotBlank(expression, "Expression");
         return setDescriptor(ConditionDescriptor.expression(expression));
     }
 
     @Override
     public BranchDef<T, C> condition(String id, Condition<T, C> condition) {
+        requireConfigurerActive("condition");
         requireNotBlank(id, "Condition ID");
         requireNotNull(condition, "Condition");
         return setDescriptor(ConditionDescriptor.instanceBased(id, condition));
     }
 
     @Override
+    public BranchDef<T, C> condition(Identifiable conditionIdentifiable, Condition<T, C> condition) {
+        requireNotNull(conditionIdentifiable, "Condition identifiable");
+        return condition(conditionIdentifiable.getId(), condition);
+    }
+
+    @Override
     public BranchDef<T, C> condition(String id, Class<? extends Condition<T, C>> conditionClass) {
+        requireConfigurerActive("condition");
         requireNotBlank(id, "Condition ID");
         requireNotNull(conditionClass, "Condition class");
         return setDescriptor(ConditionDescriptor.classBased(id, conditionClass));
     }
 
     @Override
+    public BranchDef<T, C> condition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass) {
+        requireNotNull(conditionIdentifiable, "Condition identifiable");
+        return condition(conditionIdentifiable.getId(), conditionClass);
+    }
+
+    @Override
     public BranchDef<T, C> condition(String id, BiPredicate<T, C> predicate) {
+        requireConfigurerActive("condition");
         requireNotBlank(id, "Condition ID");
         requireNotNull(predicate, "Predicate");
         return setDescriptor(ConditionDescriptor.predicate(id, predicate));
@@ -123,6 +140,7 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
 
     @Override
     public BranchDef<T, C> condition(String id, Predicate<T> predicate) {
+        requireConfigurerActive("condition");
         requireNotBlank(id, "Condition ID");
         requireNotNull(predicate, "Predicate");
         return setDescriptor(ConditionDescriptor.predicate(id, predicate));
@@ -136,9 +154,16 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
 
     @Override
     public BranchDef<T, C> condition(String id, String expression) {
+        requireConfigurerActive("condition");
         requireNotBlank(id, "Condition ID");
         requireNotBlank(expression, "Expression");
         return setDescriptor(ConditionDescriptor.expression(id, expression));
+    }
+
+    @Override
+    public BranchDef<T, C> condition(Identifiable conditionIdentifiable, String expression) {
+        requireNotNull(conditionIdentifiable, "Condition identifiable");
+        return condition(conditionIdentifiable.getId(), expression);
     }
 
     @Override
@@ -162,14 +187,25 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     }
 
     @Override
+    public BranchDef<T, C> step(Identifiable stepIdentifiable, Step<T, C> step) {
+        requireNotNull(stepIdentifiable, "Step identifiable");
+        return step(stepIdentifiable.getId(), step);
+    }
+
+    @Override
     public BranchDef<T, C> step(String id, Class<? extends Step<T, C>> stepClass) {
         requireConfigurerActive("step");
         actionRefs.add(ActionRef.inline(id, stepClass));
         return this;
     }
 
+    @Override
+    public BranchDef<T, C> step(Identifiable stepIdentifiable, Class<? extends Step<T, C>> stepClass) {
+        requireNotNull(stepIdentifiable, "Step identifiable");
+        return step(stepIdentifiable.getId(), stepClass);
+    }
+
     private BranchDef<T, C> setDescriptor(ConditionDescriptor incoming) {
-        requireConfigurerActive("condition");
         if (this.descriptor != null) {
             log.warn("Condition is already defined for branch '{}'; overriding previous value", branchId);
         }

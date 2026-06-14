@@ -77,9 +77,21 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
     }
 
     @Override
+    public DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Step<T, C> step) {
+        requireNotNull(stepIdentifiable, "Step identifiable");
+        return step(stepIdentifiable.getId(), step);
+    }
+
+    @Override
     public DefaultBranchDef<T, C> step(String id, Class<? extends Step<T, C>> stepClass) {
         requireConfigurerActive("step");
         actionRefs.add(ActionRef.inline(id, stepClass));
         return this;
+    }
+
+    @Override
+    public DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Class<? extends Step<T, C>> stepClass) {
+        requireNotNull(stepIdentifiable, "Step identifiable");
+        return step(stepIdentifiable.getId(), stepClass);
     }
 }

@@ -31,11 +31,10 @@ import static org.transflux.core.Preconditions.requireNotNull;
 /**
  * Package-private implementation of {@link SimpleOperationDef}.
  * <p>
- * Holds either an {@link Operation} instance or an {@code Operation} class; the two are
- * mutually exclusive and last-write-wins (matches the {@code withStateResolver} /
- * {@code withStateApplier} override-with-warning pattern in {@link StateMachineDefImpl}).
- * {@link #build()} reflectively instantiates the class form when needed and produces a
- * {@link BoundOperation}.
+ * Holds either an {@link Operation} instance or an {@code Operation} class via an
+ * {@link InstanceOrClassSource}; the two are mutually exclusive and last-write-wins.
+ * {@link #buildBound(StateMachineImpl)} resolves the held source — reflectively instantiating
+ * the class form when needed — into a {@link BoundOperation}.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
@@ -78,8 +77,7 @@ public final class SimpleOperationDefImpl<T, C>
     }
 
     @Override
-    void bindScope(StateMachineImpl<T> stateMachine,
-                   RegistryImpl<T> rootRegistry,
+    void bindScope(RegistryImpl<T> rootRegistry,
                    Map<String, Object> canonical,
                    Map<String, BoundCondition<T, ?>> conditionRegistry) {
         // Simple operations have no scope registry.
@@ -91,7 +89,7 @@ public final class SimpleOperationDefImpl<T, C>
     }
 
     @Override
-     Optional<String> scanScopeFor(String id, String excludingId) {
+    Optional<String> scanScopeFor(String id, String excludingId) {
         return Optional.empty();
     }
 }
