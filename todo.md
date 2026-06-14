@@ -699,7 +699,7 @@ Once async branches land, the per-execution `TransitionView` state — context-o
 *Target: 1.0-grade integration, infrastructure, and documentation.*
 
 ### 6.1 Spring Integration (Optional)
-- [ ] Target **Spring Boot 3.4.x** (Spring Framework 6.2.x). **Documented Java floor: the core library is Java 11+; the optional Spring integration requires Java 17+** because Spring 6 mandates Java 17. Document this split prominently in the README and in the Spring-integration section of the user guide.
+- [ ] Target **Spring Boot 3.4.x** (Spring Framework 6.2.x). **Documented Java floor: Java 17+ across the board** — the core library targets Java 17, and the optional Spring integration also requires Java 17 (Spring 6 mandates it). Document the Java 17 floor in the README and in the Spring-integration section of the user guide.
 - [ ] Spring Boot auto-configuration class.
 - [ ] `@EnableTransflux` annotation.
 - [ ] `TransfluxConfiguration` Spring binding with configuration properties.
@@ -731,7 +731,7 @@ Phase 1.1 captured the dependency versions present in the repo when bootstrappin
 - [ ] **SLF4J** 2.0.17 → latest 2.0.x.
 - [ ] **Logback** (test scope) 1.5.18 → latest 1.5.x.
 - [ ] Maven plugin versions audited and aligned with current Maven 3.9.x recommendations.
-- [ ] Confirm SpEL 6.2.x JAR runs on Java 11 (per §2.4 note) and pin the exact patch version.
+- [ ] Pin the exact SpEL 6.2.x patch version (the earlier Java 11 compatibility concern is moot now that the baseline is Java 17).
 - [ ] Update `pom.xml` and re-run the full Spock specification suite after each bump to catch behavioral regressions.
 
 ### 6.5 CI/CD and Quality Infrastructure
@@ -903,14 +903,14 @@ These themes alter the core operation/context contract enough that they cannot r
 
 ### Java Baseline
 
-- **Core library**: Java 21+ to build (toolchain enforced); **Java 11+** target. Compiles to Java 11 bytecode via `<release>11</release>`.
-- **Optional Spring integration**: Java 17+ runtime (Spring 6 mandates Java 17). The split is documented as a known constraint, not a workaround.
+- **Core library**: Java 17+ to build (toolchain enforced); **Java 17+** target. Compiles to Java 17 bytecode via `<release>17</release>`.
+- **Optional Spring integration**: Java 17+ runtime (Spring 6 mandates Java 17), matching the core library's Java 17 floor.
 
 ### Core Dependencies (1.0 Target Baseline)
 - **SLF4J 2.0.x** (latest) — logging.
 - **Jackson 2.20.x** — JSON / YAML data binding (staying on the 2.x line for 1.0; Jackson 3 migration is a 2.x post-1.0 item).
 - **SnakeYAML 2.4** — YAML parsing (Phase 5).
-- **Spring Expression Language 6.2.x** — SpEL for conditions, applier paths, expression-based conditions. Java 11 compatibility of the SpEL JAR to be verified during Phase 6.4 dependency refresh.
+- **Spring Expression Language 6.2.x** — SpEL for conditions, applier paths, expression-based conditions. Pin the exact SpEL JAR patch version during the Phase 6.4 dependency refresh.
 
 ### Optional Integrations (1.0)
 - **Spring Boot 3.4.x** + **Spring Framework 6.2.x** — auto-configuration; Java 17+ runtime required for this integration.

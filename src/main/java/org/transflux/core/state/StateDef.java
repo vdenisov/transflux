@@ -41,7 +41,7 @@ import java.util.function.Consumer;
  * <pre>{@code
  * StateMachine<Order> orderSM = Transflux.defineStateMachine()
  *     .forEntityType(Order.class)
- *     .withStateResolver(order -> order.getStatus())
+ *     .withStateResolver(order -> order.getStatus().name())
  *     .state("pending", s -> s
  *         .withName("Pending Order")
  *         .withDescription("Order has been placed but not yet processed")

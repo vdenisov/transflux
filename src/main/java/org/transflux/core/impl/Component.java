@@ -26,9 +26,9 @@ package org.transflux.core.impl;
  * the framework-owned id and the declared context type the component runs against. Descriptive
  * metadata ({@code name} / {@code description}) lives on the def side, not here.
  *
- * <p>The {@link #validate()} hook is called once during registration. Phase 2.5 leaves the
- * variant overrides empty; subsequent phases (notably Phase 3, when listeners attach to
- * steps) plug their cross-cutting checks in here without retouching the registry pipeline.
+ * <p>The {@link #validate()} hook is called once during registration. The variant overrides
+ * are currently empty; the hook exists so cross-cutting checks (such as listener-attachment
+ * rules) can plug in without retouching the registry pipeline.
  *
  * @param <T> the entity type the surrounding state machine manages
  */

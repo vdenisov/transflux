@@ -27,10 +27,10 @@ import java.util.Set;
  * <p>
  * Lookup is scope-aware. Every {@link StateMachineImpl} owns one root {@code Registry} that
  * holds SM-level registrations; every {@code CompositeOperationDefImpl} owns its own
- * {@code Registry} whose {@link #parent()} is the enclosing scope's registry (root in 2.6.6;
- * a process-wide registry once Phase 6.2 lands). Inline composite members live in the
- * composite's own registry only — visibility is lexical. {@link #resolve(String)} walks the
- * parent chain on a local miss; {@link #get(String)} is local-only.
+ * {@code Registry} whose {@link #parent()} is the enclosing scope's registry (the root
+ * registry for an SM-level composite). Inline composite members live in the composite's own
+ * registry only — visibility is lexical. {@link #resolve(String)} walks the parent chain on a
+ * local miss; {@link #get(String)} is local-only.
  *
  * <p>After state-machine construction the registry chain is flattened
  * ({@link RegistryImpl#flatten()}), so {@code resolve(id)} becomes a single local-map lookup

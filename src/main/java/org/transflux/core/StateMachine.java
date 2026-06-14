@@ -40,8 +40,7 @@ import org.transflux.core.transition.TransitionResult;
  * <li>Maintain the state transition matrix definition</li>
  * <li>Validate transition requests against defined rules</li>
  * <li>Execute transition operations and manage their lifecycle</li>
- * <li>Handle trigger evaluation and activation</li>
- * <li>Coordinate pre/post-conditions and listeners</li>
+ * <li>Evaluate pre- and post-conditions guarding a transition</li>
  * </ul>
  *
  * <p><b>Example usage:</b>
@@ -49,7 +48,7 @@ import org.transflux.core.transition.TransitionResult;
  * StateMachine<Subscription> subscriptionSM = Transflux
  *     .defineStateMachine()
  *     .forEntityType(Subscription.class)
- *     .withStateResolver(subscription -> subscription.getStatus())
+ *     .withStateResolver(subscription -> subscription.getStatus().name())
  *     .state("trial", s -> s
  *         .withName("Trial Period")
  *         .transitionsTo("active", "upgrade-transition", t -> {})

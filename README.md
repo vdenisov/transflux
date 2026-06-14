@@ -17,7 +17,7 @@ Phase 1 (Core Foundation) is essentially complete: programmatic state machine bu
 The project is in active design and the public API is unstable. **No releases are published before v1.0** — see `todo.md` for the phased roadmap.
 
 ## Build
-- Prerequisites: JDK 21+ to build (enforced via Maven toolchains); the library compiles to Java 11 bytecode and is compatible with Java 11+ runtimes. Maven 3.9+.
+- Prerequisites: JDK 17+ to build (enforced via Maven toolchains); the library compiles to Java 17 bytecode and is compatible with Java 17+ runtimes. Maven 3.9+.
 - Run tests: `mvn -q clean test`
 - Run a single spec: `mvn -q test -Dtest=StateMachineImplSpec`
 - Coverage report: `target/site/jacoco/index.html`
@@ -25,7 +25,7 @@ The project is in active design and the public API is unstable. **No releases ar
 ## Package Structure
 - `org.transflux.core` — entry point (`Transflux`), `StateMachine` / `StateMachineDef`, `ContextScope`, the `Identifiable` marker, and the `Preconditions` argument-precondition helpers.
 - `org.transflux.core.state` — `State`, `StateDef`, and the host-supplied `StateResolver` / `StateApplier` bridges.
-- `org.transflux.core.transition` — `Transition`, `TransitionDef`, `TransitionResult`, and `StepPath` (the qualified-id value carrier in `TransitionResult.executedStepIds` / `compensatedStepIds`).
+- `org.transflux.core.transition` — `Transition`, `TransitionDef`, `TransitionResult`, and `StepPath` (the qualified-id value carrier in `TransitionResult.executedPath` / `compensatedPath`).
 - `org.transflux.core.operation` — `Operation`, `Step`, `Compensation`, `ContextMapper`, and their def-side types (`SimpleOperationDef` / `CompositeOperationDef` / `StepDef` / `MapperDef` / `ConditionalStepDef` / `BranchDef` / `DefaultBranchDef` / `NoMatchBehavior`).
 - `org.transflux.core.condition` — `Condition` and `ConditionDescriptor`.
 - `org.transflux.core.exception` — `TransfluxException` and its subclasses.

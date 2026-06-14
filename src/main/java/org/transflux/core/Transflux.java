@@ -48,7 +48,7 @@ import org.transflux.core.impl.StateMachineDefImpl;
  *     .defineStateMachine()
  *     .forEntityType(Subscription.class)
  *     .withName("Subscription Lifecycle")
- *     .withStateResolver(subscription -> subscription.getStatus())
+ *     .withStateResolver(subscription -> subscription.getStatus().name())
  *     .state("trial", s -> s
  *         .withName("Trial Period")
  *         .transitionsTo("active", "upgrade", t -> {})
@@ -70,19 +70,16 @@ public final class Transflux {
     private Transflux() { }
 
     /**
-     * Creates a new state machine definition builder for the specified entity type.
+     * Creates a new state machine definition builder.
      * <p>
-     * This static factory method provides the entry point for defining state machines
-     * using Transflux's declarative fluent API. Unlike the previous approach that used
-     * a separate {@code forEntityType} method call, this method takes the entity type
-     * directly as a parameter, making the API more concise and the entity type specification
-     * explicit from the start. The returned {@link StateMachineDef} instance can be used
-     * to configure states, transitions, and other state machine properties.
-     * 
+     * This static factory method is the entry point for defining state machines using
+     * Transflux's declarative fluent API. Bind the concrete entity class on the returned
+     * builder with {@link StateMachineDef#forEntityType(Class)}, then configure states,
+     * transitions, and other properties before calling {@code build()}.
+     *
      * @param <T> the type of entity that will be managed by the state machine
      *
-     * @return a new StateMachineDef instance for building the state machine definition
-     * @throws TransfluxValidationException if the entity type is null
+     * @return a new {@link StateMachineDef} instance for building the state machine definition
      */
     public static <T> StateMachineDef<T> defineStateMachine() {
         return new StateMachineDefImpl<>();

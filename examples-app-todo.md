@@ -28,7 +28,7 @@ There is no Phase 1–3 sample work. Earlier phases of the core library do not y
 - [ ] Create `transflux-examples-contracting/` Maven module.
   - [ ] `pom.xml` with parent reference, `transflux-core` dependency at current snapshot, Spock + Groovy test deps.
   - [ ] Module declared in parent `pom.xml` and excluded from any release-deployment configuration.
-  - [ ] Java 11 target consistent with core; toolchain uses JDK 21 to build.
+  - [ ] Java 17 target consistent with core; toolchain uses JDK 17+ to build.
 - [ ] Module added to the GitHub Actions build matrix; failing sample build fails the PR.
 - [ ] Skeleton `README.md` (what the module is, how to run scenarios from `Main.java`).
 - [ ] Skeleton `PATTERNS.md` with the section list from `examples-app-plan.md` §5.2; sections marked "TBD" until populated in the relevant phase.

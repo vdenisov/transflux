@@ -54,13 +54,13 @@ import java.util.function.Predicate;
  *
  * // Simple, with name/description set inside the configurer:
  * .simpleOperation("activate", op -> op
- *     .name("Activate Subscription")
- *     .description("Marks the subscription active and bills the first period")
+ *     .withName("Activate Subscription")
+ *     .withDescription("Marks the subscription active and bills the first period")
  *     .using(ActivateOperation.class))
  *
  * // Composite, with an ordered list of steps:
  * .compositeOperation("validate-and-pay", composite -> composite
- *     .name("Validate and Charge")
+ *     .withName("Validate and Charge")
  *     .step("validate-cart")
  *     .step("compute-total")
  *     .step("charge", ChargeStep.class))
@@ -111,8 +111,9 @@ public interface TransitionDef<T, C> extends Identifiable {
     String getTargetStateId();
 
     /**
-     * Returns the context class declared for this transition. Defaults to {@code Void.class}
-     * until {@link #usingContext(Class)} re-types the def.
+     * Returns the context class declared for this transition. Defaults to {@code Object.class}
+     * (accepts any non-{@code null} firing context, and also accepts {@code null}) until
+     * {@link #usingContext(Class)} re-types the def.
      *
      * @return the declared context class; never {@code null}
      */
@@ -122,8 +123,9 @@ public interface TransitionDef<T, C> extends Identifiable {
      * Re-types this transition def to carry the supplied context class. Calling this method
      * captures the context type and returns the same underlying def re-generified so that
      * subsequent member declarations (operations, conditions) type-check against {@code C2}.
-     * When omitted, a transition is {@code TransitionDef<T, Void>} and the host passes
-     * {@code null} at fire time.
+     * When omitted, a transition defaults to {@code TransitionDef<T, Object>}, accepting any
+     * non-{@code null} firing context (and {@code null}); re-type with {@code usingContext(Void.class)}
+     * to reject any non-{@code null} firing context.
      *
      * @param contextType the context class; never {@code null}
      * @param <C2> the new context type

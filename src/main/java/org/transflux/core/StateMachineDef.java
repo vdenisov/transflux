@@ -182,7 +182,7 @@ public interface StateMachineDef<T> {
 
     /**
      * Registers a step instance against this state machine under the given id, tagged with
-     * the supplied context class. Equivalent to a {@code useContext(contextType, scope -> scope.step(...))}
+     * the supplied context class. Equivalent to a {@code forContext(contextType, scope -> scope.step(...))}
      * call but expressed inline.
      *
      * @param id the step id
