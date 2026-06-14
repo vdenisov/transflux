@@ -18,7 +18,7 @@ Status legend: ✅ done · 🚧 active · ⬜ next / planned · 🔮 post-1.0
 | 2 — Operations, Steps & Conditions | v0.2.0 | ✅ done | [history](docs/history/phase-2-operations-steps-conditions.md) |
 | 2.5 — Nested Operations & Context Mapping | v0.2.5 | ✅ done | [history](docs/history/phase-2.5-nested-operations.md) |
 | 2.6 — DSL Shape Consistency | v0.2.6 | ✅ done | [history](docs/history/phase-2.6-dsl-shape-consistency.md) |
-| 3 — Triggers & Listeners | v0.3.0 | ⬜ next | [phase 3](docs/roadmap/phase-3-triggers-listeners.md) |
+| 3 — Triggers & Listeners | v0.3.0 | 🚧 active | [phase 3](docs/roadmap/phase-3-triggers-listeners.md) |
 | 4 — Async Operations & Error Handling | v0.4.0 | ⬜ planned | [phase 4](docs/roadmap/phase-4-async-compensation.md) |
 | 5 — YAML DSL & Component System | v0.5.0 | ⬜ planned | [phase 5](docs/roadmap/phase-5-yaml-dsl.md) |
 | 6 — Integration, Polish & Release Prep | v0.6.0 → v1.0.0 | ⬜ planned | [phase 6](docs/roadmap/phase-6-integration-release.md) |

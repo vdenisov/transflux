@@ -29,6 +29,7 @@ import org.transflux.core.operation.Operation;
 import org.transflux.core.operation.SimpleOperationDef;
 import org.transflux.core.transition.Transition;
 import org.transflux.core.transition.TransitionDef;
+import org.transflux.core.trigger.ManualTriggerDef;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -68,6 +69,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
 
     private final List<ConditionDescriptor> preConditions = new ArrayList<>();
     private final List<ConditionDescriptor> postConditions = new ArrayList<>();
+    private final List<ManualTriggerDefImpl<T, C>> manualTriggers = new ArrayList<>();
 
     /**
      * Constructs a new TransitionDefImpl with the specified parameters.
@@ -225,6 +227,15 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
      */
     List<BoundCondition<T, C>> buildBoundPostConditions(Map<String, BoundCondition<T, C>> registry) {
         return buildBoundConditionList(postConditions, registry, "post");
+    }
+
+    /**
+     * Returns the manual triggers declared on this transition, in declaration order.
+     *
+     * @return the manual trigger defs
+     */
+    List<ManualTriggerDefImpl<T, C>> getManualTriggers() {
+        return manualTriggers;
     }
 
     @Override
@@ -505,19 +516,34 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> addManualTrigger() {
-        throw new UnsupportedOperationException("Triggers not yet implemented");
-    }
-
-    @Override
     public TransitionDef<T, C> addManualTrigger(String id) {
-        throw new UnsupportedOperationException("Triggers not yet implemented");
+        requireConfigurerActive("addManualTrigger");
+        requireNotBlank(id, "Trigger ID");
+        manualTriggers.add(new ManualTriggerDefImpl<>(id, getId(), contextType));
+        return this;
     }
 
     @Override
     public TransitionDef<T, C> addManualTrigger(Identifiable triggerIdentifiable) {
         requireNotNull(triggerIdentifiable, "Trigger identifiable");
         return addManualTrigger(triggerIdentifiable.getId());
+    }
+
+    @Override
+    public TransitionDef<T, C> addManualTrigger(String id, Consumer<ManualTriggerDef<T, C>> configurer) {
+        requireConfigurerActive("addManualTrigger");
+        requireNotBlank(id, "Trigger ID");
+        requireNotNull(configurer, "Manual trigger configurer");
+        ManualTriggerDefImpl<T, C> trigger = new ManualTriggerDefImpl<>(id, getId(), contextType);
+        ConfigurableDefImpl.runConfigurer(trigger, configurer);
+        manualTriggers.add(trigger);
+        return this;
+    }
+
+    @Override
+    public TransitionDef<T, C> addManualTrigger(Identifiable triggerIdentifiable, Consumer<ManualTriggerDef<T, C>> configurer) {
+        requireNotNull(triggerIdentifiable, "Trigger identifiable");
+        return addManualTrigger(triggerIdentifiable.getId(), configurer);
     }
 
     @Override

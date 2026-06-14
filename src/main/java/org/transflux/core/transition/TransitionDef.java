@@ -25,6 +25,7 @@ import org.transflux.core.operation.CompositeOperationDef;
 import org.transflux.core.operation.Operation;
 import org.transflux.core.operation.SimpleOperationDef;
 import org.transflux.core.operation.Step;
+import org.transflux.core.trigger.ManualTriggerDef;
 
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
@@ -607,21 +608,15 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, String expression);
 
     /**
-     * Placeholder for the trigger framework.
+     * Attaches a manual trigger to this transition under the given id, with no extra metadata or
+     * pre-conditions. The trigger is invokable through {@code entity(e).fire(id)}.
+     *
+     * @param id the trigger id; never {@code null} or blank
      *
      * @return this transition def for chaining
-     */
-    // TODO: trigger framework
-    TransitionDef<T, C> addManualTrigger();
-
-    /**
-     * Placeholder for the trigger framework.
      *
-     * @param id trigger id
-     *
-     * @return this transition def for chaining
+     * @throws TransfluxValidationException if {@code id} is {@code null} or blank
      */
-    // TODO: trigger framework
     TransitionDef<T, C> addManualTrigger(String id);
 
     /**
@@ -630,9 +625,42 @@ public interface TransitionDef<T, C> extends Identifiable {
      * @param triggerIdentifiable an identifiable supplying the trigger id
      *
      * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code triggerIdentifiable} is {@code null}
      */
-    // TODO: trigger framework
     TransitionDef<T, C> addManualTrigger(Identifiable triggerIdentifiable);
+
+    /**
+     * Attaches a manual trigger built through a fluent configurer. Use this form to set the
+     * trigger's name, description, and trigger-specific pre-conditions.
+     * <p>
+     * The configurer is invoked synchronously against a freshly-constructed
+     * {@link ManualTriggerDef} carrying the supplied {@code id}. The def is not exposed to the
+     * caller after the lambda returns. When the trigger is invoked through
+     * {@code entity(e).fire(id)}, the transition's own pre-conditions are evaluated first, then the
+     * trigger's, in declaration order.
+     *
+     * @param id the trigger id; never {@code null} or blank
+     * @param configurer the fluent configurer; never {@code null}
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
+     *         {@code configurer} is {@code null}
+     */
+    TransitionDef<T, C> addManualTrigger(String id, Consumer<ManualTriggerDef<T, C>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #addManualTrigger(String, Consumer)}.
+     *
+     * @param triggerIdentifiable an identifiable supplying the trigger id
+     * @param configurer the fluent configurer
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code triggerIdentifiable} is {@code null}
+     */
+    TransitionDef<T, C> addManualTrigger(Identifiable triggerIdentifiable, Consumer<ManualTriggerDef<T, C>> configurer);
 
     /**
      * Placeholder for the trigger framework.

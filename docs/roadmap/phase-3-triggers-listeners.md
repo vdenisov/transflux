@@ -4,20 +4,21 @@
 *Target: The 1.0 trigger set (Manual, Event, host-driven Data) and full listener parity between DSLs.*
 
 ### 3.1 Trigger Framework
-- [ ] `Trigger` interface and base implementations.
-- [ ] Trigger registration and lookup on transitions.
-- [ ] Trigger catalog API on the state machine (enumerate triggers by name/type).
+- [x] `Trigger` interface and base implementations. (`core.trigger.Trigger` runtime view + `TriggerType`; triggers attach to transitions like pre/post-conditions rather than going through the `Component`/`Registry` machinery.)
+- [x] Trigger registration and lookup on transitions. (`TransitionDef.addManualTrigger(...)`; ids are a per-state-machine namespace, uniqueness enforced at build.)
+- [x] Trigger catalog API on the state machine — enumeration by id (`StateMachine.getTriggers()` / `getTrigger(id)`). **Kind-based discrimination ("by type") is deferred to 3.3**: with only manual triggers, a type filter is vacuous. When event/data triggers land it will be added class-based (`getTriggers(Class<? extends Trigger>)` with return-type narrowing) rather than via a parallel enum.
 
 ### 3.2 Manual Triggers
-- [ ] `ManualTrigger` implementation.
-- [ ] Per-trigger metadata: description, listener bindings, trigger-specific pre-conditions distinct from the transition's defaults.
-- [ ] Invocation API (`stateMachine.entity(e).transitionTo(state, triggerId)`).
+- [x] `ManualTrigger` implementation. (`ManualTriggerDef` builder + internal `ManualTriggerImpl` runtime.)
+- [x] Per-trigger metadata: description, trigger-specific pre-conditions distinct from the transition's defaults. Trigger pre-conditions **augment** the transition's (transition's run first, then the trigger's). **Listener bindings are deferred to 3.5**, where listeners are introduced.
+- [x] Invocation API — shipped as a dedicated `stateMachine.entity(e).fire(triggerId[, ctx])` (no target-state arg; the trigger names its transition). `transitionTo(...)` stays trigger-free, so triggerless transitions remain directly invocable and absent from the catalog.
 
 ### 3.3 Event Triggers
 - [ ] `EventTrigger` implementation.
 - [ ] `processEvent(event, eventData)` API on the entity binding.
 - [ ] Event filtering via expressions / predicate classes.
 - [ ] Entity correlation (matching events to entities) for the in-process case.
+- [ ] **Trigger kind discrimination (deferred from 3.1).** With a second trigger kind now present, add kind-based catalog filtering to the state machine. Prefer a class-based `<X extends Trigger> Collection<X> getTriggers(Class<X> kind)` (type-safe filter + return-type narrowing) over a parallel `TriggerType` enum; introduce the public `EventTrigger` / `ManualTrigger` subtypes of `Trigger` that this filter selects on. The YAML `type: manual|event|data` vocabulary maps to concrete builders in the parser, so no runtime enum is required.
 
 ### 3.4 Data Triggers (host-driven)
 - [ ] `DataTrigger` implementation.

@@ -32,9 +32,11 @@ import org.transflux.core.state.StateResolver;
 import org.transflux.core.transition.StepPath;
 import org.transflux.core.transition.Transition;
 import org.transflux.core.transition.TransitionResult;
+import org.transflux.core.trigger.Trigger;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -66,6 +68,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
     private final Map<String, State<T>> states = new LinkedHashMap<>();
     private final Map<String, BoundTransition<T, ?>> transitions = new LinkedHashMap<>();
+    private final Map<String, Trigger> triggers = new LinkedHashMap<>();
     private final Registry<T> componentRegistry;
     private final StateMachineDefImpl<T> def;
 
@@ -112,8 +115,25 @@ class StateMachineImpl<T> implements StateMachine<T> {
             this.transitions.put(td.getId(), buildTransition(td, conditionRegistry));
         }
 
+        for (TransitionDefImpl<T, ?> td : def.getTransitionsById().values()) {
+            registerManualTriggers(td, conditionRegistry);
+        }
+
         registry.flatten();
         def.flattenCompositeScopes();
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void registerManualTriggers(TransitionDefImpl<T, ?> td,
+                                        Map<String, BoundCondition<T, ?>> conditionRegistry) {
+        for (ManualTriggerDefImpl<T, ?> mt : td.getManualTriggers()) {
+            Trigger trigger = mt.buildBoundTrigger((Map) conditionRegistry);
+            if (triggers.containsKey(trigger.getId())) {
+                throw new TransfluxValidationException(
+                    "Trigger id '" + trigger.getId() + "' is already registered");
+            }
+            triggers.put(trigger.getId(), trigger);
+        }
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -239,6 +259,27 @@ class StateMachineImpl<T> implements StateMachine<T> {
         return stateId;
     }
 
+    @Override
+    public Collection<Trigger> getTriggers() {
+        return List.copyOf(triggers.values());
+    }
+
+    @Override
+    public Trigger getTrigger(String triggerId) {
+        requireNotBlank(triggerId, "Trigger ID");
+        Trigger trigger = triggers.get(triggerId);
+        if (trigger == null) {
+            throw new TransfluxValidationException("Trigger '" + triggerId + "' does not exist");
+        }
+        return trigger;
+    }
+
+    @Override
+    public Trigger getTrigger(Identifiable trigger) {
+        requireNotNull(trigger, "Trigger identifiable");
+        return getTrigger(trigger.getId());
+    }
+
     State<T> getState(String stateId) {
         requireNotBlank(stateId, "State ID");
 
@@ -289,9 +330,15 @@ class StateMachineImpl<T> implements StateMachine<T> {
         return matchingTransitions.get(0);
     }
 
-    @SuppressWarnings({"unchecked"})
     private <C> TransitionResult<T> executeTransitionInternal(T entity, Object firingContext,
                                                                  BoundTransition<T, C> transition) {
+        return executeTransitionInternal(entity, firingContext, transition, List.of());
+    }
+
+    @SuppressWarnings({"unchecked"})
+    private <C> TransitionResult<T> executeTransitionInternal(T entity, Object firingContext,
+                                                                 BoundTransition<T, C> transition,
+                                                                 List<BoundCondition<T, C>> additionalPreConditions) {
         String sourceStateId = transition.sourceStateId();
         String targetStateId = transition.targetStateId();
         String transitionId = transition.id();
@@ -312,6 +359,16 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
         try {
             for (BoundCondition<T, C> pc : transition.boundPreConditions()) {
+                if (!pc.condition().test(entity, context, view)) {
+                    return TransitionResult.failure(
+                        entity, sourceStateId, targetStateId, transitionId,
+                        new TransfluxValidationException("Pre-condition '" + pc.id()
+                            + "' failed for transition '" + transitionId + "'"),
+                        view.getExecutedPath(), null, startedAt, Instant.now());
+                }
+            }
+
+            for (BoundCondition<T, C> pc : additionalPreConditions) {
                 if (!pc.condition().test(entity, context, view)) {
                     return TransitionResult.failure(
                         entity, sourceStateId, targetStateId, transitionId,
@@ -378,6 +435,20 @@ class StateMachineImpl<T> implements StateMachine<T> {
                 IN_FLIGHT.remove();
             }
         }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private TransitionResult<T> fireWith(T entity, Object firingContext,
+                                         BoundTransition<T, ?> transition, Trigger trigger) {
+        List additionalPreConditions = triggerPreConditions(trigger);
+        return executeTransitionInternal(entity, firingContext, (BoundTransition) transition, additionalPreConditions);
+    }
+
+    private List<? extends BoundCondition<?, ?>> triggerPreConditions(Trigger trigger) {
+        if (trigger instanceof ManualTriggerImpl<?, ?> manual) {
+            return manual.preConditions();
+        }
+        return List.of();
     }
 
     private record EntityKey(StateMachineImpl<?> sm, Object entity) {
@@ -501,6 +572,42 @@ class StateMachineImpl<T> implements StateMachine<T> {
         public TransitionResult<T> transitionTo(String targetStateId, Identifiable transition, Object firingContext) {
             requireNotNull(transition, "Transition identifiable");
             return transitionTo(targetStateId, transition.getId(), firingContext);
+        }
+
+        @Override
+        public TransitionResult<T> fire(String triggerId) {
+            return fire(triggerId, (Object) null);
+        }
+
+        @Override
+        public TransitionResult<T> fire(String triggerId, Object firingContext) {
+            requireNotBlank(triggerId, "Trigger ID");
+
+            Trigger trigger = StateMachineImpl.this.getTrigger(triggerId);
+            BoundTransition<T, ?> transition = StateMachineImpl.this.getTransition(trigger.getTransitionId());
+
+            String currentStateId = resolveCurrentState(entity);
+            if (!transition.sourceStateId().equals(currentStateId)) {
+                throw new TransfluxValidationException(
+                    String.format("Entity is in state '%s' but trigger '%s' requires source state '%s'",
+                        currentStateId, triggerId, transition.sourceStateId())
+                );
+            }
+
+            verifyFireContext(transition, firingContext);
+            return fireWith(entity, firingContext, transition, trigger);
+        }
+
+        @Override
+        public TransitionResult<T> fire(Identifiable trigger) {
+            requireNotNull(trigger, "Trigger identifiable");
+            return fire(trigger.getId());
+        }
+
+        @Override
+        public TransitionResult<T> fire(Identifiable trigger, Object firingContext) {
+            requireNotNull(trigger, "Trigger identifiable");
+            return fire(trigger.getId(), firingContext);
         }
 
         private void verifyFireContext(BoundTransition<T, ?> transition, Object firingContext) {

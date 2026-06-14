@@ -1527,7 +1527,7 @@ trialActiveTransition
     .addPostCondition(SubscriptionFeaturesActivatedCondition.class)
     
     // Triggers
-    .addManualTrigger()
+    .addManualTrigger("manual-activate")
     .addEventTrigger(Event.PAYMENT_CONFIRMED)
     .addDataTrigger(SubscriptionActivatedTrigger.class)
     

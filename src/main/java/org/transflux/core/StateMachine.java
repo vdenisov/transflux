@@ -20,6 +20,9 @@ package org.transflux.core;
 
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.transition.TransitionResult;
+import org.transflux.core.trigger.Trigger;
+
+import java.util.Collection;
 
 /**
  * The central orchestrator that manages entity state transitions and coordinates all framework operations.
@@ -183,6 +186,42 @@ public interface StateMachine<T> {
      * @throws TransfluxValidationException if the state cannot be resolved or is invalid
      */
     String resolveCurrentState(T entity);
+
+    /**
+     * Returns all triggers declared across this state machine's transitions.
+     * <p>
+     * Only triggers explicitly declared on transitions appear here; a transition with no declared
+     * trigger is still directly invocable through {@link EntityBinding#transitionTo(String)} but
+     * contributes nothing to the catalog.
+     *
+     * @return an unmodifiable collection of triggers; empty when none are declared
+     */
+    Collection<Trigger> getTriggers();
+
+    /**
+     * Returns the trigger registered under the given id.
+     *
+     * @param triggerId the trigger id; never {@code null} or blank
+     *
+     * @return the trigger
+     *
+     * @throws TransfluxValidationException if {@code triggerId} is {@code null}/blank or no
+     *         trigger is registered under it
+     */
+    Trigger getTrigger(String triggerId);
+
+    /**
+     * {@link Identifiable} overload of {@link #getTrigger(String)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param trigger an identifiable supplying the trigger id
+     *
+     * @return the trigger
+     *
+     * @throws TransfluxValidationException if {@code trigger} is {@code null} or no trigger is
+     *         registered under its id
+     */
+    Trigger getTrigger(Identifiable trigger);
 
     /**
      * Fluent execution scope returned by {@link StateMachine#entity(Object)}.
@@ -349,5 +388,63 @@ public interface StateMachine<T> {
          *         or {@code transition} is {@code null}
          */
         TransitionResult<T> transitionTo(String targetStateId, Identifiable transition, Object context);
+
+        /**
+         * Fires the manual trigger registered under {@code triggerId} with no firing context.
+         * <p>
+         * The trigger determines its own transition, so no target state is supplied. The entity
+         * must be in that transition's source state. The transition's own pre-conditions are
+         * evaluated first, then the trigger's, in declaration order.
+         *
+         * @param triggerId the trigger id; never {@code null} or blank
+         *
+         * @return the result of the transition execution
+         *
+         * @throws TransfluxValidationException if {@code triggerId} is {@code null}/blank, no
+         *         trigger is registered under it, or the entity is not in the trigger's source state
+         */
+        TransitionResult<T> fire(String triggerId);
+
+        /**
+         * Fires the manual trigger registered under {@code triggerId}, passing {@code context}
+         * through to the underlying operation. The framework verifies at the dispatch boundary that
+         * {@code context == null || transitionContextType.isInstance(context)} and throws
+         * {@link TransfluxValidationException} on mismatch.
+         *
+         * @param triggerId the trigger id; never {@code null} or blank
+         * @param context the fire-time context; may be {@code null}
+         *
+         * @return the result of the transition execution
+         *
+         * @throws TransfluxValidationException if {@code triggerId} is {@code null}/blank, no
+         *         trigger is registered under it, the entity is not in the trigger's source state,
+         *         or the context type does not match
+         */
+        TransitionResult<T> fire(String triggerId, Object context);
+
+        /**
+         * {@link Identifiable} overload of {@link #fire(String)} — delegates via
+         * {@link Identifiable#getId()}.
+         *
+         * @param trigger an identifiable supplying the trigger id
+         *
+         * @return the result of the transition execution
+         *
+         * @throws TransfluxValidationException if {@code trigger} is {@code null}
+         */
+        TransitionResult<T> fire(Identifiable trigger);
+
+        /**
+         * {@link Identifiable} overload of {@link #fire(String, Object)} — delegates via
+         * {@link Identifiable#getId()}.
+         *
+         * @param trigger an identifiable supplying the trigger id
+         * @param context the fire-time context; may be {@code null}
+         *
+         * @return the result of the transition execution
+         *
+         * @throws TransfluxValidationException if {@code trigger} is {@code null}
+         */
+        TransitionResult<T> fire(Identifiable trigger, Object context);
     }
 }
