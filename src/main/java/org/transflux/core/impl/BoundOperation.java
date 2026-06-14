@@ -24,17 +24,14 @@ import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
- * Runtime binder that pairs a pure {@link Operation} with framework-owned identity and
- * metadata.
+ * Runtime binder that pairs a pure {@link Operation} with framework-owned identity.
  *
  * @param id the framework-owned operation id; never {@code null} or blank
- * @param name the optional human-readable name; may be {@code null}
- * @param description the optional description; may be {@code null}
  * @param operation the bound {@link Operation} executable; never {@code null}
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-record BoundOperation<T, C>(String id, String name, String description, Operation<T, C> operation)
+record BoundOperation<T, C>(String id, Operation<T, C> operation)
     implements BoundAction<T, C> {
 
     BoundOperation {
@@ -46,18 +43,13 @@ record BoundOperation<T, C>(String id, String name, String description, Operatio
      * Convenience factory equivalent to the canonical constructor.
      *
      * @param id the operation id
-     * @param name the optional name
-     * @param description the optional description
      * @param operation the operation executable
      * @param <T> the entity type
      * @param <C> the context type
      *
      * @return a fresh bound operation
      */
-    static <T, C> BoundOperation<T, C> of(String id,
-                                          String name,
-                                          String description,
-                                          Operation<T, C> operation) {
-        return new BoundOperation<>(id, name, description, operation);
+    static <T, C> BoundOperation<T, C> of(String id, Operation<T, C> operation) {
+        return new BoundOperation<>(id, operation);
     }
 }

@@ -69,7 +69,7 @@ public final class SimpleOperationDefImpl<T, C>
 
     @Override
     BoundOperation<T, C> buildBound(StateMachineImpl<T> stateMachine) {
-        return BoundOperation.of(getId(), getName(), getDescription(), source.resolve("Operation"));
+        return BoundOperation.of(getId(), source.resolve("Operation"));
     }
 
     @Override

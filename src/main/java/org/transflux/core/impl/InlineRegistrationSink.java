@@ -62,7 +62,7 @@ final class InlineRegistrationSink<T, C> {
             return;
         }
         BoundStep<T, C> bound = BoundStep.of(id, step);
-        scope.register(new Component.Step<>(id, null, null, contextType, bound));
+        scope.register(new Component.Step<>(id, contextType, bound));
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -73,7 +73,7 @@ final class InlineRegistrationSink<T, C> {
         }
         Step<T, C> resolved = (Step<T, C>) instantiateNoArg((Class) stepClass, "Step");
         BoundStep<T, C> bound = BoundStep.of(id, resolved);
-        scope.register(new Component.Step<>(id, null, null, contextType, bound));
+        scope.register(new Component.Step<>(id, contextType, bound));
     }
 
     void registerInlineOperation(String id, Operation<T, C> operation) {
@@ -81,8 +81,8 @@ final class InlineRegistrationSink<T, C> {
         if (scope.get(id).isPresent()) {
             return;
         }
-        BoundOperation<T, C> bound = BoundOperation.of(id, null, null, operation);
-        scope.register(new Component.Operation<>(id, null, null, contextType, bound));
+        BoundOperation<T, C> bound = BoundOperation.of(id, operation);
+        scope.register(new Component.Operation<>(id, contextType, bound));
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -92,8 +92,8 @@ final class InlineRegistrationSink<T, C> {
             return;
         }
         Operation<T, C> resolved = (Operation<T, C>) instantiateNoArg((Class) operationClass, "Operation");
-        BoundOperation<T, C> bound = BoundOperation.of(id, null, null, resolved);
-        scope.register(new Component.Operation<>(id, null, null, contextType, bound));
+        BoundOperation<T, C> bound = BoundOperation.of(id, resolved);
+        scope.register(new Component.Operation<>(id, contextType, bound));
     }
 
     void registerConditional(String id, ConditionalStepDefImpl<T, C> def) {
@@ -102,6 +102,6 @@ final class InlineRegistrationSink<T, C> {
             return;
         }
         BoundStep<T, C> bound = def.buildBoundStep(stateMachine, conditionRegistry);
-        scope.register(new Component.Step<>(id, null, null, contextType, bound));
+        scope.register(new Component.Step<>(id, contextType, bound));
     }
 }

@@ -359,7 +359,7 @@ final class CompositeOperationDefImpl<T, C>
 
         Operation<T, C> executor = new CompositeOperationExecutor<>(members, scopeRegistry);
 
-        return BoundOperation.of(getId(), getName(), getDescription(), executor);
+        return BoundOperation.of(getId(), executor);
     }
 
     @Override

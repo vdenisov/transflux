@@ -44,7 +44,7 @@ class RegistryImplSpec extends Specification {
         given:
         def registry = new RegistryImpl<Entity>()
         def bound = BoundStep.<Entity, Ctx> of('s1', new NoopStep())
-        registry.register(new Component.Step<>('s1', null, null, Ctx, bound))
+        registry.register(new Component.Step<>('s1', Ctx, bound))
 
         expect:
         registry.get('s1').isPresent()
@@ -55,7 +55,7 @@ class RegistryImplSpec extends Specification {
     def 'get returns empty when id is not locally registered, even if the parent has it'() {
         given:
         def parent = new RegistryImpl<Entity>()
-        parent.register(new Component.Step<>('s1', null, null, Ctx,
+        parent.register(new Component.Step<>('s1', Ctx,
             BoundStep.<Entity, Ctx> of('s1', new NoopStep())))
         def child = new RegistryImpl<Entity>(parent)
 
@@ -67,7 +67,7 @@ class RegistryImplSpec extends Specification {
         given:
         def parent = new RegistryImpl<Entity>()
         def parentBound = BoundStep.<Entity, Ctx> of('s1', new NoopStep())
-        parent.register(new Component.Step<>('s1', null, null, Ctx, parentBound))
+        parent.register(new Component.Step<>('s1', Ctx, parentBound))
         def child = new RegistryImpl<Entity>(parent)
 
         expect:
@@ -89,10 +89,10 @@ class RegistryImplSpec extends Specification {
         given:
         def parent = new RegistryImpl<Entity>()
         def parentBound = BoundStep.<Entity, Ctx> of('s1', new NoopStep())
-        parent.register(new Component.Step<>('s1', null, null, Ctx, parentBound))
+        parent.register(new Component.Step<>('s1', Ctx, parentBound))
         def child = new RegistryImpl<Entity>(parent)
         def childBound = BoundStep.<Entity, Ctx> of('s1', new NoopStep())
-        child.register(new Component.Step<>('s1', null, null, Ctx, childBound))
+        child.register(new Component.Step<>('s1', Ctx, childBound))
 
         expect:
         ((Component.Step) child.resolve('s1').get()).bound() == childBound
@@ -102,10 +102,10 @@ class RegistryImplSpec extends Specification {
     def 'ids returns the locally registered ids only, not the parent chain'() {
         given:
         def parent = new RegistryImpl<Entity>()
-        parent.register(new Component.Step<>('parent-only', null, null, Ctx,
+        parent.register(new Component.Step<>('parent-only', Ctx,
             BoundStep.<Entity, Ctx> of('parent-only', new NoopStep())))
         def child = new RegistryImpl<Entity>(parent)
-        child.register(new Component.Step<>('child-only', null, null, Ctx,
+        child.register(new Component.Step<>('child-only', Ctx,
             BoundStep.<Entity, Ctx> of('child-only', new NoopStep())))
 
         expect:
@@ -126,11 +126,11 @@ class RegistryImplSpec extends Specification {
     def 'register rejects a different component under an id that is already taken'() {
         given:
         def registry = new RegistryImpl<Entity>()
-        registry.register(new Component.Step<>('s1', null, null, Ctx,
+        registry.register(new Component.Step<>('s1', Ctx,
             BoundStep.<Entity, Ctx> of('s1', new NoopStep())))
 
         when:
-        registry.register(new Component.Step<>('s1', null, null, Ctx,
+        registry.register(new Component.Step<>('s1', Ctx,
             BoundStep.<Entity, Ctx> of('s1', new NoopStep())))
 
         then:
@@ -141,7 +141,7 @@ class RegistryImplSpec extends Specification {
     def 'register tolerates re-registering the same component instance under the same id'() {
         given:
         def registry = new RegistryImpl<Entity>()
-        def component = new Component.Step<Entity, Ctx>('s1', null, null, Ctx,
+        def component = new Component.Step<Entity, Ctx>('s1', Ctx,
             BoundStep.<Entity, Ctx> of('s1', new NoopStep()))
         registry.register(component)
 
@@ -157,11 +157,11 @@ class RegistryImplSpec extends Specification {
         given:
         def root = new RegistryImpl<Entity>()
         def rootBound = BoundStep.<Entity, Ctx> of('s-root', new NoopStep())
-        root.register(new Component.Step<>('s-root', null, null, Ctx, rootBound))
+        root.register(new Component.Step<>('s-root', Ctx, rootBound))
 
         def child = new RegistryImpl<Entity>(root)
         def childBound = BoundStep.<Entity, Ctx> of('s-child', new NoopStep())
-        child.register(new Component.Step<>('s-child', null, null, Ctx, childBound))
+        child.register(new Component.Step<>('s-child', Ctx, childBound))
 
         when:
         child.flatten()
@@ -177,7 +177,7 @@ class RegistryImplSpec extends Specification {
     def 'flatten leaves the parent unchanged and keeps parent() in place'() {
         given:
         def root = new RegistryImpl<Entity>()
-        root.register(new Component.Step<>('s-root', null, null, Ctx,
+        root.register(new Component.Step<>('s-root', Ctx,
             BoundStep.<Entity, Ctx> of('s-root', new NoopStep())))
         def child = new RegistryImpl<Entity>(root)
 
@@ -193,11 +193,11 @@ class RegistryImplSpec extends Specification {
         given:
         def root = new RegistryImpl<Entity>()
         def rootBound = BoundStep.<Entity, Ctx> of('s1', new NoopStep())
-        root.register(new Component.Step<>('s1', null, null, Ctx, rootBound))
+        root.register(new Component.Step<>('s1', Ctx, rootBound))
 
         def child = new RegistryImpl<Entity>(root)
         def childBound = BoundStep.<Entity, Ctx> of('s1', new NoopStep())
-        child.register(new Component.Step<>('s1', null, null, Ctx, childBound))
+        child.register(new Component.Step<>('s1', Ctx, childBound))
 
         when:
         child.flatten()
@@ -209,12 +209,12 @@ class RegistryImplSpec extends Specification {
     def 'register rejects when the same id is already taken by a different component kind'() {
         given:
         def registry = new RegistryImpl<Entity>()
-        registry.register(new Component.Step<>('id-x', null, null, Ctx,
+        registry.register(new Component.Step<>('id-x', Ctx,
             BoundStep.<Entity, Ctx> of('id-x', new NoopStep())))
 
         when:
-        registry.register(new Component.Operation<>('id-x', null, null, Ctx,
-            BoundOperation.<Entity, Ctx> of('id-x', null, null, new NoopOp())))
+        registry.register(new Component.Operation<>('id-x', Ctx,
+            BoundOperation.<Entity, Ctx> of('id-x', new NoopOp())))
 
         then:
         def e = thrown(TransfluxValidationException)

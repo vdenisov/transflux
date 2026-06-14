@@ -99,9 +99,11 @@ class SimpleOperationDefImplSpec extends Specification {
 
         then:
         bound.id() == 'op1'
-        bound.name() == 'n'
-        bound.description() == 'd'
         bound.operation().is(op)
+
+        and: 'name/description live on the def, not the bound record'
+        def_.getName() == 'n'
+        def_.getDescription() == 'd'
     }
 
     def "using(class) should instantiate via no-arg constructor"() {

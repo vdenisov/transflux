@@ -94,20 +94,20 @@ class StateMachineImpl<T> implements StateMachine<T> {
         Map<String, BoundCondition<T, ?>> conditionRegistry = def.buildBoundConditions();
         for (BoundCondition<T, ?> bc : conditionRegistry.values()) {
             Class<?> ctx = effectiveContextType(def, bc.id());
-            registry.register(new Component.Condition(bc.id(), null, null, ctx, bc));
+            registry.register(new Component.Condition(bc.id(), ctx, bc));
         }
 
         Map<String, BoundStep<T, ?>> boundSteps = def.buildBoundSteps();
         for (BoundStep<T, ?> bs : boundSteps.values()) {
             Class<?> ctx = effectiveContextType(def, bs.id());
-            registry.register(new Component.Step(bs.id(), null, null, ctx, bs));
+            registry.register(new Component.Step(bs.id(), ctx, bs));
         }
 
         def.bindCompositeScopes(this, registry, conditionRegistry);
 
         def.buildBoundOperationsIncrementally(this, bo -> {
             Class<?> ctx = effectiveContextType(def, bo.id());
-            registry.register(new Component.Operation(bo.id(), bo.name(), bo.description(), ctx, bo));
+            registry.register(new Component.Operation(bo.id(), ctx, bo));
         });
 
         for (TransitionDefImpl<T, ?> td : def.getTransitionsById().values()) {

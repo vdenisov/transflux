@@ -1096,7 +1096,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             @SuppressWarnings({"unchecked", "rawtypes"})
             BoundOperation<T, ?> toBoundOperation(String id) {
                 Operation<T, ?> resolved = InstanceOrClassSource.resolve(instance, (Class) operationClass, "Operation");
-                return BoundOperation.of(id, null, null, (Operation) resolved);
+                return BoundOperation.of(id, (Operation) resolved);
             }
         }
 

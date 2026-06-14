@@ -23,8 +23,8 @@ package org.transflux.core.impl;
  * <p>
  * The three permitted variants each wrap one of the framework's bound payloads —
  * {@link BoundStep}, {@link BoundOperation}, or {@link BoundCondition} — and pair it with
- * the framework-owned identity ({@code id}, optional {@code name} / {@code description})
- * and the declared context type the component runs against.
+ * the framework-owned id and the declared context type the component runs against. Descriptive
+ * metadata ({@code name} / {@code description}) lives on the def side, not here.
  *
  * <p>The {@link #validate()} hook is called once during registration. Phase 2.5 leaves the
  * variant overrides empty; subsequent phases (notably Phase 3, when listeners attach to
@@ -40,20 +40,6 @@ sealed interface Component<T> permits Component.Step, Component.Operation, Compo
      * @return the component id; never {@code null} or blank
      */
     String id();
-
-    /**
-     * Returns the human-readable name of this component, or {@code null} when unset.
-     *
-     * @return the optional component name
-     */
-    String name();
-
-    /**
-     * Returns the description of this component, or {@code null} when unset.
-     *
-     * @return the optional component description
-     */
-    String description();
 
     /**
      * Returns the context type this component was declared against, or {@code null} when
@@ -75,21 +61,18 @@ sealed interface Component<T> permits Component.Step, Component.Operation, Compo
     /**
      * Step variant — wraps a {@link BoundStep} payload.
      */
-    record Step<T, C>(String id, String name, String description, Class<C> contextType,
-                      BoundStep<T, C> bound) implements Component<T> {
+    record Step<T, C>(String id, Class<C> contextType, BoundStep<T, C> bound) implements Component<T> {
     }
 
     /**
      * Operation variant — wraps a {@link BoundOperation} payload.
      */
-    record Operation<T, C>(String id, String name, String description, Class<C> contextType,
-                           BoundOperation<T, C> bound) implements Component<T> {
+    record Operation<T, C>(String id, Class<C> contextType, BoundOperation<T, C> bound) implements Component<T> {
     }
 
     /**
      * Condition variant — wraps a {@link BoundCondition} payload.
      */
-    record Condition<T, C>(String id, String name, String description, Class<C> contextType,
-                           BoundCondition<T, C> bound) implements Component<T> {
+    record Condition<T, C>(String id, Class<C> contextType, BoundCondition<T, C> bound) implements Component<T> {
     }
 }
