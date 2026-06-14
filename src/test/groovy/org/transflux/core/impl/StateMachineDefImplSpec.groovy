@@ -348,6 +348,51 @@ class StateMachineDefImplSpec extends Specification {
         'mapper(null, parent, child, ContextMapper)'     | { d -> d.mapper((Identifiable) null, Object, Object, new IdOverloadMapper()) }
     }
 
+    def "simpleOperation(id, Class, Consumer) registers an SM-level operation invokable by id, with metadata on the def"() {
+        given:
+        def ran = []
+        def captured = null
+        def smd = Transflux.<Object> defineStateMachine()
+            .forEntityType(Object)
+            .withStateResolver({ e -> TRIAL.id } as StateResolver<Object>)
+        smd.simpleOperation('op', Object, { d ->
+            captured = d
+            d.withName('N').withDescription('D').using({ e, c, t -> ran << 'op' } as Operation)
+        })
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', { t ->
+            t.compositeOperation('wrap', { c -> c.operation('op') })
+        }) })
+        smd.state(ACTIVE, {})
+        def sm = smd.build()
+
+        when:
+        def result = sm.entity(new Object()).transitionTo(ACTIVE)
+
+        then: 'the SM-level operation runs through the composite reference'
+        result.success
+        ran == ['op']
+
+        and: 'metadata + context type live on the def'
+        captured.getId() == 'op'
+        captured.getName() == 'N'
+        captured.getDescription() == 'D'
+    }
+
+    def "simpleOperation(id, Class, Consumer) rejects post-configurer mutation of the captured def"() {
+        given:
+        def captured = null
+        def smd = Transflux.<Object> defineStateMachine().forEntityType(Object)
+        smd.simpleOperation('op', Object, { d -> captured = d; d.using({ e, c, t -> } as Operation) })
+
+        when:
+        captured.using({ e, c, t -> } as Operation)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("operation 'op'")
+        e.message.contains('after its configurer has returned')
+    }
+
     private static Identifiable identifiable(String value) {
         return { -> value } as Identifiable
     }

@@ -24,7 +24,6 @@ import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.Step;
 import org.transflux.core.operation.StepDef;
 
-import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
@@ -38,37 +37,17 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type this step requires
  */
-final class StepDefImpl<T, C> implements StepDef<T, C> {
+final class StepDefImpl<T, C> extends IdentifiedDefImpl<StepDefImpl<T, C>> implements StepDef<T, C> {
     private static final Logger log = LoggerFactory.getLogger(StepDefImpl.class);
 
-    private final String id;
     private final Class<C> contextType;
     private final InstanceOrClassSource<Step<T, C>> source;
 
-    private String name;
-    private String description;
-
     StepDefImpl(String id, Class<C> contextType) {
-        requireNotBlank(id, "Step ID");
+        super(id, "step", "Step ID");
         requireNotNull(contextType, "Step context type");
-        this.id = id;
         this.contextType = contextType;
         this.source = new InstanceOrClassSource<>(log, "Step source", "StepDef '" + id + "'");
-    }
-
-    @Override
-    public String getId() {
-        return id;
-    }
-
-    @Override
-    public String getName() {
-        return name;
-    }
-
-    @Override
-    public String getDescription() {
-        return description;
     }
 
     @Override
@@ -78,6 +57,7 @@ final class StepDefImpl<T, C> implements StepDef<T, C> {
 
     @Override
     public StepDefImpl<T, C> using(Step<T, C> step) {
+        requireConfigurerActive("using");
         requireNotNull(step, "Step");
         source.setInstance(step);
         return this;
@@ -85,20 +65,9 @@ final class StepDefImpl<T, C> implements StepDef<T, C> {
 
     @Override
     public StepDefImpl<T, C> using(Class<? extends Step<T, C>> stepClass) {
+        requireConfigurerActive("using");
         requireNotNull(stepClass, "Step class");
         source.setClass(stepClass);
-        return this;
-    }
-
-    @Override
-    public StepDefImpl<T, C> withName(String name) {
-        this.name = name;
-        return this;
-    }
-
-    @Override
-    public StepDefImpl<T, C> withDescription(String description) {
-        this.description = description;
         return this;
     }
 
@@ -110,6 +79,6 @@ final class StepDefImpl<T, C> implements StepDef<T, C> {
      * @throws TransfluxValidationException if no step source has been set
      */
     BoundStep<T, C> buildBoundStep() {
-        return BoundStep.of(id, source.resolve("Step"));
+        return BoundStep.of(getId(), source.resolve("Step"));
     }
 }

@@ -354,4 +354,77 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         then:
         sm.getBoundStep('nothing') == null
     }
+
+    def "step(id, Class, Consumer) captures metadata on the def and resolves to a bound step (instance form)"() {
+        given:
+        def step = new StepA()
+        def captured = null
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
+        smd.step('a', TestContext, { d -> captured = d; d.withName('N').withDescription('D').using(step) })
+
+        when:
+        def map = ((StateMachineDefImpl) smd).buildBoundSteps()
+
+        then: 'the bound step resolves to the supplied instance'
+        map['a'].step.is(step)
+
+        and: 'metadata + context type live on the def'
+        captured.getId() == 'a'
+        captured.getName() == 'N'
+        captured.getDescription() == 'D'
+        captured.contextType() == TestContext
+    }
+
+    def "step(id, Class, Consumer) class form resolves via the no-arg constructor"() {
+        given:
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
+        smd.step('a', TestContext, { d -> d.using(StepA) })
+
+        when:
+        def map = ((StateMachineDefImpl) smd).buildBoundSteps()
+
+        then:
+        map['a'].step instanceof StepA
+    }
+
+    def "step(id, Class, Consumer) and the flat step(id, Class, Step) register identically"() {
+        given:
+        def instance = new StepA()
+        def viaLambda = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
+        viaLambda.step('a', TestContext, { d -> d.using(instance) })
+        def viaFlat = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
+        viaFlat.step('a', TestContext, instance)
+
+        expect:
+        ((StateMachineDefImpl) viaLambda).buildBoundSteps()['a'].step.is(instance)
+        ((StateMachineDefImpl) viaFlat).buildBoundSteps()['a'].step.is(instance)
+    }
+
+    def "step(id, Class, Consumer) rejects post-configurer mutation of the captured def"() {
+        given:
+        def captured = null
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
+        smd.step('a', TestContext, { d -> captured = d; d.using(new StepA()) })
+
+        when:
+        captured.using(new StepB())
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("step 'a'")
+        e.message.contains('after its configurer has returned')
+    }
+
+    def "step(id, Class, Consumer) reusing an existing step id is rejected"() {
+        given:
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
+            .step('a', new StepA())
+
+        when:
+        smd.step('a', TestContext, { d -> d.using(new StepB()) })
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("'a'")
+    }
 }

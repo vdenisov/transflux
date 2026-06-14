@@ -23,7 +23,9 @@ import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.CompositeOperationDef;
 import org.transflux.core.operation.ContextMapper;
 import org.transflux.core.operation.Operation;
+import org.transflux.core.operation.SimpleOperationDef;
 import org.transflux.core.operation.Step;
+import org.transflux.core.operation.StepDef;
 import org.transflux.core.state.StateApplier;
 import org.transflux.core.state.StateDef;
 import org.transflux.core.state.StateResolver;
@@ -230,6 +232,35 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     <C> StateMachineDef<T> step(Identifiable stepIdentifiable, Class<C> contextType, Class<? extends Step<T, C>> stepClass);
+
+    /**
+     * Registers a step against this state machine via a lambda configurer, tagged with the
+     * supplied context class. Inside the configurer the caller wires the step source with
+     * {@code using(Step|Class)} and may set optional {@code withName} / {@code withDescription}
+     * metadata. The configurer is the only place the {@link StepDef} may be mutated; once it
+     * returns the reference is inert.
+     *
+     * @param id the step id
+     * @param contextType the step's declared context class
+     * @param configurer the configurer that wires the step def
+     * @param <C> the context class
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> step(String id, Class<C> contextType, Consumer<StepDef<T, C>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #step(String, Class, Consumer)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param stepIdentifiable an identifiable supplying the step id
+     * @param contextType the step's declared context class
+     * @param configurer the configurer that wires the step def
+     * @param <C> the context class
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> step(Identifiable stepIdentifiable, Class<C> contextType, Consumer<StepDef<T, C>> configurer);
 
     /**
      * Registers a condition instance against this state machine under the given id, without
@@ -552,6 +583,35 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     <C> StateMachineDef<T> operation(Identifiable operationIdentifiable, Class<C> contextType, Class<? extends Operation<T, C>> operationClass);
+
+    /**
+     * Registers a simple operation against this state machine via a lambda configurer, tagged
+     * with the supplied context class. Inside the configurer the caller wires the operation
+     * source with {@code using(Operation|Class)} and may set optional {@code withName} /
+     * {@code withDescription} metadata. The configurer is the only place the
+     * {@link SimpleOperationDef} may be mutated; once it returns the reference is inert.
+     *
+     * @param id the operation id
+     * @param contextType the operation's declared context class
+     * @param configurer the configurer that wires the operation def
+     * @param <C> the operation's context type
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> simpleOperation(String id, Class<C> contextType, Consumer<SimpleOperationDef<T, C>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #simpleOperation(String, Class, Consumer)} —
+     * delegates via {@link Identifiable#getId()}.
+     *
+     * @param operationIdentifiable an identifiable supplying the operation id
+     * @param contextType the operation's declared context class
+     * @param configurer the configurer that wires the operation def
+     * @param <C> the operation's context type
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> simpleOperation(Identifiable operationIdentifiable, Class<C> contextType, Consumer<SimpleOperationDef<T, C>> configurer);
 
     /**
      * Registers a {@link ContextMapper} instance against this state machine under the given id,
