@@ -1553,39 +1553,24 @@ public class ActivateSubscriptionOperation
                         Transition<Subscription, SubscriptionContext> transition) {
         validateSubscription(subscription.getId());
         
-        // Execute steps via transition
-        transition.step("prepare-billing-actor", PrepareBillingActorStep.class);
-        transition.step("validate-payment-method", ValidatePaymentMethodStep.class);
+        // Run reusable steps imperatively, by id, via the transition view
+        transition.step("prepare-billing-actor");
+        transition.step("validate-payment-method");
         
         // Results flow back through the context (see §2.1.5)
         context.setActivatedAt(Instant.now());
         context.setSubscriptionStatus(SubscriptionStatus.ACTIVE);
     }
-    
-    @Override
-    public Class<? extends Compensation<Subscription, SubscriptionContext>> getCompensation() {
-        return SubscriptionActivationCompensation.class;
-    }
-    
-    // Alternatively, return the compensation directly at execution time
-    @Override
-    public Compensation<Subscription, SubscriptionContext> getCompensation(
-            Subscription subscription, SubscriptionContext context) {
-        return new SubscriptionActivationCompensation();
-    }
 }
 
-// Configure operation on transition
-trialActiveTransition
-    .setOperation(ActivateSubscriptionOperation.class)
-    .usingContext(SubscriptionContext.class)
-    .withCompensation(SubscriptionActivationCompensation.class)
-    .withAsync(async -> async
-        .enabled(true)
-        .startBefore("finalize")                 // OR: .startAfter("last-business-step")
-        .steps("notifyExternalSystems", "updateAnalytics"))
-    .end();
+// The operation is declared inside the transition's configurer, at state-declaration
+// time — there is no post-hoc "grab the transition and set its operation" step.
+.state("trial", s -> s
+    .transitionsTo("active", "trial-active", SubscriptionContext.class, t -> t
+        .simpleOperation("activate-subscription", ActivateSubscriptionOperation.class)))
 ```
+
+> A simple `Operation` carries no compensation or async hook of its own. Compensation is declared per **step** (`Step.getCompensation`) and therefore belongs to a composite operation (§4.4.2); asynchronous dispatch is a planned capability (the `async(...)` form shown in §4.4.2 is aspirational). Reach for a composite operation when the unit of work needs either.
 
 #### 4.4.2 Composite Operation (Declarative Style)
 
@@ -1650,11 +1635,10 @@ Branches are evaluated in declaration order; the first branch whose condition ma
 The host is responsible for populating context before execution and reading results after completion. There is no `.input(...)` builder method — all data flows through the context.
 
 ```java
-// Define transition with context
-trialActiveTransition
-    .setOperation(ActivateSubscriptionOperation.class)
-    .usingContext(SubscriptionContext.class)
-    .end();
+// The transition declares its context type and operation inside its configurer
+.state("trial", s -> s
+    .transitionsTo("active", "trial-active", SubscriptionContext.class, t -> t
+        .simpleOperation("activate-subscription", ActivateSubscriptionOperation.class)))
 
 // Application usage
 public void activateSubscription(Subscription entity) {
@@ -1667,8 +1651,7 @@ public void activateSubscription(Subscription entity) {
     // Execute transition with context
     TransitionResult<Subscription> result = stateMachine
         .entity(entity)
-        .withContext(context)
-        .transitionTo("active");
+        .transitionTo("active", context);
 
     // Read results from context after execution
     if (result.isSuccess()) {
