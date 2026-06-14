@@ -23,59 +23,29 @@ import org.transflux.core.operation.OperationDef;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.transflux.core.Preconditions.requireNotBlank;
-
 /**
  * Sealed base for concrete {@link OperationDef} implementations.
  * <p>
- * Holds the metadata shared by every concrete operation def kind. The mandatory {@code id}
- * is validated in the constructor; {@code name} and {@code description} are optional and can
- * be set through fluent setters that subclasses expose with a covariant return type.
+ * The shared metadata ({@code id}, {@code name}, {@code description}) and the fluent
+ * {@code withName} / {@code withDescription} setters live on {@link IdentifiedDefImpl}; the
+ * {@code SELF} type parameter threads each concrete subclass back into the base so those setters
+ * return the precise subclass type covariantly.
  *
- * <p>The four abstract dispatch methods ({@link #buildBound}, {@link #checkRefs},
- * {@link #bindScope}, {@link #flattenScope}) let the state-machine build pipeline drive both
- * operation kinds uniformly. {@code Simple} variants no-op the scope / refs hooks; only the
- * composite variant carries real bodies.
+ * <p>The five abstract dispatch methods ({@link #buildBound}, {@link #checkRefs},
+ * {@link #bindScope}, {@link #flattenScope}, {@link #scanScopeFor}) let the state-machine build
+ * pipeline drive both operation kinds uniformly. {@code Simple} variants no-op the scope / refs
+ * hooks; only the composite variant carries real bodies.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
+ * @param <SELF> the concrete subclass type, used for covariant fluent returns
  */
-sealed abstract class OperationDefImpl<T, C> implements OperationDef<T, C>
+sealed abstract class OperationDefImpl<T, C, SELF extends OperationDefImpl<T, C, SELF>>
+    extends IdentifiedDefImpl<SELF> implements OperationDef<T, C>
     permits SimpleOperationDefImpl, CompositeOperationDefImpl {
-    private final String id;
-    private String name;
-    private String description;
 
     protected OperationDefImpl(String id) {
-        requireNotBlank(id, "Operation ID");
-        this.id = id;
-    }
-
-    @Override
-    public final String getId() {
-        return id;
-    }
-
-    @Override
-    public final String getName() {
-        return name;
-    }
-
-    @Override
-    public final String getDescription() {
-        return description;
-    }
-
-    @Override
-    public OperationDef<T, C> withName(String name) {
-        this.name = name;
-        return this;
-    }
-
-    @Override
-    public OperationDef<T, C> withDescription(String description) {
-        this.description = description;
-        return this;
+        super(id, "operation", "Operation ID");
     }
 
     /**

@@ -40,7 +40,8 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-public final class SimpleOperationDefImpl<T, C> extends OperationDefImpl<T, C> implements SimpleOperationDef<T, C> {
+public final class SimpleOperationDefImpl<T, C>
+    extends OperationDefImpl<T, C, SimpleOperationDefImpl<T, C>> implements SimpleOperationDef<T, C> {
     private static final Logger log = LoggerFactory.getLogger(SimpleOperationDefImpl.class);
 
     private final InstanceOrClassSource<Operation<T, C>> source;
@@ -61,18 +62,6 @@ public final class SimpleOperationDefImpl<T, C> extends OperationDefImpl<T, C> i
     public SimpleOperationDefImpl<T, C> using(Class<? extends Operation<T, C>> operationClass) {
         requireNotNull(operationClass, "Operation class");
         source.setClass(operationClass);
-        return this;
-    }
-
-    @Override
-    public SimpleOperationDefImpl<T, C> withName(String name) {
-        super.withName(name);
-        return this;
-    }
-
-    @Override
-    public SimpleOperationDefImpl<T, C> withDescription(String description) {
-        super.withDescription(description);
         return this;
     }
 

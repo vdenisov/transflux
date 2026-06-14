@@ -306,7 +306,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
 
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
-            OperationDefImpl<T, ?> op = td.getOperationDef();
+            OperationDefImpl<T, ?, ?> op = td.getOperationDef();
             if (op != null) {
                 op.bindScope(stateMachine, rootRegistry, canonical, conditionRegistry);
             }
@@ -328,7 +328,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      */
     Optional<String> findInlineSiblingScope(String id, String excludingCompositeId) {
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
-            OperationDefImpl<T, ?> op = td.getOperationDef();
+            OperationDefImpl<T, ?, ?> op = td.getOperationDef();
             if (op != null) {
                 Optional<String> hit = op.scanScopeFor(id, excludingCompositeId);
                 if (hit.isPresent()) {
@@ -362,7 +362,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      */
     void flattenCompositeScopes() {
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
-            OperationDefImpl<T, ?> op = td.getOperationDef();
+            OperationDefImpl<T, ?, ?> op = td.getOperationDef();
             if (op != null) {
                 op.flattenScope();
             }
@@ -802,7 +802,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotNull(contextType, "Context type");
         requireNotNull(configurer, "forContext configurer");
         ContextScopeImpl<T, C> scope = new ContextScopeImpl<>(this, contextType);
-        configurer.accept(scope);
+        ConfigurableDefImpl.runConfigurer(scope, configurer);
         return this;
     }
 
@@ -888,7 +888,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
                 "Component id '" + id + "' is already registered");
         }
         CompositeOperationDefImpl<T, C> composite = new CompositeOperationDefImpl<>(id);
-        configurer.accept(composite);
+        ConfigurableDefImpl.runConfigurer(composite, configurer);
         smCompositeOperations.put(id, composite);
         tagContextType(id, contextType);
     }
@@ -981,7 +981,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private void validateContextCompatibilityAndCycles() {
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             Class<?> transitionContext = td.getContextType();
-            OperationDefImpl<T, ?> op = td.getOperationDef();
+            OperationDefImpl<T, ?, ?> op = td.getOperationDef();
             if (op != null) {
                 op.checkRefs(transitionContext, "transition '" + td.getId() + "'", this);
             }

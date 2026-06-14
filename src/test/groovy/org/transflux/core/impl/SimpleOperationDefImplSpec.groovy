@@ -79,7 +79,8 @@ class SimpleOperationDefImplSpec extends Specification {
     def "name and description should round-trip"() {
         when:
         def def_ = new SimpleOperationDefImpl<Object, Object>('op1')
-            .withName('My Op').withDescription('does stuff').using(new NoopOp())
+        def_.beginConfigurer()
+        def_.withName('My Op').withDescription('does stuff').using(new NoopOp())
 
         then:
         def_.getName() == 'My Op'
@@ -89,7 +90,9 @@ class SimpleOperationDefImplSpec extends Specification {
     def "using(instance) should produce a BoundOperation pointing at the instance"() {
         given:
         def op = new NoopOp()
-        def def_ = new SimpleOperationDefImpl<Object, Object>('op1').withName('n').withDescription('d').using(op)
+        def def_ = new SimpleOperationDefImpl<Object, Object>('op1')
+        def_.beginConfigurer()
+        def_.withName('n').withDescription('d').using(op)
 
         when:
         def bound = def_.buildBound(null)

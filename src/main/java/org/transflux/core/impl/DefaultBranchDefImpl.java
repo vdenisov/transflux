@@ -34,11 +34,16 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-final class DefaultBranchDefImpl<T, C> implements DefaultBranchDef<T, C> {
+final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements DefaultBranchDef<T, C> {
 
     private final List<ActionRef<T, C>> actionRefs = new ArrayList<>();
 
     DefaultBranchDefImpl() {
+    }
+
+    @Override
+    protected String defLabel() {
+        return "default branch";
     }
 
     List<ActionRef<T, C>> getActionRefs() {

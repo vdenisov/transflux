@@ -39,7 +39,6 @@ import java.util.function.Consumer;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
-import static org.transflux.core.impl.ValidationUtils.warnIfSet;
 
 /**
  * Implementation of {@link ConditionalStepDef}.
@@ -58,51 +57,20 @@ import static org.transflux.core.impl.ValidationUtils.warnIfSet;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T, C> {
+final class ConditionalStepDefImpl<T, C>
+    extends IdentifiedDefImpl<ConditionalStepDefImpl<T, C>> implements ConditionalStepDef<T, C> {
     private static final Logger log = LoggerFactory.getLogger(ConditionalStepDefImpl.class);
-
-    private final String id;
-    private String name;
-    private String description;
 
     private final List<BranchDefImpl<T, C>> branches = new ArrayList<>();
     private DefaultBranchDefImpl<T, C> defaultBranch;
     private NoMatchBehavior noMatchBehavior = NoMatchBehavior.WARN;
 
     ConditionalStepDefImpl(String id) {
-        requireNotBlank(id, "Conditional step ID");
-        this.id = id;
-    }
-
-    @Override
-    public String getId() {
-        return id;
-    }
-
-    String getName() {
-        return name;
-    }
-
-    String getDescription() {
-        return description;
+        super(id, "conditional step", "Conditional step ID");
     }
 
     NoMatchBehavior getNoMatchBehavior() {
         return noMatchBehavior;
-    }
-
-    @Override
-    public ConditionalStepDef<T, C> withName(String name) {
-        warnIfSet(this.name, name, "Name", log);
-        this.name = name;
-        return this;
-    }
-
-    @Override
-    public ConditionalStepDef<T, C> withDescription(String description) {
-        warnIfSet(this.description, description, "Description", log);
-        this.description = description;
-        return this;
     }
 
     @Override
@@ -112,11 +80,11 @@ final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T, C> {
         for (BranchDefImpl<T, C> existing : branches) {
             if (existing.getBranchId().equals(branchId)) {
                 throw new TransfluxValidationException(
-                    "Branch ID '" + branchId + "' is already declared on conditional step '" + id + "'");
+                    "Branch ID '" + branchId + "' is already declared on conditional step '" + getId() + "'");
             }
         }
         BranchDefImpl<T, C> branch = new BranchDefImpl<>(branchId);
-        configurer.accept(branch);
+        ConfigurableDefImpl.runConfigurer(branch, configurer);
         branches.add(branch);
         return this;
     }
@@ -132,10 +100,10 @@ final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T, C> {
         requireNotNull(configurer, "Default branch configurer");
         if (this.defaultBranch != null) {
             throw new TransfluxValidationException(
-                "Default branch is already declared on conditional step '" + id + "'");
+                "Default branch is already declared on conditional step '" + getId() + "'");
         }
         DefaultBranchDefImpl<T, C> branch = new DefaultBranchDefImpl<>();
-        configurer.accept(branch);
+        ConfigurableDefImpl.runConfigurer(branch, configurer);
         this.defaultBranch = branch;
         return this;
     }
@@ -184,7 +152,7 @@ final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T, C> {
 
         if (branches.isEmpty()) {
             throw new TransfluxValidationException(
-                "Conditional step '" + id + "' must declare at least one branch");
+                "Conditional step '" + getId() + "' must declare at least one branch");
         }
 
         Set<String> seen = new HashSet<>();
@@ -194,20 +162,20 @@ final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T, C> {
             if (!seen.add(branch.getBranchId())) {
                 throw new TransfluxValidationException(
                     "Branch ID '" + branch.getBranchId()
-                        + "' is duplicated on conditional step '" + id + "'");
+                        + "' is duplicated on conditional step '" + getId() + "'");
             }
             if (branch.getDescriptor() == null) {
                 throw new TransfluxValidationException(
-                    "Branch '" + branch.getBranchId() + "' on conditional step '" + id
+                    "Branch '" + branch.getBranchId() + "' on conditional step '" + getId()
                         + "' must declare a condition");
             }
             if (branch.getActionRefs().isEmpty()) {
                 throw new TransfluxValidationException(
-                    "Branch '" + branch.getBranchId() + "' on conditional step '" + id
+                    "Branch '" + branch.getBranchId() + "' on conditional step '" + getId()
                         + "' must declare at least one step");
             }
 
-            String path = "conditional:" + id + ":branch[" + i + "]";
+            String path = "conditional:" + getId() + ":branch[" + i + "]";
             BoundCondition<T, C> bound = ConditionResolver.resolve(
                 branch.getDescriptor(), conditionRegistry, path);
 
@@ -219,14 +187,14 @@ final class ConditionalStepDefImpl<T, C> implements ConditionalStepDef<T, C> {
         if (defaultBranch != null) {
             if (defaultBranch.getActionRefs().isEmpty()) {
                 throw new TransfluxValidationException(
-                    "Default branch on conditional step '" + id + "' must declare at least one step");
+                    "Default branch on conditional step '" + getId() + "' must declare at least one step");
             }
             defaultStepIds = collectStepIds(defaultBranch.getActionRefs());
         }
 
         Step<T, C> executor = new ConditionalStepExecutor(resolvedBranches,
-                                                          defaultStepIds, noMatchBehavior, id);
-        return BoundStep.of(id, executor);
+                                                          defaultStepIds, noMatchBehavior, getId());
+        return BoundStep.of(getId(), executor);
     }
 
     private static <T, C> List<String> collectStepIds(List<ActionRef<T, C>> refs) {

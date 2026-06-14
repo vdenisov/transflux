@@ -49,7 +49,8 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> implements CompositeOperationDef<T, C> {
+final class CompositeOperationDefImpl<T, C>
+    extends OperationDefImpl<T, C, CompositeOperationDefImpl<T, C>> implements CompositeOperationDef<T, C> {
 
     private final List<ActionRef<T, C>> actionRefs = new ArrayList<>();
 
@@ -162,7 +163,7 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
         requireNotNull(configurer, "Conditional configurer");
 
         ConditionalStepDefImpl<T, C> def = new ConditionalStepDefImpl<>(id);
-        configurer.accept(def);
+        ConfigurableDefImpl.runConfigurer(def, configurer);
         actionRefs.add(ActionRef.conditional(id, def));
 
         return this;
@@ -266,18 +267,6 @@ final class CompositeOperationDefImpl<T, C> extends OperationDefImpl<T, C> imple
 
         this.declaredContextType = contextType;
 
-        return this;
-    }
-
-    @Override
-    public CompositeOperationDefImpl<T, C> withName(String name) {
-        super.withName(name);
-        return this;
-    }
-
-    @Override
-    public CompositeOperationDefImpl<T, C> withDescription(String description) {
-        super.withDescription(description);
         return this;
     }
 

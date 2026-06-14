@@ -41,7 +41,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-final class BranchDefImpl<T, C> implements BranchDef<T, C> {
+final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef<T, C> {
     private static final Logger log = LoggerFactory.getLogger(BranchDefImpl.class);
 
     private final String branchId;
@@ -51,6 +51,11 @@ final class BranchDefImpl<T, C> implements BranchDef<T, C> {
     BranchDefImpl(String branchId) {
         requireNotBlank(branchId, "Branch ID");
         this.branchId = branchId;
+    }
+
+    @Override
+    protected String defLabel() {
+        return "branch '" + branchId + "'";
     }
 
     String getBranchId() {

@@ -62,7 +62,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     private final String sourceStateId;
     private final String targetStateId;
 
-    private OperationDefImpl<T, C> operationDef;
+    private OperationDefImpl<T, C, ?> operationDef;
     private String registeredOperationRefId;
     private Class<C> contextType;
 
@@ -177,7 +177,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         return operationDef.buildBound(stateMachine);
     }
 
-    OperationDefImpl<T, C> getOperationDef() {
+    OperationDefImpl<T, C, ?> getOperationDef() {
         return operationDef;
     }
 
@@ -271,7 +271,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         requireConfigurerActive("simpleOperation");
         requireNotNull(configurer, "Simple operation configurer");
         SimpleOperationDefImpl<T, C> def = newSimpleOperationDef(id);
-        configurer.accept(def);
+        ConfigurableDefImpl.runConfigurer(def, configurer);
         attachOperation(def);
         return this;
     }
@@ -287,7 +287,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         requireConfigurerActive("compositeOperation");
         requireNotNull(configurer, "Composite operation configurer");
         CompositeOperationDefImpl<T, C> composite = new CompositeOperationDefImpl<>(id);
-        configurer.accept(composite);
+        ConfigurableDefImpl.runConfigurer(composite, configurer);
         attachOperation(composite);
         return this;
     }
@@ -617,7 +617,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         return new SimpleOperationDefImpl<>(operationId);
     }
 
-    private void attachOperation(OperationDefImpl<T, C> def) {
+    private void attachOperation(OperationDefImpl<T, C, ?> def) {
         if (this.operationDef != null || this.registeredOperationRefId != null) {
             log.warn("Operation is already defined for transition '{}'; overriding previous value", getId());
         }

@@ -76,11 +76,11 @@ abstract class IdentifiedDefImpl<SELF extends IdentifiedDefImpl<SELF>> extends C
         return id;
     }
 
-    final String getName() {
+    public final String getName() {
         return name;
     }
 
-    final String getDescription() {
+    public final String getDescription() {
         return description;
     }
 

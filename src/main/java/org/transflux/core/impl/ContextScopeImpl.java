@@ -40,7 +40,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the context class this scope binds to
  */
-final class ContextScopeImpl<T, C> implements ContextScope<T, C> {
+final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements ContextScope<T, C> {
 
     private final StateMachineDefImpl<T> smd;
     private final Class<C> contextType;
@@ -48,6 +48,11 @@ final class ContextScopeImpl<T, C> implements ContextScope<T, C> {
     ContextScopeImpl(StateMachineDefImpl<T> smd, Class<C> contextType) {
         this.smd = smd;
         this.contextType = contextType;
+    }
+
+    @Override
+    protected String defLabel() {
+        return "forContext scope for " + contextType.getSimpleName();
     }
 
     @Override
