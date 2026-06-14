@@ -71,7 +71,7 @@ class ConditionalStepDefImplSpec extends Specification {
 
     def 'onNoMatch WARN is the default'() {
         given:
-        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1')
+        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
 
         expect:
         cond.noMatchBehavior == NoMatchBehavior.WARN
@@ -80,7 +80,7 @@ class ConditionalStepDefImplSpec extends Specification {
     @Unroll
     def 'onNoMatch sets the behavior to #behavior'() {
         given:
-        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1')
+        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
 
         when:
         cond.onNoMatch(behavior)
@@ -94,7 +94,7 @@ class ConditionalStepDefImplSpec extends Specification {
 
     def 'onNoMatch rejects null behavior'() {
         given:
-        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1')
+        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
 
         when:
         cond.onNoMatch(null)
@@ -105,7 +105,7 @@ class ConditionalStepDefImplSpec extends Specification {
 
     def 'branch with no condition fails at build time'() {
         given:
-        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1')
+        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
             .branch('b1', { BranchDef<Entity, TestContext> b -> b.step('s1', new NoopStep()) })
 
         when:
@@ -119,7 +119,7 @@ class ConditionalStepDefImplSpec extends Specification {
 
     def 'branch with no steps fails at build time'() {
         given:
-        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1')
+        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
             .branch('b1', { BranchDef<Entity, TestContext> b -> b.condition('b1-cond', { e -> true } as Predicate) })
 
         when:
@@ -133,7 +133,7 @@ class ConditionalStepDefImplSpec extends Specification {
 
     def 'default branch with no steps fails at build time'() {
         given:
-        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1')
+        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
             .branch('b1', { BranchDef<Entity, TestContext> b ->
                 b.condition('b1-cond', { e -> true } as Predicate).step('s1', new NoopStep())
             })
@@ -150,7 +150,7 @@ class ConditionalStepDefImplSpec extends Specification {
 
     def 'conditional with no branches fails at build time even when default is declared'() {
         given:
-        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1')
+        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
             .defaultBranch({ DefaultBranchDef<Entity, TestContext> d -> d.step('s1', new NoopStep()) })
 
         when:
@@ -164,7 +164,7 @@ class ConditionalStepDefImplSpec extends Specification {
 
     def 'duplicate branch id is rejected at configurer time'() {
         given:
-        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1')
+        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
             .branch('b1', { BranchDef<Entity, TestContext> b ->
                 b.condition('cond1', { e -> true } as Predicate).step('s1', new NoopStep())
             })
@@ -181,7 +181,7 @@ class ConditionalStepDefImplSpec extends Specification {
 
     def 'declaring default branch twice is rejected'() {
         given:
-        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1')
+        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
             .defaultBranch({ DefaultBranchDef<Entity, TestContext> d -> d.step('s1', new NoopStep()) })
 
         when:
@@ -194,7 +194,7 @@ class ConditionalStepDefImplSpec extends Specification {
 
     def 'multiple condition calls on the same branch: last-wins with warning'() {
         given:
-        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1')
+        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
 
         when:
         cond.branch('b1', { BranchDef<Entity, TestContext> b ->
@@ -212,7 +212,7 @@ class ConditionalStepDefImplSpec extends Specification {
 
     def 'BranchDef.condition(registeredId) builds a Reference descriptor'() {
         given:
-        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1')
+        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
 
         when:
         cond.branch('b1', { BranchDef<Entity, TestContext> b ->
@@ -227,7 +227,7 @@ class ConditionalStepDefImplSpec extends Specification {
 
     def 'BranchDef.conditionExpression builds an ExpressionBased descriptor with auto-derived id'() {
         given:
-        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1')
+        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
 
         when:
         cond.branch('b1', { BranchDef<Entity, TestContext> b ->
@@ -243,7 +243,7 @@ class ConditionalStepDefImplSpec extends Specification {
 
     def 'BranchDef.condition(id, Condition) builds an InstanceBased descriptor'() {
         given:
-        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1')
+        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
         Condition<Entity, TestContext> condition = { e, c, t -> true } as Condition
 
         when:
@@ -260,7 +260,7 @@ class ConditionalStepDefImplSpec extends Specification {
 
     def 'BranchDef.condition(id, Class) builds a ClassBased descriptor'() {
         given:
-        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1')
+        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
 
         when:
         cond.branch('b1', { BranchDef<Entity, TestContext> b ->
@@ -276,7 +276,7 @@ class ConditionalStepDefImplSpec extends Specification {
 
     def 'BranchDef.condition(id, BiPredicate) builds a PredicateBased descriptor'() {
         given:
-        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1')
+        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
         BiPredicate<Entity, TestContext> predicate = { e, c -> true } as BiPredicate
 
         when:
@@ -293,7 +293,7 @@ class ConditionalStepDefImplSpec extends Specification {
 
     def 'BranchDef.condition(id, Predicate) builds a PredicateBased descriptor that ignores the context'() {
         given:
-        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1')
+        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
         def calls = []
         Predicate<Entity> predicate = { e -> calls << e; true } as Predicate
 
@@ -319,7 +319,7 @@ class ConditionalStepDefImplSpec extends Specification {
 
     def 'BranchDef.condition(id, expression) builds an ExpressionBased descriptor with explicit id'() {
         given:
-        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1')
+        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
 
         when:
         cond.branch('b1', { BranchDef<Entity, TestContext> b ->
@@ -335,7 +335,7 @@ class ConditionalStepDefImplSpec extends Specification {
 
     def 'ConditionalStepDef.branch(Identifiable, Consumer) registers a branch under the identifiable id'() {
         given:
-        def cond = new ConditionalStepDefImpl<Object, Object>('c1')
+        def cond = new ConditionalStepDefImpl<Object, Object>('c1').tap { beginConfigurer() }
 
         when:
         cond.branch(identifiable('b1'), { b -> b.condition('any'); b.step('x') })
@@ -347,7 +347,7 @@ class ConditionalStepDefImplSpec extends Specification {
 
     def 'ConditionalStepDef.branch(Identifiable, Consumer) rejects null Identifiable'() {
         given:
-        def cond = new ConditionalStepDefImpl<Object, Object>('c1')
+        def cond = new ConditionalStepDefImpl<Object, Object>('c1').tap { beginConfigurer() }
 
         when:
         cond.branch((Identifiable) null, { b -> })
@@ -358,7 +358,7 @@ class ConditionalStepDefImplSpec extends Specification {
 
     def 'BranchDef.condition(Identifiable) sets a reference descriptor with the given id'() {
         given:
-        def branch = new BranchDefImpl<Object, Object>('b1')
+        def branch = new BranchDefImpl<Object, Object>('b1').tap { beginConfigurer() }
 
         when:
         branch.condition(identifiable('my-cond'))
@@ -370,7 +370,7 @@ class ConditionalStepDefImplSpec extends Specification {
 
     def 'BranchDef.step(Identifiable) appends a by-id reference'() {
         given:
-        def branch = new BranchDefImpl<Object, Object>('b1')
+        def branch = new BranchDefImpl<Object, Object>('b1').tap { beginConfigurer() }
 
         when:
         branch.step(identifiable('my-step'))
@@ -382,7 +382,7 @@ class ConditionalStepDefImplSpec extends Specification {
 
     def 'DefaultBranchDef.step(Identifiable) appends a by-id reference'() {
         given:
-        def defaultBranch = new DefaultBranchDefImpl<Object, Object>()
+        def defaultBranch = new DefaultBranchDefImpl<Object, Object>().tap { beginConfigurer() }
 
         when:
         defaultBranch.step(identifiable('my-step'))
@@ -395,7 +395,7 @@ class ConditionalStepDefImplSpec extends Specification {
     @Unroll
     def 'BranchDef Identifiable overloads reject null: #method'() {
         given:
-        def branch = new BranchDefImpl<Object, Object>('b1')
+        def branch = new BranchDefImpl<Object, Object>('b1').tap { beginConfigurer() }
 
         when:
         branch."$method"(null)
@@ -409,7 +409,7 @@ class ConditionalStepDefImplSpec extends Specification {
 
     def 'DefaultBranchDef Identifiable overload rejects null'() {
         given:
-        def defaultBranch = new DefaultBranchDefImpl<Object, Object>()
+        def defaultBranch = new DefaultBranchDefImpl<Object, Object>().tap { beginConfigurer() }
 
         when:
         defaultBranch.step((Identifiable) null)

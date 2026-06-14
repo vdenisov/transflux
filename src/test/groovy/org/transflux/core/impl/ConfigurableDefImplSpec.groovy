@@ -20,9 +20,16 @@
 package org.transflux.core.impl
 
 import org.transflux.core.exception.TransfluxValidationException
+import org.transflux.core.operation.NoMatchBehavior
+import org.transflux.core.operation.Operation
+import org.transflux.core.operation.Step
 import spock.lang.Specification
+import spock.lang.Unroll
 
 class ConfigurableDefImplSpec extends Specification {
+
+    static final Operation<Object, Object> NOOP_OP = { e, c, t -> } as Operation
+    static final Step<Object, Object> NOOP_STEP = { e, c, t -> } as Step
 
     def 'requireConfigurerActive should throw before beginConfigurer'() {
         given:
@@ -111,6 +118,47 @@ class ConfigurableDefImplSpec extends Specification {
         then:
         def ex = thrown(TransfluxValidationException)
         ex.message.contains("baz-scope")
+    }
+
+    @Unroll
+    def 'post-configurer #mutator on #desc throws naming the def'() {
+        given: 'a real def whose configurer has begun and returned'
+        def def_ = factory.call()
+        def_.beginConfigurer()
+        def_.endConfigurer()
+
+        when: 'a mutator is invoked after the configurer returned'
+        action.call(def_)
+
+        then: 'the guard rejects it, naming the def and the inert-reference reason'
+        def e = thrown(TransfluxValidationException)
+        e.message.contains(label)
+        e.message.contains("after its configurer has returned")
+
+        where:
+        desc                  | mutator              | factory                                                  | action                                    | label
+        'composite operation' | 'step'               | { new CompositeOperationDefImpl<Object, Object>('op1') } | { it.step('s') }                          | "operation 'op1'"
+        'composite operation' | 'operation'          | { new CompositeOperationDefImpl<Object, Object>('op1') } | { it.operation('o') }                     | "operation 'op1'"
+        'composite operation' | 'conditional'        | { new CompositeOperationDefImpl<Object, Object>('op1') } | { it.conditional('cc', {}) }              | "operation 'op1'"
+        'composite operation' | 'usingContext'       | { new CompositeOperationDefImpl<Object, Object>('op1') } | { it.usingContext(Object) }               | "operation 'op1'"
+        'composite operation' | 'withName'           | { new CompositeOperationDefImpl<Object, Object>('op1') } | { it.withName('n') }                      | "operation 'op1'"
+        'simple operation'    | 'using'              | { new SimpleOperationDefImpl<Object, Object>('op1') }    | { it.using(NOOP_OP) }                     | "operation 'op1'"
+        'simple operation'    | 'withName'           | { new SimpleOperationDefImpl<Object, Object>('op1') }    | { it.withName('n') }                      | "operation 'op1'"
+        'conditional step'    | 'branch'             | { new ConditionalStepDefImpl<Object, Object>('c1') }     | { it.branch('b', {}) }                    | "conditional step 'c1'"
+        'conditional step'    | 'defaultBranch'      | { new ConditionalStepDefImpl<Object, Object>('c1') }     | { it.defaultBranch({}) }                  | "conditional step 'c1'"
+        'conditional step'    | 'onNoMatch'          | { new ConditionalStepDefImpl<Object, Object>('c1') }     | { it.onNoMatch(NoMatchBehavior.SILENT) }  | "conditional step 'c1'"
+        'conditional step'    | 'withName'           | { new ConditionalStepDefImpl<Object, Object>('c1') }     | { it.withName('n') }                      | "conditional step 'c1'"
+        'branch'              | 'condition'          | { new BranchDefImpl<Object, Object>('b1') }              | { it.condition('cnd') }                   | "branch 'b1'"
+        'branch'              | 'step'               | { new BranchDefImpl<Object, Object>('b1') }              | { it.step('s') }                          | "branch 'b1'"
+        'default branch'      | 'step'               | { new DefaultBranchDefImpl<Object, Object>() }           | { it.step('s') }                          | 'default branch'
+        'forContext scope'    | 'step'               | { newScope() }                                           | { it.step('s', NOOP_STEP) }               | 'forContext scope for Object'
+        'forContext scope'    | 'condition'          | { newScope() }                                           | { it.condition('cnd', 'entity != null') } | 'forContext scope for Object'
+        'forContext scope'    | 'compositeOperation' | { newScope() }                                           | { it.compositeOperation('co', {}) }       | 'forContext scope for Object'
+        'forContext scope'    | 'operation'          | { newScope() }                                           | { it.operation('o', NOOP_OP) }            | 'forContext scope for Object'
+    }
+
+    private static ContextScopeImpl<Object, Object> newScope() {
+        return new ContextScopeImpl<Object, Object>(new StateMachineDefImpl<Object>(), Object)
     }
 
     private static class IdLessDef extends ConfigurableDefImpl {

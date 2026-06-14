@@ -75,6 +75,7 @@ final class ConditionalStepDefImpl<T, C>
 
     @Override
     public ConditionalStepDef<T, C> branch(String branchId, Consumer<BranchDef<T, C>> configurer) {
+        requireConfigurerActive("branch");
         requireNotBlank(branchId, "Branch ID");
         requireNotNull(configurer, "Branch configurer");
         for (BranchDefImpl<T, C> existing : branches) {
@@ -97,6 +98,7 @@ final class ConditionalStepDefImpl<T, C>
 
     @Override
     public ConditionalStepDef<T, C> defaultBranch(Consumer<DefaultBranchDef<T, C>> configurer) {
+        requireConfigurerActive("defaultBranch");
         requireNotNull(configurer, "Default branch configurer");
         if (this.defaultBranch != null) {
             throw new TransfluxValidationException(
@@ -110,6 +112,7 @@ final class ConditionalStepDefImpl<T, C>
 
     @Override
     public ConditionalStepDef<T, C> onNoMatch(NoMatchBehavior behavior) {
+        requireConfigurerActive("onNoMatch");
         requireNotNull(behavior, "No-match behavior");
         this.noMatchBehavior = behavior;
         return this;

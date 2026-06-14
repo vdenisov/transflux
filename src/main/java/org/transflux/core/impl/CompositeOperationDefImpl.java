@@ -80,12 +80,14 @@ final class CompositeOperationDefImpl<T, C>
 
     @Override
     public CompositeOperationDefImpl<T, C> step(String registeredStepId) {
+        requireConfigurerActive("step");
         actionRefs.add(ActionRef.byId(registeredStepId));
         return this;
     }
 
     @Override
     public CompositeOperationDefImpl<T, C> step(String registeredStepId, String mapperId) {
+        requireConfigurerActive("step");
         requireNotBlank(registeredStepId, "Step reference ID");
         requireNotBlank(mapperId, "Mapper reference ID");
         actionRefs.add(ActionRef.byId(registeredStepId, MapperRef.byId(mapperId)));
@@ -94,6 +96,7 @@ final class CompositeOperationDefImpl<T, C>
 
     @Override
     public CompositeOperationDefImpl<T, C> step(String registeredStepId, Function<C, ?> inlineMapTo) {
+        requireConfigurerActive("step");
         requireNotBlank(registeredStepId, "Step reference ID");
         requireNotNull(inlineMapTo, "Inline mapper function");
         actionRefs.add(ActionRef.byId(registeredStepId, MapperRef.inline(inlineMapTo)));
@@ -102,6 +105,7 @@ final class CompositeOperationDefImpl<T, C>
 
     @Override
     public CompositeOperationDefImpl<T, C> step(String registeredStepId, ContextMapper<C, ?> inlineMapper) {
+        requireConfigurerActive("step");
         requireNotBlank(registeredStepId, "Step reference ID");
         requireNotNull(inlineMapper, "Inline mapper instance");
         actionRefs.add(ActionRef.byId(registeredStepId, MapperRef.inline(inlineMapper)));
@@ -135,6 +139,7 @@ final class CompositeOperationDefImpl<T, C>
 
     @Override
     public CompositeOperationDefImpl<T, C> step(String id, Step<T, C> step) {
+        requireConfigurerActive("step");
         actionRefs.add(ActionRef.inline(id, step));
         return this;
     }
@@ -147,6 +152,7 @@ final class CompositeOperationDefImpl<T, C>
 
     @Override
     public CompositeOperationDefImpl<T, C> step(String id, Class<? extends Step<T, C>> stepClass) {
+        requireConfigurerActive("step");
         actionRefs.add(ActionRef.inline(id, stepClass));
         return this;
     }
@@ -159,6 +165,7 @@ final class CompositeOperationDefImpl<T, C>
 
     @Override
     public CompositeOperationDefImpl<T, C> conditional(String id, Consumer<ConditionalStepDef<T, C>> configurer) {
+        requireConfigurerActive("conditional");
         requireNotBlank(id, "Conditional step ID");
         requireNotNull(configurer, "Conditional configurer");
 
@@ -177,12 +184,14 @@ final class CompositeOperationDefImpl<T, C>
 
     @Override
     public CompositeOperationDefImpl<T, C> operation(String registeredOperationId) {
+        requireConfigurerActive("operation");
         actionRefs.add(ActionRef.operationById(registeredOperationId));
         return this;
     }
 
     @Override
     public CompositeOperationDefImpl<T, C> operation(String registeredOperationId, String mapperId) {
+        requireConfigurerActive("operation");
         requireNotBlank(registeredOperationId, "Operation reference ID");
         requireNotBlank(mapperId, "Mapper reference ID");
         actionRefs.add(ActionRef.operationById(registeredOperationId, MapperRef.byId(mapperId)));
@@ -191,6 +200,7 @@ final class CompositeOperationDefImpl<T, C>
 
     @Override
     public CompositeOperationDefImpl<T, C> operation(String registeredOperationId, Function<C, ?> inlineMapTo) {
+        requireConfigurerActive("operation");
         requireNotBlank(registeredOperationId, "Operation reference ID");
         requireNotNull(inlineMapTo, "Inline mapper function");
         actionRefs.add(ActionRef.operationById(registeredOperationId, MapperRef.inline(inlineMapTo)));
@@ -199,6 +209,7 @@ final class CompositeOperationDefImpl<T, C>
 
     @Override
     public CompositeOperationDefImpl<T, C> operation(String registeredOperationId, ContextMapper<C, ?> inlineMapper) {
+        requireConfigurerActive("operation");
         requireNotBlank(registeredOperationId, "Operation reference ID");
         requireNotNull(inlineMapper, "Inline mapper instance");
         actionRefs.add(ActionRef.operationById(registeredOperationId, MapperRef.inline(inlineMapper)));
@@ -232,6 +243,7 @@ final class CompositeOperationDefImpl<T, C>
 
     @Override
     public CompositeOperationDefImpl<T, C> operation(String id, Operation<T, C> operation) {
+        requireConfigurerActive("operation");
         actionRefs.add(ActionRef.operationInline(id, operation));
         return this;
     }
@@ -244,6 +256,7 @@ final class CompositeOperationDefImpl<T, C>
 
     @Override
     public CompositeOperationDefImpl<T, C> operation(String id, Class<? extends Operation<T, C>> operationClass) {
+        requireConfigurerActive("operation");
         actionRefs.add(ActionRef.operationInline(id, operationClass));
         return this;
     }
@@ -256,6 +269,7 @@ final class CompositeOperationDefImpl<T, C>
 
     @Override
     public CompositeOperationDefImpl<T, C> usingContext(Class<C> contextType) {
+        requireConfigurerActive("usingContext");
         requireNotNull(contextType, "Context type");
 
         if (this.declaredContextType != null && this.declaredContextType != contextType) {

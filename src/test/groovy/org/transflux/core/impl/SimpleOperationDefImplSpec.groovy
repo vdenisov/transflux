@@ -68,7 +68,7 @@ class SimpleOperationDefImplSpec extends Specification {
 
     def "name and description should be optional and default to null"() {
         when:
-        def def_ = new SimpleOperationDefImpl<Object, Object>('op1').using(new NoopOp())
+        def def_ = new SimpleOperationDefImpl<Object, Object>('op1').tap { beginConfigurer() }.using(new NoopOp())
 
         then:
         def_.getId() == 'op1'
@@ -106,7 +106,7 @@ class SimpleOperationDefImplSpec extends Specification {
 
     def "using(class) should instantiate via no-arg constructor"() {
         given:
-        def def_ = new SimpleOperationDefImpl<Object, Object>('op1').using(NoopOp)
+        def def_ = new SimpleOperationDefImpl<Object, Object>('op1').tap { beginConfigurer() }.using(NoopOp)
 
         when:
         def bound = def_.buildBound(null)
@@ -119,7 +119,7 @@ class SimpleOperationDefImplSpec extends Specification {
         given:
         def first = new NoopOp()
         def second = new NoopOp()
-        def def_ = new SimpleOperationDefImpl<Object, Object>('op1').using(first).using(second)
+        def def_ = new SimpleOperationDefImpl<Object, Object>('op1').tap { beginConfigurer() }.using(first).using(second)
 
         when:
         def bound = def_.buildBound(null)
@@ -130,7 +130,7 @@ class SimpleOperationDefImplSpec extends Specification {
 
     def "using(class) after using(instance) should override the instance"() {
         given:
-        def def_ = new SimpleOperationDefImpl<Object, Object>('op1').using(new NoopOp()).using(NoopOp)
+        def def_ = new SimpleOperationDefImpl<Object, Object>('op1').tap { beginConfigurer() }.using(new NoopOp()).using(NoopOp)
 
         when:
         def bound = def_.buildBound(null)
@@ -141,7 +141,7 @@ class SimpleOperationDefImplSpec extends Specification {
 
     def "using(instance) should reject null"() {
         when:
-        new SimpleOperationDefImpl<Object, Object>('op1').using((Operation<Object, Object>) null)
+        new SimpleOperationDefImpl<Object, Object>('op1').tap { beginConfigurer() }.using((Operation<Object, Object>) null)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -150,7 +150,7 @@ class SimpleOperationDefImplSpec extends Specification {
 
     def "using(class) should reject null"() {
         when:
-        new SimpleOperationDefImpl<Object, Object>('op1').using((Class<? extends Operation<Object, Object>>) null)
+        new SimpleOperationDefImpl<Object, Object>('op1').tap { beginConfigurer() }.using((Class<? extends Operation<Object, Object>>) null)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -169,7 +169,7 @@ class SimpleOperationDefImplSpec extends Specification {
 
     def "build with a class lacking a no-arg constructor should fail-fast"() {
         when:
-        new SimpleOperationDefImpl<Object, Object>('op1').using(CtorlessOp).buildBound(null)
+        new SimpleOperationDefImpl<Object, Object>('op1').tap { beginConfigurer() }.using(CtorlessOp).buildBound(null)
 
         then:
         def e = thrown(TransfluxValidationException)

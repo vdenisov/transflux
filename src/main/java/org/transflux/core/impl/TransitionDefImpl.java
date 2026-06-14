@@ -240,7 +240,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     public TransitionDef<T, C> simpleOperation(String id, Operation<T, C> operation) {
         requireConfigurerActive("simpleOperation");
         SimpleOperationDefImpl<T, C> def = newSimpleOperationDef(id);
-        def.using(operation);
+        ConfigurableDefImpl.runConfigurer(def, d -> d.using(operation));
         attachOperation(def);
         return this;
     }
@@ -255,7 +255,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     public TransitionDef<T, C> simpleOperation(String id, Class<? extends Operation<T, C>> operationClass) {
         requireConfigurerActive("simpleOperation");
         SimpleOperationDefImpl<T, C> def = newSimpleOperationDef(id);
-        def.using(operationClass);
+        ConfigurableDefImpl.runConfigurer(def, d -> d.using(operationClass));
         attachOperation(def);
         return this;
     }

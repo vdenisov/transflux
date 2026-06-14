@@ -73,7 +73,7 @@ class CompositeOperationDefImplSpec extends Specification {
 
     def "step(...) overloads should be appendable in any combination and order"() {
         given:
-        def composite = new CompositeOperationDefImpl<TestEntity, TestContext>('op1')
+        def composite = new CompositeOperationDefImpl<TestEntity, TestContext>('op1').tap { beginConfigurer() }
             .step('a-id', new AppendStep('a'))
             .step('b-id')
             .step('c-id', AppendStep)
@@ -109,7 +109,7 @@ class CompositeOperationDefImplSpec extends Specification {
             .state(ACTIVE, {})
             .build()
 
-        def composite = new CompositeOperationDefImpl<TestEntity, TestContext>('op1')
+        def composite = new CompositeOperationDefImpl<TestEntity, TestContext>('op1').tap { beginConfigurer() }
             .step('c-id').step('a-id').step('b-id')
         composite.scopeRegistry = new RegistryImpl<TestEntity>(((StateMachineImpl<TestEntity>) sm).componentRegistry)
 
@@ -140,7 +140,7 @@ class CompositeOperationDefImplSpec extends Specification {
             .state(ACTIVE, {})
             .build()
 
-        def composite = new CompositeOperationDefImpl<TestEntity, TestContext>('op1')
+        def composite = new CompositeOperationDefImpl<TestEntity, TestContext>('op1').tap { beginConfigurer() }
             .step('known').step('missing')
         composite.scopeRegistry = new RegistryImpl<TestEntity>(((StateMachineImpl<TestEntity>) sm).componentRegistry)
 
@@ -197,6 +197,7 @@ class CompositeOperationDefImplSpec extends Specification {
     def 'tier-1 step #variant accepts Identifiable refs'() {
         given:
         def composite = new CompositeOperationDefImpl<Object, Object>('outer')
+        composite.beginConfigurer()
 
         when:
         action.call(composite)
@@ -216,6 +217,7 @@ class CompositeOperationDefImplSpec extends Specification {
     def 'tier-1 operation #variant accepts Identifiable refs'() {
         given:
         def composite = new CompositeOperationDefImpl<Object, Object>('outer')
+        composite.beginConfigurer()
 
         when:
         action.call(composite)
@@ -234,6 +236,7 @@ class CompositeOperationDefImplSpec extends Specification {
     def 'tier-1 Identifiable overloads accept any Identifiable (e.g. a held-onto *Def reference)'() {
         given:
         def composite = new CompositeOperationDefImpl<Object, Object>('outer')
+        composite.beginConfigurer()
         def heldDef = new TransitionDefImpl<Object, Object>('held-id', 's1', 's2')
 
         when:
@@ -248,6 +251,7 @@ class CompositeOperationDefImplSpec extends Specification {
     def 'tier-1 #variant rejects null Identifiable arg'() {
         given:
         def composite = new CompositeOperationDefImpl<Object, Object>('outer')
+        composite.beginConfigurer()
 
         when:
         action.call(composite)
@@ -273,6 +277,7 @@ class CompositeOperationDefImplSpec extends Specification {
     def 'tier-3 inline Identifiable overload accepted: #variant'() {
         given:
         def composite = new CompositeOperationDefImpl<Object, Object>('outer')
+        composite.beginConfigurer()
 
         when:
         action.call(composite)
@@ -293,6 +298,7 @@ class CompositeOperationDefImplSpec extends Specification {
     def 'tier-3 #variant rejects null Identifiable'() {
         given:
         def composite = new CompositeOperationDefImpl<Object, Object>('outer')
+        composite.beginConfigurer()
 
         when:
         action.call(composite)

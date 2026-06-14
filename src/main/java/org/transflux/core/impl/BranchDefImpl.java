@@ -143,6 +143,7 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
 
     @Override
     public BranchDef<T, C> step(String registeredStepId) {
+        requireConfigurerActive("step");
         actionRefs.add(ActionRef.byId(registeredStepId));
         return this;
     }
@@ -155,17 +156,20 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
 
     @Override
     public BranchDef<T, C> step(String id, Step<T, C> step) {
+        requireConfigurerActive("step");
         actionRefs.add(ActionRef.inline(id, step));
         return this;
     }
 
     @Override
     public BranchDef<T, C> step(String id, Class<? extends Step<T, C>> stepClass) {
+        requireConfigurerActive("step");
         actionRefs.add(ActionRef.inline(id, stepClass));
         return this;
     }
 
     private BranchDef<T, C> setDescriptor(ConditionDescriptor incoming) {
+        requireConfigurerActive("condition");
         if (this.descriptor != null) {
             log.warn("Condition is already defined for branch '{}'; overriding previous value", branchId);
         }

@@ -53,6 +53,7 @@ public final class SimpleOperationDefImpl<T, C>
 
     @Override
     public SimpleOperationDefImpl<T, C> using(Operation<T, C> operation) {
+        requireConfigurerActive("using");
         requireNotNull(operation, "Operation");
         source.setInstance(operation);
         return this;
@@ -60,6 +61,7 @@ public final class SimpleOperationDefImpl<T, C>
 
     @Override
     public SimpleOperationDefImpl<T, C> using(Class<? extends Operation<T, C>> operationClass) {
+        requireConfigurerActive("using");
         requireNotNull(operationClass, "Operation class");
         source.setClass(operationClass);
         return this;

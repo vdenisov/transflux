@@ -57,6 +57,7 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
 
     @Override
     public ContextScope<T, C> step(String id, Step<T, C> step) {
+        requireConfigurerActive("step");
         requireNotBlank(id, "Step ID");
         requireNotNull(step, "Step");
         smd.registerScopedStep(id, step, contextType);
@@ -65,6 +66,7 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
 
     @Override
     public ContextScope<T, C> step(String id, Class<? extends Step<T, C>> stepClass) {
+        requireConfigurerActive("step");
         requireNotBlank(id, "Step ID");
         requireNotNull(stepClass, "Step class");
         smd.registerScopedStep(id, stepClass, contextType);
@@ -73,6 +75,7 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
 
     @Override
     public ContextScope<T, C> condition(String id, Condition<T, C> condition) {
+        requireConfigurerActive("condition");
         requireNotBlank(id, "Condition ID");
         requireNotNull(condition, "Condition");
         smd.registerScopedCondition(id, condition, contextType);
@@ -81,6 +84,7 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
 
     @Override
     public ContextScope<T, C> condition(String id, Class<? extends Condition<T, C>> conditionClass) {
+        requireConfigurerActive("condition");
         requireNotBlank(id, "Condition ID");
         requireNotNull(conditionClass, "Condition class");
         smd.registerScopedCondition(id, conditionClass, contextType);
@@ -89,6 +93,7 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
 
     @Override
     public ContextScope<T, C> condition(String id, BiPredicate<T, C> predicate) {
+        requireConfigurerActive("condition");
         requireNotBlank(id, "Condition ID");
         requireNotNull(predicate, "Predicate");
         smd.registerScopedCondition(id, predicate, contextType);
@@ -97,6 +102,7 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
 
     @Override
     public ContextScope<T, C> condition(String id, Predicate<T> predicate) {
+        requireConfigurerActive("condition");
         requireNotBlank(id, "Condition ID");
         requireNotNull(predicate, "Predicate");
         BiPredicate<T, C> adapted = (entity, ctx) -> predicate.test(entity);
@@ -106,6 +112,7 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
 
     @Override
     public ContextScope<T, C> condition(String id, String spelExpression) {
+        requireConfigurerActive("condition");
         requireNotBlank(id, "Condition ID");
         requireNotBlank(spelExpression, "SpEL expression");
         smd.registerScopedCondition(id, spelExpression, contextType);
@@ -114,6 +121,7 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
 
     @Override
     public ContextScope<T, C> compositeOperation(String id, Consumer<CompositeOperationDef<T, C>> configurer) {
+        requireConfigurerActive("compositeOperation");
         requireNotBlank(id, "Composite operation ID");
         requireNotNull(configurer, "Composite operation configurer");
         smd.registerScopedCompositeOperation(id, configurer, contextType);
@@ -122,6 +130,7 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
 
     @Override
     public ContextScope<T, C> operation(String id, Operation<T, C> operation) {
+        requireConfigurerActive("operation");
         requireNotBlank(id, "Operation ID");
         requireNotNull(operation, "Operation");
         smd.registerScopedOperation(id, operation, contextType);
@@ -130,6 +139,7 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
 
     @Override
     public ContextScope<T, C> operation(String id, Class<? extends Operation<T, C>> operationClass) {
+        requireConfigurerActive("operation");
         requireNotBlank(id, "Operation ID");
         requireNotNull(operationClass, "Operation class");
         smd.registerScopedOperation(id, operationClass, contextType);
