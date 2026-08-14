@@ -148,6 +148,24 @@ class ManualTriggerDefImplSpec extends Specification {
         captured == TestContext
     }
 
+    def 'contextType follows a usingContext declared after the trigger'() {
+        given:
+        ManualTriggerDef<Entity, ?> captured = null
+        def smd = new StateMachineDefImpl<Entity>()
+
+        when: 'the trigger is declared before the transition re-types its context'
+        smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
+                .addManualTrigger('mt', { mt -> captured = mt })
+                .usingContext(TestContext) }) })
+            .state('s2', {})
+        smd.build()
+
+        then: 'the trigger reports the type the transition ended up with, not the one it started with'
+        captured.contextType() == TestContext
+    }
+
     def 'pre-conditions in every authoring form resolve and gate the trigger'() {
         given:
         Identifiable refId = { -> 'registered' } as Identifiable

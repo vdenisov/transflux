@@ -25,6 +25,8 @@ import org.transflux.core.operation.CompositeOperationDef;
 import org.transflux.core.operation.Operation;
 import org.transflux.core.operation.SimpleOperationDef;
 import org.transflux.core.operation.Step;
+import org.transflux.core.trigger.DataTriggerDef;
+import org.transflux.core.trigger.EventTriggerDef;
 import org.transflux.core.trigger.ManualTriggerDef;
 
 import java.util.function.BiPredicate;
@@ -663,185 +665,133 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> addManualTrigger(Identifiable triggerIdentifiable, Consumer<ManualTriggerDef<T, C>> configurer);
 
     /**
-     * Placeholder for the trigger framework.
+     * Attaches an event trigger to this transition, listening for {@code eventId} with no filter.
+     * The trigger fires on every event of that id published through
+     * {@code entity(e).processEvent(eventId, eventData)} while the entity is in this transition's
+     * source state.
      *
-     * @param id trigger id
-     *
-     * @return this transition def for chaining
-     */
-    // TODO: trigger framework
-    TransitionDef<T, C> addEventTrigger(String id);
-
-    /**
-     * Placeholder for the trigger framework.
-     *
-     * @param id trigger id
-     * @param eventId event id
+     * @param id the trigger id; never {@code null} or blank
+     * @param eventId the event id this trigger listens for; never {@code null} or blank
      *
      * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} or {@code eventId} is {@code null} or blank
      */
-    // TODO: trigger framework
     TransitionDef<T, C> addEventTrigger(String id, String eventId);
 
     /**
-     * {@link Identifiable} overload of {@link #addEventTrigger(String, String)}.
+     * {@link Identifiable} overload of {@link #addEventTrigger(String, String)} — trigger id
+     * supplied as an identifiable.
      *
      * @param triggerIdentifiable an identifiable supplying the trigger id
-     * @param eventId event id
+     * @param eventId the event id this trigger listens for
      *
      * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code triggerIdentifiable} is {@code null}
      */
-    // TODO: trigger framework
     TransitionDef<T, C> addEventTrigger(Identifiable triggerIdentifiable, String eventId);
 
     /**
-     * Placeholder for the trigger framework.
+     * Mixed-form overload of {@link #addEventTrigger(String, String)} — event id supplied as an
+     * identifiable.
      *
-     * @param event event identifier
-     *
-     * @return this transition def for chaining
-     */
-    // TODO: trigger framework
-    TransitionDef<T, C> addEventTrigger(Identifiable event);
-
-    /**
-     * Placeholder for the trigger framework.
-     *
-     * @param id trigger id
-     * @param event event identifier
+     * @param id the trigger id; never {@code null} or blank
+     * @param event an identifiable supplying the event id
      *
      * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or {@code event} is
+     *         {@code null}
      */
-    // TODO: trigger framework
     TransitionDef<T, C> addEventTrigger(String id, Identifiable event);
 
     /**
-     * {@link Identifiable} overload of {@link #addEventTrigger(String, Identifiable)} — both
-     * trigger id and event supplied as identifiables.
+     * {@link Identifiable} overload of {@link #addEventTrigger(String, String)} — both trigger id
+     * and event id supplied as identifiables.
      *
      * @param triggerIdentifiable an identifiable supplying the trigger id
-     * @param event event identifier
+     * @param event an identifiable supplying the event id
      *
      * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if either identifiable is {@code null}
      */
-    // TODO: trigger framework
     TransitionDef<T, C> addEventTrigger(Identifiable triggerIdentifiable, Identifiable event);
 
     /**
-     * Placeholder for the trigger framework.
+     * Attaches an event trigger whose id <b>and</b> listened-for event id are both the given
+     * identifiable's id, with no filter. Convenient when one event maps to exactly one trigger and
+     * a separate trigger id would be redundant.
      *
-     * @param condition event-id / entity matcher
-     *
-     * @return this transition def for chaining
-     */
-    // TODO: trigger framework
-    TransitionDef<T, C> addEventTrigger(BiPredicate<String, T> condition);
-
-    /**
-     * Placeholder for the trigger framework.
-     *
-     * @param id trigger id
-     * @param condition event-id / entity matcher
+     * @param event an identifiable supplying both the trigger id and the event id
      *
      * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code event} is {@code null}
      */
-    // TODO: trigger framework
-    TransitionDef<T, C> addEventTrigger(String id, BiPredicate<String, T> condition);
+    TransitionDef<T, C> addEventTrigger(Identifiable event);
 
     /**
-     * {@link Identifiable} overload of {@link #addEventTrigger(String, BiPredicate)}.
+     * Attaches an event trigger built through a fluent configurer. Use this form to declare the
+     * event id, an optional payload filter, and the trigger's name / description.
+     * <p>
+     * The configurer is invoked synchronously against a freshly-constructed {@link EventTriggerDef}
+     * carrying the supplied {@code id}; the def is not exposed to the caller after the lambda
+     * returns. The event id is mandatory — declare it with {@code onEvent(...)} inside the
+     * configurer.
+     *
+     * @param id the trigger id; never {@code null} or blank
+     * @param configurer the fluent configurer; never {@code null}
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
+     *         {@code configurer} is {@code null}
+     */
+    TransitionDef<T, C> addEventTrigger(String id, Consumer<EventTriggerDef<T, C>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #addEventTrigger(String, Consumer)}.
      *
      * @param triggerIdentifiable an identifiable supplying the trigger id
-     * @param condition event-id / entity matcher
+     * @param configurer the fluent configurer
      *
      * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code triggerIdentifiable} is {@code null}
      */
-    // TODO: trigger framework
-    TransitionDef<T, C> addEventTrigger(Identifiable triggerIdentifiable, BiPredicate<String, T> condition);
+    TransitionDef<T, C> addEventTrigger(Identifiable triggerIdentifiable, Consumer<EventTriggerDef<T, C>> configurer);
 
     /**
-     * Placeholder for the trigger framework.
+     * Attaches a data trigger built through a fluent configurer. The configurer must declare the
+     * trigger's gate condition through {@code condition(...)}; it may also set the trigger's name
+     * and description.
+     * <p>
+     * The configurer is invoked synchronously against a freshly-constructed {@link DataTriggerDef}
+     * carrying the supplied {@code id}; the def is not exposed to the caller after the lambda
+     * returns. When the host calls {@code entity(e).processDataChange()}, the framework evaluates
+     * each eligible data trigger's gate and fires the first whose condition holds.
      *
-     * @param id trigger id
+     * @param id the trigger id; never {@code null} or blank
+     * @param configurer the fluent configurer; never {@code null}
      *
      * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
+     *         {@code configurer} is {@code null}
      */
-    // TODO: trigger framework
-    TransitionDef<T, C> addDataTrigger(String id);
+    TransitionDef<T, C> addDataTrigger(String id, Consumer<DataTriggerDef<T, C>> configurer);
 
     /**
-     * {@link Identifiable} overload of {@link #addDataTrigger(String)}.
+     * {@link Identifiable} overload of {@link #addDataTrigger(String, Consumer)}.
      *
      * @param triggerIdentifiable an identifiable supplying the trigger id
+     * @param configurer the fluent configurer
      *
      * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code triggerIdentifiable} is {@code null}
      */
-    // TODO: trigger framework
-    TransitionDef<T, C> addDataTrigger(Identifiable triggerIdentifiable);
-
-    /**
-     * Placeholder for the trigger framework.
-     *
-     * @param condition entity-and-context matcher
-     *
-     * @return this transition def for chaining
-     */
-    // TODO: trigger framework
-    TransitionDef<T, C> addDataTrigger(BiPredicate<T, C> condition);
-
-    /**
-     * Placeholder for the trigger framework.
-     *
-     * @param id trigger id
-     * @param condition entity-and-context matcher
-     *
-     * @return this transition def for chaining
-     */
-    // TODO: trigger framework
-    TransitionDef<T, C> addDataTrigger(String id, BiPredicate<T, C> condition);
-
-    /**
-     * {@link Identifiable} overload of {@link #addDataTrigger(String, BiPredicate)}.
-     *
-     * @param triggerIdentifiable an identifiable supplying the trigger id
-     * @param condition entity-and-context matcher
-     *
-     * @return this transition def for chaining
-     */
-    // TODO: trigger framework
-    TransitionDef<T, C> addDataTrigger(Identifiable triggerIdentifiable, BiPredicate<T, C> condition);
-
-    /**
-     * Convenience overload of {@link #addDataTrigger(BiPredicate)} accepting an entity-only
-     * {@link Predicate}; the context is ignored at evaluation time.
-     *
-     * @param condition entity matcher
-     *
-     * @return this transition def for chaining
-     */
-    // TODO: trigger framework
-    TransitionDef<T, C> addDataTrigger(Predicate<T> condition);
-
-    /**
-     * Convenience overload of {@link #addDataTrigger(String, BiPredicate)} accepting an
-     * entity-only {@link Predicate}; the context is ignored at evaluation time.
-     *
-     * @param id trigger id
-     * @param condition entity matcher
-     *
-     * @return this transition def for chaining
-     */
-    // TODO: trigger framework
-    TransitionDef<T, C> addDataTrigger(String id, Predicate<T> condition);
-
-    /**
-     * {@link Identifiable} overload of {@link #addDataTrigger(String, Predicate)}.
-     *
-     * @param triggerIdentifiable an identifiable supplying the trigger id
-     * @param condition entity matcher
-     *
-     * @return this transition def for chaining
-     */
-    // TODO: trigger framework
-    TransitionDef<T, C> addDataTrigger(Identifiable triggerIdentifiable, Predicate<T> condition);
+    TransitionDef<T, C> addDataTrigger(Identifiable triggerIdentifiable, Consumer<DataTriggerDef<T, C>> configurer);
 }

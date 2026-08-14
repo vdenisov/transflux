@@ -240,6 +240,24 @@ class ConditionalStepDefImplSpec extends Specification {
         (descriptor as ConditionDescriptor.ExpressionBased).expression() == 'entity.value > 0'
     }
 
+    def 'BranchDef.conditionExpression names itself, not condition, when the configurer has returned'() {
+        given:
+        def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+        BranchDef<Entity, TestContext> escaped = null
+
+        when:
+        cond.branch('b1', { BranchDef<Entity, TestContext> b ->
+            escaped = b
+            b.conditionExpression('entity.value > 0').step('s1', new NoopStep())
+        })
+        escaped.conditionExpression('entity.value > 1')
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("'conditionExpression'")
+        e.message.contains("branch 'b1'")
+    }
+
     def 'BranchDef.condition(id, Condition) builds an InstanceBased descriptor'() {
         given:
         def cond = new ConditionalStepDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }

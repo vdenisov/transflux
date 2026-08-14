@@ -44,114 +44,88 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-final class ManualTriggerDefImpl<T, C> extends IdentifiedDefImpl<ManualTriggerDefImpl<T, C>>
+final class ManualTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, ManualTriggerDefImpl<T, C>>
     implements ManualTriggerDef<T, C> {
 
-    private final String transitionId;
-    private final Class<C> contextType;
-    private final List<ConditionDescriptor> preConditions = new ArrayList<>();
+    private final ConditionDescriptorSink<T, C, ManualTriggerDef<T, C>> preConditions =
+        new ConditionDescriptorSink<>(this, this, "preCondition");
 
-    ManualTriggerDefImpl(String id, String transitionId, Class<C> contextType) {
-        super(id, "manual trigger", "Trigger ID");
-        requireNotBlank(transitionId, "Trigger transition ID");
-        requireNotNull(contextType, "Trigger context type");
-        this.transitionId = transitionId;
-        this.contextType = contextType;
-    }
-
-    @Override
-    public Class<C> contextType() {
-        return contextType;
+    ManualTriggerDefImpl(String id, TransitionDefImpl<T, C> owner) {
+        super(id, "manual trigger", owner);
     }
 
     @Override
     public ManualTriggerDef<T, C> preCondition(String registeredConditionId) {
-        requireConfigurerActive("preCondition");
-        requireNotBlank(registeredConditionId, "Registered condition ID");
-        return append(ConditionDescriptor.ref(registeredConditionId));
+        return preConditions.ref(registeredConditionId);
     }
 
     @Override
     public ManualTriggerDef<T, C> preCondition(Identifiable registeredCondition) {
-        requireNotNull(registeredCondition, "Condition identifiable");
-        return preCondition(registeredCondition.getId());
+        return preConditions.ref(registeredCondition);
     }
 
     @Override
     public ManualTriggerDef<T, C> preConditionExpression(String expression) {
-        requireConfigurerActive("preConditionExpression");
-        requireNotBlank(expression, "Expression");
-        return append(ConditionDescriptor.expression(expression));
+        return preConditions.expression(expression);
     }
 
     @Override
     public ManualTriggerDef<T, C> preCondition(String id, Condition<T, C> condition) {
-        requireConfigurerActive("preCondition");
-        requireNotBlank(id, "Condition ID");
-        requireNotNull(condition, "Condition");
-        return append(ConditionDescriptor.instanceBased(id, condition));
+        return preConditions.instanceBased(id, condition);
     }
 
     @Override
     public ManualTriggerDef<T, C> preCondition(Identifiable conditionIdentifiable, Condition<T, C> condition) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return preCondition(conditionIdentifiable.getId(), condition);
+        return preConditions.instanceBased(conditionIdentifiable, condition);
     }
 
     @Override
     public ManualTriggerDef<T, C> preCondition(String id, Class<? extends Condition<T, C>> conditionClass) {
-        requireConfigurerActive("preCondition");
-        requireNotBlank(id, "Condition ID");
-        requireNotNull(conditionClass, "Condition class");
-        return append(ConditionDescriptor.classBased(id, conditionClass));
+        return preConditions.classBased(id, conditionClass);
     }
 
     @Override
     public ManualTriggerDef<T, C> preCondition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return preCondition(conditionIdentifiable.getId(), conditionClass);
+        return preConditions.classBased(conditionIdentifiable, conditionClass);
     }
 
     @Override
     public ManualTriggerDef<T, C> preCondition(String id, BiPredicate<T, C> predicate) {
-        requireConfigurerActive("preCondition");
-        requireNotBlank(id, "Condition ID");
-        requireNotNull(predicate, "Predicate");
-        return append(ConditionDescriptor.predicate(id, predicate));
+        return preConditions.predicate(id, predicate);
     }
 
     @Override
     public ManualTriggerDef<T, C> preCondition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return preCondition(conditionIdentifiable.getId(), predicate);
+        return preConditions.predicate(conditionIdentifiable, predicate);
     }
 
     @Override
     public ManualTriggerDef<T, C> preCondition(String id, Predicate<T> predicate) {
-        requireConfigurerActive("preCondition");
-        requireNotBlank(id, "Condition ID");
-        requireNotNull(predicate, "Predicate");
-        return append(ConditionDescriptor.predicate(id, predicate));
+        return preConditions.predicate(id, predicate);
     }
 
     @Override
     public ManualTriggerDef<T, C> preCondition(Identifiable conditionIdentifiable, Predicate<T> predicate) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return preCondition(conditionIdentifiable.getId(), predicate);
+        return preConditions.predicate(conditionIdentifiable, predicate);
     }
 
     @Override
     public ManualTriggerDef<T, C> preCondition(String id, String expression) {
-        requireConfigurerActive("preCondition");
-        requireNotBlank(id, "Condition ID");
-        requireNotBlank(expression, "Expression");
-        return append(ConditionDescriptor.expression(id, expression));
+        return preConditions.expression(id, expression);
     }
 
     @Override
     public ManualTriggerDef<T, C> preCondition(Identifiable conditionIdentifiable, String expression) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return preCondition(conditionIdentifiable.getId(), expression);
+        return preConditions.expression(conditionIdentifiable, expression);
+    }
+
+    /**
+     * Returns the declared pre-condition descriptors in declaration order.
+     *
+     * @return an unmodifiable view of the pre-condition descriptors
+     */
+    List<ConditionDescriptor> getPreConditionDescriptors() {
+        return preConditions.descriptors();
     }
 
     /**
@@ -165,16 +139,12 @@ final class ManualTriggerDefImpl<T, C> extends IdentifiedDefImpl<ManualTriggerDe
      */
     ManualTriggerImpl<T, C> buildBoundTrigger(Map<String, BoundCondition<T, C>> registry) {
         requireNotNull(registry, "Condition registry");
-        List<BoundCondition<T, C>> bound = new ArrayList<>(preConditions.size());
-        for (int i = 0; i < preConditions.size(); i++) {
+        List<ConditionDescriptor> descriptors = preConditions.descriptors();
+        List<BoundCondition<T, C>> bound = new ArrayList<>(descriptors.size());
+        for (int i = 0; i < descriptors.size(); i++) {
             String path = "trigger:" + getId() + ":pre[" + i + "]";
-            bound.add(ConditionResolver.resolve(preConditions.get(i), registry, path));
+            bound.add(ConditionResolver.resolve(descriptors.get(i), registry, path));
         }
-        return new ManualTriggerImpl<>(getId(), getName(), getDescription(), transitionId, bound);
-    }
-
-    private ManualTriggerDef<T, C> append(ConditionDescriptor descriptor) {
-        preConditions.add(descriptor);
-        return this;
+        return new ManualTriggerImpl<>(getId(), getName(), getDescription(), transitionId(), bound);
     }
 }

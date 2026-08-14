@@ -32,7 +32,6 @@ import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
 import spock.lang.Unroll
 
-import java.util.function.BiPredicate
 import java.util.function.Consumer
 import java.util.function.Predicate
 
@@ -493,9 +492,31 @@ class TransitionDefImplSpec extends Specification {
         'addManualTrigger(null)'                 | { d -> d.addManualTrigger((Identifiable) null) }
         'addEventTrigger(null, String)'          | { d -> d.addEventTrigger((Identifiable) null, 'evt') }
         'addEventTrigger(null, Identifiable)'    | { d -> d.addEventTrigger((Identifiable) null, identifiable('evt')) }
-        'addEventTrigger(null, BiPredicate)'     | { d -> d.addEventTrigger((Identifiable) null, { i, e -> true } as BiPredicate) }
-        'addDataTrigger(null)'                   | { d -> d.addDataTrigger((Identifiable) null) }
-        'addDataTrigger(null, Predicate)'        | { d -> d.addDataTrigger((Identifiable) null, { e -> true } as Predicate) }
+        'addEventTrigger(null event)'            | { d -> d.addEventTrigger((Identifiable) null) }
+        'addEventTrigger(null, Consumer)'        | { d -> d.addEventTrigger((Identifiable) null, { t -> } as Consumer) }
+        'addManualTrigger(null, Consumer)'       | { d -> d.addManualTrigger((Identifiable) null, { t -> } as Consumer) }
+        'addDataTrigger(null, Consumer)'         | { d -> d.addDataTrigger((Identifiable) null, { t -> } as Consumer) }
+    }
+
+    @Unroll
+    def 'trigger declaration rejects a null second argument: #variant'() {
+        given:
+        def td = new TransitionDefImpl<Object, Object>('t', 's1', 's2')
+        td.beginConfigurer()
+
+        when:
+        action.call(td)
+
+        then:
+        thrown(TransfluxValidationException)
+
+        where:
+        variant                                     | action
+        'addEventTrigger(id, null event Id)'        | { d -> d.addEventTrigger('e', (Identifiable) null) }
+        'addEventTrigger(Id, null event Id)'        | { d -> d.addEventTrigger(identifiable('e'), (Identifiable) null) }
+        'addEventTrigger(id, null Consumer)'        | { d -> d.addEventTrigger('e', (Consumer) null) }
+        'addManualTrigger(id, null Consumer)'       | { d -> d.addManualTrigger('m', (Consumer) null) }
+        'addDataTrigger(id, null Consumer)'         | { d -> d.addDataTrigger('dt', (Consumer) null) }
     }
 
     private static Identifiable identifiable(String value) {

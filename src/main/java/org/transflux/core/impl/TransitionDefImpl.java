@@ -29,6 +29,8 @@ import org.transflux.core.operation.Operation;
 import org.transflux.core.operation.SimpleOperationDef;
 import org.transflux.core.transition.Transition;
 import org.transflux.core.transition.TransitionDef;
+import org.transflux.core.trigger.DataTriggerDef;
+import org.transflux.core.trigger.EventTriggerDef;
 import org.transflux.core.trigger.ManualTriggerDef;
 
 import java.util.ArrayList;
@@ -67,9 +69,13 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     private String registeredOperationRefId;
     private Class<C> contextType;
 
-    private final List<ConditionDescriptor> preConditions = new ArrayList<>();
-    private final List<ConditionDescriptor> postConditions = new ArrayList<>();
+    private final ConditionDescriptorSink<T, C, TransitionDef<T, C>> preConditions =
+        new ConditionDescriptorSink<>(this, this, "preCondition");
+    private final ConditionDescriptorSink<T, C, TransitionDef<T, C>> postConditions =
+        new ConditionDescriptorSink<>(this, this, "postCondition");
     private final List<ManualTriggerDefImpl<T, C>> manualTriggers = new ArrayList<>();
+    private final List<EventTriggerDefImpl<T, C>> eventTriggers = new ArrayList<>();
+    private final List<DataTriggerDefImpl<T, C>> dataTriggers = new ArrayList<>();
 
     /**
      * Constructs a new TransitionDefImpl with the specified parameters.
@@ -189,7 +195,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
      * @return an unmodifiable view of the pre-condition descriptor list
      */
     List<ConditionDescriptor> getPreConditionDescriptors() {
-        return Collections.unmodifiableList(preConditions);
+        return preConditions.descriptors();
     }
 
     /**
@@ -198,7 +204,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
      * @return an unmodifiable view of the post-condition descriptor list
      */
     List<ConditionDescriptor> getPostConditionDescriptors() {
-        return Collections.unmodifiableList(postConditions);
+        return postConditions.descriptors();
     }
 
     /**
@@ -212,7 +218,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
      * @throws TransfluxValidationException if any descriptor cannot be resolved
      */
     List<BoundCondition<T, C>> buildBoundPreConditions(Map<String, BoundCondition<T, C>> registry) {
-        return buildBoundConditionList(preConditions, registry, "pre");
+        return buildBoundConditionList(preConditions.descriptors(), registry, "pre");
     }
 
     /**
@@ -226,7 +232,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
      * @throws TransfluxValidationException if any descriptor cannot be resolved
      */
     List<BoundCondition<T, C>> buildBoundPostConditions(Map<String, BoundCondition<T, C>> registry) {
-        return buildBoundConditionList(postConditions, registry, "post");
+        return buildBoundConditionList(postConditions.descriptors(), registry, "post");
     }
 
     /**
@@ -236,6 +242,24 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
      */
     List<ManualTriggerDefImpl<T, C>> getManualTriggers() {
         return manualTriggers;
+    }
+
+    /**
+     * Returns the event triggers declared on this transition, in declaration order.
+     *
+     * @return the event trigger defs
+     */
+    List<EventTriggerDefImpl<T, C>> getEventTriggers() {
+        return eventTriggers;
+    }
+
+    /**
+     * Returns the data triggers declared on this transition, in declaration order.
+     *
+     * @return the data trigger defs
+     */
+    List<DataTriggerDefImpl<T, C>> getDataTriggers() {
+        return dataTriggers;
     }
 
     @Override
@@ -327,199 +351,139 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
 
     @Override
     public TransitionDef<T, C> preCondition(String registeredConditionId) {
-        requireConfigurerActive("preCondition");
-        requireNotBlank(registeredConditionId, "Registered condition ID");
-        return appendPreCondition(ConditionDescriptor.ref(registeredConditionId));
+        return preConditions.ref(registeredConditionId);
     }
 
     @Override
     public TransitionDef<T, C> preCondition(Identifiable registeredCondition) {
-        requireNotNull(registeredCondition, "Condition identifiable");
-        return preCondition(registeredCondition.getId());
+        return preConditions.ref(registeredCondition);
     }
 
     @Override
     public TransitionDef<T, C> preConditionExpression(String expression) {
-        requireConfigurerActive("preConditionExpression");
-        requireNotBlank(expression, "Expression");
-        return appendPreCondition(ConditionDescriptor.expression(expression));
+        return preConditions.expression(expression);
     }
 
     @Override
     public TransitionDef<T, C> preCondition(String id, Condition<T, C> condition) {
-        requireConfigurerActive("preCondition");
-        requireNotBlank(id, "Condition ID");
-        requireNotNull(condition, "Condition");
-        return appendPreCondition(ConditionDescriptor.instanceBased(id, condition));
+        return preConditions.instanceBased(id, condition);
     }
 
     @Override
     public TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, Condition<T, C> condition) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return preCondition(conditionIdentifiable.getId(), condition);
+        return preConditions.instanceBased(conditionIdentifiable, condition);
     }
 
     @Override
     public TransitionDef<T, C> preCondition(String id, Class<? extends Condition<T, C>> conditionClass) {
-        requireConfigurerActive("preCondition");
-        requireNotBlank(id, "Condition ID");
-        requireNotNull(conditionClass, "Condition class");
-        return appendPreCondition(ConditionDescriptor.classBased(id, conditionClass));
+        return preConditions.classBased(id, conditionClass);
     }
 
     @Override
     public TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return preCondition(conditionIdentifiable.getId(), conditionClass);
+        return preConditions.classBased(conditionIdentifiable, conditionClass);
     }
 
     @Override
     public TransitionDef<T, C> preCondition(String id, BiPredicate<T, C> predicate) {
-        requireConfigurerActive("preCondition");
-        requireNotBlank(id, "Condition ID");
-        requireNotNull(predicate, "Predicate");
-        return appendPreCondition(ConditionDescriptor.predicate(id, predicate));
+        return preConditions.predicate(id, predicate);
     }
 
     @Override
     public TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return preCondition(conditionIdentifiable.getId(), predicate);
+        return preConditions.predicate(conditionIdentifiable, predicate);
     }
 
     @Override
     public TransitionDef<T, C> preCondition(String id, Predicate<T> predicate) {
-        requireConfigurerActive("preCondition");
-        requireNotBlank(id, "Condition ID");
-        requireNotNull(predicate, "Predicate");
-        return appendPreCondition(ConditionDescriptor.predicate(id, predicate));
+        return preConditions.predicate(id, predicate);
     }
 
     @Override
     public TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, Predicate<T> predicate) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return preCondition(conditionIdentifiable.getId(), predicate);
+        return preConditions.predicate(conditionIdentifiable, predicate);
     }
 
     @Override
     public TransitionDef<T, C> preCondition(String id, String expression) {
-        requireConfigurerActive("preCondition");
-        requireNotBlank(id, "Condition ID");
-        requireNotBlank(expression, "Expression");
-        return appendPreCondition(ConditionDescriptor.expression(id, expression));
+        return preConditions.expression(id, expression);
     }
 
     @Override
     public TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, String expression) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return preCondition(conditionIdentifiable.getId(), expression);
+        return preConditions.expression(conditionIdentifiable, expression);
     }
 
     @Override
     public TransitionDef<T, C> postCondition(String registeredConditionId) {
-        requireConfigurerActive("postCondition");
-        requireNotBlank(registeredConditionId, "Registered condition ID");
-        return appendPostCondition(ConditionDescriptor.ref(registeredConditionId));
+        return postConditions.ref(registeredConditionId);
     }
 
     @Override
     public TransitionDef<T, C> postCondition(Identifiable registeredCondition) {
-        requireNotNull(registeredCondition, "Condition identifiable");
-        return postCondition(registeredCondition.getId());
+        return postConditions.ref(registeredCondition);
     }
 
     @Override
     public TransitionDef<T, C> postConditionExpression(String expression) {
-        requireConfigurerActive("postConditionExpression");
-        requireNotBlank(expression, "Expression");
-        return appendPostCondition(ConditionDescriptor.expression(expression));
+        return postConditions.expression(expression);
     }
 
     @Override
     public TransitionDef<T, C> postCondition(String id, Condition<T, C> condition) {
-        requireConfigurerActive("postCondition");
-        requireNotBlank(id, "Condition ID");
-        requireNotNull(condition, "Condition");
-        return appendPostCondition(ConditionDescriptor.instanceBased(id, condition));
+        return postConditions.instanceBased(id, condition);
     }
 
     @Override
     public TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, Condition<T, C> condition) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return postCondition(conditionIdentifiable.getId(), condition);
+        return postConditions.instanceBased(conditionIdentifiable, condition);
     }
 
     @Override
     public TransitionDef<T, C> postCondition(String id, Class<? extends Condition<T, C>> conditionClass) {
-        requireConfigurerActive("postCondition");
-        requireNotBlank(id, "Condition ID");
-        requireNotNull(conditionClass, "Condition class");
-        return appendPostCondition(ConditionDescriptor.classBased(id, conditionClass));
+        return postConditions.classBased(id, conditionClass);
     }
 
     @Override
     public TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return postCondition(conditionIdentifiable.getId(), conditionClass);
+        return postConditions.classBased(conditionIdentifiable, conditionClass);
     }
 
     @Override
     public TransitionDef<T, C> postCondition(String id, BiPredicate<T, C> predicate) {
-        requireConfigurerActive("postCondition");
-        requireNotBlank(id, "Condition ID");
-        requireNotNull(predicate, "Predicate");
-        return appendPostCondition(ConditionDescriptor.predicate(id, predicate));
+        return postConditions.predicate(id, predicate);
     }
 
     @Override
     public TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return postCondition(conditionIdentifiable.getId(), predicate);
+        return postConditions.predicate(conditionIdentifiable, predicate);
     }
 
     @Override
     public TransitionDef<T, C> postCondition(String id, Predicate<T> predicate) {
-        requireConfigurerActive("postCondition");
-        requireNotBlank(id, "Condition ID");
-        requireNotNull(predicate, "Predicate");
-        return appendPostCondition(ConditionDescriptor.predicate(id, predicate));
+        return postConditions.predicate(id, predicate);
     }
 
     @Override
     public TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, Predicate<T> predicate) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return postCondition(conditionIdentifiable.getId(), predicate);
+        return postConditions.predicate(conditionIdentifiable, predicate);
     }
 
     @Override
     public TransitionDef<T, C> postCondition(String id, String expression) {
-        requireConfigurerActive("postCondition");
-        requireNotBlank(id, "Condition ID");
-        requireNotBlank(expression, "Expression");
-        return appendPostCondition(ConditionDescriptor.expression(id, expression));
+        return postConditions.expression(id, expression);
     }
 
     @Override
     public TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, String expression) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return postCondition(conditionIdentifiable.getId(), expression);
-    }
-
-    private TransitionDef<T, C> appendPreCondition(ConditionDescriptor descriptor) {
-        preConditions.add(descriptor);
-        return this;
-    }
-
-    private TransitionDef<T, C> appendPostCondition(ConditionDescriptor descriptor) {
-        postConditions.add(descriptor);
-        return this;
+        return postConditions.expression(conditionIdentifiable, expression);
     }
 
     @Override
     public TransitionDef<T, C> addManualTrigger(String id) {
         requireConfigurerActive("addManualTrigger");
         requireNotBlank(id, "Trigger ID");
-        manualTriggers.add(new ManualTriggerDefImpl<>(id, getId(), contextType));
+        manualTriggers.add(new ManualTriggerDefImpl<>(id, this));
         return this;
     }
 
@@ -534,7 +498,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         requireConfigurerActive("addManualTrigger");
         requireNotBlank(id, "Trigger ID");
         requireNotNull(configurer, "Manual trigger configurer");
-        ManualTriggerDefImpl<T, C> trigger = new ManualTriggerDefImpl<>(id, getId(), contextType);
+        ManualTriggerDefImpl<T, C> trigger = new ManualTriggerDefImpl<>(id, this);
         ConfigurableDefImpl.runConfigurer(trigger, configurer);
         manualTriggers.add(trigger);
         return this;
@@ -547,13 +511,14 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> addEventTrigger(String id) {
-        throw new UnsupportedOperationException("Triggers not yet implemented");
-    }
-
-    @Override
     public TransitionDef<T, C> addEventTrigger(String id, String eventId) {
-        throw new UnsupportedOperationException("Triggers not yet implemented");
+        requireConfigurerActive("addEventTrigger");
+        requireNotBlank(id, "Trigger ID");
+        requireNotBlank(eventId, "Event ID");
+        EventTriggerDefImpl<T, C> trigger = new EventTriggerDefImpl<>(id, this);
+        ConfigurableDefImpl.runConfigurer(trigger, t -> t.onEvent(eventId));
+        eventTriggers.add(trigger);
+        return this;
     }
 
     @Override
@@ -563,78 +528,56 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> addEventTrigger(Identifiable event) {
-        throw new UnsupportedOperationException("Triggers not yet implemented");
-    }
-
-    @Override
     public TransitionDef<T, C> addEventTrigger(String id, Identifiable event) {
-        throw new UnsupportedOperationException("Triggers not yet implemented");
+        requireNotNull(event, "Event identifiable");
+        return addEventTrigger(id, event.getId());
     }
 
     @Override
     public TransitionDef<T, C> addEventTrigger(Identifiable triggerIdentifiable, Identifiable event) {
         requireNotNull(triggerIdentifiable, "Trigger identifiable");
-        return addEventTrigger(triggerIdentifiable.getId(), event);
+        requireNotNull(event, "Event identifiable");
+        return addEventTrigger(triggerIdentifiable.getId(), event.getId());
     }
 
     @Override
-    public TransitionDef<T, C> addEventTrigger(BiPredicate<String, T> condition) {
-        throw new UnsupportedOperationException("Triggers not yet implemented");
+    public TransitionDef<T, C> addEventTrigger(Identifiable event) {
+        requireNotNull(event, "Event identifiable");
+        return addEventTrigger(event.getId(), event.getId());
     }
 
     @Override
-    public TransitionDef<T, C> addEventTrigger(String id, BiPredicate<String, T> condition) {
-        throw new UnsupportedOperationException("Triggers not yet implemented");
+    public TransitionDef<T, C> addEventTrigger(String id, Consumer<EventTriggerDef<T, C>> configurer) {
+        requireConfigurerActive("addEventTrigger");
+        requireNotBlank(id, "Trigger ID");
+        requireNotNull(configurer, "Event trigger configurer");
+        EventTriggerDefImpl<T, C> trigger = new EventTriggerDefImpl<>(id, this);
+        ConfigurableDefImpl.runConfigurer(trigger, configurer);
+        eventTriggers.add(trigger);
+        return this;
     }
 
     @Override
-    public TransitionDef<T, C> addEventTrigger(Identifiable triggerIdentifiable, BiPredicate<String, T> condition) {
+    public TransitionDef<T, C> addEventTrigger(Identifiable triggerIdentifiable, Consumer<EventTriggerDef<T, C>> configurer) {
         requireNotNull(triggerIdentifiable, "Trigger identifiable");
-        return addEventTrigger(triggerIdentifiable.getId(), condition);
+        return addEventTrigger(triggerIdentifiable.getId(), configurer);
     }
 
     @Override
-    public TransitionDef<T, C> addDataTrigger(String id) {
-        throw new UnsupportedOperationException("Triggers not yet implemented");
+    public TransitionDef<T, C> addDataTrigger(String id, Consumer<DataTriggerDef<T, C>> configurer) {
+        requireConfigurerActive("addDataTrigger");
+        requireNotBlank(id, "Trigger ID");
+        requireNotNull(configurer, "Data trigger configurer");
+        DataTriggerDefImpl<T, C> trigger = new DataTriggerDefImpl<>(id, this);
+        ConfigurableDefImpl.runConfigurer(trigger, configurer);
+        dataTriggers.add(trigger);
+        return this;
     }
 
     @Override
-    public TransitionDef<T, C> addDataTrigger(Identifiable triggerIdentifiable) {
+    public TransitionDef<T, C> addDataTrigger(Identifiable triggerIdentifiable, Consumer<DataTriggerDef<T, C>> configurer) {
         requireNotNull(triggerIdentifiable, "Trigger identifiable");
-        return addDataTrigger(triggerIdentifiable.getId());
-    }
-
-    @Override
-    public TransitionDef<T, C> addDataTrigger(BiPredicate<T, C> condition) {
-        throw new UnsupportedOperationException("Triggers not yet implemented");
-    }
-
-    @Override
-    public TransitionDef<T, C> addDataTrigger(String id, BiPredicate<T, C> condition) {
-        throw new UnsupportedOperationException("Triggers not yet implemented");
-    }
-
-    @Override
-    public TransitionDef<T, C> addDataTrigger(Identifiable triggerIdentifiable, BiPredicate<T, C> condition) {
-        requireNotNull(triggerIdentifiable, "Trigger identifiable");
-        return addDataTrigger(triggerIdentifiable.getId(), condition);
-    }
-
-    @Override
-    public TransitionDef<T, C> addDataTrigger(Predicate<T> condition) {
-        throw new UnsupportedOperationException("Triggers not yet implemented");
-    }
-
-    @Override
-    public TransitionDef<T, C> addDataTrigger(String id, Predicate<T> condition) {
-        throw new UnsupportedOperationException("Triggers not yet implemented");
-    }
-
-    @Override
-    public TransitionDef<T, C> addDataTrigger(Identifiable triggerIdentifiable, Predicate<T> condition) {
-        requireNotNull(triggerIdentifiable, "Trigger identifiable");
-        return addDataTrigger(triggerIdentifiable.getId(), condition);
+        return addDataTrigger(triggerIdentifiable.getId(), configurer);
     }
 
     private SimpleOperationDefImpl<T, C> newSimpleOperationDef(String operationId) {

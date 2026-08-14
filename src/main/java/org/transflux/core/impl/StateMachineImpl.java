@@ -29,6 +29,7 @@ import org.transflux.core.operation.Step;
 import org.transflux.core.state.State;
 import org.transflux.core.state.StateApplier;
 import org.transflux.core.state.StateResolver;
+import org.transflux.core.transition.ProcessResult;
 import org.transflux.core.transition.StepPath;
 import org.transflux.core.transition.Transition;
 import org.transflux.core.transition.TransitionResult;
@@ -47,6 +48,7 @@ import java.util.stream.Collectors;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
+import static org.transflux.core.impl.ThrowingUtils.sneakyGet;
 
 /**
  * Implementation of the {@link StateMachine} interface.
@@ -68,7 +70,17 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
     private final Map<String, State<T>> states = new LinkedHashMap<>();
     private final Map<String, BoundTransition<T, ?>> transitions = new LinkedHashMap<>();
-    private final Map<String, Trigger> triggers = new LinkedHashMap<>();
+    private final Map<String, TriggerImpl> triggers = new LinkedHashMap<>();
+
+    /**
+     * Host-driven triggers indexed by the source state they leave, each paired with its already
+     * resolved transition. Dispatch is a scan of the entity's current state only, and the lists
+     * preserve declaration order so first-match semantics are unchanged.
+     */
+    private final Map<String, List<TriggerBinding<T, EventTriggerImpl<T>>>> eventTriggersBySource =
+        new LinkedHashMap<>();
+    private final Map<String, List<TriggerBinding<T, DataTriggerImpl<T, ?>>>> dataTriggersBySource =
+        new LinkedHashMap<>();
     private final Registry<T> componentRegistry;
     private final StateMachineDefImpl<T> def;
 
@@ -117,34 +129,12 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
         for (TransitionDefImpl<T, ?> td : def.getTransitionsById().values()) {
             registerManualTriggers(td, conditionRegistry);
+            registerEventTriggers(td);
+            registerDataTriggers(td, conditionRegistry);
         }
 
         registry.flatten();
         def.flattenCompositeScopes();
-    }
-
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private void registerManualTriggers(TransitionDefImpl<T, ?> td,
-                                        Map<String, BoundCondition<T, ?>> conditionRegistry) {
-        for (ManualTriggerDefImpl<T, ?> mt : td.getManualTriggers()) {
-            Trigger trigger = mt.buildBoundTrigger((Map) conditionRegistry);
-            if (triggers.containsKey(trigger.getId())) {
-                throw new TransfluxValidationException(
-                    "Trigger id '" + trigger.getId() + "' is already registered");
-            }
-            triggers.put(trigger.getId(), trigger);
-        }
-    }
-
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private <C> BoundTransition<T, C> buildTransition(TransitionDefImpl<T, C> td,
-                                                      Map<String, BoundCondition<T, ?>> conditionRegistry) {
-        return BoundTransition.from(td, this, (Map) conditionRegistry);
-    }
-
-    private Class<?> effectiveContextType(StateMachineDefImpl<T> def, String id) {
-        Class<?> declared = def.getComponentContextType(id);
-        return declared != null ? declared : Object.class;
     }
 
     Registry<T> getComponentRegistry() {
@@ -261,13 +251,36 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
     @Override
     public Collection<Trigger> getTriggers() {
-        return List.copyOf(triggers.values());
+        return List.<Trigger>copyOf(triggers.values());
+    }
+
+    @Override
+    public <X extends Trigger> Collection<X> getTriggers(Class<X> kind) {
+        requireNotNull(kind, "Trigger kind");
+        return triggers.values().stream()
+            .filter(kind::isInstance)
+            .map(kind::cast)
+            .collect(Collectors.toUnmodifiableList());
     }
 
     @Override
     public Trigger getTrigger(String triggerId) {
+        return getTriggerImpl(triggerId);
+    }
+
+    /**
+     * Resolves a registered trigger to its runtime implementation, which carries the dispatch seams
+     * the public {@link Trigger} view does not expose.
+     *
+     * @param triggerId the trigger id to resolve
+     *
+     * @return the registered trigger
+     *
+     * @throws TransfluxValidationException if no trigger is registered under that id
+     */
+    TriggerImpl getTriggerImpl(String triggerId) {
         requireNotBlank(triggerId, "Trigger ID");
-        Trigger trigger = triggers.get(triggerId);
+        TriggerImpl trigger = triggers.get(triggerId);
         if (trigger == null) {
             throw new TransfluxValidationException("Trigger '" + triggerId + "' does not exist");
         }
@@ -300,6 +313,57 @@ class StateMachineImpl<T> implements StateMachine<T> {
         }
 
         return transition;
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void registerManualTriggers(TransitionDefImpl<T, ?> td,
+                                        Map<String, BoundCondition<T, ?>> conditionRegistry) {
+        for (ManualTriggerDefImpl<T, ?> mt : td.getManualTriggers()) {
+            putTrigger(mt.buildBoundTrigger((Map) conditionRegistry));
+        }
+    }
+
+    private void registerEventTriggers(TransitionDefImpl<T, ?> td) {
+        BoundTransition<T, ?> transition = getTransition(td.getId());
+        for (EventTriggerDefImpl<T, ?> et : td.getEventTriggers()) {
+            EventTriggerImpl<T> trigger = et.buildBoundTrigger();
+            putTrigger(trigger);
+            eventTriggersBySource
+                .computeIfAbsent(transition.sourceStateId(), s -> new ArrayList<>())
+                .add(new TriggerBinding<>(trigger, transition));
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void registerDataTriggers(TransitionDefImpl<T, ?> td,
+                                      Map<String, BoundCondition<T, ?>> conditionRegistry) {
+        BoundTransition<T, ?> transition = getTransition(td.getId());
+        for (DataTriggerDefImpl<T, ?> dt : td.getDataTriggers()) {
+            DataTriggerImpl<T, ?> trigger = dt.buildBoundTrigger((Map) conditionRegistry);
+            putTrigger(trigger);
+            dataTriggersBySource
+                .computeIfAbsent(transition.sourceStateId(), s -> new ArrayList<>())
+                .add(new TriggerBinding<>(trigger, transition));
+        }
+    }
+
+    private void putTrigger(TriggerImpl trigger) {
+        if (triggers.containsKey(trigger.getId())) {
+            throw new TransfluxValidationException(
+                "Trigger id '" + trigger.getId() + "' is already registered");
+        }
+        triggers.put(trigger.getId(), trigger);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private <C> BoundTransition<T, C> buildTransition(TransitionDefImpl<T, C> td,
+                                                      Map<String, BoundCondition<T, ?>> conditionRegistry) {
+        return BoundTransition.from(td, this, (Map) conditionRegistry);
+    }
+
+    private Class<?> effectiveContextType(StateMachineDefImpl<T> def, String id) {
+        Class<?> declared = def.getComponentContextType(id);
+        return declared != null ? declared : Object.class;
     }
 
     private BoundTransition<T, ?> findTransition(String sourceStateId, String targetStateId) {
@@ -439,16 +503,53 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private TransitionResult<T> fireWith(T entity, Object firingContext,
-                                         BoundTransition<T, ?> transition, Trigger trigger) {
-        List additionalPreConditions = triggerPreConditions(trigger);
+                                         BoundTransition<T, ?> transition, TriggerImpl trigger) {
+        List additionalPreConditions = trigger.preConditions();
         return executeTransitionInternal(entity, firingContext, (BoundTransition) transition, additionalPreConditions);
     }
 
-    private List<? extends BoundCondition<?, ?>> triggerPreConditions(Trigger trigger) {
-        if (trigger instanceof ManualTriggerImpl<?, ?> manual) {
-            return manual.preConditions();
+    /**
+     * Reports whether a firing context satisfies a transition's declared context type.
+     * <p>
+     * Targeted entry points turn a {@code false} here into a rejection, while the dispatch entry
+     * points treat it as ineligibility and keep scanning — so a trigger's filter or gate never sees
+     * a context its own transition would refuse.
+     *
+     * @param transition the transition whose declared context type applies
+     * @param firingContext the host-supplied context; may be {@code null}
+     *
+     * @return {@code true} if the context is acceptable
+     */
+    private static boolean contextFits(BoundTransition<?, ?> transition, Object firingContext) {
+        Class<?> expected = transition.contextType();
+        if (expected == Void.class) {
+            return firingContext == null;
         }
-        return List.of();
+        if (firingContext == null || expected == null || expected == Object.class) {
+            return true;
+        }
+        return expected.isInstance(firingContext);
+    }
+
+    private static String contextMismatchMessage(BoundTransition<?, ?> transition, Object firingContext) {
+        if (transition.contextType() == Void.class) {
+            return "Context type mismatch: transition '" + transition.id()
+                + "' expects Void (no context) but received "
+                + firingContext.getClass().getName();
+        }
+        return "Context type mismatch: transition '" + transition.id()
+            + "' expects " + transition.contextType().getName()
+            + " but received " + firingContext.getClass().getName();
+    }
+
+    /**
+     * A host-driven trigger paired with the transition it fires, resolved once at build time so
+     * dispatch does not re-look-up the transition per candidate.
+     *
+     * @param <T> the entity type the surrounding state machine manages
+     * @param <X> the concrete trigger kind
+     */
+    private record TriggerBinding<T, X extends TriggerImpl>(X trigger, BoundTransition<T, ?> transition) {
     }
 
     private record EntityKey(StateMachineImpl<?> sm, Object entity) {
@@ -583,7 +684,8 @@ class StateMachineImpl<T> implements StateMachine<T> {
         public TransitionResult<T> fire(String triggerId, Object firingContext) {
             requireNotBlank(triggerId, "Trigger ID");
 
-            Trigger trigger = StateMachineImpl.this.getTrigger(triggerId);
+            TriggerImpl trigger = StateMachineImpl.this.getTriggerImpl(triggerId);
+            trigger.checkDirectlyFireable();
             BoundTransition<T, ?> transition = StateMachineImpl.this.getTransition(trigger.getTransitionId());
 
             String currentStateId = resolveCurrentState(entity);
@@ -610,26 +712,105 @@ class StateMachineImpl<T> implements StateMachine<T> {
             return fire(trigger.getId(), firingContext);
         }
 
-        private void verifyFireContext(BoundTransition<T, ?> transition, Object firingContext) {
-            Class<?> expected = transition.contextType();
-            if (expected == Void.class) {
-                if (firingContext != null) {
-                    throw new TransfluxValidationException(
-                        "Context type mismatch: transition '" + transition.id()
-                            + "' expects Void (no context) but received "
-                            + firingContext.getClass().getName());
+        @Override
+        public ProcessResult<T> processEvent(String eventId, Object eventData) {
+            return processEvent(eventId, eventData, null);
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public ProcessResult<T> processEvent(String eventId, Object eventData, Object context) {
+            requireNotBlank(eventId, "Event ID");
+
+            String currentStateId = resolveCurrentState(entity);
+            for (TriggerBinding<T, EventTriggerImpl<T>> binding : eventTriggersLeaving(currentStateId)) {
+                EventTriggerImpl<T> trigger = binding.trigger();
+                if (!trigger.getEventId().equals(eventId)) {
+                    continue;
                 }
+                if (!contextFits(binding.transition(), context)) {
+                    logIneligibleContext(trigger, binding.transition(), context);
+                    continue;
+                }
+                boolean matches = sneakyGet(() -> trigger.matches(eventData, entity, context),
+                    "Event trigger '" + trigger.getId() + "' filter failed");
+                if (!matches) {
+                    continue;
+                }
+                return ProcessResult.fired(trigger.getId(),
+                    executeTransitionInternal(entity, context, binding.transition()));
+            }
+            return ProcessResult.notFired();
+        }
+
+        @Override
+        public ProcessResult<T> processEvent(Identifiable event, Object eventData) {
+            requireNotNull(event, "Event identifiable");
+            return processEvent(event.getId(), eventData);
+        }
+
+        @Override
+        public ProcessResult<T> processEvent(Identifiable event, Object eventData, Object context) {
+            requireNotNull(event, "Event identifiable");
+            return processEvent(event.getId(), eventData, context);
+        }
+
+        @Override
+        public ProcessResult<T> processDataChange() {
+            return processDataChange(null);
+        }
+
+        @Override
+        public ProcessResult<T> processDataChange(Object context) {
+            String currentStateId = resolveCurrentState(entity);
+            for (TriggerBinding<T, DataTriggerImpl<T, ?>> binding : dataTriggersLeaving(currentStateId)) {
+                DataTriggerImpl<T, ?> trigger = binding.trigger();
+                if (!contextFits(binding.transition(), context)) {
+                    logIneligibleContext(trigger, binding.transition(), context);
+                    continue;
+                }
+                if (!gateHolds(trigger, binding.transition(), context)) {
+                    continue;
+                }
+                return ProcessResult.fired(trigger.getId(),
+                    executeTransitionInternal(entity, context, binding.transition()));
+            }
+            return ProcessResult.notFired();
+        }
+
+        private void logIneligibleContext(Trigger trigger, BoundTransition<T, ?> transition, Object context) {
+            log.debug("Trigger '{}' is not eligible: {}", trigger.getId(),
+                contextMismatchMessage(transition, context));
+        }
+
+        private List<TriggerBinding<T, EventTriggerImpl<T>>> eventTriggersLeaving(String currentStateId) {
+            return eventTriggersBySource.getOrDefault(currentStateId, List.of());
+        }
+
+        private List<TriggerBinding<T, DataTriggerImpl<T, ?>>> dataTriggersLeaving(String currentStateId) {
+            return dataTriggersBySource.getOrDefault(currentStateId, List.of());
+        }
+
+        /**
+         * Evaluates a data trigger's gate ahead of any transition being entered, so the gate never
+         * touches the reentrancy guard. The view handed to the gate exposes the transition's
+         * topology but rejects step and operation dispatch; a held gate fires a fresh execution
+         * that gets a full view of its own.
+         */
+        @SuppressWarnings("unchecked")
+        private <C> boolean gateHolds(DataTriggerImpl<T, C> trigger, BoundTransition<T, ?> transition,
+                                      Object context) {
+            C ctx = (C) context;
+            Transition<T, C> probe = new TopologyTransition<>((BoundTransition<T, C>) transition);
+            return sneakyGet(() -> trigger.gate().condition().test(entity, ctx, probe),
+                "Data trigger '" + trigger.getId() + "' gate condition failed");
+        }
+
+        private void verifyFireContext(BoundTransition<T, ?> transition, Object firingContext) {
+            if (contextFits(transition, firingContext)) {
                 return;
             }
-            if (firingContext == null || expected == null || expected == Object.class) {
-                return;
-            }
-            if (!expected.isInstance(firingContext)) {
-                throw new TransfluxValidationException(
-                    "Context type mismatch: transition '" + transition.id()
-                        + "' expects " + expected.getName()
-                        + " but received " + firingContext.getClass().getName());
-            }
+            throw new TransfluxValidationException(contextMismatchMessage(transition, firingContext));
         }
     }
 }

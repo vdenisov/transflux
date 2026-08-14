@@ -45,7 +45,8 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     private static final Logger log = LoggerFactory.getLogger(BranchDefImpl.class);
 
     private final String branchId;
-    private ConditionDescriptor descriptor;
+    private final ConditionDescriptorSink<T, C, BranchDef<T, C>> branchCondition =
+        new ConditionDescriptorSink<>(this, this, "condition", log);
     private final List<ActionRef<T, C>> actionRefs = new ArrayList<>();
 
     BranchDefImpl(String branchId) {
@@ -63,7 +64,7 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     }
 
     ConditionDescriptor getDescriptor() {
-        return descriptor;
+        return branchCondition.descriptor();
     }
 
     List<ActionRef<T, C>> getActionRefs() {
@@ -78,92 +79,67 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
 
     @Override
     public BranchDef<T, C> condition(String registeredConditionId) {
-        requireConfigurerActive("condition");
-        requireNotBlank(registeredConditionId, "Registered condition ID");
-        return setDescriptor(ConditionDescriptor.ref(registeredConditionId));
+        return branchCondition.ref(registeredConditionId);
     }
 
     @Override
     public BranchDef<T, C> condition(Identifiable registeredCondition) {
-        requireNotNull(registeredCondition, "Condition identifiable");
-        return condition(registeredCondition.getId());
+        return branchCondition.ref(registeredCondition);
     }
 
     @Override
     public BranchDef<T, C> conditionExpression(String expression) {
-        requireConfigurerActive("condition");
-        requireNotBlank(expression, "Expression");
-        return setDescriptor(ConditionDescriptor.expression(expression));
+        return branchCondition.expression(expression);
     }
 
     @Override
     public BranchDef<T, C> condition(String id, Condition<T, C> condition) {
-        requireConfigurerActive("condition");
-        requireNotBlank(id, "Condition ID");
-        requireNotNull(condition, "Condition");
-        return setDescriptor(ConditionDescriptor.instanceBased(id, condition));
+        return branchCondition.instanceBased(id, condition);
     }
 
     @Override
     public BranchDef<T, C> condition(Identifiable conditionIdentifiable, Condition<T, C> condition) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return condition(conditionIdentifiable.getId(), condition);
+        return branchCondition.instanceBased(conditionIdentifiable, condition);
     }
 
     @Override
     public BranchDef<T, C> condition(String id, Class<? extends Condition<T, C>> conditionClass) {
-        requireConfigurerActive("condition");
-        requireNotBlank(id, "Condition ID");
-        requireNotNull(conditionClass, "Condition class");
-        return setDescriptor(ConditionDescriptor.classBased(id, conditionClass));
+        return branchCondition.classBased(id, conditionClass);
     }
 
     @Override
     public BranchDef<T, C> condition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return condition(conditionIdentifiable.getId(), conditionClass);
+        return branchCondition.classBased(conditionIdentifiable, conditionClass);
     }
 
     @Override
     public BranchDef<T, C> condition(String id, BiPredicate<T, C> predicate) {
-        requireConfigurerActive("condition");
-        requireNotBlank(id, "Condition ID");
-        requireNotNull(predicate, "Predicate");
-        return setDescriptor(ConditionDescriptor.predicate(id, predicate));
+        return branchCondition.predicate(id, predicate);
     }
 
     @Override
     public BranchDef<T, C> condition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return condition(conditionIdentifiable.getId(), predicate);
+        return branchCondition.predicate(conditionIdentifiable, predicate);
     }
 
     @Override
     public BranchDef<T, C> condition(String id, Predicate<T> predicate) {
-        requireConfigurerActive("condition");
-        requireNotBlank(id, "Condition ID");
-        requireNotNull(predicate, "Predicate");
-        return setDescriptor(ConditionDescriptor.predicate(id, predicate));
+        return branchCondition.predicate(id, predicate);
     }
 
     @Override
     public BranchDef<T, C> condition(Identifiable conditionIdentifiable, Predicate<T> predicate) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return condition(conditionIdentifiable.getId(), predicate);
+        return branchCondition.predicate(conditionIdentifiable, predicate);
     }
 
     @Override
     public BranchDef<T, C> condition(String id, String expression) {
-        requireConfigurerActive("condition");
-        requireNotBlank(id, "Condition ID");
-        requireNotBlank(expression, "Expression");
-        return setDescriptor(ConditionDescriptor.expression(id, expression));
+        return branchCondition.expression(id, expression);
     }
 
     @Override
     public BranchDef<T, C> condition(Identifiable conditionIdentifiable, String expression) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return condition(conditionIdentifiable.getId(), expression);
+        return branchCondition.expression(conditionIdentifiable, expression);
     }
 
     @Override
@@ -205,11 +181,4 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
         return step(stepIdentifiable.getId(), stepClass);
     }
 
-    private BranchDef<T, C> setDescriptor(ConditionDescriptor incoming) {
-        if (this.descriptor != null) {
-            log.warn("Condition is already defined for branch '{}'; overriding previous value", branchId);
-        }
-        this.descriptor = incoming;
-        return this;
-    }
 }

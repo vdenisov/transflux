@@ -18,17 +18,16 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.trigger.Trigger;
+import org.transflux.core.trigger.ManualTrigger;
 
 import java.util.List;
 
-import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Runtime manual trigger paired with its resolved pre-conditions.
  * <p>
- * Implements the public {@link Trigger} catalog view and additionally carries the bound
+ * Implements the public {@link ManualTrigger} catalog view and additionally carries the bound
  * pre-conditions evaluated when the trigger fires. The pre-conditions are applied after the
  * enclosing transition's own pre-conditions; the accessor is package-private so only the dispatch
  * path reads them.
@@ -36,44 +35,15 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-final class ManualTriggerImpl<T, C> implements Trigger {
+final class ManualTriggerImpl<T, C> extends TriggerImpl implements ManualTrigger {
 
-    private final String id;
-    private final String name;
-    private final String description;
-    private final String transitionId;
     private final List<BoundCondition<T, C>> preConditions;
 
     ManualTriggerImpl(String id, String name, String description, String transitionId,
                       List<BoundCondition<T, C>> preConditions) {
-        requireNotBlank(id, "Trigger ID");
-        requireNotBlank(transitionId, "Trigger transition ID");
+        super(id, name, description, transitionId);
         requireNotNull(preConditions, "Trigger pre-conditions");
-        this.id = id;
-        this.name = name;
-        this.description = description;
-        this.transitionId = transitionId;
         this.preConditions = List.copyOf(preConditions);
-    }
-
-    @Override
-    public String getId() {
-        return id;
-    }
-
-    @Override
-    public String getName() {
-        return name;
-    }
-
-    @Override
-    public String getDescription() {
-        return description;
-    }
-
-    @Override
-    public String getTransitionId() {
-        return transitionId;
     }
 
     /**
@@ -81,7 +51,23 @@ final class ManualTriggerImpl<T, C> implements Trigger {
      *
      * @return an immutable list of bound pre-conditions
      */
+    @Override
     List<BoundCondition<T, C>> preConditions() {
         return preConditions;
+    }
+
+    @Override
+    void checkDirectlyFireable() {
+        // Manual triggers exist to be fired directly; their gate is the pre-condition list above.
+    }
+
+    @Override
+    String kindPhrase() {
+        return "a manual trigger";
+    }
+
+    @Override
+    String dispatchEntryPoint() {
+        return "fire(triggerId[, context])";
     }
 }

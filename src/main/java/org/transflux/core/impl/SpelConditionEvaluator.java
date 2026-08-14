@@ -83,6 +83,43 @@ final class SpelConditionEvaluator {
     <T, C> boolean evaluate(String expression, T entity, C context, Transition<T, C> transition) {
         requireNotBlank(expression, "Expression");
 
+        StandardEvaluationContext evalContext = new StandardEvaluationContext(entity);
+        evalContext.setVariable("context", context);
+        evalContext.setVariable("transition", transition);
+
+        return evaluateBoolean(expression, evalContext);
+    }
+
+    /**
+     * Parses (or retrieves from cache) the given event-filter expression and evaluates it against
+     * the supplied scope.
+     * <p>
+     * Event filters bind the entity as the SpEL root object, the event payload as the variable
+     * {@code #event}, and the host-supplied context as {@code #context}.
+     *
+     * @param expression the SpEL expression text; never {@code null} or blank
+     * @param entity the entity bound as the SpEL root object; may be {@code null}
+     * @param eventData the event payload bound as {@code #event}; may be {@code null}
+     * @param context the host-supplied context bound as {@code #context}; may be {@code null}
+     * @param <T> the entity type
+     *
+     * @return the boolean result of evaluating the expression
+     *
+     * @throws TransfluxValidationException if {@code expression} is {@code null} or blank,
+     *         if the expression cannot be parsed, if evaluation fails, or if the expression
+     *         does not evaluate to a {@code Boolean}
+     */
+    <T> boolean evaluateEventFilter(String expression, T entity, Object eventData, Object context) {
+        requireNotBlank(expression, "Expression");
+
+        StandardEvaluationContext evalContext = new StandardEvaluationContext(entity);
+        evalContext.setVariable("event", eventData);
+        evalContext.setVariable("context", context);
+
+        return evaluateBoolean(expression, evalContext);
+    }
+
+    private boolean evaluateBoolean(String expression, StandardEvaluationContext evalContext) {
         Expression parsed = cache.get(expression);
         if (parsed == null) {
             Expression freshlyParsed = ThrowingUtils.sneakyGet(() -> parser.parseExpression(expression),
@@ -90,10 +127,6 @@ final class SpelConditionEvaluator {
             cache.putIfAbsent(expression, freshlyParsed);
             parsed = cache.get(expression);
         }
-
-        StandardEvaluationContext evalContext = new StandardEvaluationContext(entity);
-        evalContext.setVariable("context", context);
-        evalContext.setVariable("transition", transition);
 
         Expression toEvaluate = parsed;
         Object result = ThrowingUtils.sneakyGet(() -> toEvaluate.getValue(evalContext),

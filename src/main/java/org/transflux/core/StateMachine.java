@@ -19,6 +19,7 @@
 package org.transflux.core;
 
 import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.transition.ProcessResult;
 import org.transflux.core.transition.TransitionResult;
 import org.transflux.core.trigger.Trigger;
 
@@ -197,6 +198,24 @@ public interface StateMachine<T> {
      * @return an unmodifiable collection of triggers; empty when none are declared
      */
     Collection<Trigger> getTriggers();
+
+    /**
+     * Returns the triggers of the given kind declared across this state machine's transitions.
+     * <p>
+     * The kind is matched by assignability, so passing a trigger subtype
+     * ({@link org.transflux.core.trigger.ManualTrigger}, {@link org.transflux.core.trigger.EventTrigger},
+     * {@link org.transflux.core.trigger.DataTrigger}) selects exactly the triggers of that kind, and
+     * passing {@link Trigger} returns the whole catalog. The return type is narrowed to the
+     * requested kind for type-safe iteration.
+     *
+     * @param kind the trigger kind to select; never {@code null}
+     * @param <X> the requested trigger kind
+     *
+     * @return an unmodifiable collection of the matching triggers; empty when none are declared
+     *
+     * @throws TransfluxValidationException if {@code kind} is {@code null}
+     */
+    <X extends Trigger> Collection<X> getTriggers(Class<X> kind);
 
     /**
      * Returns the trigger registered under the given id.
@@ -446,5 +465,94 @@ public interface StateMachine<T> {
          * @throws TransfluxValidationException if {@code trigger} is {@code null}
          */
         TransitionResult<T> fire(Identifiable trigger, Object context);
+
+        /**
+         * Processes a host-published event against the entity's eligible event triggers, with no
+         * firing context.
+         * <p>
+         * Among the event triggers on transitions leaving the entity's current state, those whose
+         * declared event id equals {@code eventId} are evaluated in declaration order; the first
+         * whose filter holds fires its transition. {@code eventData} is the event payload — it is
+         * exposed to filters (as {@code #event} in SpEL forms) but is <b>not</b> passed to the
+         * transition as its context.
+         *
+         * @param eventId the published event id; never {@code null} or blank
+         * @param eventData the event payload; may be {@code null}
+         *
+         * @return the outcome — a fired transition's result, or a not-fired marker when nothing matched
+         *
+         * @throws TransfluxValidationException if {@code eventId} is {@code null} or blank
+         */
+        ProcessResult<T> processEvent(String eventId, Object eventData);
+
+        /**
+         * Processes a host-published event against the entity's eligible event triggers, passing
+         * {@code context} through to the fired transition's operation. The framework verifies the
+         * context type against the fired transition at the dispatch boundary.
+         *
+         * @param eventId the published event id; never {@code null} or blank
+         * @param eventData the event payload; may be {@code null}
+         * @param context the fire-time context for the transition; may be {@code null}
+         *
+         * @return the outcome — a fired transition's result, or a not-fired marker when nothing matched
+         *
+         * @throws TransfluxValidationException if {@code eventId} is {@code null} or blank, or the
+         *         matched transition's context type does not accept {@code context}
+         */
+        ProcessResult<T> processEvent(String eventId, Object eventData, Object context);
+
+        /**
+         * {@link Identifiable} overload of {@link #processEvent(String, Object)} — event id supplied
+         * as an identifiable.
+         *
+         * @param event an identifiable supplying the event id
+         * @param eventData the event payload; may be {@code null}
+         *
+         * @return the outcome — a fired transition's result, or a not-fired marker when nothing matched
+         *
+         * @throws TransfluxValidationException if {@code event} is {@code null}
+         */
+        ProcessResult<T> processEvent(Identifiable event, Object eventData);
+
+        /**
+         * {@link Identifiable} overload of {@link #processEvent(String, Object, Object)} — event id
+         * supplied as an identifiable.
+         *
+         * @param event an identifiable supplying the event id
+         * @param eventData the event payload; may be {@code null}
+         * @param context the fire-time context for the transition; may be {@code null}
+         *
+         * @return the outcome — a fired transition's result, or a not-fired marker when nothing matched
+         *
+         * @throws TransfluxValidationException if {@code event} is {@code null}
+         */
+        ProcessResult<T> processEvent(Identifiable event, Object eventData, Object context);
+
+        /**
+         * Re-evaluates the entity's eligible data triggers, with no firing context.
+         * <p>
+         * Among the data triggers on transitions leaving the entity's current state, each gate is
+         * evaluated in declaration order; the first whose gate holds fires its transition. The
+         * library does not watch fields or evaluate in the background — re-evaluation happens only
+         * on this explicit call.
+         *
+         * @return the outcome — a fired transition's result, or a not-fired marker when nothing matched
+         */
+        ProcessResult<T> processDataChange();
+
+        /**
+         * Re-evaluates the entity's eligible data triggers, passing {@code context} through to both
+         * gate evaluation (as {@code #context} in SpEL forms) and the fired transition's operation.
+         * The framework verifies the context type against the fired transition at the dispatch
+         * boundary.
+         *
+         * @param context the fire-time context; may be {@code null}
+         *
+         * @return the outcome — a fired transition's result, or a not-fired marker when nothing matched
+         *
+         * @throws TransfluxValidationException if the matched transition's context type does not
+         *         accept {@code context}
+         */
+        ProcessResult<T> processDataChange(Object context);
     }
 }
