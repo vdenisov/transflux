@@ -50,4 +50,20 @@ final class ValidationUtils {
                     fieldName, current, incoming);
         }
     }
+
+    /**
+     * Logs a warning when a slot is already occupied, for callers whose slot is not a single
+     * nullable field the old value can be read back from (a multi-field source, or a
+     * {@link java.util.function.Supplier} whose realized value is not available yet).
+     *
+     * @param alreadySet whether the slot already holds a value
+     * @param fieldName the human-readable field name, used in the log message
+     * @param ownerLabel the human-readable owner the field belongs to
+     * @param log the logger to emit the warning on
+     */
+    static void warnIfSet(boolean alreadySet, String fieldName, String ownerLabel, Logger log) {
+        if (alreadySet) {
+            log.warn("{} already defined for {}; overriding previous value", fieldName, ownerLabel);
+        }
+    }
 }

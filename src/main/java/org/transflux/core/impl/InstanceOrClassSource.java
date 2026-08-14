@@ -89,8 +89,6 @@ final class InstanceOrClassSource<X> {
     }
 
     private void warnIfSet() {
-        if (isSet()) {
-            log.warn("{} already defined for {}; overriding previous value", sourceLabel, ownerLabel);
-        }
+        ValidationUtils.warnIfSet(isSet(), sourceLabel, ownerLabel, log);
     }
 }
