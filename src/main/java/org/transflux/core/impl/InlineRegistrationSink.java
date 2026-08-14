@@ -18,6 +18,7 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.condition.ConditionDescriptor;
 import org.transflux.core.operation.Operation;
 import org.transflux.core.operation.Step;
 
@@ -25,6 +26,7 @@ import java.util.Map;
 
 import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
 import static org.transflux.core.impl.StateMachineDefImpl.claimCanonical;
+import static org.transflux.core.impl.StateMachineDefImpl.claimInlineCondition;
 
 /**
  * Visitor sink for the polymorphic {@code collectInlineRegistrations} walk over a composite's
@@ -90,6 +92,16 @@ final class InlineRegistrationSink<T, C> {
         Operation<T, C> resolved = (Operation<T, C>) instantiateNoArg((Class) operationClass, "Operation");
         BoundOperation<T, C> bound = BoundOperation.of(id, resolved);
         scope.register(new Component.Operation<>(id, contextType, bound));
+    }
+
+    /**
+     * Claims an inline branch condition's id, so it competes for the id with every other component
+     * exactly as an inline step or operation does.
+     *
+     * @param descriptor the branch's condition descriptor; may be {@code null}
+     */
+    void registerInlineCondition(ConditionDescriptor descriptor) {
+        claimInlineCondition(canonical, descriptor);
     }
 
     void registerConditional(String id, ConditionalStepDefImpl<T, C> def) {

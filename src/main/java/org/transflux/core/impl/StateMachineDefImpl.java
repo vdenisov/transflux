@@ -25,6 +25,7 @@ import org.transflux.core.Identifiable;
 import org.transflux.core.StateMachine;
 import org.transflux.core.StateMachineDef;
 import org.transflux.core.condition.Condition;
+import org.transflux.core.condition.ConditionDescriptor;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.operation.CompositeOperationDef;
 import org.transflux.core.operation.ContextMapper;
@@ -337,6 +338,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
 
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
+            claimInlineConditions(canonical, td);
             OperationDefImpl<T, ?, ?> op = td.getOperationDef();
             if (op != null) {
                 op.bindScope(rootRegistry, canonical, conditionRegistry);
@@ -412,10 +414,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     /**
      * Records the canonical payload for {@code id} in the per-build global table. Idempotent
-     * for an existing identical payload (same instance reference, or equal {@link Class}
-     * object) — mirrors the idempotency rules of the SM-level {@code registerStepInstance} /
-     * {@code registerStepClass} pair and friends. A different payload under the same id raises
-     * {@link TransfluxValidationException}, enforcing SM-wide id uniqueness.
+     * for an existing identical payload (same instance reference, or an equal {@link Class} or
+     * {@link String} value) — mirrors the idempotency rules of the SM-level
+     * {@code registerStepInstance} / {@code registerStepClass} pair and friends. A different
+     * payload under the same id raises {@link TransfluxValidationException}, enforcing SM-wide id
+     * uniqueness.
      */
     static void claimCanonical(Map<String, Object> canonical, String id, Object payload, String kind) {
         Object existing = canonical.get(id);
@@ -433,10 +436,75 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             return;
         }
 
+        if (existing instanceof String && payload instanceof String && existing.equals(payload)) {
+            return;
+        }
+
         throw new TransfluxValidationException(
             kind + " id '" + id + "' is already registered with payload '"
                 + payloadClassName(existing) + "'; cannot re-register with '"
                 + payloadClassName(payload) + "'.");
+    }
+
+    /**
+     * Claims every inline condition id a transition carries — its own pre- and post-conditions
+     * plus those of the triggers attached to it — in the per-build table.
+     *
+     * @param canonical the per-build canonical payload table
+     * @param td the transition to walk
+     *
+     * @throws TransfluxValidationException if any id is already held by a different payload
+     */
+    private void claimInlineConditions(Map<String, Object> canonical, TransitionDefImpl<T, ?> td) {
+        for (ConditionDescriptor descriptor : td.getPreConditionDescriptors()) {
+            claimInlineCondition(canonical, descriptor);
+        }
+        for (ConditionDescriptor descriptor : td.getPostConditionDescriptors()) {
+            claimInlineCondition(canonical, descriptor);
+        }
+        for (ManualTriggerDefImpl<T, ?> mt : td.getManualTriggers()) {
+            for (ConditionDescriptor descriptor : mt.getPreConditionDescriptors()) {
+                claimInlineCondition(canonical, descriptor);
+            }
+        }
+        for (DataTriggerDefImpl<T, ?> dt : td.getDataTriggers()) {
+            claimInlineCondition(canonical, dt.getGateDescriptor());
+        }
+    }
+
+    /**
+     * Claims the id of an inline condition descriptor in the per-build table, so a condition
+     * declared inline competes for its id with every other component the same way a step or an
+     * operation does.
+     * <p>
+     * Reference descriptors are skipped: they name an existing registration rather than declaring
+     * one. Expression descriptors with no explicit id are skipped too, since their id is derived
+     * from the expression and its descriptor path and so cannot collide.
+     *
+     * @param canonical the per-build canonical payload table
+     * @param descriptor the descriptor to claim; may be {@code null}
+     *
+     * @throws TransfluxValidationException if the id is already held by a different payload
+     */
+    static void claimInlineCondition(Map<String, Object> canonical, ConditionDescriptor descriptor) {
+        if (descriptor == null || descriptor.id() == null) {
+            return;
+        }
+
+        Object payload;
+        if (descriptor instanceof ConditionDescriptor.InstanceBased instanceBased) {
+            payload = instanceBased.condition();
+        } else if (descriptor instanceof ConditionDescriptor.ClassBased classBased) {
+            payload = classBased.conditionClass();
+        } else if (descriptor instanceof ConditionDescriptor.PredicateBased predicateBased) {
+            payload = predicateBased.predicate();
+        } else if (descriptor instanceof ConditionDescriptor.ExpressionBased expressionBased) {
+            payload = expressionBased.expression();
+        } else {
+            return;
+        }
+
+        claimCanonical(canonical, descriptor.id(), payload, "Condition");
     }
 
     private static String payloadClassName(Object payload) {
@@ -1049,12 +1117,71 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             if (op != null) {
                 op.checkRefs(transitionContext, "transition '" + td.getId() + "'", this);
             }
+            checkConditionRefs(td);
         }
         for (Map.Entry<String, CompositeOperationDefImpl<T, ?>> e : smCompositeOperations.entrySet()) {
             Class<?> scopeContext = componentContextTypes.get(e.getKey());
             e.getValue().checkRefs(scopeContext, "SM-level composite '" + e.getKey() + "'", this);
         }
         detectCompositeCycles();
+    }
+
+    /**
+     * Validates every by-id condition reference a transition carries — its own pre- and
+     * post-conditions plus those of the triggers attached to it — against the context the
+     * referencing site runs under.
+     *
+     * @param td the transition to walk
+     *
+     * @throws TransfluxValidationException if a referenced condition declares an incompatible
+     *         context type
+     */
+    private void checkConditionRefs(TransitionDefImpl<T, ?> td) {
+        Class<?> context = td.getContextType() != null ? td.getContextType() : Object.class;
+        String label = "transition '" + td.getId() + "'";
+
+        checkConditionRefs(td.getPreConditionDescriptors(), context, label, "pre-condition");
+        checkConditionRefs(td.getPostConditionDescriptors(), context, label, "post-condition");
+
+        for (ManualTriggerDefImpl<T, ?> mt : td.getManualTriggers()) {
+            checkConditionRefs(mt.getPreConditionDescriptors(), context,
+                "manual trigger '" + mt.getId() + "'", "pre-condition");
+        }
+        for (DataTriggerDefImpl<T, ?> dt : td.getDataTriggers()) {
+            checkConditionRef(dt.getGateDescriptor(), context,
+                "data trigger '" + dt.getId() + "'", "gate condition");
+        }
+    }
+
+    private void checkConditionRefs(List<ConditionDescriptor> descriptors, Class<?> scopeContext,
+                                    String scopeLabel, String kind) {
+        for (ConditionDescriptor descriptor : descriptors) {
+            checkConditionRef(descriptor, scopeContext, scopeLabel, kind);
+        }
+    }
+
+    /**
+     * Rejects a reference to a registered condition whose declared context type cannot accept the
+     * referencing site's context. Only the reference form is checkable — the inline forms are typed
+     * against the referencing def's own context by the compiler, and expressions are dynamic.
+     * Conditions registered through the untyped overloads carry no declared type and are skipped.
+     */
+    private void checkConditionRef(ConditionDescriptor descriptor, Class<?> scopeContext,
+                                   String scopeLabel, String kind) {
+        if (!(descriptor instanceof ConditionDescriptor.Reference ref)) {
+            return;
+        }
+        Class<?> componentContext = componentContextTypes.get(ref.id());
+        if (componentContext == null
+            || componentContext == Object.class
+            || componentContext.isAssignableFrom(scopeContext)) {
+            return;
+        }
+        throw new TransfluxValidationException(
+            "Context type mismatch: " + scopeLabel + " (context " + scopeContext.getName()
+                + ") references " + kind + " '" + ref.id() + "' declared for context "
+                + componentContext.getName() + "; conditions take no mapper — register the condition"
+                + " against a compatible context or declare it inline on " + scopeLabel);
     }
 
     private void detectCompositeCycles() {

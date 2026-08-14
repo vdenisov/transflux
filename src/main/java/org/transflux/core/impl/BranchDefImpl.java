@@ -72,6 +72,7 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     }
 
     void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
+        sink.registerInlineCondition(branchCondition.descriptor());
         for (ActionRef<T, C> ref : actionRefs) {
             ref.collectInlineRegistrations(sink);
         }
