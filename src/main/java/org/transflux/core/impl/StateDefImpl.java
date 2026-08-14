@@ -244,9 +244,11 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
 
     private StateListenerDefImpl<T> declareListener(String listenerId,
                                                     Consumer<StateListenerDef<T>> configurer) {
-        stateMachineDef.claimStateListenerId(listenerId);
         StateListenerDefImpl<T> listenerDef = new StateListenerDefImpl<>(listenerId);
+        // Claimed only once the configurer has returned, so a configurer that throws leaves the id
+        // free for the caller's corrected retry.
         ConfigurableDefImpl.runConfigurer(listenerDef, configurer);
+        stateMachineDef.claimListenerId(listenerId);
         return listenerDef;
     }
 

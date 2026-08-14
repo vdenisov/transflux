@@ -121,7 +121,25 @@ class StateMachineDefImplStateListenerSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message == "State listener ID 'dup' is already registered"
+        e.message == "Listener ID 'dup' is already registered"
+    }
+
+    def 'a configurer that throws leaves the listener id free for a retry'() {
+        given:
+        def smd = new StateMachineDefImpl<Object>()
+
+        when:
+        smd.onAnyStateEntry('audit', { throw new IllegalStateException('bad configurer') } as Consumer)
+
+        then:
+        thrown(IllegalStateException)
+
+        when: 'the caller fixes the configurer and retries under the same id'
+        smd.onAnyStateEntry('audit', usingNoop())
+
+        then:
+        noExceptionThrown()
+        smd.getGlobalEntryListeners()*.getId() == ['audit']
     }
 
     @Unroll

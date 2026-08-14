@@ -30,7 +30,7 @@ class BoundTransitionSpec extends Specification {
         def transitionDef = new TransitionDefImpl('t1', 'state1', 'state2')
 
         when:
-        def transition = BoundTransition.from(transitionDef, null, [:] as Map<String, BoundCondition>)
+        def transition = BoundTransition.from(transitionDef, null, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none())
 
         then:
         transition.id() == 't1'
@@ -40,11 +40,26 @@ class BoundTransitionSpec extends Specification {
         transition.boundOperation() == null
         transition.boundPreConditions().isEmpty()
         transition.boundPostConditions().isEmpty()
+        transition.boundListeners().onStart().isEmpty()
+        transition.boundListeners().onComplete().isEmpty()
+        transition.boundListeners().onError().isEmpty()
+    }
+
+    def 'from() rejects null listeners'() {
+        given:
+        def transitionDef = new TransitionDefImpl('t1', 'state1', 'state2')
+
+        when:
+        BoundTransition.from(transitionDef, null, [:] as Map<String, BoundCondition>, null)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == 'Bound transition listeners cannot be null'
     }
 
     def 'from() rejects a null def'() {
         when:
-        BoundTransition.from(null, null, [:] as Map<String, BoundCondition>)
+        BoundTransition.from(null, null, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none())
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -56,7 +71,7 @@ class BoundTransitionSpec extends Specification {
         def transitionDef = new TransitionDefImpl('t1', 'state1', 'state2')
 
         when:
-        BoundTransition.from(transitionDef, null, null)
+        BoundTransition.from(transitionDef, null, null, BoundTransitionListeners.none())
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -67,7 +82,7 @@ class BoundTransitionSpec extends Specification {
     def 'accessor #accessor returns #expected'() {
         given:
         def transitionDef = new TransitionDefImpl(id, sourceId, targetId)
-        def transition = BoundTransition.from(transitionDef, null, [:] as Map<String, BoundCondition>)
+        def transition = BoundTransition.from(transitionDef, null, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none())
 
         expect:
         transition."$accessor"() == expected
@@ -83,8 +98,8 @@ class BoundTransitionSpec extends Specification {
         given:
         def defA = new TransitionDefImpl('t1', 'source', 'target')
         def defB = new TransitionDefImpl('t1', 'source', 'target')
-        def a = BoundTransition.from(defA, null, [:] as Map<String, BoundCondition>)
-        def b = BoundTransition.from(defB, null, [:] as Map<String, BoundCondition>)
+        def a = BoundTransition.from(defA, null, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none())
+        def b = BoundTransition.from(defB, null, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none())
 
         expect:
         a == b
@@ -95,8 +110,8 @@ class BoundTransitionSpec extends Specification {
         given:
         def defA = new TransitionDefImpl('same-id', 'source1', 'target1')
         def defB = new TransitionDefImpl('same-id', 'source2', 'target2')
-        def a = BoundTransition.from(defA, null, [:] as Map<String, BoundCondition>)
-        def b = BoundTransition.from(defB, null, [:] as Map<String, BoundCondition>)
+        def a = BoundTransition.from(defA, null, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none())
+        def b = BoundTransition.from(defB, null, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none())
 
         expect:
         a != b

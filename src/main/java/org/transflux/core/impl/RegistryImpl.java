@@ -57,20 +57,20 @@ final class RegistryImpl<T> implements Registry<T> {
     }
 
     /**
-     * Registers {@code component} under its id. The component is validated via
-     * {@link Component#validate()} before insertion. Re-registering the same component
-     * instance under the same id is a no-op; a different component under an already-taken
-     * id raises {@link TransfluxValidationException}.
+     * Registers {@code component} under its id. Re-registering the same component instance under
+     * the same id is a no-op; a different component under an already-taken id raises
+     * {@link TransfluxValidationException}.
+     *
+     * <p>{@link Component#validate()} is not called here — it runs once over the whole registry
+     * after the build settles, so a component's rules may depend on the rest of the definition.
      *
      * @param component the component to register; never {@code null}
      *
-     * @throws TransfluxValidationException if the id is already taken by a different
-     *         component, or if {@link Component#validate()} fails
+     * @throws TransfluxValidationException if the id is already taken by a different component
      */
     void register(Component<T> component) {
         requireNotNull(component, "Component");
         requireNotBlank(component.id(), "Component id");
-        component.validate();
 
         Component<T> existing = components.get(component.id());
         if (existing != null) {

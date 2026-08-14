@@ -40,6 +40,8 @@ import org.transflux.core.state.StateListener;
 import org.transflux.core.state.StateListenerDef;
 import org.transflux.core.state.StateResolver;
 import org.transflux.core.transition.TransitionDef;
+import org.transflux.core.transition.TransitionListener;
+import org.transflux.core.transition.TransitionListenerDef;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -101,11 +103,22 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private final List<StateListenerDefImpl<T>> globalExitListeners = new ArrayList<>();
 
     /**
-     * State listener ids claimed so far. Listeners form their own state-machine-wide namespace —
-     * they are not reachable through the component registry — so per-state and global ids are
-     * checked against this one set.
+     * Transition listeners attached to every transition rather than to one. Kept in declaration
+     * order; the per-transition listeners of whichever transition is executing run ahead of these.
+     * They span transitions with differing context types and so are typed against {@link Object}.
      */
-    private final Set<String> stateListenerIds = new HashSet<>();
+    private final List<TransitionListenerDefImpl<T, Object>> globalStartListeners = new ArrayList<>();
+    private final List<TransitionListenerDefImpl<T, Object>> globalCompleteListeners = new ArrayList<>();
+    private final List<TransitionListenerDefImpl<T, Object>> globalErrorListeners = new ArrayList<>();
+
+    /**
+     * Listener ids claimed so far. Listeners form one state-machine-wide namespace across both
+     * kinds — they are not reachable through the component registry — so state and transition
+     * listeners, per-owner and global alike, are checked against this one set. State listeners and
+     * the global registrations claim eagerly; a transition's own listeners are claimed when the
+     * definition is built, because a transition def holds no reference back to this def.
+     */
+    private final Set<String> listenerIds = new HashSet<>();
 
     /** Creates an empty definition. */
     public StateMachineDefImpl() {
@@ -1168,18 +1181,205 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         return globalExitListeners;
     }
 
+    @Override
+    public StateMachineDef<T> onAnyTransitionStart(String listenerId, TransitionListener<T, Object> listener) {
+        requireNotBlank(listenerId, "Transition listener ID");
+        requireNotNull(listener, "Transition listener");
+        return onAnyTransitionStart(listenerId, l -> l.using(listener));
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyTransitionStart(Identifiable listenerIdentifiable,
+                                                   TransitionListener<T, Object> listener) {
+        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
+        return onAnyTransitionStart(listenerIdentifiable.getId(), listener);
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyTransitionStart(String listenerId,
+                                                   Class<? extends TransitionListener<T, Object>> listenerClass) {
+        requireNotBlank(listenerId, "Transition listener ID");
+        requireNotNull(listenerClass, "Transition listener class");
+        return onAnyTransitionStart(listenerId, l -> l.using(listenerClass));
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyTransitionStart(Identifiable listenerIdentifiable,
+                                                   Class<? extends TransitionListener<T, Object>> listenerClass) {
+        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
+        return onAnyTransitionStart(listenerIdentifiable.getId(), listenerClass);
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyTransitionStart(String listenerId,
+                                                   Consumer<TransitionListenerDef<T, Object>> configurer) {
+        globalStartListeners.add(declareTransitionListener(listenerId, configurer));
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyTransitionStart(Identifiable listenerIdentifiable,
+                                                   Consumer<TransitionListenerDef<T, Object>> configurer) {
+        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
+        return onAnyTransitionStart(listenerIdentifiable.getId(), configurer);
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyTransitionComplete(String listenerId, TransitionListener<T, Object> listener) {
+        requireNotBlank(listenerId, "Transition listener ID");
+        requireNotNull(listener, "Transition listener");
+        return onAnyTransitionComplete(listenerId, l -> l.using(listener));
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyTransitionComplete(Identifiable listenerIdentifiable,
+                                                      TransitionListener<T, Object> listener) {
+        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
+        return onAnyTransitionComplete(listenerIdentifiable.getId(), listener);
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyTransitionComplete(String listenerId,
+                                                      Class<? extends TransitionListener<T, Object>> listenerClass) {
+        requireNotBlank(listenerId, "Transition listener ID");
+        requireNotNull(listenerClass, "Transition listener class");
+        return onAnyTransitionComplete(listenerId, l -> l.using(listenerClass));
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyTransitionComplete(Identifiable listenerIdentifiable,
+                                                      Class<? extends TransitionListener<T, Object>> listenerClass) {
+        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
+        return onAnyTransitionComplete(listenerIdentifiable.getId(), listenerClass);
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyTransitionComplete(String listenerId,
+                                                      Consumer<TransitionListenerDef<T, Object>> configurer) {
+        globalCompleteListeners.add(declareTransitionListener(listenerId, configurer));
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyTransitionComplete(Identifiable listenerIdentifiable,
+                                                      Consumer<TransitionListenerDef<T, Object>> configurer) {
+        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
+        return onAnyTransitionComplete(listenerIdentifiable.getId(), configurer);
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyTransitionError(String listenerId, TransitionListener<T, Object> listener) {
+        requireNotBlank(listenerId, "Transition listener ID");
+        requireNotNull(listener, "Transition listener");
+        return onAnyTransitionError(listenerId, l -> l.using(listener));
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyTransitionError(Identifiable listenerIdentifiable,
+                                                   TransitionListener<T, Object> listener) {
+        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
+        return onAnyTransitionError(listenerIdentifiable.getId(), listener);
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyTransitionError(String listenerId,
+                                                   Class<? extends TransitionListener<T, Object>> listenerClass) {
+        requireNotBlank(listenerId, "Transition listener ID");
+        requireNotNull(listenerClass, "Transition listener class");
+        return onAnyTransitionError(listenerId, l -> l.using(listenerClass));
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyTransitionError(Identifiable listenerIdentifiable,
+                                                   Class<? extends TransitionListener<T, Object>> listenerClass) {
+        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
+        return onAnyTransitionError(listenerIdentifiable.getId(), listenerClass);
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyTransitionError(String listenerId,
+                                                   Consumer<TransitionListenerDef<T, Object>> configurer) {
+        globalErrorListeners.add(declareTransitionListener(listenerId, configurer));
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyTransitionError(Identifiable listenerIdentifiable,
+                                                   Consumer<TransitionListenerDef<T, Object>> configurer) {
+        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
+        return onAnyTransitionError(listenerIdentifiable.getId(), configurer);
+    }
+
     /**
-     * Reserves a state listener id in the state-machine-wide listener namespace.
+     * Returns the listeners notified when any transition starts, in declaration order.
+     *
+     * @return the live global start-listener list
+     */
+    List<TransitionListenerDefImpl<T, Object>> getGlobalStartListeners() {
+        return globalStartListeners;
+    }
+
+    /**
+     * Returns the listeners notified when any transition completes, in declaration order.
+     *
+     * @return the live global completion-listener list
+     */
+    List<TransitionListenerDefImpl<T, Object>> getGlobalCompleteListeners() {
+        return globalCompleteListeners;
+    }
+
+    /**
+     * Returns the listeners notified when any transition fails, in declaration order.
+     *
+     * @return the live global error-listener list
+     */
+    List<TransitionListenerDefImpl<T, Object>> getGlobalErrorListeners() {
+        return globalErrorListeners;
+    }
+
+    /**
+     * Reserves a listener id in the state-machine-wide listener namespace shared by state and
+     * transition listeners.
      *
      * @param listenerId the id to claim; never {@code null} or blank
      *
      * @throws TransfluxValidationException if the id is blank or already claimed
      */
-    void claimStateListenerId(String listenerId) {
-        requireNotBlank(listenerId, "State listener ID");
-        if (!stateListenerIds.add(listenerId)) {
+    void claimListenerId(String listenerId) {
+        requireNotBlank(listenerId, "Listener ID");
+        if (!listenerIds.add(listenerId)) {
             throw new TransfluxValidationException(
-                "State listener ID '" + listenerId + "' is already registered");
+                "Listener ID '" + listenerId + "' is already registered");
+        }
+    }
+
+    /**
+     * Checks every transition's own listener ids against the shared namespace. Runs per build over
+     * a throwaway copy of the eagerly-claimed ids, so building the same definition twice does not
+     * report the second build's transition listeners as duplicates.
+     */
+    private void checkTransitionListenerIds() {
+        Set<String> claimed = new HashSet<>(listenerIds);
+        for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
+            claimTransitionListenerIds(td.getStartListeners(), td.getId(), "onStart", claimed);
+            claimTransitionListenerIds(td.getCompleteListeners(), td.getId(), "onComplete", claimed);
+            claimTransitionListenerIds(td.getErrorListeners(), td.getId(), "onError", claimed);
+        }
+    }
+
+    /**
+     * Claims one hook's listener ids, naming the owning transition and hook on a collision. A
+     * transition's listeners are claimed at build time rather than at declaration, so the stack
+     * trace points at {@code build()} and cannot locate the duplicate on its own.
+     */
+    private void claimTransitionListenerIds(List<? extends TransitionListenerDefImpl<T, ?>> listeners,
+                                            String transitionId, String hook, Set<String> claimed) {
+        for (TransitionListenerDefImpl<T, ?> ld : listeners) {
+            if (!claimed.add(ld.getId())) {
+                throw new TransfluxValidationException(
+                    "Listener ID '" + ld.getId() + "' is already registered (declared on transition '"
+                        + transitionId + "' via " + hook + ")");
+            }
         }
     }
 
@@ -1187,9 +1387,23 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
                                                          Consumer<StateListenerDef<T>> configurer) {
         requireNotBlank(listenerId, "State listener ID");
         requireNotNull(configurer, "State listener configurer");
-        claimStateListenerId(listenerId);
         StateListenerDefImpl<T> listenerDef = new StateListenerDefImpl<>(listenerId);
+        // Claimed only once the configurer has returned, so a configurer that throws leaves the id
+        // free for the caller's corrected retry.
         ConfigurableDefImpl.runConfigurer(listenerDef, configurer);
+        claimListenerId(listenerId);
+        return listenerDef;
+    }
+
+    private TransitionListenerDefImpl<T, Object> declareTransitionListener(
+            String listenerId, Consumer<TransitionListenerDef<T, Object>> configurer) {
+        requireNotBlank(listenerId, "Transition listener ID");
+        requireNotNull(configurer, "Transition listener configurer");
+        TransitionListenerDefImpl<T, Object> listenerDef = new TransitionListenerDefImpl<>(listenerId);
+        // Claimed only once the configurer has returned, so a configurer that throws leaves the id
+        // free for the caller's corrected retry.
+        ConfigurableDefImpl.runConfigurer(listenerDef, configurer);
+        claimListenerId(listenerId);
         return listenerDef;
     }
 
@@ -1246,10 +1460,55 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     @Override
     public StateMachine<T> build() {
         validateContextCompatibilityAndCycles();
-        return new StateMachineImpl<>(this);
+        StateMachineImpl<T> stateMachine = new StateMachineImpl<>(this);
+        validateComponents(stateMachine.getComponentRegistry());
+        return stateMachine;
+    }
+
+    /**
+     * Runs {@link Component#validate()} over every registered component, once, after the registry
+     * chain has been built and flattened. Validating here rather than at registration time means a
+     * component's rules can rely on the whole definition being settled.
+     *
+     * <p>The walk covers the root registry <em>and</em> every composite's scope registry, because
+     * {@link Registry#ids()} is local-only and inline composite members never appear in the root.
+     * Ids are unique state-machine-wide, so validating each id once is enough — a flattened scope
+     * repeats its ancestors' entries under the ids they already carry.
+     *
+     * @param rootRegistry the flattened root registry
+     *
+     * @throws TransfluxValidationException if any component rejects itself; the variant's own
+     *         message names the offending component
+     */
+    void validateComponents(Registry<T> rootRegistry) {
+        Set<String> validated = new HashSet<>();
+        validateScope(rootRegistry, validated);
+
+        for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
+            OperationDefImpl<T, ?, ?> op = td.getOperationDef();
+            if (op != null) {
+                validateScope(op.getScopeRegistry(), validated);
+            }
+        }
+
+        for (CompositeOperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
+            validateScope(composite.getScopeRegistry(), validated);
+        }
+    }
+
+    private void validateScope(Registry<T> registry, Set<String> validated) {
+        if (registry == null) {
+            return;
+        }
+        for (String id : registry.ids()) {
+            if (validated.add(id)) {
+                registry.get(id).orElseThrow().validate();
+            }
+        }
     }
 
     private void validateContextCompatibilityAndCycles() {
+        checkTransitionListenerIds();
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             Class<?> transitionContext = td.getContextType();
             OperationDefImpl<T, ?, ?> op = td.getOperationDef();

@@ -18,6 +18,8 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.exception.TransfluxValidationException;
+
 /**
  * Unified runtime view of a reusable, id-keyed building block that lives in a {@link Registry}.
  * <p>
@@ -26,9 +28,11 @@ package org.transflux.core.impl;
  * the framework-owned id and the declared context type the component runs against. Descriptive
  * metadata ({@code name} / {@code description}) lives on the def side, not here.
  *
- * <p>The {@link #validate()} hook is called once during registration. The variant overrides
- * are currently empty; the hook exists so cross-cutting checks (such as listener-attachment
- * rules) can plug in without retouching the registry pipeline.
+ * <p>The {@link #validate()} hook is called once per component after the state machine's registry
+ * chain has been built and flattened, so a component's rules may depend on the rest of the
+ * definition. Every variant checks that its id agrees with its payload's; the hook is also where
+ * cross-cutting checks (such as listener-attachment rules) plug in without retouching the registry
+ * pipeline.
  *
  * @param <T> the entity type the surrounding state machine manages
  */
@@ -50,10 +54,10 @@ sealed interface Component<T> permits Component.Step, Component.Operation, Compo
     Class<?> contextType();
 
     /**
-     * Validates the component's internal consistency once at registration time. The default
-     * is a no-op; variants override when they need to gate registration.
+     * Validates the component's internal consistency once, at the end of the state machine build.
+     * The default is a no-op; variants override when they need to gate the build.
      *
-     * @throws org.transflux.core.exception.TransfluxValidationException if validation fails
+     * @throws TransfluxValidationException if validation fails
      */
     default void validate() {
     }
@@ -62,17 +66,45 @@ sealed interface Component<T> permits Component.Step, Component.Operation, Compo
      * Step variant — wraps a {@link BoundStep} payload.
      */
     record Step<T, C>(String id, Class<C> contextType, BoundStep<T, C> bound) implements Component<T> {
+        @Override
+        public void validate() {
+            requireIdMatchesPayload(id, bound == null ? null : bound.id(), "step");
+        }
     }
 
     /**
      * Operation variant — wraps a {@link BoundOperation} payload.
      */
     record Operation<T, C>(String id, Class<C> contextType, BoundOperation<T, C> bound) implements Component<T> {
+        @Override
+        public void validate() {
+            requireIdMatchesPayload(id, bound == null ? null : bound.id(), "operation");
+        }
     }
 
     /**
      * Condition variant — wraps a {@link BoundCondition} payload.
      */
     record Condition<T, C>(String id, Class<C> contextType, BoundCondition<T, C> bound) implements Component<T> {
+        @Override
+        public void validate() {
+            requireIdMatchesPayload(id, bound == null ? null : bound.id(), "condition");
+        }
+    }
+
+    /**
+     * The invariant every variant shares: a component is a registry key paired with the payload
+     * that key resolves to, so the two ids must agree. A mismatch means a lookup would hand back a
+     * bound record that reports a different id than the one it was found under, and every
+     * diagnostic downstream would name the wrong thing.
+     */
+    private static void requireIdMatchesPayload(String id, String payloadId, String kind) {
+        if (payloadId == null) {
+            throw new TransfluxValidationException("Component '" + id + "' has no bound " + kind);
+        }
+        if (!id.equals(payloadId)) {
+            throw new TransfluxValidationException(
+                "Component '" + id + "' wraps a bound " + kind + " with id '" + payloadId + "'");
+        }
     }
 }

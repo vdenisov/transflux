@@ -34,6 +34,8 @@ import org.transflux.core.state.StateResolver;
 import org.transflux.core.transition.ProcessResult;
 import org.transflux.core.transition.StepPath;
 import org.transflux.core.transition.Transition;
+import org.transflux.core.transition.TransitionExecution;
+import org.transflux.core.transition.TransitionPhase;
 import org.transflux.core.transition.TransitionResult;
 import org.transflux.core.trigger.Trigger;
 
@@ -136,8 +138,9 @@ class StateMachineImpl<T> implements StateMachine<T> {
             registry.register(new Component.Operation(bo.id(), ctx, bo));
         });
 
+        BoundTransitionListeners<T, Object> globalTransitionListeners = bindGlobalTransitionListeners(def);
         for (TransitionDefImpl<T, ?> td : def.getTransitionsById().values()) {
-            this.transitions.put(td.getId(), buildTransition(td, conditionRegistry));
+            this.transitions.put(td.getId(), buildTransition(td, conditionRegistry, globalTransitionListeners));
         }
 
         for (TransitionDefImpl<T, ?> td : def.getTransitionsById().values()) {
@@ -379,9 +382,9 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
         for (StateDefImpl<T> sd : def.getStates().values()) {
             entryListenersByState.put(sd.getId(),
-                concatStateListeners(bindStateListeners(sd.getEntryListeners()), globalEntry));
+                concatListeners(bindStateListeners(sd.getEntryListeners()), globalEntry));
             exitListenersByState.put(sd.getId(),
-                concatStateListeners(bindStateListeners(sd.getExitListeners()), globalExit));
+                concatListeners(bindStateListeners(sd.getExitListeners()), globalExit));
         }
     }
 
@@ -396,22 +399,6 @@ class StateMachineImpl<T> implements StateMachine<T> {
         }
 
         return List.copyOf(bound);
-    }
-
-    private List<BoundStateListener<T>> concatStateListeners(List<BoundStateListener<T>> own,
-                                                             List<BoundStateListener<T>> global) {
-        if (global.isEmpty()) {
-            return own;
-        }
-        if (own.isEmpty()) {
-            return global;
-        }
-
-        List<BoundStateListener<T>> all = new ArrayList<>(own.size() + global.size());
-        all.addAll(own);
-        all.addAll(global);
-
-        return List.copyOf(all);
     }
 
     private <C> void notifyStateExit(BoundTransition<T, C> transition, T entity, C context) {
@@ -451,10 +438,83 @@ class StateMachineImpl<T> implements StateMachine<T> {
         }
     }
 
+    /**
+     * Notifies one hook of a transition's listeners, in order, isolating each from the others and
+     * from the transition. A listener that throws is logged and skipped: listeners observe, and no
+     * hook is positioned where failing the transition would be honest — the start hook runs before
+     * any step could be compensated, and the two terminal hooks after the outcome is settled.
+     */
+    private <C> void notifyTransitionListeners(BoundTransition<T, C> transition, TransitionPhase phase,
+                                               T entity, C context, Trigger firedBy,
+                                               TransitionResult<T> result) {
+        List<BoundTransitionListener<T, C>> listeners = transition.boundListeners().forPhase(phase);
+        if (listeners.isEmpty()) {
+            return;
+        }
+
+        TransitionExecution<T, C> execution = new TransitionExecution<>(
+            phase, new TopologyTransition<>(transition), firedBy, result);
+
+        for (BoundTransitionListener<T, C> listener : listeners) {
+            try {
+                listener.listener().onTransition(entity, context, execution);
+            } catch (Exception e) {
+                log.warn("Transition listener '{}' threw '{}' on {} of transition '{}': {}",
+                         listener.id(), e.getClass().getName(), phase, transition.id(), e.getMessage());
+            }
+        }
+    }
+
     @SuppressWarnings({"unchecked", "rawtypes"})
     private <C> BoundTransition<T, C> buildTransition(TransitionDefImpl<T, C> td,
-                                                      Map<String, BoundCondition<T, ?>> conditionRegistry) {
-        return BoundTransition.from(td, this, (Map) conditionRegistry);
+                                                      Map<String, BoundCondition<T, ?>> conditionRegistry,
+                                                      BoundTransitionListeners<T, Object> globals) {
+        BoundTransitionListeners<T, C> listeners = new BoundTransitionListeners<>(
+            concatListeners(bindTransitionListeners(td.getStartListeners()), (List) globals.onStart()),
+            concatListeners(bindTransitionListeners(td.getCompleteListeners()), (List) globals.onComplete()),
+            concatListeners(bindTransitionListeners(td.getErrorListeners()), (List) globals.onError()));
+
+        return BoundTransition.from(td, this, (Map) conditionRegistry, listeners);
+    }
+
+    /**
+     * Resolves the state machine's global transition listeners once, so a class-form listener
+     * yields one instance shared by every transition rather than one instance per transition.
+     */
+    private BoundTransitionListeners<T, Object> bindGlobalTransitionListeners(StateMachineDefImpl<T> def) {
+        return new BoundTransitionListeners<>(
+            bindTransitionListeners(def.getGlobalStartListeners()),
+            bindTransitionListeners(def.getGlobalCompleteListeners()),
+            bindTransitionListeners(def.getGlobalErrorListeners()));
+    }
+
+    private <C> List<BoundTransitionListener<T, C>> bindTransitionListeners(
+            List<TransitionListenerDefImpl<T, C>> defs) {
+        if (defs.isEmpty()) {
+            return List.of();
+        }
+
+        List<BoundTransitionListener<T, C>> bound = new ArrayList<>(defs.size());
+        for (TransitionListenerDefImpl<T, C> ld : defs) {
+            bound.add(ld.buildBoundListener());
+        }
+
+        return List.copyOf(bound);
+    }
+
+    private <X> List<X> concatListeners(List<X> own, List<X> global) {
+        if (global.isEmpty()) {
+            return own;
+        }
+        if (own.isEmpty()) {
+            return global;
+        }
+
+        List<X> all = new ArrayList<>(own.size() + global.size());
+        all.addAll(own);
+        all.addAll(global);
+
+        return List.copyOf(all);
     }
 
     private Class<?> effectiveContextType(StateMachineDefImpl<T> def, String id) {
@@ -492,13 +552,25 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
     private <C> TransitionResult<T> executeTransitionInternal(T entity, Object firingContext,
                                                                  BoundTransition<T, C> transition) {
-        return executeTransitionInternal(entity, firingContext, transition, List.of());
+        return executeTransitionInternal(entity, firingContext, transition, null);
     }
 
-    @SuppressWarnings({"unchecked"})
+    /**
+     * Runs one transition end to end.
+     *
+     * @param firingTrigger the trigger that caused this execution, or {@code null} when the host
+     *                      invoked the transition directly. It contributes the pre-conditions its
+     *                      kind imposes on top of the transition's own, and is what listeners see
+     *                      as the execution's origin.
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
     private <C> TransitionResult<T> executeTransitionInternal(T entity, Object firingContext,
                                                                  BoundTransition<T, C> transition,
-                                                                 List<BoundCondition<T, C>> additionalPreConditions) {
+                                                                 TriggerImpl firingTrigger) {
+        List<BoundCondition<T, C>> additionalPreConditions = firingTrigger == null
+            ? List.of()
+            : (List) firingTrigger.preConditions();
+
         String sourceStateId = transition.sourceStateId();
         String targetStateId = transition.targetStateId();
         String transitionId = transition.id();
@@ -516,6 +588,10 @@ class StateMachineImpl<T> implements StateMachine<T> {
         C context = (C) firingContext;
         Instant startedAt = Instant.now();
         TransitionView<T, C> view = new TransitionView<>(this, transition, entity, context);
+
+        // Gates the terminal hooks: a pre-condition that rejects or throws never reached the start
+        // hook, so it must not produce an unmatched error notification.
+        boolean started = false;
 
         try {
             for (BoundCondition<T, C> pc : transition.boundPreConditions()) {
@@ -538,6 +614,8 @@ class StateMachineImpl<T> implements StateMachine<T> {
                 }
             }
 
+            started = true;
+            notifyTransitionListeners(transition, TransitionPhase.START, entity, context, firingTrigger, null);
             notifyStateExit(transition, entity, context);
 
             BoundOperation<T, C> boundOperation = transition.boundOperation();
@@ -551,13 +629,21 @@ class StateMachineImpl<T> implements StateMachine<T> {
                 }
             }
 
+            // TODO: a failing post-condition must drain the compensation stack the same way the
+            //  catch block below does, and report the drained paths as compensatedPath. Until it
+            //  does, this branch reports an empty compensatedPath even when the operation
+            //  registered compensations.
             for (BoundCondition<T, C> pc : transition.boundPostConditions()) {
                 if (!pc.condition().test(entity, context, view)) {
-                    return TransitionResult.failure(
+                    TransitionResult<T> failed = TransitionResult.failure(
                         entity, sourceStateId, targetStateId, transitionId,
                         new TransfluxValidationException("Post-condition '" + pc.id()
                             + "' failed for transition '" + transitionId + "'"),
                         view.getExecutedPath(), null, startedAt, Instant.now());
+
+                    notifyTransitionListeners(transition, TransitionPhase.ERROR, entity, context,
+                                              firingTrigger, failed);
+                    return failed;
                 }
             }
 
@@ -565,10 +651,15 @@ class StateMachineImpl<T> implements StateMachine<T> {
                 stateApplier.applyState(entity, targetStateId);
             }
 
+            TransitionResult<T> succeeded = TransitionResult.success(
+                entity, sourceStateId, targetStateId, transitionId,
+                view.getExecutedPath(), startedAt, Instant.now());
+
+            notifyTransitionListeners(transition, TransitionPhase.COMPLETE, entity, context,
+                                      firingTrigger, succeeded);
             notifyStateEntry(transition, entity, context);
 
-            return TransitionResult.success(entity, sourceStateId, targetStateId, transitionId,
-                    view.getExecutedPath(), startedAt, Instant.now());
+            return succeeded;
 
         } catch (Exception e) {
             List<BoundCompensation<T, C>> drained = view.drainCompensationsLifo();
@@ -584,15 +675,22 @@ class StateMachineImpl<T> implements StateMachine<T> {
                 }
             }
 
-            return TransitionResult.failure(entity,
-                                            sourceStateId,
-                                            targetStateId,
-                                            transitionId,
-                                            e,
-                                            view.getExecutedPath(),
-                                            compensatedPath,
-                                            startedAt,
-                                            Instant.now());
+            TransitionResult<T> failed = TransitionResult.failure(entity,
+                                                                  sourceStateId,
+                                                                  targetStateId,
+                                                                  transitionId,
+                                                                  e,
+                                                                  view.getExecutedPath(),
+                                                                  compensatedPath,
+                                                                  startedAt,
+                                                                  Instant.now());
+
+            if (started) {
+                notifyTransitionListeners(transition, TransitionPhase.ERROR, entity, context,
+                                          firingTrigger, failed);
+            }
+
+            return failed;
         } finally {
             inFlight.remove(key);
             if (inFlight.isEmpty()) {
@@ -604,8 +702,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private TransitionResult<T> fireWith(T entity, Object firingContext,
                                          BoundTransition<T, ?> transition, TriggerImpl trigger) {
-        List additionalPreConditions = trigger.preConditions();
-        return executeTransitionInternal(entity, firingContext, (BoundTransition) transition, additionalPreConditions);
+        return executeTransitionInternal(entity, firingContext, (BoundTransition) transition, trigger);
     }
 
     /**
@@ -838,7 +935,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
                     continue;
                 }
                 return ProcessResult.fired(trigger.getId(),
-                    executeTransitionInternal(entity, context, binding.transition()));
+                    fireWith(entity, context, binding.transition(), trigger));
             }
             return ProcessResult.notFired();
         }
@@ -873,7 +970,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
                     continue;
                 }
                 return ProcessResult.fired(trigger.getId(),
-                    executeTransitionInternal(entity, context, binding.transition()));
+                    fireWith(entity, context, binding.transition(), trigger));
             }
             return ProcessResult.notFired();
         }

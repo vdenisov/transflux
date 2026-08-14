@@ -104,4 +104,13 @@ sealed abstract class OperationDefImpl<T, C, SELF extends OperationDefImpl<T, C,
      * @return this composite's id when the scan matches, otherwise empty
      */
     abstract Optional<String> scanScopeFor(String id, String excludingId);
+
+    /**
+     * Build-time hook: returns this operation's lexical-scope registry so the build can reach the
+     * components that live only inside it. The simple variant, and a composite whose scope has not
+     * been bound yet, return {@code null}.
+     *
+     * @return the scope registry, or {@code null} when this operation owns none
+     */
+    abstract Registry<T> getScopeRegistry();
 }

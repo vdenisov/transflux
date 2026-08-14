@@ -47,6 +47,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  *                       without an operation
  * @param boundPreConditions the resolved pre-conditions, in declaration order
  * @param boundPostConditions the resolved post-conditions, in declaration order
+ * @param boundListeners the resolved listeners for each hook, already in notification order
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
@@ -56,7 +57,8 @@ record BoundTransition<T, C>(String id,
                              Class<C> contextType,
                              BoundOperation<T, C> boundOperation,
                              List<BoundCondition<T, C>> boundPreConditions,
-                             List<BoundCondition<T, C>> boundPostConditions) {
+                             List<BoundCondition<T, C>> boundPostConditions,
+                             BoundTransitionListeners<T, C> boundListeners) {
 
     BoundTransition {
         requireNotBlank(id, "Bound transition ID");
@@ -65,6 +67,7 @@ record BoundTransition<T, C>(String id,
         requireNotNull(contextType, "Context type");
         requireNotNull(boundPreConditions, "Bound pre-conditions");
         requireNotNull(boundPostConditions, "Bound post-conditions");
+        requireNotNull(boundListeners, "Bound transition listeners");
         boundPreConditions = List.copyOf(boundPreConditions);
         boundPostConditions = List.copyOf(boundPostConditions);
     }
@@ -78,6 +81,8 @@ record BoundTransition<T, C>(String id,
      * @param stateMachine the enclosing state machine; needed by composite operations to
      *                     resolve step references
      * @param conditionRegistry the resolved state-machine condition registry
+     * @param listeners the transition's listeners merged with the state machine's global ones,
+     *                  already in notification order
      * @param <T> the entity type
      * @param <C> the context type
      *
@@ -85,7 +90,8 @@ record BoundTransition<T, C>(String id,
      */
     static <T, C> BoundTransition<T, C> from(TransitionDefImpl<T, C> def,
                                              StateMachineImpl<T> stateMachine,
-                                             java.util.Map<String, BoundCondition<T, C>> conditionRegistry) {
+                                             java.util.Map<String, BoundCondition<T, C>> conditionRegistry,
+                                             BoundTransitionListeners<T, C> listeners) {
         requireNotNull(def, "Transition definition");
         requireNotNull(conditionRegistry, "Condition registry");
         return new BoundTransition<>(
@@ -95,6 +101,7 @@ record BoundTransition<T, C>(String id,
             def.getContextType(),
             def.buildBoundOperation(stateMachine),
             def.buildBoundPreConditions(conditionRegistry),
-            def.buildBoundPostConditions(conditionRegistry));
+            def.buildBoundPostConditions(conditionRegistry),
+            listeners);
     }
 }

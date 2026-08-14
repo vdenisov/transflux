@@ -32,6 +32,8 @@ import org.transflux.core.state.StateListener;
 import org.transflux.core.state.StateListenerDef;
 import org.transflux.core.state.StateResolver;
 import org.transflux.core.transition.TransitionDef;
+import org.transflux.core.transition.TransitionListener;
+import org.transflux.core.transition.TransitionListenerDef;
 
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
@@ -908,6 +910,257 @@ public interface StateMachineDef<T> {
      */
     StateMachineDef<T> onAnyStateExit(Identifiable listenerIdentifiable,
                                       Consumer<StateListenerDef<T>> configurer);
+
+    /**
+     * Attaches a listener notified when <b>any</b> transition of this machine starts.
+     *
+     * <p>Global listeners run after the starting transition's own start listeners, in declaration
+     * order. They share one id namespace with every other listener on this state machine. Because
+     * they span transitions carrying different context types, they receive the firing context as
+     * {@link Object}.
+     *
+     * @param listenerId the listener id, unique among all listeners on this state machine
+     * @param listener the listener instance; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         or another listener is already registered under the same id
+     */
+    StateMachineDef<T> onAnyTransitionStart(String listenerId, TransitionListener<T, Object> listener);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyTransitionStart(String, TransitionListener)} —
+     * delegates via {@link Identifiable#getId()}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param listener the listener instance; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         or another listener is already registered under the same id
+     */
+    StateMachineDef<T> onAnyTransitionStart(Identifiable listenerIdentifiable,
+                                            TransitionListener<T, Object> listener);
+
+    /**
+     * Attaches a listener class notified when any transition starts. The class is instantiated
+     * through its public no-arg constructor when the state machine is built.
+     *
+     * @param listenerId the listener id, unique among all listeners on this state machine
+     * @param listenerClass the listener class; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         or another listener is already registered under the same id
+     */
+    StateMachineDef<T> onAnyTransitionStart(String listenerId,
+                                            Class<? extends TransitionListener<T, Object>> listenerClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyTransitionStart(String, Class)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param listenerClass the listener class; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyTransitionStart(Identifiable listenerIdentifiable,
+                                            Class<? extends TransitionListener<T, Object>> listenerClass);
+
+    /**
+     * Attaches a global start listener declared through a configurer, for the cases where the
+     * listener carries a name or description as well as a body.
+     *
+     * @param listenerId the listener id, unique among all listeners on this state machine
+     * @param configurer callback that configures the listener; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         another listener is already registered under the same id, or the configurer declares
+     *         no listener
+     */
+    StateMachineDef<T> onAnyTransitionStart(String listenerId,
+                                            Consumer<TransitionListenerDef<T, Object>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyTransitionStart(String, Consumer)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param configurer callback that configures the listener; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyTransitionStart(Identifiable listenerIdentifiable,
+                                            Consumer<TransitionListenerDef<T, Object>> configurer);
+
+    /**
+     * Attaches a listener notified when <b>any</b> transition of this machine completes
+     * successfully.
+     *
+     * @param listenerId the listener id, unique among all listeners on this state machine
+     * @param listener the listener instance; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         or another listener is already registered under the same id
+     */
+    StateMachineDef<T> onAnyTransitionComplete(String listenerId, TransitionListener<T, Object> listener);
+
+    /**
+     * {@link Identifiable} overload of
+     * {@link #onAnyTransitionComplete(String, TransitionListener)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param listener the listener instance; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         or another listener is already registered under the same id
+     */
+    StateMachineDef<T> onAnyTransitionComplete(Identifiable listenerIdentifiable,
+                                               TransitionListener<T, Object> listener);
+
+    /**
+     * Attaches a listener class notified when any transition completes successfully. The class is
+     * instantiated through its public no-arg constructor when the state machine is built.
+     *
+     * @param listenerId the listener id, unique among all listeners on this state machine
+     * @param listenerClass the listener class; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         or another listener is already registered under the same id
+     */
+    StateMachineDef<T> onAnyTransitionComplete(String listenerId,
+                                               Class<? extends TransitionListener<T, Object>> listenerClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyTransitionComplete(String, Class)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param listenerClass the listener class; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyTransitionComplete(Identifiable listenerIdentifiable,
+                                               Class<? extends TransitionListener<T, Object>> listenerClass);
+
+    /**
+     * Attaches a global completion listener declared through a configurer, for the cases where the
+     * listener carries a name or description as well as a body.
+     *
+     * @param listenerId the listener id, unique among all listeners on this state machine
+     * @param configurer callback that configures the listener; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         another listener is already registered under the same id, or the configurer declares
+     *         no listener
+     */
+    StateMachineDef<T> onAnyTransitionComplete(String listenerId,
+                                               Consumer<TransitionListenerDef<T, Object>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyTransitionComplete(String, Consumer)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param configurer callback that configures the listener; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyTransitionComplete(Identifiable listenerIdentifiable,
+                                               Consumer<TransitionListenerDef<T, Object>> configurer);
+
+    /**
+     * Attaches a listener notified when <b>any</b> transition of this machine fails, once any
+     * compensations it registered have run.
+     *
+     * @param listenerId the listener id, unique among all listeners on this state machine
+     * @param listener the listener instance; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         or another listener is already registered under the same id
+     */
+    StateMachineDef<T> onAnyTransitionError(String listenerId, TransitionListener<T, Object> listener);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyTransitionError(String, TransitionListener)} —
+     * delegates via {@link Identifiable#getId()}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param listener the listener instance; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         or another listener is already registered under the same id
+     */
+    StateMachineDef<T> onAnyTransitionError(Identifiable listenerIdentifiable,
+                                            TransitionListener<T, Object> listener);
+
+    /**
+     * Attaches a listener class notified when any transition fails. The class is instantiated
+     * through its public no-arg constructor when the state machine is built.
+     *
+     * @param listenerId the listener id, unique among all listeners on this state machine
+     * @param listenerClass the listener class; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         or another listener is already registered under the same id
+     */
+    StateMachineDef<T> onAnyTransitionError(String listenerId,
+                                            Class<? extends TransitionListener<T, Object>> listenerClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyTransitionError(String, Class)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param listenerClass the listener class; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyTransitionError(Identifiable listenerIdentifiable,
+                                            Class<? extends TransitionListener<T, Object>> listenerClass);
+
+    /**
+     * Attaches a global error listener declared through a configurer, for the cases where the
+     * listener carries a name or description as well as a body.
+     *
+     * @param listenerId the listener id, unique among all listeners on this state machine
+     * @param configurer callback that configures the listener; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         another listener is already registered under the same id, or the configurer declares
+     *         no listener
+     */
+    StateMachineDef<T> onAnyTransitionError(String listenerId,
+                                            Consumer<TransitionListenerDef<T, Object>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyTransitionError(String, Consumer)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param configurer callback that configures the listener; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyTransitionError(Identifiable listenerIdentifiable,
+                                            Consumer<TransitionListenerDef<T, Object>> configurer);
 
     /**
      * Finalizes the definition and builds the runtime state machine.

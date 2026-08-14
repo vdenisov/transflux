@@ -92,4 +92,9 @@ public final class SimpleOperationDefImpl<T, C>
     Optional<String> scanScopeFor(String id, String excludingId) {
         return Optional.empty();
     }
+
+    @Override
+    Registry<T> getScopeRegistry() {
+        return null;
+    }
 }

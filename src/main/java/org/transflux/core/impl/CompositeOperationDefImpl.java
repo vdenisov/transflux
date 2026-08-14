@@ -410,6 +410,11 @@ final class CompositeOperationDefImpl<T, C>
         return Optional.empty();
     }
 
+    @Override
+    Registry<T> getScopeRegistry() {
+        return scopeRegistry;
+    }
+
     /**
      * Pairs a resolved composite member with its context-mapping configuration. Each member is
      * dispatched uniformly: optional {@link ContextMapper#mapTo(Object) mapTo} before, the

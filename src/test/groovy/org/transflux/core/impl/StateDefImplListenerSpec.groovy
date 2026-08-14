@@ -136,7 +136,25 @@ class StateDefImplListenerSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message == "State listener ID 'dup' is already registered"
+        e.message == "Listener ID 'dup' is already registered"
+    }
+
+    def 'a configurer that throws leaves the listener id free for a retry'() {
+        given:
+        def s = activeState()
+
+        when:
+        s.onEntry('audit', { throw new IllegalStateException('bad configurer') } as Consumer)
+
+        then:
+        thrown(IllegalStateException)
+
+        when: 'the caller fixes the configurer and retries under the same id'
+        s.onEntry('audit', usingNoop())
+
+        then:
+        noExceptionThrown()
+        s.getEntryListeners()*.getId() == ['audit']
     }
 
     def 'a listener id reused across the two hooks is rejected'() {
