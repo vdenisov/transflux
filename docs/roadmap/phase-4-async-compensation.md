@@ -39,7 +39,19 @@
 - [ ] Async-branch failure does not trigger sync compensation; surfacing of async failures into `TransitionResult` follows the existing async result-handling design (§4.3).
 - [ ] Timeout handling for async operations — on timeout, the affected branch unwinds its own stack.
 
-### 4.5 Specifications
+### 4.5 Async Listener Execution
+*Moved here from Phase 3.5, which shipped state and transition listeners synchronously. Phase 3 asked for "basic" async listener support, but the executor, pool sizing, and queueing are exactly what this phase owns — building a listener-specific dispatch ahead of it would mean designing the same thing twice.*
+
+- [ ] Per-listener opt-in on the def side (`StateListenerDef` / `TransitionListenerDef`), matching the YAML `config: async: true` shape in requirements §3.1.1.
+- [ ] Dispatch through the same configurable pool as async operations (§4.3), not a listener-private one.
+- [ ] Semantics to pin down and document, none of which the sync form has to answer:
+  - [ ] Ordering — sync listeners run in declaration order; an async listener leaves that order only partially defined. Decide whether async listeners are ordered among themselves and whether a sync listener declared after one may observe its effects.
+  - [ ] Exception handling — the sync rule is "logged and swallowed, never reaching `TransitionResult`". Confirm it still holds when the throw happens after the transition has returned to the host.
+  - [ ] Context sharing — an async listener reading the context after the transition completes hits the shared-reference problem described in §4.3.1. Decide whether `ForkableContext` applies to listeners.
+  - [ ] Whether a listener may still be notified after the state machine's definition has been replaced (requirements §2.7.5 says listener delivery is per-execution).
+- [ ] Specs covering opt-in dispatch, the ordering rule chosen, and exception isolation across the thread boundary.
+
+### 4.6 Specifications
 - [ ] Compensation engine specs (LIFO order, exception routing, partial rollback).
 - [ ] Async anchor specs for both `startBefore` and `startAfter`.
 - [ ] Async-compensation specs.

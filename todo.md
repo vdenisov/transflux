@@ -54,7 +54,7 @@ The first stable release. Semantic versioning applies from this point on.
 
 **1.0 contract summary:**
 - Programmatic and YAML DSLs at parity.
-- Core abstractions: `StateMachine`, `State`, `Transition`, `Operation` (top-level and nested, with type-safe context mapping via `ContextMapper<P, N>`), `Step`, `Context`, `Condition`, `Trigger` (Manual / Event / host-driven Data), `Listener` (state entry/exit + transition start/complete), `Compensation`.
+- Core abstractions: `StateMachine`, `State`, `Transition`, `Operation` (top-level and nested, with type-safe context mapping via `ContextMapper<P, N>`), `Step`, `Context`, `Condition`, `Trigger` (Manual / Event / host-driven Data), `Listener` (state entry/exit + transition start/complete/error), `Compensation`.
 - Paired `StateResolver<T>` + `StateApplier<T>` (class / lambda / SpEL forms).
 - Condition Descriptor grammar (reference, class, predicate, expression).
 - Multi-branch conditional operations.

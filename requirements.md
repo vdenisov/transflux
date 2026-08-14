@@ -149,7 +149,7 @@ Defines valid state changes and their associated operations, conditions, and tri
 - Pre-conditions (must be met **before** execution).
 - Post-conditions (must be met **after** execution; violation triggers rollback / compensation).
 - Triggers (manual, event-based, data-based).
-- Transition-specific listeners (`onStart`, `onComplete`).
+- Transition-specific listeners (`onStart`, `onComplete`, `onError`).
 - Compensation strategies.
 
 #### 2.2.5 Operation
@@ -200,7 +200,7 @@ Manages the various mechanisms for initiating state transitions.
 
 **Trigger Types:**
 
-- **ManualTrigger** — names an explicit invocation point. A manual trigger is more than syntactic noise: it provides a named handle that carries per-trigger metadata (descriptions, listener bindings, trigger-specific pre-conditions) which may differ from the transition's defaults. Useful for cases like "cancellation cron" — the cron itself runs in the host's scheduler, but the in-library `cancellation-cron` handle anchors the metadata and lets the catalog API discover it.
+- **ManualTrigger** — names an explicit invocation point. A manual trigger is more than syntactic noise: it provides a named handle that carries per-trigger metadata (descriptions, trigger-specific pre-conditions) which may differ from the transition's defaults. Useful for cases like "cancellation cron" — the cron itself runs in the host's scheduler, but the in-library `cancellation-cron` handle anchors the metadata and lets the catalog API discover it. Reacting to a specific trigger does not require binding listeners to it: a transition listener reads the firing trigger off its payload (see §2.2.10).
 
 - **EventTrigger** — transitions initiated by host-published events. The host pushes events into the state machine via `processEvent(...)`; the framework matches them against registered triggers.
 
@@ -222,15 +222,19 @@ Enables observation and reaction to state machine events.
 
 **Listener Types:**
 - **State entry/exit listeners** — fire when an entity enters or exits a particular state.
-- **Transition start/complete listeners** — fire at the start and end of a transition (success or failure).
+- **Transition start/complete/error listeners** — fire when a transition starts, when it completes successfully, and when it fails.
 
 Both DSLs support both listener categories symmetrically.
 
-**Listeners observe; they do not gate.** An exception thrown by a listener is caught and logged; it does not fail the transition, does not trigger compensation, does not suppress the listeners registered after it, and does not appear in the `TransitionResult`. This holds at every hook, and it is deliberate: neither state hook is positioned where failing the transition would be honest. The exit hook runs before any step could have been compensated, and the entry hook runs after the `StateApplier` has already committed. Rejecting a transition is a pre-condition's job (§2.2.9).
+**Listeners observe; they do not gate.** An exception thrown by a listener is caught and logged; it does not fail the transition, does not trigger compensation, does not suppress the listeners registered after it, and does not appear in the `TransitionResult`. This holds at every hook, and it is deliberate: no hook is positioned where failing the transition would be honest. The start and exit hooks run before any step could have been compensated; the complete and entry hooks run after the `StateApplier` has already committed; the error hook runs after compensation is finished. Rejecting a transition is a pre-condition's job (§2.2.9).
 
-**Registration and ordering.** A state listener attaches either to a single state or, through the `onAnyStateEntry` / `onAnyStateExit` registrations on the state-machine definition, to every state. At each hook the state's own listeners run first, in declaration order, followed by the global ones, also in declaration order. Every listener carries a required id per §2.2.1; state-listener ids form their own namespace, unique across the state machine.
+**Registration and ordering.** A listener attaches either to a single owner — a state, through `onEntry` / `onExit`; a transition, through `onStart` / `onComplete` / `onError` — or to every owner of that kind, through the `onAnyStateEntry` / `onAnyStateExit` / `onAnyTransitionStart` / `onAnyTransitionComplete` / `onAnyTransitionError` registrations on the state-machine definition. At each hook the owner's own listeners run first, in declaration order, followed by the global ones, also in declaration order. Every listener carries a required id per §2.2.1; listener ids form a single namespace, shared by both categories and unique across the state machine.
 
-**State listeners receive an untyped context.** A state can be entered from transitions carrying different context types, so a state listener has no single context type to bind and takes the firing context as `Object` (possibly `null`). This is the dividing line between the two categories: a listener that needs a typed context belongs on a transition, where exactly one context type applies. A listener that treats the context generically — serialising whatever it is handed into an audit trail, for instance — is well served by the state form.
+**Complete and error partition the outcomes.** Exactly one of them follows every start notification, and neither occurs without one. Two consequences follow. A transition rejected by a pre-condition notifies nothing at all — it never reached the start hook, which §2.4 places after the pre-conditions, and the host already learns of the rejection from the returned `TransitionResult`. And a completion listener never has to check whether the transition actually worked, because a failure reaches the error hook instead.
+
+**Transition listeners receive the outcome and the origin.** At the complete and error hooks the payload carries the same `TransitionResult` the caller receives, so a listener sees the executed path, the compensated path, the error, and the timings without the host having to thread them through. The payload also names the trigger that caused the execution, or reports none when the host invoked the transition directly — that is how a listener reacts to one invocation path (`cancellation-cron` but not `manual-cancel`) without listeners being bound to triggers individually.
+
+**Context typing splits the two categories.** A transition declares exactly one context type, so a listener attached to one receives that type directly. A state does not: it can be entered from transitions carrying different context types, so a state listener takes the firing context as `Object` (possibly `null`). Registrations that span every transition are the same case and likewise take `Object`. The rule of thumb: needing a typed context means writing a transition listener; needing only to know that an entity entered or left a state means writing a state listener, which is then free to treat whatever context it is handed generically — serialising it into an audit trail, for instance.
 
 **The transition handed to a listener is read-only.** Listeners receive the topology of the responsible transition (its id, source, and target) but cannot dispatch steps or operations through it, for the same reason a data trigger's gate cannot: work dispatched outside a live execution would produce side effects whose compensations could never run.
 
@@ -279,7 +283,7 @@ StateMachine
 │   │   │   └── Compensations
 │   │   ├── Conditions (Pre/Post)
 │   │   ├── Triggers (Manual, Event, Data)
-│   │   └── Listeners (onStart, onComplete)
+│   │   └── Listeners (onStart, onComplete, onError)
 ├── Trigger System
 └── Compensation Engine
 ```
@@ -288,7 +292,7 @@ StateMachine
 
 1. **Transition Request** — initiated by a manual API call, an event handed to the machine, or a `processDataChange(...)` invocation.
 2. **State Resolution** — determine current entity state via the configured `StateResolver<T>`.
-3. **Pre-condition Evaluation** — validate transition eligibility. On failure, return a `TransitionResult` with `isSuccess() == false`; no compensations run because no operation has executed.
+3. **Pre-condition Evaluation** — validate transition eligibility. On failure, return a `TransitionResult` with `isSuccess() == false`; no compensations run because no operation has executed, and no listener is notified because the transition never started.
 4. **Listener Notification (start)** — notify registered `onStart` listeners and source-state `onExit` listeners.
 5. **Operation Execution** — execute the associated business logic:
     - Sequential step execution.
@@ -297,6 +301,8 @@ StateMachine
 6. **Post-condition Evaluation** — validate successful completion. On failure, run registered compensations in LIFO order; the entity's state field is **not** updated.
 7. **State Application** — invoke the `StateApplier<T>` to write the new state to the entity. The transition is now considered committed.
 8. **Listener Notification (complete)** — notify registered `onComplete` listeners and target-state `onEntry` listeners.
+
+A transition that fails at any point from step 5 onwards notifies registered `onError` listeners instead of `onComplete`, after its compensations have run. Steps 4 and 8 pair up: every start notification is followed by exactly one of the two terminal ones (see §2.2.10).
 
 ### 2.5 Error Handling and Compensation
 
@@ -798,7 +804,7 @@ transitions:
 
 #### 3.3.2 Manual Triggers
 
-A `type: manual` trigger names an explicit invocation point. Even when a transition could be invoked through the bare `stateMachine.transitionTo(...)` API, defining a named manual trigger carries value: per-trigger metadata, listener bindings, descriptions, and trigger-specific pre-conditions can be attached to the named handle and discovered via the catalog API. The trigger's name does **not** imply the library schedules anything — for example, `end-of-trial-cron` indicates that an external cron job invokes this trigger; the library does no scheduling itself (see §1.3 Non-Goals).
+A `type: manual` trigger names an explicit invocation point. Even when a transition could be invoked through the bare `stateMachine.transitionTo(...)` API, defining a named manual trigger carries value: per-trigger metadata, descriptions, and trigger-specific pre-conditions can be attached to the named handle and discovered via the catalog API, and a transition listener can single the trigger out by reading it off its payload (§2.2.10). The trigger's name does **not** imply the library schedules anything — for example, `end-of-trial-cron` indicates that an external cron job invokes this trigger; the library does no scheduling itself (see §1.3 Non-Goals).
 
 ```yaml
 triggers:
@@ -1135,7 +1141,7 @@ conditions:
 
 ### 3.7 Listeners and Hooks
 
-Both DSLs support state entry/exit listeners and transition start/complete listeners.
+Both DSLs support state entry/exit listeners and transition start/complete/error listeners.
 
 ```yaml
 # State entry/exit listeners — attached to the state definition
@@ -1155,6 +1161,8 @@ transitions:
         - audit-start
       onComplete:
         - audit-complete
+      onError:
+        - audit-failure
 
 # Global listeners — apply to all transitions or all states
 listeners:
@@ -1162,6 +1170,8 @@ listeners:
     - transition: "*"
       onComplete:
         - class: com.example.listeners.TransitionAuditListener
+      onError:
+        - class: com.example.listeners.TransitionFailureListener
         
   stateListeners:
     - state: "*"
@@ -1549,10 +1559,13 @@ inside the configurer.
         .addDataTrigger("ready-for-activation", dt -> dt
             .condition("subscription-activated", SubscriptionActivatedCondition.class))
 
-        // Listeners
-        .onStart(TransitionStartListener.class)
-        .onComplete(TransitionCompleteListener.class)
-        .onError(TransitionErrorListener.class)))
+        // Listeners. Complete and error partition the outcomes — exactly one of the two
+        // follows every start notification.
+        .onStart("audit-start", TransitionStartListener.class)
+        .onComplete("audit-complete", TransitionCompleteListener.class)
+        .onError("audit-failure", el -> el
+            .withDescription("Records activation failures and what was rolled back")
+            .using(TransitionErrorListener.class))))
 ```
 
 Every id-bearing form also has an `Identifiable` sibling, so enum constants can be passed wherever a
@@ -2006,40 +2019,52 @@ public class SubscriptionActivatedListener
 }
 ```
 
+A transition listener is the same shape, but its context is typed — a transition declares exactly
+one context type. The `TransitionExecution` carries the phase, the transition, the trigger that
+fired it, and (at the two terminal hooks) the outcome.
+
 ```java
 @Component
 public class TransitionAuditListener
-        implements TransitionListener<Subscription, ?> {
-    
+        implements TransitionListener<Subscription, ActivationContext> {
+
     @Inject private AuditService auditService;
-    
+
     @Override
-    public void onTransition(Subscription subscription,
-                             Transition<Subscription, ?> transition,
-                             Object context) {
-        if (transition.isStarted()) {
-            auditService.logTransitionStart(subscription, transition);
-        } else {
-            auditService.logTransitionComplete(subscription, transition);
-        }
+    public void onTransition(Subscription subscription, ActivationContext context,
+                             TransitionExecution<Subscription, ActivationContext> execution) {
+        Trigger firedBy = execution.firedBy();
+        auditService.log(subscription,
+                         execution.phase(),
+                         execution.transition().getId(),
+                         firedBy == null ? "direct" : firedBy.getId(),
+                         context.getActor());
     }
 }
 ```
 
+The same class registered at `onComplete` and at `onError` tells the two apart through
+`execution.phase()`; a listener registered at only one hook does not need to, since complete and
+error partition the outcomes.
+
 #### 4.8.2 Listener Registration
 
 ```java
-// Transition listeners (start and complete)
-trialActiveTransition
-    .onStart(ActivationStartListener.class)
-    .onComplete(ActivationCompleteListener.class);
+// Transition listeners — attached inside the transition's configurer (see §4.3)
+.transitionsTo("active", "trial-to-active", ActivationContext.class, t -> t
+    .onStart("activation-start", ActivationStartListener.class)
+    .onComplete("activation-complete", ActivationCompleteListener.class)
+    .onError("activation-failure", ActivationFailureListener.class))
 
 // State entry/exit listeners (attached to the state — see §4.2.2)
 
-// Global transition listeners
-stateMachine
-    .onAnyTransitionStart(TransitionAuditListener.class)
-    .onAnyTransitionComplete(TransitionAuditListener.class);
+// Global transition listeners — registered on the definition. They fire for every transition,
+// after that transition's own listeners, and take an Object context because they span
+// transitions with differing context types.
+stateMachineDef
+    .onAnyTransitionStart("audit-any-start", TransitionAuditListener.class)
+    .onAnyTransitionComplete("audit-any-complete", TransitionAuditListener.class)
+    .onAnyTransitionError("audit-any-error", TransitionAuditListener.class);
 
 // Global state listeners — registered on the definition, alongside the states themselves.
 // They fire for every state, after that state's own listeners.
@@ -2049,8 +2074,9 @@ stateMachineDef
 ```
 
 Every id-bearing form has an `Identifiable` sibling, and each hook accepts a listener instance, a
-listener class, or a `Consumer<StateListenerDef<T>>` configurer for the cases that also want a name
-or description.
+listener class, or a configurer (`Consumer<StateListenerDef<T>>` / `Consumer<TransitionListenerDef<T, C>>`)
+for the cases that also want a name or description. Listener ids are unique across the state
+machine, and the two categories share one namespace.
 
 ### 4.9 Execution and Usage
 
@@ -2248,7 +2274,7 @@ The 1.0 release is the **smallest useful core** of Transflux: a programmatic and
 
 In-scope capabilities:
 
-- **Core abstractions** — `StateMachine`, `State`, `Transition`, `Operation` (Simple and Composite), `Step`, `Context`, `Condition` (Pre/Post), `Trigger` (Manual, Event, host-driven Data), `Listener` (state entry/exit, transition start/complete), `Compensation`.
+- **Core abstractions** — `StateMachine`, `State`, `Transition`, `Operation` (Simple and Composite), `Step`, `Context`, `Condition` (Pre/Post), `Trigger` (Manual, Event, host-driven Data), `Listener` (state entry/exit, transition start/complete/error), `Compensation`.
 - **State resolver + applier** — class, lambda (Java only), and SpEL forms.
 - **Both DSLs at parity** — programmatic builder and YAML DSL cover the same surface area, including listener types and condition descriptor forms.
 - **Component library + registry** — reusable component definitions with imports (YAML) and a Java-side `ComponentRegistry`.
