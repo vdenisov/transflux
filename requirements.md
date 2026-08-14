@@ -226,6 +226,14 @@ Enables observation and reaction to state machine events.
 
 Both DSLs support both listener categories symmetrically.
 
+**Listeners observe; they do not gate.** An exception thrown by a listener is caught and logged; it does not fail the transition, does not trigger compensation, does not suppress the listeners registered after it, and does not appear in the `TransitionResult`. This holds at every hook, and it is deliberate: neither state hook is positioned where failing the transition would be honest. The exit hook runs before any step could have been compensated, and the entry hook runs after the `StateApplier` has already committed. Rejecting a transition is a pre-condition's job (§2.2.9).
+
+**Registration and ordering.** A state listener attaches either to a single state or, through the `onAnyStateEntry` / `onAnyStateExit` registrations on the state-machine definition, to every state. At each hook the state's own listeners run first, in declaration order, followed by the global ones, also in declaration order. Every listener carries a required id per §2.2.1; state-listener ids form their own namespace, unique across the state machine.
+
+**State listeners receive an untyped context.** A state can be entered from transitions carrying different context types, so a state listener has no single context type to bind and takes the firing context as `Object` (possibly `null`). This is the dividing line between the two categories: a listener that needs a typed context belongs on a transition, where exactly one context type applies. A listener that treats the context generically — serialising whatever it is handed into an audit trail, for instance — is well served by the state form.
+
+**The transition handed to a listener is read-only.** Listeners receive the topology of the responsible transition (its id, source, and target) but cannot dispatch steps or operations through it, for the same reason a data trigger's gate cannot: work dispatched outside a live execution would produce side effects whose compensations could never run.
+
 #### 2.2.11 Compensation Engine
 
 Manages error recovery and rollback operations.
@@ -1489,21 +1497,28 @@ StateMachine<Subscription> stateMachine = Transflux.defineStateMachine()
     .forEntityType(Subscription.class)
     
     .state("active", s -> s
+        .withName("Active")
         .withDescription("Active subscription state")
-        .withMetadata("displayName", "Active")
 
-        // State entry/exit listeners
-        .onEntry(SubscriptionActivatedListener.class)
-        .onEntry(NotificationListener.class, config -> config
-            .property("template", "subscription-activated")
-            .property("async", true))
-        .onExit(SubscriptionDeactivatedListener.class)
+        // State entry/exit listeners. Every listener carries an id (§2.2.1); the body is
+        // supplied as an instance, as a class, or through a configurer that also sets metadata.
+        .onEntry("audit-activated", SubscriptionActivatedListener.class)
+        .onEntry("notify-activated", (subscription, context, change) ->
+            notifier.send(subscription, "subscription-activated"))
+        .onExit("audit-deactivated", l -> l
+            .withDescription("Records departures from the active state")
+            .using(SubscriptionDeactivatedListener.class))
 
         .transitionsTo("suspended", "active-to-suspended", t -> {})
         .transitionsTo("expired", "active-to-expired", t -> {}))
 
     .build();
 ```
+
+The lambda form shows the shape of the contract: a listener receives the entity, the firing context
+as `Object`, and a `StateChange` carrying the phase, the state being entered or left, and a
+read-only view of the responsible transition. See §2.2.10 for the observational-failure and
+ordering rules.
 
 ### 4.3 Transition Configuration
 
@@ -1969,6 +1984,28 @@ trialActiveTransition
 
 #### 4.8.1 Listener Definition
 
+A state listener is a pure functional contract over `(entity, context, change)`. The context is
+typed `Object` — see §2.2.10 — and the `StateChange` says which state, which phase, and which
+transition.
+
+```java
+@Component
+public class SubscriptionActivatedListener
+        implements StateListener<Subscription> {
+
+    @Inject private AuditService auditService;
+
+    @Override
+    public void onState(Subscription subscription, Object context,
+                        StateChange<Subscription> change) {
+        auditService.logStateChange(subscription,
+                                    change.phase(),
+                                    change.state().getId(),
+                                    change.transition().getId());
+    }
+}
+```
+
 ```java
 @Component
 public class TransitionAuditListener
@@ -2004,11 +2041,16 @@ stateMachine
     .onAnyTransitionStart(TransitionAuditListener.class)
     .onAnyTransitionComplete(TransitionAuditListener.class);
 
-// Global state listeners
-stateMachine
-    .onAnyStateEntry(StateAuditListener.class)
-    .onAnyStateExit(StateAuditListener.class);
+// Global state listeners — registered on the definition, alongside the states themselves.
+// They fire for every state, after that state's own listeners.
+stateMachineDef
+    .onAnyStateEntry("audit-any-entry", StateAuditListener.class)
+    .onAnyStateExit("audit-any-exit", StateAuditListener.class);
 ```
+
+Every id-bearing form has an `Identifiable` sibling, and each hook accepts a listener instance, a
+listener class, or a `Consumer<StateListenerDef<T>>` configurer for the cases that also want a name
+or description.
 
 ### 4.9 Execution and Usage
 

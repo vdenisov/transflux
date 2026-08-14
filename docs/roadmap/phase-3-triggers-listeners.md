@@ -27,10 +27,11 @@
 - [x] Documented and tested non-goal: no field watching, no ORM hooks, no background polling (those are post-1.0). (`StateMachineImplDataDispatchSpec` asserts nothing fires until an explicit `processDataChange` call.)
 
 ### 3.5 Listeners
-- [ ] **State Listeners**
-  - [ ] `StateListener` interface (entry / exit).
-  - [ ] Per-state and global registration.
-  - [ ] Invocation in execution flow: source-state `onExit` at step 4; target-state `onEntry` at step 8 (requirements §2.4).
+- [x] **State Listeners**
+  - [x] `StateListener` interface (entry / exit). (One functional `onState(entity, context, change)` for both hooks, plus the `StateChange` payload record and its `StatePhase` discriminator — the phase is a field rather than a second interface so a globally-registered listener can tell the hooks apart. `StateListenerDef` is the def-side builder; ids are required and form their own SM-wide namespace, outside `Registry` / `Component`, per the trigger precedent.)
+  - [x] Per-state and global registration. (`StateDef.onEntry` / `onExit` and `StateMachineDef.onAnyStateEntry` / `onAnyStateExit`, each in instance / class / configurer forms with `Identifiable` siblings. Ordering is per-state first, then global, declaration order within each group.)
+  - **Deferred to Phase 5:** the YAML DSL's `listeners:` component library (requirements §3.1.1) references listeners by id from a shared pool, while the Java DSL attaches them inline under an id. Closing that parity gap needs a listener registry, which belongs with the rest of the YAML component-resolution work rather than here.
+  - [x] Invocation in execution flow: source-state `onExit` at step 4; target-state `onEntry` at step 8 (requirements §2.4). (Listeners are **purely observational**: a thrown exception is logged and swallowed, never reaching `TransitionResult`. The payload's transition is a `TopologyTransition`, so a listener cannot dispatch steps. The context reaches listeners untyped — a state has no single context type to bind, which is the deliberate dividing line against transition listeners.)
 
 - [ ] **Transition Listeners**
   - [ ] `TransitionListener` interface (start / complete / error).
@@ -47,7 +48,7 @@
 - [x] Trigger specs for each type, including catalog enumeration. (Manual, event, and data dispatch specs plus `StateMachineImplTriggerKindSpec` for `getTriggers(Class)` discrimination and cross-kind id uniqueness.)
 - [x] Manual-trigger metadata override specs. (`ManualTriggerDefImplSpec`.)
 - [x] Data trigger specs covering all four Condition Descriptor forms. (`DataTriggerDefImplSpec` covers reference, instance, class, predicate, and expression forms.)
-- [ ] Listener-ordering specs covering the execution flow.
+- [ ] Listener-ordering specs covering the execution flow. *(State-listener half done; closes with transition listeners.)* (`StateMachineImplStateListenerSpec` covers the state-listener half: firing points relative to the operation and the applier, per-state-then-global ordering, the pre-condition / operation-failure / post-condition-failure cases, exception isolation, self-transitions, and the read-only payload transition. Plus `StateListenerDefImplSpec`, `StateDefImplListenerSpec`, `StateMachineDefImplStateListenerSpec`, and `StateChangeSpec`. The transition-listener half lands with §3.5's second bullet.)
 
 ### 3.7 Component Metadata Model (remainder after 2.6.13)
 *Phase 2.6.13 pulled forward the `step` / `simpleOperation` lambda-configurer overloads — they only depended on the `IdentifiedDefImpl` base that landed in 2.6.11a and unblocked themselves. The items below remain: the `Describable` super-interface is parked pending a real consumer (see note); `ConditionDef` requires new design that intersects the sealed `ConditionDescriptor` grammar; the remaining lambda-configurer overloads either depend on `ConditionDef` or wait on consumer demand; listener-payload shape pins down alongside `*Listener` interfaces.*
@@ -58,6 +59,7 @@
   - The presumed consumers (`StateListener`, `TransitionListener`, diagnostic logging) all know the *concrete* Def type they hold; none of them need polymorphic metadata access. The polymorphic case that would justify a common super-type does not yet exist.
   - Per CLAUDE.md's "Don't design for hypothetical future requirements", introducing a new public-API type now means exporting a symbol whose removal would be a breaking change, for speculative payoff.
 - [ ] **To resolve before this task is closed**: (a) confirm Phase 3.5's listener payload shape — does any single listener method want to receive metadata for *more than one* Def kind without committing to a specific type? (b) confirm Phase 5's YAML serialization path — does it walk Defs polymorphically or per-kind? If both answers are "per-kind", drop this item entirely (the per-interface declarations stay). If either answer is "polymorphic", introduce `Describable` then.
+  - **(a) answered: per-kind.** The state-listener payload (`StateChange`) exposes concrete `State<T>` and `Transition<T, ?>` accessors, each with its own metadata getters; nothing reads metadata polymorphically across Def kinds. Transition listeners are expected to follow the same shape. Only gate (b) — Phase 5's YAML walk — still holds this item open.
 
 #### Outstanding items
 - [ ] Add `ConditionDef<T, C>` (mandatory id, optional name/description) covering the existing four authoring flavours (instance, class, predicate, expression). Design pass needs to reconcile the new def with the sealed `ConditionDescriptor` grammar in `core.condition` — `ConditionDef` likely becomes a builder that produces a `ConditionDescriptor`, with name/description as fields on the def that survive into the bound side.
@@ -68,5 +70,5 @@
   - [ ] `StateMachineDef.mapper(String id, Class<P> parentType, Class<N> childType, Consumer<MapperDef<P, N>> configurer)`
   - [ ] `TransitionDef.preCondition(String id, Consumer<ConditionDef<T, C>> configurer)` and `postCondition(...)` mirror *(depends on `ConditionDef`)*
 - [x] *(Done in 2.6.13)* Existing flat overloads stay as sugar for the no-metadata case.
-- [ ] Listener payloads (§3.5) surface `id` + `name` + `description` from the relevant def — concrete shape pinned down alongside the `*Listener` interfaces. **Resolution of the `Describable` parked item depends on what shape this lands at.**
+- [x] Listener payloads (§3.5) surface `id` + `name` + `description` from the relevant def — concrete shape pinned down alongside the `*Listener` interfaces. **Resolution of the `Describable` parked item depends on what shape this lands at.** (Landed as `StateChange`, a payload record carrying `phase` + the `State<T>` entered or left + the responsible `Transition<T, ?>`. Metadata is read off those concrete types, so the access is per-kind — see the `Describable` note above. The listener's *own* id / name / description live on `BoundStateListener` and surface in diagnostics rather than in the payload; a listener already knows which one it is.)
 

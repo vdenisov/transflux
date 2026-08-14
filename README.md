@@ -24,7 +24,7 @@ The project is in active design and the public API is unstable. **No releases ar
 
 ## Package Structure
 - `org.transflux.core` — entry point (`Transflux`), `StateMachine` / `StateMachineDef`, `ContextScope`, the `Identifiable` marker, and the `Preconditions` argument-precondition helpers.
-- `org.transflux.core.state` — `State`, `StateDef`, and the host-supplied `StateResolver` / `StateApplier` bridges.
+- `org.transflux.core.state` — `State`, `StateDef`, the host-supplied `StateResolver` / `StateApplier` bridges, and the entry/exit listener surface (`StateListener`, its `StateListenerDef` builder, and the `StateChange` / `StatePhase` payload).
 - `org.transflux.core.transition` — `Transition`, `TransitionDef`, `TransitionResult`, `ProcessResult` (the outcome of `processEvent` / `processDataChange`), and `StepPath` (the qualified-id value carrier in `TransitionResult.executedPath` / `compensatedPath`).
 - `org.transflux.core.operation` — `Operation`, `Step`, `Compensation`, `ContextMapper`, and their def-side types (`SimpleOperationDef` / `CompositeOperationDef` / `StepDef` / `MapperDef` / `ConditionalStepDef` / `BranchDef` / `DefaultBranchDef` / `NoMatchBehavior`).
 - `org.transflux.core.condition` — `Condition` and `ConditionDescriptor`.
