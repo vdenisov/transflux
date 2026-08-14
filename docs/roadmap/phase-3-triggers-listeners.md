@@ -14,17 +14,17 @@
 - [x] Invocation API — shipped as a dedicated `stateMachine.entity(e).fire(triggerId[, ctx])` (no target-state arg; the trigger names its transition). `transitionTo(...)` stays trigger-free, so triggerless transitions remain directly invocable and absent from the catalog.
 
 ### 3.3 Event Triggers
-- [ ] `EventTrigger` implementation.
-- [ ] `processEvent(event, eventData)` API on the entity binding.
-- [ ] Event filtering via expressions / predicate classes.
-- [ ] Entity correlation (matching events to entities) for the in-process case.
-- [ ] **Trigger kind discrimination (deferred from 3.1).** With a second trigger kind now present, add kind-based catalog filtering to the state machine. Prefer a class-based `<X extends Trigger> Collection<X> getTriggers(Class<X> kind)` (type-safe filter + return-type narrowing) over a parallel `TriggerType` enum; introduce the public `EventTrigger` / `ManualTrigger` subtypes of `Trigger` that this filter selects on. The YAML `type: manual|event|data` vocabulary maps to concrete builders in the parser, so no runtime enum is required.
+- [x] `EventTrigger` implementation. (`core.trigger.EventTrigger` runtime view + `EventTriggerDef` def-side builder; internal `EventTriggerImpl` / `EventTriggerDefImpl`.)
+- [x] `processEvent(event, eventData)` API on the entity binding. (`entity(e).processEvent(eventId, eventData[, ctx])`; returns `ProcessResult<T>` — `fired()` / `result()` / `firedTriggerId()`. `eventData` is bound only for filter evaluation; the firing context is a separate argument.)
+- [x] Event filtering via expressions / predicate classes. (`filter(BiPredicate)` / `filter(Predicate)` / `filter(Class)` / `filterExpression(String)`; SpEL binds entity as root, payload as `#event`, context as `#context`.)
+- [x] Entity correlation (matching events to entities) for the in-process case. (Host-driven: the host binds the entity via `entity(e)` and the framework matches the published event id + filter against that entity's eligible triggers — correlation is the host's choice of which entity to process.)
+- [x] **Trigger kind discrimination (deferred from 3.1).** `<X extends Trigger> Collection<X> getTriggers(Class<X> kind)` with return-type narrowing; public `ManualTrigger` / `EventTrigger` / `DataTrigger` subtypes of `Trigger` are what the filter selects on. No runtime `TriggerType` enum.
 
 ### 3.4 Data Triggers (host-driven)
-- [ ] `DataTrigger` implementation.
-- [ ] `processDataChange()` API — host-initiated re-evaluation only.
-- [ ] Data-trigger condition uses the standard Condition Descriptor grammar.
-- [ ] Documented and tested non-goal: no field watching, no ORM hooks, no background polling (those are post-1.0).
+- [x] `DataTrigger` implementation. (`core.trigger.DataTrigger` runtime view + `DataTriggerDef` def-side builder; internal `DataTriggerImpl` / `DataTriggerDefImpl`.)
+- [x] `processDataChange()` API — host-initiated re-evaluation only. (`entity(e).processDataChange([ctx])`; returns `ProcessResult<T>`. First eligible trigger whose gate holds fires.)
+- [x] Data-trigger condition uses the standard Condition Descriptor grammar. (Reference / instance / class / predicate / expression, resolved via the shared `ConditionResolver`.)
+- [x] Documented and tested non-goal: no field watching, no ORM hooks, no background polling (those are post-1.0). (`StateMachineImplDataDispatchSpec` asserts nothing fires until an explicit `processDataChange` call.)
 
 ### 3.5 Listeners
 - [ ] **State Listeners**
@@ -44,9 +44,9 @@
   - [ ] In practice, the hook lands here in Phase 3 (with listeners as the first real consumer) rather than as empty stubs in 2.6. Each variant's default `validate()` is a no-op; only variants with structural rules override it.
 
 ### 3.6 Specifications
-- [ ] Trigger specs for each type, including catalog enumeration.
-- [ ] Manual-trigger metadata override specs.
-- [ ] Data trigger specs covering all four Condition Descriptor forms.
+- [x] Trigger specs for each type, including catalog enumeration. (Manual, event, and data dispatch specs plus `StateMachineImplTriggerKindSpec` for `getTriggers(Class)` discrimination and cross-kind id uniqueness.)
+- [x] Manual-trigger metadata override specs. (`ManualTriggerDefImplSpec`.)
+- [x] Data trigger specs covering all four Condition Descriptor forms. (`DataTriggerDefImplSpec` covers reference, instance, class, predicate, and expression forms.)
 - [ ] Listener-ordering specs covering the execution flow.
 
 ### 3.7 Component Metadata Model (remainder after 2.6.13)

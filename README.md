@@ -25,11 +25,11 @@ The project is in active design and the public API is unstable. **No releases ar
 ## Package Structure
 - `org.transflux.core` — entry point (`Transflux`), `StateMachine` / `StateMachineDef`, `ContextScope`, the `Identifiable` marker, and the `Preconditions` argument-precondition helpers.
 - `org.transflux.core.state` — `State`, `StateDef`, and the host-supplied `StateResolver` / `StateApplier` bridges.
-- `org.transflux.core.transition` — `Transition`, `TransitionDef`, `TransitionResult`, and `StepPath` (the qualified-id value carrier in `TransitionResult.executedPath` / `compensatedPath`).
+- `org.transflux.core.transition` — `Transition`, `TransitionDef`, `TransitionResult`, `ProcessResult` (the outcome of `processEvent` / `processDataChange`), and `StepPath` (the qualified-id value carrier in `TransitionResult.executedPath` / `compensatedPath`).
 - `org.transflux.core.operation` — `Operation`, `Step`, `Compensation`, `ContextMapper`, and their def-side types (`SimpleOperationDef` / `CompositeOperationDef` / `StepDef` / `MapperDef` / `ConditionalStepDef` / `BranchDef` / `DefaultBranchDef` / `NoMatchBehavior`).
 - `org.transflux.core.condition` — `Condition` and `ConditionDescriptor`.
 - `org.transflux.core.exception` — `TransfluxException` and its subclasses.
-- `org.transflux.core.trigger` — `Trigger` (runtime catalog view) and `ManualTriggerDef` (manual triggers; event and data triggers are not yet implemented).
+- `org.transflux.core.trigger` — `Trigger` (runtime catalog view) and its kinds `ManualTrigger` / `EventTrigger` / `DataTrigger`, with the def-side builders `ManualTriggerDef` / `EventTriggerDef` / `DataTriggerDef`. Manual triggers fire via `entity(e).fire(...)`; event and data triggers fire via the host-driven `entity(e).processEvent(...)` / `processDataChange(...)`.
 - `org.transflux.core.impl` — framework-internal implementations: every `*Impl`, the `Registry` / `Component` lookup machinery, the bound-record / action-ref / mapper-ref infrastructure, the SpEL evaluation utilities (`ConditionResolver`, `SpelConditionEvaluator`, `ExpressionIdDerivation`), the runtime-internal `TransitionView`, and the shared utilities (`ValidationUtils`, `ThrowingUtils`, `ReflectionUtils`). User code should not depend on this package directly.
 
 ## Contributing and Workflow

@@ -60,7 +60,7 @@ Reentrancy is **fail-fast**. Invoking a transition from within a listener, opera
 
 #### 2.1.4 TransitionResult
 
-Transition execution (via `transitionTo(...)`, `processEvent(...)`, `processDataChange()`, and batch variants) returns a `TransitionResult<T>` describing the execution outcome:
+Direct transition execution (via `transitionTo(...)`, `fire(...)`, and batch variants) returns a `TransitionResult<T>` describing the execution outcome. The host-driven trigger entry points `processEvent(...)` and `processDataChange(...)` instead return a `ProcessResult<T>`, because they may match no trigger at all and fire nothing: `ProcessResult` exposes `fired()` (whether any trigger matched), `firedTriggerId()` (the matched trigger, or `null`), and `result()` (an `Optional<TransitionResult<T>>` carrying the fired transition's outcome). `fired() == true` does **not** imply success — a matched trigger can fire a transition that then fails. The `TransitionResult<T>` carried inside a fired `ProcessResult` (and returned directly by the other entry points) describes the execution outcome:
 
 - `boolean isSuccess()` — terminal outcome.
 - `String getTargetState()` — final state (post-transition on success; pre-transition on rolled-back failure).
@@ -204,7 +204,7 @@ Manages the various mechanisms for initiating state transitions.
 
 - **EventTrigger** — transitions initiated by host-published events. The host pushes events into the state machine via `processEvent(...)`; the framework matches them against registered triggers.
 
-- **DataTrigger** — transitions initiated by the host calling `processDataChange(entity)`. The framework re-evaluates registered data-trigger conditions and fires any that match. **Transflux does not watch entity fields, hook into ORM change tracking, or run background evaluations** — data triggers are host-driven re-evaluation only in 1.0. Background watching is a Post-1.0 theme (see §7.2).
+- **DataTrigger** — transitions initiated by the host calling `entity(e).processDataChange()`. The framework re-evaluates registered data-trigger conditions and fires any that match. **Transflux does not watch entity fields, hook into ORM change tracking, or run background evaluations** — data triggers are host-driven re-evaluation only in 1.0. Background watching is a Post-1.0 theme (see §7.2).
 
 #### 2.2.9 Condition System
 
@@ -816,9 +816,9 @@ triggers:
 
 #### 3.3.4 Data Triggers
 
-Data triggers fire when the host calls `processDataChange(entity)` and the trigger's condition matches the entity's current state.
+Data triggers fire when the host calls `entity(e).processDataChange()` and the trigger's condition matches the entity's current state.
 
-> **Reminder:** Transflux does not watch entity fields, hook into ORM change tracking, or evaluate triggers automatically in 1.0 — data triggers are host-driven re-evaluation only (see §1.3 Non-Goals). The host's typical pattern is: update the entity → call `processDataChange(entity)` → framework evaluates registered data triggers and fires any matching transition.
+> **Reminder:** Transflux does not watch entity fields, hook into ORM change tracking, or evaluate triggers automatically in 1.0 — data triggers are host-driven re-evaluation only (see §1.3 Non-Goals). The host's typical pattern is: update the entity → call `entity(e).processDataChange()` → framework evaluates registered data triggers and fires any matching transition.
 
 A data trigger's condition follows the standard Condition Descriptor grammar (§3.6.1):
 
@@ -1507,35 +1507,42 @@ StateMachine<Subscription> stateMachine = Transflux.defineStateMachine()
 
 ### 4.3 Transition Configuration
 
-```java
-// Get transition reference
-Transition<Subscription, SubscriptionContext> trialActiveTransition =
-    stateMachine.getTransition("trial", "active");
+A transition is declared inside its source state's configurer, and configured inside its own. The
+context type may be pre-bound in `transitionsTo(...)` as shown, or set with `usingContext(...)`
+inside the configurer.
 
-// Configure transition
-trialActiveTransition
-    .withName("trial-to-active")
-    .withDescription("Activate trial subscription")
-    
-    // Set operation
-    .withOperation(ActivateSubscriptionOperation.class)
-        .usingContext(SubscriptionContext.class)
-    
-    // Pre/post conditions
-    .addPreCondition(PaymentMethodValidCondition.class)
-    .addPreCondition("billing-ready", this::billingReady)
-    .addPostCondition(SubscriptionFeaturesActivatedCondition.class)
-    
-    // Triggers
-    .addManualTrigger("manual-activate")
-    .addEventTrigger(Event.PAYMENT_CONFIRMED)
-    .addDataTrigger(SubscriptionActivatedTrigger.class)
-    
-    // Listeners
-    .onStart(TransitionStartListener.class)
-    .onComplete(TransitionCompleteListener.class)
-    .onError(TransitionErrorListener.class);
+```java
+.state("trial", s -> s
+    .transitionsTo("active", "trial-to-active", SubscriptionContext.class, t -> t
+        .withName("trial-to-active")
+        .withDescription("Activate trial subscription")
+
+        // Operation
+        .simpleOperation("activate", ActivateSubscriptionOperation.class)
+
+        // Pre/post conditions
+        .preCondition("payment-method-valid", PaymentMethodValidCondition.class)
+        .preCondition("billing-ready", this::billingReady)
+        .postCondition("features-activated", SubscriptionFeaturesActivatedCondition.class)
+
+        // Triggers
+        .addManualTrigger("manual-activate")
+        .addEventTrigger("payment-confirmed", "PAYMENT_CONFIRMED")
+        .addEventTrigger("payment-filtered", et -> et
+            .onEvent("PAYMENT_CONFIRMED")
+            .filterExpression("#event.validation == 'CONFIRMED'"))
+        .addDataTrigger("ready-for-activation", dt -> dt
+            .condition("subscription-activated", SubscriptionActivatedCondition.class))
+
+        // Listeners
+        .onStart(TransitionStartListener.class)
+        .onComplete(TransitionCompleteListener.class)
+        .onError(TransitionErrorListener.class)))
 ```
+
+Every id-bearing form also has an `Identifiable` sibling, so enum constants can be passed wherever a
+`String` id is accepted. Note that the class-based condition forms take an id as well as the class —
+the id is the condition's identity in diagnostics and for later reference.
 
 ### 4.4 Operation Definitions
 
@@ -2033,13 +2040,22 @@ TransitionResult<Subscription> result = stateMachine
 #### 4.9.2 Event and Trigger Processing
 
 ```java
-// Process an event
-stateMachine
+// Process an event — eventData is the payload exposed to event-trigger filters;
+// the firing context (if any) is a separate, optional argument.
+ProcessResult<Subscription> outcome = stateMachine
     .entity(subscription)
-    .processEvent(Event.CHECKOUT_FULFILLED, eventData);
+    .processEvent("CHECKOUT_FULFILLED", eventData);
 
-// Process a host-driven data change — re-evaluates data triggers
-stateMachine
+if (outcome.fired()) {
+    TransitionResult<Subscription> result = outcome.result().orElseThrow();
+    log.info("Event fired trigger {} -> {}", outcome.firedTriggerId(), result.isSuccess());
+} else {
+    log.info("No event trigger matched");
+}
+
+// Process a host-driven data change — re-evaluates the eligible data triggers and fires
+// the first whose gate holds. Also returns a ProcessResult.
+ProcessResult<Subscription> dataOutcome = stateMachine
     .entity(subscription)
     .processDataChange();
 ```
