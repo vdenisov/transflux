@@ -28,6 +28,8 @@ import org.transflux.core.operation.Step;
 import org.transflux.core.operation.StepDef;
 import org.transflux.core.state.StateApplier;
 import org.transflux.core.state.StateDef;
+import org.transflux.core.state.StateListener;
+import org.transflux.core.state.StateListenerDef;
 import org.transflux.core.state.StateResolver;
 import org.transflux.core.transition.TransitionDef;
 
@@ -744,6 +746,168 @@ public interface StateMachineDef<T> {
      *         or another state with the same id has already been declared
      */
     StateMachineDef<T> state(Identifiable stateIdentifiable, Consumer<StateDef<T>> configurer);
+
+    /**
+     * Attaches a listener notified whenever an entity enters <b>any</b> state of this machine.
+     *
+     * <p>Global listeners run after the entered state's own entry listeners, in declaration
+     * order. They share one id namespace with the per-state listeners.
+     *
+     * @param listenerId the listener id, unique among all state listeners on this state machine
+     * @param listener the listener instance; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         or another state listener is already registered under the same id
+     */
+    StateMachineDef<T> onAnyStateEntry(String listenerId, StateListener<T> listener);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyStateEntry(String, StateListener)} —
+     * delegates via {@link Identifiable#getId()}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param listener the listener instance; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         or another state listener is already registered under the same id
+     */
+    StateMachineDef<T> onAnyStateEntry(Identifiable listenerIdentifiable, StateListener<T> listener);
+
+    /**
+     * Attaches a listener class notified whenever an entity enters any state. The class is
+     * instantiated through its public no-arg constructor when the state machine is built.
+     *
+     * @param listenerId the listener id, unique among all state listeners on this state machine
+     * @param listenerClass the listener class; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         or another state listener is already registered under the same id
+     */
+    StateMachineDef<T> onAnyStateEntry(String listenerId, Class<? extends StateListener<T>> listenerClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyStateEntry(String, Class)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param listenerClass the listener class; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyStateEntry(Identifiable listenerIdentifiable,
+                                       Class<? extends StateListener<T>> listenerClass);
+
+    /**
+     * Attaches a global entry listener declared through a configurer, for the cases where the
+     * listener carries a name or description as well as a body.
+     *
+     * @param listenerId the listener id, unique among all state listeners on this state machine
+     * @param configurer callback that configures the listener; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         another state listener is already registered under the same id, or the configurer
+     *         declares no listener
+     */
+    StateMachineDef<T> onAnyStateEntry(String listenerId, Consumer<StateListenerDef<T>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyStateEntry(String, Consumer)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param configurer callback that configures the listener; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyStateEntry(Identifiable listenerIdentifiable,
+                                       Consumer<StateListenerDef<T>> configurer);
+
+    /**
+     * Attaches a listener notified whenever an entity leaves <b>any</b> state of this machine.
+     *
+     * <p>Global listeners run after the departed state's own exit listeners, in declaration
+     * order. They share one id namespace with the per-state listeners.
+     *
+     * @param listenerId the listener id, unique among all state listeners on this state machine
+     * @param listener the listener instance; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         or another state listener is already registered under the same id
+     */
+    StateMachineDef<T> onAnyStateExit(String listenerId, StateListener<T> listener);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyStateExit(String, StateListener)} —
+     * delegates via {@link Identifiable#getId()}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param listener the listener instance; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         or another state listener is already registered under the same id
+     */
+    StateMachineDef<T> onAnyStateExit(Identifiable listenerIdentifiable, StateListener<T> listener);
+
+    /**
+     * Attaches a listener class notified whenever an entity leaves any state. The class is
+     * instantiated through its public no-arg constructor when the state machine is built.
+     *
+     * @param listenerId the listener id, unique among all state listeners on this state machine
+     * @param listenerClass the listener class; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         or another state listener is already registered under the same id
+     */
+    StateMachineDef<T> onAnyStateExit(String listenerId, Class<? extends StateListener<T>> listenerClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyStateExit(String, Class)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param listenerClass the listener class; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyStateExit(Identifiable listenerIdentifiable,
+                                      Class<? extends StateListener<T>> listenerClass);
+
+    /**
+     * Attaches a global exit listener declared through a configurer, for the cases where the
+     * listener carries a name or description as well as a body.
+     *
+     * @param listenerId the listener id, unique among all state listeners on this state machine
+     * @param configurer callback that configures the listener; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         another state listener is already registered under the same id, or the configurer
+     *         declares no listener
+     */
+    StateMachineDef<T> onAnyStateExit(String listenerId, Consumer<StateListenerDef<T>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyStateExit(String, Consumer)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param configurer callback that configures the listener; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyStateExit(Identifiable listenerIdentifiable,
+                                      Consumer<StateListenerDef<T>> configurer);
 
     /**
      * Finalizes the definition and builds the runtime state machine.

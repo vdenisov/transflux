@@ -20,8 +20,12 @@ package org.transflux.core.impl;
 
 import org.transflux.core.Identifiable;
 import org.transflux.core.state.StateDef;
+import org.transflux.core.state.StateListener;
+import org.transflux.core.state.StateListenerDef;
 import org.transflux.core.transition.TransitionDef;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
@@ -36,6 +40,9 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
 
     private final StateMachineDefImpl<T> stateMachineDef;
 
+    private final List<StateListenerDefImpl<T>> entryListeners = new ArrayList<>();
+    private final List<StateListenerDefImpl<T>> exitListeners = new ArrayList<>();
+
     StateDefImpl(StateMachineDefImpl<T> smd, String id) {
         super(id, "state", "State ID");
         requireNotNull(smd, "State machine definition");
@@ -48,6 +55,116 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
         requireNotNull(smd, "State machine definition");
 
         this.stateMachineDef = smd;
+    }
+
+    @Override
+    public StateDefImpl<T> onEntry(String listenerId, StateListener<T> listener) {
+        requireConfigurerActive("onEntry");
+        requireNotBlank(listenerId, "State listener ID");
+        requireNotNull(listener, "State listener");
+        entryListeners.add(declareListener(listenerId, l -> l.using(listener)));
+        return this;
+    }
+
+    @Override
+    public StateDefImpl<T> onEntry(Identifiable listenerIdentifiable, StateListener<T> listener) {
+        requireNotNull(listenerIdentifiable, "State listener identifiable");
+        return onEntry(listenerIdentifiable.getId(), listener);
+    }
+
+    @Override
+    public StateDefImpl<T> onEntry(String listenerId, Class<? extends StateListener<T>> listenerClass) {
+        requireConfigurerActive("onEntry");
+        requireNotBlank(listenerId, "State listener ID");
+        requireNotNull(listenerClass, "State listener class");
+        entryListeners.add(declareListener(listenerId, l -> l.using(listenerClass)));
+        return this;
+    }
+
+    @Override
+    public StateDefImpl<T> onEntry(Identifiable listenerIdentifiable,
+                                   Class<? extends StateListener<T>> listenerClass) {
+        requireNotNull(listenerIdentifiable, "State listener identifiable");
+        return onEntry(listenerIdentifiable.getId(), listenerClass);
+    }
+
+    @Override
+    public StateDefImpl<T> onEntry(String listenerId, Consumer<StateListenerDef<T>> configurer) {
+        requireConfigurerActive("onEntry");
+        requireNotBlank(listenerId, "State listener ID");
+        requireNotNull(configurer, "State listener configurer");
+        entryListeners.add(declareListener(listenerId, configurer));
+        return this;
+    }
+
+    @Override
+    public StateDefImpl<T> onEntry(Identifiable listenerIdentifiable, Consumer<StateListenerDef<T>> configurer) {
+        requireNotNull(listenerIdentifiable, "State listener identifiable");
+        return onEntry(listenerIdentifiable.getId(), configurer);
+    }
+
+    @Override
+    public StateDefImpl<T> onExit(String listenerId, StateListener<T> listener) {
+        requireConfigurerActive("onExit");
+        requireNotBlank(listenerId, "State listener ID");
+        requireNotNull(listener, "State listener");
+        exitListeners.add(declareListener(listenerId, l -> l.using(listener)));
+        return this;
+    }
+
+    @Override
+    public StateDefImpl<T> onExit(Identifiable listenerIdentifiable, StateListener<T> listener) {
+        requireNotNull(listenerIdentifiable, "State listener identifiable");
+        return onExit(listenerIdentifiable.getId(), listener);
+    }
+
+    @Override
+    public StateDefImpl<T> onExit(String listenerId, Class<? extends StateListener<T>> listenerClass) {
+        requireConfigurerActive("onExit");
+        requireNotBlank(listenerId, "State listener ID");
+        requireNotNull(listenerClass, "State listener class");
+        exitListeners.add(declareListener(listenerId, l -> l.using(listenerClass)));
+        return this;
+    }
+
+    @Override
+    public StateDefImpl<T> onExit(Identifiable listenerIdentifiable,
+                                  Class<? extends StateListener<T>> listenerClass) {
+        requireNotNull(listenerIdentifiable, "State listener identifiable");
+        return onExit(listenerIdentifiable.getId(), listenerClass);
+    }
+
+    @Override
+    public StateDefImpl<T> onExit(String listenerId, Consumer<StateListenerDef<T>> configurer) {
+        requireConfigurerActive("onExit");
+        requireNotBlank(listenerId, "State listener ID");
+        requireNotNull(configurer, "State listener configurer");
+        exitListeners.add(declareListener(listenerId, configurer));
+        return this;
+    }
+
+    @Override
+    public StateDefImpl<T> onExit(Identifiable listenerIdentifiable, Consumer<StateListenerDef<T>> configurer) {
+        requireNotNull(listenerIdentifiable, "State listener identifiable");
+        return onExit(listenerIdentifiable.getId(), configurer);
+    }
+
+    /**
+     * Returns this state's entry listeners in declaration order.
+     *
+     * @return the live entry-listener list
+     */
+    List<StateListenerDefImpl<T>> getEntryListeners() {
+        return entryListeners;
+    }
+
+    /**
+     * Returns this state's exit listeners in declaration order.
+     *
+     * @return the live exit-listener list
+     */
+    List<StateListenerDefImpl<T>> getExitListeners() {
+        return exitListeners;
     }
 
     @Override
@@ -123,6 +240,14 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
         requireNotNull(targetStateIdentifiable, "Target state identifiable");
         requireNotNull(transitionIdentifiable, "Transition identifiable");
         return transitionsTo(targetStateIdentifiable.getId(), transitionIdentifiable.getId(), contextType, configurer);
+    }
+
+    private StateListenerDefImpl<T> declareListener(String listenerId,
+                                                    Consumer<StateListenerDef<T>> configurer) {
+        stateMachineDef.claimStateListenerId(listenerId);
+        StateListenerDefImpl<T> listenerDef = new StateListenerDefImpl<>(listenerId);
+        ConfigurableDefImpl.runConfigurer(listenerDef, configurer);
+        return listenerDef;
     }
 
     private static String requireNotNullThenGetId(Identifiable identifiable) {

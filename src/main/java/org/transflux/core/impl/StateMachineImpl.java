@@ -28,6 +28,8 @@ import org.transflux.core.operation.Compensation;
 import org.transflux.core.operation.Step;
 import org.transflux.core.state.State;
 import org.transflux.core.state.StateApplier;
+import org.transflux.core.state.StateChange;
+import org.transflux.core.state.StatePhase;
 import org.transflux.core.state.StateResolver;
 import org.transflux.core.transition.ProcessResult;
 import org.transflux.core.transition.StepPath;
@@ -81,6 +83,15 @@ class StateMachineImpl<T> implements StateMachine<T> {
         new LinkedHashMap<>();
     private final Map<String, List<TriggerBinding<T, DataTriggerImpl<T, ?>>>> dataTriggersBySource =
         new LinkedHashMap<>();
+
+    /**
+     * State listeners indexed by the state they observe, in notification order: the state's own
+     * listeners first, then the ones registered against every state. Merging at build time keeps
+     * notification a single map lookup.
+     */
+    private final Map<String, List<BoundStateListener<T>>> entryListenersByState = new LinkedHashMap<>();
+    private final Map<String, List<BoundStateListener<T>>> exitListenersByState = new LinkedHashMap<>();
+
     private final Registry<T> componentRegistry;
     private final StateMachineDefImpl<T> def;
 
@@ -92,6 +103,8 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
         this.states.putAll(def.getStates().values().stream()
                               .collect(Collectors.toMap(StateDefImpl::getId, StateImpl::new)));
+
+        buildStateListenerIndexes(def);
 
         RegistryImpl<T> registry = new RegistryImpl<>();
         this.componentRegistry = registry;
@@ -355,6 +368,89 @@ class StateMachineImpl<T> implements StateMachine<T> {
         triggers.put(trigger.getId(), trigger);
     }
 
+    /**
+     * Resolves every declared state's entry and exit listeners into notification order. The
+     * globals are bound once and shared across states, so a class-form global listener yields one
+     * instance rather than one per state.
+     */
+    private void buildStateListenerIndexes(StateMachineDefImpl<T> def) {
+        List<BoundStateListener<T>> globalEntry = bindStateListeners(def.getGlobalEntryListeners());
+        List<BoundStateListener<T>> globalExit = bindStateListeners(def.getGlobalExitListeners());
+
+        for (StateDefImpl<T> sd : def.getStates().values()) {
+            entryListenersByState.put(sd.getId(),
+                concatStateListeners(bindStateListeners(sd.getEntryListeners()), globalEntry));
+            exitListenersByState.put(sd.getId(),
+                concatStateListeners(bindStateListeners(sd.getExitListeners()), globalExit));
+        }
+    }
+
+    private List<BoundStateListener<T>> bindStateListeners(List<StateListenerDefImpl<T>> defs) {
+        if (defs.isEmpty()) {
+            return List.of();
+        }
+
+        List<BoundStateListener<T>> bound = new ArrayList<>(defs.size());
+        for (StateListenerDefImpl<T> ld : defs) {
+            bound.add(ld.buildBoundListener());
+        }
+
+        return List.copyOf(bound);
+    }
+
+    private List<BoundStateListener<T>> concatStateListeners(List<BoundStateListener<T>> own,
+                                                             List<BoundStateListener<T>> global) {
+        if (global.isEmpty()) {
+            return own;
+        }
+        if (own.isEmpty()) {
+            return global;
+        }
+
+        List<BoundStateListener<T>> all = new ArrayList<>(own.size() + global.size());
+        all.addAll(own);
+        all.addAll(global);
+
+        return List.copyOf(all);
+    }
+
+    private <C> void notifyStateExit(BoundTransition<T, C> transition, T entity, C context) {
+        notifyStateListeners(transition.sourceStateId(), StatePhase.EXIT, transition, entity, context);
+    }
+
+    private <C> void notifyStateEntry(BoundTransition<T, C> transition, T entity, C context) {
+        notifyStateListeners(transition.targetStateId(), StatePhase.ENTRY, transition, entity, context);
+    }
+
+    /**
+     * Notifies one state's listeners, in order, isolating each from the others and from the
+     * transition. A listener that throws is logged and skipped: listeners observe, and neither
+     * hook is positioned where failing the transition would be honest — the exit hook runs before
+     * any step could be compensated, the entry hook after the state has been committed.
+     */
+    private <C> void notifyStateListeners(String stateId, StatePhase phase,
+                                          BoundTransition<T, C> transition, T entity, C context) {
+        List<BoundStateListener<T>> listeners = phase == StatePhase.ENTRY
+            ? entryListenersByState.get(stateId)
+            : exitListenersByState.get(stateId);
+
+        if (listeners == null || listeners.isEmpty()) {
+            return;
+        }
+
+        StateChange<T> change =
+            new StateChange<>(phase, states.get(stateId), new TopologyTransition<>(transition));
+
+        for (BoundStateListener<T> listener : listeners) {
+            try {
+                listener.listener().onState(entity, context, change);
+            } catch (Exception e) {
+                log.warn("State listener '{}' threw '{}' on {} of state '{}': {}",
+                         listener.id(), e.getClass().getName(), phase, stateId, e.getMessage());
+            }
+        }
+    }
+
     @SuppressWarnings({"unchecked", "rawtypes"})
     private <C> BoundTransition<T, C> buildTransition(TransitionDefImpl<T, C> td,
                                                       Map<String, BoundCondition<T, ?>> conditionRegistry) {
@@ -442,6 +538,8 @@ class StateMachineImpl<T> implements StateMachine<T> {
                 }
             }
 
+            notifyStateExit(transition, entity, context);
+
             BoundOperation<T, C> boundOperation = transition.boundOperation();
             if (boundOperation != null) {
                 view.recordExecutedId(boundOperation.id());
@@ -466,6 +564,8 @@ class StateMachineImpl<T> implements StateMachine<T> {
             if (stateApplier != null) {
                 stateApplier.applyState(entity, targetStateId);
             }
+
+            notifyStateEntry(transition, entity, context);
 
             return TransitionResult.success(entity, sourceStateId, targetStateId, transitionId,
                     view.getExecutedPath(), startedAt, Instant.now());

@@ -31,11 +31,12 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * A {@link Transition} that exposes static topology only.
  * <p>
  * The dispatch methods are execution-scoped: they need the captured entity, context, compensation
- * stack and recorder that only a live execution carries. This view is handed to code that runs
- * before any execution has been entered — a data trigger's gate condition — so it answers the
- * topology accessors and rejects every {@code step} and {@code operation} call. Rejecting is what
- * keeps such code honest: a gate that dispatched a step would run real side effects outside the
- * reentrancy guard, and any compensation it captured would be discarded unexecuted.
+ * stack and recorder that only a live execution carries. This view is handed to code for which
+ * dispatch could never be honoured — a data trigger's gate condition, evaluated before any
+ * execution has been entered, and a state listener, notified either before the operation starts or
+ * after the transition has been committed — so it answers the topology accessors and rejects every
+ * {@code step} and {@code operation} call. Rejecting is what keeps such code honest: work it
+ * dispatched would run real side effects whose compensations would be discarded unexecuted.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution

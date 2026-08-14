@@ -36,6 +36,8 @@ import org.transflux.core.operation.Step;
 import org.transflux.core.operation.StepDef;
 import org.transflux.core.state.StateApplier;
 import org.transflux.core.state.StateDef;
+import org.transflux.core.state.StateListener;
+import org.transflux.core.state.StateListenerDef;
 import org.transflux.core.state.StateResolver;
 import org.transflux.core.transition.TransitionDef;
 
@@ -90,6 +92,20 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private final Map<String, Class<?>> componentContextTypes = new LinkedHashMap<>();
 
     private final Map<String, TransitionDefImpl<T, ?>> transitionsById = new LinkedHashMap<>();
+
+    /**
+     * State listeners attached to every state rather than to one. Kept in declaration order; the
+     * per-state listeners of whichever state is being entered or left run ahead of these.
+     */
+    private final List<StateListenerDefImpl<T>> globalEntryListeners = new ArrayList<>();
+    private final List<StateListenerDefImpl<T>> globalExitListeners = new ArrayList<>();
+
+    /**
+     * State listener ids claimed so far. Listeners form their own state-machine-wide namespace —
+     * they are not reachable through the component registry — so per-state and global ids are
+     * checked against this one set.
+     */
+    private final Set<String> stateListenerIds = new HashSet<>();
 
     /** Creates an empty definition. */
     public StateMachineDefImpl() {
@@ -1052,6 +1068,129 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     public StateMachineDef<T> state(Identifiable stateIdentifiable, Consumer<StateDef<T>> configurer) {
         requireNotNull(stateIdentifiable, "State identifiable");
         return state(stateIdentifiable.getId(), configurer);
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyStateEntry(String listenerId, StateListener<T> listener) {
+        requireNotBlank(listenerId, "State listener ID");
+        requireNotNull(listener, "State listener");
+        return onAnyStateEntry(listenerId, l -> l.using(listener));
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyStateEntry(Identifiable listenerIdentifiable, StateListener<T> listener) {
+        requireNotNull(listenerIdentifiable, "State listener identifiable");
+        return onAnyStateEntry(listenerIdentifiable.getId(), listener);
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyStateEntry(String listenerId, Class<? extends StateListener<T>> listenerClass) {
+        requireNotBlank(listenerId, "State listener ID");
+        requireNotNull(listenerClass, "State listener class");
+        return onAnyStateEntry(listenerId, l -> l.using(listenerClass));
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyStateEntry(Identifiable listenerIdentifiable,
+                                              Class<? extends StateListener<T>> listenerClass) {
+        requireNotNull(listenerIdentifiable, "State listener identifiable");
+        return onAnyStateEntry(listenerIdentifiable.getId(), listenerClass);
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyStateEntry(String listenerId, Consumer<StateListenerDef<T>> configurer) {
+        globalEntryListeners.add(declareStateListener(listenerId, configurer));
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyStateEntry(Identifiable listenerIdentifiable,
+                                              Consumer<StateListenerDef<T>> configurer) {
+        requireNotNull(listenerIdentifiable, "State listener identifiable");
+        return onAnyStateEntry(listenerIdentifiable.getId(), configurer);
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyStateExit(String listenerId, StateListener<T> listener) {
+        requireNotBlank(listenerId, "State listener ID");
+        requireNotNull(listener, "State listener");
+        return onAnyStateExit(listenerId, l -> l.using(listener));
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyStateExit(Identifiable listenerIdentifiable, StateListener<T> listener) {
+        requireNotNull(listenerIdentifiable, "State listener identifiable");
+        return onAnyStateExit(listenerIdentifiable.getId(), listener);
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyStateExit(String listenerId, Class<? extends StateListener<T>> listenerClass) {
+        requireNotBlank(listenerId, "State listener ID");
+        requireNotNull(listenerClass, "State listener class");
+        return onAnyStateExit(listenerId, l -> l.using(listenerClass));
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyStateExit(Identifiable listenerIdentifiable,
+                                             Class<? extends StateListener<T>> listenerClass) {
+        requireNotNull(listenerIdentifiable, "State listener identifiable");
+        return onAnyStateExit(listenerIdentifiable.getId(), listenerClass);
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyStateExit(String listenerId, Consumer<StateListenerDef<T>> configurer) {
+        globalExitListeners.add(declareStateListener(listenerId, configurer));
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyStateExit(Identifiable listenerIdentifiable,
+                                             Consumer<StateListenerDef<T>> configurer) {
+        requireNotNull(listenerIdentifiable, "State listener identifiable");
+        return onAnyStateExit(listenerIdentifiable.getId(), configurer);
+    }
+
+    /**
+     * Returns the state listeners notified on entry to every state, in declaration order.
+     *
+     * @return the live global entry-listener list
+     */
+    List<StateListenerDefImpl<T>> getGlobalEntryListeners() {
+        return globalEntryListeners;
+    }
+
+    /**
+     * Returns the state listeners notified on exit from every state, in declaration order.
+     *
+     * @return the live global exit-listener list
+     */
+    List<StateListenerDefImpl<T>> getGlobalExitListeners() {
+        return globalExitListeners;
+    }
+
+    /**
+     * Reserves a state listener id in the state-machine-wide listener namespace.
+     *
+     * @param listenerId the id to claim; never {@code null} or blank
+     *
+     * @throws TransfluxValidationException if the id is blank or already claimed
+     */
+    void claimStateListenerId(String listenerId) {
+        requireNotBlank(listenerId, "State listener ID");
+        if (!stateListenerIds.add(listenerId)) {
+            throw new TransfluxValidationException(
+                "State listener ID '" + listenerId + "' is already registered");
+        }
+    }
+
+    private StateListenerDefImpl<T> declareStateListener(String listenerId,
+                                                         Consumer<StateListenerDef<T>> configurer) {
+        requireNotBlank(listenerId, "State listener ID");
+        requireNotNull(configurer, "State listener configurer");
+        claimStateListenerId(listenerId);
+        StateListenerDefImpl<T> listenerDef = new StateListenerDefImpl<>(listenerId);
+        ConfigurableDefImpl.runConfigurer(listenerDef, configurer);
+        return listenerDef;
     }
 
     private StateDefImpl<T> registerState(String stateId) {
