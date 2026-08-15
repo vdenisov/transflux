@@ -314,9 +314,9 @@ class StateMachineDefImplSpec extends Specification {
 
         where:
         variant                                          | action
-        'compositeOperation(Id, Class<C>, Consumer)'     | { d -> d.compositeOperation(identifiable('co1'), Object, { c -> c.step('any') }) }
-        'operation(Id, Class<C>, Operation)'             | { d -> d.operation(identifiable('o1'), Object, new IdOverloadOperation()) }
-        'operation(Id, Class<C>, Class)'                 | { d -> d.operation(identifiable('o2'), Object, IdOverloadOperation) }
+        'operation(Id, Class<C>, Consumer)'     | { d -> d.operation(identifiable('co1'), Object, { c -> c.run('any') }) }
+        'operation(Id, Class<C>, Operation)'             | { d -> d.step(identifiable('o1'), Object, new IdOverloadOperation()) }
+        'operation(Id, Class<C>, Class)'                 | { d -> d.step(identifiable('o2'), Object, IdOverloadOperation) }
         'mapper(Id, parent, child, ContextMapper)'       | { d -> d.mapper(identifiable('m1'), Object, Object, new IdOverloadMapper()) }
         'mapper(Id, parent, child, Class)'               | { d -> d.mapper(identifiable('m2'), Object, Object, IdOverloadMapper) }
         'mapper(Id, parent, child, Function)'            | { d -> d.mapper(identifiable('m3'), Object, Object, { p -> p } as Function) }
@@ -342,24 +342,24 @@ class StateMachineDefImplSpec extends Specification {
         'condition(null, Class)'                         | { d -> d.condition((Identifiable) null, IdOverloadCondition) }
         'condition(null, Predicate)'                     | { d -> d.condition((Identifiable) null, { e -> true } as Predicate) }
         'condition(null, String spel)'                   | { d -> d.condition((Identifiable) null, 'true') }
-        'compositeOperation(null, Class, Consumer)'      | { d -> d.compositeOperation((Identifiable) null, Object, { c -> c.step('x') }) }
-        'operation(null, Class, Operation)'              | { d -> d.operation((Identifiable) null, Object, new IdOverloadOperation()) }
+        'operation(null, Class, Consumer)'      | { d -> d.operation((Identifiable) null, Object, { c -> c.run('x') }) }
+        'operation(null, Class, Operation)'              | { d -> d.step((Identifiable) null, Object, new IdOverloadOperation()) }
         'mapper(null, parent, child, ContextMapper)'     | { d -> d.mapper((Identifiable) null, Object, Object, new IdOverloadMapper()) }
     }
 
-    def "simpleOperation(id, Class, Consumer) registers an SM-level operation invokable by id, with metadata on the def"() {
+    def "step(id, Class, Consumer) registers an SM-level operation invokable by id, with metadata on the def"() {
         given:
         def ran = []
         def captured = null
         def smd = Transflux.<Object> defineStateMachine()
             .forEntityType(Object)
             .withStateResolver({ e -> TRIAL.id } as StateResolver<Object>)
-        smd.simpleOperation('op', Object, { d ->
+        smd.step('op', Object, { d ->
             captured = d
             d.withName('N').withDescription('D').using({ e, c, t -> ran << 'op' } as Action)
         })
         smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', { t ->
-            t.compositeOperation('wrap', { c -> c.operation('op') })
+            t.operation('wrap', { c -> c.run('op') })
         }) })
         smd.state(ACTIVE, {})
         def sm = smd.build()
@@ -377,11 +377,11 @@ class StateMachineDefImplSpec extends Specification {
         captured.getDescription() == 'D'
     }
 
-    def "simpleOperation(id, Class, Consumer) rejects post-configurer mutation of the captured def"() {
+    def "step(id, Class, Consumer) rejects post-configurer mutation of the captured def"() {
         given:
         def captured = null
         def smd = Transflux.<Object> defineStateMachine().forEntityType(Object)
-        smd.simpleOperation('op', Object, { d -> captured = d; d.using({ e, c, t -> } as Action) })
+        smd.step('op', Object, { d -> captured = d; d.using({ e, c, t -> } as Action) })
 
         when:
         captured.using({ e, c, t -> } as Action)

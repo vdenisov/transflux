@@ -32,7 +32,7 @@ import spock.lang.Specification
 
 import java.util.function.Consumer
 
-class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
+class OperationDefImplNestedPassThroughSpec extends Specification {
 
     static class Entity {
         String state
@@ -101,9 +101,9 @@ class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
         def applied = []
         def sm = build(applied,
             { smd -> smd.step('inner-a', new TrailStep('a')).step('inner-b', new TrailStep('b')) },
-            { t -> t.compositeOperation('outer', { OperationDef<Entity, TestContext> c ->
+            { t -> t.operation('outer', { OperationDef<Entity, TestContext> c ->
                 c.step('top', new TrailStep('top'))
-                c.operation('nested-op', new TwoStepInlineOp())
+                c.step('nested-op', new TwoStepInlineOp())
                 c.step('after', new TrailStep('after'))
             }) })
         def entity = new Entity('s1')
@@ -129,8 +129,8 @@ class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
         def applied = []
         def sm = build(applied,
             { smd -> smd.step('inner-a', new TrailStep('a')).step('inner-b', new TrailStep('b')) },
-            { t -> t.compositeOperation('outer', { OperationDef<Entity, TestContext> c ->
-                c.operation('nested-op', TwoStepInlineOp)
+            { t -> t.operation('outer', { OperationDef<Entity, TestContext> c ->
+                c.step('nested-op', TwoStepInlineOp)
             }) })
         def entity = new Entity('s1')
 
@@ -155,9 +155,9 @@ class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
         def applied = []
         def sm = build(applied,
             { smd -> smd.step('inner-a', new TrailStep('a')).step('inner-b', new TrailStep('b')) },
-            { t -> t.compositeOperation('outer', { OperationDef<Entity, TestContext> c ->
-                c.operation('shared', new TwoStepInlineOp())
-                c.operation('shared')
+            { t -> t.operation('outer', { OperationDef<Entity, TestContext> c ->
+                c.step('shared', new TwoStepInlineOp())
+                c.run('shared')
             }) })
         def entity = new Entity('s1')
 
@@ -181,8 +181,8 @@ class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
         def applied = []
         def sm = build(applied,
             { smd -> smd.step('comp-step', new CompTrailStep('cs')) },
-            { t -> t.compositeOperation('outer', { OperationDef<Entity, TestContext> c ->
-                c.operation('nested-op', new CompensatingNestedOp())
+            { t -> t.operation('outer', { OperationDef<Entity, TestContext> c ->
+                c.step('nested-op', new CompensatingNestedOp())
             }) })
         def entity = new Entity('s1')
 
@@ -204,8 +204,8 @@ class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
         def applied = []
         def sm = build(applied,
             { smd -> smd.step('inner-a', new TrailStep('a')).step('inner-b', new TrailStep('b')) },
-            { t -> t.compositeOperation('outer', { OperationDef<Entity, TestContext> c ->
-                c.operation('only-op', new TwoStepInlineOp())
+            { t -> t.operation('outer', { OperationDef<Entity, TestContext> c ->
+                c.step('only-op', new TwoStepInlineOp())
             }) })
         def entity = new Entity('s1')
 
@@ -227,8 +227,8 @@ class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
 
         when:
         build(applied, { smd -> }, { t ->
-            t.compositeOperation('outer', { OperationDef<Entity, TestContext> c ->
-                c.operation('ghost')
+            t.operation('outer', { OperationDef<Entity, TestContext> c ->
+                c.run('ghost')
             })
         })
 

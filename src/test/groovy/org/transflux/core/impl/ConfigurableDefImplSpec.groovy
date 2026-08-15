@@ -136,8 +136,8 @@ class ConfigurableDefImplSpec extends Specification {
 
         where:
         desc                  | mutator              | factory                                                  | action                                    | label
-        'composite operation' | 'step'               | { new OperationDefImpl<Object, Object>('op1') } | { it.step('s') }                          | "operation 'op1'"
-        'composite operation' | 'operation'          | { new OperationDefImpl<Object, Object>('op1') } | { it.operation('o') }                     | "operation 'op1'"
+        'composite operation' | 'step'               | { new OperationDefImpl<Object, Object>('op1') } | { it.run('s') }                          | "operation 'op1'"
+        'composite operation' | 'operation'          | { new OperationDefImpl<Object, Object>('op1') } | { it.run('o') }                     | "operation 'op1'"
         'composite operation' | 'conditional'        | { new OperationDefImpl<Object, Object>('op1') } | { it.conditional('cc', {}) }              | "operation 'op1'"
         'composite operation' | 'usingContext'       | { new OperationDefImpl<Object, Object>('op1') } | { it.usingContext(Object) }               | "operation 'op1'"
         'composite operation' | 'withName'           | { new OperationDefImpl<Object, Object>('op1') } | { it.withName('n') }                      | "operation 'op1'"
@@ -148,12 +148,12 @@ class ConfigurableDefImplSpec extends Specification {
         'conditional operation'    | 'onNoMatch'          | { new ConditionalOperationDefImpl<Object, Object>('c1') }     | { it.onNoMatch(NoMatchBehavior.SILENT) }  | "conditional operation 'c1'"
         'conditional operation'    | 'withName'           | { new ConditionalOperationDefImpl<Object, Object>('c1') }     | { it.withName('n') }                      | "conditional operation 'c1'"
         'branch'              | 'condition'          | { new BranchDefImpl<Object, Object>('b1') }              | { it.condition('cnd') }                   | "branch 'b1'"
-        'branch'              | 'step'               | { new BranchDefImpl<Object, Object>('b1') }              | { it.step('s') }                          | "branch 'b1'"
-        'default branch'      | 'step'               | { new DefaultBranchDefImpl<Object, Object>() }           | { it.step('s') }                          | 'default branch'
+        'branch'              | 'step'               | { new BranchDefImpl<Object, Object>('b1') }              | { it.run('s') }                          | "branch 'b1'"
+        'default branch'      | 'step'               | { new DefaultBranchDefImpl<Object, Object>() }           | { it.run('s') }                          | 'default branch'
         'forContext scope'    | 'step'               | { newScope() }                                           | { it.step('s', NOOP_STEP) }               | 'forContext scope for Object'
         'forContext scope'    | 'condition'          | { newScope() }                                           | { it.condition('cnd', 'entity != null') } | 'forContext scope for Object'
-        'forContext scope'    | 'compositeOperation' | { newScope() }                                           | { it.compositeOperation('co', {}) }       | 'forContext scope for Object'
-        'forContext scope'    | 'operation'          | { newScope() }                                           | { it.operation('o', NOOP_OP) }            | 'forContext scope for Object'
+        'forContext scope'    | 'compositeOperation' | { newScope() }                                           | { it.operation('co', {}) }       | 'forContext scope for Object'
+        'forContext scope'    | 'operation'          | { newScope() }                                           | { it.step('o', NOOP_OP) }            | 'forContext scope for Object'
     }
 
     private static ContextScopeImpl<Object, Object> newScope() {

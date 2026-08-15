@@ -37,7 +37,7 @@ import java.util.function.Consumer
 import static org.transflux.core.TestStateEnum.ACTIVE
 import static org.transflux.core.TestStateEnum.TRIAL
 
-class CompositeOperationDefImplSpec extends Specification {
+class OperationDefImplSpec extends Specification {
 
     def "constructor should reject null/blank id"() {
         when:
@@ -74,7 +74,7 @@ class CompositeOperationDefImplSpec extends Specification {
         given:
         def composite = new OperationDefImpl<TestEntity, TestContext>('op1').tap { beginConfigurer() }
             .step('a-id', new AppendStep('a'))
-            .step('b-id')
+            .run('b-id')
             .step('c-id', AppendStep)
 
         expect:
@@ -109,7 +109,7 @@ class CompositeOperationDefImplSpec extends Specification {
             .build()
 
         def composite = new OperationDefImpl<TestEntity, TestContext>('op1').tap { beginConfigurer() }
-            .step('c-id').step('a-id').step('b-id')
+            .run('c-id').run('a-id').run('b-id')
         composite.scopeRegistry = new RegistryImpl<TestEntity>(((StateMachineImpl<TestEntity>) sm).componentRegistry)
 
         def entity = new TestEntity('TRIAL')
@@ -140,7 +140,7 @@ class CompositeOperationDefImplSpec extends Specification {
             .build()
 
         def composite = new OperationDefImpl<TestEntity, TestContext>('op1').tap { beginConfigurer() }
-            .step('known').step('missing')
+            .run('known').run('missing')
         composite.scopeRegistry = new RegistryImpl<TestEntity>(((StateMachineImpl<TestEntity>) sm).componentRegistry)
 
         when:
@@ -158,7 +158,7 @@ class CompositeOperationDefImplSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
         smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', { t ->
-            t.compositeOperation('op1', { OperationDef<TestEntity, TestContext> c -> c.step('foo-id', FooStep) })
+            t.operation('op1', { OperationDef<TestEntity, TestContext> c -> c.step('foo-id', FooStep) })
         }) })
         smd.state(ACTIVE, {})
 
@@ -179,7 +179,7 @@ class CompositeOperationDefImplSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
         smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', { t ->
-            t.compositeOperation('op1', { OperationDef<TestEntity, TestContext> c -> c.step('bad-id', CtorlessStep) })
+            t.operation('op1', { OperationDef<TestEntity, TestContext> c -> c.step('bad-id', CtorlessStep) })
         }) })
         smd.state(ACTIVE, {})
 
@@ -193,7 +193,7 @@ class CompositeOperationDefImplSpec extends Specification {
     }
 
     @Unroll
-    def 'tier-1 step #variant accepts Identifiable refs'() {
+    def 'by-id member #variant accepts Identifiable refs'() {
         given:
         def composite = new OperationDefImpl<Object, Object>('outer')
         composite.beginConfigurer()
@@ -205,31 +205,11 @@ class CompositeOperationDefImplSpec extends Specification {
         composite.actionRefs.size() == 1
 
         where:
-        variant                                       | action
-        'step(Identifiable)'                          | { c -> c.step(identifiable('my-step')) }
-        'step(Identifiable, Identifiable)'            | { c -> c.step(identifiable('my-step'), identifiable('my-mapper')) }
-        'step(Identifiable, String mapperId)'         | { c -> c.step(identifiable('my-step'), 'my-mapper') }
-        'step(String stepId, Identifiable mapper)'    | { c -> c.step('my-step', identifiable('my-mapper')) }
-    }
-
-    @Unroll
-    def 'tier-1 operation #variant accepts Identifiable refs'() {
-        given:
-        def composite = new OperationDefImpl<Object, Object>('outer')
-        composite.beginConfigurer()
-
-        when:
-        action.call(composite)
-
-        then:
-        composite.actionRefs.size() == 1
-
-        where:
-        variant                                           | action
-        'operation(Identifiable)'                         | { c -> c.operation(identifiable('my-op')) }
-        'operation(Identifiable, Identifiable)'           | { c -> c.operation(identifiable('my-op'), identifiable('my-mapper')) }
-        'operation(Identifiable, String mapperId)'        | { c -> c.operation(identifiable('my-op'), 'my-mapper') }
-        'operation(String opId, Identifiable mapper)'     | { c -> c.operation('my-op', identifiable('my-mapper')) }
+        variant                                   | action
+        'run(Identifiable)'                       | { c -> c.run(identifiable('my-action')) }
+        'run(Identifiable, Identifiable)'         | { c -> c.run(identifiable('my-action'), identifiable('my-mapper')) }
+        'run(Identifiable, String mapperId)'      | { c -> c.run(identifiable('my-action'), 'my-mapper') }
+        'run(String actionId, Identifiable)'      | { c -> c.run('my-action', identifiable('my-mapper')) }
     }
 
     def 'tier-1 Identifiable overloads accept any Identifiable (e.g. a held-onto *Def reference)'() {
@@ -239,7 +219,7 @@ class CompositeOperationDefImplSpec extends Specification {
         def heldDef = new TransitionDefImpl<Object, Object>('held-id', 's1', 's2')
 
         when:
-        composite.step(heldDef)
+        composite.run(heldDef)
 
         then:
         composite.actionRefs.size() == 1
@@ -259,17 +239,12 @@ class CompositeOperationDefImplSpec extends Specification {
         thrown(TransfluxValidationException)
 
         where:
-        variant                                       | action
-        'step(null)'                                  | { c -> c.step((Identifiable) null) }
-        'step(null, identifiable)'                    | { c -> c.step((Identifiable) null, identifiable('m')) }
-        'step(null, mapperId)'                        | { c -> c.step((Identifiable) null, 'm') }
-        'step(identifiable, null)'                    | { c -> c.step(identifiable('s'), (Identifiable) null) }
-        'step(stepId, null)'                          | { c -> c.step('s', (Identifiable) null) }
-        'operation(null)'                             | { c -> c.operation((Identifiable) null) }
-        'operation(null, identifiable)'               | { c -> c.operation((Identifiable) null, identifiable('m')) }
-        'operation(null, mapperId)'                   | { c -> c.operation((Identifiable) null, 'm') }
-        'operation(identifiable, null)'               | { c -> c.operation(identifiable('o'), (Identifiable) null) }
-        'operation(opId, null)'                       | { c -> c.operation('o', (Identifiable) null) }
+        variant                          | action
+        'run(null)'                      | { c -> c.run((Identifiable) null) }
+        'run(null, identifiable)'        | { c -> c.run((Identifiable) null, identifiable('m')) }
+        'run(null, mapperId)'            | { c -> c.run((Identifiable) null, 'm') }
+        'run(identifiable, null)'        | { c -> c.run(identifiable('a'), (Identifiable) null) }
+        'run(actionId, null)'            | { c -> c.run('a', (Identifiable) null) }
     }
 
     @Unroll
@@ -286,11 +261,9 @@ class CompositeOperationDefImplSpec extends Specification {
 
         where:
         variant                                  | action
-        'step(Id, Step)'                         | { c -> c.step(identifiable('s1'), new IdOverloadStep()) }
+        'step(Id, Action)'                       | { c -> c.step(identifiable('s1'), new IdOverloadStep()) }
         'step(Id, Class)'                        | { c -> c.step(identifiable('s2'), IdOverloadStep) }
-        'operation(Id, Operation)'               | { c -> c.operation(identifiable('o1'), new IdOverloadOp()) }
-        'operation(Id, Class)'                   | { c -> c.operation(identifiable('o2'), IdOverloadOp) }
-        'conditional(Id, Consumer)'              | { c -> c.conditional(identifiable('cond1'), { cs -> cs.branch('b', { b -> b.condition('any'); b.step('x') }) }) }
+        'conditional(Id, Consumer)'              | { c -> c.conditional(identifiable('cond1'), { cs -> cs.branch('b', { b -> b.condition('any'); b.run('x') }) }) }
     }
 
     @Unroll
@@ -309,8 +282,8 @@ class CompositeOperationDefImplSpec extends Specification {
         variant                                  | action
         'step(null, Step)'                       | { c -> c.step((Identifiable) null, new IdOverloadStep()) }
         'step(null, Class)'                      | { c -> c.step((Identifiable) null, IdOverloadStep) }
-        'operation(null, Operation)'             | { c -> c.operation((Identifiable) null, new IdOverloadOp()) }
-        'operation(null, Class)'                 | { c -> c.operation((Identifiable) null, IdOverloadOp) }
+        'operation(null, Operation)'             | { c -> c.step((Identifiable) null, new IdOverloadOp()) }
+        'operation(null, Class)'                 | { c -> c.step((Identifiable) null, IdOverloadOp) }
         'conditional(null, Consumer)'            | { c -> c.conditional((Identifiable) null, { cs -> }) }
     }
 
@@ -320,7 +293,7 @@ class CompositeOperationDefImplSpec extends Specification {
         smd.forEntityType(CtxAssertEntity)
             .withStateResolver({ e -> e.state } as StateResolver<CtxAssertEntity>)
             .state('s1', { s -> s.transitionsTo('s2', 't', { t ->
-                t.compositeOperation('outer', { OperationDef<CtxAssertEntity, CtxAssertCorrectCtx> c ->
+                t.operation('outer', { OperationDef<CtxAssertEntity, CtxAssertCorrectCtx> c ->
                     c.usingContext(CtxAssertCorrectCtx).step('s1', new CtxAssertNoopStep())
                 })
             }) })
@@ -339,7 +312,7 @@ class CompositeOperationDefImplSpec extends Specification {
         smd.forEntityType(CtxAssertEntity)
             .withStateResolver({ e -> e.state } as StateResolver<CtxAssertEntity>)
             .state('s1', { s -> s.transitionsTo('s2', 't', { t ->
-                t.compositeOperation('outer', { OperationDef<CtxAssertEntity, CtxAssertCorrectCtx> c ->
+                t.operation('outer', { OperationDef<CtxAssertEntity, CtxAssertCorrectCtx> c ->
                     c.usingContext(CtxAssertCorrectCtx).step('s1', new CtxAssertNoopStep())
                 })
             }) })
@@ -355,10 +328,10 @@ class CompositeOperationDefImplSpec extends Specification {
     def 'mapTo failure surfaces as parent member failure — nested op never starts'() {
         given:
         def sm = buildNestedFail(
-            { smd -> smd.operation('nested', NestedFailChildCtx, new NestedFailChildOp())
+            { smd -> smd.step('nested', NestedFailChildCtx, new NestedFailChildOp())
                 .mapper('failing-mapto', NestedFailParentCtx, NestedFailChildCtx, new FailingMapToMapper()) },
-            { t -> t.compositeOperation('outer', { OperationDef<NestedFailEntity, NestedFailParentCtx> c ->
-                c.operation('nested', 'failing-mapto')
+            { t -> t.operation('outer', { OperationDef<NestedFailEntity, NestedFailParentCtx> c ->
+                c.run('nested', 'failing-mapto')
             }) })
         def entity = new NestedFailEntity('s1')
 
@@ -378,10 +351,10 @@ class CompositeOperationDefImplSpec extends Specification {
     def 'mapFrom failure surfaces as parent failure — child completed but writeback blew up'() {
         given:
         def sm = buildNestedFail(
-            { smd -> smd.operation('nested', NestedFailChildCtx, new NestedFailChildOp())
+            { smd -> smd.step('nested', NestedFailChildCtx, new NestedFailChildOp())
                 .mapper('failing-mapfrom', NestedFailParentCtx, NestedFailChildCtx, new FailingMapFromMapper()) },
-            { t -> t.compositeOperation('outer', { OperationDef<NestedFailEntity, NestedFailParentCtx> c ->
-                c.operation('nested', 'failing-mapfrom')
+            { t -> t.operation('outer', { OperationDef<NestedFailEntity, NestedFailParentCtx> c ->
+                c.run('nested', 'failing-mapfrom')
             }) })
         def entity = new NestedFailEntity('s1')
 

@@ -209,58 +209,16 @@ public interface ContextScope<T, C> {
      *         {@code configurer} is {@code null}, or another component is already registered
      *         under {@code id}
      */
-    ContextScope<T, C> compositeOperation(String id, Consumer<OperationDef<T, C>> configurer);
+    ContextScope<T, C> operation(String id, Consumer<OperationDef<T, C>> configurer);
 
     /**
-     * {@link Identifiable} overload of {@link #compositeOperation(String, Consumer)}.
+     * {@link Identifiable} overload of {@link #operation(String, Consumer)}.
      *
      * @param operationIdentifiable an identifiable supplying the composite operation id
      * @param configurer callback that configures the composite
      *
      * @return this scope for chaining
      */
-    ContextScope<T, C> compositeOperation(Identifiable operationIdentifiable, Consumer<OperationDef<T, C>> configurer);
+    ContextScope<T, C> operation(Identifiable operationIdentifiable, Consumer<OperationDef<T, C>> configurer);
 
-    /**
-     * Registers an {@link Action} instance under {@code id}, tagged with this scope's
-     * context class.
-     *
-     * @param id the operation id
-     * @param operation the operation instance; never {@code null}
-     *
-     * @return this scope for chaining
-     */
-    ContextScope<T, C> operation(String id, Action<T, C> operation);
-
-    /**
-     * {@link Identifiable} overload of {@link #operation(String, Action)}.
-     *
-     * @param operationIdentifiable an identifiable supplying the operation id
-     * @param operation the operation instance
-     *
-     * @return this scope for chaining
-     */
-    ContextScope<T, C> operation(Identifiable operationIdentifiable, Action<T, C> operation);
-
-    /**
-     * Registers an {@link Action} class under {@code id}, tagged with this scope's context
-     * class. The framework instantiates the class via its public no-arg constructor at build
-     * time.
-     *
-     * @param id the operation id
-     * @param operationClass the operation class; never {@code null}
-     *
-     * @return this scope for chaining
-     */
-    ContextScope<T, C> operation(String id, Class<? extends Action<T, C>> operationClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #operation(String, Class)}.
-     *
-     * @param operationIdentifiable an identifiable supplying the operation id
-     * @param operationClass the operation class
-     *
-     * @return this scope for chaining
-     */
-    ContextScope<T, C> operation(Identifiable operationIdentifiable, Class<? extends Action<T, C>> operationClass);
 }

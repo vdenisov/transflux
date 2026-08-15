@@ -140,13 +140,13 @@ class TransitionDefImplSpec extends Specification {
         'getTargetStateId' | 't1'           | 'source'          | 'target-state-id' | 'target-state-id'
     }
 
-    def 'simpleOperation(id, Operation instance) should attach a simple operation def'() {
+    def 'step(id, Operation instance) should attach an inline step def'() {
         given:
         def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
         transitionDef.beginConfigurer()
 
         when:
-        def returned = transitionDef.simpleOperation('op1', new FooOperation())
+        def returned = transitionDef.step('op1', new FooOperation())
 
         then:
         returned.is(transitionDef)
@@ -154,13 +154,13 @@ class TransitionDefImplSpec extends Specification {
         transitionDef.operationDef.id == 'op1'
     }
 
-    def 'simpleOperation(id, Operation class) should attach a simple operation def'() {
+    def 'step(id, Operation class) should attach an inline step def'() {
         given:
         def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
         transitionDef.beginConfigurer()
 
         when:
-        def returned = transitionDef.simpleOperation('op1', FooOperation)
+        def returned = transitionDef.step('op1', FooOperation)
 
         then:
         returned.is(transitionDef)
@@ -168,13 +168,13 @@ class TransitionDefImplSpec extends Specification {
         transitionDef.operationDef.id == 'op1'
     }
 
-    def 'simpleOperation(id, Consumer) should attach a configured simple operation def'() {
+    def 'step(id, Consumer) should attach a configured simple operation def'() {
         given:
         def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
         transitionDef.beginConfigurer()
 
         when:
-        def returned = transitionDef.simpleOperation('op1', { StepDef<Object, Object> op ->
+        def returned = transitionDef.step('op1', { StepDef<Object, Object> op ->
             op.withName('Foo').withDescription('Foo desc').using(FooOperation)
         })
 
@@ -186,25 +186,25 @@ class TransitionDefImplSpec extends Specification {
         transitionDef.operationDef.description == 'Foo desc'
     }
 
-    def 'simpleOperation(id, Consumer) should reject null configurer'() {
+    def 'step(id, Consumer) should reject null configurer'() {
         given:
         def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
         transitionDef.beginConfigurer()
 
         when:
-        transitionDef.simpleOperation('op1', (Consumer<StepDef<Object, Object>>) null)
+        transitionDef.step('op1', (Consumer<StepDef<Object, Object>>) null)
 
         then:
         thrown(TransfluxValidationException)
     }
 
-    def 'compositeOperation(id, Consumer) should attach a composite operation def'() {
+    def 'operation(id, Consumer) should attach a composite operation def'() {
         given:
         def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
         transitionDef.beginConfigurer()
 
         when:
-        def returned = transitionDef.compositeOperation('op1', { OperationDef<Object, Object> c ->
+        def returned = transitionDef.operation('op1', { OperationDef<Object, Object> c ->
             c.step('s1', new FooStep())
         })
 
@@ -215,13 +215,13 @@ class TransitionDefImplSpec extends Specification {
         ((OperationDefImpl<Object, Object>) transitionDef.operationDef).actionRefs.size() == 1
     }
 
-    def 'compositeOperation(id, Consumer) should reject null configurer'() {
+    def 'operation(id, Consumer) should reject null configurer'() {
         given:
         def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
         transitionDef.beginConfigurer()
 
         when:
-        transitionDef.compositeOperation('op1', (Consumer<OperationDef<Object, Object>>) null)
+        transitionDef.operation('op1', (Consumer<OperationDef<Object, Object>>) null)
 
         then:
         thrown(TransfluxValidationException)
@@ -316,7 +316,7 @@ class TransitionDefImplSpec extends Specification {
         e.message.toLowerCase().contains('identifiable')
 
         where:
-        method << ['preCondition', 'postCondition', 'operation']
+        method << ['preCondition', 'postCondition', 'run']
     }
 
     def 'operation(String) stores the registered op id and clears any prior operationDef'() {
@@ -325,7 +325,7 @@ class TransitionDefImplSpec extends Specification {
         td.beginConfigurer()
 
         when:
-        td.operation('my-registered-op')
+        td.run('my-registered-op')
 
         then:
         td.registeredOperationRefId == 'my-registered-op'
@@ -338,7 +338,7 @@ class TransitionDefImplSpec extends Specification {
         td.beginConfigurer()
 
         when:
-        td.operation(identifiable('my-registered-op'))
+        td.run(identifiable('my-registered-op'))
 
         then:
         td.registeredOperationRefId == 'my-registered-op'
@@ -350,7 +350,7 @@ class TransitionDefImplSpec extends Specification {
         td.beginConfigurer()
 
         when:
-        td.operation(id as String)
+        td.run(id as String)
 
         then:
         thrown(TransfluxValidationException)
@@ -359,14 +359,14 @@ class TransitionDefImplSpec extends Specification {
         id << [null, '', '  ']
     }
 
-    def 'operation(...) followed by simpleOperation(...) overrides with a warning'() {
+    def 'operation(...) followed by step(...) overrides with a warning'() {
         given:
         def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
         td.beginConfigurer()
 
         when:
-        td.operation('first')
-        td.simpleOperation('second', new IdOverloadOp())
+        td.run('first')
+        td.step('second', new IdOverloadOp())
 
         then:
         td.registeredOperationRefId == null
@@ -374,14 +374,14 @@ class TransitionDefImplSpec extends Specification {
         td.operationDef.id == 'second'
     }
 
-    def 'simpleOperation(...) followed by operation(...) overrides with a warning'() {
+    def 'step(...) followed by operation(...) overrides with a warning'() {
         given:
         def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
         td.beginConfigurer()
 
         when:
-        td.simpleOperation('first', new IdOverloadOp())
-        td.operation('second')
+        td.step('first', new IdOverloadOp())
+        td.run('second')
 
         then:
         td.operationDef == null
@@ -395,7 +395,7 @@ class TransitionDefImplSpec extends Specification {
         td.endConfigurer()
 
         when:
-        td.operation('after-the-fact')
+        td.run('after-the-fact')
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -403,7 +403,7 @@ class TransitionDefImplSpec extends Specification {
     }
 
     @Unroll
-    def 'tier-3 simpleOperation/compositeOperation Identifiable overload accepted: #variant'() {
+    def 'tier-3 step/operation Identifiable overload accepted: #variant'() {
         given:
         def td = new TransitionDefImpl<Object, Object>('t', 's1', 's2')
         td.beginConfigurer()
@@ -416,10 +416,10 @@ class TransitionDefImplSpec extends Specification {
 
         where:
         variant                                     | action
-        'simpleOperation(Id, Operation)'            | { d -> d.simpleOperation(identifiable('op1'), new IdOverloadOp()) }
-        'simpleOperation(Id, Class)'                | { d -> d.simpleOperation(identifiable('op2'), IdOverloadOp) }
-        'simpleOperation(Id, Consumer)'             | { d -> d.simpleOperation(identifiable('op3'), { o -> o.using(new IdOverloadOp()) }) }
-        'compositeOperation(Id, Consumer)'          | { d -> d.compositeOperation(identifiable('op4'), { c -> c.step('anything') }) }
+        'step(Id, Operation)'            | { d -> d.step(identifiable('op1'), new IdOverloadOp()) }
+        'step(Id, Class)'                | { d -> d.step(identifiable('op2'), IdOverloadOp) }
+        'step(Id, Consumer)'             | { d -> d.step(identifiable('op3'), { o -> o.using(new IdOverloadOp()) }) }
+        'operation(Id, Consumer)'          | { d -> d.operation(identifiable('op4'), { c -> c.run('anything') }) }
     }
 
     @Unroll
@@ -476,10 +476,10 @@ class TransitionDefImplSpec extends Specification {
 
         where:
         variant                                  | action
-        'simpleOperation(null, Operation)'       | { d -> d.simpleOperation((Identifiable) null, new IdOverloadOp()) }
-        'simpleOperation(null, Class)'           | { d -> d.simpleOperation((Identifiable) null, IdOverloadOp) }
-        'simpleOperation(null, Consumer)'        | { d -> d.simpleOperation((Identifiable) null, { o -> }) }
-        'compositeOperation(null, Consumer)'     | { d -> d.compositeOperation((Identifiable) null, { c -> }) }
+        'step(null, Operation)'       | { d -> d.step((Identifiable) null, new IdOverloadOp()) }
+        'step(null, Class)'           | { d -> d.step((Identifiable) null, IdOverloadOp) }
+        'step(null, Consumer)'        | { d -> d.step((Identifiable) null, { o -> }) }
+        'operation(null, Consumer)'     | { d -> d.operation((Identifiable) null, { c -> }) }
         'preCondition(null, Condition)'          | { d -> d.preCondition((Identifiable) null, new IdOverloadCond()) }
         'preCondition(null, Class)'              | { d -> d.preCondition((Identifiable) null, IdOverloadCond) }
         'preCondition(null, Predicate)'          | { d -> d.preCondition((Identifiable) null, { e -> true } as Predicate) }

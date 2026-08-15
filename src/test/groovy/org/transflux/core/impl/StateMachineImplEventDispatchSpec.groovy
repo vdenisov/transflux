@@ -177,7 +177,7 @@ class StateMachineImplEventDispatchSpec extends Specification {
         def seen = []
         def sm = build({ d -> d.state('s1', { st ->
             st.transitionsTo('s2', 't', TestContext, { t -> t
-                .simpleOperation('op', { e, c, tr -> seen.add(c) } as Action)
+                .step('op', { e, c, tr -> seen.add(c) } as Action)
                 .addEventTrigger('go', 'GO') }) })
             .state('s2', {}) })
         def ctx = new TestContext('the-context')

@@ -80,7 +80,7 @@ class StateMachineImplStateListenerSpec extends Specification {
         def sm = build({ d -> d
             .state('s1', { st -> st
                 .onExit('leave', recorder(log, 'exit'))
-                .transitionsTo('s2', 't', { t -> t.simpleOperation('op', { e, ctx, tr -> log << 'operation' } as Action) }) })
+                .transitionsTo('s2', 't', { t -> t.step('op', { e, ctx, tr -> log << 'operation' } as Action) }) })
             .state('s2', { st -> st.onEntry('enter', recorder(log, 'entry')) }) })
 
         when:
@@ -206,7 +206,7 @@ class StateMachineImplStateListenerSpec extends Specification {
 
         where:
         stage            | configure
-        'the operation'  | { t -> t.simpleOperation('op', { e, ctx, tr -> throw new IllegalStateException('boom') } as Action) }
+        'the operation'  | { t -> t.step('op', { e, ctx, tr -> throw new IllegalStateException('boom') } as Action) }
         'a post-condition' | { t -> t.postCondition('never', { e -> false } as Predicate) }
     }
 

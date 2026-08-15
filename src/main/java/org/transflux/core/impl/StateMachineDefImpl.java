@@ -649,65 +649,15 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public <C> StateMachineDef<T> compositeOperation(String id, Class<C> contextType, Consumer<OperationDef<T, C>> configurer) {
+    public <C> StateMachineDef<T> operation(String id, Class<C> contextType, Consumer<OperationDef<T, C>> configurer) {
         registerScopedCompositeOperation(id, configurer, contextType);
         return this;
     }
 
     @Override
-    public <C> StateMachineDef<T> compositeOperation(Identifiable operationIdentifiable, Class<C> contextType, Consumer<OperationDef<T, C>> configurer) {
+    public <C> StateMachineDef<T> operation(Identifiable operationIdentifiable, Class<C> contextType, Consumer<OperationDef<T, C>> configurer) {
         requireNotNull(operationIdentifiable, "Operation identifiable");
-        return compositeOperation(operationIdentifiable.getId(), contextType, configurer);
-    }
-
-    @Override
-    public <C> StateMachineDef<T> operation(String id, Class<C> contextType, Action<T, C> operation) {
-        requireNotBlank(id, "Operation ID");
-        requireNotNull(contextType, "Context type");
-        requireNotNull(operation, "Operation");
-        registerStepInstance(id, operation);
-        tagContextType(id, contextType);
-        return this;
-    }
-
-    @Override
-    public <C> StateMachineDef<T> operation(Identifiable operationIdentifiable, Class<C> contextType, Action<T, C> operation) {
-        requireNotNull(operationIdentifiable, "Operation identifiable");
-        return operation(operationIdentifiable.getId(), contextType, operation);
-    }
-
-    @Override
-    public <C> StateMachineDef<T> operation(String id, Class<C> contextType, Class<? extends Action<T, C>> operationClass) {
-        requireNotBlank(id, "Operation ID");
-        requireNotNull(contextType, "Context type");
-        requireNotNull(operationClass, "Operation class");
-        registerStepClass(id, operationClass);
-        tagContextType(id, contextType);
-        return this;
-    }
-
-    @Override
-    public <C> StateMachineDef<T> operation(Identifiable operationIdentifiable, Class<C> contextType, Class<? extends Action<T, C>> operationClass) {
-        requireNotNull(operationIdentifiable, "Operation identifiable");
-        return operation(operationIdentifiable.getId(), contextType, operationClass);
-    }
-
-    @Override
-    public <C> StateMachineDef<T> simpleOperation(String id, Class<C> contextType, Consumer<StepDef<T, C>> configurer) {
-        requireNotBlank(id, "Operation ID");
-        requireNotNull(contextType, "Context type");
-        requireNotNull(configurer, "Simple operation configurer");
-        StepDefImpl<T, C> def = new StepDefImpl<>(id);
-        ConfigurableDefImpl.runConfigurer(def, configurer);
-        registerStepDef(def);
-        tagContextType(id, contextType);
-        return this;
-    }
-
-    @Override
-    public <C> StateMachineDef<T> simpleOperation(Identifiable operationIdentifiable, Class<C> contextType, Consumer<StepDef<T, C>> configurer) {
-        requireNotNull(operationIdentifiable, "Operation identifiable");
-        return simpleOperation(operationIdentifiable.getId(), contextType, configurer);
+        return operation(operationIdentifiable.getId(), contextType, configurer);
     }
 
     @Override

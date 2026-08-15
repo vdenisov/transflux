@@ -82,11 +82,11 @@ class TransitionDefImplLambdaConfigurerSpec extends Specification {
         smd.state(TRIAL, { s ->
             s.transitionsTo(ACTIVE, 't-simple', { t ->
                 t.withName('n').withDescription('d')
-                t.simpleOperation('op', new NoopOp())
+                t.step('op', new NoopOp())
                 t.preCondition('pre', { e -> true })
                 t.postCondition('post', { e -> true })
             })
-            s.transitionsTo(ACTIVE, 't-composite', { t -> t.compositeOperation('co', { co -> }) })
+            s.transitionsTo(ACTIVE, 't-composite', { t -> t.operation('co', { co -> }) })
         })
 
         then:
@@ -119,8 +119,8 @@ class TransitionDefImplLambdaConfigurerSpec extends Specification {
         'withName'           || { TransitionDef t -> t.withName('x') }
         'withDescription'    || { TransitionDef t -> t.withDescription('x') }
         'usingContext'       || { TransitionDef t -> t.usingContext(Ctx) }
-        'simpleOperation'    || { TransitionDef t -> t.simpleOperation('op', new NoopOp()) }
-        'compositeOperation' || { TransitionDef t -> t.compositeOperation('co', { c -> }) }
+        'step'               || { TransitionDef t -> t.step('op', new NoopOp()) }
+        'operation'          || { TransitionDef t -> t.operation('co', { c -> }) }
         'preCondition'       || { TransitionDef t -> t.preCondition('p', { ent -> true }) }
         'postCondition'      || { TransitionDef t -> t.postCondition('p', { ent -> true }) }
     }

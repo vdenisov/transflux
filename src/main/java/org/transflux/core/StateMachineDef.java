@@ -515,11 +515,11 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    <C> StateMachineDef<T> compositeOperation(String id, Class<C> contextType, Consumer<OperationDef<T, C>> configurer);
+    <C> StateMachineDef<T> operation(String id, Class<C> contextType, Consumer<OperationDef<T, C>> configurer);
 
     /**
      * {@link Identifiable} overload of
-     * {@link #compositeOperation(String, Class, Consumer)} — delegates via
+     * {@link #operation(String, Class, Consumer)} — delegates via
      * {@link Identifiable#getId()}.
      *
      * @param operationIdentifiable an identifiable supplying the operation id
@@ -529,92 +529,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    <C> StateMachineDef<T> compositeOperation(Identifiable operationIdentifiable, Class<C> contextType, Consumer<OperationDef<T, C>> configurer);
-
-    /**
-     * Registers an {@link Action} instance against this state machine under the given id,
-     * tagged with the supplied context class. The registered operation can be referenced by id
-     * from any number of call sites — composite members, imperative dispatches from inside a
-     * running transition — that either pass through a compatible parent context or supply a
-     * mapper whose child type matches {@code contextType}.
-     *
-     * @param id the operation id
-     * @param contextType the operation's declared context class; never {@code null}
-     * @param operation the operation instance; never {@code null}
-     * @param <C> the operation's context type
-     *
-     * @return this state machine def for chaining
-     */
-    <C> StateMachineDef<T> operation(String id, Class<C> contextType, Action<T, C> operation);
-
-    /**
-     * {@link Identifiable} overload of {@link #operation(String, Class, Action)} —
-     * delegates via {@link Identifiable#getId()}.
-     *
-     * @param operationIdentifiable an identifiable supplying the operation id
-     * @param contextType the operation's declared context class
-     * @param operation the operation instance
-     * @param <C> the operation's context type
-     *
-     * @return this state machine def for chaining
-     */
-    <C> StateMachineDef<T> operation(Identifiable operationIdentifiable, Class<C> contextType, Action<T, C> operation);
-
-    /**
-     * Registers an {@link Action} class against this state machine under the given id,
-     * tagged with the supplied context class. The framework instantiates it via its public
-     * no-arg constructor at build time.
-     *
-     * @param id the operation id
-     * @param contextType the operation's declared context class; never {@code null}
-     * @param operationClass the operation class; never {@code null}
-     * @param <C> the operation's context type
-     *
-     * @return this state machine def for chaining
-     */
-    <C> StateMachineDef<T> operation(String id, Class<C> contextType, Class<? extends Action<T, C>> operationClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #operation(String, Class, Class)} — delegates
-     * via {@link Identifiable#getId()}.
-     *
-     * @param operationIdentifiable an identifiable supplying the operation id
-     * @param contextType the operation's declared context class
-     * @param operationClass the operation class
-     * @param <C> the operation's context type
-     *
-     * @return this state machine def for chaining
-     */
-    <C> StateMachineDef<T> operation(Identifiable operationIdentifiable, Class<C> contextType, Class<? extends Action<T, C>> operationClass);
-
-    /**
-     * Registers a simple operation against this state machine via a lambda configurer, tagged
-     * with the supplied context class. Inside the configurer the caller wires the operation
-     * source with {@code using(Operation|Class)} and may set optional {@code withName} /
-     * {@code withDescription} metadata. The configurer is the only place the
-     * {@link StepDef} may be mutated; once it returns the reference is inert.
-     *
-     * @param id the operation id
-     * @param contextType the operation's declared context class
-     * @param configurer the configurer that wires the operation def
-     * @param <C> the operation's context type
-     *
-     * @return this state machine def for chaining
-     */
-    <C> StateMachineDef<T> simpleOperation(String id, Class<C> contextType, Consumer<StepDef<T, C>> configurer);
-
-    /**
-     * {@link Identifiable} overload of {@link #simpleOperation(String, Class, Consumer)} —
-     * delegates via {@link Identifiable#getId()}.
-     *
-     * @param operationIdentifiable an identifiable supplying the operation id
-     * @param contextType the operation's declared context class
-     * @param configurer the configurer that wires the operation def
-     * @param <C> the operation's context type
-     *
-     * @return this state machine def for chaining
-     */
-    <C> StateMachineDef<T> simpleOperation(Identifiable operationIdentifiable, Class<C> contextType, Consumer<StepDef<T, C>> configurer);
+    <C> StateMachineDef<T> operation(Identifiable operationIdentifiable, Class<C> contextType, Consumer<OperationDef<T, C>> configurer);
 
     /**
      * Registers a {@link ContextMapper} instance against this state machine under the given id,

@@ -424,7 +424,7 @@ class StateMachineImplSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('stamp', new ContextStampStep())
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.compositeOperation('flow', { c -> c.step('stamp') }) }) })
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.operation('flow', { c -> c.run('stamp') }) }) })
         smd.state(ACTIVE, {})
 
         def sm = (StateMachineImpl<TestEntity>) smd.build()
@@ -512,8 +512,8 @@ class StateMachineImplSpec extends Specification {
             .withStateApplier({ entity, target -> appliedState[entity] = target } as StateApplier<TestEntity>)
             .step('stamp', new ContextStampStep())
             .step('bump', new BumpCounterStep())
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.compositeOperation('flow', { c ->
-            c.step('stamp').step('bump').step('bump')
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.operation('flow', { c ->
+            c.run('stamp').run('bump').run('bump')
         }) }) })
         smd.state(ACTIVE, {})
 
@@ -534,7 +534,7 @@ class StateMachineImplSpec extends Specification {
         appliedState[entity] == 'ACTIVE'
     }
 
-    def "transitionTo with a simple operation should run the operation and apply state"() {
+    def "transitionTo with an inline step should run it and apply state"() {
         given:
         def appliedState = [:] as Map<TestEntity, String>
         def operation = { TestEntity entity, TestContext ctx, Transition<TestEntity, TestContext> tx ->
@@ -545,7 +545,7 @@ class StateMachineImplSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .withStateApplier({ entity, target -> appliedState[entity] = target } as StateApplier<TestEntity>)
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.simpleOperation('activate', operation) }) })
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.step('activate', operation) }) })
         smd.state(ACTIVE, {})
 
         def sm = smd.build()
@@ -562,7 +562,7 @@ class StateMachineImplSpec extends Specification {
         appliedState[entity] == 'ACTIVE'
     }
 
-    def "transitionTo should track step ids invoked from inside a simple operation via transition.run(id)"() {
+    def "transitionTo should track step ids invoked from inside an action body via transition.run(id)"() {
         given:
         def appliedState = [:] as Map<TestEntity, String>
         def smd = Transflux.<TestEntity> defineStateMachine()
@@ -571,7 +571,7 @@ class StateMachineImplSpec extends Specification {
             .withStateApplier({ entity, target -> appliedState[entity] = target } as StateApplier<TestEntity>)
             .step('stamp', new ContextStampStep())
             .step('bump', new BumpCounterStep())
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.simpleOperation('orchestrator', new CallNestedStepOperation()) }) })
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.step('orchestrator', new CallNestedStepOperation()) }) })
         smd.state(ACTIVE, {})
 
         def sm = smd.build()
@@ -598,8 +598,8 @@ class StateMachineImplSpec extends Specification {
             .withStateApplier({ entity, target -> applierInvocations++ } as StateApplier<TestEntity>)
             .step('stamp', new ContextStampStep())
             .step('boom', new ThrowingStep())
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.compositeOperation('flow', { c ->
-            c.step('stamp').step('boom')
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.operation('flow', { c ->
+            c.run('stamp').run('boom')
         }) }) })
         smd.state(ACTIVE, {})
 
@@ -625,8 +625,8 @@ class StateMachineImplSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('boom', new ThrowingStep())
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.compositeOperation('flow', { c ->
-            c.step('boom')
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.operation('flow', { c ->
+            c.run('boom')
         }) }) })
         smd.state(ACTIVE, {})
         def sm = smd.build()
@@ -647,8 +647,8 @@ class StateMachineImplSpec extends Specification {
             .step('stamp', new ContextStampStep())
             .step('bump', new BumpCounterStep())
             .step('caller', new CallNestedStepOperation())
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.compositeOperation('flow', { c ->
-            c.step('caller')
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.operation('flow', { c ->
+            c.run('caller')
         }) }) })
         smd.state(ACTIVE, {})
         def sm = smd.build()
@@ -674,8 +674,8 @@ class StateMachineImplSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .withStateApplier({ entity, target -> appliedState[entity] = target } as StateApplier<TestEntity>)
-            .operation('sm-level-activate', TestContext, smOp)
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', TestContext, { t -> t.operation('sm-level-activate') }) })
+            .step('sm-level-activate', TestContext, smOp)
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', TestContext, { t -> t.run('sm-level-activate') }) })
         smd.state(ACTIVE, {})
 
         def sm = smd.build()
@@ -699,7 +699,7 @@ class StateMachineImplSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.operation('nonexistent') }) })
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.run('nonexistent') }) })
         smd.state(ACTIVE, {})
 
         when:
@@ -718,7 +718,7 @@ class StateMachineImplSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('registered-imperatively', new ContextStampStep())
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.operation('registered-imperatively') }) })
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.run('registered-imperatively') }) })
         smd.state(ACTIVE, {})
 
         expect: 'the reference names a callee; which form it was authored in is not the call site\'s business'
@@ -734,8 +734,8 @@ class StateMachineImplSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-            .operation('narrow-op', IdCtx, narrowOp)
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', TestContext, { t -> t.operation('narrow-op') }) })
+            .step('narrow-op', IdCtx, narrowOp)
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', TestContext, { t -> t.run('narrow-op') }) })
         smd.state(ACTIVE, {})
 
         when:

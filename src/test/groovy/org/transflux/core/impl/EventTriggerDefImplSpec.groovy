@@ -113,7 +113,7 @@ class EventTriggerDefImplSpec extends Specification {
         def seen = []
         def sm = build({ d -> d.state('s1', { st ->
             st.transitionsTo('s2', 't', { t -> t
-                .simpleOperation('op', { e, c, tr -> seen << 'fired' } as Action)
+                .step('op', { e, c, tr -> seen << 'fired' } as Action)
                 .addEventTrigger('paid', { et -> et.onEvent('PAYMENT') })
                 .addEventTrigger('paid2', { et ->
                     et.onEvent('OTHER')

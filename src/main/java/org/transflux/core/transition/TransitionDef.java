@@ -42,30 +42,33 @@ import java.util.function.Predicate;
  * <p>TransitionDef instances are created internally by the framework when transitions are
  * registered through the fluent API and should not be instantiated directly by client code.
  *
- * <p><b>Attaching operations.</b> A transition carries at most one operation. The operation
- * is either <i>simple</i> (a single {@link Action} executing all the business logic on its
- * own) or <i>composite</i> (an ordered list of reusable {@link Action}s). The fluent API exposes
- * both kinds symmetrically:
+ * <p><b>Attaching an action.</b> A transition carries at most one action, in either authoring
+ * form: a <i>step</i> (a Java body doing the work itself) or an <i>operation</i> (an ordered
+ * list of members). Both attach the same way, and either may also be named by id if it is
+ * already registered on the state machine:
  *
  * <pre>{@code
- * // Simple, no extra configuration (class form):
- * .simpleOperation("activate", ActivateOperation.class)
+ * // Imperative, class form:
+ * .step("activate", ActivateAction.class)
  *
- * // Simple, no extra configuration (instance form):
- * .simpleOperation("activate", new ActivateOperation())
+ * // Imperative, instance form:
+ * .step("activate", new ActivateAction())
  *
- * // Simple, with name/description set inside the configurer:
- * .simpleOperation("activate", op -> op
+ * // Imperative, with name/description set inside the configurer:
+ * .step("activate", a -> a
  *     .withName("Activate Subscription")
  *     .withDescription("Marks the subscription active and bills the first period")
- *     .using(ActivateOperation.class))
+ *     .using(ActivateAction.class))
  *
- * // Composite, with an ordered list of steps:
- * .compositeOperation("validate-and-pay", composite -> composite
+ * // Declarative, an ordered list of members:
+ * .operation("validate-and-pay", op -> op
  *     .withName("Validate and Charge")
- *     .step("validate-cart")
- *     .step("compute-total")
- *     .step("charge", ChargeStep.class))
+ *     .run("validate-cart")
+ *     .run("compute-total")
+ *     .step("charge", ChargeAction.class))
+ *
+ * // By id, referencing something registered on the state machine:
+ * .run("activate-subscription")
  * }</pre>
  *
  * Each method returns {@code TransitionDef<T, C>} so chained calls stay scoped to the
@@ -174,17 +177,17 @@ public interface TransitionDef<T, C> extends Identifiable {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code operation} is {@code null}
      */
-    TransitionDef<T, C> simpleOperation(String id, Action<T, C> operation);
+    TransitionDef<T, C> step(String id, Action<T, C> operation);
 
     /**
-     * {@link Identifiable} overload of {@link #simpleOperation(String, Action)}.
+     * {@link Identifiable} overload of {@link #step(String, Action)}.
      *
      * @param operationIdentifiable an identifiable supplying the operation id
      * @param operation the operation instance
      *
      * @return this transition def for chaining
      */
-    TransitionDef<T, C> simpleOperation(Identifiable operationIdentifiable, Action<T, C> operation);
+    TransitionDef<T, C> step(Identifiable operationIdentifiable, Action<T, C> operation);
 
     /**
      * Attaches a simple operation using an {@link Action} class. The framework instantiates
@@ -198,17 +201,17 @@ public interface TransitionDef<T, C> extends Identifiable {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code operationClass} is {@code null}
      */
-    TransitionDef<T, C> simpleOperation(String id, Class<? extends Action<T, C>> operationClass);
+    TransitionDef<T, C> step(String id, Class<? extends Action<T, C>> operationClass);
 
     /**
-     * {@link Identifiable} overload of {@link #simpleOperation(String, Class)}.
+     * {@link Identifiable} overload of {@link #step(String, Class)}.
      *
      * @param operationIdentifiable an identifiable supplying the operation id
      * @param operationClass the operation class
      *
      * @return this transition def for chaining
      */
-    TransitionDef<T, C> simpleOperation(Identifiable operationIdentifiable, Class<? extends Action<T, C>> operationClass);
+    TransitionDef<T, C> step(Identifiable operationIdentifiable, Class<? extends Action<T, C>> operationClass);
 
     /**
      * Attaches a simple operation built through a fluent configurer. Use this form when you
@@ -228,17 +231,17 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         {@code configurer} is {@code null}, or the configurer leaves the def without
      *         an operation source
      */
-    TransitionDef<T, C> simpleOperation(String id, Consumer<StepDef<T, C>> configurer);
+    TransitionDef<T, C> step(String id, Consumer<StepDef<T, C>> configurer);
 
     /**
-     * {@link Identifiable} overload of {@link #simpleOperation(String, Consumer)}.
+     * {@link Identifiable} overload of {@link #step(String, Consumer)}.
      *
      * @param operationIdentifiable an identifiable supplying the operation id
      * @param configurer the fluent configurer
      *
      * @return this transition def for chaining
      */
-    TransitionDef<T, C> simpleOperation(Identifiable operationIdentifiable, Consumer<StepDef<T, C>> configurer);
+    TransitionDef<T, C> step(Identifiable operationIdentifiable, Consumer<StepDef<T, C>> configurer);
 
     /**
      * Attaches a composite operation built through a fluent configurer. The composite must
@@ -257,51 +260,49 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         {@code configurer} is {@code null}, or the configurer leaves the composite
      *         without any steps
      */
-    TransitionDef<T, C> compositeOperation(String id, Consumer<OperationDef<T, C>> configurer);
+    TransitionDef<T, C> operation(String id, Consumer<OperationDef<T, C>> configurer);
 
     /**
-     * {@link Identifiable} overload of {@link #compositeOperation(String, Consumer)}.
+     * {@link Identifiable} overload of {@link #operation(String, Consumer)}.
      *
      * @param operationIdentifiable an identifiable supplying the operation id
      * @param configurer the fluent configurer
      *
      * @return this transition def for chaining
      */
-    TransitionDef<T, C> compositeOperation(Identifiable operationIdentifiable, Consumer<OperationDef<T, C>> configurer);
+    TransitionDef<T, C> operation(Identifiable operationIdentifiable, Consumer<OperationDef<T, C>> configurer);
 
     /**
-     * Attaches an operation already registered on the enclosing state machine through
-     * {@link org.transflux.core.StateMachineDef#operation(String, Class, Action) StateMachineDef.operation(...)}
-     * (or its class / configurer / composite variants). The registered operation's id appears
-     * verbatim in {@link TransitionResult#getExecutedPath()} when the transition fires; no
-     * wrapper composite is synthesized.
+     * Attaches an action already registered on the enclosing state machine, whichever form it
+     * was authored in. Its id appears verbatim in {@link TransitionResult#getExecutedPath()}
+     * when the transition fires; no wrapper is synthesized.
      *
-     * <p>The registered operation's declared context type must be assignable from this
-     * transition's context type — the same pass-through compatibility rule that applies to
-     * by-id references inside composites. {@code Object.class}-typed registered operations are
-     * always reachable.
+     * <p>The registered action's declared context type must be assignable from this
+     * transition's context type - the same pass-through compatibility rule that applies to
+     * by-id references inside an operation. {@code Object.class}-typed registrations are always
+     * reachable.
      *
-     * @param registeredOperationId the registered operation id; never {@code null} or blank
+     * @param id the registered action id; never {@code null} or blank
      *
      * @return this transition def for chaining
      *
-     * @throws TransfluxValidationException if {@code registeredOperationId} is {@code null} or
-     *         blank, or if at build time no operation is registered under this id, or the
-     *         registered operation's context type is incompatible with this transition's
+     * @throws TransfluxValidationException if {@code id} is {@code null} or blank, or if at
+     *         build time no action is registered under this id, or the registered action's
+     *         context type is incompatible with this transition's
      */
-    TransitionDef<T, C> operation(String registeredOperationId);
+    TransitionDef<T, C> run(String id);
 
     /**
-     * {@link Identifiable} overload of {@link #operation(String)} — delegates via
+     * {@link Identifiable} overload of {@link #run(String)} - delegates via
      * {@link Identifiable#getId()}.
      *
-     * @param registeredOperation an identifiable supplying the operation id
+     * @param registeredAction an identifiable supplying the action id
      *
      * @return this transition def for chaining
      *
-     * @throws TransfluxValidationException if {@code registeredOperation} is {@code null}
+     * @throws TransfluxValidationException if {@code registeredAction} is {@code null}
      */
-    TransitionDef<T, C> operation(Identifiable registeredOperation);
+    TransitionDef<T, C> run(Identifiable registeredAction);
 
     /**
      * Appends a pre-condition that references a condition already registered on the enclosing

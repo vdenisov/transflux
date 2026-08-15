@@ -53,19 +53,19 @@ class StateMachineImplHeterogeneousTransitionsSpec extends Specification {
             .withStateApplier({ o, s -> o.state = s })
 
         smd.state('new', { s -> s.transitionsTo('drafted', 'draft', DraftCtx, { t ->
-            t.simpleOperation('op-draft', { Offer o, DraftCtx c, tx ->
+            t.step('op-draft', { Offer o, DraftCtx c, tx ->
                 o.openingId = c.openingId
                 o.proposalText = c.proposalText
             })
         }) })
         smd.state('drafted', { s -> s
             .transitionsTo('submitted', 'submit', SubmitCtx, { t ->
-                t.simpleOperation('op-submit', { Offer o, SubmitCtx c, tx ->
+                t.step('op-submit', { Offer o, SubmitCtx c, tx ->
                     o.contactEmail = c.contactEmail
                 })
             })
             .transitionsTo('withdrawn', 'withdraw', WithdrawCtx, { t ->
-                t.simpleOperation('op-withdraw', { Offer o, WithdrawCtx c, tx ->
+                t.step('op-withdraw', { Offer o, WithdrawCtx c, tx ->
                     o.withdrawCode = c.code
                 })
             }) })

@@ -145,16 +145,16 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     }
 
     @Override
-    public BranchDef<T, C> step(String registeredStepId) {
-        requireConfigurerActive("step");
-        actionRefs.add(ActionRef.byId(registeredStepId));
+    public BranchDef<T, C> run(String id) {
+        requireConfigurerActive("run");
+        actionRefs.add(ActionRef.byId(id));
         return this;
     }
 
     @Override
-    public BranchDef<T, C> step(Identifiable registeredStep) {
-        requireNotNull(registeredStep, "Step identifiable");
-        return step(registeredStep.getId());
+    public BranchDef<T, C> run(Identifiable registeredAction) {
+        requireNotNull(registeredAction, "Action identifiable");
+        return run(registeredAction.getId());
     }
 
     @Override

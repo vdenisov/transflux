@@ -195,7 +195,7 @@ class StateMachineImplCompensationSpec extends Specification {
     def 'three-step composite, step 3 throws: compensations run in reverse and applier is skipped'() {
         given:
         def applied = []
-        def sm = build(applied, { t -> t.compositeOperation('op', { OperationDef<Entity, TestContext> c ->
+        def sm = build(applied, { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
             c.step('s1', new TrailStep('a'))
              .step('s2', new TrailStep('b'))
              .step('s3', new ThrowingStep('boom'))
@@ -218,7 +218,7 @@ class StateMachineImplCompensationSpec extends Specification {
     def "throwing step's compensation also runs (captured before execute)"() {
         given:
         def applied = []
-        def sm = build(applied, { t -> t.compositeOperation('op', { OperationDef<Entity, TestContext> c ->
+        def sm = build(applied, { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
             c.step('s1', new TrailStep('a'))
              .step('s2', new ThrowingWithCompStep('b'))
         }) })
@@ -241,7 +241,7 @@ class StateMachineImplCompensationSpec extends Specification {
         def applied = []
         def createdIds = []
         def deletedIds = []
-        def sm = build(applied, { t -> t.compositeOperation('op', { OperationDef<Entity, TestContext> c ->
+        def sm = build(applied, { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
             c.step('create', new PartialCreateStep(10, 5, createdIds, deletedIds))
         }) })
         def entity = new Entity('s1')
@@ -262,7 +262,7 @@ class StateMachineImplCompensationSpec extends Specification {
     def 'step with null compensation registers nothing'() {
         given:
         def applied = []
-        def sm = build(applied, { t -> t.compositeOperation('op', { OperationDef<Entity, TestContext> c ->
+        def sm = build(applied, { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
             c.step('s1', new TrailStep('a'))
              .step('s2', new NoCompStep('b'))
              .step('s3', new ThrowingStep('boom'))
@@ -283,7 +283,7 @@ class StateMachineImplCompensationSpec extends Specification {
     def 'compensation that itself throws is logged and skipped, remaining compensations still run'() {
         given:
         def applied = []
-        def sm = build(applied, { t -> t.compositeOperation('op', { OperationDef<Entity, TestContext> c ->
+        def sm = build(applied, { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
             c.step('s1', new TrailStep('a'))
              .step('s2', new CompThrowsStep('b'))
              .step('s3', new ThrowingStep('boom'))
@@ -305,7 +305,7 @@ class StateMachineImplCompensationSpec extends Specification {
         given:
         def applied = []
         def sm = build(applied, { t -> t
-            .compositeOperation('op', { OperationDef<Entity, TestContext> c ->
+            .operation('op', { OperationDef<Entity, TestContext> c ->
                 c.step('s1', new TrailStep('a'))
             })
             .preCondition('always-false', { Entity e -> false } as Predicate) })
@@ -326,7 +326,7 @@ class StateMachineImplCompensationSpec extends Specification {
         given:
         def applied = []
         def sm = build(applied, { t -> t
-            .compositeOperation('op', { OperationDef<Entity, TestContext> c ->
+            .operation('op', { OperationDef<Entity, TestContext> c ->
                 c.step('s1', new TrailStep('a'))
                  .step('s2', new TrailStep('b'))
             })
@@ -353,7 +353,7 @@ class StateMachineImplCompensationSpec extends Specification {
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
             .step('dynamic', new TrailStep('dyn'))
             .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, { t ->
-                t.compositeOperation('op', { OperationDef<Entity, TestContext> c ->
+                t.operation('op', { OperationDef<Entity, TestContext> c ->
                     c.step('s1', new TrailStep('a'))
                      .step('s2', new DynamicDispatchStep())
                      .step('s3', new ThrowingStep('boom'))
@@ -382,7 +382,7 @@ class StateMachineImplCompensationSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
             .step('charge', new ThrowingWithCompStep('c'))
-            .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, { t -> t.operation('charge') }) })
+            .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, { t -> t.run('charge') }) })
             .state('s2', {})
         def sm = smd.build()
         def entity = new Entity('s1')
@@ -399,10 +399,10 @@ class StateMachineImplCompensationSpec extends Specification {
         applied.isEmpty()
     }
 
-    def 'action dispatched in operation position compensates: transition-root simple operation'() {
+    def 'action dispatched in operation position compensates: transition-root inline step'() {
         given:
         def applied = []
-        def sm = build(applied, { t -> t.simpleOperation('charge', new ThrowingWithCompStep('c')) })
+        def sm = build(applied, { t -> t.step('charge', new ThrowingWithCompStep('c')) })
         def entity = new Entity('s1')
 
         when:
@@ -423,11 +423,11 @@ class StateMachineImplCompensationSpec extends Specification {
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
-            .operation('charge', TestContext, new ThrowingWithCompStep('c'))
+            .step('charge', TestContext, new ThrowingWithCompStep('c'))
             .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, { t ->
-                t.compositeOperation('op', { OperationDef<Entity, TestContext> c ->
+                t.operation('op', { OperationDef<Entity, TestContext> c ->
                     c.step('s1', new TrailStep('a'))
-                     .operation('charge')
+                     .run('charge')
                 })
             }) })
             .state('s2', {})
@@ -452,11 +452,11 @@ class StateMachineImplCompensationSpec extends Specification {
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
-            .operation('charge', ChildCtx, new ChildCtxThrowingStep())
+            .step('charge', ChildCtx, new ChildCtxThrowingStep())
             .mapper('child-from-parent', TestContext, ChildCtx, new ChildCtxMapper())
             .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, { t ->
-                t.compositeOperation('op', { OperationDef<Entity, TestContext> c ->
-                    c.operation('charge', 'child-from-parent')
+                t.operation('op', { OperationDef<Entity, TestContext> c ->
+                    c.run('charge', 'child-from-parent')
                 })
             }) })
             .state('s2', {})

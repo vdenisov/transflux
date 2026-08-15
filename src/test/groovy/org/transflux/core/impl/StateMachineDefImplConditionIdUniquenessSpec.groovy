@@ -174,7 +174,7 @@ class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
         build({ d -> d
             .state('s1', { st -> st.transitionsTo('s2', 't', { t ->
                 t.preCondition('shared', { e -> true } as Predicate)
-                 .compositeOperation('comp', { c -> c.conditional('cond', { cs -> cs
+                 .operation('comp', { c -> c.conditional('cond', { cs -> cs
                      .branch('b1', { b -> b
                          .condition('shared', { e -> false } as Predicate)
                          .step('s', { en, c2, tr -> } as Action) }) }) }) }) })

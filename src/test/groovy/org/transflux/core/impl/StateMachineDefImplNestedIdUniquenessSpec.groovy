@@ -55,8 +55,8 @@ class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
 
     def 'step id and operation id share one namespace: step-then-operation rejected'() {
         given:
-        def smd = baseDef({ t -> t.compositeOperation('outer', { OperationDef<Entity, TestContext> c ->
-            c.operation('shared', new NoOpOperation())
+        def smd = baseDef({ t -> t.operation('outer', { OperationDef<Entity, TestContext> c ->
+            c.step('shared', new NoOpOperation())
         }) })
         smd.step('shared', new NoOpStep())
 
@@ -70,8 +70,8 @@ class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
 
     def 'step id and operation id share one namespace: operation-then-step rejected'() {
         given:
-        def smd = baseDef({ t -> t.compositeOperation('outer', { OperationDef<Entity, TestContext> c ->
-            c.operation('shared', new NoOpOperation())
+        def smd = baseDef({ t -> t.operation('outer', { OperationDef<Entity, TestContext> c ->
+            c.step('shared', new NoOpOperation())
             c.step('s1', new NoOpStep())
         }) })
         smd.step('shared', new NoOpStep())
@@ -87,11 +87,11 @@ class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
     def 'same operation id with different instances across two composites is rejected'() {
         given:
         def smd = multiTransitionDef(
-            { t -> t.compositeOperation('outer1', { OperationDef<Entity, TestContext> c ->
-                c.operation('twin', new NoOpOperation())
+            { t -> t.operation('outer1', { OperationDef<Entity, TestContext> c ->
+                c.step('twin', new NoOpOperation())
             }) },
-            { t -> t.compositeOperation('outer2', { OperationDef<Entity, TestContext> c ->
-                c.operation('twin', new NoOpOperation())
+            { t -> t.operation('outer2', { OperationDef<Entity, TestContext> c ->
+                c.step('twin', new NoOpOperation())
             }) })
 
         when:
@@ -106,11 +106,11 @@ class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
         given:
         def shared = new NoOpOperation()
         def smd = multiTransitionDef(
-            { t -> t.compositeOperation('outer1', { OperationDef<Entity, TestContext> c ->
-                c.operation('twin', shared)
+            { t -> t.operation('outer1', { OperationDef<Entity, TestContext> c ->
+                c.step('twin', shared)
             }) },
-            { t -> t.compositeOperation('outer2', { OperationDef<Entity, TestContext> c ->
-                c.operation('twin', shared)
+            { t -> t.operation('outer2', { OperationDef<Entity, TestContext> c ->
+                c.step('twin', shared)
             }) })
 
         when:
@@ -123,11 +123,11 @@ class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
     def 'same operation id with the same class across two composites is tolerated (idempotent)'() {
         given:
         def smd = multiTransitionDef(
-            { t -> t.compositeOperation('outer1', { OperationDef<Entity, TestContext> c ->
-                c.operation('twin', NoOpOperation)
+            { t -> t.operation('outer1', { OperationDef<Entity, TestContext> c ->
+                c.step('twin', NoOpOperation)
             }) },
-            { t -> t.compositeOperation('outer2', { OperationDef<Entity, TestContext> c ->
-                c.operation('twin', NoOpOperation)
+            { t -> t.operation('outer2', { OperationDef<Entity, TestContext> c ->
+                c.step('twin', NoOpOperation)
             }) })
 
         when:
@@ -137,13 +137,13 @@ class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
         sm != null
     }
 
-    def 'conditional-step id colliding with operation id is rejected'() {
+    def 'conditional-operation id colliding with operation id is rejected'() {
         given:
-        def smd = baseDef({ t -> t.compositeOperation('outer', { OperationDef<Entity, TestContext> c ->
-            c.operation('twin', new NoOpOperation())
+        def smd = baseDef({ t -> t.operation('outer', { OperationDef<Entity, TestContext> c ->
+            c.step('twin', new NoOpOperation())
             c.conditional('twin', { ConditionalOperationDef<Entity, TestContext> cs ->
                 cs.branch('only', { BranchDef<Entity, TestContext> b ->
-                    b.conditionExpression('true').step('inner-a')
+                    b.conditionExpression('true').run('inner-a')
                 })
             })
         }) })

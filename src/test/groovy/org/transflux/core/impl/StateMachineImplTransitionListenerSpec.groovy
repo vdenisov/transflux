@@ -98,7 +98,7 @@ class StateMachineImplTransitionListenerSpec extends Specification {
 
         where:
         stage              | configure
-        'the operation'    | { t -> t.simpleOperation('op', { e, ctx, tr -> throw new IllegalStateException('boom') } as Action) }
+        'the operation'    | { t -> t.step('op', { e, ctx, tr -> throw new IllegalStateException('boom') } as Action) }
         'a post-condition' | { t -> t.postCondition('never', { e -> false } as Predicate) }
     }
 
@@ -191,7 +191,7 @@ class StateMachineImplTransitionListenerSpec extends Specification {
                 .transitionsTo('s2', 't', { t -> t
                     .onStart('a', recorder(log, 'transition-start'))
                     .onComplete('b', recorder(log, 'transition-complete'))
-                    .simpleOperation('op', { e, ctx, tr -> log << 'operation' } as Action) }) })
+                    .step('op', { e, ctx, tr -> log << 'operation' } as Action) }) })
             .state('s2', { st -> st.onEntry('enter', stateRecorder(log, 'state-entry')) }) })
 
         when:
@@ -252,7 +252,7 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         def sm = build({ d -> d
             .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
                 .onError('capture', capturing(captured))
-                .compositeOperation('op', { c -> c
+                .operation('op', { c -> c
                     .step('undoable', compensatingStep(rolledBack))
                     .step('boom', { e, ctx, tr -> throw new IllegalStateException('boom') } as Action) }) }) })
             .state('s2', {}) })

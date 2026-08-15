@@ -119,31 +119,14 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
     }
 
     @Override
-    public ContextScope<T, C> compositeOperation(String id, Consumer<OperationDef<T, C>> configurer) {
-        requireConfigurerActive("compositeOperation");
+    public ContextScope<T, C> operation(String id, Consumer<OperationDef<T, C>> configurer) {
+        requireConfigurerActive("operation");
         requireNotBlank(id, "Composite operation ID");
         requireNotNull(configurer, "Composite operation configurer");
         smd.registerScopedCompositeOperation(id, configurer, contextType);
         return this;
     }
 
-    @Override
-    public ContextScope<T, C> operation(String id, Action<T, C> operation) {
-        requireConfigurerActive("operation");
-        requireNotBlank(id, "Operation ID");
-        requireNotNull(operation, "Operation");
-        smd.registerScopedOperation(id, operation, contextType);
-        return this;
-    }
-
-    @Override
-    public ContextScope<T, C> operation(String id, Class<? extends Action<T, C>> operationClass) {
-        requireConfigurerActive("operation");
-        requireNotBlank(id, "Operation ID");
-        requireNotNull(operationClass, "Operation class");
-        smd.registerScopedOperation(id, operationClass, contextType);
-        return this;
-    }
 
     @Override
     public ContextScope<T, C> step(Identifiable stepIdentifiable, Action<T, C> step) {
@@ -188,20 +171,8 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
     }
 
     @Override
-    public ContextScope<T, C> compositeOperation(Identifiable operationIdentifiable, Consumer<OperationDef<T, C>> configurer) {
+    public ContextScope<T, C> operation(Identifiable operationIdentifiable, Consumer<OperationDef<T, C>> configurer) {
         requireNotNull(operationIdentifiable, "Operation identifiable");
-        return compositeOperation(operationIdentifiable.getId(), configurer);
-    }
-
-    @Override
-    public ContextScope<T, C> operation(Identifiable operationIdentifiable, Action<T, C> operation) {
-        requireNotNull(operationIdentifiable, "Operation identifiable");
-        return operation(operationIdentifiable.getId(), operation);
-    }
-
-    @Override
-    public ContextScope<T, C> operation(Identifiable operationIdentifiable, Class<? extends Action<T, C>> operationClass) {
-        requireNotNull(operationIdentifiable, "Operation identifiable");
-        return operation(operationIdentifiable.getId(), operationClass);
+        return operation(operationIdentifiable.getId(), configurer);
     }
 }

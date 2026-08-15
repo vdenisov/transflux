@@ -80,94 +80,94 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
-    public OperationDefImpl<T, C> step(String registeredStepId) {
-        requireConfigurerActive("step");
-        actionRefs.add(ActionRef.byId(registeredStepId));
+    public OperationDefImpl<T, C> run(String id) {
+        requireConfigurerActive("run");
+        actionRefs.add(ActionRef.byId(id));
         return this;
     }
 
     @Override
-    public OperationDefImpl<T, C> step(String registeredStepId, String mapperId) {
-        requireConfigurerActive("step");
-        requireNotBlank(registeredStepId, "Step reference ID");
+    public OperationDefImpl<T, C> run(String id, String mapperId) {
+        requireConfigurerActive("run");
+        requireNotBlank(id, "Action reference ID");
         requireNotBlank(mapperId, "Mapper reference ID");
-        actionRefs.add(ActionRef.byId(registeredStepId, MapperRef.byId(mapperId)));
+        actionRefs.add(ActionRef.byId(id, MapperRef.byId(mapperId)));
         return this;
     }
 
     @Override
-    public OperationDefImpl<T, C> step(String registeredStepId, Function<C, ?> inlineMapTo) {
-        requireConfigurerActive("step");
-        requireNotBlank(registeredStepId, "Step reference ID");
+    public OperationDefImpl<T, C> run(String id, Function<C, ?> inlineMapTo) {
+        requireConfigurerActive("run");
+        requireNotBlank(id, "Action reference ID");
         requireNotNull(inlineMapTo, "Inline mapper function");
-        actionRefs.add(ActionRef.byId(registeredStepId, MapperRef.inline(inlineMapTo)));
+        actionRefs.add(ActionRef.byId(id, MapperRef.inline(inlineMapTo)));
         return this;
     }
 
     @Override
-    public OperationDefImpl<T, C> step(String registeredStepId, ContextMapper<C, ?> inlineMapper) {
-        requireConfigurerActive("step");
-        requireNotBlank(registeredStepId, "Step reference ID");
+    public OperationDefImpl<T, C> run(String id, ContextMapper<C, ?> inlineMapper) {
+        requireConfigurerActive("run");
+        requireNotBlank(id, "Action reference ID");
         requireNotNull(inlineMapper, "Inline mapper instance");
-        actionRefs.add(ActionRef.byId(registeredStepId, MapperRef.inline(inlineMapper)));
+        actionRefs.add(ActionRef.byId(id, MapperRef.inline(inlineMapper)));
         return this;
     }
 
     @Override
-    public OperationDefImpl<T, C> step(Identifiable registeredStep) {
-        requireNotNull(registeredStep, "Step identifiable");
-        return step(registeredStep.getId());
+    public OperationDefImpl<T, C> run(Identifiable registeredAction) {
+        requireNotNull(registeredAction, "Action identifiable");
+        return run(registeredAction.getId());
     }
 
     @Override
-    public OperationDefImpl<T, C> step(Identifiable registeredStep, Identifiable mapper) {
-        requireNotNull(registeredStep, "Step identifiable");
+    public OperationDefImpl<T, C> run(Identifiable registeredAction, Identifiable mapper) {
+        requireNotNull(registeredAction, "Action identifiable");
         requireNotNull(mapper, "Mapper identifiable");
-        return step(registeredStep.getId(), mapper.getId());
+        return run(registeredAction.getId(), mapper.getId());
     }
 
     @Override
-    public OperationDefImpl<T, C> step(Identifiable registeredStep, String mapperId) {
-        requireNotNull(registeredStep, "Step identifiable");
-        return step(registeredStep.getId(), mapperId);
+    public OperationDefImpl<T, C> run(Identifiable registeredAction, String mapperId) {
+        requireNotNull(registeredAction, "Action identifiable");
+        return run(registeredAction.getId(), mapperId);
     }
 
     @Override
-    public OperationDefImpl<T, C> step(String registeredStepId, Identifiable mapper) {
+    public OperationDefImpl<T, C> run(String id, Identifiable mapper) {
         requireNotNull(mapper, "Mapper identifiable");
-        return step(registeredStepId, mapper.getId());
+        return run(id, mapper.getId());
     }
 
     @Override
-    public OperationDefImpl<T, C> step(String id, Action<T, C> step) {
+    public OperationDefImpl<T, C> step(String id, Action<T, C> action) {
         requireConfigurerActive("step");
-        actionRefs.add(ActionRef.inline(id, step, ActionKind.STEP));
+        actionRefs.add(ActionRef.inline(id, action, ActionKind.STEP));
         return this;
     }
 
     @Override
-    public OperationDefImpl<T, C> step(Identifiable stepIdentifiable, Action<T, C> step) {
-        requireNotNull(stepIdentifiable, "Step identifiable");
-        return step(stepIdentifiable.getId(), step);
+    public OperationDefImpl<T, C> step(Identifiable actionIdentifiable, Action<T, C> action) {
+        requireNotNull(actionIdentifiable, "Step identifiable");
+        return step(actionIdentifiable.getId(), action);
     }
 
     @Override
-    public OperationDefImpl<T, C> step(String id, Class<? extends Action<T, C>> stepClass) {
+    public OperationDefImpl<T, C> step(String id, Class<? extends Action<T, C>> actionClass) {
         requireConfigurerActive("step");
-        actionRefs.add(ActionRef.inline(id, stepClass, ActionKind.STEP));
+        actionRefs.add(ActionRef.inline(id, actionClass, ActionKind.STEP));
         return this;
     }
 
     @Override
-    public OperationDefImpl<T, C> step(Identifiable stepIdentifiable, Class<? extends Action<T, C>> stepClass) {
-        requireNotNull(stepIdentifiable, "Step identifiable");
-        return step(stepIdentifiable.getId(), stepClass);
+    public OperationDefImpl<T, C> step(Identifiable actionIdentifiable, Class<? extends Action<T, C>> actionClass) {
+        requireNotNull(actionIdentifiable, "Step identifiable");
+        return step(actionIdentifiable.getId(), actionClass);
     }
 
     @Override
     public OperationDefImpl<T, C> conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer) {
         requireConfigurerActive("conditional");
-        requireNotBlank(id, "Conditional step ID");
+        requireNotBlank(id, "Conditional operation ID");
         requireNotNull(configurer, "Conditional configurer");
 
         ConditionalOperationDefImpl<T, C> def = new ConditionalOperationDefImpl<>(id);
@@ -181,91 +181,6 @@ final class OperationDefImpl<T, C>
     public OperationDefImpl<T, C> conditional(Identifiable conditionalIdentifiable, Consumer<ConditionalOperationDef<T, C>> configurer) {
         requireNotNull(conditionalIdentifiable, "Conditional identifiable");
         return conditional(conditionalIdentifiable.getId(), configurer);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> operation(String registeredOperationId) {
-        requireConfigurerActive("operation");
-        actionRefs.add(ActionRef.byId(registeredOperationId));
-        return this;
-    }
-
-    @Override
-    public OperationDefImpl<T, C> operation(String registeredOperationId, String mapperId) {
-        requireConfigurerActive("operation");
-        requireNotBlank(registeredOperationId, "Operation reference ID");
-        requireNotBlank(mapperId, "Mapper reference ID");
-        actionRefs.add(ActionRef.byId(registeredOperationId, MapperRef.byId(mapperId)));
-        return this;
-    }
-
-    @Override
-    public OperationDefImpl<T, C> operation(String registeredOperationId, Function<C, ?> inlineMapTo) {
-        requireConfigurerActive("operation");
-        requireNotBlank(registeredOperationId, "Operation reference ID");
-        requireNotNull(inlineMapTo, "Inline mapper function");
-        actionRefs.add(ActionRef.byId(registeredOperationId, MapperRef.inline(inlineMapTo)));
-        return this;
-    }
-
-    @Override
-    public OperationDefImpl<T, C> operation(String registeredOperationId, ContextMapper<C, ?> inlineMapper) {
-        requireConfigurerActive("operation");
-        requireNotBlank(registeredOperationId, "Operation reference ID");
-        requireNotNull(inlineMapper, "Inline mapper instance");
-        actionRefs.add(ActionRef.byId(registeredOperationId, MapperRef.inline(inlineMapper)));
-        return this;
-    }
-
-    @Override
-    public OperationDefImpl<T, C> operation(Identifiable registeredOperation) {
-        requireNotNull(registeredOperation, "Operation identifiable");
-        return operation(registeredOperation.getId());
-    }
-
-    @Override
-    public OperationDefImpl<T, C> operation(Identifiable registeredOperation, Identifiable mapper) {
-        requireNotNull(registeredOperation, "Operation identifiable");
-        requireNotNull(mapper, "Mapper identifiable");
-        return operation(registeredOperation.getId(), mapper.getId());
-    }
-
-    @Override
-    public OperationDefImpl<T, C> operation(Identifiable registeredOperation, String mapperId) {
-        requireNotNull(registeredOperation, "Operation identifiable");
-        return operation(registeredOperation.getId(), mapperId);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> operation(String registeredOperationId, Identifiable mapper) {
-        requireNotNull(mapper, "Mapper identifiable");
-        return operation(registeredOperationId, mapper.getId());
-    }
-
-    @Override
-    public OperationDefImpl<T, C> operation(String id, Action<T, C> operation) {
-        requireConfigurerActive("operation");
-        actionRefs.add(ActionRef.inline(id, operation, ActionKind.OPERATION));
-        return this;
-    }
-
-    @Override
-    public OperationDefImpl<T, C> operation(Identifiable operationIdentifiable, Action<T, C> operation) {
-        requireNotNull(operationIdentifiable, "Operation identifiable");
-        return operation(operationIdentifiable.getId(), operation);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> operation(String id, Class<? extends Action<T, C>> operationClass) {
-        requireConfigurerActive("operation");
-        actionRefs.add(ActionRef.inline(id, operationClass, ActionKind.OPERATION));
-        return this;
-    }
-
-    @Override
-    public OperationDefImpl<T, C> operation(Identifiable operationIdentifiable, Class<? extends Action<T, C>> operationClass) {
-        requireNotNull(operationIdentifiable, "Operation identifiable");
-        return operation(operationIdentifiable.getId(), operationClass);
     }
 
     @Override

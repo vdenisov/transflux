@@ -30,7 +30,7 @@ import spock.lang.Specification
 import java.util.function.Consumer
 import java.util.function.Function
 
-class CompositeOperationDefImplNestedMappingSpec extends Specification {
+class OperationDefImplNestedMappingSpec extends Specification {
 
     static class Entity {
         String state
@@ -75,10 +75,10 @@ class CompositeOperationDefImplNestedMappingSpec extends Specification {
     def 'registered ContextMapper instance bridges parent and child context via by-id mapper ref'() {
         given:
         def sm = build(
-            { smd -> smd.operation('charge', ChildCtx, new ChildOp())
+            { smd -> smd.step('charge', ChildCtx, new ChildOp())
                 .mapper('parent-to-child', ParentCtx, ChildCtx, new ParentChildMapper()) },
-            { t -> t.compositeOperation('outer', { OperationDef<Entity, ParentCtx> c ->
-                c.operation('charge', 'parent-to-child')
+            { t -> t.operation('outer', { OperationDef<Entity, ParentCtx> c ->
+                c.run('charge', 'parent-to-child')
             }) })
         def entity = new Entity('s1')
         def ctx = new ParentCtx(subscriptionId: 'sub-42')
@@ -94,10 +94,10 @@ class CompositeOperationDefImplNestedMappingSpec extends Specification {
     def 'registered ContextMapper class bridges parent and child context via by-id mapper ref'() {
         given:
         def sm = build(
-            { smd -> smd.operation('charge', ChildCtx, new ChildOp())
+            { smd -> smd.step('charge', ChildCtx, new ChildOp())
                 .mapper('parent-to-child', ParentCtx, ChildCtx, ParentChildMapper) },
-            { t -> t.compositeOperation('outer', { OperationDef<Entity, ParentCtx> c ->
-                c.operation('charge', 'parent-to-child')
+            { t -> t.operation('outer', { OperationDef<Entity, ParentCtx> c ->
+                c.run('charge', 'parent-to-child')
             }) })
         def entity = new Entity('s1')
         def ctx = new ParentCtx(subscriptionId: 'sub-99')
@@ -113,9 +113,9 @@ class CompositeOperationDefImplNestedMappingSpec extends Specification {
     def 'inline ContextMapper instance at the call site bridges parent and child context'() {
         given:
         def sm = build(
-            { smd -> smd.operation('charge', ChildCtx, new ChildOp()) },
-            { t -> t.compositeOperation('outer', { OperationDef<Entity, ParentCtx> c ->
-                c.operation('charge', new ParentChildMapper())
+            { smd -> smd.step('charge', ChildCtx, new ChildOp()) },
+            { t -> t.operation('outer', { OperationDef<Entity, ParentCtx> c ->
+                c.run('charge', new ParentChildMapper())
             }) })
         def entity = new Entity('s1')
         def ctx = new ParentCtx(subscriptionId: 'sub-inline-mapper')
@@ -136,9 +136,9 @@ class CompositeOperationDefImplNestedMappingSpec extends Specification {
             return n
         }
         def sm = build(
-            { smd -> smd.operation('charge', ChildCtx, new ChildOp()) },
-            { t -> t.compositeOperation('outer', { OperationDef<Entity, ParentCtx> c ->
-                c.operation('charge', mapTo)
+            { smd -> smd.step('charge', ChildCtx, new ChildOp()) },
+            { t -> t.operation('outer', { OperationDef<Entity, ParentCtx> c ->
+                c.run('charge', mapTo)
             }) })
         def entity = new Entity('s1')
         def ctx = new ParentCtx(subscriptionId: 'sub-no-back')
@@ -154,14 +154,14 @@ class CompositeOperationDefImplNestedMappingSpec extends Specification {
     def 'registered mapper supplied as a Function is wrapped with a no-op mapFrom'() {
         given:
         def sm = build(
-            { smd -> smd.operation('charge', ChildCtx, new ChildOp())
+            { smd -> smd.step('charge', ChildCtx, new ChildOp())
                 .mapper('parent-to-child', ParentCtx, ChildCtx, { ParentCtx p ->
                     def n = new ChildCtx()
                     n.subscriptionId = p.subscriptionId
                     return n
                 } as Function<ParentCtx, ChildCtx>) },
-            { t -> t.compositeOperation('outer', { OperationDef<Entity, ParentCtx> c ->
-                c.operation('charge', 'parent-to-child')
+            { t -> t.operation('outer', { OperationDef<Entity, ParentCtx> c ->
+                c.run('charge', 'parent-to-child')
             }) })
         def entity = new Entity('s1')
         def ctx = new ParentCtx(subscriptionId: 'sub-fn-reg')

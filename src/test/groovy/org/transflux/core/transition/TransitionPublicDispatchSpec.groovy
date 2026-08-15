@@ -46,7 +46,7 @@ class TransitionPublicDispatchSpec extends Specification {
                 smd.mapper('pn', ParentCtx, ChildCtx, new PNMapper())
             },
             { t ->
-                t.simpleOperation('outer', { entity, ctx, transition ->
+                t.step('outer', { entity, ctx, transition ->
                     transition.run('child-step', 'pn')
                 } as Action<Entity, ParentCtx>)
             })
@@ -72,7 +72,7 @@ class TransitionPublicDispatchSpec extends Specification {
         def sm = build(
             { smd -> smd.step('child-step', ChildCtx, new ChildStep()) },
             { t ->
-                t.simpleOperation('outer', { entity, ctx, transition ->
+                t.step('outer', { entity, ctx, transition ->
                     transition.run('child-step', mapTo)
                 } as Action<Entity, ParentCtx>)
             })
@@ -94,7 +94,7 @@ class TransitionPublicDispatchSpec extends Specification {
         def sm = build(
             { smd -> smd.step('child-step', ChildCtx, new ChildStep()) },
             { t ->
-                t.simpleOperation('outer', { entity, ctx, transition ->
+                t.step('outer', { entity, ctx, transition ->
                     transition.run('child-step', new PNMapper())
                 } as Action<Entity, ParentCtx>)
             })
@@ -114,9 +114,9 @@ class TransitionPublicDispatchSpec extends Specification {
     def 'transition.run(id) runs the registered operation in pass-through mode'() {
         given:
         def sm = build(
-            { smd -> smd.operation('passthrough-op', ParentCtx, new ParentPassThroughOp()) },
+            { smd -> smd.step('passthrough-op', ParentCtx, new ParentPassThroughOp()) },
             { t ->
-                t.simpleOperation('outer', { entity, ctx, transition ->
+                t.step('outer', { entity, ctx, transition ->
                     transition.run('passthrough-op')
                 } as Action<Entity, ParentCtx>)
             })
@@ -135,11 +135,11 @@ class TransitionPublicDispatchSpec extends Specification {
         given:
         def sm = build(
             { smd ->
-                smd.operation('child-op', ChildCtx, new ChildOperation())
+                smd.step('child-op', ChildCtx, new ChildOperation())
                 smd.mapper('pn', ParentCtx, ChildCtx, new PNMapper())
             },
             { t ->
-                t.simpleOperation('outer', { entity, ctx, transition ->
+                t.step('outer', { entity, ctx, transition ->
                     transition.run('child-op', 'pn')
                 } as Action<Entity, ParentCtx>)
             })
@@ -163,9 +163,9 @@ class TransitionPublicDispatchSpec extends Specification {
             return c
         }
         def sm = build(
-            { smd -> smd.operation('child-op', ChildCtx, new ChildOperation()) },
+            { smd -> smd.step('child-op', ChildCtx, new ChildOperation()) },
             { t ->
-                t.simpleOperation('outer', { entity, ctx, transition ->
+                t.step('outer', { entity, ctx, transition ->
                     transition.run('child-op', mapTo)
                 } as Action<Entity, ParentCtx>)
             })
@@ -185,9 +185,9 @@ class TransitionPublicDispatchSpec extends Specification {
     def 'transition.run(id, ContextMapper) runs the operation under the mapped child context'() {
         given:
         def sm = build(
-            { smd -> smd.operation('child-op', ChildCtx, new ChildOperation()) },
+            { smd -> smd.step('child-op', ChildCtx, new ChildOperation()) },
             { t ->
-                t.simpleOperation('outer', { entity, ctx, transition ->
+                t.step('outer', { entity, ctx, transition ->
                     transition.run('child-op', new PNMapper())
                 } as Action<Entity, ParentCtx>)
             })
@@ -213,7 +213,7 @@ class TransitionPublicDispatchSpec extends Specification {
                 }
             }) },
             { t ->
-                t.simpleOperation('outer', { entity, ctx, transition ->
+                t.step('outer', { entity, ctx, transition ->
                     transition.run(id('my-step'))
                 } as Action<Entity, ParentCtx>)
             })
@@ -229,14 +229,14 @@ class TransitionPublicDispatchSpec extends Specification {
     def 'transition.run(Identifiable) dispatches the same as operation(String)'() {
         given:
         def sm = build(
-            { smd -> smd.operation('my-op', ParentCtx, new Action<Entity, ParentCtx>() {
+            { smd -> smd.step('my-op', ParentCtx, new Action<Entity, ParentCtx>() {
                 @Override
                 void execute(Entity entity, ParentCtx context, Transition<Entity, ParentCtx> transition) {
                     entity.trail << ('op:' + context.input)
                 }
             }) },
             { t ->
-                t.simpleOperation('outer', { entity, ctx, transition ->
+                t.step('outer', { entity, ctx, transition ->
                     transition.run(id('my-op'))
                 } as Action<Entity, ParentCtx>)
             })
@@ -254,7 +254,7 @@ class TransitionPublicDispatchSpec extends Specification {
         def sm = build(
             { smd -> },
             { t ->
-                t.simpleOperation('outer', { entity, ctx, transition ->
+                t.step('outer', { entity, ctx, transition ->
                     action.call(transition)
                 } as Action<Entity, ParentCtx>)
             })
@@ -280,7 +280,7 @@ class TransitionPublicDispatchSpec extends Specification {
         def sm = build(
             { smd -> },
             { t ->
-                t.simpleOperation('outer', { entity, ctx, transition ->
+                t.step('outer', { entity, ctx, transition ->
                     transition.run('does-not-exist')
                 } as Action<Entity, ParentCtx>)
             })

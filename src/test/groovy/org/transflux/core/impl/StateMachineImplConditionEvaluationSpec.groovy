@@ -67,7 +67,7 @@ class StateMachineImplConditionEvaluationSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> appliedStates.add(s); e.state = s } as StateApplier<Entity>)
             .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, { t ->
-                t.simpleOperation('op', operation)
+                t.step('op', operation)
                 extraConfig.accept(t)
             }) })
             .state('s2', {})
@@ -175,7 +175,7 @@ class StateMachineImplConditionEvaluationSpec extends Specification {
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
             .condition('registered', { e -> e.value > 0 } as Predicate)
             .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, { t ->
-                t.simpleOperation('op', operation)
+                t.step('op', operation)
                     .preCondition('pred', { Entity e -> e.value > 0 } as Predicate)
                     .preCondition('cls', RegistryProbeCondition)
                     .preCondition('expr', 'value > 0')

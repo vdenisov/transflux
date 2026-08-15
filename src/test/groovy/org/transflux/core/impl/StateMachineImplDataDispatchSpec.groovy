@@ -103,7 +103,7 @@ class StateMachineImplDataDispatchSpec extends Specification {
         def seen = []
         def sm = build({ d -> d.state('s1', { st ->
             st.transitionsTo('s2', 't', TestContext, { t -> t
-                .simpleOperation('op', { e, c, tr -> seen.add(c) } as Action)
+                .step('op', { e, c, tr -> seen.add(c) } as Action)
                 .addDataTrigger('hot', { dt -> dt.condition('any', { e -> true } as Predicate) }) }) })
             .state('s2', {}) })
         def ctx = new TestContext('ctx')
@@ -120,7 +120,7 @@ class StateMachineImplDataDispatchSpec extends Specification {
         def fired = []
         def sm = build({ d -> d.state('s1', { st ->
             st.transitionsTo('s2', 't', { t -> t
-                .simpleOperation('op', { e, c, tr -> fired.add(e) } as Action)
+                .step('op', { e, c, tr -> fired.add(e) } as Action)
                 .addDataTrigger('hot', { dt -> dt.condition('any', { e -> true } as Predicate) }) }) })
             .state('s2', {}) })
         def entity = new Entity('s1')

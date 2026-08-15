@@ -212,28 +212,27 @@ public interface BranchDef<T, C> {
     BranchDef<T, C> condition(Identifiable conditionIdentifiable, String expression);
 
     /**
-     * Appends a reference to a step registered on the enclosing state machine.
+     * Appends a reference to an action registered on the enclosing state machine.
      *
-     * @param registeredStepId the registered step id
+     * @param id the registered action id
      *
      * @return this branch def for chaining
      *
-     * @throws TransfluxValidationException if {@code registeredStepId} is {@code null} or
-     *         blank
+     * @throws TransfluxValidationException if {@code id} is {@code null} or blank
      */
-    BranchDef<T, C> step(String registeredStepId);
+    BranchDef<T, C> run(String id);
 
     /**
-     * {@link Identifiable} overload of {@link #step(String)} — delegates via
+     * {@link Identifiable} overload of {@link #run(String)} - delegates via
      * {@link Identifiable#getId()}.
      *
-     * @param registeredStep an identifiable supplying the step id
+     * @param registeredAction an identifiable supplying the action id
      *
      * @return this branch def for chaining
      *
-     * @throws TransfluxValidationException if {@code registeredStep} is {@code null}
+     * @throws TransfluxValidationException if {@code registeredAction} is {@code null}
      */
-    BranchDef<T, C> step(Identifiable registeredStep);
+    BranchDef<T, C> run(Identifiable registeredAction);
 
     /**
      * Appends an inline {@link Action} instance under the supplied id. The step is

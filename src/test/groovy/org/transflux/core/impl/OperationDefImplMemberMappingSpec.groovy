@@ -31,7 +31,7 @@ import spock.lang.Specification
 import java.util.function.Consumer
 import java.util.function.Function
 
-class CompositeOperationDefImplStepMappingSpec extends Specification {
+class OperationDefImplMemberMappingSpec extends Specification {
 
     static class Entity {
         String state
@@ -83,8 +83,8 @@ class CompositeOperationDefImplStepMappingSpec extends Specification {
         def sm = build(
             { smd -> smd.step('charge', PaymentCtx, new ChargeStep())
                 .mapper('order-to-payment', OrderCtx, PaymentCtx, new OrderToPaymentMapper()) },
-            { t -> t.compositeOperation('outer', { OperationDef<Entity, OrderCtx> c ->
-                c.step('charge', 'order-to-payment')
+            { t -> t.operation('outer', { OperationDef<Entity, OrderCtx> c ->
+                c.run('charge', 'order-to-payment')
             }) })
         def entity = new Entity('s1')
         def ctx = new OrderCtx(orderId: 'ord-1', amount: 12.50)
@@ -102,8 +102,8 @@ class CompositeOperationDefImplStepMappingSpec extends Specification {
         given:
         def sm = build(
             { smd -> smd.step('charge', PaymentCtx, new ChargeStep()) },
-            { t -> t.compositeOperation('outer', { OperationDef<Entity, OrderCtx> c ->
-                c.step('charge', new OrderToPaymentMapper())
+            { t -> t.operation('outer', { OperationDef<Entity, OrderCtx> c ->
+                c.run('charge', new OrderToPaymentMapper())
             }) })
         def entity = new Entity('s1')
         def ctx = new OrderCtx(orderId: 'ord-2', amount: 5.00)
@@ -126,8 +126,8 @@ class CompositeOperationDefImplStepMappingSpec extends Specification {
         }
         def sm = build(
             { smd -> smd.step('charge', PaymentCtx, new ChargeStep()) },
-            { t -> t.compositeOperation('outer', { OperationDef<Entity, OrderCtx> c ->
-                c.step('charge', mapTo)
+            { t -> t.operation('outer', { OperationDef<Entity, OrderCtx> c ->
+                c.run('charge', mapTo)
             }) })
         def entity = new Entity('s1')
         def ctx = new OrderCtx(orderId: 'ord-3', amount: 3.00)
@@ -145,8 +145,8 @@ class CompositeOperationDefImplStepMappingSpec extends Specification {
         when:
         build(
             { smd -> smd.step('charge', PaymentCtx, new ChargeStep()) },
-            { t -> t.compositeOperation('outer', { OperationDef<Entity, OrderCtx> c ->
-                c.step('charge')
+            { t -> t.operation('outer', { OperationDef<Entity, OrderCtx> c ->
+                c.run('charge')
             }) })
 
         then:
@@ -164,8 +164,8 @@ class CompositeOperationDefImplStepMappingSpec extends Specification {
                     p.cents = n
                     return p
                 } as Function<Number, PaymentCtx>) },
-            { t -> t.compositeOperation('outer', { OperationDef<Entity, OrderCtx> c ->
-                c.step('charge', 'wrong-parent')
+            { t -> t.operation('outer', { OperationDef<Entity, OrderCtx> c ->
+                c.run('charge', 'wrong-parent')
             }) })
 
         then:

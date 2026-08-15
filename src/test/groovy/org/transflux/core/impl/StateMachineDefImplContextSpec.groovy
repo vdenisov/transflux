@@ -83,8 +83,8 @@ class StateMachineDefImplContextSpec extends Specification {
         def smd = baseDef()
         smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
             scope.step('inner-step', new StepA())
-                .compositeOperation('outer', { OperationDef<Entity, CtxA> c ->
-                    c.step('inner-step')
+                .operation('outer', { OperationDef<Entity, CtxA> c ->
+                    c.run('inner-step')
                 })
         })
 
@@ -124,12 +124,12 @@ class StateMachineDefImplContextSpec extends Specification {
         smd.getComponentContextType('viaScope') == CtxA
     }
 
-    def 'compositeOperation(id, Class<C>, configurer) tags componentContextTypes'() {
+    def 'operation(id, Class<C>, configurer) tags componentContextTypes'() {
         given:
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .compositeOperation('comp', CtxA, { c -> c.step('s', new StepA()) })
+            .operation('comp', CtxA, { c -> c.step('s', new StepA()) })
 
         expect:
         smd.getComponentContextType('comp') == CtxA
@@ -182,7 +182,7 @@ class StateMachineDefImplContextSpec extends Specification {
         def smd = baseDef()
         smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
             scope.step('s', new StepA())
-                .compositeOperation('outer', { OperationDef<Entity, CtxA> c -> c.step('s') })
+                .operation('outer', { OperationDef<Entity, CtxA> c -> c.run('s') })
         })
 
         when:
@@ -197,8 +197,8 @@ class StateMachineDefImplContextSpec extends Specification {
         def smd = baseDef()
         smd.forContext(CtxB, { ContextScope<Entity, CtxB> scope -> scope.step('s', new StepB()) })
         smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
-            scope.compositeOperation('outer', { OperationDef<Entity, CtxA> c ->
-                c.step('s')
+            scope.operation('outer', { OperationDef<Entity, CtxA> c ->
+                c.run('s')
             })
         })
 
@@ -218,8 +218,8 @@ class StateMachineDefImplContextSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .step('legacy-step', new StepA())
             .state('s1', { st -> st.transitionsTo('s2', 't', { t ->
-                t.compositeOperation('legacy-composite',
-                    { OperationDef<Entity, Object> c -> c.step('legacy-step') })
+                t.operation('legacy-composite',
+                    { OperationDef<Entity, Object> c -> c.run('legacy-step') })
             }) })
             .state('s2', {})
 
@@ -254,9 +254,9 @@ class StateMachineDefImplContextSpec extends Specification {
         'condition(Id, Class)'                           | { s -> s.condition(identifiable('c2'), IdOverloadCondition) }
         'condition(Id, Predicate)'                       | { s -> s.condition(identifiable('c3'), { e -> true } as Predicate) }
         'condition(Id, String)'                          | { s -> s.condition(identifiable('c4'), 'true') }
-        'compositeOperation(Id, Consumer)'               | { s -> s.compositeOperation(identifiable('co1'), { c -> c.step('any') }) }
-        'operation(Id, Operation)'                       | { s -> s.operation(identifiable('o1'), new IdOverloadOperation()) }
-        'operation(Id, Class)'                           | { s -> s.operation(identifiable('o2'), IdOverloadOperation) }
+        'operation(Id, Consumer)'               | { s -> s.operation(identifiable('co1'), { c -> c.run('any') }) }
+        'operation(Id, Operation)'                       | { s -> s.step(identifiable('o1'), new IdOverloadOperation()) }
+        'operation(Id, Class)'                           | { s -> s.step(identifiable('o2'), IdOverloadOperation) }
     }
 
     @Unroll
@@ -281,9 +281,9 @@ class StateMachineDefImplContextSpec extends Specification {
         'condition(null, Class)'                         | { s -> s.condition((Identifiable) null, IdOverloadCondition) }
         'condition(null, Predicate)'                     | { s -> s.condition((Identifiable) null, { e -> true } as Predicate) }
         'condition(null, String)'                        | { s -> s.condition((Identifiable) null, 'true') }
-        'compositeOperation(null, Consumer)'             | { s -> s.compositeOperation((Identifiable) null, { c -> }) }
-        'operation(null, Operation)'                     | { s -> s.operation((Identifiable) null, new IdOverloadOperation()) }
-        'operation(null, Class)'                         | { s -> s.operation((Identifiable) null, IdOverloadOperation) }
+        'operation(null, Consumer)'             | { s -> s.operation((Identifiable) null, { c -> }) }
+        'operation(null, Operation)'                     | { s -> s.step((Identifiable) null, new IdOverloadOperation()) }
+        'operation(null, Class)'                         | { s -> s.step((Identifiable) null, IdOverloadOperation) }
     }
 
     private static StateMachineDefImpl<Entity> baseDef() {

@@ -106,12 +106,12 @@ class StateMachineDefImplComponentValidationSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .compositeOperation('sm-level', TestContext, { OperationDef<Entity, TestContext> c ->
+            .operation('sm-level', TestContext, { OperationDef<Entity, TestContext> c ->
                 c.step('sm-level-inline', new NoOpStep())
             })
             .state('s1', { s ->
                 s.transitionsTo('s2', 't', TestContext, { t ->
-                    t.compositeOperation('outer', { OperationDef<Entity, TestContext> c ->
+                    t.operation('outer', { OperationDef<Entity, TestContext> c ->
                         c.step('outer-inline', new NoOpStep())
                     })
                 })

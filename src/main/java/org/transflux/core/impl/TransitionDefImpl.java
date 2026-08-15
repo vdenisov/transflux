@@ -277,54 +277,54 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> simpleOperation(String id, Action<T, C> operation) {
-        requireConfigurerActive("simpleOperation");
-        StepDefImpl<T, C> def = newSimpleOperationDef(id);
+    public TransitionDef<T, C> step(String id, Action<T, C> operation) {
+        requireConfigurerActive("step");
+        StepDefImpl<T, C> def = newStepDef(id);
         ConfigurableDefImpl.runConfigurer(def, d -> d.using(operation));
         attachOperation(def);
         return this;
     }
 
     @Override
-    public TransitionDef<T, C> simpleOperation(Identifiable operationIdentifiable, Action<T, C> operation) {
+    public TransitionDef<T, C> step(Identifiable operationIdentifiable, Action<T, C> operation) {
         requireNotNull(operationIdentifiable, "Operation identifiable");
-        return simpleOperation(operationIdentifiable.getId(), operation);
+        return step(operationIdentifiable.getId(), operation);
     }
 
     @Override
-    public TransitionDef<T, C> simpleOperation(String id, Class<? extends Action<T, C>> operationClass) {
-        requireConfigurerActive("simpleOperation");
-        StepDefImpl<T, C> def = newSimpleOperationDef(id);
+    public TransitionDef<T, C> step(String id, Class<? extends Action<T, C>> operationClass) {
+        requireConfigurerActive("step");
+        StepDefImpl<T, C> def = newStepDef(id);
         ConfigurableDefImpl.runConfigurer(def, d -> d.using(operationClass));
         attachOperation(def);
         return this;
     }
 
     @Override
-    public TransitionDef<T, C> simpleOperation(Identifiable operationIdentifiable, Class<? extends Action<T, C>> operationClass) {
+    public TransitionDef<T, C> step(Identifiable operationIdentifiable, Class<? extends Action<T, C>> operationClass) {
         requireNotNull(operationIdentifiable, "Operation identifiable");
-        return simpleOperation(operationIdentifiable.getId(), operationClass);
+        return step(operationIdentifiable.getId(), operationClass);
     }
 
     @Override
-    public TransitionDef<T, C> simpleOperation(String id, Consumer<StepDef<T, C>> configurer) {
-        requireConfigurerActive("simpleOperation");
+    public TransitionDef<T, C> step(String id, Consumer<StepDef<T, C>> configurer) {
+        requireConfigurerActive("step");
         requireNotNull(configurer, "Simple operation configurer");
-        StepDefImpl<T, C> def = newSimpleOperationDef(id);
+        StepDefImpl<T, C> def = newStepDef(id);
         ConfigurableDefImpl.runConfigurer(def, configurer);
         attachOperation(def);
         return this;
     }
 
     @Override
-    public TransitionDef<T, C> simpleOperation(Identifiable operationIdentifiable, Consumer<StepDef<T, C>> configurer) {
+    public TransitionDef<T, C> step(Identifiable operationIdentifiable, Consumer<StepDef<T, C>> configurer) {
         requireNotNull(operationIdentifiable, "Operation identifiable");
-        return simpleOperation(operationIdentifiable.getId(), configurer);
+        return step(operationIdentifiable.getId(), configurer);
     }
 
     @Override
-    public TransitionDef<T, C> compositeOperation(String id, Consumer<OperationDef<T, C>> configurer) {
-        requireConfigurerActive("compositeOperation");
+    public TransitionDef<T, C> operation(String id, Consumer<OperationDef<T, C>> configurer) {
+        requireConfigurerActive("operation");
         requireNotNull(configurer, "Composite operation configurer");
         OperationDefImpl<T, C> composite = new OperationDefImpl<>(id);
         ConfigurableDefImpl.runConfigurer(composite, configurer);
@@ -333,25 +333,25 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> compositeOperation(Identifiable operationIdentifiable, Consumer<OperationDef<T, C>> configurer) {
+    public TransitionDef<T, C> operation(Identifiable operationIdentifiable, Consumer<OperationDef<T, C>> configurer) {
         requireNotNull(operationIdentifiable, "Operation identifiable");
-        return compositeOperation(operationIdentifiable.getId(), configurer);
+        return operation(operationIdentifiable.getId(), configurer);
     }
 
     @Override
-    public TransitionDef<T, C> operation(String registeredOperationId) {
-        requireConfigurerActive("operation");
-        requireNotBlank(registeredOperationId, "Operation reference ID");
+    public TransitionDef<T, C> run(String id) {
+        requireConfigurerActive("run");
+        requireNotBlank(id, "Action reference ID");
         warnIfOperationSet();
         this.operationDef = null;
-        this.registeredOperationRefId = registeredOperationId;
+        this.registeredOperationRefId = id;
         return this;
     }
 
     @Override
-    public TransitionDef<T, C> operation(Identifiable registeredOperation) {
-        requireNotNull(registeredOperation, "Operation identifiable");
-        return operation(registeredOperation.getId());
+    public TransitionDef<T, C> run(Identifiable registeredAction) {
+        requireNotNull(registeredAction, "Action identifiable");
+        return run(registeredAction.getId());
     }
 
     @Override
@@ -765,7 +765,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         return listenerDef;
     }
 
-    private StepDefImpl<T, C> newSimpleOperationDef(String operationId) {
+    private StepDefImpl<T, C> newStepDef(String operationId) {
         return new StepDefImpl<>(operationId);
     }
 

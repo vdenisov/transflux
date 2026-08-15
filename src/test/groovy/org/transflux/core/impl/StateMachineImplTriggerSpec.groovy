@@ -250,7 +250,7 @@ class StateMachineImplTriggerSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
             .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
-                t.simpleOperation('op', op)
+                t.step('op', op)
                 cfg.accept(t)
             }) })
             .state('s2', {})

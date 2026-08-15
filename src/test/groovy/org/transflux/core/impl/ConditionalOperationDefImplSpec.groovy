@@ -34,7 +34,7 @@ import spock.lang.Unroll
 import java.util.function.BiPredicate
 import java.util.function.Predicate
 
-class ConditionalStepDefImplSpec extends Specification {
+class ConditionalOperationDefImplSpec extends Specification {
 
     static class Entity {
         String state
@@ -355,7 +355,7 @@ class ConditionalStepDefImplSpec extends Specification {
         def cond = new ConditionalOperationDefImpl<Object, Object>('c1').tap { beginConfigurer() }
 
         when:
-        cond.branch(identifiable('b1'), { b -> b.condition('any'); b.step('x') })
+        cond.branch(identifiable('b1'), { b -> b.condition('any'); b.run('x') })
 
         then:
         cond.branches.size() == 1
@@ -385,24 +385,24 @@ class ConditionalStepDefImplSpec extends Specification {
         branch.descriptor.id() == 'my-cond'
     }
 
-    def 'BranchDef.step(Identifiable) appends a by-id reference'() {
+    def 'BranchDef.run(Identifiable) appends a by-id reference'() {
         given:
         def branch = new BranchDefImpl<Object, Object>('b1').tap { beginConfigurer() }
 
         when:
-        branch.step(identifiable('my-step'))
+        branch.run(identifiable('my-step'))
 
         then:
         branch.actionRefs.size() == 1
         branch.actionRefs[0].id() == 'my-step'
     }
 
-    def 'DefaultBranchDef.step(Identifiable) appends a by-id reference'() {
+    def 'DefaultBranchDef.run(Identifiable) appends a by-id reference'() {
         given:
         def defaultBranch = new DefaultBranchDefImpl<Object, Object>().tap { beginConfigurer() }
 
         when:
-        defaultBranch.step(identifiable('my-step'))
+        defaultBranch.run(identifiable('my-step'))
 
         then:
         defaultBranch.actionRefs.size() == 1
@@ -527,7 +527,7 @@ class ConditionalStepDefImplSpec extends Specification {
         thrown(TransfluxValidationException)
 
         where:
-        method << ['condition', 'step']
+        method << ['condition', 'run']
     }
 
     def 'DefaultBranchDef Identifiable overload rejects null'() {
@@ -535,7 +535,7 @@ class ConditionalStepDefImplSpec extends Specification {
         def defaultBranch = new DefaultBranchDefImpl<Object, Object>().tap { beginConfigurer() }
 
         when:
-        defaultBranch.step((Identifiable) null)
+        defaultBranch.run((Identifiable) null)
 
         then:
         thrown(TransfluxValidationException)

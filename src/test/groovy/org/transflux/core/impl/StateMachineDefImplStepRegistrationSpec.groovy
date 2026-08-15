@@ -207,7 +207,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
         smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', { t ->
-            t.compositeOperation('op1', { c -> c.step('inline-a', stepInstance) })
+            t.operation('op1', { c -> c.step('inline-a', stepInstance) })
         }) })
         smd.state(ACTIVE, {})
 
@@ -227,7 +227,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('shared', stepInstance)
         smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', { t ->
-            t.compositeOperation('op1', { c -> c.step('shared', stepInstance) })
+            t.operation('op1', { c -> c.step('shared', stepInstance) })
         }) })
         smd.state(ACTIVE, {})
 
@@ -247,10 +247,10 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
         smd.state(TRIAL, { s -> s
             .transitionsTo(ACTIVE, 't1', { t ->
-                t.compositeOperation('op1', { c -> c.step('clash', new StepA()) })
+                t.operation('op1', { c -> c.step('clash', new StepA()) })
             })
             .transitionsTo(ACTIVE, 't2', { t ->
-                t.compositeOperation('op2', { c -> c.step('clash', new StepA()) })
+                t.operation('op2', { c -> c.step('clash', new StepA()) })
             }) })
         smd.state(ACTIVE, {})
 
@@ -274,10 +274,10 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
         smd.state(TRIAL, { s -> s
             .transitionsTo(ACTIVE, 't1', { t ->
-                t.compositeOperation('op1', { c -> c.step('shared-class', StepA) })
+                t.operation('op1', { c -> c.step('shared-class', StepA) })
             })
             .transitionsTo(ACTIVE, 't2', { t ->
-                t.compositeOperation('op2', { c -> c.step('shared-class', StepA) })
+                t.operation('op2', { c -> c.step('shared-class', StepA) })
             }) })
         smd.state(ACTIVE, {})
 
@@ -299,10 +299,10 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         smd.state(TRIAL, { s -> s
             .transitionsTo(ACTIVE, 't-consumer', { t ->
                 // Consumer composite references an id only declared in another composite below.
-                t.compositeOperation('op-consumer', { c -> c.step('via-inline') })
+                t.operation('op-consumer', { c -> c.run('via-inline') })
             })
             .transitionsTo(ACTIVE, 't-provider', { t ->
-                t.compositeOperation('op-provider', { c -> c.step('via-inline', new StepA()) })
+                t.operation('op-provider', { c -> c.step('via-inline', new StepA()) })
             }) })
         smd.state(ACTIVE, {})
 
@@ -326,7 +326,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
         smd.state(TRIAL, { s -> s
             .transitionsTo(ACTIVE, 't-consumer', { t ->
-                t.compositeOperation('op-consumer', { c -> c.step('truly-missing') })
+                t.operation('op-consumer', { c -> c.run('truly-missing') })
             }) })
         smd.state(ACTIVE, {})
 

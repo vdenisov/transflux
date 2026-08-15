@@ -26,391 +26,222 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * Def-side anchor that builds an {@link Action} from an ordered sequence of bound members.
+ * Def-side anchor for a <em>declarative</em> action - one authored as an ordered list of members
+ * rather than as a Java body.
  * <p>
- * {@code OperationDef} is the composite counterpart to {@link StepDef}. A
- * composite carries an ordered list of <i>members</i>: each member is either a {@link Action} or
- * a nested {@link Action}. Members are added through the {@code step(...)} and
- * {@code operation(...)} overloads in declaration order; at build time the framework resolves
- * each by-id reference against the state machine's step and operation registries (auto-
- * registering any inline references) and emits an executor {@link Action} that invokes each
- * member in turn, passing the entity, context, and per-execution {@link Transition} view through.
- * Each executed step or operation id is recorded uniformly, whether dispatched by the composite
- * executor or by an explicit {@code transition.step("id")} / {@code transition.operation("id")}
- * call from a user operation.
+ * {@code OperationDef} is the counterpart to {@link StepDef}. Declaration order is execution
+ * order: at build time the framework resolves each member and emits an {@link Action} that
+ * invokes them in turn, passing the entity, context and per-execution {@link Transition} view
+ * through. There is no body for a host to implement.
  *
- * <p><b>Member context.</b> Inline-registered members (defined directly in this composite's
- * configurer through {@link #step(String, Action) step(id, step)},
- * {@link #operation(String, Action) operation(id, operation)}, etc.) are typed against the
- * composite's own context {@code C} and always run pass-through — the parent context is handed
- * to the member unchanged. By-id references can target a step or operation with a different
- * context type; the call-site overloads accept an optional mapper specification (a registered
- * {@link MapperDef} by id, an inline {@link Function} for read-only projection, or a fully-
- * supplied {@link ContextMapper} instance) that bridges the parent-to-child boundary. The build
- * pipeline validates that pass-through references are assignment-compatible and that supplied
- * mappers' parent / child type tokens align with the call site and the referenced member.
+ * <p><b>Members come in two shapes, and the verb says which.</b> {@link #run(String) run(id)}
+ * <em>references</em> an action registered elsewhere; it makes no claim about how that action
+ * was authored, because that is a property of its registration rather than of this call site.
+ * {@link #step(String, Action) step(id, action)} and {@link #conditional} <em>declare</em> a new
+ * action at this position, in the enclosing composite's lexical scope, and there the form is
+ * being chosen here so the verb names it.
  *
- * <p>A composite's own {@code id} is mandatory; {@code name} and {@code description} are
- * optional metadata. The composite must declare at least one member before the enclosing
- * transition is built.
+ * <p><b>Member context.</b> Inline declarations are typed against the composite's own context
+ * {@code C} and always run pass-through - the parent context reaches the member unchanged. A
+ * by-id reference may target an action with a different context type; the {@code run(...)}
+ * overloads accept an optional mapper specification (a registered {@link MapperDef} by id, an
+ * inline {@link Function} for read-only projection, or a fully-supplied {@link ContextMapper}
+ * instance) that bridges the parent-to-child boundary. The build pipeline validates that
+ * pass-through references are assignment-compatible and that any supplied mapper's parent and
+ * child types line up with the call site.
  *
  * @param <T> the entity type the surrounding state machine manages
- * @param <C> the host-supplied context type carried through transition execution
+ * @param <C> the host-supplied context type carried through this operation's execution
  */
 public interface OperationDef<T, C> extends ActionDef<T, C> {
 
     /**
-     * Appends a pass-through reference to a step that is registered on the enclosing state
-     * machine. The referenced id must be registered (or auto-registered through another
-     * composite's inline reference) by the time the state machine is built. The referenced
-     * step's context type must be assignable from this composite's {@code C}.
+     * Appends a reference to the action registered under {@code id}, in pass-through mode. The
+     * referenced action's context type must be assignable from this operation's context type.
      *
-     * @param registeredStepId the registered step id
+     * @param id the registered action id
      *
      * @return this def for chaining
      *
-     * @throws TransfluxValidationException if {@code registeredStepId} is {@code null} or blank
+     * @throws TransfluxValidationException if {@code id} is {@code null} or blank
      */
-    OperationDef<T, C> step(String registeredStepId);
+    OperationDef<T, C> run(String id);
 
     /**
-     * Appends a by-id step reference with a mapper supplied by id. The referenced mapper must
-     * be registered on the enclosing state machine via
-     * {@link org.transflux.core.StateMachineDef#mapper(String, Class, Class, ContextMapper)
-     * StateMachineDef.mapper(...)} and its parent / child type tokens must align with this
-     * composite's {@code C} and the referenced step's context type.
+     * Appends a reference to the action registered under {@code id}, applying the registered
+     * mapper identified by {@code mapperId} at the call boundary.
      *
-     * @param registeredStepId the registered step id
+     * @param id the registered action id
      * @param mapperId the registered mapper id
      *
      * @return this def for chaining
      *
      * @throws TransfluxValidationException if either argument is {@code null} or blank
      */
-    OperationDef<T, C> step(String registeredStepId, String mapperId);
+    OperationDef<T, C> run(String id, String mapperId);
 
     /**
-     * Appends a by-id step reference with an inline read-only parent-to-child function. The
-     * function is wrapped in a {@link ContextMapper} whose {@code mapFrom} is the default no-op
-     * — appropriate when the referenced step has no results to fold back into this composite's
-     * context.
+     * Appends a reference to the action registered under {@code id} with an inline read-only
+     * parent-to-child projection. The supplied function is wrapped as a {@link ContextMapper}
+     * whose {@link ContextMapper#mapFrom(Object, Object) mapFrom} is a no-op.
      *
-     * @param registeredStepId the registered step id
-     * @param inlineMapTo the parent-to-child projection; never {@code null}
+     * @param id the registered action id
+     * @param inlineMapTo the parent-to-child projection
      *
      * @return this def for chaining
      *
-     * @throws TransfluxValidationException if {@code registeredStepId} is {@code null}/blank or
-     *         {@code inlineMapTo} is {@code null}
+     * @throws TransfluxValidationException if {@code id} is blank or {@code inlineMapTo} is
+     *         {@code null}
      */
-    OperationDef<T, C> step(String registeredStepId, Function<C, ?> inlineMapTo);
+    OperationDef<T, C> run(String id, Function<C, ?> inlineMapTo);
 
     /**
-     * Appends a by-id step reference with an inline fully-supplied {@link ContextMapper}.
+     * Appends a reference to the action registered under {@code id} with an inline
+     * fully-supplied {@link ContextMapper}.
      *
-     * @param registeredStepId the registered step id
-     * @param inlineMapper the mapper; never {@code null}
+     * @param id the registered action id
+     * @param inlineMapper the mapper to apply at the boundary
      *
      * @return this def for chaining
      *
-     * @throws TransfluxValidationException if {@code registeredStepId} is {@code null}/blank or
-     *         {@code inlineMapper} is {@code null}
+     * @throws TransfluxValidationException if {@code id} is blank or {@code inlineMapper} is
+     *         {@code null}
      */
-    OperationDef<T, C> step(String registeredStepId, ContextMapper<C, ?> inlineMapper);
+    OperationDef<T, C> run(String id, ContextMapper<C, ?> inlineMapper);
 
     /**
-     * {@link Identifiable} overload of {@link #step(String)} — delegates via
-     * {@link Identifiable#getId()}.
+     * {@link Identifiable} overload of {@link #run(String)}.
      *
-     * @param registeredStep an identifiable supplying the step id
+     * @param registeredAction an identifiable supplying the action id
      *
      * @return this def for chaining
      *
-     * @throws TransfluxValidationException if {@code registeredStep} is {@code null}
+     * @throws TransfluxValidationException if {@code registeredAction} is {@code null}
      */
-    OperationDef<T, C> step(Identifiable registeredStep);
+    OperationDef<T, C> run(Identifiable registeredAction);
 
     /**
-     * {@link Identifiable} overload of {@link #step(String, String)} — both step and mapper
+     * {@link Identifiable} overload of {@link #run(String, String)} - both action and mapper
      * supplied as identifiables.
      *
-     * @param registeredStep an identifiable supplying the step id
+     * @param registeredAction an identifiable supplying the action id
      * @param mapper an identifiable supplying the mapper id
      *
      * @return this def for chaining
      *
      * @throws TransfluxValidationException if either argument is {@code null}
      */
-    OperationDef<T, C> step(Identifiable registeredStep, Identifiable mapper);
+    OperationDef<T, C> run(Identifiable registeredAction, Identifiable mapper);
 
     /**
-     * Mixed-form overload of {@link #step(String, String)} — step identifiable + mapper id.
+     * Mixed-form overload of {@link #run(String, String)} - action identifiable + mapper id.
      *
-     * @param registeredStep an identifiable supplying the step id
+     * @param registeredAction an identifiable supplying the action id
      * @param mapperId the registered mapper id
      *
      * @return this def for chaining
      *
-     * @throws TransfluxValidationException if {@code registeredStep} is {@code null} or
+     * @throws TransfluxValidationException if {@code registeredAction} is {@code null} or
      *         {@code mapperId} is {@code null}/blank
      */
-    OperationDef<T, C> step(Identifiable registeredStep, String mapperId);
+    OperationDef<T, C> run(Identifiable registeredAction, String mapperId);
 
     /**
-     * Mixed-form overload of {@link #step(String, String)} — step id + mapper identifiable.
+     * Mixed-form overload of {@link #run(String, String)} - action id + mapper identifiable.
      *
-     * @param registeredStepId the registered step id
+     * @param id the registered action id
      * @param mapper an identifiable supplying the mapper id
      *
      * @return this def for chaining
      *
-     * @throws TransfluxValidationException if {@code registeredStepId} is {@code null}/blank
-     *         or {@code mapper} is {@code null}
-     */
-    OperationDef<T, C> step(String registeredStepId, Identifiable mapper);
-
-    /**
-     * Appends an inline step instance. The step is auto-registered on the enclosing state
-     * machine under {@code id} at build time and can be referenced by id from elsewhere. Inline
-     * steps are typed against this composite's {@code C} and always run pass-through.
-     *
-     * @param id the step id
-     * @param step the step instance; never {@code null}
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or {@code step}
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or {@code mapper}
      *         is {@code null}
      */
-    OperationDef<T, C> step(String id, Action<T, C> step);
+    OperationDef<T, C> run(String id, Identifiable mapper);
 
     /**
-     * {@link Identifiable} overload of {@link #step(String, Action)} for inline registration.
+     * Declares an imperative action inline at this position, from a pre-constructed
+     * {@link Action} instance. The action is registered into this operation's lexical scope
+     * under {@code id} and is visible only from inside this operation's subtree.
      *
-     * @param stepIdentifiable an identifiable supplying the step id
-     * @param step the step instance
+     * @param id the action id; must be unique across the state machine
+     * @param action the action to invoke
      *
      * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or {@code action} is
+     *         {@code null}
      */
-    OperationDef<T, C> step(Identifiable stepIdentifiable, Action<T, C> step);
+    OperationDef<T, C> step(String id, Action<T, C> action);
 
     /**
-     * Appends an inline step class. The framework reflectively instantiates the class via its
-     * public no-arg constructor at state-machine build time and auto-registers it under
-     * {@code id}. Inline steps always run pass-through.
+     * {@link Identifiable} overload of {@link #step(String, Action)}.
      *
-     * @param id the step id
-     * @param stepClass the step class; never {@code null}
+     * @param actionIdentifiable an identifiable supplying the action id
+     * @param action the action to invoke
      *
      * @return this def for chaining
      *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
-     *         {@code stepClass} is {@code null}
+     * @throws TransfluxValidationException if {@code actionIdentifiable} is {@code null}
      */
-    OperationDef<T, C> step(String id, Class<? extends Action<T, C>> stepClass);
+    OperationDef<T, C> step(Identifiable actionIdentifiable, Action<T, C> action);
 
     /**
-     * {@link Identifiable} overload of {@link #step(String, Class)} for inline registration.
+     * Declares an imperative action inline at this position, from a class the framework
+     * instantiates through its public no-arg constructor at build time.
      *
-     * @param stepIdentifiable an identifiable supplying the step id
-     * @param stepClass the step class
+     * @param id the action id; must be unique across the state machine
+     * @param actionClass the action class
      *
      * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or {@code actionClass} is
+     *         {@code null}
      */
-    OperationDef<T, C> step(Identifiable stepIdentifiable, Class<? extends Action<T, C>> stepClass);
+    OperationDef<T, C> step(String id, Class<? extends Action<T, C>> actionClass);
 
     /**
-     * Appends a multi-branch conditional step under the supplied id. The supplied configurer
-     * defines the branches, optional default branch, and no-match behavior.
+     * {@link Identifiable} overload of {@link #step(String, Class)}.
      *
-     * @param id the conditional step id; the executor built from the configurer is
-     *           auto-registered on the enclosing state machine under this id
-     * @param configurer callback that configures the conditional
+     * @param actionIdentifiable an identifiable supplying the action id
+     * @param actionClass the action class
      *
      * @return this def for chaining
      *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
-     *         {@code configurer} is {@code null}
+     * @throws TransfluxValidationException if {@code actionIdentifiable} is {@code null}
+     */
+    OperationDef<T, C> step(Identifiable actionIdentifiable, Class<? extends Action<T, C>> actionClass);
+
+    /**
+     * Declares a multi-branch conditional at this position - a declarative action whose ordering
+     * rule is "first matching branch" rather than "all, in order".
+     *
+     * @param id the conditional's id; must be unique across the state machine
+     * @param configurer callback that declares the branches
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or {@code configurer} is
+     *         {@code null}
      */
     OperationDef<T, C> conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer);
 
     /**
      * {@link Identifiable} overload of {@link #conditional(String, Consumer)}.
      *
-     * @param conditionalIdentifiable an identifiable supplying the conditional step id
-     * @param configurer callback that configures the conditional
+     * @param conditionalIdentifiable an identifiable supplying the conditional's id
+     * @param configurer callback that declares the branches
      *
      * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code conditionalIdentifiable} is {@code null}
      */
     OperationDef<T, C> conditional(Identifiable conditionalIdentifiable, Consumer<ConditionalOperationDef<T, C>> configurer);
 
     /**
-     * Appends a pass-through reference to a nested operation that is registered on the
-     * enclosing state machine. The referenced operation's context type must be assignable from
-     * this composite's {@code C}.
+     * Declares the context type this operation's members run against.
      *
-     * @param registeredOperationId the registered operation id
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code registeredOperationId} is {@code null}
-     *         or blank
-     */
-    OperationDef<T, C> operation(String registeredOperationId);
-
-    /**
-     * Appends a by-id nested-operation reference with a mapper supplied by id.
-     *
-     * @param registeredOperationId the registered operation id
-     * @param mapperId the registered mapper id
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if either argument is {@code null} or blank
-     */
-    OperationDef<T, C> operation(String registeredOperationId, String mapperId);
-
-    /**
-     * Appends a by-id nested-operation reference with an inline read-only parent-to-child
-     * function. Equivalent to a {@link ContextMapper} whose {@code mapFrom} is the default no-op.
-     *
-     * @param registeredOperationId the registered operation id
-     * @param inlineMapTo the parent-to-child projection; never {@code null}
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code registeredOperationId} is {@code null}/blank
-     *         or {@code inlineMapTo} is {@code null}
-     */
-    OperationDef<T, C> operation(String registeredOperationId, Function<C, ?> inlineMapTo);
-
-    /**
-     * Appends a by-id nested-operation reference with an inline fully-supplied
-     * {@link ContextMapper}.
-     *
-     * @param registeredOperationId the registered operation id
-     * @param inlineMapper the mapper; never {@code null}
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code registeredOperationId} is {@code null}/blank
-     *         or {@code inlineMapper} is {@code null}
-     */
-    OperationDef<T, C> operation(String registeredOperationId, ContextMapper<C, ?> inlineMapper);
-
-    /**
-     * {@link Identifiable} overload of {@link #operation(String)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param registeredOperation an identifiable supplying the operation id
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code registeredOperation} is {@code null}
-     */
-    OperationDef<T, C> operation(Identifiable registeredOperation);
-
-    /**
-     * {@link Identifiable} overload of {@link #operation(String, String)} — both operation
-     * and mapper supplied as identifiables.
-     *
-     * @param registeredOperation an identifiable supplying the operation id
-     * @param mapper an identifiable supplying the mapper id
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}
-     */
-    OperationDef<T, C> operation(Identifiable registeredOperation, Identifiable mapper);
-
-    /**
-     * Mixed-form overload of {@link #operation(String, String)} — operation identifiable +
-     * mapper id.
-     *
-     * @param registeredOperation an identifiable supplying the operation id
-     * @param mapperId the registered mapper id
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code registeredOperation} is {@code null}
-     *         or {@code mapperId} is {@code null}/blank
-     */
-    OperationDef<T, C> operation(Identifiable registeredOperation, String mapperId);
-
-    /**
-     * Mixed-form overload of {@link #operation(String, String)} — operation id + mapper
-     * identifiable.
-     *
-     * @param registeredOperationId the registered operation id
-     * @param mapper an identifiable supplying the mapper id
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code registeredOperationId} is {@code null}/blank
-     *         or {@code mapper} is {@code null}
-     */
-    OperationDef<T, C> operation(String registeredOperationId, Identifiable mapper);
-
-    /**
-     * Appends an inline nested operation instance. The operation is auto-registered on the
-     * enclosing state machine under {@code id} at build time. Inline operations are typed
-     * against this composite's {@code C} and always run pass-through.
-     *
-     * @param id the operation id
-     * @param operation the operation instance; never {@code null}
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
-     *         {@code operation} is {@code null}
-     */
-    OperationDef<T, C> operation(String id, Action<T, C> operation);
-
-    /**
-     * {@link Identifiable} overload of {@link #operation(String, Action)} for inline
-     * registration.
-     *
-     * @param operationIdentifiable an identifiable supplying the operation id
-     * @param operation the operation instance
-     *
-     * @return this def for chaining
-     */
-    OperationDef<T, C> operation(Identifiable operationIdentifiable, Action<T, C> operation);
-
-    /**
-     * Appends an inline nested operation class. The framework reflectively instantiates the
-     * class via its public no-arg constructor at state-machine build time and auto-registers it
-     * under {@code id}. Inline operations always run pass-through.
-     *
-     * @param id the operation id
-     * @param operationClass the operation class; never {@code null}
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
-     *         {@code operationClass} is {@code null}
-     */
-    OperationDef<T, C> operation(String id, Class<? extends Action<T, C>> operationClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #operation(String, Class)} for inline
-     * registration.
-     *
-     * @param operationIdentifiable an identifiable supplying the operation id
-     * @param operationClass the operation class
-     *
-     * @return this def for chaining
-     */
-    OperationDef<T, C> operation(Identifiable operationIdentifiable, Class<? extends Action<T, C>> operationClass);
-
-    /**
-     * Records a runtime type-assertion that the composite's declared context generic
-     * {@code C} matches the supplied class. Useful for documentation, IDE legibility, and
-     * the future YAML DSL where generics are erased. The framework does not validate this
-     * against any SM-level context type (the SM no longer declares one); validation, if any,
-     * is delegated to the enclosing transition's context type.
-     *
-     * @param contextType the context class; never {@code null}
+     * @param contextType the context class
      *
      * @return this def for chaining
      *
