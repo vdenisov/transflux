@@ -24,19 +24,21 @@ import org.transflux.core.exception.TransfluxValidationException;
 import java.util.function.Consumer;
 
 /**
- * Definition surface for a multi-branch conditional operation inside a composite operation.
+ * Definition surface for a multi-branch conditional operation declared inside an
+ * {@link OperationDef operation}.
  * <p>
  * A conditional operation holds an ordered list of {@link BranchDef branches}; at execution time
  * the framework walks the list in declaration order, evaluates each branch's condition, and
- * runs the steps of the first branch whose condition returned {@code true}. If no branch
- * matches and a {@link DefaultBranchDef default branch} is configured, its steps run.
- * Otherwise the {@link NoMatchBehavior} attached to this conditional determines whether the
- * step is silently skipped (with a warning) or fails the enclosing transition.
+ * runs the actions of the first branch whose condition returned {@code true}. If no branch
+ * matches and a {@link DefaultBranchDef default branch} is configured, its actions run.
+ * Otherwise the {@link NoMatchBehavior} attached to this conditional determines whether it is
+ * silently skipped (with a warning) or fails the enclosing transition.
  *
- * <p>The conditional itself is a step within its enclosing composite — its id appears in
- * the composite's declaration-order step list, and the branch steps it runs are dispatched
- * through the same shared runner as any other step so executed-id tracking and compensation
- * registration stay uniform across composite-driven and conditional-driven invocations.
+ * <p>A conditional is a declarative action — its ordering rule is "first matching branch"
+ * rather than "all members, in order", which is the only thing separating it from
+ * {@link OperationDef}. It appears in its enclosing operation's declaration-order member list,
+ * and the actions it dispatches go through the same runner as any other action, so executed-id
+ * tracking and compensation registration stay uniform however an action was reached.
  *
  * <p>The conditional must declare at least one regular branch; a default branch alone is not
  * a valid configuration. Branch ids must be unique within the conditional.
@@ -44,7 +46,7 @@ import java.util.function.Consumer;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-public interface ConditionalOperationDef<T, C> extends Identifiable {
+public interface ConditionalOperationDef<T, C> extends ActionDef<T, C> {
 
     /**
      * Sets the optional human-readable name for this conditional operation.

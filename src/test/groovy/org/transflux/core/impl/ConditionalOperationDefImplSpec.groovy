@@ -23,6 +23,7 @@ import org.transflux.core.TestContext
 import org.transflux.core.condition.Condition
 import org.transflux.core.condition.ConditionDescriptor
 import org.transflux.core.exception.TransfluxValidationException
+import org.transflux.core.action.ActionKind
 import org.transflux.core.action.BranchDef
 import org.transflux.core.action.DefaultBranchDef
 import org.transflux.core.action.NoMatchBehavior
@@ -159,6 +160,21 @@ class ConditionalOperationDefImplSpec extends Specification {
         def e = thrown(TransfluxValidationException)
         e.message.contains("Conditional step 'c1'")
         e.message.contains('at least one branch')
+    }
+
+    def 'bound conditional carries the OPERATION kind'() {
+        given: 'a conditional is a declarative action - only its ordering rule differs from a container'
+        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+            .branch('b1', { BranchDef<Entity, TestContext> b ->
+                b.condition('cond1', { e -> true } as Predicate).step('s1', new NoopStep())
+            })
+
+        when:
+        def bound = cond.buildBoundAction([:])
+
+        then:
+        bound.kind() == ActionKind.OPERATION
+        bound.id() == 'c1'
     }
 
     def 'duplicate branch id is rejected at configurer time'() {

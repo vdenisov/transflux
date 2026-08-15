@@ -177,9 +177,10 @@ class IdentifiedDefImplSpec extends Specification {
         def_.getDescription() == 'the description'
 
         where:
-        subclass             | factory
-        'StateDefImpl'       | ({ id -> new StateDefImpl(Transflux.defineStateMachine() as StateMachineDefImpl, id) } as Function)
-        'TransitionDefImpl'  | ({ id -> new TransitionDefImpl(id, 'src', 'tgt') } as Function)
+        subclass                        | factory
+        'StateDefImpl'                  | ({ id -> new StateDefImpl(Transflux.defineStateMachine() as StateMachineDefImpl, id) } as Function)
+        'TransitionDefImpl'             | ({ id -> new TransitionDefImpl(id, 'src', 'tgt') } as Function)
+        'ConditionalOperationDefImpl'   | ({ id -> new ConditionalOperationDefImpl(id) } as Function)
     }
 
     private static class TestDef extends IdentifiedDefImpl<TestDef> {

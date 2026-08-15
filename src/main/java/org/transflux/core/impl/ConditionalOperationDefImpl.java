@@ -141,7 +141,9 @@ final class ConditionalOperationDefImpl<T, C>
      * @param conditionRegistry the resolved state-machine condition registry, used to bind
      *                          each branch's condition descriptor
      *
-     * @return the bound step that wraps this conditional's executor
+     * @return the bound action wrapping this conditional's executor, carrying
+     *         {@link ActionKind#OPERATION} - a conditional is a declarative action, differing
+     *         from a plain container only in its "first matching branch" ordering rule
      *
      * @throws TransfluxValidationException if validation rules on the conditional, its
      *         branches, or the default branch are violated, or if any condition descriptor
@@ -194,7 +196,7 @@ final class ConditionalOperationDefImpl<T, C>
 
         Action<T, C> executor = new ConditionalStepExecutor(resolvedBranches,
                                                           defaultStepIds, noMatchBehavior, getId());
-        return BoundAction.of(getId(), executor, ActionKind.STEP);
+        return BoundAction.of(getId(), executor, ActionKind.OPERATION);
     }
 
     private static <T, C> List<String> collectStepIds(List<ActionRef<T, C>> refs) {
