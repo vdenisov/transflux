@@ -1,4 +1,4 @@
-> Part of the [Transflux roadmap](../../todo.md). Forward-looking; not yet started.
+> Part of the [Transflux roadmap](../../todo.md). Forward-looking; in progress.
 
 ## Phase 3: Triggers & Listeners (v0.3.0)
 *Target: The 1.0 trigger set (Manual, Event, host-driven Data) and full listener parity between DSLs.*
@@ -39,13 +39,13 @@
   - [x] **Trigger listener bindings (deferred here from §3.2) — delivered differently.** Rather than a per-trigger listener list, `TransitionExecution.firedBy()` returns the `Trigger` that caused the execution (`null` for a direct `transitionTo`), so a listener that should react to one invocation path branches on it. Same capability, no new DSL surface, and no per-kind question to answer. `requirements.md` §2.2.8 / §3.3.2 lost their "listener bindings" mentions accordingly. Threading it required `executeTransitionInternal` to take the firing `TriggerImpl` instead of a pre-extracted pre-condition list, which also gave the event and data dispatch paths the trigger they previously dropped.
   - **Moved to Phase 4:** async listener execution. Phase 4 owns the executor and thread-pool decisions, and designing a listener-specific dispatch ahead of it would mean designing that twice.
 
-- [ ] **Action Listeners** — **blocked on §3.8**, which settles what an action is and what the kinds are.
+- [ ] **Action Listeners** — **unblocked**: §3.8 has landed, so `Action`, `ActionKind` and the single `runAction` seam all exist. This is the remaining Phase 3 item.
   *Rationale: debugging and audit need something metrics cannot give — recording individual payloads when they match a condition ("where does this null come from?", "how does this user reach this end state?"). The `MetricsCollector` SPI covers counters and timings; this covers payload capture.*
   - [ ] **One listener kind covers every action**, discriminated on the payload rather than split into mirrored `onAnyStep*` / `onAnyOperation*` families. After §3.8 there is one runtime type to observe, so a split would cost twelve global methods and two payload records to express a distinction one field already carries.
   - [ ] `ActionListener`, an `ActionExecution` payload carrying phase + `ActionPath` + `ActionKind`, and `onAnyActionStart` / `onAnyActionComplete` / `onAnyActionError` on `StateMachineDef`. `ActionKind` discriminates the authored form (imperative / declarative, equivalently leaf / container) — the distinction a listener filtering noise actually wants.
-  - [ ] Global form dispatched from the unified seam §3.8 leaves behind.
+  - [ ] Global form dispatched from `TransitionView.runAction`, the single seam §3.8 left behind.
   - [ ] Per-action declarative form on `StepDef` and the declarative-container defs, plus the member call sites.
-  - [ ] **Open design question** for the declarative form: imperatively-dispatched actions (`view.action(id)`) have no def at the call site to carry an attachment. Either the global form covers them alone, or the imperative call site grows a way to name one.
+  - [ ] **Open design question** for the declarative form: by-id references (`view.run(id)` and container `run(id)`) have no def at the call site to carry an attachment. Either the global form covers them alone, or the imperative call site grows a way to name one.
   - [ ] **One asymmetry to document rather than discover:** a transition's root action notifies at almost the same moment as `onStart`. It should still fire, since a listener walking the execution tree wants the root node, but the near-duplicate needs stating.
   - [ ] Reuses what this phase settled: the shared listener id namespace, the observe-don't-gate rule, and the payload-record shape.
 
@@ -76,7 +76,7 @@
 - [ ] Add `ConditionDef<T, C>` (mandatory id, optional name/description) covering the existing four authoring flavours (instance, class, predicate, expression). Design pass needs to reconcile the new def with the sealed `ConditionDescriptor` grammar in `core.condition` — `ConditionDef` likely becomes a builder that produces a `ConditionDescriptor`, with name/description as fields on the def that survive into the bound side.
 - [ ] Add lambda-configurer overloads where step / condition / operation / mapper registrations exist:
   - [x] *(Done in 2.6.13)* `StateMachineDef.step(String id, Class<C> contextType, Consumer<StepDef<T, C>> configurer)`
-  - [x] *(Done in 2.6.13)* `StateMachineDef.simpleOperation(String id, Class<C> contextType, Consumer<SimpleOperationDef<T, C>> configurer)`
+  - [x] *(Done in 2.6.13)* `StateMachineDef.simpleOperation(String id, Class<C> contextType, Consumer<SimpleOperationDef<T, C>> configurer)` — since renamed by §3.8 to `step(String id, Class<C> contextType, Consumer<StepDef<T, C>> configurer)`, which merged with the identical `step(...)` overload it had become.
   - [ ] `StateMachineDef.condition(String id, Consumer<ConditionDef<T, C>> configurer)` *(depends on `ConditionDef` above)*
   - [ ] `StateMachineDef.mapper(String id, Class<P> parentType, Class<N> childType, Consumer<MapperDef<P, N>> configurer)`
   - [ ] `TransitionDef.preCondition(String id, Consumer<ConditionDef<T, C>> configurer)` and `postCondition(...)` mirror *(depends on `ConditionDef`)*
@@ -99,20 +99,22 @@ The split has already collapsed in practice, and the codebase pays to maintain i
 - BPMN, the source of the container framing, unifies: Task and SubProcess are both Activities, and a SubProcess attaches wherever a Task does. The current split is more restrictive than the model that inspired it.
 
 #### The model
-- [ ] One runtime type. Two authoring forms, mutually exclusive: **declarative** (an ordered child list; declaration order *is* execution order) and **imperative** (a Java body, no bound children, free to dispatch ids declared elsewhere).
-- [ ] **Vocabulary: "step" is an imperative action, "operation" is a declarative one**, applied consistently. `SimpleOperationDef` disappears — it is a step. `ConditionalStepDef` becomes a conditional *operation*: a declarative-container variant whose ordering rule is "first matching branch" rather than "all, in order", with room for further variants later.
-- [ ] **"Action" is the runtime noun, not a declaration verb.** Once the type is one, a dispatch site does not care which form the callee was authored in, so `view.step(id)` / `view.operation(id)` collapse to `view.action(id)` — 16 overloads to 8. Likewise `ActionPath` and `ActionKind`.
-- [ ] **Any action attaches to a transition.** The single-step-composite workaround disappears.
-- [ ] Retain the authored form as metadata on the bound record so diagnostics still say "step" or "operation" rather than flattening to "action". This is also what supplies `ActionKind` to the listeners in §3.5.
+- [x] One runtime type. Two authoring forms, mutually exclusive: **declarative** (an ordered child list; declaration order *is* execution order) and **imperative** (a Java body, no bound children, free to dispatch ids declared elsewhere). (`Action<T, C>`; `Step` and `Operation` deleted.)
+- [x] **Vocabulary: "step" is an imperative action, "operation" is a declarative one**, applied consistently. `SimpleOperationDef` disappeared into `StepDef`; `CompositeOperationDef` took over the `OperationDef` name; `ConditionalStepDef` became `ConditionalOperationDef`. The base is `ActionDef`, and the package moved to `core.action`.
+- [x] **"Action" is the runtime noun, not a declaration verb** — but the split landed on *call-site category* rather than on dispatch alone. Every by-id **reference** uses `run(...)` (container member, branch member, transition attachment, and dispatch from an action body); **declaration** keeps the nouns `step(...)` / `operation(...)` / `conditional(...)`. Declaration cannot collapse to one verb: `action(String, Consumer<StepDef>)` and `action(String, Consumer<OperationDef>)` erase to the same signature. `Transition` went 16 overloads to 8; `OperationDef` went 26 member overloads to 14.
+- [x] **Any action attaches to a transition.** The single-step-composite workaround is gone, and a spec pins the difference: `['charge']` where the wrapper gave `['wrapper', 'wrapper/charge']`.
+- [x] Retain the authored form as metadata on the bound record so diagnostics still say "step" or "operation" rather than flattening to "action". (`BoundAction(id, action, kind)` with the public `ActionKind`; it is metadata only and never selects a runtime path.)
+- [x] **Not planned, delivered anyway: one execution path.** Collapsing the two runners was not on this list, but leaving them meant `ActionKind` selecting behaviour, which is the split under a new name. `TransitionView.runAction` now applies one order to every action — capture compensation, record the id, push the nesting stack, execute, pop. That fixed two live defects in `executedPath`: a child dispatched from a step was qualified under the wrong parent *and* listed before it, and a throwing action was absent from `executedPath` while its compensation appeared on `compensatedPath`.
 
 #### Compensation
-- [ ] Any action may declare a compensation, container or leaf. Pushed onto the enclosing execution's stack on entry and unwound LIFO, which the existing single stack already gives for free — children drain before the container that owns them.
-- [ ] **Document: container compensation is additive, not a replacement.** A composite's own compensation and its children's all run; the container's does not supersede.
-- [ ] **Document: push-on-entry means a container's compensation runs even when its first child fails immediately**, before the container itself did anything. Consistent with the existing "capture before execute" rule for steps, but it reads as a bug in a stack trace unless stated.
-- [ ] Note the surviving asymmetry: an imperative action can return its compensation dynamically from `getCompensation(entity, context)`; a declarative container has no Java object to hang that on and declares one statically on its def. Both shapes exist in the DSL today — unification only stops hiding them behind the type split.
+- [x] Any action may declare a compensation, container or leaf. Pushed onto the enclosing execution's stack on entry and unwound LIFO, which the existing single stack already gives for free — children drain before the container that owns them. (The dynamic `getCompensation` hook; the static def-side `withCompensation(...)` is Phase 4.1.)
+- [x] **Document: container compensation is additive, not a replacement.** A container's own compensation and its children's all run; the container's does not supersede. (`requirements.md` §2.2.11.)
+- [x] **Document: push-on-entry means a container's compensation runs even when its first child fails immediately**, before the container itself did anything. Consistent with the existing "capture before execute" rule, but it reads as a bug in a stack trace unless stated. (§2.2.11.)
+- [x] Note the surviving asymmetry: an imperative action can return its compensation dynamically from `getCompensation(entity, context)`; a declarative container has no Java object to hang that on and declares one statically on its def. (§2.2.11, and carried into the Phase 4.1 item that ships the static form.)
+- **Found during the work, deferred to Phase 4.1:** the rollback drain hands every compensation the *transition's* context, not the context its action actually ran under. Harmless for compensations that close over what they need, wrong for mapped children that use their parameters. Phase 4 owns the compensation engine, so it owns this.
 
 #### Fallout
-- [ ] `Component.Step` + `Component.Operation` collapse to `Component.Action`; the cross-kind id checks and the "registered as a step, not an operation" `ActionRef` error disappear.
-- [ ] **Rename `StepPath` to `ActionPath`.** The type has never been steps-only — `executedPath` records operations too (§2.1.4), and every non-leaf segment of a qualified path is an operation id by construction. The accessors keep their names; only the type changes, and `compensatedPath` stays leaf-only in practice while being typed one level more generally.
-- [ ] `requirements.md` §2.2.5 / §2.2.6 rewritten around one concept; §2.1.4's "compensations are step-level only" reconciled with §2.2.11's "unified across operations and steps", which contradict each other today.
-- [ ] Migration note: "operation" changes meaning, from "unit of work attached to a transition" to "declarative container".
+- [x] `Component.Step` + `Component.Operation` collapse to `Component.Action`; the cross-kind id checks and the "registered as a step, not an operation" `ActionRef` error disappear. The two SM-level registration maps merged into one, and `ActionRef` went from six variants to four.
+- [x] **Rename `StepPath` to `ActionPath`.** The accessors keep their names; only the element type changed.
+- [x] `requirements.md` §2.2.5 / §2.2.6 rewritten around one concept; §2.1.4's "compensations are step-level only" reconciled with §2.2.11's "unified across operations and steps", which contradicted each other. Resolved in favour of §2.2.11: any action may compensate.
+- [x] Migration note: "operation" changes meaning, from "unit of work attached to a transition" to "declarative container". (Design note, Migration section.)

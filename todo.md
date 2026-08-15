@@ -55,7 +55,7 @@ The first stable release. Semantic versioning applies from this point on.
 
 **1.0 contract summary:**
 - Programmatic and YAML DSLs at parity.
-- Core abstractions: `StateMachine`, `State`, `Transition`, `Operation` (top-level and nested, with type-safe context mapping via `ContextMapper<P, N>`), `Step`, `Context`, `Condition`, `Trigger` (Manual / Event / host-driven Data), `Listener` (state entry/exit + transition start/complete/error), `Compensation`.
+- Core abstractions: `StateMachine`, `State`, `Transition`, `Action` (imperative "step" and declarative "operation" forms, nestable, with type-safe context mapping via `ContextMapper<P, N>`), `Context`, `Condition`, `Trigger` (Manual / Event / host-driven Data), `Listener` (state entry/exit + transition start/complete/error), `Compensation`.
 - Paired `StateResolver<T>` + `StateApplier<T>` (class / lambda / SpEL forms).
 - Condition Descriptor grammar (reference, class, predicate, expression).
 - Multi-branch conditional operations.
@@ -103,12 +103,12 @@ Ordering between themes will depend on demand. None of these should require brea
 - [ ] `transflux-test` (or similar) module.
 - [ ] `TestStateMachine<T>` wrapper with transition-path recording.
 - [ ] Context snapshot capture at transition points.
-- [ ] Step-level execution tracking.
+- [ ] Per-action execution tracking.
 - [ ] AssertJ-inspired fluent assertion API (`TransfluxAssertions`):
   - [ ] State assertions.
   - [ ] Transition assertions.
   - [ ] Context assertions.
-  - [ ] Operation / compensation assertions.
+  - [ ] Action / compensation assertions.
 - [ ] Test data builders for entities and contexts.
 - [ ] Integration with Spock, JUnit, TestNG.
 

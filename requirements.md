@@ -65,27 +65,27 @@ Direct transition execution (via `transitionTo(...)`, `fire(...)`, and batch var
 - `boolean isSuccess()` — terminal outcome.
 - `String getTargetState()` — final state (post-transition on success; pre-transition on rolled-back failure).
 - `Throwable getError()` — present iff `isSuccess()` is `false`.
-- `List<StepPath> getExecutedPath()` — ordered list of executed entries (steps and operations alike), in invocation order. Operation invocations and the steps inside them are both recorded; an entry for an operation appears immediately before any sub-entries it produces. Nested entries are reported as **qualified paths** (`parent-op-id/child-id`, recursively for deeper nesting); top-level entries appear under their bare id. See §4.5.2 for nested-operation semantics.
-- `List<StepPath> getCompensatedPath()` — ordered list of compensations that ran (empty on success). Compensations are step-level only — operations don't directly compensate — so this list carries step entries exclusively. Same qualified-path encoding as `getExecutedPath()`.
-- Timing metadata (start/end timestamps; per-step durations).
+- `List<ActionPath> getExecutedPath()` — ordered list of executed actions, in invocation order. Every action is recorded, whichever form it was authored in, and it is recorded **before** it runs: an action that throws still appears on the list, since it did execute, and its entry precedes any sub-entries it produced. Nested entries are reported as **qualified paths** (`parent-id/child-id`, recursively for deeper nesting); top-level entries appear under their bare id. See §4.5.2 for nesting semantics.
+- `List<ActionPath> getCompensatedPath()` — ordered list of compensations that ran (empty on success), in the LIFO order they unwound. Any action may declare a compensation, so this list carries the same kind of entries as `getExecutedPath()` and uses the same qualified-path encoding.
+- Timing metadata (start/end timestamps; per-action durations).
 
-Business outcomes (failed conditions, failed steps, post-condition violations) are reported through `TransitionResult` rather than thrown. **Configuration and validation errors** — invalid definitions, missing transitions, unknown states, illegal builder usage — throw `TransfluxValidationException` synchronously.
+Business outcomes (failed conditions, failed actions, post-condition violations) are reported through `TransitionResult` rather than thrown. **Configuration and validation errors** — invalid definitions, missing transitions, unknown states, illegal builder usage — throw `TransfluxValidationException` synchronously.
 
-#### 2.1.5 Operation Result Mapping
+#### 2.1.5 Action Result Mapping
 
-`Operation<T, C>.execute(entity, context, transition)` returns `void`. Any data the operation produces flows back to the caller through the user-provided context (which the host populated before invocation and reads after the transition completes). `TransitionResult<T>` carries only execution metadata, not domain output. `Operation<T, C>` is a pure functional contract — the operation's identity (id, name, description) lives on its corresponding `*OperationDef` (see §2.2.5).
+`Action<T, C>.execute(entity, context, transition)` returns `void`. Any data an action produces flows back to the caller through the user-provided context (which the host populated before invocation and reads after the transition completes). `TransitionResult<T>` carries only execution metadata, not domain output. `Action<T, C>` is a pure functional contract — identity (id, name, description) lives on its corresponding def (see §2.2.5).
 
-#### 2.1.6 Step Entity-Awareness
+#### 2.1.6 Action Entity-Awareness
 
-Steps are entity-aware. Every step receives `(entity, context, transition)` — the same signature as operations. A step may mutate the entity, derive data from it, read from the context, and write results back to the context. Steps are reusable across operations; they are not entity-agnostic context manipulators. Like `Operation<T, C>`, `Step<T, C>` is a pure functional contract — step ids are declared on the `step(id, ...)` registration on `StateMachineDef`, not on the `Step<T, C>` class itself.
+Actions are entity-aware. Every action receives `(entity, context, transition)`. An action may mutate the entity, derive data from it, read from the context, and write results back to the context. Actions are reusable: the same class or instance can be registered under multiple ids and referenced from multiple call sites, and they are not entity-agnostic context manipulators. `Action<T, C>` carries no identity of its own — ids are declared at the registration or declaration site, not on the class.
 
-This shapes the compensation contract too (see §2.2.11): a unified `Compensation<T, C>` interface receives `(entity, context)`, used by both operations and steps.
+This shapes the compensation contract too (see §2.2.11): a unified `Compensation<T, C>` interface receives `(entity, context)`, and any action may declare one.
 
 ### 2.2 Core Components
 
 #### 2.2.1 Component Identification
 
-All components in Transflux (states, transitions, operations, steps, conditions, triggers, and others) carry a stable identifier so they can be referenced, looked up, and reported in diagnostics. The identifier lives on the **definition** — the configuration object that declares how the component behaves (e.g., `StateDef`, `TransitionDef`, `SimpleOperationDef`, `CompositeOperationDef`, the `step(id, ...)` and `condition(id, ...)` registrations on `StateMachineDef`, plus `ConditionDescriptor`). The runtime executables themselves (`Operation<T, C>`, `Step<T, C>`, `Condition<T, C>`) are pure functional contracts and do **not** carry identity — the same class can be registered any number of times under different ids. At runtime the framework carries internal **bound records** (`BoundOperation`, `BoundStep`, `BoundCondition`) that pair the pure executable with the framework-owned id; diagnostics and `executedStepIds` / `compensatedStepIds` pull from the bound side.
+All components in Transflux (states, transitions, actions, conditions, triggers, and others) carry a stable identifier so they can be referenced, looked up, and reported in diagnostics. The identifier lives on the **definition** — the configuration object that declares how the component behaves (e.g., `StateDef`, `TransitionDef`, `StepDef`, `OperationDef`, the `step(id, ...)` and `condition(id, ...)` registrations on `StateMachineDef`, plus `ConditionDescriptor`). The runtime executables themselves (`Action<T, C>`, `Condition<T, C>`) are pure functional contracts and do **not** carry identity — the same class can be registered any number of times under different ids. At runtime the framework carries internal **bound records** (`BoundAction`, `BoundCondition`) that pair the pure executable with the framework-owned id; diagnostics and `executedPath` / `compensatedPath` pull from the bound side.
 
 **Component ID:**
 - **Required property** on every component definition.
@@ -152,34 +152,31 @@ Defines valid state changes and their associated operations, conditions, and tri
 - Transition-specific listeners (`onStart`, `onComplete`, `onError`).
 - Compensation strategies.
 
-#### 2.2.5 Operation
+#### 2.2.5 Action
 
-Encapsulates the business logic executed during state transitions. `Operation<T, C>` is a **pure functional contract** with a single `execute(entity, context, transition)` method; it is identity-free at runtime — definition-side `SimpleOperationDef` and `CompositeOperationDef` carry the id, name, and description.
+The unit of work executed during state transitions. `Action<T, C>` is a **pure functional contract** with a single `execute(entity, context, transition)` method plus an optional `getCompensation(entity, context)`; it is identity-free at runtime, and the definition side carries the id, name, and description.
 
-**Def-side flavours:**
-- **`SimpleOperationDef`** — wires a single `Operation<T, C>` implementation (class or instance) into a transition.
-- **`CompositeOperationDef`** — declares a multi-step operation with flow control. At build time the framework synthesizes the underlying `Operation<T, C>` that iterates the configured step list.
+**Two authoring forms, mutually exclusive:**
+- **`StepDef`** — *imperative*: a Java body, supplied as an `Action<T, C>` instance or as a class the framework instantiates. It binds no children, though it may dispatch other actions by id while it runs.
+- **`OperationDef`** — *declarative*: an ordered list of members, where declaration order **is** execution order. There is no Java body; at build time the framework synthesizes the `Action<T, C>` that walks the members. `ConditionalOperationDef` is a variant whose ordering rule is "first matching branch" rather than "all, in order".
 
-From the engine's view a transition always carries a single bound operation — composite vs. simple is purely a def-side distinction.
+**Vocabulary:** a *step* is an imperative action, an *operation* is a declarative one. The distinction is what the author wrote, not what the runtime does — both forms execute through one path (§2.4) and are dispatched identically. The authored form travels with the action as an `ActionKind` and surfaces in diagnostics so a message can name the thing the way its author wrote it.
+
+**Any action attaches to a transition**, in either form, and a transition carries at most one. There is no elevation mechanism and no need for a single-member wrapper.
 
 **Features:**
 - Type safety (entity, context) with generics.
 - Synchronous and asynchronous execution parts.
 - Error handling and compensation strategies.
-- Step-level granular control.
+- Granular control through nesting: an action may contain or dispatch others, recursively.
 
-`Operation.execute` returns `void`; results flow through the context (see §2.1.5).
+`Action.execute` returns `void`; results flow through the context (see §2.1.5).
 
-#### 2.2.6 Step
+#### 2.2.6 Action Invocation
 
-Individual executable units within operations. `Step<T, C>` is a **pure functional contract** that is **entity-aware** (see §2.1.6) and receives `(entity, context, transition)`; like `Operation<T, C>`, it does not carry identity at runtime — the id lives on the `step(id, ...)` registration on `StateMachineDef`.
+An action is invoked in one of three ways: as the action attached to a transition, as a declared member of a declarative container, or dynamically through `transition.run("id")` from inside another action's body. All three flow through the same internal path, so id recording, timing, nesting, and compensation registration are uniform regardless of who initiated the invocation.
 
-**Characteristics:**
-- Entity- and context-aware execution.
-- Individual compensation strategies — a step may declare its own `Compensation<T, C>`.
-- Reusable across different operations: the same `Step<T, C>` class can be registered under different ids and referenced from multiple composites.
-
-A step is invoked either as a declared member of a `CompositeOperationDef` or dynamically through `transition.step("id")` from inside an executing operation. Both paths flow through the same internal dispatcher so step-id recording, timing, and compensation registration are uniform regardless of who initiated the step. Authoring a single-step composite (one step inside a `CompositeOperationDef`) is the way to use a step as a stand-alone operation target; there is no special elevation mechanism.
+A dispatch site names a callee and nothing more. Which form the callee was authored in is a property of *its* registration rather than of the call, which is why there is a single `run(...)` verb at every reference position instead of one per form. The `step(...)` and `operation(...)` verbs appear only where an action is being *declared*, because there the form is being chosen at that site.
 
 #### 2.2.7 Context
 
@@ -192,7 +189,7 @@ Manages shared state during transition execution.
 
 Context access in concurrent (async) execution paths is governed by the rules in §4.5.3 — by default the sync and async paths share the same context reference; isolation is opt-in via the `ForkableContext` interface.
 
-**Null ctx for Object-typed components from Void callers.** A transition declared with `Void.class` context (see §2.2.4) rejects any non-null firing value at the dispatch boundary. A composite member or imperative `view.step` / `view.operation` call inside that transition may still pass through to an `Object.class`-typed reusable component — the build-time pass-through check admits this unconditionally, since `Object.class` components are by definition context-agnostic. At runtime, the component's `ctx` parameter receives `null`. Component bodies registered under `Object.class` are expected to tolerate `null` ctx; the canonical reason to register under `Object.class` is "this component ignores ctx," which the null-tolerance follows from.
+**Null ctx for Object-typed components from Void callers.** A transition declared with `Void.class` context (see §2.2.4) rejects any non-null firing value at the dispatch boundary. A composite member or imperative `view.run` call inside that transition may still pass through to an `Object.class`-typed reusable component — the build-time pass-through check admits this unconditionally, since `Object.class` components are by definition context-agnostic. At runtime, the component's `ctx` parameter receives `null`. Component bodies registered under `Object.class` are expected to tolerate `null` ctx; the canonical reason to register under `Object.class` is "this component ignores ctx," which the null-tolerance follows from.
 
 #### 2.2.8 Trigger System
 
@@ -245,7 +242,12 @@ Manages error recovery and rollback operations.
 **Features:**
 - Stack-based compensation execution (LIFO).
 - Exception-specific compensation strategies.
-- **Unified `Compensation<T, C>` interface** across operations and steps; both forms receive `(entity, context)`. A compensation may be declared by class or returned dynamically from `getCompensation(entity, context)`.
+- **A single `Compensation<T, C>` interface**, receiving `(entity, context)`. **Any action may declare one**, in either authoring form.
+- The compensation is captured **before** the action runs and pushed onto the rollback stack at that point, so an action that throws partway through producing side effects still has its rollback registered (§2.4 step 5).
+
+An imperative action can return its compensation dynamically from `getCompensation(entity, context)`, which sees the same entity and context references `execute` will run against. A declarative container has no Java object to hang that on and declares one statically on its def instead. Both shapes predate the unified action model; unifying only stopped hiding them behind a type split.
+
+Container compensation is **additive, not a replacement**: a container's own compensation and its members' all run. Because the container is pushed on entry, before it dispatches anything, LIFO unwinding drains its members first and the container last. One consequence is worth stating plainly, since it reads like a bug in a stack trace otherwise: a container's compensation runs even when its first member fails immediately, before the container itself did anything of its own.
 
 #### 2.2.12 State Resolver and State Applier
 
@@ -277,8 +279,8 @@ StateMachine
 ├── States (Initial, Terminal, Regular)
 │   ├── Entry/Exit Listeners
 │   ├── Transitions
-│   │   ├── Operations (Simple, Composite)
-│   │   │   ├── Steps
+│   │   ├── Action (Step or Operation)
+│   │   │   ├── Nested Actions
 │   │   │   ├── Context
 │   │   │   └── Compensations
 │   │   ├── Conditions (Pre/Post)
@@ -292,12 +294,15 @@ StateMachine
 
 1. **Transition Request** — initiated by a manual API call, an event handed to the machine, or a `processDataChange(...)` invocation.
 2. **State Resolution** — determine current entity state via the configured `StateResolver<T>`.
-3. **Pre-condition Evaluation** — validate transition eligibility. On failure, return a `TransitionResult` with `isSuccess() == false`; no compensations run because no operation has executed, and no listener is notified because the transition never started.
+3. **Pre-condition Evaluation** — validate transition eligibility. On failure, return a `TransitionResult` with `isSuccess() == false`; no compensations run because no action has executed, and no listener is notified because the transition never started.
 4. **Listener Notification (start)** — notify registered `onStart` listeners and source-state `onExit` listeners.
-5. **Operation Execution** — execute the associated business logic:
-    - Sequential step execution.
-    - Compensation registration **before each step runs**, so a step that throws partway through producing side effects still gets its compensation invoked. A step that needs completion-time state for its rollback writes that state into the entity or context during `execute` and reads it back in the compensation; the compensation closure captured before `execute` is invoked sees the same entity and context references the body of `execute` ran against.
-    - Asynchronous part scheduling (if applicable).
+5. **Action Execution** — execute the associated business logic. Every action, at every nesting depth, runs through one path in a fixed order:
+    1. capture its `getCompensation(entity, context)` and push it onto the rollback stack;
+    2. record its id on the executed path;
+    3. push its id onto the nesting stack;
+    4. execute;
+    5. pop the nesting stack.
+   Capturing before execution means an action that throws partway through producing side effects still has its rollback invoked; an action needing completion-time state writes that state into the entity or context during `execute` and reads it back in the compensation, which sees the same references `execute` ran against. Recording before execution means an action that throws still appears on `executedPath` — it did run, and its compensation is on the other list. Pushing the nesting stack for every action means anything it dispatches is qualified beneath it. Asynchronous parts are scheduled here if applicable.
 6. **Post-condition Evaluation** — validate successful completion. On failure, run registered compensations in LIFO order; the entity's state field is **not** updated.
 7. **State Application** — invoke the `StateApplier<T>` to write the new state to the entity. The transition is now considered committed.
 8. **Listener Notification (complete)** — notify registered `onComplete` listeners and target-state `onEntry` listeners.
@@ -308,7 +313,7 @@ A transition that fails at any point from step 5 onwards notifies registered `on
 
 - **Exception Propagation** — controlled exception handling with compensation triggers.
 - **Compensation Stack** — LIFO execution of registered compensation actions.
-- **Validation vs. runtime errors** — `TransfluxValidationException` is thrown for definition/lookup errors; all other failure modes (failed conditions, failed steps, post-condition violations, unhandled exceptions inside steps) are reported through `TransitionResult` after compensation has run.
+- **Validation vs. runtime errors** — `TransfluxValidationException` is thrown for definition/lookup errors; all other failure modes (failed conditions, failed actions, post-condition violations, unhandled exceptions inside an action body) are reported through `TransitionResult` after compensation has run.
 
 ### 2.6 Definition Sourcing
 
@@ -363,7 +368,7 @@ The framework parses each loaded resource exactly once per `StateMachine` build.
 #### 2.7.1 Snapshot Semantics
 
 - **Every external entry point** (`entity(...)`, `executeTransition(...)`, `processEvent(...)`, `processDataChange(...)`, `getTransition(...)`, `getState(...)`, `resolveCurrentState(...)`, catalog lookups) captures the current snapshot at the top of the call and runs against that snapshot for the duration of the call. A swap mid-call does not affect the in-flight call.
-- **`TransitionView`** holds the snapshot it was constructed with; every callback into the view — `view.step(...)`, `view.operation(...)`, compensation drains, condition evaluations — resolves against that snapshot. An execution that started before the swap finishes against the pre-swap topology.
+- **`TransitionView`** holds the snapshot it was constructed with; every callback into the view — `view.run(...)`, compensation drains, condition evaluations — resolves against that snapshot. An execution that started before the swap finishes against the pre-swap topology.
 - **New invocations** after the swap see the new snapshot.
 
 #### 2.7.2 Replacing the Definition
@@ -1346,19 +1351,19 @@ public class SubscriptionComponentRegistry implements ComponentRegistry {
         return new SubscriptionActivatedListener();
     }
     
-    // Shared Operations
-    @RegisterOperation("notification-flow")
-    public CompositeOperation notificationFlowOperation() {
-        return compositeOperation("notification-flow")
-            .step("prepare-notifications", "prepare-notifications")
-            .step("send-notifications", "send-notifications")
+    // Shared Actions
+    @RegisterAction("notification-flow")
+    public Action notificationFlowOperation() {
+        return operation("notification-flow")
+            .run("prepare-notifications")
+            .run("send-notifications")
             .build();
     }
     
-    @RegisterOperation("analytics-update")
-    public SimpleOperation analyticsUpdateOperation() {
-        return simpleOperation("analytics-update")
-            .step("update-analytics")
+    @RegisterAction("analytics-update")
+    public Action analyticsUpdateAction() {
+        return step("analytics-update")
+            .using(UpdateAnalyticsAction.class)
             .async(true)
             .build();
     }
@@ -1370,12 +1375,12 @@ public class SubscriptionComponentRegistry implements ComponentRegistry {
 Components from the registry can be referenced directly by their unique name. All component IDs must be unique across all registered components:
 
 ```java
-// In operations
-CompositeOperation activationOperation = compositeOperation("activation-operation")
-    .step("prepare-actor", "prepare-event-actor")
-    .step("validate", "validate-prerequisites")
-    .step("notifications", "notification-flow")
-    .step("analytics", "analytics-update")
+// In a declarative container
+Action activationOperation = operation("activation-operation")
+    .run("prepare-event-actor")
+    .run("validate-prerequisites")
+    .run("notification-flow")
+    .run("analytics-update")
     .build();
 
 // In transitions
@@ -1543,7 +1548,7 @@ inside the configurer.
         .withDescription("Activate trial subscription")
 
         // Operation
-        .simpleOperation("activate", ActivateSubscriptionOperation.class)
+        .step("activate", ActivateSubscriptionAction.class)
 
         // Pre/post conditions
         .preCondition("payment-method-valid", PaymentMethodValidCondition.class)
@@ -1572,13 +1577,13 @@ Every id-bearing form also has an `Identifiable` sibling, so enum constants can 
 `String` id is accepted. Note that the class-based condition forms take an id as well as the class —
 the id is the condition's identity in diagnostics and for later reference.
 
-### 4.4 Operation Definitions
+### 4.4 Action Definitions
 
-#### 4.4.1 Simple Operation
+#### 4.4.1 Imperative Actions (Steps)
 
 ```java
-public class ActivateSubscriptionOperation
-        implements Operation<Subscription, SubscriptionContext> {
+public class ActivateSubscriptionAction
+        implements Action<Subscription, SubscriptionContext> {
     
     @Inject private BillingService billingService;
     @Inject private SubscriptionFeaturesService featuresService;
@@ -1588,59 +1593,66 @@ public class ActivateSubscriptionOperation
                         Transition<Subscription, SubscriptionContext> transition) {
         validateSubscription(subscription.getId());
         
-        // Run reusable steps imperatively, by id, via the transition view
-        transition.step("prepare-billing-actor");
-        transition.step("validate-payment-method");
+        // Run other registered actions by id, through the transition view
+        transition.run("prepare-billing-actor");
+        transition.run("validate-payment-method");
         
         // Results flow back through the context (see §2.1.5)
         context.setActivatedAt(Instant.now());
         context.setSubscriptionStatus(SubscriptionStatus.ACTIVE);
     }
+    
+    // Optional: the rollback for this action's own effects (§2.2.11)
+    @Override
+    public Compensation<Subscription, SubscriptionContext> getCompensation(
+            Subscription subscription, SubscriptionContext context) {
+        return (s, ctx) -> billingService.reverse(ctx.getChargeId());
+    }
 }
 
-// The operation is declared inside the transition's configurer, at state-declaration
-// time — there is no post-hoc "grab the transition and set its operation" step.
+// The action is declared inside the transition's configurer, at state-declaration
+// time — there is no post-hoc "grab the transition and set its action" step.
 .state("trial", s -> s
     .transitionsTo("active", "trial-active", SubscriptionContext.class, t -> t
-        .simpleOperation("activate-subscription", ActivateSubscriptionOperation.class)))
+        .step("activate-subscription", ActivateSubscriptionAction.class)))
 ```
 
-> A simple `Operation` carries no compensation or async hook of its own. Compensation is declared per **step** (`Step.getCompensation`) and therefore belongs to a composite operation (§4.4.2); asynchronous dispatch is a planned capability (the `async(...)` form shown in §4.4.2 is aspirational). Reach for a composite operation when the unit of work needs either.
+> Any action attaches to a transition, in either form, so there is no wrapper to author when the unit of work is a single Java body. Asynchronous dispatch is a planned capability — the `async(...)` form shown in §4.4.2 is aspirational.
 
-#### 4.4.2 Composite Operation (Declarative Style)
+#### 4.4.2 Declarative Actions (Operations)
 
 ```java
-trialActiveTransition.compositeOperation("complex-subscription-activation", c -> c
-    .withDescription("Complex subscription activation with multiple steps")
+trialActiveTransition.operation("complex-subscription-activation", c -> c
+    .withDescription("Complex subscription activation with several members")
     .usingContext(ComplexSubscriptionContext.class)
 
-    // Sequential steps
-    .step("prepare-billing-actor", PrepareBillingActorStep.class)
+    // Reference an action registered elsewhere...
+    .run("prepare-billing-actor")
 
-    .step("validate-payment-method", ValidatePaymentMethodStep.class, s -> s
-        .withCompensation(PaymentValidationCompensation.class))
+    // ...or declare one inline, here
+    .step("validate-payment-method", ValidatePaymentMethodAction.class)
 
     // Multi-branch conditional
     .conditional("subscription-tier-routing", cs -> cs
         .branch("premium-tier", b -> b
             .condition(PremiumTierPredicate.class)
-            .step("premium-tier-processing", PremiumTierStep.class)
-            .step("vip-notification", VipNotificationStep.class))
+            .step("premium-tier-processing", PremiumTierAction.class)
+            .run("vip-notification"))
 
         .branch("standard-tier", b -> b
             .condition(s -> "STANDARD".equals(s.getTier()) && s.getPriority() >= 5)
-            .step("standard-tier-processing", StandardTierStep.class))
+            .step("standard-tier-processing", StandardTierAction.class))
 
         .branch("enterprise-customer", b -> b
             .condition(EnterpriseCustomerPredicate.class)
-            .step("enterprise-processing", EnterpriseProcessingStep.class)
-            .step("account-manager-notification", AccountManagerNotificationStep.class))
+            .step("enterprise-processing", EnterpriseProcessingAction.class)
+            .run("account-manager-notification"))
 
         .defaultBranch(d -> d
-            .step("basic-processing", BasicProcessingStep.class)
-            .step("standard-notification", StandardNotificationStep.class)))
+            .step("basic-processing", BasicProcessingAction.class)
+            .run("standard-notification")))
 
-    .step("finalize", FinalizeSubscriptionActivationStep.class)
+    .step("finalize", FinalizeSubscriptionActivationAction.class)
 
     // Error handling
     .onException(RecoverableException.class, h -> h
@@ -1673,7 +1685,7 @@ The host is responsible for populating context before execution and reading resu
 // The transition declares its context type and operation inside its configurer
 .state("trial", s -> s
     .transitionsTo("active", "trial-active", SubscriptionContext.class, t -> t
-        .simpleOperation("activate-subscription", ActivateSubscriptionOperation.class)))
+        .step("activate-subscription", ActivateSubscriptionAction.class)))
 
 // Application usage
 public void activateSubscription(Subscription entity) {
@@ -1696,24 +1708,24 @@ public void activateSubscription(Subscription entity) {
 }
 ```
 
-#### 4.5.2 Nested Operations and Call-Site Context Mapping
+#### 4.5.2 Nested Actions and Call-Site Context Mapping
 
-A `CompositeOperation` member may be either a `Step` or another `Operation`. Both kinds are nestable, recursively, and obey the same call-site grammar. The same grammar is exposed imperatively through `TransitionView` so a simple `Operation`'s body can dispatch reusable steps or nested operations with the same five forms.
+A container's member is an action, in either authoring form; nesting is recursive and every position obeys the same call-site grammar. The same grammar is available from inside an action's body, so a Java body can dispatch other actions with the same forms a container declares them in.
 
-Context mapping is a **call-site** property, not a callee property. A reusable child step or operation declares only the context type it needs (e.g., `Step<T, PaymentCtx>`); each caller is responsible for projecting its own context onto that type. One child + N callers + N small mappers — not one child preconfigured with N caller-specific mappers. This keeps reusable components callee-agnostic and lets a single mapper bridge a parent / child pair across many call sites.
+Context mapping is a **call-site** property, not a callee property. A reusable child action declares only the context type it needs (e.g., `Action<T, PaymentCtx>`); each caller is responsible for projecting its own context onto that type. One child + N callers + N small mappers — not one child preconfigured with N caller-specific mappers. This keeps reusable components callee-agnostic and lets a single mapper bridge a parent / child pair across many call sites.
 
 ##### 4.5.2.1 Definition Surface
 
-`CompositeOperationDef` exposes a uniform `(memberId, [mapperSpec])` grammar for both `.step(...)` and `.operation(...)` by-id members:
+Every by-id reference takes the same `(actionId, [mapperSpec])` grammar, whether it appears as a member of a declarative container or inside an action's body:
 
-| Form | Composite member call site | `TransitionView` call site |
+| Form | Container member | Inside an action body |
 |---|---|---|
-| Pass-through | `.step("id")` / `.operation("id")` | `view.step("id")` / `view.operation("id")` |
-| Mapper by registered id | `.step("id", "mapperId")` | `view.step("id", "mapperId")` |
-| Inline `Function<C, ?>` | `.step("id", parent -> child)` | `view.step("id", parent -> child)` |
-| Inline `ContextMapper<C, ?>` | `.step("id", mapperInstance)` | `view.step("id", mapperInstance)` |
+| Pass-through | `.run("id")` | `view.run("id")` |
+| Mapper by registered id | `.run("id", "mapperId")` | `view.run("id", "mapperId")` |
+| Inline `Function<C, ?>` | `.run("id", parent -> child)` | `view.run("id", parent -> child)` |
+| Inline `ContextMapper<C, ?>` | `.run("id", mapperInstance)` | `view.run("id", mapperInstance)` |
 
-Inline-registration forms (`.step("id", Step<T, C>)`, `.operation("id", Operation<T, C>)`, and their class variants) define a new member typed against the composite's own `C` and always run pass-through — by definition the member shares the composite's context type, so no boundary mapping is needed.
+Inline *declaration* forms (`.step("id", Action<T, C>)`, its class variant, and `.conditional("id", configurer)`) define a new member typed against the container's own `C` and always run pass-through — by definition the member shares the container's context type, so no boundary mapping is needed.
 
 The `ContextMapper<P, N>` interface:
 
@@ -1782,7 +1794,7 @@ For every by-id member declared inside a composite, the build pipeline checks:
 
 Component identifiers are unique **across the entire state machine** — uniqueness is a global property regardless of nesting depth. Two sibling composites cannot independently host an inline component with the same id under two different payloads; one must be renamed. The same instance or the same class registered under the same id in multiple places is treated idempotently and does not trigger a collision.
 
-**Visibility, however, is lexical.** A component inline-declared inside a composite (`composite.step("foo", new FooStep())` and friends) is reachable only from inside that composite's lexical subtree — its own action refs, its conditional branches, and any imperative `view.step("foo")` / `view.operation("foo")` issued while that composite is on the call stack. Sibling composites cannot resolve another composite's inline ids by reference: doing so raises a build-time error ("unknown step id in scope"). SM-level (root) registrations are reachable from every composite via the parent-chain walk.
+**Visibility, however, is lexical.** A component inline-declared inside a container (`op.step("foo", new FooAction())` and friends) is reachable only from inside that container's lexical subtree — its own member references, its conditional branches, and any `view.run("foo")` issued while that container is on the call stack. Sibling containers cannot resolve another's inline ids by reference: doing so raises a build-time error ("unknown action id in scope"). SM-level (root) registrations are reachable from every container via the parent-chain walk.
 
 Two practical consequences:
 
@@ -1795,7 +1807,11 @@ At runtime, every composite owns a `Registry` whose parent is the enclosing scop
 
 ##### 4.5.2.6 Result Reporting
 
-`TransitionResult.getExecutedPath()` and `getCompensatedPath()` (see §2.1.4) report executed entries — both steps and operations — belonging to nested invocations as **qualified paths** of the form `parent-op-id/child-id`, recursively for deeper nesting. Top-level entries appear under their bare id. Every operation invocation records its own entry (the operation id, qualified by any enclosing operation ids) **before** any sub-entries it produces; a plain `Operation` body that runs no inner steps still appears as a single entry, so operations driving critical non-step logic remain observable in the result. The qualified form preserves the structural distinction between an entry that ran at the top level and one that ran inside a nested operation, even when the same id is reused across parents. The same encoding applies whether the nested operation was dispatched by a composite executor or imperatively via `view.operation("id"[, mapperSpec])`. Compensations are step-level only — operations don't directly compensate — so `getCompensatedPath()` carries step entries exclusively.
+`TransitionResult.getExecutedPath()` and `getCompensatedPath()` (see §2.1.4) report nested invocations as **qualified paths** of the form `parent-id/child-id`, recursively for deeper nesting. Top-level entries appear under their bare id.
+
+Every action records its own entry — its id, qualified by any enclosing action ids — **before** it runs, so the entry precedes any sub-entries it produces and an action that throws is still on the list. Every action also qualifies whatever it dispatches underneath itself, whichever form it was authored in, so the reported tree matches the tree that actually ran at every level rather than only at container boundaries. An action that dispatches nothing appears as a single entry, which keeps work driven entirely from a Java body observable in the result.
+
+The qualified form preserves the structural distinction between an entry that ran at the top level and one that ran nested, even when the same id is reused across parents. The same encoding applies whether the action was dispatched by a container, referenced from inside another action's body via `view.run("id"[, mapperSpec])`, or attached to the transition itself. Because any action may declare a compensation, `getCompensatedPath()` carries the same kind of entries as `getExecutedPath()`.
 
 ##### 4.5.2.7 Failure and Compensation
 
@@ -1876,15 +1892,15 @@ These guarantees apply to both shared-reference and `ForkableContext` modes. In 
 
 Multiple async branches under the same `async` block follow the same rules pairwise: each branch independently obtains its context per §4.5.3.1 / §4.5.3.2 / §4.5.3.3. `ForkableContext.fork()` is invoked once per branch, not once per `async` block.
 
-### 4.6 Steps
+### 4.6 Writing an Action
 
-#### 4.6.1 Step Definition
+#### 4.6.1 The Contract
 
-Steps are entity-aware and receive `(entity, context, transition)`:
+Actions are entity-aware and receive `(entity, context, transition)`. The optional `getCompensation` is captured before `execute` runs and receives the same references it will see:
 
 ```java
-public class PrepareEventActorStep
-        implements Step<Subscription, ActivationContext> {
+public class PrepareEventActorAction
+        implements Action<Subscription, ActivationContext> {
     
     @Inject private EventActorService eventActorService;
     
@@ -1897,14 +1913,15 @@ public class PrepareEventActorStep
     }
     
     @Override
-    public Compensation<Subscription, ActivationContext> getCompensation() {
+    public Compensation<Subscription, ActivationContext> getCompensation(
+            Subscription subscription, ActivationContext context) {
         return (entity, ctx) -> eventActorService.removeEventActor(
             ctx.getEventActor().getId());
     }
 }
 
-public class ValidatePrerequisitesStep
-        implements Step<Subscription, ActivationContext> {
+public class ValidatePrerequisitesAction
+        implements Action<Subscription, ActivationContext> {
     
     @Override
     public void execute(Subscription subscription, ActivationContext context,
@@ -1916,15 +1933,15 @@ public class ValidatePrerequisitesStep
 }
 ```
 
-#### 4.6.2 Step Configuration
+#### 4.6.2 Configuring an Action
 
 ```java
-compositeOperation("complex-operation", c -> c
-    .step("validate-prerequisites", ValidatePrerequisitesStep.class, s -> s
+operation("complex-operation", c -> c
+    .step("validate-prerequisites", ValidatePrerequisitesAction.class, s -> s
         .withCompensation(ValidationCompensation.class))
 
-    // Step with custom error handling
-    .step("risky-step", RiskyStep.class, s -> s
+    // Action with custom error handling
+    .step("risky-action", RiskyAction.class, s -> s
         .onException(SpecificException.class, h -> h
             .compensateWith(SpecificCompensation.class))
         .onException(Exception.class, h -> h
@@ -2228,7 +2245,7 @@ TransfluxConfiguration config = TransfluxConfiguration.builder()
 - Optimized trigger evaluation and matching.
 
 ### 5.2 Observability
-- Pluggable `MetricsCollector` SPI exposing success/failure counts, timing histograms, step-level timings.
+- Pluggable `MetricsCollector` SPI exposing success/failure counts, timing histograms, per-action timings.
 - Configurable logging with predictable logger names.
 - Custom flow labels for metric separation.
 - First-party Micrometer / OpenTelemetry integrations are post-1.0 (see §7.2).
@@ -2270,11 +2287,11 @@ The richer multi-framework abstraction (Guice / CDI / Dagger integration, framew
 
 ### 7.1 v1.0 Scope
 
-The 1.0 release is the **smallest useful core** of Transflux: a programmatic and YAML DSL for defining state machines with conditions, operations, steps, triggers (manual, event, host-driven data), listeners, and compensations — running in a single JVM, against host-owned in-memory entities.
+The 1.0 release is the **smallest useful core** of Transflux: a programmatic and YAML DSL for defining state machines with conditions, actions, triggers (manual, event, host-driven data), listeners, and compensations — running in a single JVM, against host-owned in-memory entities.
 
 In-scope capabilities:
 
-- **Core abstractions** — `StateMachine`, `State`, `Transition`, `Operation` (Simple and Composite), `Step`, `Context`, `Condition` (Pre/Post), `Trigger` (Manual, Event, host-driven Data), `Listener` (state entry/exit, transition start/complete/error), `Compensation`.
+- **Core abstractions** — `StateMachine`, `State`, `Transition`, `Action` (imperative "step" and declarative "operation" forms), `Context`, `Condition` (Pre/Post), `Trigger` (Manual, Event, host-driven Data), `Listener` (state entry/exit, transition start/complete/error), `Compensation`.
 - **State resolver + applier** — class, lambda (Java only), and SpEL forms.
 - **Both DSLs at parity** — programmatic builder and YAML DSL cover the same surface area, including listener types and condition descriptor forms.
 - **Component library + registry** — reusable component definitions with imports (YAML) and a Java-side `ComponentRegistry`.

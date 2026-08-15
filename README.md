@@ -6,13 +6,13 @@ Transflux is a lightweight microflow orchestration library designed to automate 
 - Lightweight, embeddable library that integrates easily with existing codebases
 - No dedicated persistence: operates on your existing domain entities and persistence frameworks
 - Reliable orchestration of complex transitions with compensations (Saga‑like)
-- Reusable components: operations, steps, triggers, listeners
+- Reusable components: actions, conditions, triggers, listeners
 - Both programmatic and declarative (via YAML DSL) definitions
 
 See requirements.md for the full vision and scope.
 
 ## Project Status
-Phase 1 (Core Foundation) is essentially complete: programmatic state machine builder, paired `StateResolver` / `StateApplier`, `TransitionResult` with executed/compensated step lists and timing metadata, and the `TransfluxException` hierarchy are all in place. Operations, conditions, triggers, listeners, and the YAML DSL are upcoming phases.
+Phases 1 through 2.6 are complete, and Phase 3 (Triggers & Listeners) is active: the programmatic builder, paired `StateResolver` / `StateApplier`, `TransitionResult` with executed/compensated action paths and timing metadata, actions with conditions and compensations, manual / event / data triggers, and state and transition listeners are all in place. Async execution, the YAML DSL, and Spring integration are upcoming phases.
 
 The project is in active design and the public API is unstable. **No releases are published before v1.0** — see `todo.md` for the phased roadmap.
 
@@ -26,7 +26,7 @@ The project is in active design and the public API is unstable. **No releases ar
 - `org.transflux.core` — entry point (`Transflux`), `StateMachine` / `StateMachineDef`, `ContextScope`, the `Identifiable` marker, and the `Preconditions` argument-precondition helpers.
 - `org.transflux.core.state` — `State`, `StateDef`, the host-supplied `StateResolver` / `StateApplier` bridges, and the entry/exit listener surface (`StateListener`, its `StateListenerDef` builder, and the `StateChange` / `StatePhase` payload).
 - `org.transflux.core.transition` — `Transition`, `TransitionDef`, `TransitionResult`, `ProcessResult` (the outcome of `processEvent` / `processDataChange`), `ActionPath` (the qualified-id value carrier in `TransitionResult.executedPath` / `compensatedPath`), and the start/complete/error listener surface (`TransitionListener`, its `TransitionListenerDef` builder, and the `TransitionExecution` / `TransitionPhase` payload).
-- `org.transflux.core.action` — `Operation`, `Step`, `Compensation`, `ContextMapper`, and their def-side types (`SimpleOperationDef` / `CompositeOperationDef` / `StepDef` / `MapperDef` / `ConditionalStepDef` / `BranchDef` / `DefaultBranchDef` / `NoMatchBehavior`).
+- `org.transflux.core.action` — `Action` (the single executable contract) and `ActionKind`, `Compensation`, `ContextMapper`, and the def-side types (`ActionDef` and its `StepDef` / `OperationDef` forms, `ConditionalOperationDef`, `MapperDef`, `BranchDef`, `DefaultBranchDef`, `NoMatchBehavior`).
 - `org.transflux.core.condition` — `Condition` and `ConditionDescriptor`.
 - `org.transflux.core.exception` — `TransfluxException` and its subclasses.
 - `org.transflux.core.trigger` — `Trigger` (runtime catalog view) and its kinds `ManualTrigger` / `EventTrigger` / `DataTrigger`, with the def-side builders `ManualTriggerDef` / `EventTriggerDef` / `DataTriggerDef`. Manual triggers fire via `entity(e).fire(...)`; event and data triggers fire via the host-driven `entity(e).processEvent(...)` / `processDataChange(...)`.
