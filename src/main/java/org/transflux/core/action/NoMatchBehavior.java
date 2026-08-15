@@ -16,7 +16,7 @@
  *
  */
 
-package org.transflux.core.operation;
+package org.transflux.core.action;
 
 /**
  * Behavior selector for a {@link ConditionalStepDef} when no branch condition matches and no

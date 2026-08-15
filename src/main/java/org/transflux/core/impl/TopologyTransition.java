@@ -20,7 +20,7 @@ package org.transflux.core.impl;
 
 import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.operation.ContextMapper;
+import org.transflux.core.action.ContextMapper;
 import org.transflux.core.transition.Transition;
 
 import java.util.function.Function;

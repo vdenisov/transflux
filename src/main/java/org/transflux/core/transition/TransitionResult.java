@@ -64,8 +64,8 @@ public class TransitionResult<T> {
     private final String targetStateId;
     private final String transitionId;
     private final Throwable error;
-    private final List<StepPath> executedPath;
-    private final List<StepPath> compensatedPath;
+    private final List<ActionPath> executedPath;
+    private final List<ActionPath> compensatedPath;
     private final Instant startedAt;
     private final Instant completedAt;
 
@@ -75,8 +75,8 @@ public class TransitionResult<T> {
                              String targetStateId,
                              String transitionId,
                              Throwable error,
-                             List<StepPath> executedPath,
-                             List<StepPath> compensatedPath,
+                             List<ActionPath> executedPath,
+                             List<ActionPath> compensatedPath,
                              Instant startedAt,
                              Instant completedAt) {
         this.success = success;
@@ -147,7 +147,7 @@ public class TransitionResult<T> {
      */
     public static <T> TransitionResult<T> success(T entity, String sourceStateId,
                                                   String targetStateId, String transitionId,
-                                                  List<StepPath> executedPath,
+                                                  List<ActionPath> executedPath,
                                                   Instant startedAt, Instant completedAt) {
         return new TransitionResult<>(true, entity, sourceStateId, targetStateId, transitionId,
                 null, executedPath, null, startedAt, completedAt);
@@ -214,8 +214,8 @@ public class TransitionResult<T> {
     public static <T> TransitionResult<T> failure(T entity, String sourceStateId,
                                                   String targetStateId, String transitionId,
                                                   Throwable error,
-                                                  List<StepPath> executedPath,
-                                                  List<StepPath> compensatedPath,
+                                                  List<ActionPath> executedPath,
+                                                  List<ActionPath> compensatedPath,
                                                   Instant startedAt, Instant completedAt) {
         return new TransitionResult<>(false, entity, sourceStateId, targetStateId, transitionId,
                 error, executedPath, compensatedPath, startedAt, completedAt);
@@ -271,22 +271,22 @@ public class TransitionResult<T> {
     }
 
     /**
-     * Returns the ordered list of step paths that executed during the transition.
+     * Returns the ordered list of action paths that executed during the transition.
      * <p>
      * The list is unmodifiable and reflects steps in the order they ran. Empty when no steps
-     * executed. Each {@link StepPath} carries the step's local id and any enclosing
-     * nested-operation ids as ordered segments; {@code StepPath.toString()} renders them as
+     * executed. Each {@link ActionPath} carries the step's local id and any enclosing
+     * nested-operation ids as ordered segments; {@code ActionPath.toString()} renders them as
      * the slash-joined qualified path {@code parent-op-id/.../child-step-id}. Top-level
      * steps have single-segment paths.
      *
-     * @return the executed step paths; never {@code null}
+     * @return the executed action paths; never {@code null}
      */
-    public List<StepPath> getExecutedPath() {
+    public List<ActionPath> getExecutedPath() {
         return executedPath;
     }
 
     /**
-     * Returns the ordered list of step paths whose compensations ran during rollback.
+     * Returns the ordered list of action paths whose compensations ran during rollback.
      * <p>
      * The list is unmodifiable and reflects compensations in LIFO order relative to their
      * registration. Empty on successful transitions. Each entry shares the same qualified-path
@@ -294,9 +294,9 @@ public class TransitionResult<T> {
      * nested operation carry the full enclosing-operation chain; top-level compensations
      * appear under a single-segment path.
      *
-     * @return the compensated step paths; never {@code null}
+     * @return the compensated action paths; never {@code null}
      */
-    public List<StepPath> getCompensatedPath() {
+    public List<ActionPath> getCompensatedPath() {
         return compensatedPath;
     }
 

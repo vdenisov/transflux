@@ -19,7 +19,7 @@
 package org.transflux.core.impl
 
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.operation.ContextMapper
+import org.transflux.core.action.ContextMapper
 import spock.lang.Specification
 
 import java.util.function.Function

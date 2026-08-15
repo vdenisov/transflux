@@ -19,8 +19,8 @@
 package org.transflux.core.impl;
 
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.operation.ContextMapper;
-import org.transflux.core.operation.MapperDef;
+import org.transflux.core.action.ContextMapper;
+import org.transflux.core.action.MapperDef;
 
 import java.util.Map;
 import java.util.function.Function;

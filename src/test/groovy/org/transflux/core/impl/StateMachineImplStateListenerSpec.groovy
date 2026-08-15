@@ -21,7 +21,7 @@ package org.transflux.core.impl
 import org.transflux.core.StateMachine
 import org.transflux.core.StateMachineDef
 import org.transflux.core.TestContext
-import org.transflux.core.operation.Operation
+import org.transflux.core.action.Operation
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateChange
 import org.transflux.core.state.StateListener
@@ -293,7 +293,7 @@ class StateMachineImplStateListenerSpec extends Specification {
         def stepRuns = []
         def entity = new Entity('s1')
         def sm = build({ d -> d
-            .step('side-effect', { e, ctx, tr -> stepRuns << 'ran' } as org.transflux.core.operation.Step)
+            .step('side-effect', { e, ctx, tr -> stepRuns << 'ran' } as org.transflux.core.action.Step)
             .state('s1', { st -> st
                 .onExit('meddler', { e, ctx, ch ->
                     try {

@@ -16,7 +16,7 @@
  *
  */
 
-package org.transflux.core.operation;
+package org.transflux.core.action;
 
 import org.transflux.core.Identifiable;
 

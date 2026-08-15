@@ -20,8 +20,8 @@ package org.transflux.core.impl
 
 import org.transflux.core.TestContext
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.operation.CompositeOperationDef
-import org.transflux.core.operation.Step
+import org.transflux.core.action.CompositeOperationDef
+import org.transflux.core.action.Step
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import spock.lang.Specification

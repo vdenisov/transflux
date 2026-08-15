@@ -16,7 +16,7 @@
  *
  */
 
-package org.transflux.core.operation;
+package org.transflux.core.action;
 
 /**
  * Rollback contract for the effects of an operation or step.

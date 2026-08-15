@@ -23,10 +23,10 @@ import org.transflux.core.TestContext
 import org.transflux.core.condition.Condition
 import org.transflux.core.condition.ConditionDescriptor
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.operation.BranchDef
-import org.transflux.core.operation.DefaultBranchDef
-import org.transflux.core.operation.NoMatchBehavior
-import org.transflux.core.operation.Step
+import org.transflux.core.action.BranchDef
+import org.transflux.core.action.DefaultBranchDef
+import org.transflux.core.action.NoMatchBehavior
+import org.transflux.core.action.Step
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
 import spock.lang.Unroll

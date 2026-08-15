@@ -20,7 +20,7 @@ package org.transflux.core.impl
 
 import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.operation.Operation
+import org.transflux.core.action.Operation
 import org.transflux.core.transition.Transition
 import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification

@@ -18,7 +18,7 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.operation.OperationDef;
+import org.transflux.core.action.OperationDef;
 
 import java.util.Map;
 import java.util.Optional;

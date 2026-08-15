@@ -19,7 +19,7 @@
 package org.transflux.core.impl
 
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.operation.Step
+import org.transflux.core.action.Step
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
 import spock.lang.Unroll

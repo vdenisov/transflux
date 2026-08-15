@@ -20,11 +20,11 @@ package org.transflux.core.impl;
 
 import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.operation.Compensation;
-import org.transflux.core.operation.ContextMapper;
-import org.transflux.core.operation.MapperDef;
-import org.transflux.core.operation.Operation;
-import org.transflux.core.transition.StepPath;
+import org.transflux.core.action.Compensation;
+import org.transflux.core.action.ContextMapper;
+import org.transflux.core.action.MapperDef;
+import org.transflux.core.action.Operation;
+import org.transflux.core.transition.ActionPath;
 import org.transflux.core.transition.Transition;
 
 import java.util.ArrayDeque;
@@ -65,7 +65,7 @@ class TransitionView<T, C> implements Transition<T, C> {
 
     private final Deque<Registry<T>> scopeStack = new ArrayDeque<>();
 
-    private final List<StepPath> executedPath = new ArrayList<>();
+    private final List<ActionPath> executedPath = new ArrayList<>();
 
     private final Deque<BoundCompensation<T, C>> compensationStack = new ArrayDeque<>();
 
@@ -225,10 +225,10 @@ class TransitionView<T, C> implements Transition<T, C> {
     }
 
     void recordExecutedId(String localStepId) {
-        executedPath.add(qualifyStepPath(localStepId));
+        executedPath.add(qualifyActionPath(localStepId));
     }
 
-    List<StepPath> getExecutedPath() {
+    List<ActionPath> getExecutedPath() {
         return Collections.unmodifiableList(executedPath);
     }
 
@@ -399,11 +399,11 @@ class TransitionView<T, C> implements Transition<T, C> {
         return fn::apply;
     }
 
-    private StepPath qualifyStepPath(String localStepId) {
+    private ActionPath qualifyActionPath(String localStepId) {
         requireNotBlank(localStepId, "Step ID");
 
         if (operationStack.isEmpty()) {
-            return StepPath.of(localStepId);
+            return ActionPath.of(localStepId);
         }
 
         List<String> segments = new ArrayList<>(operationStack.size() + 1);
@@ -413,13 +413,13 @@ class TransitionView<T, C> implements Transition<T, C> {
         }
         segments.add(localStepId);
 
-        return new StepPath(segments);
+        return new ActionPath(segments);
     }
 
     /**
      * Pushes a {@link Compensation} onto this view's LIFO rollback stack under the supplied
      * step id. A {@code null} compensation is a no-op; this lets callers forward the result of
-     * {@link org.transflux.core.operation.Step#getCompensation(Object, Object)} unconditionally
+     * {@link org.transflux.core.action.Step#getCompensation(Object, Object)} unconditionally
      * without first checking it for {@code null}.
      *
      * @param localStepId the id of the step the compensation rolls back; must be non-blank
@@ -430,7 +430,7 @@ class TransitionView<T, C> implements Transition<T, C> {
         if (compensation == null) {
             return;
         }
-        compensationStack.push(new BoundCompensation<>(qualifyStepPath(localStepId), compensation));
+        compensationStack.push(new BoundCompensation<>(qualifyActionPath(localStepId), compensation));
     }
 
     /**

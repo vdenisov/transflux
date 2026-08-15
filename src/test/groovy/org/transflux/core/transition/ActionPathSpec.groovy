@@ -22,11 +22,11 @@ import org.transflux.core.exception.TransfluxValidationException
 import spock.lang.Specification
 import spock.lang.Unroll
 
-class StepPathSpec extends Specification {
+class ActionPathSpec extends Specification {
 
     def 'of(segments) builds an immutable path with the supplied segments'() {
         when:
-        def path = StepPath.of('outer', 'inner', 'leaf')
+        def path = ActionPath.of('outer', 'inner', 'leaf')
 
         then:
         path.segments() == ['outer', 'inner', 'leaf']
@@ -34,7 +34,7 @@ class StepPathSpec extends Specification {
 
     def 'of with a single segment yields a top-level path'() {
         when:
-        def path = StepPath.of('only')
+        def path = ActionPath.of('only')
 
         then:
         path.segments() == ['only']
@@ -43,7 +43,7 @@ class StepPathSpec extends Specification {
 
     def 'returned segments list is unmodifiable'() {
         given:
-        def path = StepPath.of('a', 'b')
+        def path = ActionPath.of('a', 'b')
 
         when:
         path.segments().add('intruder')
@@ -54,7 +54,7 @@ class StepPathSpec extends Specification {
 
     def 'constructor rejects an empty segment list'() {
         when:
-        new StepPath([])
+        new ActionPath([])
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -63,7 +63,7 @@ class StepPathSpec extends Specification {
 
     def 'constructor rejects a null segment list'() {
         when:
-        new StepPath(null)
+        new ActionPath(null)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -73,7 +73,7 @@ class StepPathSpec extends Specification {
     @Unroll
     def 'constructor rejects blank segment "#segment" in segment list'() {
         when:
-        StepPath.of('valid', segment)
+        ActionPath.of('valid', segment)
 
         then:
         thrown(TransfluxValidationException)
@@ -83,11 +83,11 @@ class StepPathSpec extends Specification {
     }
 
     def 'constructor rejects a null segment in segment list'() {
-        // StepPath.of(...) delegates to List.of(...) which itself rejects null with NPE before
+        // ActionPath.of(...) delegates to List.of(...) which itself rejects null with NPE before
         // the validating constructor runs. Build the list directly to exercise the constructor's
         // own requireNotBlank guard on per-segment null.
         when:
-        new StepPath(['valid', null])
+        new ActionPath(['valid', null])
 
         then:
         thrown(TransfluxValidationException)
@@ -95,15 +95,15 @@ class StepPathSpec extends Specification {
 
     def 'leaf() returns the last segment'() {
         expect:
-        StepPath.of('only').leaf() == 'only'
-        StepPath.of('outer', 'inner').leaf() == 'inner'
-        StepPath.of('a', 'b', 'c', 'd').leaf() == 'd'
+        ActionPath.of('only').leaf() == 'only'
+        ActionPath.of('outer', 'inner').leaf() == 'inner'
+        ActionPath.of('a', 'b', 'c', 'd').leaf() == 'd'
     }
 
     @Unroll
     def 'depth() returns segments.size() - 1 for #segments'() {
         expect:
-        new StepPath(segments).depth() == expectedDepth
+        new ActionPath(segments).depth() == expectedDepth
 
         where:
         segments                 || expectedDepth
@@ -116,7 +116,7 @@ class StepPathSpec extends Specification {
     @Unroll
     def 'isTopLevel() distinguishes single-segment from nested paths (#segments)'() {
         expect:
-        new StepPath(segments).isTopLevel() == expected
+        new ActionPath(segments).isTopLevel() == expected
 
         where:
         segments               || expected
@@ -127,7 +127,7 @@ class StepPathSpec extends Specification {
 
     def 'append(segment) returns a new path with the segment added at the end'() {
         given:
-        def original = StepPath.of('outer', 'inner')
+        def original = ActionPath.of('outer', 'inner')
 
         when:
         def extended = original.append('leaf')
@@ -140,7 +140,7 @@ class StepPathSpec extends Specification {
 
     def 'append(null) and append(blank) are rejected'() {
         given:
-        def path = StepPath.of('a')
+        def path = ActionPath.of('a')
 
         when:
         path.append(segment)
@@ -155,7 +155,7 @@ class StepPathSpec extends Specification {
     @Unroll
     def 'toString() joins segments with "/" for #segments'() {
         expect:
-        new StepPath(segments).toString() == expected
+        new ActionPath(segments).toString() == expected
 
         where:
         segments               || expected
@@ -166,9 +166,9 @@ class StepPathSpec extends Specification {
 
     def 'records with equal segments are equal and share a hash code'() {
         given:
-        def a = StepPath.of('outer', 'inner')
-        def b = StepPath.of('outer', 'inner')
-        def c = StepPath.of('outer', 'other')
+        def a = ActionPath.of('outer', 'inner')
+        def b = ActionPath.of('outer', 'inner')
+        def c = ActionPath.of('outer', 'other')
 
         expect:
         a == b

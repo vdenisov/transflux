@@ -20,12 +20,12 @@ package org.transflux.core;
 
 import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.operation.CompositeOperationDef;
-import org.transflux.core.operation.ContextMapper;
-import org.transflux.core.operation.Operation;
-import org.transflux.core.operation.SimpleOperationDef;
-import org.transflux.core.operation.Step;
-import org.transflux.core.operation.StepDef;
+import org.transflux.core.action.CompositeOperationDef;
+import org.transflux.core.action.ContextMapper;
+import org.transflux.core.action.Operation;
+import org.transflux.core.action.SimpleOperationDef;
+import org.transflux.core.action.Step;
+import org.transflux.core.action.StepDef;
 import org.transflux.core.state.StateApplier;
 import org.transflux.core.state.StateDef;
 import org.transflux.core.state.StateListener;

@@ -27,14 +27,14 @@ import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
- * Immutable qualified identifier of an executed step.
+ * Immutable qualified identifier of an executed entry.
  * <p>
- * A {@code StepPath} is an ordered, non-empty list of segments. The last (leaf) segment is
- * the step's local id. Any preceding segments are the ids of the nested operations the step
- * ran inside, from outermost to innermost — so a step that ran inside operation {@code outer}
- * which itself ran inside operation {@code grand} surfaces as
- * {@code StepPath.of("grand", "outer", "step-id")}. Top-level steps have a single-segment
- * path, {@code StepPath.of("step-id")}.
+ * An {@code ActionPath} is an ordered, non-empty list of segments. The last (leaf) segment is
+ * the entry's local id. Any preceding segments are the ids of the nested operations it ran
+ * inside, from outermost to innermost - so an entry that ran inside operation {@code outer},
+ * which itself ran inside operation {@code grand}, surfaces as
+ * {@code ActionPath.of("grand", "outer", "leaf-id")}. Top-level entries have a single-segment
+ * path, {@code ActionPath.of("leaf-id")}.
  *
  * <p>The {@link #toString()} representation is the segments joined by {@code "/"}, matching
  * the qualified-path format described in
@@ -43,22 +43,22 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param segments the ordered path segments; never {@code null}, never empty, no segment
  *                 may be {@code null} or blank
  */
-public record StepPath(List<String> segments) {
+public record ActionPath(List<String> segments) {
 
     /**
      * Validates the segment list and stores an unmodifiable copy.
      *
      * @param segments the ordered path segments
      */
-    public StepPath {
-        requireNotNull(segments, "Step path segments");
+    public ActionPath {
+        requireNotNull(segments, "Action path segments");
 
         if (segments.isEmpty()) {
-            throw new TransfluxValidationException("StepPath segments must not be empty");
+            throw new TransfluxValidationException("ActionPath segments must not be empty");
         }
 
         for (String segment : segments) {
-            requireNotBlank(segment, "Step path segment");
+            requireNotBlank(segment, "Action path segment");
         }
 
         segments = List.copyOf(segments);
@@ -69,17 +69,17 @@ public record StepPath(List<String> segments) {
      *
      * @param segments the ordered path segments; must contain at least one non-blank segment
      *
-     * @return a fresh {@code StepPath}
+     * @return a fresh {@code ActionPath}
      *
      * @throws TransfluxValidationException if {@code segments} is empty or any segment is
      *         {@code null} or blank
      */
-    public static StepPath of(String... segments) {
-        return new StepPath(List.of(segments));
+    public static ActionPath of(String... segments) {
+        return new ActionPath(List.of(segments));
     }
 
     /**
-     * Returns the leaf segment of this path — the step's local id.
+     * Returns the leaf segment of this path - the entry's local id.
      *
      * @return the leaf segment; never {@code null} or blank
      */
@@ -88,7 +88,7 @@ public record StepPath(List<String> segments) {
     }
 
     /**
-     * Returns the nesting depth of this path. Top-level paths have depth {@code 0}; a step
+     * Returns the nesting depth of this path. Top-level paths have depth {@code 0}; an entry
      * one operation deep has depth {@code 1}; and so on.
      *
      * @return the nesting depth, {@code >= 0}
@@ -107,22 +107,22 @@ public record StepPath(List<String> segments) {
     }
 
     /**
-     * Returns a new {@code StepPath} extended with the supplied segment. The current path is
+     * Returns a new {@code ActionPath} extended with the supplied segment. The current path is
      * not modified.
      *
      * @param segment the segment to append; must be non-blank
      *
-     * @return a new {@code StepPath} whose segments are this path's segments followed by
+     * @return a new {@code ActionPath} whose segments are this path's segments followed by
      *         {@code segment}
      *
      * @throws TransfluxValidationException if {@code segment} is {@code null} or blank
      */
-    public StepPath append(String segment) {
-        requireNotBlank(segment, "Step path segment");
+    public ActionPath append(String segment) {
+        requireNotBlank(segment, "Action path segment");
         List<String> next = new ArrayList<>(segments.size() + 1);
         next.addAll(segments);
         next.add(segment);
-        return new StepPath(next);
+        return new ActionPath(next);
     }
 
     @Override

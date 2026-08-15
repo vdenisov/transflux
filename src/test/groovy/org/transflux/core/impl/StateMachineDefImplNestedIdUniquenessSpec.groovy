@@ -20,11 +20,11 @@ package org.transflux.core.impl
 
 import org.transflux.core.TestContext
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.operation.BranchDef
-import org.transflux.core.operation.CompositeOperationDef
-import org.transflux.core.operation.ConditionalStepDef
-import org.transflux.core.operation.Operation
-import org.transflux.core.operation.Step
+import org.transflux.core.action.BranchDef
+import org.transflux.core.action.CompositeOperationDef
+import org.transflux.core.action.ConditionalStepDef
+import org.transflux.core.action.Operation
+import org.transflux.core.action.Step
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import org.transflux.core.transition.TransitionDef

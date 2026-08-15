@@ -18,7 +18,7 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.operation.Operation;
+import org.transflux.core.action.Operation;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;

@@ -21,9 +21,9 @@ package org.transflux.core.impl;
 import org.transflux.core.ContextScope;
 import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
-import org.transflux.core.operation.CompositeOperationDef;
-import org.transflux.core.operation.Operation;
-import org.transflux.core.operation.Step;
+import org.transflux.core.action.CompositeOperationDef;
+import org.transflux.core.action.Operation;
+import org.transflux.core.action.Step;
 
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;

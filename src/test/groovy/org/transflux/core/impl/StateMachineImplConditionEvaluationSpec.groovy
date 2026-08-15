@@ -21,7 +21,7 @@ package org.transflux.core.impl
 import org.transflux.core.StateMachine
 import org.transflux.core.TestContext
 import org.transflux.core.condition.Condition
-import org.transflux.core.operation.Operation
+import org.transflux.core.action.Operation
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition

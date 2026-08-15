@@ -24,15 +24,15 @@ import org.transflux.core.Identifiable;
 import org.transflux.core.StateMachine;
 import org.transflux.core.exception.TransfluxReentrancyException;
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.operation.Compensation;
-import org.transflux.core.operation.Step;
+import org.transflux.core.action.Compensation;
+import org.transflux.core.action.Step;
 import org.transflux.core.state.State;
 import org.transflux.core.state.StateApplier;
 import org.transflux.core.state.StateChange;
 import org.transflux.core.state.StatePhase;
 import org.transflux.core.state.StateResolver;
 import org.transflux.core.transition.ProcessResult;
-import org.transflux.core.transition.StepPath;
+import org.transflux.core.transition.ActionPath;
 import org.transflux.core.transition.Transition;
 import org.transflux.core.transition.TransitionExecution;
 import org.transflux.core.transition.TransitionPhase;
@@ -663,7 +663,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
         } catch (Exception e) {
             List<BoundCompensation<T, C>> drained = view.drainCompensationsLifo();
-            List<StepPath> compensatedPath = new ArrayList<>(drained.size());
+            List<ActionPath> compensatedPath = new ArrayList<>(drained.size());
 
             for (BoundCompensation<T, C> bc : drained) {
                 compensatedPath.add(bc.path());

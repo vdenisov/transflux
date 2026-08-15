@@ -16,7 +16,7 @@
  *
  */
 
-package org.transflux.core.operation;
+package org.transflux.core.action;
 
 /**
  * Bridges a nested operation's context type {@code N} with its enclosing parent's context

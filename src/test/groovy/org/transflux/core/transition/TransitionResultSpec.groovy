@@ -64,13 +64,13 @@ class TransitionResultSpec extends Specification {
     def "success factory with executed step IDs should preserve order"() {
         given:
         def start = Instant.now()
-        def steps = [StepPath.of("step-a"), StepPath.of("step-b"), StepPath.of("step-c")]
+        def steps = [ActionPath.of("step-a"), ActionPath.of("step-b"), ActionPath.of("step-c")]
 
         when:
         def result = TransitionResult.success("entity", "S", "T", "tx", steps, start, start)
 
         then:
-        result.executedPath == [StepPath.of("step-a"), StepPath.of("step-b"), StepPath.of("step-c")]
+        result.executedPath == [ActionPath.of("step-a"), ActionPath.of("step-b"), ActionPath.of("step-c")]
         result.compensatedPath == []
     }
 
@@ -93,26 +93,26 @@ class TransitionResultSpec extends Specification {
         given:
         def error = new RuntimeException("kaboom")
         def start = Instant.now()
-        def executed = [StepPath.of("s1"), StepPath.of("s2")]
-        def compensated = [StepPath.of("c-s2"), StepPath.of("c-s1")]
+        def executed = [ActionPath.of("s1"), ActionPath.of("s2")]
+        def compensated = [ActionPath.of("c-s2"), ActionPath.of("c-s1")]
 
         when:
         def result = TransitionResult.failure(
                 "entity", "S", "T", "tx", error, executed, compensated, start, start)
 
         then:
-        result.executedPath == [StepPath.of("s1"), StepPath.of("s2")]
-        result.compensatedPath == [StepPath.of("c-s2"), StepPath.of("c-s1")]
+        result.executedPath == [ActionPath.of("s1"), ActionPath.of("s2")]
+        result.compensatedPath == [ActionPath.of("c-s2"), ActionPath.of("c-s1")]
         result.error.is(error)
     }
 
     def "executedPath should be unmodifiable"() {
         given:
         def result = TransitionResult.success("entity", "S", "T", "tx",
-                [StepPath.of("s1")], Instant.now(), Instant.now())
+                [ActionPath.of("s1")], Instant.now(), Instant.now())
 
         when:
-        result.executedPath.add(StepPath.of("intruder"))
+        result.executedPath.add(ActionPath.of("intruder"))
 
         then:
         thrown(UnsupportedOperationException)
@@ -122,10 +122,10 @@ class TransitionResultSpec extends Specification {
         given:
         def result = TransitionResult.failure(
                 "entity", "S", "T", "tx", new RuntimeException(),
-                [], [StepPath.of("c1")], Instant.now(), Instant.now())
+                [], [ActionPath.of("c1")], Instant.now(), Instant.now())
 
         when:
-        result.compensatedPath.add(StepPath.of("intruder"))
+        result.compensatedPath.add(ActionPath.of("intruder"))
 
         then:
         thrown(UnsupportedOperationException)
@@ -133,15 +133,15 @@ class TransitionResultSpec extends Specification {
 
     def "factories should defensively copy step list inputs"() {
         given:
-        def steps = [StepPath.of("s1"), StepPath.of("s2")] as ArrayList
+        def steps = [ActionPath.of("s1"), ActionPath.of("s2")] as ArrayList
         def result = TransitionResult.success("entity", "S", "T", "tx",
                 steps, Instant.now(), Instant.now())
 
         when:
-        steps.add(StepPath.of("s3"))
+        steps.add(ActionPath.of("s3"))
 
         then:
-        result.executedPath == [StepPath.of("s1"), StepPath.of("s2")]
+        result.executedPath == [ActionPath.of("s1"), ActionPath.of("s2")]
     }
 
     def "duration should be null when either timestamp is missing"() {

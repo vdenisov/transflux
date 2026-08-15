@@ -20,9 +20,9 @@
 package org.transflux.core.impl
 
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.operation.NoMatchBehavior
-import org.transflux.core.operation.Operation
-import org.transflux.core.operation.Step
+import org.transflux.core.action.NoMatchBehavior
+import org.transflux.core.action.Operation
+import org.transflux.core.action.Step
 import spock.lang.Specification
 import spock.lang.Unroll
 

@@ -20,8 +20,8 @@ package org.transflux.core.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.transflux.core.operation.Operation;
-import org.transflux.core.operation.SimpleOperationDef;
+import org.transflux.core.action.Operation;
+import org.transflux.core.action.SimpleOperationDef;
 
 import java.util.Map;
 import java.util.Optional;

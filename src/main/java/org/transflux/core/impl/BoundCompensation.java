@@ -18,28 +18,28 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.operation.Compensation;
-import org.transflux.core.transition.StepPath;
+import org.transflux.core.action.Compensation;
+import org.transflux.core.transition.ActionPath;
 
 import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
- * Runtime binder that pairs a {@link Compensation} with the qualified {@link StepPath} of
+ * Runtime binder that pairs a {@link Compensation} with the qualified {@link ActionPath} of
  * the step whose effects it rolls back. The path captures both the step's local id and any
  * enclosing nested-operation ids, so compensation entries surface in
  * {@link org.transflux.core.transition.TransitionResult#getCompensatedPath()} under the
  * same qualified-path form as executed steps.
  *
- * @param path the qualified step path the compensation was registered against; never
+ * @param path the qualified action path the compensation was registered against; never
  *             {@code null}
  * @param compensation the rollback callback; never {@code null}
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-record BoundCompensation<T, C>(StepPath path, Compensation<T, C> compensation) {
+record BoundCompensation<T, C>(ActionPath path, Compensation<T, C> compensation) {
 
     BoundCompensation {
-        requireNotNull(path, "Bound compensation step path");
+        requireNotNull(path, "Bound compensation action path");
         requireNotNull(compensation, "Bound compensation");
     }
 }

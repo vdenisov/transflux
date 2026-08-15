@@ -20,13 +20,13 @@ package org.transflux.core.impl
 
 import org.transflux.core.StateMachine
 import org.transflux.core.TestContext
-import org.transflux.core.operation.Compensation
-import org.transflux.core.operation.CompositeOperationDef
-import org.transflux.core.operation.Operation
-import org.transflux.core.operation.Step
+import org.transflux.core.action.Compensation
+import org.transflux.core.action.CompositeOperationDef
+import org.transflux.core.action.Operation
+import org.transflux.core.action.Step
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
-import org.transflux.core.transition.StepPath
+import org.transflux.core.transition.ActionPath
 import org.transflux.core.transition.Transition
 import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
@@ -97,7 +97,7 @@ class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
         }
     }
 
-    def 'inline-instance nested op runs and emits qualified step paths'() {
+    def 'inline-instance nested op runs and emits qualified action paths'() {
         given:
         def applied = []
         def sm = build(applied,
@@ -116,12 +116,12 @@ class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
         result.success
         entity.trail == ['top', 'a', 'b', 'after']
         result.executedPath == [
-            StepPath.of('outer'),
-            StepPath.of('outer', 'top'),
-            StepPath.of('outer', 'nested-op'),
-            StepPath.of('outer', 'nested-op', 'inner-a'),
-            StepPath.of('outer', 'nested-op', 'inner-b'),
-            StepPath.of('outer', 'after')]
+            ActionPath.of('outer'),
+            ActionPath.of('outer', 'top'),
+            ActionPath.of('outer', 'nested-op'),
+            ActionPath.of('outer', 'nested-op', 'inner-a'),
+            ActionPath.of('outer', 'nested-op', 'inner-b'),
+            ActionPath.of('outer', 'after')]
         applied == ['s2']
     }
 
@@ -141,10 +141,10 @@ class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
         then:
         result.success
         result.executedPath == [
-            StepPath.of('outer'),
-            StepPath.of('outer', 'nested-op'),
-            StepPath.of('outer', 'nested-op', 'inner-a'),
-            StepPath.of('outer', 'nested-op', 'inner-b')]
+            ActionPath.of('outer'),
+            ActionPath.of('outer', 'nested-op'),
+            ActionPath.of('outer', 'nested-op', 'inner-a'),
+            ActionPath.of('outer', 'nested-op', 'inner-b')]
     }
 
     def 'by-id nested-op ref resolves an inline-registered operation from another composite'() {
@@ -168,13 +168,13 @@ class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
         then:
         result.success
         result.executedPath == [
-            StepPath.of('outer'),
-            StepPath.of('outer', 'shared'),
-            StepPath.of('outer', 'shared', 'inner-a'),
-            StepPath.of('outer', 'shared', 'inner-b'),
-            StepPath.of('outer', 'shared'),
-            StepPath.of('outer', 'shared', 'inner-a'),
-            StepPath.of('outer', 'shared', 'inner-b')]
+            ActionPath.of('outer'),
+            ActionPath.of('outer', 'shared'),
+            ActionPath.of('outer', 'shared', 'inner-a'),
+            ActionPath.of('outer', 'shared', 'inner-b'),
+            ActionPath.of('outer', 'shared'),
+            ActionPath.of('outer', 'shared', 'inner-a'),
+            ActionPath.of('outer', 'shared', 'inner-b')]
     }
 
     def 'qualified paths apply to compensatedPath too'() {
@@ -193,7 +193,7 @@ class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
         then:
         !result.success
         result.error.message == 'nested-boom'
-        result.compensatedPath == [StepPath.of('outer', 'nested-op', 'comp-step')]
+        result.compensatedPath == [ActionPath.of('outer', 'nested-op', 'comp-step')]
         // The applier never runs on failure.
         applied.isEmpty()
         // The compensation ran, leaving its trail entry.
@@ -216,10 +216,10 @@ class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
         then:
         result.success
         result.executedPath == [
-            StepPath.of('outer'),
-            StepPath.of('outer', 'only-op'),
-            StepPath.of('outer', 'only-op', 'inner-a'),
-            StepPath.of('outer', 'only-op', 'inner-b')]
+            ActionPath.of('outer'),
+            ActionPath.of('outer', 'only-op'),
+            ActionPath.of('outer', 'only-op', 'inner-a'),
+            ActionPath.of('outer', 'only-op', 'inner-b')]
     }
 
     def 'by-id ref to an unknown operation id fails at SM build time'() {

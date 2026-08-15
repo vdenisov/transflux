@@ -22,11 +22,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.operation.BranchDef;
-import org.transflux.core.operation.ConditionalStepDef;
-import org.transflux.core.operation.DefaultBranchDef;
-import org.transflux.core.operation.NoMatchBehavior;
-import org.transflux.core.operation.Step;
+import org.transflux.core.action.BranchDef;
+import org.transflux.core.action.ConditionalStepDef;
+import org.transflux.core.action.DefaultBranchDef;
+import org.transflux.core.action.NoMatchBehavior;
+import org.transflux.core.action.Step;
 import org.transflux.core.transition.Transition;
 
 import java.util.ArrayList;

@@ -19,8 +19,8 @@
 package org.transflux.core.impl;
 
 import org.transflux.core.Identifiable;
-import org.transflux.core.operation.DefaultBranchDef;
-import org.transflux.core.operation.Step;
+import org.transflux.core.action.DefaultBranchDef;
+import org.transflux.core.action.Step;
 
 import java.util.ArrayList;
 import java.util.Collections;

@@ -23,7 +23,7 @@ import org.transflux.core.StateMachine
 import org.transflux.core.StateMachineDef
 import org.transflux.core.TestContext
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.operation.Operation
+import org.transflux.core.action.Operation
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
 import org.transflux.core.trigger.EventTrigger

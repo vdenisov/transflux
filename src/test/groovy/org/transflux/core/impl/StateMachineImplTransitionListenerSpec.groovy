@@ -20,9 +20,9 @@ package org.transflux.core.impl
 
 import org.transflux.core.StateMachine
 import org.transflux.core.StateMachineDef
-import org.transflux.core.operation.Compensation
-import org.transflux.core.operation.Operation
-import org.transflux.core.operation.Step
+import org.transflux.core.action.Compensation
+import org.transflux.core.action.Operation
+import org.transflux.core.action.Step
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateListener
 import org.transflux.core.state.StateResolver

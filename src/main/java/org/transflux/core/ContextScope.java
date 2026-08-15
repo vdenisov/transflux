@@ -20,9 +20,9 @@ package org.transflux.core;
 
 import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.operation.CompositeOperationDef;
-import org.transflux.core.operation.Operation;
-import org.transflux.core.operation.Step;
+import org.transflux.core.action.CompositeOperationDef;
+import org.transflux.core.action.Operation;
+import org.transflux.core.action.Step;
 
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;

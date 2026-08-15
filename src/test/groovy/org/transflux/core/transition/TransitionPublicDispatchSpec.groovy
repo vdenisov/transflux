@@ -22,9 +22,9 @@ import org.transflux.core.Identifiable
 import org.transflux.core.StateMachine
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.impl.StateMachineDefImpl
-import org.transflux.core.operation.ContextMapper
-import org.transflux.core.operation.Operation
-import org.transflux.core.operation.Step
+import org.transflux.core.action.ContextMapper
+import org.transflux.core.action.Operation
+import org.transflux.core.action.Step
 import org.transflux.core.state.StateResolver
 import spock.lang.Specification
 
@@ -109,7 +109,7 @@ class TransitionPublicDispatchSpec extends Specification {
         result.success
         ctx.output == 'step-saw-baz'
         entity.trail == ['step:baz']
-        result.executedPath == [StepPath.of('outer'), StepPath.of('outer', 'child-step')]
+        result.executedPath == [ActionPath.of('outer'), ActionPath.of('outer', 'child-step')]
     }
 
     def 'transition.operation(id) runs the registered operation in pass-through mode'() {

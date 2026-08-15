@@ -23,8 +23,8 @@ import org.slf4j.LoggerFactory;
 import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
-import org.transflux.core.operation.BranchDef;
-import org.transflux.core.operation.Step;
+import org.transflux.core.action.BranchDef;
+import org.transflux.core.action.Step;
 
 import java.util.ArrayList;
 import java.util.Collections;

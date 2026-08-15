@@ -21,8 +21,8 @@ package org.transflux.core.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.operation.Step;
-import org.transflux.core.operation.StepDef;
+import org.transflux.core.action.Step;
+import org.transflux.core.action.StepDef;
 
 import static org.transflux.core.Preconditions.requireNotNull;
 
