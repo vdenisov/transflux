@@ -18,12 +18,13 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.action.ActionKind;
 import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.Compensation;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.MapperDef;
-import org.transflux.core.action.Operation;
+import org.transflux.core.action.Action;
 import org.transflux.core.transition.ActionPath;
 import org.transflux.core.transition.Transition;
 
@@ -42,7 +43,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * Per-execution view of a {@link Transition}.
  * <p>
  * The framework builds a fresh {@code TransitionView} for each transition execution and hands
- * it to the underlying {@link Operation} as the {@code transition} parameter. Topology
+ * it to the underlying {@link Action} as the {@code transition} parameter. Topology
  * accessors delegate to the {@link BoundTransition} record that carries the resolved
  * per-transition data; the dispatch methods declared on {@link Transition} run against the
  * captured execution scope (entity, context, step-id recorder, compensation stack) by
@@ -98,37 +99,28 @@ class TransitionView<T, C> implements Transition<T, C> {
     }
 
     @Override
-    @SuppressWarnings({"unchecked", "rawtypes"})
     public void step(String id) {
-        BoundStep<T, ?> boundStep = resolveStep(id);
-        StateMachineImpl.runBoundStep((BoundStep) boundStep, this);
+        dispatchResolved(resolveAction(id), null);
     }
 
     @Override
-    @SuppressWarnings({"unchecked", "rawtypes"})
     public void step(String id, String mapperId) {
         requireNotBlank(mapperId, "Mapper reference ID");
-        BoundStep<T, ?> boundStep = resolveStep(id);
-        ContextMapper<Object, Object> mapper = resolveRegisteredMapper(mapperId);
-        runChildStep((BoundStep) boundStep, mapper);
+        dispatchResolved(resolveAction(id), resolveRegisteredMapper(mapperId));
     }
 
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public void step(String id, Function<C, ?> inlineMapTo) {
         requireNotNull(inlineMapTo, "Inline mapper function");
-        BoundStep<T, ?> boundStep = resolveStep(id);
-        ContextMapper<Object, Object> mapper = wrapFunction((Function) inlineMapTo);
-        runChildStep((BoundStep) boundStep, mapper);
+        dispatchResolved(resolveAction(id), wrapFunction((Function) inlineMapTo));
     }
 
     @Override
-    @SuppressWarnings({"unchecked", "rawtypes"})
+    @SuppressWarnings("unchecked")
     public void step(String id, ContextMapper<C, ?> inlineMapper) {
         requireNotNull(inlineMapper, "Inline mapper instance");
-        BoundStep<T, ?> boundStep = resolveStep(id);
-        ContextMapper<Object, Object> mapper = (ContextMapper<Object, Object>) inlineMapper;
-        runChildStep((BoundStep) boundStep, mapper);
+        dispatchResolved(resolveAction(id), (ContextMapper<Object, Object>) inlineMapper);
     }
 
     @Override
@@ -157,37 +149,28 @@ class TransitionView<T, C> implements Transition<T, C> {
     }
 
     @Override
-    @SuppressWarnings({"unchecked", "rawtypes"})
     public void operation(String id) {
-        BoundOperation<T, ?> bound = resolveOperation(id);
-        runChildOperation((BoundOperation) bound, null);
+        dispatchResolved(resolveAction(id), null);
     }
 
     @Override
-    @SuppressWarnings({"unchecked", "rawtypes"})
     public void operation(String id, String mapperId) {
         requireNotBlank(mapperId, "Mapper reference ID");
-        BoundOperation<T, ?> bound = resolveOperation(id);
-        ContextMapper<Object, Object> mapper = resolveRegisteredMapper(mapperId);
-        runChildOperation((BoundOperation) bound, mapper);
+        dispatchResolved(resolveAction(id), resolveRegisteredMapper(mapperId));
     }
 
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public void operation(String id, Function<C, ?> inlineMapTo) {
         requireNotNull(inlineMapTo, "Inline mapper function");
-        BoundOperation<T, ?> bound = resolveOperation(id);
-        ContextMapper<Object, Object> mapper = wrapFunction((Function) inlineMapTo);
-        runChildOperation((BoundOperation) bound, mapper);
+        dispatchResolved(resolveAction(id), wrapFunction((Function) inlineMapTo));
     }
 
     @Override
-    @SuppressWarnings({"unchecked", "rawtypes"})
+    @SuppressWarnings("unchecked")
     public void operation(String id, ContextMapper<C, ?> inlineMapper) {
         requireNotNull(inlineMapper, "Inline mapper instance");
-        BoundOperation<T, ?> bound = resolveOperation(id);
-        ContextMapper<Object, Object> mapper = (ContextMapper<Object, Object>) inlineMapper;
-        runChildOperation((BoundOperation) bound, mapper);
+        dispatchResolved(resolveAction(id), (ContextMapper<Object, Object>) inlineMapper);
     }
 
     @Override
@@ -270,12 +253,12 @@ class TransitionView<T, C> implements Transition<T, C> {
      * @param mapper the mapper to apply at the boundary; never {@code null}
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    void runChildStep(BoundStep<T, Object> boundStep, ContextMapper<Object, Object> mapper) {
+    void runChildStep(BoundAction<T, Object> boundStep, ContextMapper<Object, Object> mapper) {
         Object active = getContext();
         Object child = mapper.mapTo(active);
         contextOverrideStack.push(child);
         try {
-            StateMachineImpl.runBoundStep((BoundStep) boundStep, (TransitionView) this);
+            StateMachineImpl.runBoundStep((BoundAction) boundStep, (TransitionView) this);
         } finally {
             contextOverrideStack.pop();
         }
@@ -287,24 +270,33 @@ class TransitionView<T, C> implements Transition<T, C> {
      * id on the operation-nesting stack so any step ids the operation drives are qualified
      * with this parent prefix. When {@code mapper} is {@code null} the operation runs
      * pass-through against the active context.
+     * <p>
+     * The operation's own {@link org.transflux.core.action.Action#getCompensation(Object, Object)}
+     * is captured before execution and pushed against the operation's id, so an action authored
+     * as a step but dispatched here still has its rollback registered. Capture happens before
+     * {@link #enterOperation(String)}, so the compensation is recorded at the operation's own
+     * path rather than nested beneath it, and against the same context {@code execute} will see.
      *
      * @param boundOperation the bound operation to run; never {@code null}
      * @param mapper the mapper to apply at the boundary, or {@code null} for pass-through
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    void runChildOperation(BoundOperation<T, Object> boundOperation, ContextMapper<Object, Object> mapper) {
+    void runChildOperation(BoundAction<T, Object> boundOperation, ContextMapper<Object, Object> mapper) {
         Object active = getContext();
         Object child = mapper == null ? null : mapper.mapTo(active);
+        Action<T, Object> action = boundOperation.action();
+        pushCompensation(boundOperation.id(),
+                         (Compensation) action.getCompensation(entity, mapper == null ? active : child));
         recordExecutedId(boundOperation.id());
         enterOperation(boundOperation.id());
         try {
             if (mapper == null) {
-                ((Operation) boundOperation.operation()).execute(entity, active, this);
+                ((Action) boundOperation.action()).execute(entity, active, this);
                 return;
             }
             contextOverrideStack.push(child);
             try {
-                ((Operation) boundOperation.operation()).execute(entity, child, this);
+                ((Action) boundOperation.action()).execute(entity, child, this);
             } finally {
                 contextOverrideStack.pop();
             }
@@ -314,36 +306,42 @@ class TransitionView<T, C> implements Transition<T, C> {
         }
     }
 
-    private BoundStep<T, ?> resolveStep(String id) {
-        requireNotBlank(id, "Step ID");
+    private BoundAction<T, ?> resolveAction(String id) {
+        requireNotBlank(id, "Action ID");
 
         Component<T> component = activeScope().resolve(id)
             .orElseThrow(() -> new TransfluxValidationException(
-                "No step registered with id '" + id + "' in the active scope"));
+                "No action registered with id '" + id + "' in the active scope"));
 
-        if (!(component instanceof Component.Step<T, ?> step)) {
+        if (!(component instanceof Component.Action<T, ?> action)) {
             throw new TransfluxValidationException(
                 "Id '" + id + "' is registered as a " + component.getClass().getSimpleName().toLowerCase()
-                    + ", not a step");
+                    + ", not an action");
         }
 
-        return step.bound();
+        return action.bound();
     }
 
-    private BoundOperation<T, ?> resolveOperation(String id) {
-        requireNotBlank(id, "Operation ID");
-
-        Component<T> component = activeScope().resolve(id)
-            .orElseThrow(() -> new TransfluxValidationException(
-                "No operation registered with id '" + id + "' in the active scope"));
-
-        if (!(component instanceof Component.Operation<T, ?> op)) {
-            throw new TransfluxValidationException(
-                "Id '" + id + "' is registered as a " + component.getClass().getSimpleName().toLowerCase()
-                    + ", not an operation");
+    /**
+     * Runs a resolved action, choosing the runner from the form the action was <em>registered</em>
+     * in rather than from the verb the caller used. The two are independent: a dispatch site names
+     * a callee, and how that callee was authored is a property of its own declaration.
+     *
+     * @param bound the resolved action; never {@code null}
+     * @param mapper the boundary mapper, or {@code null} for pass-through
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void dispatchResolved(BoundAction<T, ?> bound, ContextMapper<Object, Object> mapper) {
+        if (bound.kind() == ActionKind.STEP) {
+            if (mapper == null) {
+                StateMachineImpl.runBoundStep((BoundAction) bound, (TransitionView) this);
+            } else {
+                runChildStep((BoundAction) bound, mapper);
+            }
+            return;
         }
 
-        return op.bound();
+        runChildOperation((BoundAction) bound, mapper);
     }
 
     /**
@@ -419,7 +417,7 @@ class TransitionView<T, C> implements Transition<T, C> {
     /**
      * Pushes a {@link Compensation} onto this view's LIFO rollback stack under the supplied
      * step id. A {@code null} compensation is a no-op; this lets callers forward the result of
-     * {@link org.transflux.core.action.Step#getCompensation(Object, Object)} unconditionally
+     * {@link org.transflux.core.action.Action#getCompensation(Object, Object)} unconditionally
      * without first checking it for {@code null}.
      *
      * @param localStepId the id of the step the compensation rolls back; must be non-blank

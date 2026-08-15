@@ -33,7 +33,7 @@ import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
  * previously-set value. {@link #resolve} returns the held instance, or reflectively instantiates
  * the held class through its public no-arg constructor.
  *
- * @param <X> the executable type stored in the source (e.g. {@code Step<T, C>})
+ * @param <X> the executable type stored in the source (e.g. {@code Action<T, C>})
  */
 final class InstanceOrClassSource<X> {
 

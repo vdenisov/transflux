@@ -23,8 +23,7 @@ import org.transflux.core.Identifiable
 import org.transflux.core.condition.Condition
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.CompositeOperationDef
-import org.transflux.core.action.Operation
-import org.transflux.core.action.Step
+import org.transflux.core.action.Action
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
@@ -99,7 +98,7 @@ class StateMachineDefImplContextSpec extends Specification {
 
     // ---- Explicit Class<C> overloads on the flat SMD surface ----
 
-    def 'step(id, Class<C>, Step) tags componentContextTypes identically to forContext scope'() {
+    def 'step(id, Class<C>, Action) tags componentContextTypes identically to forContext scope'() {
         given:
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
@@ -170,7 +169,7 @@ class StateMachineDefImplContextSpec extends Specification {
             .step('mixed', CtxA, new StepA())
 
         when:
-        smd.forContext(CtxB, { scope -> scope.step('mixed', new StepA() as Step<Entity, CtxB>) })
+        smd.forContext(CtxB, { scope -> scope.step('mixed', new StepA() as Action<Entity, CtxB>) })
 
         then:
         thrown(TransfluxValidationException)
@@ -313,14 +312,14 @@ class StateMachineDefImplContextSpec extends Specification {
 
     static class CtxB { }
 
-    static class StepA implements Step<Entity, CtxA> {
+    static class StepA implements Action<Entity, CtxA> {
         @Override
         void execute(Entity entity, CtxA context, Transition<Entity, CtxA> transition) {
             entity.trail << 'step-a'
         }
     }
 
-    static class StepB implements Step<Entity, CtxB> {
+    static class StepB implements Action<Entity, CtxB> {
         @Override
         void execute(Entity entity, CtxB context, Transition<Entity, CtxB> transition) {
             entity.trail << 'step-b'
@@ -332,7 +331,7 @@ class StateMachineDefImplContextSpec extends Specification {
         boolean test(Entity entity, CtxA context, Transition<Entity, CtxA> transition) { true }
     }
 
-    static class IdOverloadStep implements Step<Object, Object> {
+    static class IdOverloadStep implements Action<Object, Object> {
         @Override
         void execute(Object e, Object c, Transition<Object, Object> t) {}
     }
@@ -342,7 +341,7 @@ class StateMachineDefImplContextSpec extends Specification {
         boolean test(Object e, Object c, Transition<Object, Object> t) { true }
     }
 
-    static class IdOverloadOperation implements Operation<Object, Object> {
+    static class IdOverloadOperation implements Action<Object, Object> {
         @Override
         void execute(Object e, Object c, Transition<Object, Object> t) {}
     }

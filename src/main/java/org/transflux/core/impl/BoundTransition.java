@@ -28,7 +28,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * <p>
  * One {@code BoundTransition} is built per declared transition during state machine
  * construction. It carries the topology (id, source/target state ids, declared context type)
- * plus the resolved {@link BoundOperation} and pre/post {@link BoundCondition} lists, all
+ * plus the resolved {@link BoundAction} and pre/post {@link BoundCondition} lists, all
  * computed once against the live registry.
  *
  * <p>This type does not participate in dispatch. The per-execution
@@ -55,7 +55,7 @@ record BoundTransition<T, C>(String id,
                              String sourceStateId,
                              String targetStateId,
                              Class<C> contextType,
-                             BoundOperation<T, C> boundOperation,
+                             BoundAction<T, C> boundOperation,
                              List<BoundCondition<T, C>> boundPreConditions,
                              List<BoundCondition<T, C>> boundPostConditions,
                              BoundTransitionListeners<T, C> boundListeners) {

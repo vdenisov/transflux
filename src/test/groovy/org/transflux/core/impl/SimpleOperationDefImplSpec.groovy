@@ -20,21 +20,21 @@ package org.transflux.core.impl
 
 
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.action.Operation
+import org.transflux.core.action.Action
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
 import spock.lang.Unroll
 
 class SimpleOperationDefImplSpec extends Specification {
 
-    static class NoopOp implements Operation<Object, Object> {
+    static class NoopOp implements Action<Object, Object> {
         @Override
         void execute(Object entity, Object context, Transition<Object, Object> transition) {
             // no-op
         }
     }
 
-    static class CtorlessOp implements Operation<Object, Object> {
+    static class CtorlessOp implements Action<Object, Object> {
         CtorlessOp(String arg) {
         }
 
@@ -87,7 +87,7 @@ class SimpleOperationDefImplSpec extends Specification {
         def_.getDescription() == 'does stuff'
     }
 
-    def "using(instance) should produce a BoundOperation pointing at the instance"() {
+    def "using(instance) should produce a BoundAction pointing at the instance"() {
         given:
         def op = new NoopOp()
         def def_ = new SimpleOperationDefImpl<Object, Object>('op1')
@@ -99,7 +99,7 @@ class SimpleOperationDefImplSpec extends Specification {
 
         then:
         bound.id() == 'op1'
-        bound.operation().is(op)
+        bound.action().is(op)
 
         and: 'name/description live on the def, not the bound record'
         def_.getName() == 'n'
@@ -114,7 +114,7 @@ class SimpleOperationDefImplSpec extends Specification {
         def bound = def_.buildBound(null)
 
         then:
-        bound.operation() instanceof NoopOp
+        bound.action() instanceof NoopOp
     }
 
     def "using(...) called twice should override and emit a warning (last write wins, instance)"() {
@@ -127,7 +127,7 @@ class SimpleOperationDefImplSpec extends Specification {
         def bound = def_.buildBound(null)
 
         then:
-        bound.operation().is(second)
+        bound.action().is(second)
     }
 
     def "using(class) after using(instance) should override the instance"() {
@@ -138,12 +138,12 @@ class SimpleOperationDefImplSpec extends Specification {
         def bound = def_.buildBound(null)
 
         then:
-        bound.operation() instanceof NoopOp
+        bound.action() instanceof NoopOp
     }
 
     def "using(instance) should reject null"() {
         when:
-        new SimpleOperationDefImpl<Object, Object>('op1').tap { beginConfigurer() }.using((Operation<Object, Object>) null)
+        new SimpleOperationDefImpl<Object, Object>('op1').tap { beginConfigurer() }.using((Action<Object, Object>) null)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -152,7 +152,7 @@ class SimpleOperationDefImplSpec extends Specification {
 
     def "using(class) should reject null"() {
         when:
-        new SimpleOperationDefImpl<Object, Object>('op1').tap { beginConfigurer() }.using((Class<? extends Operation<Object, Object>>) null)
+        new SimpleOperationDefImpl<Object, Object>('op1').tap { beginConfigurer() }.using((Class<? extends Action<Object, Object>>) null)
 
         then:
         def e = thrown(TransfluxValidationException)

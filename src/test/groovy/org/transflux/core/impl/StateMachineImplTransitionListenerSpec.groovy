@@ -21,8 +21,7 @@ package org.transflux.core.impl
 import org.transflux.core.StateMachine
 import org.transflux.core.StateMachineDef
 import org.transflux.core.action.Compensation
-import org.transflux.core.action.Operation
-import org.transflux.core.action.Step
+import org.transflux.core.action.Action
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateListener
 import org.transflux.core.state.StateResolver
@@ -99,7 +98,7 @@ class StateMachineImplTransitionListenerSpec extends Specification {
 
         where:
         stage              | configure
-        'the operation'    | { t -> t.simpleOperation('op', { e, ctx, tr -> throw new IllegalStateException('boom') } as Operation) }
+        'the operation'    | { t -> t.simpleOperation('op', { e, ctx, tr -> throw new IllegalStateException('boom') } as Action) }
         'a post-condition' | { t -> t.postCondition('never', { e -> false } as Predicate) }
     }
 
@@ -192,7 +191,7 @@ class StateMachineImplTransitionListenerSpec extends Specification {
                 .transitionsTo('s2', 't', { t -> t
                     .onStart('a', recorder(log, 'transition-start'))
                     .onComplete('b', recorder(log, 'transition-complete'))
-                    .simpleOperation('op', { e, ctx, tr -> log << 'operation' } as Operation) }) })
+                    .simpleOperation('op', { e, ctx, tr -> log << 'operation' } as Action) }) })
             .state('s2', { st -> st.onEntry('enter', stateRecorder(log, 'state-entry')) }) })
 
         when:
@@ -255,7 +254,7 @@ class StateMachineImplTransitionListenerSpec extends Specification {
                 .onError('capture', capturing(captured))
                 .compositeOperation('op', { c -> c
                     .step('undoable', compensatingStep(rolledBack))
-                    .step('boom', { e, ctx, tr -> throw new IllegalStateException('boom') } as Step) }) }) })
+                    .step('boom', { e, ctx, tr -> throw new IllegalStateException('boom') } as Action) }) }) })
             .state('s2', {}) })
 
         when:
@@ -314,7 +313,7 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         def stepRuns = []
         def entity = new Entity('s1')
         def sm = build({ d -> d
-            .step('side-effect', { e, ctx, tr -> stepRuns << 'ran' } as Step)
+            .step('side-effect', { e, ctx, tr -> stepRuns << 'ran' } as Action)
             .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
                 .onStart('meddler', { e, ctx, ex ->
                     try {
@@ -483,8 +482,8 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         return { e, ctx, change -> log << label } as StateListener
     }
 
-    private static Step<Entity, Object> compensatingStep(List rolledBack) {
-        return new Step<Entity, Object>() {
+    private static Action<Entity, Object> compensatingStep(List rolledBack) {
+        return new Action<Entity, Object>() {
             @Override
             void execute(Entity entity, Object context, Transition<Entity, Object> transition) {
             }

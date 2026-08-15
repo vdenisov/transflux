@@ -23,8 +23,7 @@ import org.transflux.core.Transflux
 import org.transflux.core.condition.Condition
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.ContextMapper
-import org.transflux.core.action.Operation
-import org.transflux.core.action.Step
+import org.transflux.core.action.Action
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
@@ -357,7 +356,7 @@ class StateMachineDefImplSpec extends Specification {
             .withStateResolver({ e -> TRIAL.id } as StateResolver<Object>)
         smd.simpleOperation('op', Object, { d ->
             captured = d
-            d.withName('N').withDescription('D').using({ e, c, t -> ran << 'op' } as Operation)
+            d.withName('N').withDescription('D').using({ e, c, t -> ran << 'op' } as Action)
         })
         smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', { t ->
             t.compositeOperation('wrap', { c -> c.operation('op') })
@@ -382,10 +381,10 @@ class StateMachineDefImplSpec extends Specification {
         given:
         def captured = null
         def smd = Transflux.<Object> defineStateMachine().forEntityType(Object)
-        smd.simpleOperation('op', Object, { d -> captured = d; d.using({ e, c, t -> } as Operation) })
+        smd.simpleOperation('op', Object, { d -> captured = d; d.using({ e, c, t -> } as Action) })
 
         when:
-        captured.using({ e, c, t -> } as Operation)
+        captured.using({ e, c, t -> } as Action)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -397,7 +396,7 @@ class StateMachineDefImplSpec extends Specification {
         return { -> value } as Identifiable
     }
 
-    static class IdOverloadStep implements Step<Object, Object> {
+    static class IdOverloadStep implements Action<Object, Object> {
         @Override
         void execute(Object e, Object c, Transition<Object, Object> t) {}
     }
@@ -407,7 +406,7 @@ class StateMachineDefImplSpec extends Specification {
         boolean test(Object e, Object c, Transition<Object, Object> t) { true }
     }
 
-    static class IdOverloadOperation implements Operation<Object, Object> {
+    static class IdOverloadOperation implements Action<Object, Object> {
         @Override
         void execute(Object e, Object c, Transition<Object, Object> t) {}
     }

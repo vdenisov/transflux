@@ -21,7 +21,7 @@ package org.transflux.core.action;
 import org.transflux.core.exception.TransfluxValidationException;
 
 /**
- * Def-side anchor that pairs a single {@link Operation} class or instance with a framework-owned id.
+ * Def-side anchor that pairs a single {@link Action} class or instance with a framework-owned id.
  * <p>
  * {@code SimpleOperationDef} is the simple-case counterpart to {@link CompositeOperationDef}.
  * The user supplies either an already-constructed {@code Operation} instance or a class with
@@ -29,7 +29,7 @@ import org.transflux.core.exception.TransfluxValidationException;
  * pairing the operation with this def's id/name/description so the runtime can track which
  * operation ran without the {@code Operation} itself having to carry identity.
  *
- * <p>The id is mandatory. Exactly one of {@link #using(Operation)} or
+ * <p>The id is mandatory. Exactly one of {@link #using(Action)} or
  * {@link #using(Class)} must be called before the enclosing transition is built; calling
  * {@code using(...)} a second time overrides the prior choice (the resolver / applier
  * override-with-warning pattern used elsewhere in the builder).
@@ -48,7 +48,7 @@ public interface SimpleOperationDef<T, C> extends OperationDef<T, C> {
      *
      * @throws TransfluxValidationException if {@code operation} is {@code null}
      */
-    SimpleOperationDef<T, C> using(Operation<T, C> operation);
+    SimpleOperationDef<T, C> using(Action<T, C> operation);
 
     /**
      * Wires this def to an {@code Operation} class. The framework instantiates it via its
@@ -60,7 +60,7 @@ public interface SimpleOperationDef<T, C> extends OperationDef<T, C> {
      *
      * @throws TransfluxValidationException if {@code operationClass} is {@code null}
      */
-    SimpleOperationDef<T, C> using(Class<? extends Operation<T, C>> operationClass);
+    SimpleOperationDef<T, C> using(Class<? extends Action<T, C>> operationClass);
 
     @Override
     SimpleOperationDef<T, C> withName(String name);

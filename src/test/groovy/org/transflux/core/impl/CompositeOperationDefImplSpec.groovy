@@ -25,8 +25,7 @@ import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.CompositeOperationDef
 import org.transflux.core.action.ContextMapper
-import org.transflux.core.action.Operation
-import org.transflux.core.action.Step
+import org.transflux.core.action.Action
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import org.transflux.core.transition.TransitionDef
@@ -123,7 +122,7 @@ class CompositeOperationDefImplSpec extends Specification {
 
         when:
         def bound = composite.buildBound((StateMachineImpl<TestEntity>) sm)
-        bound.operation.execute(entity, view.context, view)
+        bound.action.execute(entity, view.context, view)
 
         then:
         entity.trail == ['c', 'a', 'b']
@@ -168,7 +167,7 @@ class CompositeOperationDefImplSpec extends Specification {
         def view = new TransitionView<TestEntity, TestContext>(sm, sm.transitions['t1'], entity, new TestContext())
 
         when:
-        sm.transitions['t1'].boundOperation.operation.execute(entity, view.context, view)
+        sm.transitions['t1'].boundOperation.action.execute(entity, view.context, view)
 
         then:
         entity.trail == ['foo']
@@ -420,7 +419,7 @@ class CompositeOperationDefImplSpec extends Specification {
         }
     }
 
-    static class AppendStep implements Step<TestEntity, TestContext> {
+    static class AppendStep implements Action<TestEntity, TestContext> {
         final String tag
 
         AppendStep(String tag) {
@@ -433,14 +432,14 @@ class CompositeOperationDefImplSpec extends Specification {
         }
     }
 
-    static class FooStep implements Step<TestEntity, TestContext> {
+    static class FooStep implements Action<TestEntity, TestContext> {
         @Override
         void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
             entity.trail << 'foo'
         }
     }
 
-    static class CtorlessStep implements Step<TestEntity, TestContext> {
+    static class CtorlessStep implements Action<TestEntity, TestContext> {
         @SuppressWarnings('unused')
         CtorlessStep(String unused) {
         }
@@ -450,12 +449,12 @@ class CompositeOperationDefImplSpec extends Specification {
         }
     }
 
-    static class IdOverloadStep implements Step<Object, Object> {
+    static class IdOverloadStep implements Action<Object, Object> {
         @Override
         void execute(Object e, Object c, Transition<Object, Object> t) {}
     }
 
-    static class IdOverloadOp implements Operation<Object, Object> {
+    static class IdOverloadOp implements Action<Object, Object> {
         @Override
         void execute(Object e, Object c, Transition<Object, Object> t) {}
     }
@@ -468,7 +467,7 @@ class CompositeOperationDefImplSpec extends Specification {
 
     static class CtxAssertCorrectCtx { }
 
-    static class CtxAssertNoopStep implements Step<CtxAssertEntity, CtxAssertCorrectCtx> {
+    static class CtxAssertNoopStep implements Action<CtxAssertEntity, CtxAssertCorrectCtx> {
         @Override
         void execute(CtxAssertEntity entity, CtxAssertCorrectCtx context, Transition<CtxAssertEntity, CtxAssertCorrectCtx> transition) { }
     }
@@ -484,7 +483,7 @@ class CompositeOperationDefImplSpec extends Specification {
 
     static class NestedFailChildCtx { }
 
-    static class NestedFailChildOp implements Operation<NestedFailEntity, NestedFailChildCtx> {
+    static class NestedFailChildOp implements Action<NestedFailEntity, NestedFailChildCtx> {
         @Override
         void execute(NestedFailEntity entity, NestedFailChildCtx context, Transition<NestedFailEntity, NestedFailChildCtx> transition) {
             entity.trail << 'child-ran'

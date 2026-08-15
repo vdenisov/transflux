@@ -23,8 +23,7 @@ import org.transflux.core.TestContext
 import org.transflux.core.condition.Condition
 import org.transflux.core.exception.TransfluxReentrancyException
 import org.transflux.core.action.CompositeOperationDef
-import org.transflux.core.action.Operation
-import org.transflux.core.action.Step
+import org.transflux.core.action.Action
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
@@ -51,7 +50,7 @@ class StateMachineImplReentrancySpec extends Specification {
     }
 
     /** Step that calls back into the SM with a chosen entity, at most once. */
-    static class ReentrantStep implements Step<Entity, TestContext> {
+    static class ReentrantStep implements Action<Entity, TestContext> {
         StateMachineImpl<Entity> targetSm
         Entity targetEntity
         String targetState
@@ -94,7 +93,7 @@ class StateMachineImplReentrancySpec extends Specification {
         Entity entity = null
         def op = { Entity e, TestContext c, Transition<Entity, TestContext> t ->
             sm.executeTransition(entity, 's2')
-        } as Operation<Entity, TestContext>
+        } as Action<Entity, TestContext>
 
         sm = build([], { t -> t.simpleOperation('op', op) }) as StateMachineImpl<Entity>
         entity = new Entity('e1', 's1')
@@ -201,7 +200,7 @@ class StateMachineImplReentrancySpec extends Specification {
         def sm = build([], { t -> t.compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
             c.step('boom', { Entity e, TestContext ctx, Transition<Entity, TestContext> tr ->
                 throw new RuntimeException('boom')
-            } as Step<Entity, TestContext>)
+            } as Action<Entity, TestContext>)
         }) })
         def entity = new Entity('e1', 's1')
 

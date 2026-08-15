@@ -26,22 +26,22 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * Def-side anchor that builds an {@link Operation} from an ordered sequence of bound members.
+ * Def-side anchor that builds an {@link Action} from an ordered sequence of bound members.
  * <p>
  * {@code CompositeOperationDef} is the composite counterpart to {@link SimpleOperationDef}. A
- * composite carries an ordered list of <i>members</i>: each member is either a {@link Step} or
- * a nested {@link Operation}. Members are added through the {@code step(...)} and
+ * composite carries an ordered list of <i>members</i>: each member is either a {@link Action} or
+ * a nested {@link Action}. Members are added through the {@code step(...)} and
  * {@code operation(...)} overloads in declaration order; at build time the framework resolves
  * each by-id reference against the state machine's step and operation registries (auto-
- * registering any inline references) and emits an executor {@link Operation} that invokes each
+ * registering any inline references) and emits an executor {@link Action} that invokes each
  * member in turn, passing the entity, context, and per-execution {@link Transition} view through.
  * Each executed step or operation id is recorded uniformly, whether dispatched by the composite
  * executor or by an explicit {@code transition.step("id")} / {@code transition.operation("id")}
  * call from a user operation.
  *
  * <p><b>Member context.</b> Inline-registered members (defined directly in this composite's
- * configurer through {@link #step(String, Step) step(id, step)},
- * {@link #operation(String, Operation) operation(id, operation)}, etc.) are typed against the
+ * configurer through {@link #step(String, Action) step(id, step)},
+ * {@link #operation(String, Action) operation(id, operation)}, etc.) are typed against the
  * composite's own context {@code C} and always run pass-through — the parent context is handed
  * to the member unchanged. By-id references can target a step or operation with a different
  * context type; the call-site overloads accept an optional mapper specification (a registered
@@ -182,17 +182,17 @@ public interface CompositeOperationDef<T, C> extends OperationDef<T, C> {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or {@code step}
      *         is {@code null}
      */
-    CompositeOperationDef<T, C> step(String id, Step<T, C> step);
+    CompositeOperationDef<T, C> step(String id, Action<T, C> step);
 
     /**
-     * {@link Identifiable} overload of {@link #step(String, Step)} for inline registration.
+     * {@link Identifiable} overload of {@link #step(String, Action)} for inline registration.
      *
      * @param stepIdentifiable an identifiable supplying the step id
      * @param step the step instance
      *
      * @return this def for chaining
      */
-    CompositeOperationDef<T, C> step(Identifiable stepIdentifiable, Step<T, C> step);
+    CompositeOperationDef<T, C> step(Identifiable stepIdentifiable, Action<T, C> step);
 
     /**
      * Appends an inline step class. The framework reflectively instantiates the class via its
@@ -207,7 +207,7 @@ public interface CompositeOperationDef<T, C> extends OperationDef<T, C> {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code stepClass} is {@code null}
      */
-    CompositeOperationDef<T, C> step(String id, Class<? extends Step<T, C>> stepClass);
+    CompositeOperationDef<T, C> step(String id, Class<? extends Action<T, C>> stepClass);
 
     /**
      * {@link Identifiable} overload of {@link #step(String, Class)} for inline registration.
@@ -217,7 +217,7 @@ public interface CompositeOperationDef<T, C> extends OperationDef<T, C> {
      *
      * @return this def for chaining
      */
-    CompositeOperationDef<T, C> step(Identifiable stepIdentifiable, Class<? extends Step<T, C>> stepClass);
+    CompositeOperationDef<T, C> step(Identifiable stepIdentifiable, Class<? extends Action<T, C>> stepClass);
 
     /**
      * Appends a multi-branch conditional step under the supplied id. The supplied configurer
@@ -364,10 +364,10 @@ public interface CompositeOperationDef<T, C> extends OperationDef<T, C> {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code operation} is {@code null}
      */
-    CompositeOperationDef<T, C> operation(String id, Operation<T, C> operation);
+    CompositeOperationDef<T, C> operation(String id, Action<T, C> operation);
 
     /**
-     * {@link Identifiable} overload of {@link #operation(String, Operation)} for inline
+     * {@link Identifiable} overload of {@link #operation(String, Action)} for inline
      * registration.
      *
      * @param operationIdentifiable an identifiable supplying the operation id
@@ -375,7 +375,7 @@ public interface CompositeOperationDef<T, C> extends OperationDef<T, C> {
      *
      * @return this def for chaining
      */
-    CompositeOperationDef<T, C> operation(Identifiable operationIdentifiable, Operation<T, C> operation);
+    CompositeOperationDef<T, C> operation(Identifiable operationIdentifiable, Action<T, C> operation);
 
     /**
      * Appends an inline nested operation class. The framework reflectively instantiates the
@@ -390,7 +390,7 @@ public interface CompositeOperationDef<T, C> extends OperationDef<T, C> {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code operationClass} is {@code null}
      */
-    CompositeOperationDef<T, C> operation(String id, Class<? extends Operation<T, C>> operationClass);
+    CompositeOperationDef<T, C> operation(String id, Class<? extends Action<T, C>> operationClass);
 
     /**
      * {@link Identifiable} overload of {@link #operation(String, Class)} for inline
@@ -401,7 +401,7 @@ public interface CompositeOperationDef<T, C> extends OperationDef<T, C> {
      *
      * @return this def for chaining
      */
-    CompositeOperationDef<T, C> operation(Identifiable operationIdentifiable, Class<? extends Operation<T, C>> operationClass);
+    CompositeOperationDef<T, C> operation(Identifiable operationIdentifiable, Class<? extends Action<T, C>> operationClass);
 
     /**
      * Records a runtime type-assertion that the composite's declared context generic

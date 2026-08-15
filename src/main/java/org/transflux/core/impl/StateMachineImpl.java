@@ -25,7 +25,7 @@ import org.transflux.core.StateMachine;
 import org.transflux.core.exception.TransfluxReentrancyException;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.Compensation;
-import org.transflux.core.action.Step;
+import org.transflux.core.action.Action;
 import org.transflux.core.state.State;
 import org.transflux.core.state.StateApplier;
 import org.transflux.core.state.StateChange;
@@ -125,17 +125,17 @@ class StateMachineImpl<T> implements StateMachine<T> {
             registry.register(new Component.Condition(bc.id(), ctx, bc));
         }
 
-        Map<String, BoundStep<T, ?>> boundSteps = def.buildBoundSteps();
-        for (BoundStep<T, ?> bs : boundSteps.values()) {
+        Map<String, BoundAction<T, ?>> boundSteps = def.buildBoundActions();
+        for (BoundAction<T, ?> bs : boundSteps.values()) {
             Class<?> ctx = effectiveContextType(def, bs.id());
-            registry.register(new Component.Step(bs.id(), ctx, bs));
+            registry.register(new Component.Action(bs.id(), ctx, bs));
         }
 
         def.bindCompositeScopes(registry, conditionRegistry);
 
         def.buildBoundOperationsIncrementally(this, bo -> {
             Class<?> ctx = effectiveContextType(def, bo.id());
-            registry.register(new Component.Operation(bo.id(), ctx, bo));
+            registry.register(new Component.Action(bo.id(), ctx, bo));
         });
 
         BoundTransitionListeners<T, Object> globalTransitionListeners = bindGlobalTransitionListeners(def);
@@ -167,10 +167,10 @@ class StateMachineImpl<T> implements StateMachine<T> {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    BoundStep<T, ?> getBoundStep(String id) {
+    BoundAction<T, ?> getBoundAction(String id) {
         return componentRegistry.resolve(id)
-            .filter(Component.Step.class::isInstance)
-            .map(c -> ((Component.Step) c).bound())
+            .filter(Component.Action.class::isInstance)
+            .map(c -> ((Component.Action) c).bound())
             .orElse(null);
     }
 
@@ -179,18 +179,18 @@ class StateMachineImpl<T> implements StateMachine<T> {
     }
 
     /**
-     * Acquires the step's {@link Compensation}, pushes it onto the view's rollback stack, then
-     * dispatches the step's {@link Step#execute(Object, Object, Transition)} against the same
+     * Acquires the action's {@link Compensation}, pushes it onto the view's rollback stack, then
+     * dispatches the action's {@link Action#execute(Object, Object, Transition)} against the same
      * view.
      */
-    static <T, C> void runBoundStep(BoundStep<T, C> boundStep, TransitionView<T, C> view) {
-        Step<T, C> step = boundStep.step();
-        Compensation<T, C> compensation = step.getCompensation(view.getEntity(), view.getContext());
+    static <T, C> void runBoundStep(BoundAction<T, C> bound, TransitionView<T, C> view) {
+        Action<T, C> action = bound.action();
+        Compensation<T, C> compensation = action.getCompensation(view.getEntity(), view.getContext());
 
-        view.pushCompensation(boundStep.id(), compensation);
-        step.execute(view.getEntity(), view.getContext(), view);
+        view.pushCompensation(bound.id(), compensation);
+        action.execute(view.getEntity(), view.getContext(), view);
 
-        view.recordExecutedId(boundStep.id());
+        view.recordExecutedId(bound.id());
     }
 
     StateApplier<T> getStateApplier() {
@@ -618,12 +618,14 @@ class StateMachineImpl<T> implements StateMachine<T> {
             notifyTransitionListeners(transition, TransitionPhase.START, entity, context, firingTrigger, null);
             notifyStateExit(transition, entity, context);
 
-            BoundOperation<T, C> boundOperation = transition.boundOperation();
+            BoundAction<T, C> boundOperation = transition.boundOperation();
             if (boundOperation != null) {
+                view.pushCompensation(boundOperation.id(),
+                                      boundOperation.action().getCompensation(entity, context));
                 view.recordExecutedId(boundOperation.id());
                 view.enterOperation(boundOperation.id());
                 try {
-                    boundOperation.operation().execute(entity, context, view);
+                    boundOperation.action().execute(entity, context, view);
                 } finally {
                     view.exitOperation();
                 }

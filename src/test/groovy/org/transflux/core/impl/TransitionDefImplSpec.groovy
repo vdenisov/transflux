@@ -23,9 +23,8 @@ import org.transflux.core.TestContext
 import org.transflux.core.condition.Condition
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.CompositeOperationDef
-import org.transflux.core.action.Operation
+import org.transflux.core.action.Action
 import org.transflux.core.action.SimpleOperationDef
-import org.transflux.core.action.Step
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import org.transflux.core.transition.TransitionDef
@@ -523,13 +522,13 @@ class TransitionDefImplSpec extends Specification {
         return { -> value } as Identifiable
     }
 
-    static class FooStep implements Step<Object, Object> {
+    static class FooStep implements Action<Object, Object> {
         @Override
         void execute(Object entity, Object context, Transition<Object, Object> transition) {
         }
     }
 
-    static class FooOperation implements Operation<Object, Object> {
+    static class FooOperation implements Action<Object, Object> {
         @Override
         void execute(Object entity, Object context, Transition<Object, Object> transition) {
         }
@@ -543,7 +542,7 @@ class TransitionDefImplSpec extends Specification {
 
     static class UsingCtx { }
 
-    static class IdOverloadOp implements Operation<Object, Object> {
+    static class IdOverloadOp implements Action<Object, Object> {
         @Override
         void execute(Object e, Object c, Transition<Object, Object> t) {}
     }

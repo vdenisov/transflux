@@ -21,15 +21,20 @@ package org.transflux.core.action;
 import org.transflux.core.transition.Transition;
 
 /**
- * Pure executable contract for a reusable unit of work that participates in a transition.
+ * Pure executable contract for a unit of work that runs while a transition is in flight.
  * <p>
- * A {@code Step} is entity-aware: it receives the entity under transition along with the
- * host-supplied context and the per-execution {@link Transition} view. Steps are functional
- * contracts only — they carry no identity. Identity belongs to the registration side: a step
- * is registered against a state machine (or auto-registered through an inline reference inside
- * a composite operation) under a framework-owned id, and the runtime pairs the step with that
- * id through a package-private bound record. The same {@code Step} class or instance can
- * therefore be registered under multiple ids in the same state machine.
+ * An {@code Action} is entity-aware: it receives the entity under transition along with the
+ * host-supplied context and the per-execution {@link Transition} view. Actions are functional
+ * contracts only - they carry no identity. Identity, declared context type, and metadata live on
+ * the def side, which pairs the executable with a framework-owned id. The same {@code Action}
+ * class or instance can therefore be registered under multiple ids in the same state machine.
+ *
+ * <p>An action is authored in one of two forms, and the form is a property of the declaration
+ * rather than of this interface. A <em>step</em> is imperative: a Java body, which is what
+ * implementations of this interface are. An <em>operation</em> is declarative: an ordered child
+ * list whose executable the framework synthesizes, so there is nothing for a host to implement.
+ * The authored form travels with the action as an {@link ActionKind} and surfaces in diagnostics;
+ * it does not change how the action is executed.
  *
  * <p>The method returns {@code void}: side effects on the entity and any results the caller
  * cares about flow through the host-supplied context object.
@@ -38,50 +43,50 @@ import org.transflux.core.transition.Transition;
  * @param <C> the host-supplied context type carried through transition execution
  */
 @FunctionalInterface
-public interface Step<T, C> {
+public interface Action<T, C> {
 
     /**
-     * Runs the step's business logic.
+     * Runs the action's business logic.
      *
      * @param entity the entity undergoing the transition; never {@code null}
      * @param context the host-supplied context for this execution; may be {@code null} when
      *                the caller opted not to attach one
      * @param transition the per-execution {@link Transition} view; topology accessors are
-     *                   stable, and {@code transition.step(id)} dispatches to another
-     *                   registered step in the current execution scope
+     *                   stable, and the dispatch methods run another registered action in the
+     *                   current execution scope
      */
     void execute(T entity, C context, Transition<T, C> transition);
 
     /**
-     * Returns the {@link Compensation} that rolls back this step's effects, or {@code null}
-     * when this step has nothing to roll back.
+     * Returns the {@link Compensation} that rolls back this action's effects, or {@code null}
+     * when this action has nothing to roll back.
      * <p>
-     * The runtime invokes this method exactly once per step invocation, <em>before</em>
+     * The runtime invokes this method exactly once per invocation, <em>before</em>
      * {@link #execute(Object, Object, Transition)} runs. The returned compensation is pushed
-     * onto the per-execution LIFO rollback stack at that point; if the transition's operation
-     * later fails (this step's own {@code execute} throws, or a subsequent step does), the
+     * onto the per-execution LIFO rollback stack at that point; if the enclosing transition
+     * later fails (this action's own {@code execute} throws, or a subsequent one does), the
      * stack is drained in reverse-push order and each compensation runs in turn.
      *
-     * <p>Capturing the compensation before {@code execute} is deliberate: a step that throws
-     * partway through producing side effects — created remote entities, inserted database rows,
-     * published messages — should still have its compensation invoked so the partial work can
+     * <p>Capturing the compensation before {@code execute} is deliberate: an action that throws
+     * partway through producing side effects - created remote entities, inserted database rows,
+     * published messages - should still have its compensation invoked so the partial work can
      * be cleaned up. The {@code entity} and {@code context} references handed in here are the
      * same references {@code execute} will see; the compensation is free to close over them and
      * read whatever state {@code execute} has accumulated by the time the rollback runs (for
-     * example, a list of created ids the step appends to as it goes).
+     * example, a list of created ids the action appends to as it goes).
      *
      * <p>If the compensation depends on completion-time state (e.g. a "before" snapshot of the
      * entity), write that state into the entity or context during {@code execute} and have the
      * returned compensation read it back at rollback time.
      *
-     * <p>Returning {@code null} means "no compensation registered for this step's effects" and
+     * <p>Returning {@code null} means "no compensation registered for this action's effects" and
      * leaves the rollback stack unchanged.
      *
-     * @param entity the entity this step is about to be invoked against; never {@code null}
-     * @param context the host-supplied context this step is about to be invoked against; may
+     * @param entity the entity this action is about to be invoked against; never {@code null}
+     * @param context the host-supplied context this action is about to be invoked against; may
      *                be {@code null} when the caller opted not to attach one
      *
-     * @return the compensation to register against this step's id, or {@code null}
+     * @return the compensation to register against this action's id, or {@code null}
      */
     default Compensation<T, C> getCompensation(T entity, C context) {
         return null;

@@ -21,8 +21,7 @@ package org.transflux.core;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.CompositeOperationDef;
-import org.transflux.core.action.Operation;
-import org.transflux.core.action.Step;
+import org.transflux.core.action.Action;
 
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
@@ -55,17 +54,17 @@ public interface ContextScope<T, C> {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank, {@code step}
      *         is {@code null}, or another component is already registered under {@code id}
      */
-    ContextScope<T, C> step(String id, Step<T, C> step);
+    ContextScope<T, C> step(String id, Action<T, C> step);
 
     /**
-     * {@link Identifiable} overload of {@link #step(String, Step)}.
+     * {@link Identifiable} overload of {@link #step(String, Action)}.
      *
      * @param stepIdentifiable an identifiable supplying the step id
      * @param step the step instance
      *
      * @return this scope for chaining
      */
-    ContextScope<T, C> step(Identifiable stepIdentifiable, Step<T, C> step);
+    ContextScope<T, C> step(Identifiable stepIdentifiable, Action<T, C> step);
 
     /**
      * Registers a step class under {@code id}, tagged with this scope's context class. The
@@ -80,7 +79,7 @@ public interface ContextScope<T, C> {
      *         {@code stepClass} is {@code null}, or another component is already registered
      *         under {@code id}
      */
-    ContextScope<T, C> step(String id, Class<? extends Step<T, C>> stepClass);
+    ContextScope<T, C> step(String id, Class<? extends Action<T, C>> stepClass);
 
     /**
      * {@link Identifiable} overload of {@link #step(String, Class)}.
@@ -90,7 +89,7 @@ public interface ContextScope<T, C> {
      *
      * @return this scope for chaining
      */
-    ContextScope<T, C> step(Identifiable stepIdentifiable, Class<? extends Step<T, C>> stepClass);
+    ContextScope<T, C> step(Identifiable stepIdentifiable, Class<? extends Action<T, C>> stepClass);
 
     /**
      * Registers a condition instance under {@code id}, tagged with this scope's context class.
@@ -223,7 +222,7 @@ public interface ContextScope<T, C> {
     ContextScope<T, C> compositeOperation(Identifiable operationIdentifiable, Consumer<CompositeOperationDef<T, C>> configurer);
 
     /**
-     * Registers an {@link Operation} instance under {@code id}, tagged with this scope's
+     * Registers an {@link Action} instance under {@code id}, tagged with this scope's
      * context class.
      *
      * @param id the operation id
@@ -231,20 +230,20 @@ public interface ContextScope<T, C> {
      *
      * @return this scope for chaining
      */
-    ContextScope<T, C> operation(String id, Operation<T, C> operation);
+    ContextScope<T, C> operation(String id, Action<T, C> operation);
 
     /**
-     * {@link Identifiable} overload of {@link #operation(String, Operation)}.
+     * {@link Identifiable} overload of {@link #operation(String, Action)}.
      *
      * @param operationIdentifiable an identifiable supplying the operation id
      * @param operation the operation instance
      *
      * @return this scope for chaining
      */
-    ContextScope<T, C> operation(Identifiable operationIdentifiable, Operation<T, C> operation);
+    ContextScope<T, C> operation(Identifiable operationIdentifiable, Action<T, C> operation);
 
     /**
-     * Registers an {@link Operation} class under {@code id}, tagged with this scope's context
+     * Registers an {@link Action} class under {@code id}, tagged with this scope's context
      * class. The framework instantiates the class via its public no-arg constructor at build
      * time.
      *
@@ -253,7 +252,7 @@ public interface ContextScope<T, C> {
      *
      * @return this scope for chaining
      */
-    ContextScope<T, C> operation(String id, Class<? extends Operation<T, C>> operationClass);
+    ContextScope<T, C> operation(String id, Class<? extends Action<T, C>> operationClass);
 
     /**
      * {@link Identifiable} overload of {@link #operation(String, Class)}.
@@ -263,5 +262,5 @@ public interface ContextScope<T, C> {
      *
      * @return this scope for chaining
      */
-    ContextScope<T, C> operation(Identifiable operationIdentifiable, Class<? extends Operation<T, C>> operationClass);
+    ContextScope<T, C> operation(Identifiable operationIdentifiable, Class<? extends Action<T, C>> operationClass);
 }

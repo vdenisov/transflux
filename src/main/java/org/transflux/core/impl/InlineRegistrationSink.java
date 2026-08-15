@@ -18,9 +18,9 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.action.Action;
+import org.transflux.core.action.ActionKind;
 import org.transflux.core.condition.ConditionDescriptor;
-import org.transflux.core.action.Operation;
-import org.transflux.core.action.Step;
 
 import java.util.Map;
 
@@ -54,44 +54,25 @@ final class InlineRegistrationSink<T, C> {
         this.conditionRegistry = conditionRegistry;
     }
 
-    void registerInlineStep(String id, Step<T, C> step) {
-        claimCanonical(canonical, id, step, "Step");
+    void registerInlineAction(String id, Action<T, C> action, ActionKind kind) {
+        claimCanonical(canonical, id, action, label(kind));
         if (scope.get(id).isPresent()) {
             return;
         }
-        BoundStep<T, C> bound = BoundStep.of(id, step);
-        scope.register(new Component.Step<>(id, contextType, bound));
+        BoundAction<T, C> bound = BoundAction.of(id, action, kind);
+        scope.register(new Component.Action<>(id, contextType, bound));
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    void registerInlineStepClass(String id, Class<? extends Step<T, C>> stepClass) {
-        claimCanonical(canonical, id, stepClass, "Step");
+    void registerInlineActionClass(String id, Class<? extends Action<T, C>> actionClass,
+                                   ActionKind kind) {
+        claimCanonical(canonical, id, actionClass, label(kind));
         if (scope.get(id).isPresent()) {
             return;
         }
-        Step<T, C> resolved = (Step<T, C>) instantiateNoArg((Class) stepClass, "Step");
-        BoundStep<T, C> bound = BoundStep.of(id, resolved);
-        scope.register(new Component.Step<>(id, contextType, bound));
-    }
-
-    void registerInlineOperation(String id, Operation<T, C> operation) {
-        claimCanonical(canonical, id, operation, "Operation");
-        if (scope.get(id).isPresent()) {
-            return;
-        }
-        BoundOperation<T, C> bound = BoundOperation.of(id, operation);
-        scope.register(new Component.Operation<>(id, contextType, bound));
-    }
-
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    void registerInlineOperationClass(String id, Class<? extends Operation<T, C>> operationClass) {
-        claimCanonical(canonical, id, operationClass, "Operation");
-        if (scope.get(id).isPresent()) {
-            return;
-        }
-        Operation<T, C> resolved = (Operation<T, C>) instantiateNoArg((Class) operationClass, "Operation");
-        BoundOperation<T, C> bound = BoundOperation.of(id, resolved);
-        scope.register(new Component.Operation<>(id, contextType, bound));
+        Action<T, C> resolved = (Action<T, C>) instantiateNoArg((Class) actionClass, label(kind));
+        BoundAction<T, C> bound = BoundAction.of(id, resolved, kind);
+        scope.register(new Component.Action<>(id, contextType, bound));
     }
 
     /**
@@ -109,7 +90,15 @@ final class InlineRegistrationSink<T, C> {
         if (scope.get(id).isPresent()) {
             return;
         }
-        BoundStep<T, C> bound = def.buildBoundStep(conditionRegistry);
-        scope.register(new Component.Step<>(id, contextType, bound));
+        BoundAction<T, C> bound = def.buildBoundAction(conditionRegistry);
+        scope.register(new Component.Action<>(id, contextType, bound));
+    }
+
+    /**
+     * The label used when claiming an id and when reporting an instantiation failure. It names the
+     * form the member was declared in, so the diagnostic matches the DSL the user wrote.
+     */
+    private static String label(ActionKind kind) {
+        return kind == ActionKind.STEP ? "Step" : "Operation";
     }
 }

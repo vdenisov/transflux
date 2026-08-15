@@ -22,9 +22,8 @@ import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.CompositeOperationDef;
 import org.transflux.core.action.ContextMapper;
-import org.transflux.core.action.Operation;
+import org.transflux.core.action.Action;
 import org.transflux.core.action.SimpleOperationDef;
-import org.transflux.core.action.Step;
 import org.transflux.core.action.StepDef;
 import org.transflux.core.state.StateApplier;
 import org.transflux.core.state.StateDef;
@@ -149,10 +148,10 @@ public interface StateMachineDef<T> {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank, {@code step}
      *         is {@code null}, or another step is already registered under {@code id}
      */
-    StateMachineDef<T> step(String id, Step<T, ?> step);
+    StateMachineDef<T> step(String id, Action<T, ?> step);
 
     /**
-     * {@link Identifiable} overload of {@link #step(String, Step)} — delegates via
+     * {@link Identifiable} overload of {@link #step(String, Action)} — delegates via
      * {@link Identifiable#getId()}.
      *
      * @param stepIdentifiable an identifiable supplying the step id
@@ -160,7 +159,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    StateMachineDef<T> step(Identifiable stepIdentifiable, Step<T, ?> step);
+    StateMachineDef<T> step(Identifiable stepIdentifiable, Action<T, ?> step);
 
     /**
      * Registers a step class against this state machine under the given id, without a
@@ -171,7 +170,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    StateMachineDef<T> step(String id, Class<? extends Step<T, ?>> stepClass);
+    StateMachineDef<T> step(String id, Class<? extends Action<T, ?>> stepClass);
 
     /**
      * {@link Identifiable} overload of {@link #step(String, Class)} — delegates via
@@ -182,7 +181,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    StateMachineDef<T> step(Identifiable stepIdentifiable, Class<? extends Step<T, ?>> stepClass);
+    StateMachineDef<T> step(Identifiable stepIdentifiable, Class<? extends Action<T, ?>> stepClass);
 
     /**
      * Registers a step instance against this state machine under the given id, tagged with
@@ -196,10 +195,10 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    <C> StateMachineDef<T> step(String id, Class<C> contextType, Step<T, C> step);
+    <C> StateMachineDef<T> step(String id, Class<C> contextType, Action<T, C> step);
 
     /**
-     * {@link Identifiable} overload of {@link #step(String, Class, Step)} — delegates via
+     * {@link Identifiable} overload of {@link #step(String, Class, Action)} — delegates via
      * {@link Identifiable#getId()}.
      *
      * @param stepIdentifiable an identifiable supplying the step id
@@ -209,7 +208,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    <C> StateMachineDef<T> step(Identifiable stepIdentifiable, Class<C> contextType, Step<T, C> step);
+    <C> StateMachineDef<T> step(Identifiable stepIdentifiable, Class<C> contextType, Action<T, C> step);
 
     /**
      * Registers a step class against this state machine under the given id, tagged with
@@ -222,7 +221,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    <C> StateMachineDef<T> step(String id, Class<C> contextType, Class<? extends Step<T, C>> stepClass);
+    <C> StateMachineDef<T> step(String id, Class<C> contextType, Class<? extends Action<T, C>> stepClass);
 
     /**
      * {@link Identifiable} overload of {@link #step(String, Class, Class)} — delegates via
@@ -235,7 +234,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    <C> StateMachineDef<T> step(Identifiable stepIdentifiable, Class<C> contextType, Class<? extends Step<T, C>> stepClass);
+    <C> StateMachineDef<T> step(Identifiable stepIdentifiable, Class<C> contextType, Class<? extends Action<T, C>> stepClass);
 
     /**
      * Registers a step against this state machine via a lambda configurer, tagged with the
@@ -533,7 +532,7 @@ public interface StateMachineDef<T> {
     <C> StateMachineDef<T> compositeOperation(Identifiable operationIdentifiable, Class<C> contextType, Consumer<CompositeOperationDef<T, C>> configurer);
 
     /**
-     * Registers an {@link Operation} instance against this state machine under the given id,
+     * Registers an {@link Action} instance against this state machine under the given id,
      * tagged with the supplied context class. The registered operation can be referenced by id
      * from any number of call sites — composite members, imperative dispatches from inside a
      * running transition — that either pass through a compatible parent context or supply a
@@ -546,10 +545,10 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    <C> StateMachineDef<T> operation(String id, Class<C> contextType, Operation<T, C> operation);
+    <C> StateMachineDef<T> operation(String id, Class<C> contextType, Action<T, C> operation);
 
     /**
-     * {@link Identifiable} overload of {@link #operation(String, Class, Operation)} —
+     * {@link Identifiable} overload of {@link #operation(String, Class, Action)} —
      * delegates via {@link Identifiable#getId()}.
      *
      * @param operationIdentifiable an identifiable supplying the operation id
@@ -559,10 +558,10 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    <C> StateMachineDef<T> operation(Identifiable operationIdentifiable, Class<C> contextType, Operation<T, C> operation);
+    <C> StateMachineDef<T> operation(Identifiable operationIdentifiable, Class<C> contextType, Action<T, C> operation);
 
     /**
-     * Registers an {@link Operation} class against this state machine under the given id,
+     * Registers an {@link Action} class against this state machine under the given id,
      * tagged with the supplied context class. The framework instantiates it via its public
      * no-arg constructor at build time.
      *
@@ -573,7 +572,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    <C> StateMachineDef<T> operation(String id, Class<C> contextType, Class<? extends Operation<T, C>> operationClass);
+    <C> StateMachineDef<T> operation(String id, Class<C> contextType, Class<? extends Action<T, C>> operationClass);
 
     /**
      * {@link Identifiable} overload of {@link #operation(String, Class, Class)} — delegates
@@ -586,7 +585,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    <C> StateMachineDef<T> operation(Identifiable operationIdentifiable, Class<C> contextType, Class<? extends Operation<T, C>> operationClass);
+    <C> StateMachineDef<T> operation(Identifiable operationIdentifiable, Class<C> contextType, Class<? extends Action<T, C>> operationClass);
 
     /**
      * Registers a simple operation against this state machine via a lambda configurer, tagged

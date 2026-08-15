@@ -25,7 +25,7 @@ import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.CompositeOperationDef;
-import org.transflux.core.action.Operation;
+import org.transflux.core.action.Action;
 import org.transflux.core.action.SimpleOperationDef;
 import org.transflux.core.transition.Transition;
 import org.transflux.core.transition.TransitionDef;
@@ -150,7 +150,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
 
     /**
      * Package-private hook used by {@link BoundTransition} to materialize the runtime
-     * {@link BoundOperation}, or {@code null} when this transition has no operation attached.
+     * {@link BoundAction}, or {@code null} when this transition has no operation attached.
      *
      * @param stateMachine the enclosing state machine; required by composite operations to
      *                     resolve step references against the step registry
@@ -158,21 +158,21 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
      * @return the bound operation, or {@code null}
      */
     @SuppressWarnings({"unchecked"})
-    BoundOperation<T, C> buildBoundOperation(StateMachineImpl<T> stateMachine) {
+    BoundAction<T, C> buildBoundOperation(StateMachineImpl<T> stateMachine) {
         if (registeredOperationRefId != null) {
             Component<T> component = stateMachine.getComponentRegistry()
                 .resolve(registeredOperationRefId).orElse(null);
             if (component == null) {
                 throw new TransfluxValidationException(
-                    "Transition '" + getId() + "' references unknown operation id '"
+                    "Transition '" + getId() + "' references unknown action id '"
                         + registeredOperationRefId + "'");
             }
-            if (!(component instanceof Component.Operation<T, ?> opComp)) {
+            if (!(component instanceof Component.Action<T, ?> opComp)) {
                 throw new TransfluxValidationException(
                     "Transition '" + getId() + "' references id '" + registeredOperationRefId
                         + "' which is registered as a "
                         + component.getClass().getSimpleName().toLowerCase()
-                        + ", not an operation");
+                        + ", not an action");
             }
             Class<?> opCtx = stateMachine.getDef().getComponentContextType(registeredOperationRefId);
             Class<?> txCtx = this.contextType != null ? this.contextType : Object.class;
@@ -182,7 +182,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
                         + ") cannot attach SM-level operation '" + registeredOperationRefId
                         + "' (context " + opCtx.getName() + "): context types are not assignable");
             }
-            return (BoundOperation<T, C>) opComp.bound();
+            return (BoundAction<T, C>) opComp.bound();
         }
         if (operationDef == null) {
             return null;
@@ -277,7 +277,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> simpleOperation(String id, Operation<T, C> operation) {
+    public TransitionDef<T, C> simpleOperation(String id, Action<T, C> operation) {
         requireConfigurerActive("simpleOperation");
         SimpleOperationDefImpl<T, C> def = newSimpleOperationDef(id);
         ConfigurableDefImpl.runConfigurer(def, d -> d.using(operation));
@@ -286,13 +286,13 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> simpleOperation(Identifiable operationIdentifiable, Operation<T, C> operation) {
+    public TransitionDef<T, C> simpleOperation(Identifiable operationIdentifiable, Action<T, C> operation) {
         requireNotNull(operationIdentifiable, "Operation identifiable");
         return simpleOperation(operationIdentifiable.getId(), operation);
     }
 
     @Override
-    public TransitionDef<T, C> simpleOperation(String id, Class<? extends Operation<T, C>> operationClass) {
+    public TransitionDef<T, C> simpleOperation(String id, Class<? extends Action<T, C>> operationClass) {
         requireConfigurerActive("simpleOperation");
         SimpleOperationDefImpl<T, C> def = newSimpleOperationDef(id);
         ConfigurableDefImpl.runConfigurer(def, d -> d.using(operationClass));
@@ -301,7 +301,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> simpleOperation(Identifiable operationIdentifiable, Class<? extends Operation<T, C>> operationClass) {
+    public TransitionDef<T, C> simpleOperation(Identifiable operationIdentifiable, Class<? extends Action<T, C>> operationClass) {
         requireNotNull(operationIdentifiable, "Operation identifiable");
         return simpleOperation(operationIdentifiable.getId(), operationClass);
     }

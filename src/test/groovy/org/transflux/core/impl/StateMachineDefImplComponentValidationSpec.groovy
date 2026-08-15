@@ -18,10 +18,11 @@
 
 package org.transflux.core.impl
 
+import org.transflux.core.action.ActionKind
 import org.transflux.core.TestContext
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.CompositeOperationDef
-import org.transflux.core.action.Step
+import org.transflux.core.action.Action
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
@@ -41,7 +42,7 @@ class StateMachineDefImplComponentValidationSpec extends Specification {
         }
     }
 
-    static class NoOpStep implements Step<Entity, TestContext> {
+    static class NoOpStep implements Action<Entity, TestContext> {
         @Override
         void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
         }
@@ -70,7 +71,7 @@ class StateMachineDefImplComponentValidationSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message == "Component 'planted' wraps a bound step with id 'other'"
+        e.message == "Component 'planted' wraps a bound action with id 'other'"
     }
 
     def "validation reaches a transition composite's inline scope"() {
@@ -84,7 +85,7 @@ class StateMachineDefImplComponentValidationSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message == "Component 'planted' wraps a bound step with id 'other'"
+        e.message == "Component 'planted' wraps a bound action with id 'other'"
     }
 
     def "validation reaches an SM-level composite's inline scope"() {
@@ -98,7 +99,7 @@ class StateMachineDefImplComponentValidationSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message == "Component 'planted' wraps a bound step with id 'other'"
+        e.message == "Component 'planted' wraps a bound action with id 'other'"
     }
 
     private static StateMachineDefImpl<Entity> defWithComposites() {
@@ -121,6 +122,7 @@ class StateMachineDefImplComponentValidationSpec extends Specification {
 
     private static void plant(Registry<Entity> registry) {
         ((RegistryImpl<Entity>) registry)
-            .register(new Component.Step<>('planted', TestContext, BoundStep.of('other', new NoOpStep())))
+            .register(new Component.Action<>('planted', TestContext,
+                BoundAction.of('other', new NoOpStep(), ActionKind.STEP)))
     }
 }

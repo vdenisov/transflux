@@ -18,10 +18,10 @@
 
 package org.transflux.core.impl
 
+import org.transflux.core.action.ActionKind
 import org.transflux.core.condition.Condition
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.action.Operation
-import org.transflux.core.action.Step
+import org.transflux.core.action.Action
 import spock.lang.Specification
 import spock.lang.Unroll
 
@@ -37,8 +37,8 @@ class ComponentSpec extends Specification {
 
         where:
         kind        | component
-        'step'      | { id -> new Component.Step<>(id, Object, step(id)) }
-        'operation' | { id -> new Component.Operation<>(id, Object, operation(id)) }
+        'step'      | { id -> new Component.Action<>(id, Object, step(id)) }
+        'operation' | { id -> new Component.Action<>(id, Object, operation(id)) }
         'condition' | { id -> new Component.Condition<>(id, Object, condition(id)) }
     }
 
@@ -49,13 +49,13 @@ class ComponentSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message == "Component 'a' wraps a bound ${kind} with id 'b'"
+        e.message == "Component 'a' wraps a bound ${reported} with id 'b'"
 
         where:
-        kind        | component
-        'step'      | { -> new Component.Step<>('a', Object, step('b')) }
-        'operation' | { -> new Component.Operation<>('a', Object, operation('b')) }
-        'condition' | { -> new Component.Condition<>('a', Object, condition('b')) }
+        kind        | reported    || component
+        'step'      | 'action'    || { -> new Component.Action<>('a', Object, step('b')) }
+        'operation' | 'action'    || { -> new Component.Action<>('a', Object, operation('b')) }
+        'condition' | 'condition' || { -> new Component.Condition<>('a', Object, condition('b')) }
     }
 
     @Unroll
@@ -69,17 +69,16 @@ class ComponentSpec extends Specification {
 
         where:
         kind        | component
-        'step'      | { -> new Component.Step<>('a', Object, null) }
-        'operation' | { -> new Component.Operation<>('a', Object, null) }
+        'action'    | { -> new Component.Action<>('a', Object, null) }
         'condition' | { -> new Component.Condition<>('a', Object, null) }
     }
 
-    private static BoundStep<Object, Object> step(String id) {
-        return BoundStep.of(id, { e, ctx, tr -> } as Step)
+    private static BoundAction<Object, Object> step(String id) {
+        return BoundAction.of(id, { e, ctx, tr -> } as Action, ActionKind.STEP)
     }
 
-    private static BoundOperation<Object, Object> operation(String id) {
-        return BoundOperation.of(id, { e, ctx, tr -> } as Operation)
+    private static BoundAction<Object, Object> operation(String id) {
+        return BoundAction.of(id, { e, ctx, tr -> } as Action, ActionKind.OPERATION)
     }
 
     private static BoundCondition<Object, Object> condition(String id) {

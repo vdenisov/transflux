@@ -21,7 +21,7 @@ package org.transflux.core.impl
 import org.transflux.core.StateMachine
 import org.transflux.core.StateMachineDef
 import org.transflux.core.TestContext
-import org.transflux.core.action.Operation
+import org.transflux.core.action.Action
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateChange
 import org.transflux.core.state.StateListener
@@ -80,7 +80,7 @@ class StateMachineImplStateListenerSpec extends Specification {
         def sm = build({ d -> d
             .state('s1', { st -> st
                 .onExit('leave', recorder(log, 'exit'))
-                .transitionsTo('s2', 't', { t -> t.simpleOperation('op', { e, ctx, tr -> log << 'operation' } as Operation) }) })
+                .transitionsTo('s2', 't', { t -> t.simpleOperation('op', { e, ctx, tr -> log << 'operation' } as Action) }) })
             .state('s2', { st -> st.onEntry('enter', recorder(log, 'entry')) }) })
 
         when:
@@ -206,7 +206,7 @@ class StateMachineImplStateListenerSpec extends Specification {
 
         where:
         stage            | configure
-        'the operation'  | { t -> t.simpleOperation('op', { e, ctx, tr -> throw new IllegalStateException('boom') } as Operation) }
+        'the operation'  | { t -> t.simpleOperation('op', { e, ctx, tr -> throw new IllegalStateException('boom') } as Action) }
         'a post-condition' | { t -> t.postCondition('never', { e -> false } as Predicate) }
     }
 
@@ -293,7 +293,7 @@ class StateMachineImplStateListenerSpec extends Specification {
         def stepRuns = []
         def entity = new Entity('s1')
         def sm = build({ d -> d
-            .step('side-effect', { e, ctx, tr -> stepRuns << 'ran' } as org.transflux.core.action.Step)
+            .step('side-effect', { e, ctx, tr -> stepRuns << 'ran' } as org.transflux.core.action.Action)
             .state('s1', { st -> st
                 .onExit('meddler', { e, ctx, ch ->
                     try {

@@ -22,8 +22,7 @@ import org.transflux.core.StateMachine
 import org.transflux.core.TestContext
 import org.transflux.core.action.Compensation
 import org.transflux.core.action.CompositeOperationDef
-import org.transflux.core.action.Operation
-import org.transflux.core.action.Step
+import org.transflux.core.action.Action
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.ActionPath
@@ -44,7 +43,7 @@ class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
         }
     }
 
-    static class TrailStep implements Step<Entity, TestContext> {
+    static class TrailStep implements Action<Entity, TestContext> {
         final String tag
 
         TrailStep(String tag) {
@@ -57,7 +56,7 @@ class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
         }
     }
 
-    static class CompTrailStep implements Step<Entity, TestContext> {
+    static class CompTrailStep implements Action<Entity, TestContext> {
         final String tag
 
         CompTrailStep(String tag) {
@@ -81,7 +80,7 @@ class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
      * {@code execute(...)} body. The child step ids resolve against the SM registry and run
      * inside the nested op's scope, so they emit qualified paths.
      */
-    static class TwoStepInlineOp implements Operation<Entity, TestContext> {
+    static class TwoStepInlineOp implements Action<Entity, TestContext> {
         @Override
         void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
             transition.step('inner-a')
@@ -89,7 +88,7 @@ class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
         }
     }
 
-    static class CompensatingNestedOp implements Operation<Entity, TestContext> {
+    static class CompensatingNestedOp implements Action<Entity, TestContext> {
         @Override
         void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
             transition.step('comp-step')

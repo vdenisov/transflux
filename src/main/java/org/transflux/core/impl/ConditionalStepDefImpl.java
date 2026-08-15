@@ -18,6 +18,7 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.action.ActionKind;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.transflux.core.Identifiable;
@@ -26,7 +27,7 @@ import org.transflux.core.action.BranchDef;
 import org.transflux.core.action.ConditionalStepDef;
 import org.transflux.core.action.DefaultBranchDef;
 import org.transflux.core.action.NoMatchBehavior;
-import org.transflux.core.action.Step;
+import org.transflux.core.action.Action;
 import org.transflux.core.transition.Transition;
 
 import java.util.ArrayList;
@@ -45,7 +46,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  *
  * <p>Holds the conditional's branches and optional default branch in declaration order. The
  * branches are validated at build time, not at configurer return — the configurer surface is
- * permissive and validation is centralized in {@link #buildBoundStep(Map)}.
+ * permissive and validation is centralized in {@link #buildBoundAction(Map)}.
  *
  * <p><b>Build-time resolution.</b> Branch conditions are resolved eagerly against the
  * supplied condition registry. Branch step refs are <em>not</em> resolved eagerly: the
@@ -134,7 +135,7 @@ final class ConditionalStepDefImpl<T, C>
     }
 
     /**
-     * Resolves this conditional into a {@link BoundStep} whose executable {@link Step} runs
+     * Resolves this conditional into a {@link BoundAction} whose executable {@link Action} runs
      * the matching branch's steps against the supplied transition view.
      *
      * @param conditionRegistry the resolved state-machine condition registry, used to bind
@@ -146,7 +147,7 @@ final class ConditionalStepDefImpl<T, C>
      *         branches, or the default branch are violated, or if any condition descriptor
      *         cannot be resolved
      */
-    BoundStep<T, C> buildBoundStep(Map<String, BoundCondition<T, C>> conditionRegistry) {
+    BoundAction<T, C> buildBoundAction(Map<String, BoundCondition<T, C>> conditionRegistry) {
         requireNotNull(conditionRegistry, "Condition registry");
 
         if (branches.isEmpty()) {
@@ -191,9 +192,9 @@ final class ConditionalStepDefImpl<T, C>
             defaultStepIds = collectStepIds(defaultBranch.getActionRefs());
         }
 
-        Step<T, C> executor = new ConditionalStepExecutor(resolvedBranches,
+        Action<T, C> executor = new ConditionalStepExecutor(resolvedBranches,
                                                           defaultStepIds, noMatchBehavior, getId());
-        return BoundStep.of(getId(), executor);
+        return BoundAction.of(getId(), executor, ActionKind.STEP);
     }
 
     private static <T, C> List<String> collectStepIds(List<ActionRef<T, C>> refs) {
@@ -205,7 +206,7 @@ final class ConditionalStepDefImpl<T, C>
     }
 
     /**
-     * Framework-built {@link Step} that evaluates the conditional's branches in declaration
+     * Framework-built {@link Action} that evaluates the conditional's branches in declaration
      * order and dispatches the first matching branch's steps through the central step
      * runner.
      * <p>
@@ -215,7 +216,7 @@ final class ConditionalStepDefImpl<T, C>
      * this executor — by the time {@link #execute(Object, Object, Transition)} runs, the state
      * machine is fully constructed and every referenced id is resolvable.
      */
-    private final class ConditionalStepExecutor implements Step<T, C> {
+    private final class ConditionalStepExecutor implements Action<T, C> {
         private final List<ResolvedBranch<T, C>> resolvedBranches;
         private final List<String> defaultStepIds;
         private final NoMatchBehavior noMatchBehavior;

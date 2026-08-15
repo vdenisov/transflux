@@ -23,7 +23,7 @@ import org.transflux.core.StateMachine
 import org.transflux.core.StateMachineDef
 import org.transflux.core.TestContext
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.action.Operation
+import org.transflux.core.action.Action
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
 import org.transflux.core.trigger.EventTrigger
@@ -113,7 +113,7 @@ class EventTriggerDefImplSpec extends Specification {
         def seen = []
         def sm = build({ d -> d.state('s1', { st ->
             st.transitionsTo('s2', 't', { t -> t
-                .simpleOperation('op', { e, c, tr -> seen << 'fired' } as Operation)
+                .simpleOperation('op', { e, c, tr -> seen << 'fired' } as Action)
                 .addEventTrigger('paid', { et -> et.onEvent('PAYMENT') })
                 .addEventTrigger('paid2', { et ->
                     et.onEvent('OTHER')

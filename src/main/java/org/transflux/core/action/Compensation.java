@@ -27,7 +27,7 @@ package org.transflux.core.action;
  * failure is reported to the caller.
  *
  * <p>The same contract is used for both step-level and operation-level rollback. A
- * {@link Step} returns its compensation from {@link Step#getCompensation(Object, Object)}
+ * {@link Action} returns its compensation from {@link Action#getCompensation(Object, Object)}
  * before {@code execute} runs; the runtime captures that compensation against the step's id
  * and pushes it onto the per-execution rollback stack before invoking {@code execute}. The
  * compensation therefore covers partial side effects from a step whose {@code execute} throws

@@ -18,9 +18,10 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.action.ActionKind;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.transflux.core.action.Operation;
+import org.transflux.core.action.Action;
 import org.transflux.core.action.SimpleOperationDef;
 
 import java.util.Map;
@@ -31,10 +32,10 @@ import static org.transflux.core.Preconditions.requireNotNull;
 /**
  * Package-private implementation of {@link SimpleOperationDef}.
  * <p>
- * Holds either an {@link Operation} instance or an {@code Operation} class via an
+ * Holds either an {@link Action} instance or an {@code Operation} class via an
  * {@link InstanceOrClassSource}; the two are mutually exclusive and last-write-wins.
  * {@link #buildBound(StateMachineImpl)} resolves the held source — reflectively instantiating
- * the class form when needed — into a {@link BoundOperation}.
+ * the class form when needed — into a {@link BoundAction}.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
@@ -43,7 +44,7 @@ public final class SimpleOperationDefImpl<T, C>
     extends OperationDefImpl<T, C, SimpleOperationDefImpl<T, C>> implements SimpleOperationDef<T, C> {
     private static final Logger log = LoggerFactory.getLogger(SimpleOperationDefImpl.class);
 
-    private final InstanceOrClassSource<Operation<T, C>> source;
+    private final InstanceOrClassSource<Action<T, C>> source;
 
     SimpleOperationDefImpl(String id) {
         super(id);
@@ -51,7 +52,7 @@ public final class SimpleOperationDefImpl<T, C>
     }
 
     @Override
-    public SimpleOperationDefImpl<T, C> using(Operation<T, C> operation) {
+    public SimpleOperationDefImpl<T, C> using(Action<T, C> operation) {
         requireConfigurerActive("using");
         requireNotNull(operation, "Operation");
         source.setInstance(operation);
@@ -59,7 +60,7 @@ public final class SimpleOperationDefImpl<T, C>
     }
 
     @Override
-    public SimpleOperationDefImpl<T, C> using(Class<? extends Operation<T, C>> operationClass) {
+    public SimpleOperationDefImpl<T, C> using(Class<? extends Action<T, C>> operationClass) {
         requireConfigurerActive("using");
         requireNotNull(operationClass, "Operation class");
         source.setClass(operationClass);
@@ -67,8 +68,8 @@ public final class SimpleOperationDefImpl<T, C>
     }
 
     @Override
-    BoundOperation<T, C> buildBound(StateMachineImpl<T> stateMachine) {
-        return BoundOperation.of(getId(), source.resolve("Operation"));
+    BoundAction<T, C> buildBound(StateMachineImpl<T> stateMachine) {
+        return BoundAction.of(getId(), source.resolve("Operation"), ActionKind.OPERATION);
     }
 
     @Override

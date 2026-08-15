@@ -27,7 +27,7 @@ import org.transflux.core.action.CompositeOperationDef
 import org.transflux.core.action.ConditionalStepDef
 import org.transflux.core.action.DefaultBranchDef
 import org.transflux.core.action.NoMatchBehavior
-import org.transflux.core.action.Step
+import org.transflux.core.action.Action
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
@@ -50,7 +50,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
         }
     }
 
-    static class TrailStep implements Step<Entity, TestContext> {
+    static class TrailStep implements Action<Entity, TestContext> {
         final String tag
 
         TrailStep(String tag) {
@@ -63,7 +63,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
         }
     }
 
-    static class TrailWithCompStep implements Step<Entity, TestContext> {
+    static class TrailWithCompStep implements Action<Entity, TestContext> {
         final String tag
 
         TrailWithCompStep(String tag) {
@@ -82,7 +82,7 @@ class ConditionalStepDefImplIntegrationSpec extends Specification {
         }
     }
 
-    static class ThrowingStep implements Step<Entity, TestContext> {
+    static class ThrowingStep implements Action<Entity, TestContext> {
         @Override
         void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
             throw new RuntimeException('boom')

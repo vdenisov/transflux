@@ -26,7 +26,7 @@ import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.BranchDef
 import org.transflux.core.action.DefaultBranchDef
 import org.transflux.core.action.NoMatchBehavior
-import org.transflux.core.action.Step
+import org.transflux.core.action.Action
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
 import spock.lang.Unroll
@@ -48,7 +48,7 @@ class ConditionalStepDefImplSpec extends Specification {
         }
     }
 
-    static class NoopStep implements Step<Entity, TestContext> {
+    static class NoopStep implements Action<Entity, TestContext> {
         @Override
         void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
         }
@@ -108,7 +108,7 @@ class ConditionalStepDefImplSpec extends Specification {
             .branch('b1', { BranchDef<Entity, TestContext> b -> b.step('s1', new NoopStep()) })
 
         when:
-        cond.buildBoundStep([:])
+        cond.buildBoundAction([:])
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -122,7 +122,7 @@ class ConditionalStepDefImplSpec extends Specification {
             .branch('b1', { BranchDef<Entity, TestContext> b -> b.condition('b1-cond', { e -> true } as Predicate) })
 
         when:
-        cond.buildBoundStep([:])
+        cond.buildBoundAction([:])
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -139,7 +139,7 @@ class ConditionalStepDefImplSpec extends Specification {
             .defaultBranch({ DefaultBranchDef<Entity, TestContext> d -> })
 
         when:
-        cond.buildBoundStep([:])
+        cond.buildBoundAction([:])
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -153,7 +153,7 @@ class ConditionalStepDefImplSpec extends Specification {
             .defaultBranch({ DefaultBranchDef<Entity, TestContext> d -> d.step('s1', new NoopStep()) })
 
         when:
-        cond.buildBoundStep([:])
+        cond.buildBoundAction([:])
 
         then:
         def e = thrown(TransfluxValidationException)

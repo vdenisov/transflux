@@ -18,6 +18,7 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.action.ActionKind;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.transflux.core.ContextScope;
@@ -30,9 +31,8 @@ import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.CompositeOperationDef;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.MapperDef;
-import org.transflux.core.action.Operation;
+import org.transflux.core.action.Action;
 import org.transflux.core.action.SimpleOperationDef;
-import org.transflux.core.action.Step;
 import org.transflux.core.action.StepDef;
 import org.transflux.core.state.StateApplier;
 import org.transflux.core.state.StateDef;
@@ -169,7 +169,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> step(String id, Step<T, ?> step) {
+    public StateMachineDef<T> step(String id, Action<T, ?> step) {
         requireNotBlank(id, "Step ID");
         requireNotNull(step, "Step");
         registerStepInstance(id, step);
@@ -177,13 +177,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> step(Identifiable stepIdentifiable, Step<T, ?> step) {
+    public StateMachineDef<T> step(Identifiable stepIdentifiable, Action<T, ?> step) {
         requireNotNull(stepIdentifiable, "Step identifiable");
         return step(stepIdentifiable.getId(), step);
     }
 
     @Override
-    public StateMachineDef<T> step(String id, Class<? extends Step<T, ?>> stepClass) {
+    public StateMachineDef<T> step(String id, Class<? extends Action<T, ?>> stepClass) {
         requireNotBlank(id, "Step ID");
         requireNotNull(stepClass, "Step class");
         registerStepClass(id, stepClass);
@@ -191,13 +191,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> step(Identifiable stepIdentifiable, Class<? extends Step<T, ?>> stepClass) {
+    public StateMachineDef<T> step(Identifiable stepIdentifiable, Class<? extends Action<T, ?>> stepClass) {
         requireNotNull(stepIdentifiable, "Step identifiable");
         return step(stepIdentifiable.getId(), stepClass);
     }
 
     @Override
-    public <C> StateMachineDef<T> step(String id, Class<C> contextType, Step<T, C> step) {
+    public <C> StateMachineDef<T> step(String id, Class<C> contextType, Action<T, C> step) {
         requireNotBlank(id, "Step ID");
         requireNotNull(contextType, "Context type");
         requireNotNull(step, "Step");
@@ -207,13 +207,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public <C> StateMachineDef<T> step(Identifiable stepIdentifiable, Class<C> contextType, Step<T, C> step) {
+    public <C> StateMachineDef<T> step(Identifiable stepIdentifiable, Class<C> contextType, Action<T, C> step) {
         requireNotNull(stepIdentifiable, "Step identifiable");
         return step(stepIdentifiable.getId(), contextType, step);
     }
 
     @Override
-    public <C> StateMachineDef<T> step(String id, Class<C> contextType, Class<? extends Step<T, C>> stepClass) {
+    public <C> StateMachineDef<T> step(String id, Class<C> contextType, Class<? extends Action<T, C>> stepClass) {
         requireNotBlank(id, "Step ID");
         requireNotNull(contextType, "Context type");
         requireNotNull(stepClass, "Step class");
@@ -223,7 +223,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public <C> StateMachineDef<T> step(Identifiable stepIdentifiable, Class<C> contextType, Class<? extends Step<T, C>> stepClass) {
+    public <C> StateMachineDef<T> step(Identifiable stepIdentifiable, Class<C> contextType, Class<? extends Action<T, C>> stepClass) {
         requireNotNull(stepIdentifiable, "Step identifiable");
         return step(stepIdentifiable.getId(), contextType, stepClass);
     }
@@ -255,7 +255,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         stepRegistrations.put(id, StepRegistration.ofDef(def));
     }
 
-    private void registerStepInstance(String id, Step<T, ?> step) {
+    private void registerStepInstance(String id, Action<T, ?> step) {
         StepRegistration<T> existing = stepRegistrations.get(id);
         if (existing == null) {
             checkIdNotRegisteredAsOperation(id);
@@ -270,7 +270,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         throw new TransfluxValidationException("Step ID '" + id + "' is already registered");
     }
 
-    private void registerStepClass(String id, Class<? extends Step<T, ?>> stepClass) {
+    private void registerStepClass(String id, Class<? extends Action<T, ?>> stepClass) {
         StepRegistration<T> existing = stepRegistrations.get(id);
         if (existing == null) {
             checkIdNotRegisteredAsOperation(id);
@@ -299,7 +299,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
     }
 
-    private void registerOperationInstance(String id, Operation<T, ?> operation) {
+    private void registerOperationInstance(String id, Action<T, ?> operation) {
         OperationRegistration<T> existing = operationRegistrations.get(id);
         if (existing == null) {
             checkIdNotRegisteredAsStep(id);
@@ -314,7 +314,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         throw new TransfluxValidationException("Operation ID '" + id + "' is already registered");
     }
 
-    private void registerOperationClass(String id, Class<? extends Operation<T, ?>> operationClass) {
+    private void registerOperationClass(String id, Class<? extends Action<T, ?>> operationClass) {
         OperationRegistration<T> existing = operationRegistrations.get(id);
         if (existing == null) {
             checkIdNotRegisteredAsStep(id);
@@ -702,7 +702,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public <C> StateMachineDef<T> operation(String id, Class<C> contextType, Operation<T, C> operation) {
+    public <C> StateMachineDef<T> operation(String id, Class<C> contextType, Action<T, C> operation) {
         requireNotBlank(id, "Operation ID");
         requireNotNull(contextType, "Context type");
         requireNotNull(operation, "Operation");
@@ -712,13 +712,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public <C> StateMachineDef<T> operation(Identifiable operationIdentifiable, Class<C> contextType, Operation<T, C> operation) {
+    public <C> StateMachineDef<T> operation(Identifiable operationIdentifiable, Class<C> contextType, Action<T, C> operation) {
         requireNotNull(operationIdentifiable, "Operation identifiable");
         return operation(operationIdentifiable.getId(), contextType, operation);
     }
 
     @Override
-    public <C> StateMachineDef<T> operation(String id, Class<C> contextType, Class<? extends Operation<T, C>> operationClass) {
+    public <C> StateMachineDef<T> operation(String id, Class<C> contextType, Class<? extends Action<T, C>> operationClass) {
         requireNotBlank(id, "Operation ID");
         requireNotNull(contextType, "Context type");
         requireNotNull(operationClass, "Operation class");
@@ -728,7 +728,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public <C> StateMachineDef<T> operation(Identifiable operationIdentifiable, Class<C> contextType, Class<? extends Operation<T, C>> operationClass) {
+    public <C> StateMachineDef<T> operation(Identifiable operationIdentifiable, Class<C> contextType, Class<? extends Action<T, C>> operationClass) {
         requireNotNull(operationIdentifiable, "Operation identifiable");
         return operation(operationIdentifiable.getId(), contextType, operationClass);
     }
@@ -919,15 +919,15 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
-     * Resolves the SM-level step registrations into {@link BoundStep} instances. Composite-local
+     * Resolves the SM-level step registrations into {@link BoundAction} instances. Composite-local
      * inline steps and conditionals are bound into their owning composite's scope by
      * {@link #bindCompositeScopes(RegistryImpl, Map)} and are not included
      * here.
      *
      * @return an unmodifiable map of SM-level step id to bound step
      */
-    Map<String, BoundStep<T, ?>> buildBoundSteps() {
-        Map<String, BoundStep<T, ?>> resolved = new LinkedHashMap<>();
+    Map<String, BoundAction<T, ?>> buildBoundActions() {
+        Map<String, BoundAction<T, ?>> resolved = new LinkedHashMap<>();
         for (Map.Entry<String, StepRegistration<T>> e : stepRegistrations.entrySet()) {
             resolved.put(e.getKey(), e.getValue().toBoundStep(e.getKey()));
         }
@@ -935,15 +935,15 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
-     * Resolves the operation registrations into {@link BoundOperation} instances and surfaces
+     * Resolves the operation registrations into {@link BoundAction} instances and surfaces
      * each one to the supplied callback. Framework-internal.
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
     void buildBoundOperationsIncrementally(StateMachineImpl<T> stateMachine,
-                                           Consumer<BoundOperation<T, ?>> afterBuild) {
+                                           Consumer<BoundAction<T, ?>> afterBuild) {
         Set<String> seen = new HashSet<>();
         for (Map.Entry<String, OperationRegistration<T>> e : operationRegistrations.entrySet()) {
-            BoundOperation<T, ?> bo = e.getValue().toBoundOperation(e.getKey(), stateMachine);
+            BoundAction<T, ?> bo = e.getValue().toBoundOperation(e.getKey(), stateMachine);
             seen.add(e.getKey());
             afterBuild.accept(bo);
         }
@@ -953,7 +953,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
                     "Operation ID '" + e.getKey() + "' is already registered");
             }
             CompositeOperationDefImpl raw = e.getValue();
-            BoundOperation<T, ?> bo = raw.buildBound(stateMachine);
+            BoundAction<T, ?> bo = raw.buildBound(stateMachine);
             afterBuild.accept(bo);
         }
     }
@@ -993,12 +993,12 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         return smCompositeOperations.get(id);
     }
 
-    <C> void registerScopedStep(String id, Step<T, C> step, Class<C> contextType) {
+    <C> void registerScopedStep(String id, Action<T, C> step, Class<C> contextType) {
         registerStepInstance(id, step);
         tagContextType(id, contextType);
     }
 
-    <C> void registerScopedStep(String id, Class<? extends Step<T, C>> stepClass, Class<C> contextType) {
+    <C> void registerScopedStep(String id, Class<? extends Action<T, C>> stepClass, Class<C> contextType) {
         registerStepClass(id, stepClass);
         tagContextType(id, contextType);
     }
@@ -1023,12 +1023,12 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         tagContextType(id, contextType);
     }
 
-    <C> void registerScopedOperation(String id, Operation<T, C> operation, Class<C> contextType) {
+    <C> void registerScopedOperation(String id, Action<T, C> operation, Class<C> contextType) {
         registerOperationInstance(id, operation);
         tagContextType(id, contextType);
     }
 
-    <C> void registerScopedOperation(String id, Class<? extends Operation<T, C>> operationClass, Class<C> contextType) {
+    <C> void registerScopedOperation(String id, Class<? extends Action<T, C>> operationClass, Class<C> contextType) {
         registerOperationClass(id, operationClass);
         tagContextType(id, contextType);
     }
@@ -1608,7 +1608,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             return;
         }
         stack.push(id);
-        for (String refId : composite.getOperationByIdReferenceIds()) {
+        for (String refId : composite.getByIdReferenceIds()) {
             if (smCompositeOperations.containsKey(refId)) {
                 dfsComposite(refId, visited, stack);
             }
@@ -1655,14 +1655,14 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         return transitionsById;
     }
 
-    private record StepRegistration<T>(Step<T, ?> instance, Class<? extends Step<T, ?>> stepClass,
+    private record StepRegistration<T>(Action<T, ?> instance, Class<? extends Action<T, ?>> stepClass,
                                        StepDefImpl<T, ?> def) {
 
-        static <T> StepRegistration<T> ofInstance(Step<T, ?> instance) {
+        static <T> StepRegistration<T> ofInstance(Action<T, ?> instance) {
                 return new StepRegistration<>(instance, null, null);
             }
 
-            static <T> StepRegistration<T> ofClass(Class<? extends Step<T, ?>> stepClass) {
+            static <T> StepRegistration<T> ofClass(Class<? extends Action<T, ?>> stepClass) {
                 return new StepRegistration<>(null, stepClass, null);
             }
 
@@ -1671,23 +1671,23 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             }
 
             @SuppressWarnings({"unchecked", "rawtypes"})
-            BoundStep<T, ?> toBoundStep(String id) {
+            BoundAction<T, ?> toBoundStep(String id) {
                 if (def != null) {
-                    return def.buildBoundStep();
+                    return def.buildBoundAction();
                 }
-                Step<T, ?> resolved = InstanceOrClassSource.resolve(instance, (Class) stepClass, "Step");
-                return BoundStep.of(id, (Step) resolved);
+                Action<T, ?> resolved = InstanceOrClassSource.resolve(instance, (Class) stepClass, "Step");
+                return BoundAction.of(id, (Action) resolved, ActionKind.STEP);
             }
         }
 
-    private record OperationRegistration<T>(Operation<T, ?> instance, Class<? extends Operation<T, ?>> operationClass,
+    private record OperationRegistration<T>(Action<T, ?> instance, Class<? extends Action<T, ?>> operationClass,
                                             SimpleOperationDefImpl<T, ?> def) {
 
-        static <T> OperationRegistration<T> ofInstance(Operation<T, ?> instance) {
+        static <T> OperationRegistration<T> ofInstance(Action<T, ?> instance) {
                 return new OperationRegistration<>(instance, null, null);
             }
 
-            static <T> OperationRegistration<T> ofClass(Class<? extends Operation<T, ?>> operationClass) {
+            static <T> OperationRegistration<T> ofClass(Class<? extends Action<T, ?>> operationClass) {
                 return new OperationRegistration<>(null, operationClass, null);
             }
 
@@ -1696,12 +1696,12 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             }
 
             @SuppressWarnings({"unchecked", "rawtypes"})
-            BoundOperation<T, ?> toBoundOperation(String id, StateMachineImpl<T> stateMachine) {
+            BoundAction<T, ?> toBoundOperation(String id, StateMachineImpl<T> stateMachine) {
                 if (def != null) {
                     return def.buildBound(stateMachine);
                 }
-                Operation<T, ?> resolved = InstanceOrClassSource.resolve(instance, (Class) operationClass, "Operation");
-                return BoundOperation.of(id, (Operation) resolved);
+                Action<T, ?> resolved = InstanceOrClassSource.resolve(instance, (Class) operationClass, "Operation");
+                return BoundAction.of(id, (Action) resolved, ActionKind.OPERATION);
             }
         }
 

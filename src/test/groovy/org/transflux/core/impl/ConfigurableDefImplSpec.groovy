@@ -21,15 +21,14 @@ package org.transflux.core.impl
 
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.NoMatchBehavior
-import org.transflux.core.action.Operation
-import org.transflux.core.action.Step
+import org.transflux.core.action.Action
 import spock.lang.Specification
 import spock.lang.Unroll
 
 class ConfigurableDefImplSpec extends Specification {
 
-    static final Operation<Object, Object> NOOP_OP = { e, c, t -> } as Operation
-    static final Step<Object, Object> NOOP_STEP = { e, c, t -> } as Step
+    static final Action<Object, Object> NOOP_OP = { e, c, t -> } as Action
+    static final Action<Object, Object> NOOP_STEP = { e, c, t -> } as Action
 
     def 'requireConfigurerActive should throw before beginConfigurer'() {
         given:

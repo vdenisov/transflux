@@ -22,7 +22,7 @@ import org.transflux.core.StateMachine
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.CompositeOperationDef
 import org.transflux.core.action.ContextMapper
-import org.transflux.core.action.Step
+import org.transflux.core.action.Action
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import org.transflux.core.transition.TransitionDef
@@ -55,7 +55,7 @@ class CompositeOperationDefImplStepMappingSpec extends Specification {
     }
 
     /** Reusable step that knows only PaymentCtx — never sees any parent. */
-    static class ChargeStep implements Step<Entity, PaymentCtx> {
+    static class ChargeStep implements Action<Entity, PaymentCtx> {
         @Override
         void execute(Entity entity, PaymentCtx context, Transition<Entity, PaymentCtx> transition) {
             context.result = 'charged-' + context.reference + '-' + context.cents

@@ -18,10 +18,11 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.action.ActionKind;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.action.Step;
+import org.transflux.core.action.Action;
 import org.transflux.core.action.StepDef;
 
 import static org.transflux.core.Preconditions.requireNotNull;
@@ -29,10 +30,10 @@ import static org.transflux.core.Preconditions.requireNotNull;
 /**
  * Default {@link StepDef} implementation.
  * <p>
- * Holds either a {@link Step} instance or a {@code Step} class plus the declared context type;
+ * Holds either a {@link Action} instance or a {@code Step} class plus the declared context type;
  * the two source forms are mutually exclusive and last-write-wins.
- * {@link #buildBoundStep()} reflectively instantiates the class form when needed and produces a
- * {@link BoundStep} paired with this def's id.
+ * {@link #buildBoundAction()} reflectively instantiates the class form when needed and produces a
+ * {@link BoundAction} paired with this def's id.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type this step requires
@@ -41,7 +42,7 @@ final class StepDefImpl<T, C> extends IdentifiedDefImpl<StepDefImpl<T, C>> imple
     private static final Logger log = LoggerFactory.getLogger(StepDefImpl.class);
 
     private final Class<C> contextType;
-    private final InstanceOrClassSource<Step<T, C>> source;
+    private final InstanceOrClassSource<Action<T, C>> source;
 
     StepDefImpl(String id, Class<C> contextType) {
         super(id, "step", "Step ID");
@@ -56,7 +57,7 @@ final class StepDefImpl<T, C> extends IdentifiedDefImpl<StepDefImpl<T, C>> imple
     }
 
     @Override
-    public StepDefImpl<T, C> using(Step<T, C> step) {
+    public StepDefImpl<T, C> using(Action<T, C> step) {
         requireConfigurerActive("using");
         requireNotNull(step, "Step");
         source.setInstance(step);
@@ -64,7 +65,7 @@ final class StepDefImpl<T, C> extends IdentifiedDefImpl<StepDefImpl<T, C>> imple
     }
 
     @Override
-    public StepDefImpl<T, C> using(Class<? extends Step<T, C>> stepClass) {
+    public StepDefImpl<T, C> using(Class<? extends Action<T, C>> stepClass) {
         requireConfigurerActive("using");
         requireNotNull(stepClass, "Step class");
         source.setClass(stepClass);
@@ -72,13 +73,13 @@ final class StepDefImpl<T, C> extends IdentifiedDefImpl<StepDefImpl<T, C>> imple
     }
 
     /**
-     * Resolves this def into a {@link BoundStep} pairing the step executable with this def's id.
+     * Resolves this def into a {@link BoundAction} pairing the step executable with this def's id.
      *
      * @return the bound step
      *
      * @throws TransfluxValidationException if no step source has been set
      */
-    BoundStep<T, C> buildBoundStep() {
-        return BoundStep.of(getId(), source.resolve("Step"));
+    BoundAction<T, C> buildBoundAction() {
+        return BoundAction.of(getId(), source.resolve("Step"), ActionKind.STEP);
     }
 }

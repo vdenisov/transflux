@@ -22,7 +22,7 @@ import org.transflux.core.StateMachine
 import org.transflux.core.StateMachineDef
 import org.transflux.core.TestContext
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.action.Operation
+import org.transflux.core.action.Action
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
@@ -103,7 +103,7 @@ class StateMachineImplDataDispatchSpec extends Specification {
         def seen = []
         def sm = build({ d -> d.state('s1', { st ->
             st.transitionsTo('s2', 't', TestContext, { t -> t
-                .simpleOperation('op', { e, c, tr -> seen.add(c) } as Operation)
+                .simpleOperation('op', { e, c, tr -> seen.add(c) } as Action)
                 .addDataTrigger('hot', { dt -> dt.condition('any', { e -> true } as Predicate) }) }) })
             .state('s2', {}) })
         def ctx = new TestContext('ctx')
@@ -120,7 +120,7 @@ class StateMachineImplDataDispatchSpec extends Specification {
         def fired = []
         def sm = build({ d -> d.state('s1', { st ->
             st.transitionsTo('s2', 't', { t -> t
-                .simpleOperation('op', { e, c, tr -> fired.add(e) } as Operation)
+                .simpleOperation('op', { e, c, tr -> fired.add(e) } as Action)
                 .addDataTrigger('hot', { dt -> dt.condition('any', { e -> true } as Predicate) }) }) })
             .state('s2', {}) })
         def entity = new Entity('s1')

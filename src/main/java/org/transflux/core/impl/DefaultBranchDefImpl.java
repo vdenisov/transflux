@@ -18,9 +18,10 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.action.ActionKind;
 import org.transflux.core.Identifiable;
 import org.transflux.core.action.DefaultBranchDef;
-import org.transflux.core.action.Step;
+import org.transflux.core.action.Action;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -70,27 +71,27 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
     }
 
     @Override
-    public DefaultBranchDef<T, C> step(String id, Step<T, C> step) {
+    public DefaultBranchDef<T, C> step(String id, Action<T, C> step) {
         requireConfigurerActive("step");
-        actionRefs.add(ActionRef.inline(id, step));
+        actionRefs.add(ActionRef.inline(id, step, ActionKind.STEP));
         return this;
     }
 
     @Override
-    public DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Step<T, C> step) {
+    public DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Action<T, C> step) {
         requireNotNull(stepIdentifiable, "Step identifiable");
         return step(stepIdentifiable.getId(), step);
     }
 
     @Override
-    public DefaultBranchDef<T, C> step(String id, Class<? extends Step<T, C>> stepClass) {
+    public DefaultBranchDef<T, C> step(String id, Class<? extends Action<T, C>> stepClass) {
         requireConfigurerActive("step");
-        actionRefs.add(ActionRef.inline(id, stepClass));
+        actionRefs.add(ActionRef.inline(id, stepClass, ActionKind.STEP));
         return this;
     }
 
     @Override
-    public DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Class<? extends Step<T, C>> stepClass) {
+    public DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Class<? extends Action<T, C>> stepClass) {
         requireNotNull(stepIdentifiable, "Step identifiable");
         return step(stepIdentifiable.getId(), stepClass);
     }

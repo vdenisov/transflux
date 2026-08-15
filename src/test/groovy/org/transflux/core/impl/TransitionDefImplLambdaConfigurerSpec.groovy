@@ -20,7 +20,7 @@ package org.transflux.core.impl
 
 import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.action.Operation
+import org.transflux.core.action.Action
 import org.transflux.core.transition.Transition
 import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
@@ -35,7 +35,7 @@ class TransitionDefImplLambdaConfigurerSpec extends Specification {
 
     static class Ctx {}
 
-    static class NoopOp implements Operation<Object, Object> {
+    static class NoopOp implements Action<Object, Object> {
         @Override void execute(Object entity, Object context, Transition<Object, Object> transition) {}
     }
 

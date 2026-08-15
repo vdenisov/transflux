@@ -23,7 +23,7 @@ import org.transflux.core.StateMachineDef
 import org.transflux.core.TestContext
 import org.transflux.core.condition.Condition
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.action.Step
+import org.transflux.core.action.Action
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
@@ -66,7 +66,7 @@ class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
     def 'an inline condition id colliding with a registered step id is rejected'() {
         when:
         build({ d -> d
-            .step('shared', { e, c, tr -> } as Step)
+            .step('shared', { e, c, tr -> } as Action)
             .state('s1', { st -> st.transitionsTo('s2', 't', { t ->
                 t.preCondition('shared', { e -> true } as Predicate) }) })
             .state('s2', {}) })
@@ -177,7 +177,7 @@ class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
                  .compositeOperation('comp', { c -> c.conditional('cond', { cs -> cs
                      .branch('b1', { b -> b
                          .condition('shared', { e -> false } as Predicate)
-                         .step('s', { en, c2, tr -> } as Step) }) }) }) }) })
+                         .step('s', { en, c2, tr -> } as Action) }) }) }) }) })
             .state('s2', {}) })
 
         then:

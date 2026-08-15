@@ -18,10 +18,10 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.action.Action;
+import org.transflux.core.action.ActionKind;
 import org.transflux.core.action.CompositeOperationDef;
-import org.transflux.core.action.Operation;
-import org.transflux.core.action.Step;
+import org.transflux.core.exception.TransfluxValidationException;
 
 import java.util.Optional;
 
@@ -29,32 +29,32 @@ import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
- * Package-private discriminated reference to an action inside a composite operation's
- * declaration-time action list.
+ * Package-private reference to an action inside a composite operation's declaration-time member
+ * list.
  * <p>
- * An action is either a step (recorded via the {@code step(...)} overloads on
- * {@link CompositeOperationDef}) or a nested operation (recorded via the {@code operation(...)}
- * overloads). The partitioning is expressed through two sealed sub-interfaces —
- * {@link StepRef} and {@link OperationRef} — each of which knows how to
- * {@linkplain #resolve(StateMachineImpl, Registry, String) resolve} itself against the
- * enclosing composite's lexical scope registry. The composite executor never has to ask which
- * kind a ref is; it just calls {@code resolve}.
+ * A member is either named by id - the callee is registered elsewhere, and which form it was
+ * authored in is a property of that registration rather than of this call site - or declared
+ * inline, in which case the declaring form is captured as an {@link ActionKind} and travels onto
+ * the bound record. Either way there is a single {@linkplain #resolve(StateMachineImpl, Registry,
+ * String) resolve} that hands back a {@link BoundAction}; the composite executor never has to ask
+ * what kind of member it is holding.
  * <p>
- * By-id variants carry a {@link MapperRef} capturing the call-site mapper choice (pass-through,
- * registered by id, inline function, or inline mapper instance). Inline-registration variants
- * always carry {@link MapperRef#passThrough()} — they declare a step or operation against the
- * enclosing composite's context type and therefore need no boundary mapping.
+ * By-id references carry a {@link MapperRef} capturing the call-site mapper choice (pass-through,
+ * registered by id, inline function, or inline mapper instance). Inline declarations always carry
+ * {@link MapperRef#passThrough()} - they declare an action against the enclosing composite's own
+ * context type and therefore need no boundary mapping.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationRef {
+sealed interface ActionRef<T, C>
+    permits ActionRef.ById, ActionRef.InlineInstance, ActionRef.InlineClass, ActionRef.Conditional {
 
     String id();
 
     /**
-     * Returns the call-site mapper reference for this action. By-id variants override; all
-     * inline-registration variants default to {@link MapperRef#passThrough()}.
+     * Returns the call-site mapper reference for this member. By-id references override; inline
+     * declarations default to {@link MapperRef#passThrough()}.
      *
      * @return the mapper reference; never {@code null}
      */
@@ -63,49 +63,63 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
     }
 
     /**
-     * Resolves this ref against the enclosing composite's lexical-scope {@link Registry} and
-     * returns the matching {@link BoundAction}. The two sealed sub-interfaces each pick the
-     * correct {@link Component} variant — {@link StepRef} expects a {@link Component.Step},
-     * {@link OperationRef} expects a {@link Component.Operation}.
+     * Resolves this reference against the enclosing composite's lexical-scope {@link Registry}
+     * and returns the matching {@link BoundAction}.
      *
      * @param stateMachine the enclosing state machine, retained for error reporting
      * @param scopeRegistry the enclosing composite's scope registry; resolution walks the
      *                      parent chain up to the state-machine root
-     * @param enclosingCompositeId the id of the composite that declared this ref, surfaced
-     *                             in the error message when the ref does not resolve
+     * @param enclosingCompositeId the id of the composite that declared this reference, surfaced
+     *                             in the error message when it does not resolve
      *
      * @return the bound action; never {@code null}
      *
      * @throws TransfluxValidationException if no entry is registered under {@link #id()} in
-     *         the scope chain, or the matched entry is of the wrong kind
+     *         the scope chain, or the matched entry is not an action
      */
-    BoundAction<T, C> resolve(StateMachineImpl<T> stateMachine, Registry<T> scopeRegistry,
-                              String enclosingCompositeId);
+    @SuppressWarnings("unchecked")
+    default BoundAction<T, C> resolve(StateMachineImpl<T> stateMachine, Registry<T> scopeRegistry,
+                                      String enclosingCompositeId) {
+        Optional<Component<T>> resolved = scopeRegistry.resolve(id());
+        if (resolved.isEmpty()) {
+            throw new TransfluxValidationException(
+                unknownIdMessage(id(), stateMachine, enclosingCompositeId));
+        }
+
+        Component<T> component = resolved.get();
+        if (!(component instanceof Component.Action<T, ?> action)) {
+            throw new TransfluxValidationException(
+                "CompositeOperationDef '" + enclosingCompositeId
+                    + "' references id '" + id() + "' which is registered as a "
+                    + component.getClass().getSimpleName().toLowerCase()
+                    + ", not an action");
+        }
+
+        return (BoundAction<T, C>) action.bound();
+    }
 
     /**
-     * Deposits any inline-registration payloads this ref carries into the supplied sink. By-id
-     * variants no-op (they contribute nothing to the enclosing composite's local scope); inline
-     * step / operation variants push themselves into the sink; the {@link Conditional} variant
-     * recurses into its branches' inline steps and then registers the conditional's own bound
-     * step. Drives the scope-binding pass on {@link CompositeOperationDefImpl}.
+     * Deposits any inline-declaration payloads this reference carries into the supplied sink.
+     * By-id references no-op (they contribute nothing to the enclosing composite's local scope);
+     * inline declarations push themselves into the sink; the {@link Conditional} variant recurses
+     * into its branches' inline members and then registers the conditional's own bound action.
+     * Drives the scope-binding pass on {@link CompositeOperationDefImpl}.
      */
     default void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
-        // by-id variants contribute no inline registration; override in inline variants
+        // by-id references contribute no inline registration; overridden in the inline variants
     }
 
     /**
      * Builds the "unknown id" diagnostic for a failing resolution, enriching it with
-     * sibling-scope information when an inline registration of the same id exists in another
-     * composite under the SM. Shared by both {@link StepRef} and {@link OperationRef}; the
-     * {@code kind} argument carries the human-readable component kind (e.g. {@code "step"} or
-     * {@code "operation"}) for substitution into the message.
+     * sibling-scope information when an inline declaration of the same id exists in another
+     * composite under the SM.
      */
     static String unknownIdMessage(String id, StateMachineImpl<?> stateMachine,
-                                   String enclosingCompositeId, String kind) {
+                                   String enclosingCompositeId) {
         String base = "CompositeOperationDef '" + enclosingCompositeId
-            + "' references unknown " + kind + " id '" + id + "' in its scope";
+            + "' references unknown action id '" + id + "' in its scope";
         return stateMachine.findInlineSiblingScope(id, enclosingCompositeId)
-            .map(siblingId -> base + ". An inline " + kind + " with this id is registered in sibling composite '"
+            .map(siblingId -> base + ". An inline action with this id is registered in sibling composite '"
                 + siblingId + "' — inline registrations are only visible inside their own composite's subtree."
                 + " Move to SM root if shared use is intended.")
             .orElse(base);
@@ -119,141 +133,62 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
         return new ById<>(id, mapperRef);
     }
 
-    static <T, C> ActionRef<T, C> inline(String id, Step<T, C> step) {
-        return new InlineInstance<>(id, step);
+    static <T, C> ActionRef<T, C> inline(String id, Action<T, C> action, ActionKind kind) {
+        return new InlineInstance<>(id, action, kind);
     }
 
-    static <T, C> ActionRef<T, C> inline(String id, Class<? extends Step<T, C>> stepClass) {
-        return new InlineClass<>(id, stepClass);
+    static <T, C> ActionRef<T, C> inline(String id, Class<? extends Action<T, C>> actionClass,
+                                         ActionKind kind) {
+        return new InlineClass<>(id, actionClass, kind);
     }
 
     static <T, C> ActionRef<T, C> conditional(String id, ConditionalStepDefImpl<T, C> def) {
         return new Conditional<>(id, def);
     }
 
-    static <T, C> ActionRef<T, C> operationById(String id) {
-        return new OperationById<>(id, MapperRef.passThrough());
-    }
-
-    static <T, C> ActionRef<T, C> operationById(String id, MapperRef mapperRef) {
-        return new OperationById<>(id, mapperRef);
-    }
-
-    static <T, C> ActionRef<T, C> operationInline(String id, Operation<T, C> operation) {
-        return new OperationInlineInstance<>(id, operation);
-    }
-
-    static <T, C> ActionRef<T, C> operationInline(String id, Class<? extends Operation<T, C>> operationClass) {
-        return new OperationInlineClass<>(id, operationClass);
-    }
-
-    /**
-     * Marker sub-interface for refs that resolve to a {@link Component.Step} entry in the
-     * composite's lexical scope.
-     *
-     * @param <T> the entity type the surrounding state machine manages
-     * @param <C> the host-supplied context type carried through transition execution
-     */
-    @SuppressWarnings("ClassEscapesDefinedScope")
-    sealed interface StepRef<T, C> extends ActionRef<T, C>
-        permits ActionRef.ById, ActionRef.InlineInstance, ActionRef.InlineClass, ActionRef.Conditional {
-
-        @Override
-        @SuppressWarnings({"unchecked"})
-        default BoundAction<T, C> resolve(StateMachineImpl<T> stateMachine, Registry<T> scopeRegistry,
-                                          String enclosingCompositeId) {
-            Optional<Component<T>> resolved = scopeRegistry.resolve(id());
-            if (resolved.isEmpty()) {
-                throw new TransfluxValidationException(
-                    unknownIdMessage(id(), stateMachine, enclosingCompositeId, "step"));
-            }
-
-            Component<T> component = resolved.get();
-            if (!(component instanceof Component.Step<T, ?> step)) {
-                throw new TransfluxValidationException(
-                    "CompositeOperationDef '" + enclosingCompositeId
-                        + "' references id '" + id() + "' which is registered as a "
-                        + component.getClass().getSimpleName().toLowerCase()
-                        + ", not a step");
-            }
-
-            return (BoundAction<T, C>) step.bound();
-        }
-    }
-
-    /**
-     * Marker sub-interface for refs that resolve to a {@link Component.Operation} entry in the
-     * composite's lexical scope.
-     *
-     * @param <T> the entity type the surrounding state machine manages
-     * @param <C> the host-supplied context type carried through transition execution
-     */
-    @SuppressWarnings("ClassEscapesDefinedScope")
-    sealed interface OperationRef<T, C> extends ActionRef<T, C>
-        permits ActionRef.OperationById,
-                ActionRef.OperationInlineInstance,
-                ActionRef.OperationInlineClass {
-
-        @Override
-        @SuppressWarnings({"unchecked"})
-        default BoundAction<T, C> resolve(StateMachineImpl<T> stateMachine, Registry<T> scopeRegistry,
-                                          String enclosingCompositeId) {
-            Optional<Component<T>> resolved = scopeRegistry.resolve(id());
-            if (resolved.isEmpty()) {
-                throw new TransfluxValidationException(
-                    unknownIdMessage(id(), stateMachine, enclosingCompositeId, "operation"));
-            }
-
-            Component<T> component = resolved.get();
-            if (!(component instanceof Component.Operation<T, ?> op)) {
-                throw new TransfluxValidationException(
-                    "CompositeOperationDef '" + enclosingCompositeId
-                        + "' references id '" + id() + "' which is registered as a "
-                        + component.getClass().getSimpleName().toLowerCase()
-                        + ", not an operation");
-            }
-
-            return (BoundAction<T, C>) op.bound();
-        }
-    }
-
-    record ById<T, C>(String id, MapperRef mapperRef) implements StepRef<T, C> {
+    record ById<T, C>(String id, MapperRef mapperRef) implements ActionRef<T, C> {
         public ById {
-            requireNotBlank(id, "Step reference ID");
+            requireNotBlank(id, "Action reference ID");
             requireNotNull(mapperRef, "Mapper reference");
         }
     }
 
     @SuppressWarnings("ClassEscapesDefinedScope")
-    record InlineInstance<T, C>(String id, Step<T, C> step) implements StepRef<T, C> {
+    record InlineInstance<T, C>(String id, Action<T, C> action, ActionKind kind)
+        implements ActionRef<T, C> {
+
         public InlineInstance {
-            requireNotBlank(id, "Step reference ID");
-            requireNotNull(step, "Inline step instance");
+            requireNotBlank(id, "Action reference ID");
+            requireNotNull(action, "Inline action instance");
+            requireNotNull(kind, "Inline action kind");
         }
 
         @Override
         public void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
-            sink.registerInlineStep(id, step);
+            sink.registerInlineAction(id, action, kind);
         }
     }
 
     @SuppressWarnings("ClassEscapesDefinedScope")
-    record InlineClass<T, C>(String id, Class<? extends Step<T, C>> stepClass) implements StepRef<T, C> {
+    record InlineClass<T, C>(String id, Class<? extends Action<T, C>> actionClass, ActionKind kind)
+        implements ActionRef<T, C> {
+
         public InlineClass {
-            requireNotBlank(id, "Step reference ID");
-            requireNotNull(stepClass, "Inline step class");
+            requireNotBlank(id, "Action reference ID");
+            requireNotNull(actionClass, "Inline action class");
+            requireNotNull(kind, "Inline action kind");
         }
 
         @Override
         public void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
-            sink.registerInlineStepClass(id, stepClass);
+            sink.registerInlineActionClass(id, actionClass, kind);
         }
     }
 
     @SuppressWarnings("ClassEscapesDefinedScope")
-    record Conditional<T, C>(String id, ConditionalStepDefImpl<T, C> def) implements StepRef<T, C> {
+    record Conditional<T, C>(String id, ConditionalStepDefImpl<T, C> def) implements ActionRef<T, C> {
         public Conditional {
-            requireNotBlank(id, "Step reference ID");
+            requireNotBlank(id, "Action reference ID");
             requireNotNull(def, "Conditional step def");
         }
 
@@ -261,39 +196,6 @@ sealed interface ActionRef<T, C> permits ActionRef.StepRef, ActionRef.OperationR
         public void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
             def.collectInlineRegistrations(sink);
             sink.registerConditional(id, def);
-        }
-    }
-
-    record OperationById<T, C>(String id, MapperRef mapperRef) implements OperationRef<T, C> {
-        public OperationById {
-            requireNotBlank(id, "Operation reference ID");
-            requireNotNull(mapperRef, "Mapper reference");
-        }
-    }
-
-    @SuppressWarnings("ClassEscapesDefinedScope")
-    record OperationInlineInstance<T, C>(String id, Operation<T, C> operation) implements OperationRef<T, C> {
-        public OperationInlineInstance {
-            requireNotBlank(id, "Operation reference ID");
-            requireNotNull(operation, "Inline operation instance");
-        }
-
-        @Override
-        public void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
-            sink.registerInlineOperation(id, operation);
-        }
-    }
-
-    @SuppressWarnings("ClassEscapesDefinedScope")
-    record OperationInlineClass<T, C>(String id, Class<? extends Operation<T, C>> operationClass) implements OperationRef<T, C> {
-        public OperationInlineClass {
-            requireNotBlank(id, "Operation reference ID");
-            requireNotNull(operationClass, "Inline operation class");
-        }
-
-        @Override
-        public void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
-            sink.registerInlineOperationClass(id, operationClass);
         }
     }
 }

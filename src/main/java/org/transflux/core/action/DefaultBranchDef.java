@@ -58,7 +58,7 @@ public interface DefaultBranchDef<T, C> {
     DefaultBranchDef<T, C> step(Identifiable registeredStep);
 
     /**
-     * Appends an inline {@link Step} instance under the supplied id. The step is
+     * Appends an inline {@link Action} instance under the supplied id. The step is
      * auto-registered on the enclosing state machine at build time.
      *
      * @param id the step id
@@ -69,10 +69,10 @@ public interface DefaultBranchDef<T, C> {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code step} is {@code null}
      */
-    DefaultBranchDef<T, C> step(String id, Step<T, C> step);
+    DefaultBranchDef<T, C> step(String id, Action<T, C> step);
 
     /**
-     * {@link Identifiable} overload of {@link #step(String, Step)} — delegates via
+     * {@link Identifiable} overload of {@link #step(String, Action)} — delegates via
      * {@link Identifiable#getId()}.
      *
      * @param stepIdentifiable an identifiable supplying the step id
@@ -83,10 +83,10 @@ public interface DefaultBranchDef<T, C> {
      * @throws TransfluxValidationException if {@code stepIdentifiable} or {@code step} is
      *         {@code null}
      */
-    DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Step<T, C> step);
+    DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Action<T, C> step);
 
     /**
-     * Appends an inline {@link Step} class under the supplied id. The framework reflectively
+     * Appends an inline {@link Action} class under the supplied id. The framework reflectively
      * instantiates the class through its public no-arg constructor at state-machine build
      * time and auto-registers it.
      *
@@ -98,7 +98,7 @@ public interface DefaultBranchDef<T, C> {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code stepClass} is {@code null}
      */
-    DefaultBranchDef<T, C> step(String id, Class<? extends Step<T, C>> stepClass);
+    DefaultBranchDef<T, C> step(String id, Class<? extends Action<T, C>> stepClass);
 
     /**
      * {@link Identifiable} overload of {@link #step(String, Class)} — delegates via
@@ -112,5 +112,5 @@ public interface DefaultBranchDef<T, C> {
      * @throws TransfluxValidationException if {@code stepIdentifiable} or {@code stepClass} is
      *         {@code null}
      */
-    DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Class<? extends Step<T, C>> stepClass);
+    DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Class<? extends Action<T, C>> stepClass);
 }

@@ -22,9 +22,8 @@ import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.CompositeOperationDef;
-import org.transflux.core.action.Operation;
+import org.transflux.core.action.Action;
 import org.transflux.core.action.SimpleOperationDef;
-import org.transflux.core.action.Step;
 import org.transflux.core.trigger.DataTriggerDef;
 import org.transflux.core.trigger.EventTriggerDef;
 import org.transflux.core.trigger.ManualTriggerDef;
@@ -44,8 +43,8 @@ import java.util.function.Predicate;
  * registered through the fluent API and should not be instantiated directly by client code.
  *
  * <p><b>Attaching operations.</b> A transition carries at most one operation. The operation
- * is either <i>simple</i> (a single {@link Operation} executing all the business logic on its
- * own) or <i>composite</i> (an ordered list of reusable {@link Step}s). The fluent API exposes
+ * is either <i>simple</i> (a single {@link Action} executing all the business logic on its
+ * own) or <i>composite</i> (an ordered list of reusable {@link Action}s). The fluent API exposes
  * both kinds symmetrically:
  *
  * <pre>{@code
@@ -165,7 +164,7 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> withDescription(String description);
 
     /**
-     * Attaches a simple operation using a pre-constructed {@link Operation} instance.
+     * Attaches a simple operation using a pre-constructed {@link Action} instance.
      *
      * @param id the operation id; never {@code null} or blank
      * @param operation the operation instance; never {@code null}
@@ -175,20 +174,20 @@ public interface TransitionDef<T, C> extends Identifiable {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code operation} is {@code null}
      */
-    TransitionDef<T, C> simpleOperation(String id, Operation<T, C> operation);
+    TransitionDef<T, C> simpleOperation(String id, Action<T, C> operation);
 
     /**
-     * {@link Identifiable} overload of {@link #simpleOperation(String, Operation)}.
+     * {@link Identifiable} overload of {@link #simpleOperation(String, Action)}.
      *
      * @param operationIdentifiable an identifiable supplying the operation id
      * @param operation the operation instance
      *
      * @return this transition def for chaining
      */
-    TransitionDef<T, C> simpleOperation(Identifiable operationIdentifiable, Operation<T, C> operation);
+    TransitionDef<T, C> simpleOperation(Identifiable operationIdentifiable, Action<T, C> operation);
 
     /**
-     * Attaches a simple operation using an {@link Operation} class. The framework instantiates
+     * Attaches a simple operation using an {@link Action} class. The framework instantiates
      * it via its public no-arg constructor at state machine build time.
      *
      * @param id the operation id; never {@code null} or blank
@@ -199,7 +198,7 @@ public interface TransitionDef<T, C> extends Identifiable {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code operationClass} is {@code null}
      */
-    TransitionDef<T, C> simpleOperation(String id, Class<? extends Operation<T, C>> operationClass);
+    TransitionDef<T, C> simpleOperation(String id, Class<? extends Action<T, C>> operationClass);
 
     /**
      * {@link Identifiable} overload of {@link #simpleOperation(String, Class)}.
@@ -209,7 +208,7 @@ public interface TransitionDef<T, C> extends Identifiable {
      *
      * @return this transition def for chaining
      */
-    TransitionDef<T, C> simpleOperation(Identifiable operationIdentifiable, Class<? extends Operation<T, C>> operationClass);
+    TransitionDef<T, C> simpleOperation(Identifiable operationIdentifiable, Class<? extends Action<T, C>> operationClass);
 
     /**
      * Attaches a simple operation built through a fluent configurer. Use this form when you
@@ -272,7 +271,7 @@ public interface TransitionDef<T, C> extends Identifiable {
 
     /**
      * Attaches an operation already registered on the enclosing state machine through
-     * {@link org.transflux.core.StateMachineDef#operation(String, Class, Operation) StateMachineDef.operation(...)}
+     * {@link org.transflux.core.StateMachineDef#operation(String, Class, Action) StateMachineDef.operation(...)}
      * (or its class / configurer / composite variants). The registered operation's id appears
      * verbatim in {@link TransitionResult#getExecutedPath()} when the transition fires; no
      * wrapper composite is synthesized.

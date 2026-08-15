@@ -22,8 +22,7 @@ import org.transflux.core.ContextScope;
 import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.action.CompositeOperationDef;
-import org.transflux.core.action.Operation;
-import org.transflux.core.action.Step;
+import org.transflux.core.action.Action;
 
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
@@ -56,7 +55,7 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
     }
 
     @Override
-    public ContextScope<T, C> step(String id, Step<T, C> step) {
+    public ContextScope<T, C> step(String id, Action<T, C> step) {
         requireConfigurerActive("step");
         requireNotBlank(id, "Step ID");
         requireNotNull(step, "Step");
@@ -65,7 +64,7 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
     }
 
     @Override
-    public ContextScope<T, C> step(String id, Class<? extends Step<T, C>> stepClass) {
+    public ContextScope<T, C> step(String id, Class<? extends Action<T, C>> stepClass) {
         requireConfigurerActive("step");
         requireNotBlank(id, "Step ID");
         requireNotNull(stepClass, "Step class");
@@ -129,7 +128,7 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
     }
 
     @Override
-    public ContextScope<T, C> operation(String id, Operation<T, C> operation) {
+    public ContextScope<T, C> operation(String id, Action<T, C> operation) {
         requireConfigurerActive("operation");
         requireNotBlank(id, "Operation ID");
         requireNotNull(operation, "Operation");
@@ -138,7 +137,7 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
     }
 
     @Override
-    public ContextScope<T, C> operation(String id, Class<? extends Operation<T, C>> operationClass) {
+    public ContextScope<T, C> operation(String id, Class<? extends Action<T, C>> operationClass) {
         requireConfigurerActive("operation");
         requireNotBlank(id, "Operation ID");
         requireNotNull(operationClass, "Operation class");
@@ -147,13 +146,13 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
     }
 
     @Override
-    public ContextScope<T, C> step(Identifiable stepIdentifiable, Step<T, C> step) {
+    public ContextScope<T, C> step(Identifiable stepIdentifiable, Action<T, C> step) {
         requireNotNull(stepIdentifiable, "Step identifiable");
         return step(stepIdentifiable.getId(), step);
     }
 
     @Override
-    public ContextScope<T, C> step(Identifiable stepIdentifiable, Class<? extends Step<T, C>> stepClass) {
+    public ContextScope<T, C> step(Identifiable stepIdentifiable, Class<? extends Action<T, C>> stepClass) {
         requireNotNull(stepIdentifiable, "Step identifiable");
         return step(stepIdentifiable.getId(), stepClass);
     }
@@ -195,13 +194,13 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
     }
 
     @Override
-    public ContextScope<T, C> operation(Identifiable operationIdentifiable, Operation<T, C> operation) {
+    public ContextScope<T, C> operation(Identifiable operationIdentifiable, Action<T, C> operation) {
         requireNotNull(operationIdentifiable, "Operation identifiable");
         return operation(operationIdentifiable.getId(), operation);
     }
 
     @Override
-    public ContextScope<T, C> operation(Identifiable operationIdentifiable, Class<? extends Operation<T, C>> operationClass) {
+    public ContextScope<T, C> operation(Identifiable operationIdentifiable, Class<? extends Action<T, C>> operationClass) {
         requireNotNull(operationIdentifiable, "Operation identifiable");
         return operation(operationIdentifiable.getId(), operationClass);
     }

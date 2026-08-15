@@ -21,7 +21,7 @@ package org.transflux.core.impl
 import org.transflux.core.TestContext
 import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.action.Step
+import org.transflux.core.action.Action
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
@@ -36,19 +36,19 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         String state
     }
 
-    static class StepA implements Step<TestEntity, TestContext> {
+    static class StepA implements Action<TestEntity, TestContext> {
         @Override
         void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
         }
     }
 
-    static class StepB implements Step<TestEntity, TestContext> {
+    static class StepB implements Action<TestEntity, TestContext> {
         @Override
         void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
         }
     }
 
-    static class CtorlessStep implements Step<TestEntity, TestContext> {
+    static class CtorlessStep implements Action<TestEntity, TestContext> {
         CtorlessStep(String unused) {
         }
 
@@ -78,7 +78,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
 
         when:
-        smd.step('a', (Step<TestEntity, TestContext>) null)
+        smd.step('a', (Action<TestEntity, TestContext>) null)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -90,7 +90,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
 
         when:
-        smd.step('a', (Class<? extends Step<TestEntity, TestContext>>) null)
+        smd.step('a', (Class<? extends Action<TestEntity, TestContext>>) null)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -119,11 +119,11 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
             .step('shared', instance)
 
         when:
-        def map = ((StateMachineDefImpl) smd).buildBoundSteps()
+        def map = ((StateMachineDefImpl) smd).buildBoundActions()
 
         then:
         map.keySet() == ['shared'] as Set
-        map['shared'].step.is(instance)
+        map['shared'].action.is(instance)
     }
 
     def "registering same class twice under same id should be a no-op"() {
@@ -133,11 +133,11 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
             .step('shared', StepA)
 
         when:
-        def map = ((StateMachineDefImpl) smd).buildBoundSteps()
+        def map = ((StateMachineDefImpl) smd).buildBoundActions()
 
         then:
         map.keySet() == ['shared'] as Set
-        map['shared'].step instanceof StepA
+        map['shared'].action instanceof StepA
     }
 
     def "registering a different class under same id should fail"() {
@@ -179,8 +179,8 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def sm = (StateMachineImpl) smd.build()
 
         then:
-        sm.getBoundStep('a') != null
-        sm.getBoundStep('a').step instanceof StepA
+        sm.getBoundAction('a') != null
+        sm.getBoundAction('a').action instanceof StepA
     }
 
     def "class-form registration with no no-arg constructor should fail at SM build time"() {
@@ -216,7 +216,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
 
         then:
         // Inline composite members live in the composite's scope, not the SM root.
-        sm.getBoundStep('inline-a') == null
+        sm.getBoundAction('inline-a') == null
     }
 
     def "explicit registration and matching inline instance under same id should coexist (idempotent)"() {
@@ -237,7 +237,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         then:
         // SM-level registration survives; inline registration of the same instance is treated
         // as an idempotent no-op and does not collide.
-        sm.getBoundStep('shared').step.is(stepInstance)
+        sm.getBoundAction('shared').action.is(stepInstance)
     }
 
     def "two composites inlining different instances under the same id should fail"() {
@@ -288,7 +288,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         // Same class across two composites is idempotent; the build succeeds.
         // The id is composite-local — it lives in each composite's scope, not the SM root.
         sm != null
-        sm.getBoundStep('shared-class') == null
+        sm.getBoundAction('shared-class') == null
     }
 
     def "by-id reference cannot resolve an inline registration declared in a sibling composite"() {
@@ -312,14 +312,14 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains("'via-inline'")
-        e.message.contains('unknown step id')
+        e.message.contains('unknown action id')
         // Sibling-scope diagnostic: message names the sibling composite hosting the inline registration.
         e.message.contains("sibling composite 'op-provider'")
         e.message.contains('inline registrations are only visible inside')
         e.message.contains('Move to SM root')
     }
 
-    def "unknown step id error stays simple when no sibling composite hosts the id"() {
+    def "unknown action id error stays simple when no sibling composite hosts the id"() {
         given:
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
@@ -336,12 +336,12 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains("'truly-missing'")
-        e.message.contains('unknown step id')
+        e.message.contains('unknown action id')
         e.message.contains("'op-consumer'")
         !e.message.contains('sibling composite')
     }
 
-    def "getBoundStep should return null for unknown id"() {
+    def "getBoundAction should return null for unknown id"() {
         given:
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
@@ -352,7 +352,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def sm = (StateMachineImpl) smd.build()
 
         then:
-        sm.getBoundStep('nothing') == null
+        sm.getBoundAction('nothing') == null
     }
 
     def "step(id, Class, Consumer) captures metadata on the def and resolves to a bound step (instance form)"() {
@@ -363,10 +363,10 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         smd.step('a', TestContext, { d -> captured = d; d.withName('N').withDescription('D').using(step) })
 
         when:
-        def map = ((StateMachineDefImpl) smd).buildBoundSteps()
+        def map = ((StateMachineDefImpl) smd).buildBoundActions()
 
         then: 'the bound step resolves to the supplied instance'
-        map['a'].step.is(step)
+        map['a'].action.is(step)
 
         and: 'metadata + context type live on the def'
         captured.getId() == 'a'
@@ -381,10 +381,10 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         smd.step('a', TestContext, { d -> d.using(StepA) })
 
         when:
-        def map = ((StateMachineDefImpl) smd).buildBoundSteps()
+        def map = ((StateMachineDefImpl) smd).buildBoundActions()
 
         then:
-        map['a'].step instanceof StepA
+        map['a'].action instanceof StepA
     }
 
     def "step(id, Class, Consumer) and the flat step(id, Class, Step) register identically"() {
@@ -396,8 +396,8 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         viaFlat.step('a', TestContext, instance)
 
         expect:
-        ((StateMachineDefImpl) viaLambda).buildBoundSteps()['a'].step.is(instance)
-        ((StateMachineDefImpl) viaFlat).buildBoundSteps()['a'].step.is(instance)
+        ((StateMachineDefImpl) viaLambda).buildBoundActions()['a'].action.is(instance)
+        ((StateMachineDefImpl) viaFlat).buildBoundActions()['a'].action.is(instance)
     }
 
     def "step(id, Class, Consumer) rejects post-configurer mutation of the captured def"() {

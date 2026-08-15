@@ -18,20 +18,52 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.action.Action;
+import org.transflux.core.action.ActionKind;
+
+import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
+
 /**
- * Sealed marker type implemented by both {@link BoundStep} and {@link BoundOperation},
- * letting a composite operation executor iterate a single ordered list of heterogeneous
- * actions and dispatch each one against its bound runtime.
+ * Runtime binder that pairs a pure {@link Action} with framework-owned identity and the form it
+ * was authored in.
  *
+ * @param id the framework-owned action id; never {@code null} or blank
+ * @param action the bound {@link Action} executable; never {@code null}
+ * @param kind the authoring form, carried for diagnostics only; never {@code null}
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-sealed interface BoundAction<T, C> permits BoundStep, BoundOperation {
+record BoundAction<T, C>(String id, Action<T, C> action, ActionKind kind) {
+
+    BoundAction {
+        requireNotBlank(id, "Bound action ID");
+        requireNotNull(action, "Bound action");
+        requireNotNull(kind, "Bound action kind");
+    }
 
     /**
-     * Returns the framework-owned id of this action.
+     * Convenience factory equivalent to the canonical constructor.
      *
-     * @return the action id; never {@code null} or blank
+     * @param id the action id
+     * @param action the action executable
+     * @param kind the authoring form
+     * @param <T> the entity type
+     * @param <C> the context type
+     *
+     * @return a fresh bound action
      */
-    String id();
+    static <T, C> BoundAction<T, C> of(String id, Action<T, C> action, ActionKind kind) {
+        return new BoundAction<>(id, action, kind);
+    }
+
+    /**
+     * Returns the authored form as a lower-case noun for use in diagnostics ({@code "step"} or
+     * {@code "operation"}).
+     *
+     * @return the kind label; never {@code null}
+     */
+    String kindLabel() {
+        return kind.name().toLowerCase();
+    }
 }

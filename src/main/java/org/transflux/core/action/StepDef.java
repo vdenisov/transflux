@@ -22,15 +22,15 @@ import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 
 /**
- * Def-side anchor that pairs a single {@link Step} class or instance with a framework-owned id,
+ * Def-side anchor that pairs a single {@link Action} class or instance with a framework-owned id,
  * its declared context type, and optional metadata.
  * <p>
- * Pure {@link Step} executables carry no identity; identity, context type, and metadata live on
+ * Pure {@link Action} executables carry no identity; identity, context type, and metadata live on
  * the def. The user supplies either an already-constructed {@code Step} instance or a class with
  * a public no-arg constructor; at build time the framework pairs the step with this def's id so
  * the runtime can track which step ran without {@code Step} itself having to carry identity.
  *
- * <p>The {@code id} and {@code contextType} are mandatory. Exactly one of {@link #using(Step)}
+ * <p>The {@code id} and {@code contextType} are mandatory. Exactly one of {@link #using(Action)}
  * or {@link #using(Class)} must be called before the enclosing state machine is built; calling
  * {@code using(...)} a second time overrides the prior choice.
  *
@@ -79,7 +79,7 @@ public interface StepDef<T, C> extends Identifiable {
      *
      * @throws TransfluxValidationException if {@code step} is {@code null}
      */
-    StepDef<T, C> using(Step<T, C> step);
+    StepDef<T, C> using(Action<T, C> step);
 
     /**
      * Wires this def to a {@code Step} class. The framework instantiates it via its public
@@ -91,7 +91,7 @@ public interface StepDef<T, C> extends Identifiable {
      *
      * @throws TransfluxValidationException if {@code stepClass} is {@code null}
      */
-    StepDef<T, C> using(Class<? extends Step<T, C>> stepClass);
+    StepDef<T, C> using(Class<? extends Action<T, C>> stepClass);
 
     /**
      * Sets the human-readable name of this step.

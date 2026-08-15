@@ -32,7 +32,7 @@ import org.transflux.core.exception.TransfluxValidationException;
  * <pre>{@code
  * import static org.transflux.core.Preconditions.*;
  *
- * void registerStep(String id, Step<T, C> step) {
+ * void registerStep(String id, Action<T, C> step) {
  *     requireNotBlank(id, "Step ID");
  *     requireNotNull(step, "Step");
  *     // ...

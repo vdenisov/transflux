@@ -25,7 +25,7 @@ import org.transflux.core.TestContext
 import org.transflux.core.condition.Condition
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.ContextMapper
-import org.transflux.core.action.Step
+import org.transflux.core.action.Action
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
@@ -100,7 +100,7 @@ class TopologyTransitionSpec extends Specification {
         def stepRuns = []
         def entity = new Entity('s1')
         def sm = build({ d -> d
-            .step('audit', { e, c, tr -> stepRuns << 'ran' } as Step)
+            .step('audit', { e, c, tr -> stepRuns << 'ran' } as Action)
             .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addDataTrigger('gated', { dt -> dt
                 .condition('probes', { e, c, tr -> tr.step('audit'); true } as Condition) }) }) })
             .state('s2', {}) })

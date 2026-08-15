@@ -21,7 +21,7 @@ package org.transflux.core.impl
 import org.transflux.core.TestContext
 import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.action.Step
+import org.transflux.core.action.Action
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
@@ -36,7 +36,7 @@ class TransitionViewSpec extends Specification {
         List<String> trail = []
     }
 
-    static class TaggingStep implements Step<TestEntity, TestContext> {
+    static class TaggingStep implements Action<TestEntity, TestContext> {
         final String tag
 
         TaggingStep(String tag) {
@@ -94,7 +94,7 @@ class TransitionViewSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains("'nope'")
-        e.message.contains('No step registered')
+        e.message.contains('No action registered')
     }
 
     def "view.step(id) should reject null or blank id"() {

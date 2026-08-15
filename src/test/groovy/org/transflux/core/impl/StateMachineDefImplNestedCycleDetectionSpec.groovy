@@ -21,7 +21,7 @@ package org.transflux.core.impl
 import org.transflux.core.ContextScope
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.CompositeOperationDef
-import org.transflux.core.action.Step
+import org.transflux.core.action.Action
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
@@ -38,7 +38,7 @@ class StateMachineDefImplNestedCycleDetectionSpec extends Specification {
 
     static class Ctx { }
 
-    static class NoopStep implements Step<Entity, Ctx> {
+    static class NoopStep implements Action<Entity, Ctx> {
         @Override
         void execute(Entity entity, Ctx context, Transition<Entity, Ctx> transition) { }
     }

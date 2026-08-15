@@ -23,10 +23,13 @@ import org.transflux.core.exception.TransfluxValidationException;
 /**
  * Unified runtime view of a reusable, id-keyed building block that lives in a {@link Registry}.
  * <p>
- * The three permitted variants each wrap one of the framework's bound payloads —
- * {@link BoundStep}, {@link BoundOperation}, or {@link BoundCondition} — and pair it with
- * the framework-owned id and the declared context type the component runs against. Descriptive
- * metadata ({@code name} / {@code description}) lives on the def side, not here.
+ * The two permitted variants each wrap one of the framework's bound payloads -
+ * {@link BoundAction} or {@link BoundCondition} - and pair it with the framework-owned id and
+ * the declared context type the component runs against. Descriptive metadata ({@code name} /
+ * {@code description}) lives on the def side, not here.
+ *
+ * <p>Actions are one variant regardless of the form they were authored in; the form travels on
+ * the bound payload as an {@code ActionKind} rather than splitting the registry.
  *
  * <p>The {@link #validate()} hook is called once per component after the state machine's registry
  * chain has been built and flattened, so a component's rules may depend on the rest of the
@@ -36,7 +39,7 @@ import org.transflux.core.exception.TransfluxValidationException;
  *
  * @param <T> the entity type the surrounding state machine manages
  */
-sealed interface Component<T> permits Component.Step, Component.Operation, Component.Condition {
+sealed interface Component<T> permits Component.Action, Component.Condition {
 
     /**
      * Returns the framework-owned id of this component.
@@ -63,27 +66,17 @@ sealed interface Component<T> permits Component.Step, Component.Operation, Compo
     }
 
     /**
-     * Step variant — wraps a {@link BoundStep} payload.
+     * Action variant - wraps a {@link BoundAction} payload, whatever form it was authored in.
      */
-    record Step<T, C>(String id, Class<C> contextType, BoundStep<T, C> bound) implements Component<T> {
+    record Action<T, C>(String id, Class<C> contextType, BoundAction<T, C> bound) implements Component<T> {
         @Override
         public void validate() {
-            requireIdMatchesPayload(id, bound == null ? null : bound.id(), "step");
+            requireIdMatchesPayload(id, bound == null ? null : bound.id(), "action");
         }
     }
 
     /**
-     * Operation variant — wraps a {@link BoundOperation} payload.
-     */
-    record Operation<T, C>(String id, Class<C> contextType, BoundOperation<T, C> bound) implements Component<T> {
-        @Override
-        public void validate() {
-            requireIdMatchesPayload(id, bound == null ? null : bound.id(), "operation");
-        }
-    }
-
-    /**
-     * Condition variant — wraps a {@link BoundCondition} payload.
+     * Condition variant - wraps a {@link BoundCondition} payload.
      */
     record Condition<T, C>(String id, Class<C> contextType, BoundCondition<T, C> bound) implements Component<T> {
         @Override

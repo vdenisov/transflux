@@ -19,20 +19,20 @@
 package org.transflux.core.impl
 
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.action.Step
+import org.transflux.core.action.Action
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
 import spock.lang.Unroll
 
 class StepDefImplSpec extends Specification {
 
-    static class NoopStep implements Step<Object, Object> {
+    static class NoopStep implements Action<Object, Object> {
         @Override
         void execute(Object entity, Object context, Transition<Object, Object> transition) {
         }
     }
 
-    static class CtorlessStep implements Step<Object, Object> {
+    static class CtorlessStep implements Action<Object, Object> {
         CtorlessStep(String arg) {
         }
 
@@ -84,7 +84,7 @@ class StepDefImplSpec extends Specification {
         def_.getDescription() == 'does stuff'
     }
 
-    def 'using(instance) resolves to a BoundStep pointing at the instance'() {
+    def 'using(instance) resolves to a BoundAction pointing at the instance'() {
         given:
         def step = new NoopStep()
         def def_ = new StepDefImpl<Object, Object>('s1', Object)
@@ -92,11 +92,11 @@ class StepDefImplSpec extends Specification {
         def_.using(step)
 
         when:
-        def bound = def_.buildBoundStep()
+        def bound = def_.buildBoundAction()
 
         then:
         bound.id() == 's1'
-        bound.step().is(step)
+        bound.action().is(step)
     }
 
     def 'using(class) resolves via the no-arg constructor'() {
@@ -106,7 +106,7 @@ class StepDefImplSpec extends Specification {
         def_.using(NoopStep)
 
         expect:
-        def_.buildBoundStep().step() instanceof NoopStep
+        def_.buildBoundAction().action() instanceof NoopStep
     }
 
     def 'using(...) twice is last-write-wins'() {
@@ -118,30 +118,30 @@ class StepDefImplSpec extends Specification {
         def_.using(first).using(second)
 
         expect:
-        def_.buildBoundStep().step().is(second)
+        def_.buildBoundAction().action().is(second)
     }
 
-    def 'buildBoundStep without using(...) fails with a clear message'() {
+    def 'buildBoundAction without using(...) fails with a clear message'() {
         given:
         def def_ = new StepDefImpl<Object, Object>('s1', Object)
         def_.beginConfigurer()
 
         when:
-        def_.buildBoundStep()
+        def_.buildBoundAction()
 
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains("StepDef 's1'")
     }
 
-    def 'buildBoundStep with a class lacking a no-arg constructor fails fast'() {
+    def 'buildBoundAction with a class lacking a no-arg constructor fails fast'() {
         given:
         def def_ = new StepDefImpl<Object, Object>('s1', Object)
         def_.beginConfigurer()
         def_.using(CtorlessStep)
 
         when:
-        def_.buildBoundStep()
+        def_.buildBoundAction()
 
         then:
         def e = thrown(TransfluxValidationException)

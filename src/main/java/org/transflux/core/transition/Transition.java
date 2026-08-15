@@ -55,7 +55,7 @@ import java.util.function.Function;
  *
  * <p><b>Example usage from inside an operation:</b>
  * <pre>{@code
- * public class ActivateSubscription implements Operation<Subscription, ActivationContext> {
+ * public class ActivateSubscription implements Action<Subscription, ActivationContext> {
  *     @Override
  *     public void execute(Subscription entity, ActivationContext context,
  *                         Transition<Subscription, ActivationContext> transition) {

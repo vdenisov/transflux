@@ -24,7 +24,7 @@ import org.transflux.core.Identifiable;
  * Def-side anchor for an operation attached to a transition.
  * <p>
  * {@code OperationDef} carries the framework-owned identity and metadata that pure
- * {@link Operation} executables do not. Two concrete sub-types exist: {@link SimpleOperationDef}
+ * {@link Action} executables do not. Two concrete sub-types exist: {@link SimpleOperationDef}
  * (a single {@code Operation} class or instance) and {@link CompositeOperationDef}
  * (an ordered list of bound steps).
  *

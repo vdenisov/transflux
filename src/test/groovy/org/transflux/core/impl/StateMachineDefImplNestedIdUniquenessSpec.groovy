@@ -23,8 +23,7 @@ import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.BranchDef
 import org.transflux.core.action.CompositeOperationDef
 import org.transflux.core.action.ConditionalStepDef
-import org.transflux.core.action.Operation
-import org.transflux.core.action.Step
+import org.transflux.core.action.Action
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import org.transflux.core.transition.TransitionDef
@@ -42,13 +41,13 @@ class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
         }
     }
 
-    static class NoOpStep implements Step<Entity, TestContext> {
+    static class NoOpStep implements Action<Entity, TestContext> {
         @Override
         void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
         }
     }
 
-    static class NoOpOperation implements Operation<Entity, TestContext> {
+    static class NoOpOperation implements Action<Entity, TestContext> {
         @Override
         void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
         }

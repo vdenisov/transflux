@@ -49,7 +49,7 @@ sealed abstract class OperationDefImpl<T, C, SELF extends OperationDefImpl<T, C,
     }
 
     /**
-     * Resolves this operation into a runtime {@link BoundOperation}. The {@code stateMachine}
+     * Resolves this operation into a runtime {@link BoundAction}. The {@code stateMachine}
      * argument is consumed by the composite variant to resolve member references; the simple
      * variant ignores it.
      *
@@ -57,7 +57,7 @@ sealed abstract class OperationDefImpl<T, C, SELF extends OperationDefImpl<T, C,
      *
      * @return the bound operation
      */
-    abstract BoundOperation<T, C> buildBound(StateMachineImpl<T> stateMachine);
+    abstract BoundAction<T, C> buildBound(StateMachineImpl<T> stateMachine);
 
     /**
      * Build-time hook: validates this operation's member references (if any) against the

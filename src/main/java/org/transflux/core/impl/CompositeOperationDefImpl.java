@@ -18,13 +18,13 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.action.ActionKind;
 import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.CompositeOperationDef;
 import org.transflux.core.action.ConditionalStepDef;
 import org.transflux.core.action.ContextMapper;
-import org.transflux.core.action.Operation;
-import org.transflux.core.action.Step;
+import org.transflux.core.action.Action;
 import org.transflux.core.transition.Transition;
 
 import java.util.ArrayList;
@@ -139,27 +139,27 @@ final class CompositeOperationDefImpl<T, C>
     }
 
     @Override
-    public CompositeOperationDefImpl<T, C> step(String id, Step<T, C> step) {
+    public CompositeOperationDefImpl<T, C> step(String id, Action<T, C> step) {
         requireConfigurerActive("step");
-        actionRefs.add(ActionRef.inline(id, step));
+        actionRefs.add(ActionRef.inline(id, step, ActionKind.STEP));
         return this;
     }
 
     @Override
-    public CompositeOperationDefImpl<T, C> step(Identifiable stepIdentifiable, Step<T, C> step) {
+    public CompositeOperationDefImpl<T, C> step(Identifiable stepIdentifiable, Action<T, C> step) {
         requireNotNull(stepIdentifiable, "Step identifiable");
         return step(stepIdentifiable.getId(), step);
     }
 
     @Override
-    public CompositeOperationDefImpl<T, C> step(String id, Class<? extends Step<T, C>> stepClass) {
+    public CompositeOperationDefImpl<T, C> step(String id, Class<? extends Action<T, C>> stepClass) {
         requireConfigurerActive("step");
-        actionRefs.add(ActionRef.inline(id, stepClass));
+        actionRefs.add(ActionRef.inline(id, stepClass, ActionKind.STEP));
         return this;
     }
 
     @Override
-    public CompositeOperationDefImpl<T, C> step(Identifiable stepIdentifiable, Class<? extends Step<T, C>> stepClass) {
+    public CompositeOperationDefImpl<T, C> step(Identifiable stepIdentifiable, Class<? extends Action<T, C>> stepClass) {
         requireNotNull(stepIdentifiable, "Step identifiable");
         return step(stepIdentifiable.getId(), stepClass);
     }
@@ -186,7 +186,7 @@ final class CompositeOperationDefImpl<T, C>
     @Override
     public CompositeOperationDefImpl<T, C> operation(String registeredOperationId) {
         requireConfigurerActive("operation");
-        actionRefs.add(ActionRef.operationById(registeredOperationId));
+        actionRefs.add(ActionRef.byId(registeredOperationId));
         return this;
     }
 
@@ -195,7 +195,7 @@ final class CompositeOperationDefImpl<T, C>
         requireConfigurerActive("operation");
         requireNotBlank(registeredOperationId, "Operation reference ID");
         requireNotBlank(mapperId, "Mapper reference ID");
-        actionRefs.add(ActionRef.operationById(registeredOperationId, MapperRef.byId(mapperId)));
+        actionRefs.add(ActionRef.byId(registeredOperationId, MapperRef.byId(mapperId)));
         return this;
     }
 
@@ -204,7 +204,7 @@ final class CompositeOperationDefImpl<T, C>
         requireConfigurerActive("operation");
         requireNotBlank(registeredOperationId, "Operation reference ID");
         requireNotNull(inlineMapTo, "Inline mapper function");
-        actionRefs.add(ActionRef.operationById(registeredOperationId, MapperRef.inline(inlineMapTo)));
+        actionRefs.add(ActionRef.byId(registeredOperationId, MapperRef.inline(inlineMapTo)));
         return this;
     }
 
@@ -213,7 +213,7 @@ final class CompositeOperationDefImpl<T, C>
         requireConfigurerActive("operation");
         requireNotBlank(registeredOperationId, "Operation reference ID");
         requireNotNull(inlineMapper, "Inline mapper instance");
-        actionRefs.add(ActionRef.operationById(registeredOperationId, MapperRef.inline(inlineMapper)));
+        actionRefs.add(ActionRef.byId(registeredOperationId, MapperRef.inline(inlineMapper)));
         return this;
     }
 
@@ -243,27 +243,27 @@ final class CompositeOperationDefImpl<T, C>
     }
 
     @Override
-    public CompositeOperationDefImpl<T, C> operation(String id, Operation<T, C> operation) {
+    public CompositeOperationDefImpl<T, C> operation(String id, Action<T, C> operation) {
         requireConfigurerActive("operation");
-        actionRefs.add(ActionRef.operationInline(id, operation));
+        actionRefs.add(ActionRef.inline(id, operation, ActionKind.OPERATION));
         return this;
     }
 
     @Override
-    public CompositeOperationDefImpl<T, C> operation(Identifiable operationIdentifiable, Operation<T, C> operation) {
+    public CompositeOperationDefImpl<T, C> operation(Identifiable operationIdentifiable, Action<T, C> operation) {
         requireNotNull(operationIdentifiable, "Operation identifiable");
         return operation(operationIdentifiable.getId(), operation);
     }
 
     @Override
-    public CompositeOperationDefImpl<T, C> operation(String id, Class<? extends Operation<T, C>> operationClass) {
+    public CompositeOperationDefImpl<T, C> operation(String id, Class<? extends Action<T, C>> operationClass) {
         requireConfigurerActive("operation");
-        actionRefs.add(ActionRef.operationInline(id, operationClass));
+        actionRefs.add(ActionRef.inline(id, operationClass, ActionKind.OPERATION));
         return this;
     }
 
     @Override
-    public CompositeOperationDefImpl<T, C> operation(Identifiable operationIdentifiable, Class<? extends Operation<T, C>> operationClass) {
+    public CompositeOperationDefImpl<T, C> operation(Identifiable operationIdentifiable, Class<? extends Action<T, C>> operationClass) {
         requireNotNull(operationIdentifiable, "Operation identifiable");
         return operation(operationIdentifiable.getId(), operationClass);
     }
@@ -295,15 +295,17 @@ final class CompositeOperationDefImpl<T, C>
     }
 
     /**
-     * Returns the ids of every operation-by-id reference declared by this composite — used by
-     * the cycle-detection pass.
+     * Returns the ids of every by-id reference declared by this composite - the candidate edges
+     * for the cycle-detection pass. A reference to an imperative action cannot close a cycle
+     * (it binds no children at definition time), so the caller narrows this list to ids that
+     * name a declarative container before walking it.
      *
-     * @return the referenced operation ids in declaration order
+     * @return the referenced ids in declaration order
      */
-    List<String> getOperationByIdReferenceIds() {
+    List<String> getByIdReferenceIds() {
         List<String> ids = new ArrayList<>();
         for (ActionRef<T, C> ref : actionRefs) {
-            if (ref instanceof ActionRef.OperationById<T, C> r) {
+            if (ref instanceof ActionRef.ById<T, C> r) {
                 ids.add(r.id());
             }
         }
@@ -312,9 +314,8 @@ final class CompositeOperationDefImpl<T, C>
 
     /**
      * Walks this composite's action refs and forwards each to the supplied sink. By-id refs
-     * no-op; inline step / operation refs push themselves; conditional refs recurse into their
-     * branches and then register their own bound step. Drives the scope-binding pass in
-     * {@link #bindScope}.
+     * no-op; inline refs push themselves; conditional refs recurse into their branches and then
+     * register their own bound action. Drives the scope-binding pass in {@link #bindScope}.
      */
     void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
         for (ActionRef<T, C> ref : actionRefs) {
@@ -324,7 +325,7 @@ final class CompositeOperationDefImpl<T, C>
 
     /**
      * Resolves each member reference against the state machine's step, operation, and mapper
-     * registries and produces a {@link BoundOperation} whose underlying {@link Operation}
+     * registries and produces a {@link BoundAction} whose underlying {@link Action}
      * iterates the bound members in declaration order. Step and operation members are
      * dispatched through a unified per-member path that consults the resolved
      * {@link ResolvedContextMapping} carried alongside each bound action.
@@ -338,7 +339,7 @@ final class CompositeOperationDefImpl<T, C>
      *         id is not registered on the state machine
      */
     @Override
-    BoundOperation<T, C> buildBound(StateMachineImpl<T> stateMachine) {
+    BoundAction<T, C> buildBound(StateMachineImpl<T> stateMachine) {
         if (actionRefs.isEmpty()) {
             throw new TransfluxValidationException(
                 "CompositeOperationDef '" + getId()
@@ -358,9 +359,9 @@ final class CompositeOperationDefImpl<T, C>
             members.add(new CompositeMember<>(bound, mapping));
         }
 
-        Operation<T, C> executor = new CompositeOperationExecutor<>(members, scopeRegistry);
+        Action<T, C> executor = new CompositeOperationExecutor<>(members, scopeRegistry);
 
-        return BoundOperation.of(getId(), executor);
+        return BoundAction.of(getId(), executor, ActionKind.OPERATION);
     }
 
     @Override
@@ -368,14 +369,10 @@ final class CompositeOperationDefImpl<T, C>
         Class<?> effectiveScope = scopeContext != null ? scopeContext : Object.class;
 
         for (ActionRef<T, C> ref : actionRefs) {
-            if (ref instanceof ActionRef.ById<T, ?> stepRef) {
-                Class<?> componentCtx = smDef.componentContextTypeOrDefault(stepRef.id());
-                stepRef.mapperRef().validateAgainst(effectiveScope, scopeLabel, "step",
-                    stepRef.id(), componentCtx, smDef.getMapperRegistrations());
-            } else if (ref instanceof ActionRef.OperationById<T, ?> opRef) {
-                Class<?> componentCtx = smDef.componentContextTypeOrDefault(opRef.id());
-                opRef.mapperRef().validateAgainst(effectiveScope, scopeLabel, "operation",
-                    opRef.id(), componentCtx, smDef.getMapperRegistrations());
+            if (ref instanceof ActionRef.ById<T, ?> byId) {
+                Class<?> componentCtx = smDef.componentContextTypeOrDefault(byId.id());
+                byId.mapperRef().validateAgainst(effectiveScope, scopeLabel, "action",
+                    byId.id(), componentCtx, smDef.getMapperRegistrations());
             }
         }
     }
@@ -428,16 +425,18 @@ final class CompositeOperationDefImpl<T, C>
      * Iterates an ordered list of {@link CompositeMember} entries and invokes each one against
      * the supplied {@link Transition} view through a single unified dispatch path.
      *
-     * <p>Step members in pass-through mode go through
-     * {@link StateMachineImpl#runBoundStep(BoundStep, TransitionView)} so that step-id
-     * recording is uniform across composite-driven invocations and user-driven
-     * {@code transition.step("id")} calls. Step members with a mapper enter a child-context
-     * scope: {@code mapTo} produces the child context, the bound step runs against it, then
-     * {@code mapFrom} folds any changes back into the parent.
+     * <p>Which of the two runners a member takes is decided by the form it was <em>registered</em>
+     * in, read off the bound record, not by the verb used at this call site. An imperative member
+     * in pass-through mode goes through
+     * {@link StateMachineImpl#runBoundStep(BoundAction, TransitionView)} so that id recording is
+     * uniform across composite-driven invocations and user-driven dispatch from inside an action
+     * body. With a mapper it enters a child-context scope instead: {@code mapTo} produces the
+     * child context, the action runs against it, then {@code mapFrom} folds any changes back into
+     * the parent.
      *
-     * <p>Operation members follow the same pattern: pass-through mode runs the bound operation
-     * with the parent context verbatim; mapped mode produces a child context, runs the
-     * operation against it, then folds back on success.
+     * <p>A declarative member follows the same pattern through
+     * {@link TransitionView#runChildOperation}: pass-through mode runs it with the parent context
+     * verbatim; mapped mode produces a child context, runs against it, then folds back on success.
      *
      * <p>Mapper failure attribution: a {@code mapTo} failure throws before the member starts
      * and therefore surfaces as a parent member failure at the member's position — no child
@@ -447,7 +446,7 @@ final class CompositeOperationDefImpl<T, C>
      * (the child completed successfully — its compensations are not invoked).
      */
     @SuppressWarnings("ClassCanBeRecord")
-    private static final class CompositeOperationExecutor<T, C> implements Operation<T, C> {
+    private static final class CompositeOperationExecutor<T, C> implements Action<T, C> {
         private final List<CompositeMember<T, C>> members;
         private final Registry<T> scopeRegistry;
 
@@ -476,32 +475,22 @@ final class CompositeOperationDefImpl<T, C>
             }
         }
 
+        @SuppressWarnings({"unchecked", "rawtypes"})
         private void dispatchMember(TransitionView<T, C> view, CompositeMember<T, C> member) {
             BoundAction<T, C> action = member.action();
             ResolvedContextMapping mapping = member.mapping();
 
-            if (action instanceof BoundStep<T, C> boundStep) {
-                dispatchStep(view, boundStep, mapping);
-            } else if (action instanceof BoundOperation<T, C> boundOperation) {
-                dispatchOperation(view, boundOperation, mapping);
-            }
-        }
-
-        @SuppressWarnings({"unchecked", "rawtypes"})
-        private void dispatchStep(TransitionView<T, C> view, BoundStep<T, C> boundStep,
-                                  ResolvedContextMapping mapping) {
-            if (mapping.isPassThrough()) {
-                StateMachineImpl.runBoundStep(boundStep, view);
+            if (action.kind() == ActionKind.STEP) {
+                if (mapping.isPassThrough()) {
+                    StateMachineImpl.runBoundStep(action, view);
+                    return;
+                }
+                view.runChildStep((BoundAction) action, mapping.mapper());
                 return;
             }
-            view.runChildStep((BoundStep) boundStep, mapping.mapper());
-        }
 
-        @SuppressWarnings({"unchecked", "rawtypes"})
-        private void dispatchOperation(TransitionView<T, C> view, BoundOperation<T, C> boundOperation,
-                                       ResolvedContextMapping mapping) {
             ContextMapper<Object, Object> mapper = mapping.isPassThrough() ? null : mapping.mapper();
-            view.runChildOperation((BoundOperation) boundOperation, mapper);
+            view.runChildOperation((BoundAction) action, mapper);
         }
     }
 }
