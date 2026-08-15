@@ -288,6 +288,20 @@ final class OperationDefImpl<T, C>
                 Class<?> componentCtx = smDef.componentContextTypeOrDefault(byId.id());
                 byId.mapperRef().validateAgainst(effectiveScope, scopeLabel, "action",
                     byId.id(), componentCtx, smDef.getMapperRegistrations());
+            } else if (ref instanceof ActionRef.Conditional<T, C> conditional) {
+                conditional.def().checkRefs(effectiveScope, smDef);
+            }
+        }
+    }
+
+    @Override
+    void checkBranchRefs() {
+        if (scopeRegistry == null) {
+            return;
+        }
+        for (ActionRef<T, C> ref : actionRefs) {
+            if (ref instanceof ActionRef.Conditional<T, C> conditional) {
+                conditional.def().checkBranchRefs(scopeRegistry);
             }
         }
     }

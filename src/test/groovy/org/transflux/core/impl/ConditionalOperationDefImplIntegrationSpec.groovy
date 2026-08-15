@@ -363,6 +363,66 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         applied.isEmpty()
     }
 
+    def 'branch referencing an unknown action id is rejected at build time'() {
+        when:
+        build([], { smd -> }, { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
+            c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+                cs.branch('critical', { BranchDef<Entity, TestContext> b ->
+                    b.condition('critical-cond', { Entity e -> true } as Predicate)
+                     .run('escalate-immediatly')
+                })
+            })
+        }) })
+
+        then: 'the typo fails the build rather than the first execution that takes this branch'
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("conditional operation 'route'")
+        e.message.contains("branch 'critical'")
+        e.message.contains("'escalate-immediatly'")
+        e.message.contains('unknown action id')
+    }
+
+    def 'default branch referencing an unknown action id is rejected at build time'() {
+        when:
+        build([], { smd -> }, { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
+            c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+                cs.branch('a', { BranchDef<Entity, TestContext> b ->
+                    b.condition('a-cond', { Entity e -> false } as Predicate).step('a-step', new TrailStep('A'))
+                })
+                 .defaultBranch({ DefaultBranchDef<Entity, TestContext> d -> d.run('no-such-step') })
+            })
+        }) })
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("conditional operation 'route'")
+        e.message.contains('default branch')
+        e.message.contains("'no-such-step'")
+        e.message.contains('unknown action id')
+    }
+
+    def 'branch reference to a sibling inline step in the same operation builds and runs'() {
+        given: 'the referenced id is declared inline by the enclosing operation, not at SM level'
+        def applied = []
+        def sm = build(applied, { smd -> }, { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
+            c.step('shared', new TrailStep('shared'))
+             .conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+                cs.branch('only', { BranchDef<Entity, TestContext> b ->
+                    b.condition('only-cond', { Entity e -> true } as Predicate).run('shared')
+                })
+            })
+        }) })
+        def entity = new Entity('s1')
+
+        when:
+        def result = sm.executeTransition(entity, 's2')
+
+        then:
+        result.success
+        entity.trail == ['shared', 'shared']
+        result.executedPath*.toString() == ['op', 'op/shared', 'op/route', 'op/route/shared']
+    }
+
     private static StateMachine<Entity> build(List<String> applied,
                                               Consumer<StateMachineDefImpl<Entity>> smdRegistrations,
                                               Consumer<TransitionDef<Entity, TestContext>> transitionConfigurer) {

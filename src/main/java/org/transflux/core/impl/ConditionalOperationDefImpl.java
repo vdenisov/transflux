@@ -49,11 +49,17 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * permissive and validation is centralized in {@link #buildBoundAction(Map)}.
  *
  * <p><b>Build-time resolution.</b> Branch conditions are resolved eagerly against the
- * supplied condition registry. Branch step refs are <em>not</em> resolved eagerly: the
- * executor resolves each child step by id at execution time via
- * {@link TransitionView#run(String)}, which consults the active composite scope and walks the
- * parent chain up to the root registry. This sidesteps the build-order dependency between the
- * bound-step registry and the conditional executor that lives in that very registry.
+ * supplied condition registry. Branch action refs are <em>not</em> resolved eagerly: the
+ * executor resolves each member by id at execution time via
+ * {@link TransitionView#run(String)}, which consults the active scope and walks the parent
+ * chain up to the root registry. This sidesteps the build-order dependency between the bound
+ * action registry and the conditional executor that lives in that very registry.
+ *
+ * <p>Deferring <em>resolution</em> does not mean deferring <em>validation</em>. Two build-time
+ * passes cover branch members: {@link #checkRefs} validates their pass-through context
+ * compatibility alongside the enclosing operation's own members, and {@link #checkBranchRefs}
+ * verifies each id resolves once the scope registries are populated and flattened. A typo in a
+ * branch therefore fails the build rather than the first execution that reaches that branch.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
@@ -135,6 +141,51 @@ final class ConditionalOperationDefImpl<T, C>
     }
 
     /**
+     * Build-time hook: validates the pass-through context compatibility of every by-id branch
+     * member, exactly as {@link OperationDefImpl#checkRefs} does for its own members. Branch
+     * members never carry a mapper - {@code run} on a branch has no mapper-bearing overload - so
+     * every reference here is a pass-through crossing.
+     *
+     * @param scopeContext the enclosing operation's context type
+     * @param smDef the state-machine def whose component registrations the check consults
+     */
+    void checkRefs(Class<?> scopeContext, StateMachineDefImpl<T> smDef) {
+        Class<?> effectiveScope = scopeContext != null ? scopeContext : Object.class;
+
+        for (BranchDefImpl<T, C> branch : branches) {
+            checkRefContexts(branch.getActionRefs(), effectiveScope,
+                branchLabel("branch '" + branch.getBranchId() + "'"), smDef);
+        }
+        if (defaultBranch != null) {
+            checkRefContexts(defaultBranch.getActionRefs(), effectiveScope,
+                branchLabel("default branch"), smDef);
+        }
+    }
+
+    /**
+     * Build-time hook: verifies that every by-id branch member resolves to an action in the
+     * enclosing operation's lexical scope.
+     * <p>
+     * This runs after the scope registries have been populated and flattened, which is why it is
+     * a separate pass from {@link #checkRefs} rather than part of it. It checks presence only and
+     * does not bind anything, so the lazy resolution the executor relies on is unaffected.
+     *
+     * @param scope the enclosing operation's scope registry; resolution walks the parent chain
+     *              up to the state-machine root
+     *
+     * @throws TransfluxValidationException if a branch names an id that no action in scope carries
+     */
+    void checkBranchRefs(Registry<T> scope) {
+        for (BranchDefImpl<T, C> branch : branches) {
+            checkRefsResolvable(branch.getActionRefs(), scope,
+                branchLabel("branch '" + branch.getBranchId() + "'"));
+        }
+        if (defaultBranch != null) {
+            checkRefsResolvable(defaultBranch.getActionRefs(), scope, branchLabel("default branch"));
+        }
+    }
+
+    /**
      * Resolves this conditional into a {@link BoundAction} whose executable {@link Action} runs
      * the matching branch's steps against the supplied transition view.
      *
@@ -205,6 +256,37 @@ final class ConditionalOperationDefImpl<T, C>
             ids.add(ref.id());
         }
         return Collections.unmodifiableList(ids);
+    }
+
+    private String branchLabel(String branchPart) {
+        return "conditional operation '" + getId() + "' " + branchPart;
+    }
+
+    private void checkRefContexts(List<ActionRef<T, C>> refs, Class<?> scopeContext,
+                                  String label, StateMachineDefImpl<T> smDef) {
+        for (ActionRef<T, C> ref : refs) {
+            if (ref instanceof ActionRef.ById<T, ?> byId) {
+                Class<?> componentCtx = smDef.componentContextTypeOrDefault(byId.id());
+                byId.mapperRef().validateAgainst(scopeContext, label, "action",
+                    byId.id(), componentCtx, smDef.getMapperRegistrations());
+            }
+        }
+    }
+
+    private void checkRefsResolvable(List<ActionRef<T, C>> refs, Registry<T> scope, String label) {
+        for (ActionRef<T, C> ref : refs) {
+            if (!(ref instanceof ActionRef.ById<T, C>)) {
+                continue;
+            }
+            Component<T> component = scope.resolve(ref.id())
+                .orElseThrow(() -> new TransfluxValidationException(
+                    label + " references unknown action id '" + ref.id() + "' in its scope"));
+            if (!(component instanceof Component.Action<T, ?>)) {
+                throw new TransfluxValidationException(
+                    label + " references id '" + ref.id() + "' which is registered as a "
+                        + component.getClass().getSimpleName().toLowerCase() + ", not an action");
+            }
+        }
     }
 
     /**

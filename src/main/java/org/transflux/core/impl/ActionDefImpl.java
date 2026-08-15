@@ -31,11 +31,12 @@ import java.util.Optional;
  * {@code SELF} type parameter threads each concrete subclass back into the base so those setters
  * return the precise subclass type covariantly.
  *
- * <p>The five abstract dispatch methods ({@link #buildBound}, {@link #checkRefs},
- * {@link #bindScope}, {@link #flattenScope}, {@link #scanScopeFor}) let the state-machine build
- * pipeline drive both authoring forms uniformly. {@link StepDefImpl} no-ops the scope and ref
- * hooks, since an imperative action binds no children at definition time; only
- * {@link OperationDefImpl} carries real bodies for them.
+ * <p>The abstract dispatch methods ({@link #buildBound}, {@link #checkRefs},
+ * {@link #checkBranchRefs}, {@link #bindScope}, {@link #flattenScope}, {@link #scanScopeFor},
+ * {@link #getScopeRegistry}) let the state-machine build pipeline drive both authoring forms
+ * uniformly. {@link StepDefImpl} no-ops the scope and ref hooks, since an imperative action
+ * binds no children at definition time; only {@link OperationDefImpl} carries real bodies for
+ * them.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
@@ -78,6 +79,14 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      * @param smDef the state-machine def whose registries the check consults
      */
     abstract void checkRefs(Class<?> scopeContext, String scopeLabel, StateMachineDefImpl<T> smDef);
+
+    /**
+     * Build-time hook: verifies that every by-id member declared inside a conditional's branches
+     * resolves in this action's lexical scope. Runs after the scope registries are populated and
+     * flattened, which is why it is separate from {@link #checkRefs} — branch members are the one
+     * position whose ids cannot be checked before that point. The simple variant no-ops.
+     */
+    abstract void checkBranchRefs();
 
     /**
      * Build-time hook: allocates and populates this operation's lexical-scope registry against

@@ -1356,7 +1356,34 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         validateContextCompatibilityAndCycles();
         StateMachineImpl<T> stateMachine = new StateMachineImpl<>(this);
         validateComponents(stateMachine.getComponentRegistry());
+        validateBranchRefs();
         return stateMachine;
+    }
+
+    /**
+     * Verifies that every by-id member declared inside a conditional's branches resolves in its
+     * enclosing operation's scope.
+     * <p>
+     * Branch members are the one reference position whose ids cannot be checked in
+     * {@link #validateContextCompatibilityAndCycles()}: a conditional's bound action is
+     * registered <em>into</em> the very scope its branches resolve against, so the registry is
+     * only complete once construction has populated and flattened it. Running here — after
+     * {@link #validateComponents} — closes the gap that otherwise deferred a typo'd branch
+     * reference to the first execution that reached that branch.
+     *
+     * @throws TransfluxValidationException if a branch names an id that no action in scope carries
+     */
+    private void validateBranchRefs() {
+        for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
+            ActionDefImpl<T, ?, ?> op = td.getActionDef();
+            if (op != null) {
+                op.checkBranchRefs();
+            }
+        }
+
+        for (OperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
+            composite.checkBranchRefs();
+        }
     }
 
     /**

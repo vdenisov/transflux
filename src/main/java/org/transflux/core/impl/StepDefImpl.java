@@ -113,6 +113,11 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
     }
 
     @Override
+    void checkBranchRefs() {
+        // An imperative action declares no conditionals, so it owns no branch members.
+    }
+
+    @Override
     void bindScope(RegistryImpl<T> rootRegistry,
                    Map<String, Object> canonical,
                    Map<String, BoundCondition<T, ?>> conditionRegistry) {
