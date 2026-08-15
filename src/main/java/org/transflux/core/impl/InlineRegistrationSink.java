@@ -85,7 +85,7 @@ final class InlineRegistrationSink<T, C> {
         claimInlineCondition(canonical, descriptor);
     }
 
-    void registerConditional(String id, ConditionalStepDefImpl<T, C> def) {
+    void registerConditional(String id, ConditionalOperationDefImpl<T, C> def) {
         claimCanonical(canonical, id, def, "Conditional step");
         if (scope.get(id).isPresent()) {
             return;

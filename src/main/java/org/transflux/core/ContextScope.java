@@ -20,7 +20,7 @@ package org.transflux.core;
 
 import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.action.CompositeOperationDef;
+import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.Action;
 
 import java.util.function.BiPredicate;
@@ -209,7 +209,7 @@ public interface ContextScope<T, C> {
      *         {@code configurer} is {@code null}, or another component is already registered
      *         under {@code id}
      */
-    ContextScope<T, C> compositeOperation(String id, Consumer<CompositeOperationDef<T, C>> configurer);
+    ContextScope<T, C> compositeOperation(String id, Consumer<OperationDef<T, C>> configurer);
 
     /**
      * {@link Identifiable} overload of {@link #compositeOperation(String, Consumer)}.
@@ -219,7 +219,7 @@ public interface ContextScope<T, C> {
      *
      * @return this scope for chaining
      */
-    ContextScope<T, C> compositeOperation(Identifiable operationIdentifiable, Consumer<CompositeOperationDef<T, C>> configurer);
+    ContextScope<T, C> compositeOperation(Identifiable operationIdentifiable, Consumer<OperationDef<T, C>> configurer);
 
     /**
      * Registers an {@link Action} instance under {@code id}, tagged with this scope's

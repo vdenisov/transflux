@@ -18,96 +18,56 @@
 
 package org.transflux.core.action;
 
-import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 
 /**
- * Def-side anchor that pairs a single {@link Action} class or instance with a framework-owned id,
- * its declared context type, and optional metadata.
+ * Def-side anchor for an <em>imperative</em> action - one authored as a Java body, supplied as an
+ * {@link Action} instance or as a class the framework instantiates.
  * <p>
- * Pure {@link Action} executables carry no identity; identity, context type, and metadata live on
- * the def. The user supplies either an already-constructed {@code Step} instance or a class with
- * a public no-arg constructor; at build time the framework pairs the step with this def's id so
- * the runtime can track which step ran without {@code Step} itself having to carry identity.
+ * Pure {@code Action} executables carry no identity; identity, context type and metadata live
+ * here. At build time the framework pairs the executable with this def's id so the runtime can
+ * report which action ran without {@code Action} itself having to carry identity.
  *
- * <p>The {@code id} and {@code contextType} are mandatory. Exactly one of {@link #using(Action)}
- * or {@link #using(Class)} must be called before the enclosing state machine is built; calling
- * {@code using(...)} a second time overrides the prior choice.
+ * <p>This is the counterpart to {@link OperationDef}, which declares the other authoring form:
+ * an ordered list of members rather than a body. A step and an operation are the same thing at
+ * runtime and are dispatched identically; the distinction is what the author wrote, and it
+ * survives only as metadata in diagnostics.
+ *
+ * <p>The {@code id} is mandatory. Exactly one of {@link #using(Action)} or {@link #using(Class)}
+ * must be called before the enclosing state machine is built; calling {@code using(...)} a second
+ * time overrides the prior choice.
  *
  * @param <T> the entity type the surrounding state machine manages
- * @param <C> the host-supplied context type this step requires
+ * @param <C> the host-supplied context type this action requires
  */
-public interface StepDef<T, C> extends Identifiable {
+public interface StepDef<T, C> extends ActionDef<T, C> {
 
     /**
-     * Returns the unique identifier of this step def.
+     * Wires this def to a pre-constructed {@link Action} instance.
      *
-     * @return the step id; never {@code null} or blank
-     */
-    @Override
-    String getId();
-
-    /**
-     * Returns the human-readable name of this step, or {@code null} when unset.
-     *
-     * @return the optional step name
-     */
-    String getName();
-
-    /**
-     * Returns the description of this step, or {@code null} when unset.
-     *
-     * @return the optional step description
-     */
-    String getDescription();
-
-    /**
-     * Returns the context class this step requires. Used at build time to verify that call
-     * sites either pass through a compatible parent context or supply a {@link ContextMapper}
-     * whose child type matches this class.
-     *
-     * @return the context class; never {@code null}
-     */
-    Class<C> contextType();
-
-    /**
-     * Wires this def to a pre-constructed {@code Step} instance.
-     *
-     * @param step the step to invoke; never {@code null}
+     * @param action the action to invoke; never {@code null}
      *
      * @return this def for chaining
      *
-     * @throws TransfluxValidationException if {@code step} is {@code null}
+     * @throws TransfluxValidationException if {@code action} is {@code null}
      */
-    StepDef<T, C> using(Action<T, C> step);
+    StepDef<T, C> using(Action<T, C> action);
 
     /**
-     * Wires this def to a {@code Step} class. The framework instantiates it via its public
+     * Wires this def to an {@link Action} class. The framework instantiates it via its public
      * no-arg constructor at build time.
      *
-     * @param stepClass the step class; never {@code null}
+     * @param actionClass the action class; never {@code null}
      *
      * @return this def for chaining
      *
-     * @throws TransfluxValidationException if {@code stepClass} is {@code null}
+     * @throws TransfluxValidationException if {@code actionClass} is {@code null}
      */
-    StepDef<T, C> using(Class<? extends Action<T, C>> stepClass);
+    StepDef<T, C> using(Class<? extends Action<T, C>> actionClass);
 
-    /**
-     * Sets the human-readable name of this step.
-     *
-     * @param name the name; may be {@code null} to clear
-     *
-     * @return this def for chaining
-     */
+    @Override
     StepDef<T, C> withName(String name);
 
-    /**
-     * Sets the description of this step.
-     *
-     * @param description the description; may be {@code null} to clear
-     *
-     * @return this def for chaining
-     */
+    @Override
     StepDef<T, C> withDescription(String description);
 }

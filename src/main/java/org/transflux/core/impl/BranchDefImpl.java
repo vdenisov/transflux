@@ -37,7 +37,7 @@ import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
- * Implementation of {@link BranchDef} used by {@link ConditionalStepDefImpl}.
+ * Implementation of {@link BranchDef} used by {@link ConditionalOperationDefImpl}.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution

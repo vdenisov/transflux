@@ -22,7 +22,7 @@ import org.transflux.core.StateMachine
 import org.transflux.core.TestContext
 import org.transflux.core.condition.Condition
 import org.transflux.core.exception.TransfluxReentrancyException
-import org.transflux.core.action.CompositeOperationDef
+import org.transflux.core.action.OperationDef
 import org.transflux.core.action.Action
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
@@ -69,7 +69,7 @@ class StateMachineImplReentrancySpec extends Specification {
     def 'step that calls back into the same SM with the same entity raises TransfluxReentrancyException'() {
         given:
         def step = new ReentrantStep()
-        def sm = build([], { t -> t.compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
+        def sm = build([], { t -> t.compositeOperation('op', { OperationDef<Entity, TestContext> c ->
             c.step('reentrant', step)
         }) })
         def entity = new Entity('e1', 's1')
@@ -130,7 +130,7 @@ class StateMachineImplReentrancySpec extends Specification {
         given:
         def applied = []
         def step = new ReentrantStep()
-        def sm = build(applied, { t -> t.compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
+        def sm = build(applied, { t -> t.compositeOperation('op', { OperationDef<Entity, TestContext> c ->
             c.step('reentrant', step)
         }) })
         def outer = new Entity('outer', 's1')
@@ -155,7 +155,7 @@ class StateMachineImplReentrancySpec extends Specification {
         def innerApplied = []
         def step = new ReentrantStep()
 
-        def outerSm = build(outerApplied, { t -> t.compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
+        def outerSm = build(outerApplied, { t -> t.compositeOperation('op', { OperationDef<Entity, TestContext> c ->
             c.step('reentrant', step)
         }) })
 
@@ -197,7 +197,7 @@ class StateMachineImplReentrancySpec extends Specification {
 
     def 'guard is cleaned up after a failed transition: subsequent top-level call succeeds'() {
         given:
-        def sm = build([], { t -> t.compositeOperation('op', { CompositeOperationDef<Entity, TestContext> c ->
+        def sm = build([], { t -> t.compositeOperation('op', { OperationDef<Entity, TestContext> c ->
             c.step('boom', { Entity e, TestContext ctx, Transition<Entity, TestContext> tr ->
                 throw new RuntimeException('boom')
             } as Action<Entity, TestContext>)

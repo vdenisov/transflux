@@ -21,7 +21,7 @@ package org.transflux.core.impl;
 import org.transflux.core.ContextScope;
 import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
-import org.transflux.core.action.CompositeOperationDef;
+import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.Action;
 
 import java.util.function.BiPredicate;
@@ -119,7 +119,7 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
     }
 
     @Override
-    public ContextScope<T, C> compositeOperation(String id, Consumer<CompositeOperationDef<T, C>> configurer) {
+    public ContextScope<T, C> compositeOperation(String id, Consumer<OperationDef<T, C>> configurer) {
         requireConfigurerActive("compositeOperation");
         requireNotBlank(id, "Composite operation ID");
         requireNotNull(configurer, "Composite operation configurer");
@@ -188,7 +188,7 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
     }
 
     @Override
-    public ContextScope<T, C> compositeOperation(Identifiable operationIdentifiable, Consumer<CompositeOperationDef<T, C>> configurer) {
+    public ContextScope<T, C> compositeOperation(Identifiable operationIdentifiable, Consumer<OperationDef<T, C>> configurer) {
         requireNotNull(operationIdentifiable, "Operation identifiable");
         return compositeOperation(operationIdentifiable.getId(), configurer);
     }

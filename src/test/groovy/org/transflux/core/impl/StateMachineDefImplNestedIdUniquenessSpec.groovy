@@ -21,8 +21,8 @@ package org.transflux.core.impl
 import org.transflux.core.TestContext
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.BranchDef
-import org.transflux.core.action.CompositeOperationDef
-import org.transflux.core.action.ConditionalStepDef
+import org.transflux.core.action.OperationDef
+import org.transflux.core.action.ConditionalOperationDef
 import org.transflux.core.action.Action
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
@@ -55,7 +55,7 @@ class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
 
     def 'step id and operation id share one namespace: step-then-operation rejected'() {
         given:
-        def smd = baseDef({ t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, TestContext> c ->
+        def smd = baseDef({ t -> t.compositeOperation('outer', { OperationDef<Entity, TestContext> c ->
             c.operation('shared', new NoOpOperation())
         }) })
         smd.step('shared', new NoOpStep())
@@ -70,7 +70,7 @@ class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
 
     def 'step id and operation id share one namespace: operation-then-step rejected'() {
         given:
-        def smd = baseDef({ t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, TestContext> c ->
+        def smd = baseDef({ t -> t.compositeOperation('outer', { OperationDef<Entity, TestContext> c ->
             c.operation('shared', new NoOpOperation())
             c.step('s1', new NoOpStep())
         }) })
@@ -87,10 +87,10 @@ class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
     def 'same operation id with different instances across two composites is rejected'() {
         given:
         def smd = multiTransitionDef(
-            { t -> t.compositeOperation('outer1', { CompositeOperationDef<Entity, TestContext> c ->
+            { t -> t.compositeOperation('outer1', { OperationDef<Entity, TestContext> c ->
                 c.operation('twin', new NoOpOperation())
             }) },
-            { t -> t.compositeOperation('outer2', { CompositeOperationDef<Entity, TestContext> c ->
+            { t -> t.compositeOperation('outer2', { OperationDef<Entity, TestContext> c ->
                 c.operation('twin', new NoOpOperation())
             }) })
 
@@ -106,10 +106,10 @@ class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
         given:
         def shared = new NoOpOperation()
         def smd = multiTransitionDef(
-            { t -> t.compositeOperation('outer1', { CompositeOperationDef<Entity, TestContext> c ->
+            { t -> t.compositeOperation('outer1', { OperationDef<Entity, TestContext> c ->
                 c.operation('twin', shared)
             }) },
-            { t -> t.compositeOperation('outer2', { CompositeOperationDef<Entity, TestContext> c ->
+            { t -> t.compositeOperation('outer2', { OperationDef<Entity, TestContext> c ->
                 c.operation('twin', shared)
             }) })
 
@@ -123,10 +123,10 @@ class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
     def 'same operation id with the same class across two composites is tolerated (idempotent)'() {
         given:
         def smd = multiTransitionDef(
-            { t -> t.compositeOperation('outer1', { CompositeOperationDef<Entity, TestContext> c ->
+            { t -> t.compositeOperation('outer1', { OperationDef<Entity, TestContext> c ->
                 c.operation('twin', NoOpOperation)
             }) },
-            { t -> t.compositeOperation('outer2', { CompositeOperationDef<Entity, TestContext> c ->
+            { t -> t.compositeOperation('outer2', { OperationDef<Entity, TestContext> c ->
                 c.operation('twin', NoOpOperation)
             }) })
 
@@ -139,9 +139,9 @@ class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
 
     def 'conditional-step id colliding with operation id is rejected'() {
         given:
-        def smd = baseDef({ t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, TestContext> c ->
+        def smd = baseDef({ t -> t.compositeOperation('outer', { OperationDef<Entity, TestContext> c ->
             c.operation('twin', new NoOpOperation())
-            c.conditional('twin', { ConditionalStepDef<Entity, TestContext> cs ->
+            c.conditional('twin', { ConditionalOperationDef<Entity, TestContext> cs ->
                 cs.branch('only', { BranchDef<Entity, TestContext> b ->
                     b.conditionExpression('true').step('inner-a')
                 })

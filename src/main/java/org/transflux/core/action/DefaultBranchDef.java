@@ -22,7 +22,7 @@ import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 
 /**
- * Sub-builder for the default branch of a {@link ConditionalStepDef}.
+ * Sub-builder for the default branch of a {@link ConditionalOperationDef}.
  * <p>
  * The default branch carries no condition; the framework runs its steps when every
  * preceding {@link BranchDef} evaluated to {@code false}. The default branch must declare

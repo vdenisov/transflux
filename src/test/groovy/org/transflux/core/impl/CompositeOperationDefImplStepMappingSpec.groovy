@@ -20,7 +20,7 @@ package org.transflux.core.impl
 
 import org.transflux.core.StateMachine
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.action.CompositeOperationDef
+import org.transflux.core.action.OperationDef
 import org.transflux.core.action.ContextMapper
 import org.transflux.core.action.Action
 import org.transflux.core.state.StateResolver
@@ -83,7 +83,7 @@ class CompositeOperationDefImplStepMappingSpec extends Specification {
         def sm = build(
             { smd -> smd.step('charge', PaymentCtx, new ChargeStep())
                 .mapper('order-to-payment', OrderCtx, PaymentCtx, new OrderToPaymentMapper()) },
-            { t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, OrderCtx> c ->
+            { t -> t.compositeOperation('outer', { OperationDef<Entity, OrderCtx> c ->
                 c.step('charge', 'order-to-payment')
             }) })
         def entity = new Entity('s1')
@@ -102,7 +102,7 @@ class CompositeOperationDefImplStepMappingSpec extends Specification {
         given:
         def sm = build(
             { smd -> smd.step('charge', PaymentCtx, new ChargeStep()) },
-            { t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, OrderCtx> c ->
+            { t -> t.compositeOperation('outer', { OperationDef<Entity, OrderCtx> c ->
                 c.step('charge', new OrderToPaymentMapper())
             }) })
         def entity = new Entity('s1')
@@ -126,7 +126,7 @@ class CompositeOperationDefImplStepMappingSpec extends Specification {
         }
         def sm = build(
             { smd -> smd.step('charge', PaymentCtx, new ChargeStep()) },
-            { t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, OrderCtx> c ->
+            { t -> t.compositeOperation('outer', { OperationDef<Entity, OrderCtx> c ->
                 c.step('charge', mapTo)
             }) })
         def entity = new Entity('s1')
@@ -145,7 +145,7 @@ class CompositeOperationDefImplStepMappingSpec extends Specification {
         when:
         build(
             { smd -> smd.step('charge', PaymentCtx, new ChargeStep()) },
-            { t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, OrderCtx> c ->
+            { t -> t.compositeOperation('outer', { OperationDef<Entity, OrderCtx> c ->
                 c.step('charge')
             }) })
 
@@ -164,7 +164,7 @@ class CompositeOperationDefImplStepMappingSpec extends Specification {
                     p.cents = n
                     return p
                 } as Function<Number, PaymentCtx>) },
-            { t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, OrderCtx> c ->
+            { t -> t.compositeOperation('outer', { OperationDef<Entity, OrderCtx> c ->
                 c.step('charge', 'wrong-parent')
             }) })
 

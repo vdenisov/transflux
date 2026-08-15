@@ -19,15 +19,15 @@
 package org.transflux.core.action;
 
 /**
- * Behavior selector for a {@link ConditionalStepDef} when no branch condition matches and no
+ * Behavior selector for a {@link ConditionalOperationDef} when no branch condition matches and no
  * default branch is declared.
  * <ul>
- *   <li>{@link #WARN} — log a warning and skip the conditional step. The enclosing transition
+ *   <li>{@link #WARN} — log a warning and skip the conditional operation. The enclosing transition
  *       continues with the next step.</li>
- *   <li>{@link #SILENT} — skip the conditional step without logging. Suits the guard pattern
+ *   <li>{@link #SILENT} — skip the conditional operation without logging. Suits the guard pattern
  *       where a no-match is a normal, expected outcome (the conditional models
  *       {@code if (cond) { ... }} with no {@code else}).</li>
- *   <li>{@link #ERROR} — raise an error from the conditional step's execution. The enclosing
+ *   <li>{@link #ERROR} — raise an error from the conditional operation's execution. The enclosing
  *       transition fails and any compensations accumulated so far are drained.</li>
  * </ul>
  * The default is {@link #WARN} — a no-match is more often a misconfigured branch than a
@@ -35,10 +35,10 @@ package org.transflux.core.action;
  * to {@code SILENT}.
  */
 public enum NoMatchBehavior {
-    /** Log a warning and skip the conditional step; the enclosing transition continues. */
+    /** Log a warning and skip the conditional operation; the enclosing transition continues. */
     WARN,
-    /** Skip the conditional step without logging; appropriate for guard-style conditionals. */
+    /** Skip the conditional operation without logging; appropriate for guard-style conditionals. */
     SILENT,
-    /** Fail the conditional step and unwind the enclosing transition. */
+    /** Fail the conditional operation and unwind the enclosing transition. */
     ERROR
 }

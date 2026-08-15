@@ -30,7 +30,7 @@ import java.util.List;
 import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
- * Implementation of {@link DefaultBranchDef} used by {@link ConditionalStepDefImpl}.
+ * Implementation of {@link DefaultBranchDef} used by {@link ConditionalOperationDefImpl}.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution

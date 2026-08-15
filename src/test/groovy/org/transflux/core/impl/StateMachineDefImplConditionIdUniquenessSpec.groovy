@@ -36,7 +36,7 @@ import java.util.function.Predicate
 /**
  * Covers inline condition ids competing for the per-build canonical id table, which is what makes
  * the documented SM-wide id-uniqueness rule apply to conditions as it already does to steps,
- * operations and conditional steps.
+ * operations and conditional operations.
  */
 class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
 

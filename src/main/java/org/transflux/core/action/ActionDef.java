@@ -1,0 +1,95 @@
+/*
+ *
+ *  * Copyright 2025 Victor Denisov
+ *  *
+ *  * Licensed under the Apache License, Version 2.0 (the "License");
+ *  * you may not use this file except in compliance with the License.
+ *  * You may obtain a copy of the License at
+ *  *
+ *  *     http://www.apache.org/licenses/LICENSE-2.0
+ *  *
+ *  * Unless required by applicable law or agreed to in writing, software
+ *  * distributed under the License is distributed on an "AS IS" BASIS,
+ *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  * See the License for the specific language governing permissions and
+ *  * limitations under the License.
+ *
+ */
+
+package org.transflux.core.action;
+
+import org.transflux.core.Identifiable;
+
+/**
+ * Def-side anchor for an action, carrying the framework-owned identity and metadata that pure
+ * {@link Action} executables do not.
+ * <p>
+ * Two concrete sub-types exist, one per authoring form: {@link StepDef} declares an imperative
+ * action (a Java body, supplied as an instance or a class), and {@link OperationDef} declares a
+ * declarative one (an ordered list of members, whose executable the framework synthesizes).
+ * {@link ConditionalOperationDef} is a declarative variant whose ordering rule is "first matching
+ * branch" rather than "all, in order".
+ *
+ * <p>The {@code id} is mandatory and must be unique across the state machine. {@code name} and
+ * {@code description} are optional metadata for diagnostics and tooling.
+ *
+ * @param <T> the entity type the surrounding state machine manages
+ * @param <C> the host-supplied context type carried through transition execution
+ */
+public interface ActionDef<T, C> extends Identifiable {
+
+    /**
+     * Returns the unique identifier of this action def.
+     *
+     * @return the action id; never {@code null} or blank
+     */
+    @Override
+    String getId();
+
+    /**
+     * Returns the human-readable name of this action, or {@code null} when unset.
+     *
+     * @return the optional action name
+     */
+    String getName();
+
+    /**
+     * Returns the description of this action, or {@code null} when unset.
+     *
+     * @return the optional action description
+     */
+    String getDescription();
+
+    /**
+     * Returns the context class this action requires.
+     * <p>
+     * The default implementation returns {@link Object} as a permissive sentinel meaning
+     * "any context is acceptable"; concrete defs override this to expose the actual class
+     * supplied at registration so call-site mappers and pass-through compatibility checks
+     * can validate the parent-to-child boundary at build time.
+     *
+     * @return the action's context class; never {@code null}
+     */
+    @SuppressWarnings("unchecked")
+    default Class<C> contextType() {
+        return (Class<C>) Object.class;
+    }
+
+    /**
+     * Sets the human-readable name of this action.
+     *
+     * @param name the name; may be {@code null} to clear
+     *
+     * @return this def for chaining
+     */
+    ActionDef<T, C> withName(String name);
+
+    /**
+     * Sets the description of this action.
+     *
+     * @param description the description; may be {@code null} to clear
+     *
+     * @return this def for chaining
+     */
+    ActionDef<T, C> withDescription(String description);
+}

@@ -19,7 +19,7 @@
 package org.transflux.core.impl
 
 import org.transflux.core.StateMachine
-import org.transflux.core.action.CompositeOperationDef
+import org.transflux.core.action.OperationDef
 import org.transflux.core.action.ContextMapper
 import org.transflux.core.action.Action
 import org.transflux.core.state.StateResolver
@@ -77,7 +77,7 @@ class CompositeOperationDefImplNestedMappingSpec extends Specification {
         def sm = build(
             { smd -> smd.operation('charge', ChildCtx, new ChildOp())
                 .mapper('parent-to-child', ParentCtx, ChildCtx, new ParentChildMapper()) },
-            { t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, ParentCtx> c ->
+            { t -> t.compositeOperation('outer', { OperationDef<Entity, ParentCtx> c ->
                 c.operation('charge', 'parent-to-child')
             }) })
         def entity = new Entity('s1')
@@ -96,7 +96,7 @@ class CompositeOperationDefImplNestedMappingSpec extends Specification {
         def sm = build(
             { smd -> smd.operation('charge', ChildCtx, new ChildOp())
                 .mapper('parent-to-child', ParentCtx, ChildCtx, ParentChildMapper) },
-            { t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, ParentCtx> c ->
+            { t -> t.compositeOperation('outer', { OperationDef<Entity, ParentCtx> c ->
                 c.operation('charge', 'parent-to-child')
             }) })
         def entity = new Entity('s1')
@@ -114,7 +114,7 @@ class CompositeOperationDefImplNestedMappingSpec extends Specification {
         given:
         def sm = build(
             { smd -> smd.operation('charge', ChildCtx, new ChildOp()) },
-            { t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, ParentCtx> c ->
+            { t -> t.compositeOperation('outer', { OperationDef<Entity, ParentCtx> c ->
                 c.operation('charge', new ParentChildMapper())
             }) })
         def entity = new Entity('s1')
@@ -137,7 +137,7 @@ class CompositeOperationDefImplNestedMappingSpec extends Specification {
         }
         def sm = build(
             { smd -> smd.operation('charge', ChildCtx, new ChildOp()) },
-            { t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, ParentCtx> c ->
+            { t -> t.compositeOperation('outer', { OperationDef<Entity, ParentCtx> c ->
                 c.operation('charge', mapTo)
             }) })
         def entity = new Entity('s1')
@@ -160,7 +160,7 @@ class CompositeOperationDefImplNestedMappingSpec extends Specification {
                     n.subscriptionId = p.subscriptionId
                     return n
                 } as Function<ParentCtx, ChildCtx>) },
-            { t -> t.compositeOperation('outer', { CompositeOperationDef<Entity, ParentCtx> c ->
+            { t -> t.compositeOperation('outer', { OperationDef<Entity, ParentCtx> c ->
                 c.operation('charge', 'parent-to-child')
             }) })
         def entity = new Entity('s1')

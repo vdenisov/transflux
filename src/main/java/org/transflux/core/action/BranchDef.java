@@ -26,7 +26,7 @@ import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 
 /**
- * Sub-builder for a single conditional branch within a {@link ConditionalStepDef}.
+ * Sub-builder for a single conditional branch within a {@link ConditionalOperationDef}.
  * <p>
  * A branch carries exactly one condition selector and one or more steps to run when the
  * selector evaluates to {@code true}. The condition overload set mirrors the

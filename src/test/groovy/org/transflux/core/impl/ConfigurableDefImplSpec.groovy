@@ -136,17 +136,17 @@ class ConfigurableDefImplSpec extends Specification {
 
         where:
         desc                  | mutator              | factory                                                  | action                                    | label
-        'composite operation' | 'step'               | { new CompositeOperationDefImpl<Object, Object>('op1') } | { it.step('s') }                          | "operation 'op1'"
-        'composite operation' | 'operation'          | { new CompositeOperationDefImpl<Object, Object>('op1') } | { it.operation('o') }                     | "operation 'op1'"
-        'composite operation' | 'conditional'        | { new CompositeOperationDefImpl<Object, Object>('op1') } | { it.conditional('cc', {}) }              | "operation 'op1'"
-        'composite operation' | 'usingContext'       | { new CompositeOperationDefImpl<Object, Object>('op1') } | { it.usingContext(Object) }               | "operation 'op1'"
-        'composite operation' | 'withName'           | { new CompositeOperationDefImpl<Object, Object>('op1') } | { it.withName('n') }                      | "operation 'op1'"
-        'simple operation'    | 'using'              | { new SimpleOperationDefImpl<Object, Object>('op1') }    | { it.using(NOOP_OP) }                     | "operation 'op1'"
-        'simple operation'    | 'withName'           | { new SimpleOperationDefImpl<Object, Object>('op1') }    | { it.withName('n') }                      | "operation 'op1'"
-        'conditional step'    | 'branch'             | { new ConditionalStepDefImpl<Object, Object>('c1') }     | { it.branch('b', {}) }                    | "conditional step 'c1'"
-        'conditional step'    | 'defaultBranch'      | { new ConditionalStepDefImpl<Object, Object>('c1') }     | { it.defaultBranch({}) }                  | "conditional step 'c1'"
-        'conditional step'    | 'onNoMatch'          | { new ConditionalStepDefImpl<Object, Object>('c1') }     | { it.onNoMatch(NoMatchBehavior.SILENT) }  | "conditional step 'c1'"
-        'conditional step'    | 'withName'           | { new ConditionalStepDefImpl<Object, Object>('c1') }     | { it.withName('n') }                      | "conditional step 'c1'"
+        'composite operation' | 'step'               | { new OperationDefImpl<Object, Object>('op1') } | { it.step('s') }                          | "operation 'op1'"
+        'composite operation' | 'operation'          | { new OperationDefImpl<Object, Object>('op1') } | { it.operation('o') }                     | "operation 'op1'"
+        'composite operation' | 'conditional'        | { new OperationDefImpl<Object, Object>('op1') } | { it.conditional('cc', {}) }              | "operation 'op1'"
+        'composite operation' | 'usingContext'       | { new OperationDefImpl<Object, Object>('op1') } | { it.usingContext(Object) }               | "operation 'op1'"
+        'composite operation' | 'withName'           | { new OperationDefImpl<Object, Object>('op1') } | { it.withName('n') }                      | "operation 'op1'"
+        'step'                | 'using'              | { new StepDefImpl<Object, Object>('op1') }    | { it.using(NOOP_OP) }                     | "step 'op1'"
+        'step'                | 'withName'           | { new StepDefImpl<Object, Object>('op1') }    | { it.withName('n') }                      | "step 'op1'"
+        'conditional operation'    | 'branch'             | { new ConditionalOperationDefImpl<Object, Object>('c1') }     | { it.branch('b', {}) }                    | "conditional operation 'c1'"
+        'conditional operation'    | 'defaultBranch'      | { new ConditionalOperationDefImpl<Object, Object>('c1') }     | { it.defaultBranch({}) }                  | "conditional operation 'c1'"
+        'conditional operation'    | 'onNoMatch'          | { new ConditionalOperationDefImpl<Object, Object>('c1') }     | { it.onNoMatch(NoMatchBehavior.SILENT) }  | "conditional operation 'c1'"
+        'conditional operation'    | 'withName'           | { new ConditionalOperationDefImpl<Object, Object>('c1') }     | { it.withName('n') }                      | "conditional operation 'c1'"
         'branch'              | 'condition'          | { new BranchDefImpl<Object, Object>('b1') }              | { it.condition('cnd') }                   | "branch 'b1'"
         'branch'              | 'step'               | { new BranchDefImpl<Object, Object>('b1') }              | { it.step('s') }                          | "branch 'b1'"
         'default branch'      | 'step'               | { new DefaultBranchDefImpl<Object, Object>() }           | { it.step('s') }                          | 'default branch'

@@ -22,9 +22,9 @@ import org.transflux.core.Identifiable
 import org.transflux.core.TestContext
 import org.transflux.core.condition.Condition
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.action.CompositeOperationDef
+import org.transflux.core.action.OperationDef
 import org.transflux.core.action.Action
-import org.transflux.core.action.SimpleOperationDef
+import org.transflux.core.action.StepDef
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import org.transflux.core.transition.TransitionDef
@@ -150,7 +150,7 @@ class TransitionDefImplSpec extends Specification {
 
         then:
         returned.is(transitionDef)
-        transitionDef.operationDef instanceof SimpleOperationDefImpl
+        transitionDef.operationDef instanceof StepDefImpl
         transitionDef.operationDef.id == 'op1'
     }
 
@@ -164,7 +164,7 @@ class TransitionDefImplSpec extends Specification {
 
         then:
         returned.is(transitionDef)
-        transitionDef.operationDef instanceof SimpleOperationDefImpl
+        transitionDef.operationDef instanceof StepDefImpl
         transitionDef.operationDef.id == 'op1'
     }
 
@@ -174,13 +174,13 @@ class TransitionDefImplSpec extends Specification {
         transitionDef.beginConfigurer()
 
         when:
-        def returned = transitionDef.simpleOperation('op1', { SimpleOperationDef<Object, Object> op ->
+        def returned = transitionDef.simpleOperation('op1', { StepDef<Object, Object> op ->
             op.withName('Foo').withDescription('Foo desc').using(FooOperation)
         })
 
         then:
         returned.is(transitionDef)
-        transitionDef.operationDef instanceof SimpleOperationDefImpl
+        transitionDef.operationDef instanceof StepDefImpl
         transitionDef.operationDef.id == 'op1'
         transitionDef.operationDef.name == 'Foo'
         transitionDef.operationDef.description == 'Foo desc'
@@ -192,7 +192,7 @@ class TransitionDefImplSpec extends Specification {
         transitionDef.beginConfigurer()
 
         when:
-        transitionDef.simpleOperation('op1', (Consumer<SimpleOperationDef<Object, Object>>) null)
+        transitionDef.simpleOperation('op1', (Consumer<StepDef<Object, Object>>) null)
 
         then:
         thrown(TransfluxValidationException)
@@ -204,15 +204,15 @@ class TransitionDefImplSpec extends Specification {
         transitionDef.beginConfigurer()
 
         when:
-        def returned = transitionDef.compositeOperation('op1', { CompositeOperationDef<Object, Object> c ->
+        def returned = transitionDef.compositeOperation('op1', { OperationDef<Object, Object> c ->
             c.step('s1', new FooStep())
         })
 
         then:
         returned.is(transitionDef)
-        transitionDef.operationDef instanceof CompositeOperationDefImpl
+        transitionDef.operationDef instanceof OperationDefImpl
         transitionDef.operationDef.id == 'op1'
-        ((CompositeOperationDefImpl<Object, Object>) transitionDef.operationDef).actionRefs.size() == 1
+        ((OperationDefImpl<Object, Object>) transitionDef.operationDef).actionRefs.size() == 1
     }
 
     def 'compositeOperation(id, Consumer) should reject null configurer'() {
@@ -221,7 +221,7 @@ class TransitionDefImplSpec extends Specification {
         transitionDef.beginConfigurer()
 
         when:
-        transitionDef.compositeOperation('op1', (Consumer<CompositeOperationDef<Object, Object>>) null)
+        transitionDef.compositeOperation('op1', (Consumer<OperationDef<Object, Object>>) null)
 
         then:
         thrown(TransfluxValidationException)

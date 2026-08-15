@@ -21,9 +21,9 @@ package org.transflux.core.transition;
 import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.action.CompositeOperationDef;
+import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.Action;
-import org.transflux.core.action.SimpleOperationDef;
+import org.transflux.core.action.StepDef;
 import org.transflux.core.trigger.DataTriggerDef;
 import org.transflux.core.trigger.EventTriggerDef;
 import org.transflux.core.trigger.ManualTriggerDef;
@@ -215,7 +215,7 @@ public interface TransitionDef<T, C> extends Identifiable {
      * want to set {@code name} / {@code description} alongside the operation source.
      * <p>
      * The configurer is invoked synchronously against a freshly-constructed
-     * {@link SimpleOperationDef} carrying the supplied {@code id}; it must call
+     * {@link StepDef} carrying the supplied {@code id}; it must call
      * {@code .using(...)} before returning. The def is not exposed to the caller after the
      * lambda returns.
      *
@@ -228,7 +228,7 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         {@code configurer} is {@code null}, or the configurer leaves the def without
      *         an operation source
      */
-    TransitionDef<T, C> simpleOperation(String id, Consumer<SimpleOperationDef<T, C>> configurer);
+    TransitionDef<T, C> simpleOperation(String id, Consumer<StepDef<T, C>> configurer);
 
     /**
      * {@link Identifiable} overload of {@link #simpleOperation(String, Consumer)}.
@@ -238,14 +238,14 @@ public interface TransitionDef<T, C> extends Identifiable {
      *
      * @return this transition def for chaining
      */
-    TransitionDef<T, C> simpleOperation(Identifiable operationIdentifiable, Consumer<SimpleOperationDef<T, C>> configurer);
+    TransitionDef<T, C> simpleOperation(Identifiable operationIdentifiable, Consumer<StepDef<T, C>> configurer);
 
     /**
      * Attaches a composite operation built through a fluent configurer. The composite must
      * declare at least one step.
      * <p>
      * The configurer is invoked synchronously against a freshly-constructed
-     * {@link CompositeOperationDef} carrying the supplied {@code id}; it must append at least
+     * {@link OperationDef} carrying the supplied {@code id}; it must append at least
      * one step before returning. The def is not exposed to the caller after the lambda returns.
      *
      * @param id the operation id; never {@code null} or blank
@@ -257,7 +257,7 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         {@code configurer} is {@code null}, or the configurer leaves the composite
      *         without any steps
      */
-    TransitionDef<T, C> compositeOperation(String id, Consumer<CompositeOperationDef<T, C>> configurer);
+    TransitionDef<T, C> compositeOperation(String id, Consumer<OperationDef<T, C>> configurer);
 
     /**
      * {@link Identifiable} overload of {@link #compositeOperation(String, Consumer)}.
@@ -267,7 +267,7 @@ public interface TransitionDef<T, C> extends Identifiable {
      *
      * @return this transition def for chaining
      */
-    TransitionDef<T, C> compositeOperation(Identifiable operationIdentifiable, Consumer<CompositeOperationDef<T, C>> configurer);
+    TransitionDef<T, C> compositeOperation(Identifiable operationIdentifiable, Consumer<OperationDef<T, C>> configurer);
 
     /**
      * Attaches an operation already registered on the enclosing state machine through

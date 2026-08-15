@@ -121,6 +121,40 @@ class StepDefImplSpec extends Specification {
         def_.buildBoundAction().action().is(second)
     }
 
+    def 'using(class) after using(instance) overrides the instance'() {
+        given:
+        def def_ = new StepDefImpl<Object, Object>('s1', Object)
+        def_.beginConfigurer()
+        def_.using(new NoopStep()).using(NoopStep)
+
+        expect:
+        def_.buildBoundAction().action() instanceof NoopStep
+    }
+
+    def 'using(instance) rejects null'() {
+        given:
+        def def_ = new StepDefImpl<Object, Object>('s1', Object)
+        def_.beginConfigurer()
+
+        when:
+        def_.using((Action<Object, Object>) null)
+
+        then:
+        thrown(TransfluxValidationException)
+    }
+
+    def 'using(class) rejects null'() {
+        given:
+        def def_ = new StepDefImpl<Object, Object>('s1', Object)
+        def_.beginConfigurer()
+
+        when:
+        def_.using((Class<? extends Action<Object, Object>>) null)
+
+        then:
+        thrown(TransfluxValidationException)
+    }
+
     def 'buildBoundAction without using(...) fails with a clear message'() {
         given:
         def def_ = new StepDefImpl<Object, Object>('s1', Object)

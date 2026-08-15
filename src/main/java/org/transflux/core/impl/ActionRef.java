@@ -20,7 +20,7 @@ package org.transflux.core.impl;
 
 import org.transflux.core.action.Action;
 import org.transflux.core.action.ActionKind;
-import org.transflux.core.action.CompositeOperationDef;
+import org.transflux.core.action.OperationDef;
 import org.transflux.core.exception.TransfluxValidationException;
 
 import java.util.Optional;
@@ -89,7 +89,7 @@ sealed interface ActionRef<T, C>
         Component<T> component = resolved.get();
         if (!(component instanceof Component.Action<T, ?> action)) {
             throw new TransfluxValidationException(
-                "CompositeOperationDef '" + enclosingCompositeId
+                "OperationDef '" + enclosingCompositeId
                     + "' references id '" + id() + "' which is registered as a "
                     + component.getClass().getSimpleName().toLowerCase()
                     + ", not an action");
@@ -103,7 +103,7 @@ sealed interface ActionRef<T, C>
      * By-id references no-op (they contribute nothing to the enclosing composite's local scope);
      * inline declarations push themselves into the sink; the {@link Conditional} variant recurses
      * into its branches' inline members and then registers the conditional's own bound action.
-     * Drives the scope-binding pass on {@link CompositeOperationDefImpl}.
+     * Drives the scope-binding pass on {@link OperationDefImpl}.
      */
     default void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
         // by-id references contribute no inline registration; overridden in the inline variants
@@ -116,7 +116,7 @@ sealed interface ActionRef<T, C>
      */
     static String unknownIdMessage(String id, StateMachineImpl<?> stateMachine,
                                    String enclosingCompositeId) {
-        String base = "CompositeOperationDef '" + enclosingCompositeId
+        String base = "OperationDef '" + enclosingCompositeId
             + "' references unknown action id '" + id + "' in its scope";
         return stateMachine.findInlineSiblingScope(id, enclosingCompositeId)
             .map(siblingId -> base + ". An inline action with this id is registered in sibling composite '"
@@ -142,7 +142,7 @@ sealed interface ActionRef<T, C>
         return new InlineClass<>(id, actionClass, kind);
     }
 
-    static <T, C> ActionRef<T, C> conditional(String id, ConditionalStepDefImpl<T, C> def) {
+    static <T, C> ActionRef<T, C> conditional(String id, ConditionalOperationDefImpl<T, C> def) {
         return new Conditional<>(id, def);
     }
 
@@ -186,7 +186,7 @@ sealed interface ActionRef<T, C>
     }
 
     @SuppressWarnings("ClassEscapesDefinedScope")
-    record Conditional<T, C>(String id, ConditionalStepDefImpl<T, C> def) implements ActionRef<T, C> {
+    record Conditional<T, C>(String id, ConditionalOperationDefImpl<T, C> def) implements ActionRef<T, C> {
         public Conditional {
             requireNotBlank(id, "Action reference ID");
             requireNotNull(def, "Conditional step def");

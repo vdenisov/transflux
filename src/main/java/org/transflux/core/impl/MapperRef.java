@@ -173,7 +173,7 @@ sealed interface MapperRef
             MapperDef<?, ?> mapperDef = stateMachine.getDef().getMapperDef(mapperId);
             if (mapperDef == null) {
                 throw new TransfluxValidationException(
-                    "CompositeOperationDef '" + enclosingId + "' references unknown mapper id '"
+                    "OperationDef '" + enclosingId + "' references unknown mapper id '"
                         + mapperId + "'");
             }
             @SuppressWarnings("unchecked")

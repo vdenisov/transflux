@@ -26,7 +26,7 @@ import java.util.Set;
  * and conditions — held as {@link Component} variants.
  * <p>
  * Lookup is scope-aware. Every {@link StateMachineImpl} owns one root {@code Registry} that
- * holds SM-level registrations; every {@code CompositeOperationDefImpl} owns its own
+ * holds SM-level registrations; every {@code OperationDefImpl} owns its own
  * {@code Registry} whose {@link #parent()} is the enclosing scope's registry (the root
  * registry for an SM-level composite). Inline composite members live in the composite's own
  * registry only — visibility is lexical. {@link #resolve(String)} walks the parent chain on a

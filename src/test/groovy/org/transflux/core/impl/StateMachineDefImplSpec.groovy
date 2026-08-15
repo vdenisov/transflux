@@ -388,7 +388,7 @@ class StateMachineDefImplSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message.contains("operation 'op'")
+        e.message.contains("step 'op'")
         e.message.contains('after its configurer has returned')
     }
 

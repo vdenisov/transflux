@@ -20,7 +20,7 @@ package org.transflux.core.impl
 
 import org.transflux.core.ContextScope
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.action.CompositeOperationDef
+import org.transflux.core.action.OperationDef
 import org.transflux.core.action.Action
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
@@ -47,7 +47,7 @@ class StateMachineDefImplNestedCycleDetectionSpec extends Specification {
         given:
         def smd = baseDef()
         smd.forContext(Ctx, { ContextScope<Entity, Ctx> scope ->
-            scope.compositeOperation('a', { CompositeOperationDef<Entity, Ctx> c ->
+            scope.compositeOperation('a', { OperationDef<Entity, Ctx> c ->
                 c.step('placeholder', new NoopStep()).operation('a')   // self-reference
             })
         })
@@ -65,9 +65,9 @@ class StateMachineDefImplNestedCycleDetectionSpec extends Specification {
         given:
         def smd = baseDef()
         smd.forContext(Ctx, { ContextScope<Entity, Ctx> scope ->
-            scope.compositeOperation('a', { CompositeOperationDef<Entity, Ctx> c ->
+            scope.compositeOperation('a', { OperationDef<Entity, Ctx> c ->
                 c.step('placeholder-a', new NoopStep()).operation('b')
-            }).compositeOperation('b', { CompositeOperationDef<Entity, Ctx> c ->
+            }).compositeOperation('b', { OperationDef<Entity, Ctx> c ->
                 c.step('placeholder-b', new NoopStep()).operation('a')
             })
         })
@@ -84,11 +84,11 @@ class StateMachineDefImplNestedCycleDetectionSpec extends Specification {
         given:
         def smd = baseDef()
         smd.forContext(Ctx, { ContextScope<Entity, Ctx> scope ->
-            scope.compositeOperation('a', { CompositeOperationDef<Entity, Ctx> c ->
+            scope.compositeOperation('a', { OperationDef<Entity, Ctx> c ->
                 c.step('pa', new NoopStep()).operation('b')
-            }).compositeOperation('b', { CompositeOperationDef<Entity, Ctx> c ->
+            }).compositeOperation('b', { OperationDef<Entity, Ctx> c ->
                 c.step('pb', new NoopStep()).operation('c')
-            }).compositeOperation('c', { CompositeOperationDef<Entity, Ctx> c ->
+            }).compositeOperation('c', { OperationDef<Entity, Ctx> c ->
                 c.step('pc', new NoopStep()).operation('a')
             })
         })
@@ -105,9 +105,9 @@ class StateMachineDefImplNestedCycleDetectionSpec extends Specification {
         given:
         def smd = baseDef()
         smd.forContext(Ctx, { ContextScope<Entity, Ctx> scope ->
-            scope.compositeOperation('b', { CompositeOperationDef<Entity, Ctx> c ->
+            scope.compositeOperation('b', { OperationDef<Entity, Ctx> c ->
                 c.step('pb', new NoopStep())
-            }).compositeOperation('a', { CompositeOperationDef<Entity, Ctx> c ->
+            }).compositeOperation('a', { OperationDef<Entity, Ctx> c ->
                 c.step('pa', new NoopStep()).operation('b')
             })
         })

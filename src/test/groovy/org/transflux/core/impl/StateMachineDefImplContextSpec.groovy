@@ -22,7 +22,7 @@ import org.transflux.core.ContextScope
 import org.transflux.core.Identifiable
 import org.transflux.core.condition.Condition
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.action.CompositeOperationDef
+import org.transflux.core.action.OperationDef
 import org.transflux.core.action.Action
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
@@ -83,7 +83,7 @@ class StateMachineDefImplContextSpec extends Specification {
         def smd = baseDef()
         smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
             scope.step('inner-step', new StepA())
-                .compositeOperation('outer', { CompositeOperationDef<Entity, CtxA> c ->
+                .compositeOperation('outer', { OperationDef<Entity, CtxA> c ->
                     c.step('inner-step')
                 })
         })
@@ -182,7 +182,7 @@ class StateMachineDefImplContextSpec extends Specification {
         def smd = baseDef()
         smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
             scope.step('s', new StepA())
-                .compositeOperation('outer', { CompositeOperationDef<Entity, CtxA> c -> c.step('s') })
+                .compositeOperation('outer', { OperationDef<Entity, CtxA> c -> c.step('s') })
         })
 
         when:
@@ -197,7 +197,7 @@ class StateMachineDefImplContextSpec extends Specification {
         def smd = baseDef()
         smd.forContext(CtxB, { ContextScope<Entity, CtxB> scope -> scope.step('s', new StepB()) })
         smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
-            scope.compositeOperation('outer', { CompositeOperationDef<Entity, CtxA> c ->
+            scope.compositeOperation('outer', { OperationDef<Entity, CtxA> c ->
                 c.step('s')
             })
         })
@@ -219,7 +219,7 @@ class StateMachineDefImplContextSpec extends Specification {
             .step('legacy-step', new StepA())
             .state('s1', { st -> st.transitionsTo('s2', 't', { t ->
                 t.compositeOperation('legacy-composite',
-                    { CompositeOperationDef<Entity, Object> c -> c.step('legacy-step') })
+                    { OperationDef<Entity, Object> c -> c.step('legacy-step') })
             }) })
             .state('s2', {})
 

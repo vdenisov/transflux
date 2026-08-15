@@ -21,7 +21,7 @@ package org.transflux.core.impl
 import org.transflux.core.action.ActionKind
 import org.transflux.core.TestContext
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.action.CompositeOperationDef
+import org.transflux.core.action.OperationDef
 import org.transflux.core.action.Action
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
@@ -106,12 +106,12 @@ class StateMachineDefImplComponentValidationSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .compositeOperation('sm-level', TestContext, { CompositeOperationDef<Entity, TestContext> c ->
+            .compositeOperation('sm-level', TestContext, { OperationDef<Entity, TestContext> c ->
                 c.step('sm-level-inline', new NoOpStep())
             })
             .state('s1', { s ->
                 s.transitionsTo('s2', 't', TestContext, { t ->
-                    t.compositeOperation('outer', { CompositeOperationDef<Entity, TestContext> c ->
+                    t.compositeOperation('outer', { OperationDef<Entity, TestContext> c ->
                         c.step('outer-inline', new NoOpStep())
                     })
                 })

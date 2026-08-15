@@ -24,9 +24,9 @@ import org.transflux.core.exception.TransfluxValidationException;
 import java.util.function.Consumer;
 
 /**
- * Definition surface for a multi-branch conditional step inside a composite operation.
+ * Definition surface for a multi-branch conditional operation inside a composite operation.
  * <p>
- * A conditional step holds an ordered list of {@link BranchDef branches}; at execution time
+ * A conditional operation holds an ordered list of {@link BranchDef branches}; at execution time
  * the framework walks the list in declaration order, evaluates each branch's condition, and
  * runs the steps of the first branch whose condition returned {@code true}. If no branch
  * matches and a {@link DefaultBranchDef default branch} is configured, its steps run.
@@ -44,25 +44,25 @@ import java.util.function.Consumer;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-public interface ConditionalStepDef<T, C> extends Identifiable {
+public interface ConditionalOperationDef<T, C> extends Identifiable {
 
     /**
-     * Sets the optional human-readable name for this conditional step.
+     * Sets the optional human-readable name for this conditional operation.
      *
      * @param name the human-readable name
      *
      * @return this conditional def for chaining
      */
-    ConditionalStepDef<T, C> withName(String name);
+    ConditionalOperationDef<T, C> withName(String name);
 
     /**
-     * Sets the optional description for this conditional step.
+     * Sets the optional description for this conditional operation.
      *
      * @param description the description
      *
      * @return this conditional def for chaining
      */
-    ConditionalStepDef<T, C> withDescription(String description);
+    ConditionalOperationDef<T, C> withDescription(String description);
 
     /**
      * Defines a regular conditional branch. The supplied configurer must set exactly one
@@ -76,7 +76,7 @@ public interface ConditionalStepDef<T, C> extends Identifiable {
      * @throws TransfluxValidationException if {@code branchId} is {@code null} or blank,
      *         {@code configurer} is {@code null}, or {@code branchId} is already declared
      */
-    ConditionalStepDef<T, C> branch(String branchId, Consumer<BranchDef<T, C>> configurer);
+    ConditionalOperationDef<T, C> branch(String branchId, Consumer<BranchDef<T, C>> configurer);
 
     /**
      * {@link Identifiable} overload of {@link #branch(String, Consumer)}.
@@ -88,7 +88,7 @@ public interface ConditionalStepDef<T, C> extends Identifiable {
      *
      * @throws TransfluxValidationException if {@code branchIdentifiable} is {@code null}
      */
-    ConditionalStepDef<T, C> branch(Identifiable branchIdentifiable, Consumer<BranchDef<T, C>> configurer);
+    ConditionalOperationDef<T, C> branch(Identifiable branchIdentifiable, Consumer<BranchDef<T, C>> configurer);
 
     /**
      * Defines the default branch. The supplied configurer must append at least one step.
@@ -101,7 +101,7 @@ public interface ConditionalStepDef<T, C> extends Identifiable {
      * @throws TransfluxValidationException if {@code configurer} is {@code null} or the
      *         default branch has already been declared
      */
-    ConditionalStepDef<T, C> defaultBranch(Consumer<DefaultBranchDef<T, C>> configurer);
+    ConditionalOperationDef<T, C> defaultBranch(Consumer<DefaultBranchDef<T, C>> configurer);
 
     /**
      * Sets the behavior used when no branch matches and no default branch is declared.
@@ -116,5 +116,5 @@ public interface ConditionalStepDef<T, C> extends Identifiable {
      *
      * @throws TransfluxValidationException if {@code behavior} is {@code null}
      */
-    ConditionalStepDef<T, C> onNoMatch(NoMatchBehavior behavior);
+    ConditionalOperationDef<T, C> onNoMatch(NoMatchBehavior behavior);
 }

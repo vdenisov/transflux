@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
 import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.BranchDef;
-import org.transflux.core.action.ConditionalStepDef;
+import org.transflux.core.action.ConditionalOperationDef;
 import org.transflux.core.action.DefaultBranchDef;
 import org.transflux.core.action.NoMatchBehavior;
 import org.transflux.core.action.Action;
@@ -42,7 +42,7 @@ import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
- * Implementation of {@link ConditionalStepDef}.
+ * Implementation of {@link ConditionalOperationDef}.
  *
  * <p>Holds the conditional's branches and optional default branch in declaration order. The
  * branches are validated at build time, not at configurer return — the configurer surface is
@@ -58,16 +58,16 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-final class ConditionalStepDefImpl<T, C>
-    extends IdentifiedDefImpl<ConditionalStepDefImpl<T, C>> implements ConditionalStepDef<T, C> {
-    private static final Logger log = LoggerFactory.getLogger(ConditionalStepDefImpl.class);
+final class ConditionalOperationDefImpl<T, C>
+    extends IdentifiedDefImpl<ConditionalOperationDefImpl<T, C>> implements ConditionalOperationDef<T, C> {
+    private static final Logger log = LoggerFactory.getLogger(ConditionalOperationDefImpl.class);
 
     private final List<BranchDefImpl<T, C>> branches = new ArrayList<>();
     private DefaultBranchDefImpl<T, C> defaultBranch;
     private NoMatchBehavior noMatchBehavior = NoMatchBehavior.WARN;
 
-    ConditionalStepDefImpl(String id) {
-        super(id, "conditional step", "Conditional step ID");
+    ConditionalOperationDefImpl(String id) {
+        super(id, "conditional operation", "Conditional operation ID");
     }
 
     NoMatchBehavior getNoMatchBehavior() {
@@ -75,14 +75,14 @@ final class ConditionalStepDefImpl<T, C>
     }
 
     @Override
-    public ConditionalStepDef<T, C> branch(String branchId, Consumer<BranchDef<T, C>> configurer) {
+    public ConditionalOperationDef<T, C> branch(String branchId, Consumer<BranchDef<T, C>> configurer) {
         requireConfigurerActive("branch");
         requireNotBlank(branchId, "Branch ID");
         requireNotNull(configurer, "Branch configurer");
         for (BranchDefImpl<T, C> existing : branches) {
             if (existing.getBranchId().equals(branchId)) {
                 throw new TransfluxValidationException(
-                    "Branch ID '" + branchId + "' is already declared on conditional step '" + getId() + "'");
+                    "Branch ID '" + branchId + "' is already declared on conditional operation '" + getId() + "'");
             }
         }
         BranchDefImpl<T, C> branch = new BranchDefImpl<>(branchId);
@@ -92,18 +92,18 @@ final class ConditionalStepDefImpl<T, C>
     }
 
     @Override
-    public ConditionalStepDef<T, C> branch(Identifiable branchIdentifiable, Consumer<BranchDef<T, C>> configurer) {
+    public ConditionalOperationDef<T, C> branch(Identifiable branchIdentifiable, Consumer<BranchDef<T, C>> configurer) {
         requireNotNull(branchIdentifiable, "Branch identifiable");
         return branch(branchIdentifiable.getId(), configurer);
     }
 
     @Override
-    public ConditionalStepDef<T, C> defaultBranch(Consumer<DefaultBranchDef<T, C>> configurer) {
+    public ConditionalOperationDef<T, C> defaultBranch(Consumer<DefaultBranchDef<T, C>> configurer) {
         requireConfigurerActive("defaultBranch");
         requireNotNull(configurer, "Default branch configurer");
         if (this.defaultBranch != null) {
             throw new TransfluxValidationException(
-                "Default branch is already declared on conditional step '" + getId() + "'");
+                "Default branch is already declared on conditional operation '" + getId() + "'");
         }
         DefaultBranchDefImpl<T, C> branch = new DefaultBranchDefImpl<>();
         ConfigurableDefImpl.runConfigurer(branch, configurer);
@@ -112,7 +112,7 @@ final class ConditionalStepDefImpl<T, C>
     }
 
     @Override
-    public ConditionalStepDef<T, C> onNoMatch(NoMatchBehavior behavior) {
+    public ConditionalOperationDef<T, C> onNoMatch(NoMatchBehavior behavior) {
         requireConfigurerActive("onNoMatch");
         requireNotNull(behavior, "No-match behavior");
         this.noMatchBehavior = behavior;
@@ -121,7 +121,7 @@ final class ConditionalStepDefImpl<T, C>
 
     /**
      * Walks every branch (and the default branch, if present) and forwards each branch's
-     * action refs to the supplied sink. Used by {@link CompositeOperationDefImpl#bindScope}
+     * action refs to the supplied sink. Used by {@link OperationDefImpl#bindScope}
      * to populate the enclosing composite's scope with the conditional's inline step
      * registrations.
      */
@@ -162,16 +162,16 @@ final class ConditionalStepDefImpl<T, C>
             if (!seen.add(branch.getBranchId())) {
                 throw new TransfluxValidationException(
                     "Branch ID '" + branch.getBranchId()
-                        + "' is duplicated on conditional step '" + getId() + "'");
+                        + "' is duplicated on conditional operation '" + getId() + "'");
             }
             if (branch.getDescriptor() == null) {
                 throw new TransfluxValidationException(
-                    "Branch '" + branch.getBranchId() + "' on conditional step '" + getId()
+                    "Branch '" + branch.getBranchId() + "' on conditional operation '" + getId()
                         + "' must declare a condition");
             }
             if (branch.getActionRefs().isEmpty()) {
                 throw new TransfluxValidationException(
-                    "Branch '" + branch.getBranchId() + "' on conditional step '" + getId()
+                    "Branch '" + branch.getBranchId() + "' on conditional operation '" + getId()
                         + "' must declare at least one step");
             }
 
@@ -187,7 +187,7 @@ final class ConditionalStepDefImpl<T, C>
         if (defaultBranch != null) {
             if (defaultBranch.getActionRefs().isEmpty()) {
                 throw new TransfluxValidationException(
-                    "Default branch on conditional step '" + getId() + "' must declare at least one step");
+                    "Default branch on conditional operation '" + getId() + "' must declare at least one step");
             }
             defaultStepIds = collectStepIds(defaultBranch.getActionRefs());
         }

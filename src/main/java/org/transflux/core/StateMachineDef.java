@@ -20,10 +20,10 @@ package org.transflux.core;
 
 import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.action.CompositeOperationDef;
+import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.Action;
-import org.transflux.core.action.SimpleOperationDef;
+import org.transflux.core.action.StepDef;
 import org.transflux.core.action.StepDef;
 import org.transflux.core.state.StateApplier;
 import org.transflux.core.state.StateDef;
@@ -515,7 +515,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    <C> StateMachineDef<T> compositeOperation(String id, Class<C> contextType, Consumer<CompositeOperationDef<T, C>> configurer);
+    <C> StateMachineDef<T> compositeOperation(String id, Class<C> contextType, Consumer<OperationDef<T, C>> configurer);
 
     /**
      * {@link Identifiable} overload of
@@ -529,7 +529,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    <C> StateMachineDef<T> compositeOperation(Identifiable operationIdentifiable, Class<C> contextType, Consumer<CompositeOperationDef<T, C>> configurer);
+    <C> StateMachineDef<T> compositeOperation(Identifiable operationIdentifiable, Class<C> contextType, Consumer<OperationDef<T, C>> configurer);
 
     /**
      * Registers an {@link Action} instance against this state machine under the given id,
@@ -592,7 +592,7 @@ public interface StateMachineDef<T> {
      * with the supplied context class. Inside the configurer the caller wires the operation
      * source with {@code using(Operation|Class)} and may set optional {@code withName} /
      * {@code withDescription} metadata. The configurer is the only place the
-     * {@link SimpleOperationDef} may be mutated; once it returns the reference is inert.
+     * {@link StepDef} may be mutated; once it returns the reference is inert.
      *
      * @param id the operation id
      * @param contextType the operation's declared context class
@@ -601,7 +601,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    <C> StateMachineDef<T> simpleOperation(String id, Class<C> contextType, Consumer<SimpleOperationDef<T, C>> configurer);
+    <C> StateMachineDef<T> simpleOperation(String id, Class<C> contextType, Consumer<StepDef<T, C>> configurer);
 
     /**
      * {@link Identifiable} overload of {@link #simpleOperation(String, Class, Consumer)} —
@@ -614,7 +614,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    <C> StateMachineDef<T> simpleOperation(Identifiable operationIdentifiable, Class<C> contextType, Consumer<SimpleOperationDef<T, C>> configurer);
+    <C> StateMachineDef<T> simpleOperation(Identifiable operationIdentifiable, Class<C> contextType, Consumer<StepDef<T, C>> configurer);
 
     /**
      * Registers a {@link ContextMapper} instance against this state machine under the given id,
