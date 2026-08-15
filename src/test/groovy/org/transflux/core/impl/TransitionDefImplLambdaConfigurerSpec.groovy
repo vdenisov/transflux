@@ -93,10 +93,10 @@ class TransitionDefImplLambdaConfigurerSpec extends Specification {
         def simple = smd.getTransition('t-simple')
         simple.name == 'n'
         simple.description == 'd'
-        simple.operationDef != null
+        simple.actionDef != null
         simple.preConditionDescriptors.size() == 1
         simple.postConditionDescriptors.size() == 1
-        smd.getTransition('t-composite').operationDef != null
+        smd.getTransition('t-composite').actionDef != null
     }
 
     @Unroll

@@ -67,8 +67,8 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     private final String sourceStateId;
     private final String targetStateId;
 
-    private ActionDefImpl<T, C, ?> operationDef;
-    private String registeredOperationRefId;
+    private ActionDefImpl<T, C, ?> actionDef;
+    private String registeredActionRefId;
     private Class<C> contextType;
 
     private final ConditionDescriptorSink<T, C, TransitionDef<T, C>> preConditions =
@@ -158,40 +158,40 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
      * @return the bound operation, or {@code null}
      */
     @SuppressWarnings({"unchecked"})
-    BoundAction<T, C> buildBoundOperation(StateMachineImpl<T> stateMachine) {
-        if (registeredOperationRefId != null) {
+    BoundAction<T, C> buildBoundAction(StateMachineImpl<T> stateMachine) {
+        if (registeredActionRefId != null) {
             Component<T> component = stateMachine.getComponentRegistry()
-                .resolve(registeredOperationRefId).orElse(null);
+                .resolve(registeredActionRefId).orElse(null);
             if (component == null) {
                 throw new TransfluxValidationException(
                     "Transition '" + getId() + "' references unknown action id '"
-                        + registeredOperationRefId + "'");
+                        + registeredActionRefId + "'");
             }
             if (!(component instanceof Component.Action<T, ?> opComp)) {
                 throw new TransfluxValidationException(
-                    "Transition '" + getId() + "' references id '" + registeredOperationRefId
+                    "Transition '" + getId() + "' references id '" + registeredActionRefId
                         + "' which is registered as a "
                         + component.getClass().getSimpleName().toLowerCase()
                         + ", not an action");
             }
-            Class<?> opCtx = stateMachine.getDef().getComponentContextType(registeredOperationRefId);
+            Class<?> opCtx = stateMachine.getDef().getComponentContextType(registeredActionRefId);
             Class<?> txCtx = this.contextType != null ? this.contextType : Object.class;
             if (opCtx != null && opCtx != Object.class && !opCtx.isAssignableFrom(txCtx)) {
                 throw new TransfluxValidationException(
                     "Transition '" + getId() + "' (context " + txCtx.getName()
-                        + ") cannot attach SM-level operation '" + registeredOperationRefId
+                        + ") cannot attach SM-level action '" + registeredActionRefId
                         + "' (context " + opCtx.getName() + "): context types are not assignable");
             }
             return (BoundAction<T, C>) opComp.bound();
         }
-        if (operationDef == null) {
+        if (actionDef == null) {
             return null;
         }
-        return operationDef.buildBound(stateMachine);
+        return actionDef.buildBound(stateMachine);
     }
 
-    ActionDefImpl<T, C, ?> getOperationDef() {
-        return operationDef;
+    ActionDefImpl<T, C, ?> getActionDef() {
+        return actionDef;
     }
 
     /**
@@ -281,7 +281,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         requireConfigurerActive("step");
         StepDefImpl<T, C> def = newStepDef(id);
         ConfigurableDefImpl.runConfigurer(def, d -> d.using(operation));
-        attachOperation(def);
+        attachAction(def);
         return this;
     }
 
@@ -296,7 +296,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         requireConfigurerActive("step");
         StepDefImpl<T, C> def = newStepDef(id);
         ConfigurableDefImpl.runConfigurer(def, d -> d.using(operationClass));
-        attachOperation(def);
+        attachAction(def);
         return this;
     }
 
@@ -312,7 +312,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         requireNotNull(configurer, "Simple operation configurer");
         StepDefImpl<T, C> def = newStepDef(id);
         ConfigurableDefImpl.runConfigurer(def, configurer);
-        attachOperation(def);
+        attachAction(def);
         return this;
     }
 
@@ -328,7 +328,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         requireNotNull(configurer, "Composite operation configurer");
         OperationDefImpl<T, C> composite = new OperationDefImpl<>(id);
         ConfigurableDefImpl.runConfigurer(composite, configurer);
-        attachOperation(composite);
+        attachAction(composite);
         return this;
     }
 
@@ -342,9 +342,9 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     public TransitionDef<T, C> run(String id) {
         requireConfigurerActive("run");
         requireNotBlank(id, "Action reference ID");
-        warnIfOperationSet();
-        this.operationDef = null;
-        this.registeredOperationRefId = id;
+        warnIfActionSet();
+        this.actionDef = null;
+        this.registeredActionRefId = id;
         return this;
     }
 
@@ -769,15 +769,15 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         return new StepDefImpl<>(operationId);
     }
 
-    private void attachOperation(ActionDefImpl<T, C, ?> def) {
-        warnIfOperationSet();
-        this.registeredOperationRefId = null;
-        this.operationDef = def;
+    private void attachAction(ActionDefImpl<T, C, ?> def) {
+        warnIfActionSet();
+        this.registeredActionRefId = null;
+        this.actionDef = def;
     }
 
-    private void warnIfOperationSet() {
-        if (this.operationDef != null || this.registeredOperationRefId != null) {
-            log.warn("Operation is already defined for transition '{}'; overriding previous value", getId());
+    private void warnIfActionSet() {
+        if (this.actionDef != null || this.registeredActionRefId != null) {
+            log.warn("Action is already defined for transition '{}'; overriding previous value", getId());
         }
     }
 

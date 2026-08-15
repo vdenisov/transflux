@@ -78,7 +78,7 @@ class StateMachineDefImplComponentValidationSpec extends Specification {
         given:
         def smd = defWithComposites()
         def sm = smd.build()
-        plant(smd.transitionsById['t'].operationDef.scopeRegistry)
+        plant(smd.transitionsById['t'].actionDef.scopeRegistry)
 
         when:
         smd.validateComponents(sm.componentRegistry)

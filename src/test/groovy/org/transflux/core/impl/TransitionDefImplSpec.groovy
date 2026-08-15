@@ -150,8 +150,8 @@ class TransitionDefImplSpec extends Specification {
 
         then:
         returned.is(transitionDef)
-        transitionDef.operationDef instanceof StepDefImpl
-        transitionDef.operationDef.id == 'op1'
+        transitionDef.actionDef instanceof StepDefImpl
+        transitionDef.actionDef.id == 'op1'
     }
 
     def 'step(id, Operation class) should attach an inline step def'() {
@@ -164,8 +164,8 @@ class TransitionDefImplSpec extends Specification {
 
         then:
         returned.is(transitionDef)
-        transitionDef.operationDef instanceof StepDefImpl
-        transitionDef.operationDef.id == 'op1'
+        transitionDef.actionDef instanceof StepDefImpl
+        transitionDef.actionDef.id == 'op1'
     }
 
     def 'step(id, Consumer) should attach a configured simple operation def'() {
@@ -180,10 +180,10 @@ class TransitionDefImplSpec extends Specification {
 
         then:
         returned.is(transitionDef)
-        transitionDef.operationDef instanceof StepDefImpl
-        transitionDef.operationDef.id == 'op1'
-        transitionDef.operationDef.name == 'Foo'
-        transitionDef.operationDef.description == 'Foo desc'
+        transitionDef.actionDef instanceof StepDefImpl
+        transitionDef.actionDef.id == 'op1'
+        transitionDef.actionDef.name == 'Foo'
+        transitionDef.actionDef.description == 'Foo desc'
     }
 
     def 'step(id, Consumer) should reject null configurer'() {
@@ -210,9 +210,9 @@ class TransitionDefImplSpec extends Specification {
 
         then:
         returned.is(transitionDef)
-        transitionDef.operationDef instanceof OperationDefImpl
-        transitionDef.operationDef.id == 'op1'
-        ((OperationDefImpl<Object, Object>) transitionDef.operationDef).actionRefs.size() == 1
+        transitionDef.actionDef instanceof OperationDefImpl
+        transitionDef.actionDef.id == 'op1'
+        ((OperationDefImpl<Object, Object>) transitionDef.actionDef).actionRefs.size() == 1
     }
 
     def 'operation(id, Consumer) should reject null configurer'() {
@@ -319,7 +319,7 @@ class TransitionDefImplSpec extends Specification {
         method << ['preCondition', 'postCondition', 'run']
     }
 
-    def 'operation(String) stores the registered op id and clears any prior operationDef'() {
+    def 'operation(String) stores the registered op id and clears any prior actionDef'() {
         given:
         def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
         td.beginConfigurer()
@@ -328,8 +328,8 @@ class TransitionDefImplSpec extends Specification {
         td.run('my-registered-op')
 
         then:
-        td.registeredOperationRefId == 'my-registered-op'
-        td.operationDef == null
+        td.registeredActionRefId == 'my-registered-op'
+        td.actionDef == null
     }
 
     def 'operation(Identifiable) delegates to operation(String)'() {
@@ -341,7 +341,7 @@ class TransitionDefImplSpec extends Specification {
         td.run(identifiable('my-registered-op'))
 
         then:
-        td.registeredOperationRefId == 'my-registered-op'
+        td.registeredActionRefId == 'my-registered-op'
     }
 
     def 'operation(null) and operation(blank) are rejected'() {
@@ -369,9 +369,9 @@ class TransitionDefImplSpec extends Specification {
         td.step('second', new IdOverloadOp())
 
         then:
-        td.registeredOperationRefId == null
-        td.operationDef != null
-        td.operationDef.id == 'second'
+        td.registeredActionRefId == null
+        td.actionDef != null
+        td.actionDef.id == 'second'
     }
 
     def 'step(...) followed by operation(...) overrides with a warning'() {
@@ -384,8 +384,8 @@ class TransitionDefImplSpec extends Specification {
         td.run('second')
 
         then:
-        td.operationDef == null
-        td.registeredOperationRefId == 'second'
+        td.actionDef == null
+        td.registeredActionRefId == 'second'
     }
 
     def 'operation(...) is rejected after the configurer returns (scope guard)'() {

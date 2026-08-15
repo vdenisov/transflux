@@ -99,7 +99,7 @@ record BoundTransition<T, C>(String id,
             def.getSourceStateId(),
             def.getTargetStateId(),
             def.getContextType(),
-            def.buildBoundOperation(stateMachine),
+            def.buildBoundAction(stateMachine),
             def.buildBoundPreConditions(conditionRegistry),
             def.buildBoundPostConditions(conditionRegistry),
             listeners);

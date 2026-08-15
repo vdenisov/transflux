@@ -27,8 +27,11 @@ import org.transflux.core.action.Action
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
+import org.transflux.core.transition.TransitionDef
 import org.transflux.core.transition.TransitionResult
 import spock.lang.Specification
+
+import java.util.function.Consumer
 import spock.lang.Unroll
 
 import static org.transflux.core.TestStateEnum.ACTIVE
@@ -560,6 +563,58 @@ class StateMachineImplSpec extends Specification {
         result.executedPath*.toString() == ['activate']
         context.tag == 'simple-ran'
         appliedState[entity] == 'ACTIVE'
+    }
+
+    @Unroll
+    def "a registered #kind attaches to a transition by id and runs as its root action"() {
+        given:
+        def smd = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .step('stamp', new ContextStampStep())
+        register.call(smd)
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', TestContext, { t -> t.run('attached') }) })
+        smd.state(ACTIVE, {})
+        def sm = smd.build()
+        def context = new TestContext()
+
+        when:
+        def result = sm.entity(new TestEntity('e1', 'TRIAL')).transitionTo('ACTIVE', context)
+
+        then:
+        result.success
+        result.executedPath*.toString() == expectedPath
+        context.tag == 'e1:stamped'
+
+        where:
+        kind        | register                                                              || expectedPath
+        'step'      | { d -> d.step('attached', new ContextStampStep()) }               || ['attached']
+        'operation' | { d -> d.operation('attached', TestContext, { c -> c.run('stamp') }) } || ['attached', 'attached/stamp']
+    }
+
+    def "attaching a step directly needs no wrapper composite, and the executed path shows it"() {
+        given: 'the same action attached directly, and through the single-step composite that used to be the only way'
+        def direct = smWith({ t -> t.step('charge', new ContextStampStep()) })
+        def wrapped = smWith({ t -> t.operation('wrapper', { c -> c.step('charge', new ContextStampStep()) }) })
+
+        when:
+        def directResult = direct.entity(new TestEntity('e1', 'TRIAL')).transitionTo('ACTIVE', new TestContext())
+        def wrappedResult = wrapped.entity(new TestEntity('e1', 'TRIAL')).transitionTo('ACTIVE', new TestContext())
+
+        then: 'both work, but the wrapper is no longer needed and shows up as an extra level of nesting'
+        directResult.success
+        wrappedResult.success
+        directResult.executedPath*.toString() == ['charge']
+        wrappedResult.executedPath*.toString() == ['wrapper', 'wrapper/charge']
+    }
+
+    private static StateMachine<TestEntity> smWith(Consumer<TransitionDef<TestEntity, TestContext>> configurer) {
+        def smd = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', TestContext, configurer) })
+        smd.state(ACTIVE, {})
+        return smd.build()
     }
 
     def "transitionTo should track step ids invoked from inside an action body via transition.run(id)"() {

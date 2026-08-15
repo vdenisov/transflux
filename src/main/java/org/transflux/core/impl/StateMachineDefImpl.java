@@ -334,7 +334,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             claimInlineConditions(canonical, td);
-            ActionDefImpl<T, ?, ?> op = td.getOperationDef();
+            ActionDefImpl<T, ?, ?> op = td.getActionDef();
             if (op != null) {
                 op.bindScope(rootRegistry, canonical, conditionRegistry);
             }
@@ -356,7 +356,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      */
     Optional<String> findInlineSiblingScope(String id, String excludingCompositeId) {
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
-            ActionDefImpl<T, ?, ?> op = td.getOperationDef();
+            ActionDefImpl<T, ?, ?> op = td.getActionDef();
             if (op != null) {
                 Optional<String> hit = op.scanScopeFor(id, excludingCompositeId);
                 if (hit.isPresent()) {
@@ -389,7 +389,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      */
     void flattenCompositeScopes() {
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
-            ActionDefImpl<T, ?, ?> op = td.getOperationDef();
+            ActionDefImpl<T, ?, ?> op = td.getActionDef();
             if (op != null) {
                 op.flattenScope();
             }
@@ -1379,7 +1379,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         validateScope(rootRegistry, validated);
 
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
-            ActionDefImpl<T, ?, ?> op = td.getOperationDef();
+            ActionDefImpl<T, ?, ?> op = td.getActionDef();
             if (op != null) {
                 validateScope(op.getScopeRegistry(), validated);
             }
@@ -1405,7 +1405,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         checkTransitionListenerIds();
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             Class<?> transitionContext = td.getContextType();
-            ActionDefImpl<T, ?, ?> op = td.getOperationDef();
+            ActionDefImpl<T, ?, ?> op = td.getActionDef();
             if (op != null) {
                 op.checkRefs(transitionContext, "transition '" + td.getId() + "'", this);
             }
