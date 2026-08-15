@@ -18,13 +18,12 @@
 
 package org.transflux.core;
 
+import org.transflux.core.action.Action;
+import org.transflux.core.action.ContextMapper;
+import org.transflux.core.action.OperationDef;
+import org.transflux.core.action.StepDef;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.action.OperationDef;
-import org.transflux.core.action.ContextMapper;
-import org.transflux.core.action.Action;
-import org.transflux.core.action.StepDef;
-import org.transflux.core.action.StepDef;
 import org.transflux.core.state.StateApplier;
 import org.transflux.core.state.StateDef;
 import org.transflux.core.state.StateListener;

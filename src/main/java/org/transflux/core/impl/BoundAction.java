@@ -56,14 +56,4 @@ record BoundAction<T, C>(String id, Action<T, C> action, ActionKind kind) {
     static <T, C> BoundAction<T, C> of(String id, Action<T, C> action, ActionKind kind) {
         return new BoundAction<>(id, action, kind);
     }
-
-    /**
-     * Returns the authored form as a lower-case noun for use in diagnostics ({@code "step"} or
-     * {@code "operation"}).
-     *
-     * @return the kind label; never {@code null}
-     */
-    String kindLabel() {
-        return kind.name().toLowerCase();
-    }
 }

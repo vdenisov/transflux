@@ -18,22 +18,21 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.action.ActionKind;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.transflux.core.ContextScope;
 import org.transflux.core.Identifiable;
 import org.transflux.core.StateMachine;
 import org.transflux.core.StateMachineDef;
+import org.transflux.core.action.Action;
+import org.transflux.core.action.ActionKind;
+import org.transflux.core.action.ContextMapper;
+import org.transflux.core.action.MapperDef;
+import org.transflux.core.action.OperationDef;
+import org.transflux.core.action.StepDef;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.action.OperationDef;
-import org.transflux.core.action.ContextMapper;
-import org.transflux.core.action.MapperDef;
-import org.transflux.core.action.Action;
-import org.transflux.core.action.StepDef;
-import org.transflux.core.action.StepDef;
 import org.transflux.core.state.StateApplier;
 import org.transflux.core.state.StateDef;
 import org.transflux.core.state.StateListener;
@@ -915,16 +914,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     <C> void registerScopedCondition(String id, String expression, Class<C> contextType) {
         registerConditionExpression(id, expression);
-        tagContextType(id, contextType);
-    }
-
-    <C> void registerScopedOperation(String id, Action<T, C> operation, Class<C> contextType) {
-        registerStepInstance(id, operation);
-        tagContextType(id, contextType);
-    }
-
-    <C> void registerScopedOperation(String id, Class<? extends Action<T, C>> operationClass, Class<C> contextType) {
-        registerStepClass(id, operationClass);
         tagContextType(id, contextType);
     }
 
