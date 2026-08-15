@@ -28,6 +28,7 @@ Status legend: ✅ done · 🚧 active · ⬜ next / planned · 🔮 post-1.0
 
 - **[docs/roadmap/](docs/roadmap/)** — one file per **remaining** phase (3, 4, 5, 6). A phase moves to `docs/history/` when it ships.
 - **[docs/history/](docs/history/)** — one file per **shipped** phase (1, 2, 2.5, 2.6), verbatim, nothing compressed.
+- **[docs/design/](docs/design/)** - design notes for individual changes large enough to want one before they become a plan. Written against the model at the time; reconciled into `requirements.md` when the change lands.
 - **[docs/project-baseline.md](docs/project-baseline.md)** — Java baseline, dependency versions, release cadence.
 - **`requirements.md`** — the canonical high-level spec.
 
