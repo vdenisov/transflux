@@ -307,7 +307,7 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         captured.first().firedBy() == null
     }
 
-    def 'the transition handed to a listener refuses to dispatch steps'() {
+    def 'the transition handed to a listener refuses to dispatch actions'() {
         given:
         def failures = []
         def stepRuns = []
@@ -317,7 +317,7 @@ class StateMachineImplTransitionListenerSpec extends Specification {
             .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
                 .onStart('meddler', { e, ctx, ex ->
                     try {
-                        ex.transition().step('side-effect')
+                        ex.transition().run('side-effect')
                     } catch (Exception caught) {
                         failures << caught.message
                     }

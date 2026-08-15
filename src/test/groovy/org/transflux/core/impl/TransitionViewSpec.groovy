@@ -52,7 +52,7 @@ class TransitionViewSpec extends Specification {
         }
     }
 
-    def "view.step(id) should run the bound step against the captured scope and record the id"() {
+    def "view.run(id) should run the bound step against the captured scope and record the id"() {
         given:
         def step = new TaggingStep('foo')
         def smd = Transflux.<TestEntity> defineStateMachine()
@@ -68,7 +68,7 @@ class TransitionViewSpec extends Specification {
         def view = new TransitionView<TestEntity, TestContext>(sm, sm.transitions['t1'], entity, ctx)
 
         when:
-        view.step('foo-id')
+        view.run('foo-id')
 
         then:
         entity.trail == ['foo']
@@ -76,7 +76,7 @@ class TransitionViewSpec extends Specification {
         view.executedPath*.toString() == ['foo-id']
     }
 
-    def "view.step(id) should throw for an unknown id"() {
+    def "view.run(id) should throw for an unknown id"() {
         given:
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
@@ -89,7 +89,7 @@ class TransitionViewSpec extends Specification {
             sm, sm.transitions['t1'], new TestEntity(state: 'TRIAL'), new TestContext())
 
         when:
-        view.step('nope')
+        view.run('nope')
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -97,7 +97,7 @@ class TransitionViewSpec extends Specification {
         e.message.contains('No action registered')
     }
 
-    def "view.step(id) should reject null or blank id"() {
+    def "view.run(id) should reject null or blank id"() {
         given:
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
@@ -110,7 +110,7 @@ class TransitionViewSpec extends Specification {
             sm, sm.transitions['t1'], new TestEntity(state: 'TRIAL'), new TestContext())
 
         when:
-        view.step(id)
+        view.run(id)
 
         then:
         thrown(TransfluxValidationException)

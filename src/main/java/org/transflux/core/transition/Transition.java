@@ -39,38 +39,41 @@ import java.util.function.Function;
  * to the Saga pattern.
  *
  * <p>Topology accessors ({@link #getId()}, {@link #getSourceStateId()}, {@link #getTargetStateId()})
- * are stable for the lifetime of the enclosing state machine. The {@code step(...)} and
- * {@code operation(...)} dispatch methods are execution-scoped: they are only meaningful when
- * an operation calls them from inside a transition currently being executed, because the
- * framework hands operations a per-execution {@code Transition} view that carries the
- * captured entity, context, and recorder. Calling them against a static-topology object
- * outside an active execution raises {@link TransfluxValidationException}.
+ * are stable for the lifetime of the enclosing state machine. The {@code run(...)} methods are
+ * execution-scoped: they are only meaningful when an action calls them from inside a transition
+ * currently being executed, because the framework hands actions a per-execution
+ * {@code Transition} view that carries the captured entity, context, and recorder. Calling them
+ * against a static-topology object outside an active execution raises
+ * {@link TransfluxValidationException}.
  *
- * <p><b>Mapper-aware overloads.</b> Both {@code step(...)} and {@code operation(...)} accept an
- * optional mapper specification — a registered {@code mapper} by id, an inline {@link Function}
- * for read-only projection, or a fully-supplied {@link ContextMapper} instance — that bridges
- * the active context to whatever the referenced step or operation requires. Pass-through forms
- * (mapper-less) require the called step or operation's context type to be assignable from the
- * active context.
+ * <p>{@code run(...)} names a callee and nothing more. Which authoring form the callee was
+ * declared in - imperative or declarative - is a property of its own registration, not of this
+ * call site, so there is one verb rather than one per form.
  *
- * <p><b>Example usage from inside an operation:</b>
+ * <p><b>Mapper-aware overloads.</b> {@code run(...)} accepts an optional mapper specification -
+ * a registered {@code mapper} by id, an inline {@link Function} for read-only projection, or a
+ * fully-supplied {@link ContextMapper} instance - that bridges the active context to whatever
+ * the referenced action requires. Pass-through forms (mapper-less) require the called action's
+ * context type to be assignable from the active context.
+ *
+ * <p><b>Example usage from inside an action:</b>
  * <pre>{@code
  * public class ActivateSubscription implements Action<Subscription, ActivationContext> {
  *     @Override
  *     public void execute(Subscription entity, ActivationContext context,
  *                         Transition<Subscription, ActivationContext> transition) {
- *         transition.step("validate-payment-method");
- *         transition.step("charge-first-period");
- *         transition.step("provision-entitlements");
+ *         transition.run("validate-payment-method");
+ *         transition.run("charge-first-period");
+ *         transition.run("provision-entitlements");
  *     }
  * }
  * }</pre>
  *
- * <p>Each {@code step("id")} call resolves the step against the state machine's registry and
- * runs it against the same entity / context / view, with the step's id automatically appended
- * to the executed-step list on the resulting {@link TransitionResult}.
+ * <p>Each {@code run("id")} call resolves the action against the state machine's registry and
+ * runs it against the same entity / context / view, with the action's id automatically appended
+ * to the executed path on the resulting {@link TransitionResult}.
  *
- * <p>Configuration of transitions (operations, conditions, triggers, listeners) is done on
+ * <p>Configuration of transitions (actions, conditions, triggers, listeners) is done on
  * {@link TransitionDef} during state machine construction, not on this runtime interface.
  *
  * @param <T> the entity type the enclosing state machine manages
@@ -99,189 +102,94 @@ public interface Transition<T, C> extends Identifiable {
     String getTargetStateId();
 
     /**
-     * Dispatches a registered step under {@code id} in pass-through mode. The step's context
+     * Runs the action registered under {@code id} in pass-through mode. The action's context
      * type must be assignable from the active context.
      *
-     * @param id the registered step id
+     * @param id the registered action id
      *
      * @throws TransfluxValidationException when called outside an active transition execution,
-     *         when no step is registered under {@code id} in the active scope, or when the
-     *         step's context type is not assignable from the active context
+     *         when no action is registered under {@code id} in the active scope, or when the
+     *         action's context type is not assignable from the active context
      */
-    void step(String id);
+    void run(String id);
 
     /**
-     * Dispatches a registered step under {@code id}, applying the registered mapper identified
-     * by {@code mapperId} at the call boundary.
+     * Runs the action registered under {@code id}, applying the registered mapper identified by
+     * {@code mapperId} at the call boundary.
      *
-     * @param id the registered step id
+     * @param id the registered action id
      * @param mapperId the registered mapper id
      *
-     * @throws TransfluxValidationException when {@code mapperId} is blank, when no step is
+     * @throws TransfluxValidationException when {@code mapperId} is blank, when no action is
      *         registered under {@code id}, or when no mapper is registered under {@code mapperId}
      */
-    void step(String id, String mapperId);
+    void run(String id, String mapperId);
 
     /**
-     * Dispatches a registered step under {@code id} with an inline read-only parent-to-child
+     * Runs the action registered under {@code id} with an inline read-only parent-to-child
      * projection. The supplied function is wrapped as a {@link ContextMapper} whose
      * {@link ContextMapper#mapFrom(Object, Object) mapFrom} is a no-op.
      *
-     * @param id the registered step id
+     * @param id the registered action id
      * @param inlineMapTo the parent-to-child projection
      *
-     * @throws TransfluxValidationException when {@code inlineMapTo} is {@code null} or no step
+     * @throws TransfluxValidationException when {@code inlineMapTo} is {@code null} or no action
      *         is registered under {@code id}
      */
-    void step(String id, Function<C, ?> inlineMapTo);
+    void run(String id, Function<C, ?> inlineMapTo);
 
     /**
-     * Dispatches a registered step under {@code id} with an inline fully-supplied
+     * Runs the action registered under {@code id} with an inline fully-supplied
      * {@link ContextMapper}.
      *
-     * @param id the registered step id
+     * @param id the registered action id
      * @param inlineMapper the mapper to apply at the boundary
      *
      * @throws TransfluxValidationException when {@code inlineMapper} is {@code null} or no
-     *         step is registered under {@code id}
+     *         action is registered under {@code id}
      */
-    void step(String id, ContextMapper<C, ?> inlineMapper);
+    void run(String id, ContextMapper<C, ?> inlineMapper);
 
     /**
-     * {@link Identifiable} overload of {@link #step(String)} — delegates via
+     * {@link Identifiable} overload of {@link #run(String)} - delegates via
      * {@link Identifiable#getId()}.
      *
-     * @param registeredStep an identifiable supplying the step id
+     * @param registeredAction an identifiable supplying the action id
      *
-     * @throws TransfluxValidationException if {@code registeredStep} is {@code null}
+     * @throws TransfluxValidationException if {@code registeredAction} is {@code null}
      */
-    void step(Identifiable registeredStep);
+    void run(Identifiable registeredAction);
 
     /**
-     * {@link Identifiable} overload of {@link #step(String, String)} — both step and mapper
+     * {@link Identifiable} overload of {@link #run(String, String)} - both action and mapper
      * supplied as identifiables.
      *
-     * @param registeredStep an identifiable supplying the step id
+     * @param registeredAction an identifiable supplying the action id
      * @param mapper an identifiable supplying the mapper id
      *
      * @throws TransfluxValidationException if either argument is {@code null}
      */
-    void step(Identifiable registeredStep, Identifiable mapper);
+    void run(Identifiable registeredAction, Identifiable mapper);
 
     /**
-     * Mixed-form overload of {@link #step(String, String)} — step identifiable + mapper id.
+     * Mixed-form overload of {@link #run(String, String)} - action identifiable + mapper id.
      *
-     * @param registeredStep an identifiable supplying the step id
+     * @param registeredAction an identifiable supplying the action id
      * @param mapperId the registered mapper id
      *
-     * @throws TransfluxValidationException if {@code registeredStep} is {@code null} or
+     * @throws TransfluxValidationException if {@code registeredAction} is {@code null} or
      *         {@code mapperId} is {@code null}/blank
      */
-    void step(Identifiable registeredStep, String mapperId);
+    void run(Identifiable registeredAction, String mapperId);
 
     /**
-     * Mixed-form overload of {@link #step(String, String)} — step id + mapper identifiable.
+     * Mixed-form overload of {@link #run(String, String)} - action id + mapper identifiable.
      *
-     * @param id the registered step id
+     * @param id the registered action id
      * @param mapper an identifiable supplying the mapper id
      *
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code mapper} is {@code null}
      */
-    void step(String id, Identifiable mapper);
-
-    /**
-     * Dispatches a registered operation under {@code id} in pass-through mode. The operation's
-     * context type must be assignable from the active context.
-     *
-     * @param id the registered operation id
-     *
-     * @throws TransfluxValidationException when called outside an active transition execution,
-     *         when no operation is registered under {@code id} in the active scope, or when the
-     *         operation's context type is not assignable from the active context
-     */
-    void operation(String id);
-
-    /**
-     * Dispatches a registered operation under {@code id}, applying the registered mapper
-     * identified by {@code mapperId} at the call boundary.
-     *
-     * @param id the registered operation id
-     * @param mapperId the registered mapper id
-     *
-     * @throws TransfluxValidationException when {@code mapperId} is blank, when no operation
-     *         is registered under {@code id}, or when no mapper is registered under
-     *         {@code mapperId}
-     */
-    void operation(String id, String mapperId);
-
-    /**
-     * Dispatches a registered operation under {@code id} with an inline read-only
-     * parent-to-child projection. The supplied function is wrapped as a {@link ContextMapper}
-     * whose {@link ContextMapper#mapFrom(Object, Object) mapFrom} is a no-op.
-     *
-     * @param id the registered operation id
-     * @param inlineMapTo the parent-to-child projection
-     *
-     * @throws TransfluxValidationException when {@code inlineMapTo} is {@code null} or no
-     *         operation is registered under {@code id}
-     */
-    void operation(String id, Function<C, ?> inlineMapTo);
-
-    /**
-     * Dispatches a registered operation under {@code id} with an inline fully-supplied
-     * {@link ContextMapper}.
-     *
-     * @param id the registered operation id
-     * @param inlineMapper the mapper to apply at the boundary
-     *
-     * @throws TransfluxValidationException when {@code inlineMapper} is {@code null} or no
-     *         operation is registered under {@code id}
-     */
-    void operation(String id, ContextMapper<C, ?> inlineMapper);
-
-    /**
-     * {@link Identifiable} overload of {@link #operation(String)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param registeredOperation an identifiable supplying the operation id
-     *
-     * @throws TransfluxValidationException if {@code registeredOperation} is {@code null}
-     */
-    void operation(Identifiable registeredOperation);
-
-    /**
-     * {@link Identifiable} overload of {@link #operation(String, String)} — both operation
-     * and mapper supplied as identifiables.
-     *
-     * @param registeredOperation an identifiable supplying the operation id
-     * @param mapper an identifiable supplying the mapper id
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}
-     */
-    void operation(Identifiable registeredOperation, Identifiable mapper);
-
-    /**
-     * Mixed-form overload of {@link #operation(String, String)} — operation identifiable +
-     * mapper id.
-     *
-     * @param registeredOperation an identifiable supplying the operation id
-     * @param mapperId the registered mapper id
-     *
-     * @throws TransfluxValidationException if {@code registeredOperation} is {@code null}
-     *         or {@code mapperId} is {@code null}/blank
-     */
-    void operation(Identifiable registeredOperation, String mapperId);
-
-    /**
-     * Mixed-form overload of {@link #operation(String, String)} — operation id + mapper
-     * identifiable.
-     *
-     * @param id the registered operation id
-     * @param mapper an identifiable supplying the mapper id
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
-     *         {@code mapper} is {@code null}
-     */
-    void operation(String id, Identifiable mapper);
+    void run(String id, Identifiable mapper);
 }

@@ -64,23 +64,15 @@ class TopologyTransitionSpec extends Specification {
         e.message.contains('inside an active transition execution')
 
         where:
-        description                          | call
-        'step(String)'                       | { v -> v.step('s') }
-        'step(String, String)'               | { v -> v.step('s', 'm') }
-        'step(String, Function)'             | { v -> v.step('s', { c -> c } as Function) }
-        'step(String, ContextMapper)'        | { v -> v.step('s', Mock(ContextMapper)) }
-        'step(Identifiable)'                 | { v -> v.step(idOf('s')) }
-        'step(Identifiable, Identifiable)'   | { v -> v.step(idOf('s'), idOf('m')) }
-        'step(Identifiable, String)'         | { v -> v.step(idOf('s'), 'm') }
-        'step(String, Identifiable)'         | { v -> v.step('s', idOf('m')) }
-        'operation(String)'                  | { v -> v.operation('o') }
-        'operation(String, String)'          | { v -> v.operation('o', 'm') }
-        'operation(String, Function)'        | { v -> v.operation('o', { c -> c } as Function) }
-        'operation(String, ContextMapper)'   | { v -> v.operation('o', Mock(ContextMapper)) }
-        'operation(Identifiable)'            | { v -> v.operation(idOf('o')) }
-        'operation(Identifiable, Identifiable)' | { v -> v.operation(idOf('o'), idOf('m')) }
-        'operation(Identifiable, String)'    | { v -> v.operation(idOf('o'), 'm') }
-        'operation(String, Identifiable)'    | { v -> v.operation('o', idOf('m')) }
+        description                       | call
+        'run(String)'                     | { v -> v.run('a') }
+        'run(String, String)'             | { v -> v.run('a', 'm') }
+        'run(String, Function)'           | { v -> v.run('a', { c -> c } as Function) }
+        'run(String, ContextMapper)'      | { v -> v.run('a', Mock(ContextMapper)) }
+        'run(Identifiable)'               | { v -> v.run(idOf('a')) }
+        'run(Identifiable, Identifiable)' | { v -> v.run(idOf('a'), idOf('m')) }
+        'run(Identifiable, String)'       | { v -> v.run(idOf('a'), 'm') }
+        'run(String, Identifiable)'       | { v -> v.run('a', idOf('m')) }
     }
 
     def 'a null Identifiable is reported as an illegal dispatch, not an argument complaint'() {
@@ -88,7 +80,7 @@ class TopologyTransitionSpec extends Specification {
         def view = topologyView()
 
         when:
-        view.step((Identifiable) null)
+        view.run((Identifiable) null)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -102,7 +94,7 @@ class TopologyTransitionSpec extends Specification {
         def sm = build({ d -> d
             .step('audit', { e, c, tr -> stepRuns << 'ran' } as Action)
             .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addDataTrigger('gated', { dt -> dt
-                .condition('probes', { e, c, tr -> tr.step('audit'); true } as Condition) }) }) })
+                .condition('probes', { e, c, tr -> tr.run('audit'); true } as Condition) }) }) })
             .state('s2', {}) })
 
         when:

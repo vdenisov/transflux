@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.action.ActionKind;
 import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.Compensation;
@@ -99,103 +98,55 @@ class TransitionView<T, C> implements Transition<T, C> {
     }
 
     @Override
-    public void step(String id) {
-        dispatchResolved(resolveAction(id), null);
-    }
-
-    @Override
-    public void step(String id, String mapperId) {
-        requireNotBlank(mapperId, "Mapper reference ID");
-        dispatchResolved(resolveAction(id), resolveRegisteredMapper(mapperId));
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public void run(String id) {
+        runAction((BoundAction) resolveAction(id), null);
     }
 
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public void step(String id, Function<C, ?> inlineMapTo) {
-        requireNotNull(inlineMapTo, "Inline mapper function");
-        dispatchResolved(resolveAction(id), wrapFunction((Function) inlineMapTo));
-    }
-
-    @Override
-    @SuppressWarnings("unchecked")
-    public void step(String id, ContextMapper<C, ?> inlineMapper) {
-        requireNotNull(inlineMapper, "Inline mapper instance");
-        dispatchResolved(resolveAction(id), (ContextMapper<Object, Object>) inlineMapper);
-    }
-
-    @Override
-    public void step(Identifiable registeredStep) {
-        requireNotNull(registeredStep, "Step identifiable");
-        step(registeredStep.getId());
-    }
-
-    @Override
-    public void step(Identifiable registeredStep, Identifiable mapper) {
-        requireNotNull(registeredStep, "Step identifiable");
-        requireNotNull(mapper, "Mapper identifiable");
-        step(registeredStep.getId(), mapper.getId());
-    }
-
-    @Override
-    public void step(Identifiable registeredStep, String mapperId) {
-        requireNotNull(registeredStep, "Step identifiable");
-        step(registeredStep.getId(), mapperId);
-    }
-
-    @Override
-    public void step(String id, Identifiable mapper) {
-        requireNotNull(mapper, "Mapper identifiable");
-        step(id, mapper.getId());
-    }
-
-    @Override
-    public void operation(String id) {
-        dispatchResolved(resolveAction(id), null);
-    }
-
-    @Override
-    public void operation(String id, String mapperId) {
+    public void run(String id, String mapperId) {
         requireNotBlank(mapperId, "Mapper reference ID");
-        dispatchResolved(resolveAction(id), resolveRegisteredMapper(mapperId));
+        runAction((BoundAction) resolveAction(id), resolveRegisteredMapper(mapperId));
     }
 
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public void operation(String id, Function<C, ?> inlineMapTo) {
+    public void run(String id, Function<C, ?> inlineMapTo) {
         requireNotNull(inlineMapTo, "Inline mapper function");
-        dispatchResolved(resolveAction(id), wrapFunction((Function) inlineMapTo));
+        runAction((BoundAction) resolveAction(id), wrapFunction((Function) inlineMapTo));
     }
 
     @Override
-    @SuppressWarnings("unchecked")
-    public void operation(String id, ContextMapper<C, ?> inlineMapper) {
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public void run(String id, ContextMapper<C, ?> inlineMapper) {
         requireNotNull(inlineMapper, "Inline mapper instance");
-        dispatchResolved(resolveAction(id), (ContextMapper<Object, Object>) inlineMapper);
+        runAction((BoundAction) resolveAction(id), (ContextMapper<Object, Object>) inlineMapper);
     }
 
     @Override
-    public void operation(Identifiable registeredOperation) {
-        requireNotNull(registeredOperation, "Operation identifiable");
-        operation(registeredOperation.getId());
+    public void run(Identifiable registeredAction) {
+        requireNotNull(registeredAction, "Action identifiable");
+        run(registeredAction.getId());
     }
 
     @Override
-    public void operation(Identifiable registeredOperation, Identifiable mapper) {
-        requireNotNull(registeredOperation, "Operation identifiable");
+    public void run(Identifiable registeredAction, Identifiable mapper) {
+        requireNotNull(registeredAction, "Action identifiable");
         requireNotNull(mapper, "Mapper identifiable");
-        operation(registeredOperation.getId(), mapper.getId());
+        run(registeredAction.getId(), mapper.getId());
     }
 
     @Override
-    public void operation(Identifiable registeredOperation, String mapperId) {
-        requireNotNull(registeredOperation, "Operation identifiable");
-        operation(registeredOperation.getId(), mapperId);
+    public void run(Identifiable registeredAction, String mapperId) {
+        requireNotNull(registeredAction, "Action identifiable");
+        run(registeredAction.getId(), mapperId);
     }
 
     @Override
-    public void operation(String id, Identifiable mapper) {
+    public void run(String id, Identifiable mapper) {
         requireNotNull(mapper, "Mapper identifiable");
-        operation(id, mapper.getId());
+        run(id, mapper.getId());
     }
 
     T getEntity() {
@@ -243,60 +194,51 @@ class TransitionView<T, C> implements Transition<T, C> {
     }
 
     /**
-     * Runs a bound step under a freshly-mapped child context. The child context produced by
-     * {@code mapper.mapTo(activeContext)} is pushed onto the view's context-override stack for
-     * the duration of the step's execution, and on successful return
-     * {@link ContextMapper#mapFrom(Object, Object) mapFrom} folds any child-side changes back
-     * into the active context.
-     *
-     * @param boundStep the bound step to run; never {@code null}
-     * @param mapper the mapper to apply at the boundary; never {@code null}
-     */
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    void runChildStep(BoundAction<T, Object> boundStep, ContextMapper<Object, Object> mapper) {
-        Object active = getContext();
-        Object child = mapper.mapTo(active);
-        contextOverrideStack.push(child);
-        try {
-            StateMachineImpl.runBoundStep((BoundAction) boundStep, (TransitionView) this);
-        } finally {
-            contextOverrideStack.pop();
-        }
-        mapper.mapFrom(active, child);
-    }
-
-    /**
-     * Runs a bound operation under a freshly-mapped child context, recording the operation's
-     * id on the operation-nesting stack so any step ids the operation drives are qualified
-     * with this parent prefix. When {@code mapper} is {@code null} the operation runs
-     * pass-through against the active context.
+     * Runs a bound action. This is the single execution path: every action reaches the runtime
+     * through here, whether it was authored imperatively or declaratively, dispatched as a
+     * container member, referenced from inside another action's body, or attached to the
+     * transition itself.
      * <p>
-     * The operation's own {@link org.transflux.core.action.Action#getCompensation(Object, Object)}
-     * is captured before execution and pushed against the operation's id, so an action authored
-     * as a step but dispatched here still has its rollback registered. Capture happens before
-     * {@link #enterOperation(String)}, so the compensation is recorded at the operation's own
-     * path rather than nested beneath it, and against the same context {@code execute} will see.
+     * The order is fixed and uniform:
+     * <ol>
+     *   <li>capture the action's {@link Action#getCompensation(Object, Object) compensation} and
+     *       push it onto the rollback stack, against the same context {@code execute} will see;</li>
+     *   <li>record the action's id on the executed path;</li>
+     *   <li>push the id onto the operation-nesting stack;</li>
+     *   <li>execute;</li>
+     *   <li>pop the nesting stack.</li>
+     * </ol>
+     * Capturing and recording <em>before</em> the nesting push puts both at the action's own
+     * qualified path rather than one level beneath it. Recording before {@code execute} means an
+     * action that throws still appears on the executed path - it did run - which keeps the
+     * executed and compensated paths consistent with each other. Pushing the nesting stack for
+     * every action means anything it dispatches is qualified underneath it, so the reported tree
+     * matches the tree that actually ran at every level.
      *
-     * @param boundOperation the bound operation to run; never {@code null}
+     * <p>With a mapper, {@code mapTo} produces the child context before the action starts and
+     * {@link ContextMapper#mapFrom(Object, Object) mapFrom} folds child-side changes back into
+     * the parent on successful return only.
+     *
+     * @param bound the bound action to run; never {@code null}
      * @param mapper the mapper to apply at the boundary, or {@code null} for pass-through
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    void runChildOperation(BoundAction<T, Object> boundOperation, ContextMapper<Object, Object> mapper) {
+    void runAction(BoundAction<T, Object> bound, ContextMapper<Object, Object> mapper) {
         Object active = getContext();
         Object child = mapper == null ? null : mapper.mapTo(active);
-        Action<T, Object> action = boundOperation.action();
-        pushCompensation(boundOperation.id(),
-                         (Compensation) action.getCompensation(entity, mapper == null ? active : child));
-        recordExecutedId(boundOperation.id());
-        enterOperation(boundOperation.id());
+        Object effective = mapper == null ? active : child;
+
+        pushCompensation(bound.id(), (Compensation) bound.action().getCompensation(entity, effective));
+        recordExecutedId(bound.id());
+        enterOperation(bound.id());
         try {
             if (mapper == null) {
-                ((Action) boundOperation.action()).execute(entity, active, this);
+                ((Action) bound.action()).execute(entity, active, this);
                 return;
             }
             contextOverrideStack.push(child);
             try {
-                ((Action) boundOperation.action()).execute(entity, child, this);
+                ((Action) bound.action()).execute(entity, child, this);
             } finally {
                 contextOverrideStack.pop();
             }
@@ -323,30 +265,8 @@ class TransitionView<T, C> implements Transition<T, C> {
     }
 
     /**
-     * Runs a resolved action, choosing the runner from the form the action was <em>registered</em>
-     * in rather than from the verb the caller used. The two are independent: a dispatch site names
-     * a callee, and how that callee was authored is a property of its own declaration.
-     *
-     * @param bound the resolved action; never {@code null}
-     * @param mapper the boundary mapper, or {@code null} for pass-through
-     */
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private void dispatchResolved(BoundAction<T, ?> bound, ContextMapper<Object, Object> mapper) {
-        if (bound.kind() == ActionKind.STEP) {
-            if (mapper == null) {
-                StateMachineImpl.runBoundStep((BoundAction) bound, (TransitionView) this);
-            } else {
-                runChildStep((BoundAction) bound, mapper);
-            }
-            return;
-        }
-
-        runChildOperation((BoundAction) bound, mapper);
-    }
-
-    /**
      * Pushes {@code scopeRegistry} as the active lexical scope for subsequent imperative
-     * {@code step(...)} / {@code operation(...)} resolution. Composite executors push their
+     * {@code run(...)} resolution. Composite executors push their
      * own scope on entry to {@code execute} and pop on exit; simple operations do not push.
      *
      * @param scopeRegistry the composite's scope registry; never {@code null}
@@ -371,9 +291,9 @@ class TransitionView<T, C> implements Transition<T, C> {
     }
 
     /**
-     * Returns the registry that {@code step(...)} / {@code operation(...)} resolution should
+     * Returns the registry that {@code run(...)} resolution should
      * consult. When the scope stack is empty (e.g. a simple operation directly invoking
-     * {@code view.step("id")}), this falls back to the state machine's root registry.
+     * {@code view.run("id")}), this falls back to the state machine's root registry.
      *
      * @return the active scope; never {@code null}
      */

@@ -179,18 +179,12 @@ class StateMachineImpl<T> implements StateMachine<T> {
     }
 
     /**
-     * Acquires the action's {@link Compensation}, pushes it onto the view's rollback stack, then
-     * dispatches the action's {@link Action#execute(Object, Object, Transition)} against the same
-     * view.
+     * Runs the transition's own action through the same path every other action takes, so the
+     * root of the execution tree obeys the ordering and compensation rules its children do.
      */
-    static <T, C> void runBoundStep(BoundAction<T, C> bound, TransitionView<T, C> view) {
-        Action<T, C> action = bound.action();
-        Compensation<T, C> compensation = action.getCompensation(view.getEntity(), view.getContext());
-
-        view.pushCompensation(bound.id(), compensation);
-        action.execute(view.getEntity(), view.getContext(), view);
-
-        view.recordExecutedId(bound.id());
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static <T, C> void runRootAction(TransitionView<T, C> view, BoundAction<T, C> bound) {
+        view.runAction((BoundAction) bound, null);
     }
 
     StateApplier<T> getStateApplier() {
@@ -618,17 +612,9 @@ class StateMachineImpl<T> implements StateMachine<T> {
             notifyTransitionListeners(transition, TransitionPhase.START, entity, context, firingTrigger, null);
             notifyStateExit(transition, entity, context);
 
-            BoundAction<T, C> boundOperation = transition.boundOperation();
-            if (boundOperation != null) {
-                view.pushCompensation(boundOperation.id(),
-                                      boundOperation.action().getCompensation(entity, context));
-                view.recordExecutedId(boundOperation.id());
-                view.enterOperation(boundOperation.id());
-                try {
-                    boundOperation.action().execute(entity, context, view);
-                } finally {
-                    view.exitOperation();
-                }
+            BoundAction<T, C> boundAction = transition.boundAction();
+            if (boundAction != null) {
+                runRootAction(view, boundAction);
             }
 
             // TODO: a failing post-condition must drain the compensation stack the same way the

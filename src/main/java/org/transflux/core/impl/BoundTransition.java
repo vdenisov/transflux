@@ -43,7 +43,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param targetStateId the target state id; never {@code null} or blank
  * @param contextType the declared firing-context type; never {@code null}
  *                    ({@code Object.class} when untyped, {@code Void.class} when null-only)
- * @param boundOperation the resolved operation to run; may be {@code null} for transitions
+ * @param boundAction the resolved operation to run; may be {@code null} for transitions
  *                       without an operation
  * @param boundPreConditions the resolved pre-conditions, in declaration order
  * @param boundPostConditions the resolved post-conditions, in declaration order
@@ -55,7 +55,7 @@ record BoundTransition<T, C>(String id,
                              String sourceStateId,
                              String targetStateId,
                              Class<C> contextType,
-                             BoundAction<T, C> boundOperation,
+                             BoundAction<T, C> boundAction,
                              List<BoundCondition<T, C>> boundPreConditions,
                              List<BoundCondition<T, C>> boundPostConditions,
                              BoundTransitionListeners<T, C> boundListeners) {

@@ -66,83 +66,43 @@ final class TopologyTransition<T, C> implements Transition<T, C> {
     }
 
     @Override
-    public void step(String registeredStepId) {
-        throw outsideExecution("step(String)");
+    public void run(String registeredActionId) {
+        throw outsideExecution("run(String)");
     }
 
     @Override
-    public void step(String registeredStepId, String mapperId) {
-        throw outsideExecution("step(String, String)");
+    public void run(String registeredActionId, String mapperId) {
+        throw outsideExecution("run(String, String)");
     }
 
     @Override
-    public void step(String registeredStepId, Function<C, ?> mapTo) {
-        throw outsideExecution("step(String, Function)");
+    public void run(String registeredActionId, Function<C, ?> mapTo) {
+        throw outsideExecution("run(String, Function)");
     }
 
     @Override
-    public void step(String registeredStepId, ContextMapper<C, ?> mapper) {
-        throw outsideExecution("step(String, ContextMapper)");
+    public void run(String registeredActionId, ContextMapper<C, ?> mapper) {
+        throw outsideExecution("run(String, ContextMapper)");
     }
 
     @Override
-    public void step(Identifiable registeredStep) {
-        throw outsideExecution("step(Identifiable)");
+    public void run(Identifiable registeredAction) {
+        throw outsideExecution("run(Identifiable)");
     }
 
     @Override
-    public void step(Identifiable registeredStep, Identifiable mapper) {
-        throw outsideExecution("step(Identifiable, Identifiable)");
+    public void run(Identifiable registeredAction, Identifiable mapper) {
+        throw outsideExecution("run(Identifiable, Identifiable)");
     }
 
     @Override
-    public void step(Identifiable registeredStep, String mapperId) {
-        throw outsideExecution("step(Identifiable, String)");
+    public void run(Identifiable registeredAction, String mapperId) {
+        throw outsideExecution("run(Identifiable, String)");
     }
 
     @Override
-    public void step(String registeredStepId, Identifiable mapper) {
-        throw outsideExecution("step(String, Identifiable)");
-    }
-
-    @Override
-    public void operation(String registeredOperationId) {
-        throw outsideExecution("operation(String)");
-    }
-
-    @Override
-    public void operation(String registeredOperationId, String mapperId) {
-        throw outsideExecution("operation(String, String)");
-    }
-
-    @Override
-    public void operation(String registeredOperationId, Function<C, ?> mapTo) {
-        throw outsideExecution("operation(String, Function)");
-    }
-
-    @Override
-    public void operation(String registeredOperationId, ContextMapper<C, ?> mapper) {
-        throw outsideExecution("operation(String, ContextMapper)");
-    }
-
-    @Override
-    public void operation(Identifiable registeredOperation) {
-        throw outsideExecution("operation(Identifiable)");
-    }
-
-    @Override
-    public void operation(Identifiable registeredOperation, Identifiable mapper) {
-        throw outsideExecution("operation(Identifiable, Identifiable)");
-    }
-
-    @Override
-    public void operation(Identifiable registeredOperation, String mapperId) {
-        throw outsideExecution("operation(Identifiable, String)");
-    }
-
-    @Override
-    public void operation(String registeredOperationId, Identifiable mapper) {
-        throw outsideExecution("operation(String, Identifiable)");
+    public void run(String registeredActionId, Identifiable mapper) {
+        throw outsideExecution("run(String, Identifiable)");
     }
 
     private TransfluxValidationException outsideExecution(String method) {

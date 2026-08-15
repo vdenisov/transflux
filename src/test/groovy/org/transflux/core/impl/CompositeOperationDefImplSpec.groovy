@@ -167,7 +167,7 @@ class CompositeOperationDefImplSpec extends Specification {
         def view = new TransitionView<TestEntity, TestContext>(sm, sm.transitions['t1'], entity, new TestContext())
 
         when:
-        sm.transitions['t1'].boundOperation.action.execute(entity, view.context, view)
+        sm.transitions['t1'].boundAction.action.execute(entity, view.context, view)
 
         then:
         entity.trail == ['foo']

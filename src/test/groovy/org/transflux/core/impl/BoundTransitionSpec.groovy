@@ -37,7 +37,7 @@ class BoundTransitionSpec extends Specification {
         transition.sourceStateId() == 'state1'
         transition.targetStateId() == 'state2'
         transition.contextType() == Object
-        transition.boundOperation() == null
+        transition.boundAction() == null
         transition.boundPreConditions().isEmpty()
         transition.boundPostConditions().isEmpty()
         transition.boundListeners().onStart().isEmpty()

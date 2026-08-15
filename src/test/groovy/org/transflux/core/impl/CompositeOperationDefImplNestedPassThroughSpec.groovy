@@ -83,15 +83,15 @@ class CompositeOperationDefImplNestedPassThroughSpec extends Specification {
     static class TwoStepInlineOp implements Action<Entity, TestContext> {
         @Override
         void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
-            transition.step('inner-a')
-            transition.step('inner-b')
+            transition.run('inner-a')
+            transition.run('inner-b')
         }
     }
 
     static class CompensatingNestedOp implements Action<Entity, TestContext> {
         @Override
         void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
-            transition.step('comp-step')
+            transition.run('comp-step')
             throw new RuntimeException('nested-boom')
         }
     }

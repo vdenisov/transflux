@@ -51,7 +51,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * <p><b>Build-time resolution.</b> Branch conditions are resolved eagerly against the
  * supplied condition registry. Branch step refs are <em>not</em> resolved eagerly: the
  * executor resolves each child step by id at execution time via
- * {@link TransitionView#step(String)}, which consults the active composite scope and walks the
+ * {@link TransitionView#run(String)}, which consults the active composite scope and walks the
  * parent chain up to the root registry. This sidesteps the build-order dependency between the
  * bound-step registry and the conditional executor that lives in that very registry.
  *
@@ -210,7 +210,7 @@ final class ConditionalStepDefImpl<T, C>
      * order and dispatches the first matching branch's steps through the central step
      * runner.
      * <p>
-     * Branch steps are resolved by id at execution time via {@link TransitionView#step(String)},
+     * Branch steps are resolved by id at execution time via {@link TransitionView#run(String)},
      * which consults the active composite scope and walks the parent chain up to the root
      * registry. This sidesteps the build-order dependency between the bound-step registry and
      * this executor — by the time {@link #execute(Object, Object, Transition)} runs, the state
@@ -244,13 +244,13 @@ final class ConditionalStepDefImpl<T, C>
 
             for (ResolvedBranch<T, C> branch : resolvedBranches) {
                 if (branch.condition().condition().test(entity, context, view)) {
-                    dispatchStepIds(branch.stepIds(), view);
+                    dispatchActionIds(branch.stepIds(), view);
                     return;
                 }
             }
 
             if (defaultStepIds != null) {
-                dispatchStepIds(defaultStepIds, view);
+                dispatchActionIds(defaultStepIds, view);
                 return;
             }
 
@@ -264,9 +264,9 @@ final class ConditionalStepDefImpl<T, C>
             }
         }
 
-        private void dispatchStepIds(List<String> stepIds, TransitionView<T, C> view) {
-            for (String stepId : stepIds) {
-                view.step(stepId);
+        private void dispatchActionIds(List<String> actionIds, TransitionView<T, C> view) {
+            for (String actionId : actionIds) {
+                view.run(actionId);
             }
         }
     }

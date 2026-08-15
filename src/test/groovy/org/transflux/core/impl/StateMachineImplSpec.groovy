@@ -433,7 +433,7 @@ class StateMachineImplSpec extends Specification {
         def view = new TransitionView<TestEntity, TestContext>(sm, sm.transitions['trial-to-active'], entity, ctx)
 
         when:
-        sm.transitions['trial-to-active'].boundOperation.action.execute(entity, ctx, view)
+        sm.transitions['trial-to-active'].boundAction.action.execute(entity, ctx, view)
 
         then:
         ctx.tag == 'e1:stamped'
@@ -498,8 +498,8 @@ class StateMachineImplSpec extends Specification {
     static class CallNestedStepOperation implements Action<TestEntity, TestContext> {
         @Override
         void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
-            transition.step('stamp')
-            transition.step('bump')
+            transition.run('stamp')
+            transition.run('bump')
         }
     }
 
@@ -562,7 +562,7 @@ class StateMachineImplSpec extends Specification {
         appliedState[entity] == 'ACTIVE'
     }
 
-    def "transitionTo should track step ids invoked from inside a simple operation via transition.step(id)"() {
+    def "transitionTo should track step ids invoked from inside a simple operation via transition.run(id)"() {
         given:
         def appliedState = [:] as Map<TestEntity, String>
         def smd = Transflux.<TestEntity> defineStateMachine()
@@ -614,9 +614,51 @@ class StateMachineImplSpec extends Specification {
         !result.success
         result.error instanceof IllegalStateException
         result.error.message == 'step blew up'
-        result.executedPath*.toString() == ['flow', 'flow/stamp']
+        result.executedPath*.toString() == ['flow', 'flow/stamp', 'flow/boom']
         applierInvocations == 0
         context.tag == 'e1:stamped'
+    }
+
+    def "an action that throws is still recorded on the executed path"() {
+        given:
+        def smd = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .step('boom', new ThrowingStep())
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.compositeOperation('flow', { c ->
+            c.step('boom')
+        }) }) })
+        smd.state(ACTIVE, {})
+        def sm = smd.build()
+
+        when:
+        def result = sm.entity(new TestEntity('e1', 'TRIAL')).transitionTo('ACTIVE', new TestContext())
+
+        then: 'it was invoked, so it belongs on the path - otherwise a compensated action could be absent from it'
+        !result.success
+        result.executedPath*.toString() == ['flow', 'flow/boom']
+    }
+
+    def "an imperative action qualifies the actions it dispatches underneath itself"() {
+        given:
+        def smd = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .step('stamp', new ContextStampStep())
+            .step('bump', new BumpCounterStep())
+            .step('caller', new CallNestedStepOperation())
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.compositeOperation('flow', { c ->
+            c.step('caller')
+        }) }) })
+        smd.state(ACTIVE, {})
+        def sm = smd.build()
+
+        when:
+        def result = sm.entity(new TestEntity('e1', 'TRIAL')).transitionTo('ACTIVE', new TestContext())
+
+        then: 'the reported tree matches the tree that ran, at every level rather than only at container boundaries'
+        result.success
+        result.executedPath*.toString() == ['flow', 'flow/caller', 'flow/caller/stamp', 'flow/caller/bump']
     }
 
     def "transitionTo with a by-id SM-level operation reference records the registered id verbatim"() {

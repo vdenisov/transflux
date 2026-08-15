@@ -425,18 +425,11 @@ final class CompositeOperationDefImpl<T, C>
      * Iterates an ordered list of {@link CompositeMember} entries and invokes each one against
      * the supplied {@link Transition} view through a single unified dispatch path.
      *
-     * <p>Which of the two runners a member takes is decided by the form it was <em>registered</em>
-     * in, read off the bound record, not by the verb used at this call site. An imperative member
-     * in pass-through mode goes through
-     * {@link StateMachineImpl#runBoundStep(BoundAction, TransitionView)} so that id recording is
-     * uniform across composite-driven invocations and user-driven dispatch from inside an action
-     * body. With a mapper it enters a child-context scope instead: {@code mapTo} produces the
-     * child context, the action runs against it, then {@code mapFrom} folds any changes back into
-     * the parent.
-     *
-     * <p>A declarative member follows the same pattern through
-     * {@link TransitionView#runChildOperation}: pass-through mode runs it with the parent context
-     * verbatim; mapped mode produces a child context, runs against it, then folds back on success.
+     * <p>Every member goes through {@link TransitionView#runAction}, whatever form it was
+     * authored in, so compensation capture, id recording and nesting are identical here and at
+     * every other dispatch site. Pass-through mode runs the member against the parent context
+     * verbatim; mapped mode produces a child context via {@code mapTo}, runs against it, then
+     * folds back through {@code mapFrom} on success.
      *
      * <p>Mapper failure attribution: a {@code mapTo} failure throws before the member starts
      * and therefore surfaces as a parent member failure at the member's position — no child
@@ -477,20 +470,10 @@ final class CompositeOperationDefImpl<T, C>
 
         @SuppressWarnings({"unchecked", "rawtypes"})
         private void dispatchMember(TransitionView<T, C> view, CompositeMember<T, C> member) {
-            BoundAction<T, C> action = member.action();
             ResolvedContextMapping mapping = member.mapping();
-
-            if (action.kind() == ActionKind.STEP) {
-                if (mapping.isPassThrough()) {
-                    StateMachineImpl.runBoundStep(action, view);
-                    return;
-                }
-                view.runChildStep((BoundAction) action, mapping.mapper());
-                return;
-            }
-
             ContextMapper<Object, Object> mapper = mapping.isPassThrough() ? null : mapping.mapper();
-            view.runChildOperation((BoundAction) action, mapper);
+
+            view.runAction((BoundAction) member.action(), mapper);
         }
     }
 }
