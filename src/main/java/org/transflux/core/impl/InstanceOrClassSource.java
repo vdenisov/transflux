@@ -26,7 +26,7 @@ import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
 /**
  * Encapsulates the "instance XOR class, last-write-wins with warning, resolve via
  * {@link ReflectionUtils#instantiateNoArg}" pattern shared by the {@code using(...)} overloads of
- * {@link StepDefImpl}, {@link StepDefImpl}, and {@link MapperDefImpl}.
+ * {@link StepDefImpl} and {@link MapperDefImpl}.
  * <p>
  * Each instance holds one of two mutually exclusive slots and emits an override warning through
  * the owner's logger whenever a subsequent {@link #setInstance} or {@link #setClass} replaces a

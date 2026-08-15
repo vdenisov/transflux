@@ -266,10 +266,11 @@ class TransitionView<T, C> implements Transition<T, C> {
 
     /**
      * Pushes {@code scopeRegistry} as the active lexical scope for subsequent imperative
-     * {@code run(...)} resolution. Composite executors push their
-     * own scope on entry to {@code execute} and pop on exit; simple operations do not push.
+     * {@code run(...)} resolution. A declarative container pushes its own scope on entry to
+     * {@code execute} and pops it on exit; an imperative action pushes none, since it owns no
+     * scope of its own.
      *
-     * @param scopeRegistry the composite's scope registry; never {@code null}
+     * @param scopeRegistry the container's scope registry; never {@code null}
      */
     void pushScope(Registry<T> scopeRegistry) {
         requireNotNull(scopeRegistry, "Scope registry");
@@ -291,9 +292,10 @@ class TransitionView<T, C> implements Transition<T, C> {
     }
 
     /**
-     * Returns the registry that {@code run(...)} resolution should
-     * consult. When the scope stack is empty (e.g. a simple operation directly invoking
-     * {@code view.run("id")}), this falls back to the state machine's root registry.
+     * Returns the registry that {@code run(...)} resolution should consult. When the scope
+     * stack is empty - an imperative action attached straight to a transition calling
+     * {@code view.run("id")}, for instance - this falls back to the state machine's root
+     * registry.
      *
      * @return the active scope; never {@code null}
      */

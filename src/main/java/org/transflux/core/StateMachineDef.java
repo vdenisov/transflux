@@ -68,7 +68,7 @@ public interface StateMachineDef<T> {
 
     /**
      * Opens a context-typed registration scope. The configurer registers reusable components
-     * (steps, conditions, composite operations) tagged with {@code contextType}; the framework
+     * (steps, conditions, operations) tagged with {@code contextType}; the framework
      * verifies context compatibility at build time when a by-id reference resolves against them.
      *
      * <p>Multiple invocations of {@code forContext} are permitted and accumulate, both for the

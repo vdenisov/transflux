@@ -205,7 +205,7 @@ final class ConditionalOperationDefImpl<T, C>
 
         if (branches.isEmpty()) {
             throw new TransfluxValidationException(
-                "Conditional step '" + getId() + "' must declare at least one branch");
+                "Conditional operation '" + getId() + "' must declare at least one branch");
         }
 
         Set<String> seen = new HashSet<>();
@@ -225,7 +225,7 @@ final class ConditionalOperationDefImpl<T, C>
             if (branch.getActionRefs().isEmpty()) {
                 throw new TransfluxValidationException(
                     "Branch '" + branch.getBranchId() + "' on conditional operation '" + getId()
-                        + "' must declare at least one step");
+                        + "' must declare at least one action");
             }
 
             String path = "conditional:" + getId() + ":branch[" + i + "]";
@@ -240,13 +240,13 @@ final class ConditionalOperationDefImpl<T, C>
         if (defaultBranch != null) {
             if (defaultBranch.getActionRefs().isEmpty()) {
                 throw new TransfluxValidationException(
-                    "Default branch on conditional operation '" + getId() + "' must declare at least one step");
+                    "Default branch on conditional operation '" + getId() + "' must declare at least one action");
             }
             defaultStepIds = collectStepIds(defaultBranch.getActionRefs());
         }
 
-        Action<T, C> executor = new ConditionalStepExecutor(resolvedBranches,
-                                                          defaultStepIds, noMatchBehavior, getId());
+        Action<T, C> executor = new ConditionalBranchExecutor(resolvedBranches,
+                                                              defaultStepIds, noMatchBehavior, getId());
         return BoundAction.of(getId(), executor, ActionKind.OPERATION);
     }
 
@@ -291,25 +291,26 @@ final class ConditionalOperationDefImpl<T, C>
 
     /**
      * Framework-built {@link Action} that evaluates the conditional's branches in declaration
-     * order and dispatches the first matching branch's steps through the central step
+     * order and dispatches the first matching branch's members through the central action
      * runner.
      * <p>
-     * Branch steps are resolved by id at execution time via {@link TransitionView#run(String)},
-     * which consults the active composite scope and walks the parent chain up to the root
-     * registry. This sidesteps the build-order dependency between the bound-step registry and
-     * this executor — by the time {@link #execute(Object, Object, Transition)} runs, the state
-     * machine is fully constructed and every referenced id is resolvable.
+     * Branch members are resolved by id at execution time via {@link TransitionView#run(String)},
+     * which consults the active scope and walks the parent chain up to the root registry. This
+     * sidesteps the build-order dependency between the bound action registry and this executor —
+     * by the time {@link #execute(Object, Object, Transition)} runs, the state machine is fully
+     * constructed and every referenced id is resolvable. That the ids <em>are</em> resolvable is
+     * established at build time by {@link #checkBranchRefs}.
      */
-    private final class ConditionalStepExecutor implements Action<T, C> {
+    private final class ConditionalBranchExecutor implements Action<T, C> {
         private final List<ResolvedBranch<T, C>> resolvedBranches;
         private final List<String> defaultStepIds;
         private final NoMatchBehavior noMatchBehavior;
         private final String conditionalId;
 
-        ConditionalStepExecutor(List<ResolvedBranch<T, C>> resolvedBranches,
-                                List<String> defaultStepIds,
-                                NoMatchBehavior noMatchBehavior,
-                                String conditionalId) {
+        ConditionalBranchExecutor(List<ResolvedBranch<T, C>> resolvedBranches,
+                                  List<String> defaultStepIds,
+                                  NoMatchBehavior noMatchBehavior,
+                                  String conditionalId) {
             this.resolvedBranches = resolvedBranches;
             this.defaultStepIds = defaultStepIds;
             this.noMatchBehavior = noMatchBehavior;
@@ -320,7 +321,7 @@ final class ConditionalOperationDefImpl<T, C>
         public void execute(T entity, C context, Transition<T, C> transition) {
             if (!(transition instanceof TransitionView<?, ?> rawView)) {
                 throw new TransfluxValidationException(
-                    "Conditional step requires a per-execution TransitionView; got "
+                    "Conditional operation requires a per-execution TransitionView; got "
                         + (transition == null ? "null" : transition.getClass().getName()));
             }
             @SuppressWarnings("unchecked")
@@ -340,9 +341,9 @@ final class ConditionalOperationDefImpl<T, C>
 
             switch (noMatchBehavior) {
                 case ERROR -> throw new TransfluxValidationException(
-                    "Conditional step '" + conditionalId + "' had no matching branch and no default");
+                    "Conditional operation '" + conditionalId + "' had no matching branch and no default");
                 case WARN -> log.warn(
-                    "Conditional step '{}' had no matching branch and no default; skipping.",
+                    "Conditional operation '{}' had no matching branch and no default; skipping.",
                     conditionalId);
                 case SILENT -> { /* skip silently */ }
             }

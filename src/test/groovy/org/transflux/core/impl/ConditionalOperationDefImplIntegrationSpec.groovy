@@ -304,7 +304,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         then:
         !result.success
         result.error instanceof TransfluxValidationException
-        result.error.message == "Conditional step 'route' had no matching branch and no default"
+        result.error.message == "Conditional operation 'route' had no matching branch and no default"
         applied.isEmpty()
     }
 

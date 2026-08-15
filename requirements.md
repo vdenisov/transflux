@@ -508,34 +508,28 @@ spec:
       config:
         async: true
         
-  # Shared Operations
+  # Shared Operations — declarative containers; members run in declaration order
   operations:
     - id: notification-flow
       name: "Notification Flow"
-      type: composite
       description: "Standard notification flow"
-      steps:
-        - id: prepare-notifications-step
-          step: prepare-notifications
-        - id: send-notifications-step
-          step: send-notifications
-          
-    - id: analytics-update
-      type: simple
-      step: update-analytics
-      description: "Standard analytics update"
-      async:
-        enabled: true
+      actions:
+        - run: prepare-notifications
+        - run: send-notifications
 ```
+
+The `steps:` and `operations:` sections are the two **declaration** forms of the same concept: a step is an imperative action, an operation is a declarative one (§2.2.5). Both are registered into one id namespace and both are referenced the same way, so nothing downstream needs to know which section a given id came from.
+
+Note there is no section for "a step used as an operation". Any action attaches wherever an action is accepted, so an alias whose only content is a reference to a step has nothing to add — reference the step directly.
 
 #### 3.1.2 Component Reference Grammar
 
-Any field that expects a component (operation, step, condition, trigger, listener) accepts **either** a reference or an inline definition.
+Any field that expects a component (action, condition, trigger, listener) accepts **either** a reference or an inline definition. This is the YAML spelling of the split the Java DSL makes with its verbs (§2.2.6): a **reference** names a component declared elsewhere and says nothing about the form it was authored in; a **declaration** brings a new one into existence at that position.
 
 **1. String ID — a reference** to a component defined in the current file, in an imported library, or in the runtime component registry:
 
 ```yaml
-operation: activate-subscription
+action: activate-subscription
 preConditions:
   - payment-method-valid
 ```
@@ -543,46 +537,57 @@ preConditions:
 **2. Inline block — a full component definition.** Inline definitions are first-class throughout the DSL; they are essential to keep simple cases readable (a lesson learned the hard way with overly-modularized BPMN dialects):
 
 ```yaml
-operation:
-  id: cancel-subscription
-  type: simple
-  class: com.example.operations.CancelSubscriptionOperation
+action:
+  step: cancel-subscription
+  class: com.example.actions.CancelSubscriptionStep
   compensation: com.example.compensations.RefundPartialFeesCompensation
 ```
 
 A long-form `ref:` is also accepted where a block is more natural:
 
 ```yaml
-operation:
+action:
   ref: activate-subscription
 ```
+
+**3. Verb-keyed entry — inside an `actions:` list.** A bare string cannot carry the distinction where every entry is already a block, so each one is keyed by the verb that names what it does, and that key carries the id. The four verbs are the Java DSL's, unchanged:
+
+```yaml
+actions:
+  - run: charge-card                # reference — the callee's form is its own business
+    mapper: billing-from-order      # optional call-site mapper (§3.5)
+
+  - step: lock-resources            # declaration, imperative
+    class: com.example.actions.LockResourcesStep
+
+  - operation: notify-flow          # declaration, declarative
+    actions:
+      - run: send-notifications
+
+  - conditional: tier-routing       # declaration, first-matching-branch
+    branches: [ ... ]
+```
+
+Why a verb rather than inferring from content: `id` would otherwise mean two opposite things. Under a reference it *resolves* an id declared elsewhere; under a declaration it *claims* one in the state-machine-wide namespace (§2.2.1). Inferring which from the presence of sibling keys makes forgetting `class:` degrade silently into a reference, and makes "unknown action id" and "id already claimed" indistinguishable to a validator that has to guess the author's intent. The verb states it, and — as in the Java DSL — lets a reader tell the two apart without reading the arguments.
 
 **Rules:**
 - All component IDs must be unique within their type across the current file and all imported definitions.
 - An inline definition's `id` is **required**, except for inline expression-based conditions (the single auto-ID exception described in §2.2.1).
-- Type discrimination for inline definitions: operations require a `type:` (`simple` | `composite`); steps and conditions infer type from the descriptor (`class` / `step` / `expression` / `predicate`).
+- An entry in an `actions:` list must carry **exactly one** of `run`, `step`, `operation`, or `conditional` — the same "exactly one of" rule a condition block obeys for `class` / `predicate` / `expression` / `ref`.
+- Actions carry no `type:` discriminator. The authoring form is named by the declaring verb, so there is no `simple` / `composite` distinction to declare. (`type:` survives on triggers, where `manual` / `event` / `data` are genuinely different kinds of one component.)
 
 #### 3.1.3 Component References in Context
 
 Components from libraries can be referenced directly by their unique name:
 
 ```yaml
-# In operations
+# In operations — one verb for every reference, whichever form the callee was authored in
 operations:
   - id: activation-operation
-    type: composite
-    steps:
-      - id: prepare-actor
-        step: prepare-event-actor
-        
-      - id: validate
-        step: validate-prerequisites
-        
-      - id: notifications
-        operation: notification-flow
-        
-      - id: analytics
-        operation: analytics-update
+    actions:
+      - run: prepare-event-actor      # a step
+      - run: validate-prerequisites   # a step
+      - run: notification-flow        # an operation — same spelling
 
 # In transitions
 transitions:
@@ -632,7 +637,7 @@ stateMachine:
     - id: trial-to-active
       from: trial
       to: active
-      operation: activate-subscription
+      action: activate-subscription
       preConditions:
         - payment-method-valid
         - subscription-specific-validation
@@ -697,7 +702,7 @@ stateMachine:
       name: "Trial to Active Transition"
       from: trial
       to: active
-      operation: activate-subscription
+      action: activate-subscription
       preConditions:
         - payment-method-valid
       triggers:
@@ -708,26 +713,23 @@ stateMachine:
     - id: active-to-suspended
       from: active
       to: suspended
-      # Inline composite operation
-      operation:
-        id: evaluate-suspension
-        type: composite
+      # Inline declaration — the `operation:` verb makes it a declarative container
+      action:
+        operation: evaluate-suspension
         description: "Evaluate suspension handling with retry or notify branches"
-        steps:
-          - id: evaluate-risk
-          - id: branch-on-risk
-            type: conditional
+        actions:
+          - run: evaluate-risk
+          - conditional: branch-on-risk
             branches:
               - id: low-risk-retry
                 condition:
                   expression: "@riskService.isLowRisk(entity.id)"
-                steps:
-                  - id: schedule-retry
-                    class: com.example.steps.ScheduleRetryPaymentStep
-              - id: default-notify
-                steps:
-                  - id: notify-user
-                    class: com.example.steps.NotifyPaymentIssueStep
+                actions:
+                  - run: schedule-retry-payment
+            default:
+              actions:
+                - step: notify-user
+                  class: com.example.actions.NotifyPaymentIssueStep
       triggers:
         - id: payment-failed
           type: data
@@ -737,11 +739,11 @@ stateMachine:
     - id: suspended-to-cancelled
       from: suspended
       to: cancelled
-      operation:
-        id: cancel-subscription
-        type: simple
+      # Inline declaration — a step attaches to a transition directly, no wrapper
+      action:
+        step: cancel-subscription
         description: "Cancel subscription with compensation"
-        class: com.example.operations.CancelSubscriptionOperation
+        class: com.example.actions.CancelSubscriptionStep
         compensation: com.example.compensations.RefundPartialFeesCompensation
       preConditions:
         - no-recovery-7-days
@@ -782,7 +784,8 @@ transitions:
     to: active
     description: "Activate trial subscription"
     
-    operation: activate-subscription
+    # A transition carries at most one action, in either authoring form
+    action: activate-subscription
     
     preConditions:
       - payment-method-valid
@@ -867,87 +870,97 @@ triggers:
     condition: ready-and-high-priority-condition
 ```
 
-### 3.4 Operation Definitions
+### 3.4 Action Definitions
 
-#### 3.4.1 Simple Operation
+There is one runtime concept — an action — declared in one of two forms (§2.2.5). A **step** is imperative: a Java class implementing `Action`, with no bound children. An **operation** is declarative: an ordered `actions:` list, where declaration order *is* execution order and the framework synthesizes the executable that walks it. A **conditional operation** is the declarative variant whose ordering rule is "first matching branch" rather than "all, in order".
 
-A simple operation is either a single Java `Operation` implementation **or** a single Step elevated to operation-level usage.
+Both forms attach anywhere an action is accepted — as a transition's `action:`, as a member of an operation, or as a member of a conditional branch. Neither form needs a wrapper to reach a position the other can occupy.
+
+#### 3.4.1 Steps
+
+A step is declared under `steps:` and names a class. It binds no children, though its body is free to dispatch other actions by id while it runs.
 
 ```yaml
-operations:
-  # Class-backed simple operation
+steps:
   - id: activate-subscription
     name: "Activate Subscription"
     description: "Activate a trial subscription"
-    type: simple
-    class: com.example.operations.ActivateSubscriptionOperation
+    class: com.example.actions.ActivateSubscriptionStep
     context:
       class: com.example.contexts.ActivationContext
-  
-  # Step elevated as operation
+
   - id: send-welcome-email
-    type: simple
-    step: send-welcome-email-step
+    class: com.example.actions.SendWelcomeEmailStep
 ```
 
-#### 3.4.2 Composite Operation
+#### 3.4.2 Operations
+
+An operation is declared under `operations:` and carries an `actions:` list. Each entry is verb-keyed per §3.1.2 — `run:` to reference, `step:` / `operation:` / `conditional:` to declare — and the list runs in declaration order.
+
+A reference says nothing about the form of the thing it names: `run: notification-flow` reaches an operation and `run: charge-card` reaches a step, spelled identically, because which form the callee was authored in is a property of *its* declaration rather than of the call.
 
 ```yaml
 operations:
   - id: complex-activation
-    type: composite
-    description: "Complex activation with multiple steps"
+    description: "Complex activation with several actions"
     
     context:
       class: com.example.contexts.ComplexActivationContext
       
-    steps:
-      - id: prepare-event-actor
-        type: step
-      - id: validate-prerequisites
-        # type: step is the default and can be omitted
-      - id: lock-resources
-        # Steps may be defined in-line
-        class: com.example.operations.LockResourcesOperation
+    actions:
+      - run: prepare-event-actor
+      - run: validate-prerequisites
+
+      # A reference may carry a context mapper at the call site (§3.5)
+      - run: charge-card
+        mapper: billing-from-activation
+
+      # Declared in place; the `step:` verb makes this one imperative
+      - step: lock-resources
+        class: com.example.actions.LockResourcesStep
         description: "Lock resources for activation"
-        
-      - id: multi-branch-conditional
-        type: conditional
+
+      # Declared in place; a nested operation - see the note below
+      - operation: notify-flow
+        actions:
+          - run: prepare-notifications
+          - run: send-notifications
+
+      - conditional: multi-branch-conditional
         branches:
           - id: high-priority-branch
             condition:
               predicate: com.example.predicates.HighPriorityPredicate
-            steps:
-              - id: high-priority-processing
-                class: com.example.steps.HighPriorityStep
-              - id: urgent-notification
-                class: com.example.steps.UrgentNotificationStep
+            actions:
+              - step: high-priority-processing
+                class: com.example.actions.HighPriorityStep
+              - step: urgent-notification
+                class: com.example.actions.UrgentNotificationStep
                 
           - id: medium-priority-branch
             condition:
               expression: "entity.priority >= 5 && entity.priority < 8"
-            steps:
-              - id: medium-priority-processing
-                class: com.example.steps.MediumPriorityStep
+            actions:
+              - step: medium-priority-processing
+                class: com.example.actions.MediumPriorityStep
                 
           - id: vip-customer-branch
             condition:
               predicate: com.example.predicates.VipCustomerPredicate
-            steps:
-              - id: vip-processing
-                class: com.example.steps.VipProcessingStep
-              - id: account-manager-notification
-                class: com.example.steps.AccountManagerNotificationStep
+            actions:
+              - run: vip-processing
+              - step: account-manager-notification
+                class: com.example.actions.AccountManagerNotificationStep
                 
         default:
-          steps:
-            - id: standard-processing
-              class: com.example.steps.StandardProcessingStep
-            - id: standard-notification
-              class: com.example.steps.StandardNotificationStep
+          actions:
+            - step: standard-processing
+              class: com.example.actions.StandardProcessingStep
+            - step: standard-notification
+              class: com.example.actions.StandardNotificationStep
               
-      - id: finalize
-        class: com.example.steps.FinalizeActivationStep
+      - step: finalize
+        class: com.example.actions.FinalizeActivationStep
         
     errorHandling:
       - exception: com.example.exceptions.RecoverableException
@@ -958,16 +971,18 @@ operations:
       - exception: java.lang.Exception
         compensation: com.example.compensations.GeneralCompensation
         
-    # Async part — anchored to a named sync step; runs concurrently from that point on
+    # Async part — anchored to a named sync member; runs concurrently from that point on
     async:
       enabled: true
       startBeforeStep: finalize     # OR: startAfterStep: last-business-step
-      steps:
-        - id: async-notifications
-          class: com.example.steps.AsyncNotificationStep
-        - id: external-integrations
-          class: com.example.steps.ExternalIntegrationStep
+      actions:
+        - step: async-notifications
+          class: com.example.actions.AsyncNotificationStep
+        - step: external-integrations
+          class: com.example.actions.ExternalIntegrationStep
 ```
+
+> **Parity gap — inline nested operations.** The `- operation: notify-flow` entry above declares a whole child container at a member position. YAML makes inline definitions first-class everywhere a component is accepted (§3.1.2), so the grammar admits it; the Java DSL does **not** yet — a container there references another container by id and declares only steps and conditionals inline. Closing the gap is additive and is tracked in Phase 5 alongside the rest of the YAML work. Until it closes, this is the one shape §3 describes that §4 cannot express.
 
 > **Async semantics.** The async block is always anchored to a sync step. Two anchor forms are supported; exactly one must be specified.
 >
@@ -976,69 +991,67 @@ operations:
 
 #### 3.4.3 Multi-Branch Conditional Operations
 
-Multi-branch conditional operations allow for complex decision-making with multiple predicates and a default fallback branch. They evaluate conditions in declaration order and execute the **first matching** branch, or the default branch if no conditions match.
+A conditional operation allows for complex decision-making with multiple predicates and a default fallback branch. It evaluates conditions in declaration order and executes the **first matching** branch, or the default branch if no conditions match. It is a declarative action like any other, so it may be declared in place with the `conditional:` verb (as below) or registered under `operations:` and referenced with `run:`.
 
 ```yaml
 operations:
   - id: priority-based-routing
-    type: composite
     description: "Route processing based on multiple priority conditions"
     
-    steps:
-      - id: multi-priority-routing
-        type: conditional
+    actions:
+      - conditional: multi-priority-routing
         branches:
           - id: critical-priority
             condition:
               predicate: com.example.predicates.CriticalPriorityPredicate
-            steps:
-              - id: escalate-immediately
-                class: com.example.steps.EscalateStep
-              - id: notify-management
-                class: com.example.steps.ManagementNotificationStep
-              - id: expedited-processing
-                class: com.example.steps.ExpeditedProcessingStep
+            actions:
+              - step: escalate-immediately
+                class: com.example.actions.EscalateStep
+              - step: notify-management
+                class: com.example.actions.ManagementNotificationStep
+              - step: expedited-processing
+                class: com.example.actions.ExpeditedProcessingStep
                 
           - id: high-priority
             condition:
               expression: "entity.priority >= 8 && entity.customerTier == 'PREMIUM'"
-            steps:
-              - id: priority-processing
-                class: com.example.steps.PriorityProcessingStep
-              - id: premium-notification
-                class: com.example.steps.PremiumNotificationStep
+            actions:
+              - step: priority-processing
+                class: com.example.actions.PriorityProcessingStep
+              - step: premium-notification
+                class: com.example.actions.PremiumNotificationStep
                 
           - id: vip-customer
             condition:
               predicate: com.example.predicates.VipCustomerPredicate
-            steps:
-              - id: vip-processing
-                class: com.example.steps.VipProcessingStep
-              - id: account-manager-alert
-                class: com.example.steps.AccountManagerAlertStep
+            actions:
+              - step: vip-processing
+                class: com.example.actions.VipProcessingStep
+              - step: account-manager-alert
+                class: com.example.actions.AccountManagerAlertStep
                 
           - id: time-sensitive
             condition:
               expression: "entity.deadline.isBefore(T(java.time.LocalDate).now().plusDays(1))"
-            steps:
-              - id: urgent-processing
-                class: com.example.steps.UrgentProcessingStep
+            actions:
+              - step: urgent-processing
+                class: com.example.actions.UrgentProcessingStep
                 
           - id: business-hours
             condition:
               expression: "T(java.time.LocalTime).now().hour >= 9 && T(java.time.LocalTime).now().hour < 17"
-            steps:
-              - id: business-hours-processing
-                class: com.example.steps.BusinessHoursProcessingStep
+            actions:
+              - step: business-hours-processing
+                class: com.example.actions.BusinessHoursProcessingStep
                 
         default:
-          steps:
-            - id: standard-processing
-              class: com.example.steps.StandardProcessingStep
-            - id: standard-notification
-              class: com.example.steps.StandardNotificationStep
-            - id: queue-for-batch
-              class: com.example.steps.QueueForBatchStep
+          actions:
+            - step: standard-processing
+              class: com.example.actions.StandardProcessingStep
+            - step: standard-notification
+              class: com.example.actions.StandardNotificationStep
+            - step: queue-for-batch
+              class: com.example.actions.QueueForBatchStep
 ```
 
 **Execution Semantics:**
@@ -1046,10 +1059,10 @@ operations:
 2. The first branch whose condition evaluates to `true` is executed.
 3. Once a branch is executed, no further conditions are evaluated.
 4. If no branch conditions match, the `default` branch is executed.
-5. If no `default` branch is defined and no conditions match, the outcome is configurable through the `NoMatchBehavior` enumeration on the conditional step:
-   - **`WARN`** (default) — log a warning and continue. The conditional step itself completes without dispatching any inner steps; its id is recorded on `executedPath`.
+5. If no `default` branch is defined and no conditions match, the outcome is configurable through the `NoMatchBehavior` enumeration on the conditional operation:
+   - **`WARN`** (default) — log a warning and continue. The conditional operation itself completes without dispatching any inner actions; its id is recorded on `executedPath`.
    - **`SILENT`** — same as `WARN` but without logging. Suits the guard pattern (`if (cond) { ... }` with no `else`), where a no-match is the deliberate, expected outcome.
-   - **`ERROR`** — raise a transition failure. The conditional step fails, the operation fails, and any registered compensations run.
+   - **`ERROR`** — raise a transition failure. The conditional operation fails, the enclosing action fails, and any registered compensations run.
 
 ### 3.5 Context and Data Mapping
 
@@ -1673,7 +1686,7 @@ trialActiveTransition.operation("complex-subscription-activation", c -> c
 
 #### 4.4.3 Multi-Branch Conditional Operations
 
-Branches are evaluated in declaration order; the first branch whose condition matches is executed. If no branch matches and a `defaultBranch()` is defined, it runs; otherwise the conditional step's behavior is controlled by `.onNoMatch(NoMatchBehavior)` — `WARN` (default; log + complete without dispatching inner steps), `SILENT` (complete without logging, suiting the guard pattern), or `ERROR` (fail the transition). See §3.4.3 for full semantics — the Java API mirrors them exactly.
+Branches are evaluated in declaration order; the first branch whose condition matches is executed. If no branch matches and a `defaultBranch()` is defined, it runs; otherwise the conditional operation's behavior is controlled by `.onNoMatch(NoMatchBehavior)` — `WARN` (default; log + complete without dispatching inner actions), `SILENT` (complete without logging, suiting the guard pattern), or `ERROR` (fail the transition). See §3.4.3 for full semantics — the Java API mirrors them exactly.
 
 ### 4.5 Context Usage in Transitions
 
@@ -1753,12 +1766,12 @@ The mandatory `Class<P>` / `Class<N>` tokens let the build pipeline verify that 
 
 ##### 4.5.2.3 Worked Example — One Child, N Callers
 
-The idiomatic mapper id follows the pattern `<child>-from-<parent>` (e.g. `payment-from-order`, `billing-from-send`, `address-from-order`). The convention reads naturally at call sites — `.operation("charge-card", "payment-from-order")` says "call the charge-card operation, mapping from the order-side context" — and makes the boundary direction obvious to the reader. The worked example below uses this convention throughout.
+The idiomatic mapper id follows the pattern `<child>-from-<parent>` (e.g. `payment-from-order`, `billing-from-send`, `address-from-order`). The convention reads naturally at call sites — `.run("charge-card", "payment-from-order")` says "run charge-card, mapping from the order-side context" — and makes the boundary direction obvious to the reader. The worked example below uses this convention throughout.
 
-A reusable `ChargeCard` operation knows only `PaymentCtx`. Three different parent flows each have their own context shape and call into the same child via three different mappers, registered once on the state machine:
+A reusable `charge-card` action knows only `PaymentCtx`. Three different parent flows each have their own context shape and call into the same child via three different mappers, registered once on the state machine:
 
 ```java
-sm.operation("charge-card", PaymentCtx.class, new ChargeCardOperation());
+sm.step("charge-card", PaymentCtx.class, new ChargeCardAction());
 
 sm.mapper("payment-from-order",   OrderCtx.class,  PaymentCtx.class,
     o -> new PaymentCtx(o.total(), o.currency()));
@@ -1767,24 +1780,24 @@ sm.mapper("payment-from-refund",  RefundCtx.class, PaymentCtx.class,
 sm.mapper("payment-from-subscr",  SubscrCtx.class, PaymentCtx.class,
     s -> new PaymentCtx(s.nextCharge(), s.currency()));
 
-// Three call sites in three different composites — the child has no knowledge of any of them:
-orderComposite .operation("charge-card", "payment-from-order");
-refundComposite.operation("charge-card", "payment-from-refund");
-subscrComposite.operation("charge-card", "payment-from-subscr");
+// Three call sites in three different containers — the child has no knowledge of any of them:
+orderOperation .run("charge-card", "payment-from-order");
+refundOperation.run("charge-card", "payment-from-refund");
+subscrOperation.run("charge-card", "payment-from-subscr");
 ```
 
-The same `(memberId, [mapperSpec])` grammar applies to steps:
+One verb covers every reference, so the `(actionId, [mapperSpec])` grammar is the same whichever form the callee was authored in — the call sites above would be unchanged if `charge-card` were a declarative container instead of a step:
 
 ```java
-sm.step("validate-address", AddressCtx.class, new ValidateAddressStep());
+sm.step("validate-address", AddressCtx.class, new ValidateAddressAction());
 sm.mapper("address-from-order",  OrderCtx.class,  AddressCtx.class, OrderCtx::shippingAddress);
 
-orderComposite.step("validate-address", "address-from-order");
+orderOperation.run("validate-address", "address-from-order");
 ```
 
 ##### 4.5.2.4 Build-Time Type Compatibility
 
-For every by-id member declared inside a composite, the build pipeline checks:
+For every by-id reference declared inside a container - including inside a conditional's branches - the build pipeline checks:
 
 - **Pass-through (no mapper):** the called member's required context type must be assignable from the caller's context type (`memberCtx.isAssignableFrom(callerCtx)`; `Object`-typed members always pass through). Otherwise a `TransfluxValidationException` is raised at `build()` time with a message pointing the user to supply a mapper.
 - **Mapper by id:** the registered mapper's `parentType` must be assignable from the caller's context and its `childType` must be assignable to the called member's required context. Mismatches are rejected at build time.
@@ -1792,18 +1805,18 @@ For every by-id member declared inside a composite, the build pipeline checks:
 
 ##### 4.5.2.5 Identity, Uniqueness, and Visibility
 
-Component identifiers are unique **across the entire state machine** — uniqueness is a global property regardless of nesting depth. Two sibling composites cannot independently host an inline component with the same id under two different payloads; one must be renamed. The same instance or the same class registered under the same id in multiple places is treated idempotently and does not trigger a collision.
+Component identifiers are unique **across the entire state machine** — uniqueness is a global property regardless of nesting depth. Two sibling containers cannot independently host an inline component with the same id under two different payloads; one must be renamed. The same instance or the same class registered under the same id in multiple places is treated idempotently and does not trigger a collision.
 
 **Visibility, however, is lexical.** A component inline-declared inside a container (`op.step("foo", new FooAction())` and friends) is reachable only from inside that container's lexical subtree — its own member references, its conditional branches, and any `view.run("foo")` issued while that container is on the call stack. Sibling containers cannot resolve another's inline ids by reference: doing so raises a build-time error ("unknown action id in scope"). SM-level (root) registrations are reachable from every container via the parent-chain walk.
 
 Two practical consequences:
 
 - Promoting an inline nested registration to a top-level reusable component (or inlining a top-level one) is a payload-preserving refactor and produces no silent override. Global uniqueness blocks an accidental shadow at promotion time; lexical visibility blocks an accidental shadow at inlining time.
-- "Inline" vs. "top-level" *is* a visibility scope — not merely a definition-site convenience. An inline component is intentionally private to its composite. To expose a component to multiple callers, register it at SM level (or in the appropriate `forContext(...)` scope, which still lands at root).
+- "Inline" vs. "top-level" *is* a visibility scope — not merely a definition-site convenience. An inline component is intentionally private to its container. To expose a component to multiple callers, register it at SM level (or in the appropriate `forContext(...)` scope, which still lands at root).
 
-External addressability — using a component id as the target of a YAML `ref:` descriptor, a registry lookup, or any other cross-state-machine handle — applies only to root-registered components. Inline composite members have no externally-stable name; their id is meaningful only within their lexical scope.
+External addressability — using a component id as the target of a YAML `ref:` descriptor, a registry lookup, or any other cross-state-machine handle — applies only to root-registered components. Inline container members have no externally-stable name; their id is meaningful only within their lexical scope.
 
-At runtime, every composite owns a `Registry` whose parent is the enclosing scope's registry (root in 2.6.6; a process-wide registry once Phase 6.2 lands). Resolution walks the chain local-first and is flattened at the end of state-machine construction so by-id lookups are a single map operation thereafter. The framework never relies on the parent-chain walk at runtime hot paths.
+At runtime, every declarative container owns a `Registry` whose parent is the enclosing scope's registry (root in 2.6.6; a process-wide registry once Phase 6.2 lands). Resolution walks the chain local-first and is flattened at the end of state-machine construction so by-id lookups are a single map operation thereafter. The framework never relies on the parent-chain walk at runtime hot paths.
 
 ##### 4.5.2.6 Result Reporting
 
@@ -1830,11 +1843,11 @@ A nested operation hosted inside an `async` block is a different story: the asyn
 
 Pre- and post-conditions declared on a nested-operation **call site** (the parent's `.preCondition(...)` / `.postCondition(...)` chained to a member declaration) evaluate against the **parent's** context — they are caller-side gating decisions about whether to invoke the member at all.
 
-Pre- and post-conditions declared **inside** the nested operation's own def (the child composite's own conditions) evaluate against the **child's** context, populated by the mapper (or pass-through, when no mapper is supplied).
+Pre- and post-conditions declared **inside** the nested operation's own def (the child container's own conditions) evaluate against the **child's** context, populated by the mapper (or pass-through, when no mapper is supplied).
 
 ##### 4.5.2.9 Void-Context Caller
 
-A transition with `Void` context (or a composite typed `<T, Void>`) cannot pass-through to any member that requires a non-`Void` context. A mapper from `Void` to a populated child context is expressible but rare — the mapper's `mapTo(null)` would have to fabricate the child shape from nothing — and is flagged at build time only if the mapper is registered with `Void.class` as `parentType`. The common case is to lift the caller's context type or to attach the child member to a sibling transition that carries a populated context.
+A transition with `Void` context (or a container typed `<T, Void>`) cannot pass-through to any member that requires a non-`Void` context. A mapper from `Void` to a populated child context is expressible but rare — the mapper's `mapTo(null)` would have to fabricate the child shape from nothing — and is flagged at build time only if the mapper is registered with `Void.class` as `parentType`. The common case is to lift the caller's context type or to attach the child member to a sibling transition that carries a populated context.
 
 #### 4.5.3 Async Context Handling
 
@@ -1856,17 +1869,17 @@ For a JSON-friendly POJO context, Transflux ships an optional `JacksonForkableCo
 
 ##### 4.5.3.2 ContextMapper on `async` (full isolation, different context type)
 
-When an async branch needs a distinctly-shaped context — e.g., a notification subflow that needs only an order id and a customer email — declare a mapper at the `async` call site using the same call-site grammar as nested operations (§4.5.2.1). The mapper is supplied positionally, exactly as for sync members:
+When an async branch needs a distinctly-shaped context — e.g., a notification subflow that needs only an order id and a customer email — declare a mapper at the `async` call site using the same call-site grammar as any other reference (§4.5.2.1). The mapper is supplied positionally, exactly as for sync actions:
 
 ```java
 .async(a -> a
     .startAfter("finalize")
-    .step("send-receipt", "notification-from-order"))    // by registered mapper id
+    .run("send-receipt", "notification-from-order"))    // by registered mapper id
 
 // or with an inline projection at the call site:
 .async(a -> a
     .startAfter("finalize")
-    .step("send-receipt", parent ->
+    .run("send-receipt", parent ->
         new AsyncNotificationCtx(parent.getOrderId(), parent.getCustomerId())))
 ```
 

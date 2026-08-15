@@ -168,7 +168,7 @@ class TransitionDefImplSpec extends Specification {
         transitionDef.actionDef.id == 'op1'
     }
 
-    def 'step(id, Consumer) should attach a configured simple operation def'() {
+    def 'step(id, Consumer) should attach a configured step def'() {
         given:
         def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
         transitionDef.beginConfigurer()
@@ -198,7 +198,7 @@ class TransitionDefImplSpec extends Specification {
         thrown(TransfluxValidationException)
     }
 
-    def 'operation(id, Consumer) should attach a composite operation def'() {
+    def 'operation(id, Consumer) should attach an operation def'() {
         given:
         def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
         transitionDef.beginConfigurer()

@@ -31,7 +31,7 @@ import java.util.function.Predicate;
  * Context-typed registration scope handed to a {@link StateMachineDef#forContext(Class, Consumer)}
  * configurer.
  * <p>
- * Every reusable component (step, condition, composite operation) registered via this scope is
+ * Every reusable component (step, condition, operation) registered via this scope is
  * tagged with the scope's context class {@code C}. The framework uses that tag at build time
  * to verify that by-id references resolve against a component declared for the referring
  * scope's context type.
@@ -195,13 +195,13 @@ public interface ContextScope<T, C> {
     ContextScope<T, C> condition(Identifiable conditionIdentifiable, String spelExpression);
 
     /**
-     * Registers a composite operation under {@code id}, tagged with this scope's context class.
-     * The configurer is invoked synchronously against a freshly-constructed composite def; it
-     * may declare inline steps, conditional steps, and nested operations against the typed
-     * {@code C}.
+     * Registers a declarative action - an operation - under {@code id}, tagged with this
+     * scope's context class. The configurer is invoked synchronously against a
+     * freshly-constructed def; it may reference actions by id and declare inline steps and
+     * conditionals against the typed {@code C}.
      *
-     * @param id the composite operation id
-     * @param configurer callback that configures the composite
+     * @param id the operation id
+     * @param configurer callback that configures the operation
      *
      * @return this scope for chaining
      *
@@ -214,7 +214,7 @@ public interface ContextScope<T, C> {
     /**
      * {@link Identifiable} overload of {@link #operation(String, Consumer)}.
      *
-     * @param operationIdentifiable an identifiable supplying the composite operation id
+     * @param operationIdentifiable an identifiable supplying the operation id
      * @param configurer callback that configures the composite
      *
      * @return this scope for chaining

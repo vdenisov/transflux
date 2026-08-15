@@ -189,7 +189,7 @@ sealed interface ActionRef<T, C>
     record Conditional<T, C>(String id, ConditionalOperationDefImpl<T, C> def) implements ActionRef<T, C> {
         public Conditional {
             requireNotBlank(id, "Action reference ID");
-            requireNotNull(def, "Conditional step def");
+            requireNotNull(def, "Conditional operation def");
         }
 
         @Override

@@ -258,7 +258,8 @@ final class OperationDefImpl<T, C>
         if (actionRefs.isEmpty()) {
             throw new TransfluxValidationException(
                 "OperationDef '" + getId()
-                    + "' has no members; call step(...) or operation(...) at least once before build");
+                    + "' has no members; call run(...), step(...) or conditional(...) at least"
+                    + " once before build");
         }
 
         if (scopeRegistry == null) {

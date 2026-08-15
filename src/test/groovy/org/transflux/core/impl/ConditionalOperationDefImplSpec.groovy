@@ -128,7 +128,7 @@ class ConditionalOperationDefImplSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains("Branch 'b1'")
-        e.message.contains('at least one step')
+        e.message.contains('at least one action')
     }
 
     def 'default branch with no steps fails at build time'() {
@@ -145,7 +145,7 @@ class ConditionalOperationDefImplSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains('Default branch')
-        e.message.contains('at least one step')
+        e.message.contains('at least one action')
     }
 
     def 'conditional with no branches fails at build time even when default is declared'() {
@@ -158,7 +158,7 @@ class ConditionalOperationDefImplSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message.contains("Conditional step 'c1'")
+        e.message.contains("Conditional operation 'c1'")
         e.message.contains('at least one branch')
     }
 

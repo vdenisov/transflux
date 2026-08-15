@@ -167,89 +167,89 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> withDescription(String description);
 
     /**
-     * Attaches a simple operation using a pre-constructed {@link Action} instance.
+     * Attaches an imperative action - a step - using a pre-constructed {@link Action} instance.
      *
-     * @param id the operation id; never {@code null} or blank
-     * @param operation the operation instance; never {@code null}
+     * @param id the step id; never {@code null} or blank
+     * @param action the action instance; never {@code null}
      *
      * @return this transition def for chaining
      *
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
-     *         {@code operation} is {@code null}
+     *         {@code action} is {@code null}
      */
-    TransitionDef<T, C> step(String id, Action<T, C> operation);
+    TransitionDef<T, C> step(String id, Action<T, C> action);
 
     /**
      * {@link Identifiable} overload of {@link #step(String, Action)}.
      *
-     * @param operationIdentifiable an identifiable supplying the operation id
-     * @param operation the operation instance
+     * @param stepIdentifiable an identifiable supplying the step id
+     * @param action the action instance
      *
      * @return this transition def for chaining
      */
-    TransitionDef<T, C> step(Identifiable operationIdentifiable, Action<T, C> operation);
+    TransitionDef<T, C> step(Identifiable stepIdentifiable, Action<T, C> action);
 
     /**
-     * Attaches a simple operation using an {@link Action} class. The framework instantiates
-     * it via its public no-arg constructor at state machine build time.
+     * Attaches an imperative action - a step - using an {@link Action} class. The framework
+     * instantiates it via its public no-arg constructor at state machine build time.
      *
-     * @param id the operation id; never {@code null} or blank
-     * @param operationClass the operation class; never {@code null}
+     * @param id the step id; never {@code null} or blank
+     * @param actionClass the action class; never {@code null}
      *
      * @return this transition def for chaining
      *
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
-     *         {@code operationClass} is {@code null}
+     *         {@code actionClass} is {@code null}
      */
-    TransitionDef<T, C> step(String id, Class<? extends Action<T, C>> operationClass);
+    TransitionDef<T, C> step(String id, Class<? extends Action<T, C>> actionClass);
 
     /**
      * {@link Identifiable} overload of {@link #step(String, Class)}.
      *
-     * @param operationIdentifiable an identifiable supplying the operation id
-     * @param operationClass the operation class
+     * @param stepIdentifiable an identifiable supplying the step id
+     * @param actionClass the action class
      *
      * @return this transition def for chaining
      */
-    TransitionDef<T, C> step(Identifiable operationIdentifiable, Class<? extends Action<T, C>> operationClass);
+    TransitionDef<T, C> step(Identifiable stepIdentifiable, Class<? extends Action<T, C>> actionClass);
 
     /**
-     * Attaches a simple operation built through a fluent configurer. Use this form when you
-     * want to set {@code name} / {@code description} alongside the operation source.
+     * Attaches an imperative action - a step - built through a fluent configurer. Use this form
+     * when you want to set {@code name} / {@code description} alongside the action source.
      * <p>
      * The configurer is invoked synchronously against a freshly-constructed
      * {@link StepDef} carrying the supplied {@code id}; it must call
      * {@code .using(...)} before returning. The def is not exposed to the caller after the
      * lambda returns.
      *
-     * @param id the operation id; never {@code null} or blank
+     * @param id the step id; never {@code null} or blank
      * @param configurer the fluent configurer; never {@code null}
      *
      * @return this transition def for chaining
      *
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank,
      *         {@code configurer} is {@code null}, or the configurer leaves the def without
-     *         an operation source
+     *         an action source
      */
     TransitionDef<T, C> step(String id, Consumer<StepDef<T, C>> configurer);
 
     /**
      * {@link Identifiable} overload of {@link #step(String, Consumer)}.
      *
-     * @param operationIdentifiable an identifiable supplying the operation id
+     * @param stepIdentifiable an identifiable supplying the step id
      * @param configurer the fluent configurer
      *
      * @return this transition def for chaining
      */
-    TransitionDef<T, C> step(Identifiable operationIdentifiable, Consumer<StepDef<T, C>> configurer);
+    TransitionDef<T, C> step(Identifiable stepIdentifiable, Consumer<StepDef<T, C>> configurer);
 
     /**
-     * Attaches a composite operation built through a fluent configurer. The composite must
-     * declare at least one step.
+     * Attaches a declarative action - an operation - built through a fluent configurer. The
+     * operation must declare at least one member.
      * <p>
      * The configurer is invoked synchronously against a freshly-constructed
      * {@link OperationDef} carrying the supplied {@code id}; it must append at least
-     * one step before returning. The def is not exposed to the caller after the lambda returns.
+     * one member before returning. The def is not exposed to the caller after the lambda returns.
      *
      * @param id the operation id; never {@code null} or blank
      * @param configurer the fluent configurer; never {@code null}
@@ -257,8 +257,8 @@ public interface TransitionDef<T, C> extends Identifiable {
      * @return this transition def for chaining
      *
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank,
-     *         {@code configurer} is {@code null}, or the configurer leaves the composite
-     *         without any steps
+     *         {@code configurer} is {@code null}, or the configurer leaves the operation
+     *         without any members
      */
     TransitionDef<T, C> operation(String id, Consumer<OperationDef<T, C>> configurer);
 

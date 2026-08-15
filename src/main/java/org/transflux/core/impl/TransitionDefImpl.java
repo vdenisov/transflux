@@ -150,12 +150,12 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
 
     /**
      * Package-private hook used by {@link BoundTransition} to materialize the runtime
-     * {@link BoundAction}, or {@code null} when this transition has no operation attached.
+     * {@link BoundAction}, or {@code null} when this transition has no action attached.
      *
-     * @param stateMachine the enclosing state machine; required by composite operations to
-     *                     resolve step references against the step registry
+     * @param stateMachine the enclosing state machine; required by declarative containers to
+     *                     resolve member references against the action registry
      *
-     * @return the bound operation, or {@code null}
+     * @return the bound action, or {@code null}
      */
     @SuppressWarnings({"unchecked"})
     BoundAction<T, C> buildBoundAction(StateMachineImpl<T> stateMachine) {
@@ -277,39 +277,39 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> step(String id, Action<T, C> operation) {
+    public TransitionDef<T, C> step(String id, Action<T, C> action) {
         requireConfigurerActive("step");
         StepDefImpl<T, C> def = newStepDef(id);
-        ConfigurableDefImpl.runConfigurer(def, d -> d.using(operation));
+        ConfigurableDefImpl.runConfigurer(def, d -> d.using(action));
         attachAction(def);
         return this;
     }
 
     @Override
-    public TransitionDef<T, C> step(Identifiable operationIdentifiable, Action<T, C> operation) {
-        requireNotNull(operationIdentifiable, "Operation identifiable");
-        return step(operationIdentifiable.getId(), operation);
+    public TransitionDef<T, C> step(Identifiable stepIdentifiable, Action<T, C> action) {
+        requireNotNull(stepIdentifiable, "Step identifiable");
+        return step(stepIdentifiable.getId(), action);
     }
 
     @Override
-    public TransitionDef<T, C> step(String id, Class<? extends Action<T, C>> operationClass) {
+    public TransitionDef<T, C> step(String id, Class<? extends Action<T, C>> actionClass) {
         requireConfigurerActive("step");
         StepDefImpl<T, C> def = newStepDef(id);
-        ConfigurableDefImpl.runConfigurer(def, d -> d.using(operationClass));
+        ConfigurableDefImpl.runConfigurer(def, d -> d.using(actionClass));
         attachAction(def);
         return this;
     }
 
     @Override
-    public TransitionDef<T, C> step(Identifiable operationIdentifiable, Class<? extends Action<T, C>> operationClass) {
-        requireNotNull(operationIdentifiable, "Operation identifiable");
-        return step(operationIdentifiable.getId(), operationClass);
+    public TransitionDef<T, C> step(Identifiable stepIdentifiable, Class<? extends Action<T, C>> actionClass) {
+        requireNotNull(stepIdentifiable, "Step identifiable");
+        return step(stepIdentifiable.getId(), actionClass);
     }
 
     @Override
     public TransitionDef<T, C> step(String id, Consumer<StepDef<T, C>> configurer) {
         requireConfigurerActive("step");
-        requireNotNull(configurer, "Simple operation configurer");
+        requireNotNull(configurer, "Step configurer");
         StepDefImpl<T, C> def = newStepDef(id);
         ConfigurableDefImpl.runConfigurer(def, configurer);
         attachAction(def);
@@ -317,15 +317,15 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> step(Identifiable operationIdentifiable, Consumer<StepDef<T, C>> configurer) {
-        requireNotNull(operationIdentifiable, "Operation identifiable");
-        return step(operationIdentifiable.getId(), configurer);
+    public TransitionDef<T, C> step(Identifiable stepIdentifiable, Consumer<StepDef<T, C>> configurer) {
+        requireNotNull(stepIdentifiable, "Step identifiable");
+        return step(stepIdentifiable.getId(), configurer);
     }
 
     @Override
     public TransitionDef<T, C> operation(String id, Consumer<OperationDef<T, C>> configurer) {
         requireConfigurerActive("operation");
-        requireNotNull(configurer, "Composite operation configurer");
+        requireNotNull(configurer, "Operation configurer");
         OperationDefImpl<T, C> composite = new OperationDefImpl<>(id);
         ConfigurableDefImpl.runConfigurer(composite, configurer);
         attachAction(composite);
@@ -765,8 +765,8 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         return listenerDef;
     }
 
-    private StepDefImpl<T, C> newStepDef(String operationId) {
-        return new StepDefImpl<>(operationId);
+    private StepDefImpl<T, C> newStepDef(String stepId) {
+        return new StepDefImpl<>(stepId);
     }
 
     private void attachAction(ActionDefImpl<T, C, ?> def) {
