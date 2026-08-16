@@ -1,6 +1,6 @@
 # Action Model Unification
 
-> Design note for [Phase 3.8](../roadmap/phase-3-triggers-listeners.md#38-action-model-unification). Written before the refactor, to be reconciled into `requirements.md` when it lands.
+> Design note for [Phase 3.8](../history/phase-3-triggers-listeners.md#38-action-model-unification). Written before the refactor; reconciled into `requirements.md` when it landed.
 
 Transflux currently has two runtime concepts for "a unit of work that runs during a transition": `Step` and `Operation`. This note argues that the distinction has already collapsed in practice, describes the single concept that replaces it, and works through the parts that are not a mechanical rename - mostly the execution ordering, which turns out to have a real defect that the unification fixes.
 

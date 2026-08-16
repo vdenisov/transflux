@@ -40,10 +40,10 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * implements its public methods as one-line delegates, so validation order, argument labels, and
  * the configurer guard are written once.
  *
- * <p>A sink lives on {@code StepDefImpl}, {@code OperationDefImpl} and
- * {@code ConditionalOperationDefImpl} rather than on their common base: the conditional's impl
- * deliberately extends {@link IdentifiedDefImpl} instead of the sealed {@code ActionDefImpl}, so
- * there is no single base to hang the storage on.
+ * <p>{@code StepDefImpl} and {@code OperationDefImpl} share one sink declared on their common
+ * base, {@code ActionDefImpl}. {@code ConditionalOperationDefImpl} declares a second one of its
+ * own: it deliberately extends {@link IdentifiedDefImpl} instead of that sealed base, so there is
+ * no single place to hang the storage for all three.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the context type the owning action runs against

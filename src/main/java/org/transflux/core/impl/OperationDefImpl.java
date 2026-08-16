@@ -390,10 +390,12 @@ final class OperationDefImpl<T, C>
      *
      * <p>Mapper failure attribution: a {@code mapTo} failure throws before the member starts
      * and therefore surfaces as a parent member failure at the member's position — no child
-     * step ids are recorded for it. A {@code mapFrom} failure throws after the member has
-     * returned successfully, so any inner step ids the member drove are already on the executed
-     * list; the failure attaches to the parent's position and is treated as a parent failure
-     * (the child completed successfully — its compensations are not invoked).
+     * step ids are recorded for it, and no compensation is captured for it either. A
+     * {@code mapFrom} failure throws after the member has returned successfully, so any inner
+     * step ids the member drove are already on the executed list; the failure attaches to the
+     * parent's position and is treated as a parent failure. The child's own completion stands,
+     * but its compensations still run: a compensation is captured before the action executes and
+     * the enclosing transition drains the whole stack on any failure, whatever completed.
      */
     @SuppressWarnings("ClassCanBeRecord")
     private static final class CompositeOperationExecutor<T, C> implements Action<T, C> {

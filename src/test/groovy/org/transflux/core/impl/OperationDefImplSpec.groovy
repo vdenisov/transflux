@@ -26,6 +26,7 @@ import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.OperationDef
 import org.transflux.core.action.ContextMapper
 import org.transflux.core.action.Action
+import org.transflux.core.action.Compensation
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import org.transflux.core.transition.TransitionDef
@@ -343,8 +344,10 @@ class OperationDefImplSpec extends Specification {
         result.error instanceof RuntimeException
         result.error.message == 'mapTo-boom'
         // mapTo failure surfaces as parent failure; the nested op never starts, so only the
-        // outer composite's own entry is recorded.
+        // outer composite's own entry is recorded. mapTo throws before the child's compensation
+        // is captured, so there is nothing to unwind either.
         result.executedPath*.toString() == ['outer']
+        result.compensatedPath*.toString() == []
         entity.trail == []
     }
 
@@ -365,7 +368,12 @@ class OperationDefImplSpec extends Specification {
         !result.success
         result.error instanceof RuntimeException
         result.error.message == 'mapFrom-boom'
-        entity.trail == ['child-ran']
+        result.executedPath*.toString() == ['outer', 'outer/nested']
+        // The child completed, but the failure is still the transition's: compensation is captured
+        // before the child executes and the transition drains the whole stack, so the completed
+        // child is compensated too.
+        result.compensatedPath*.toString() == ['outer/nested']
+        entity.trail == ['child-ran', 'child-compensated']
     }
 
     private static Identifiable identifiable(String value) {
@@ -460,6 +468,11 @@ class OperationDefImplSpec extends Specification {
         @Override
         void execute(NestedFailEntity entity, NestedFailChildCtx context, Transition<NestedFailEntity, NestedFailChildCtx> transition) {
             entity.trail << 'child-ran'
+        }
+
+        @Override
+        Compensation<NestedFailEntity, NestedFailChildCtx> getCompensation(NestedFailEntity entity, NestedFailChildCtx context) {
+            return { e, c -> e.trail << 'child-compensated' } as Compensation
         }
     }
 

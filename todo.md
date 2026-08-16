@@ -18,16 +18,16 @@ Status legend: ✅ done · 🚧 active · ⬜ next / planned · 🔮 post-1.0
 | 2 — Operations, Steps & Conditions | v0.2.0 | ✅ done | [history](docs/history/phase-2-operations-steps-conditions.md) |
 | 2.5 — Nested Operations & Context Mapping | v0.2.5 | ✅ done | [history](docs/history/phase-2.5-nested-operations.md) |
 | 2.6 — DSL Shape Consistency | v0.2.6 | ✅ done | [history](docs/history/phase-2.6-dsl-shape-consistency.md) |
-| 3 — Triggers & Listeners | v0.3.0 | 🚧 active | [phase 3](docs/roadmap/phase-3-triggers-listeners.md) |
-| 4 — Async Operations & Error Handling | v0.4.0 | ⬜ planned | [phase 4](docs/roadmap/phase-4-async-compensation.md) |
+| 3 — Triggers & Listeners | v0.3.0 | ✅ done | [history](docs/history/phase-3-triggers-listeners.md) |
+| 4 — Async Operations & Error Handling | v0.4.0 | ⬜ next | [phase 4](docs/roadmap/phase-4-async-compensation.md) |
 | 5 — YAML DSL & Component System | v0.5.0 | ⬜ planned | [phase 5](docs/roadmap/phase-5-yaml-dsl.md) |
 | 6 — Integration, Polish & Release Prep | v0.6.0 → v1.0.0 | ⬜ planned | [phase 6](docs/roadmap/phase-6-integration-release.md) |
 | Post-1.0 — Additive & Breaking themes | 1.x / 2.x | 🔮 future | [below](#post-10--additive-themes-1x-line) |
 
 ## Document Map
 
-- **[docs/roadmap/](docs/roadmap/)** — one file per **remaining** phase (3, 4, 5, 6). A phase moves to `docs/history/` when it ships.
-- **[docs/history/](docs/history/)** — one file per **shipped** phase (1, 2, 2.5, 2.6), verbatim, nothing compressed.
+- **[docs/roadmap/](docs/roadmap/)** — one file per **remaining** phase (4, 5, 6). A phase moves to `docs/history/` when it ships.
+- **[docs/history/](docs/history/)** — one file per **shipped** phase (1, 2, 2.5, 2.6, 3), verbatim, nothing compressed.
 - **[docs/design/](docs/design/)** - design notes for individual changes large enough to want one before they become a plan. Written against the model at the time; reconciled into `requirements.md` when the change lands.
 - **[docs/project-baseline.md](docs/project-baseline.md)** — Java baseline, dependency versions, release cadence.
 - **`requirements.md`** — the canonical high-level spec.
@@ -55,7 +55,7 @@ The first stable release. Semantic versioning applies from this point on.
 
 **1.0 contract summary:**
 - Programmatic and YAML DSLs at parity.
-- Core abstractions: `StateMachine`, `State`, `Transition`, `Action` (imperative "step" and declarative "operation" forms, nestable, with type-safe context mapping via `ContextMapper<P, N>`), `Context`, `Condition`, `Trigger` (Manual / Event / host-driven Data), `Listener` (state entry/exit + transition start/complete/error), `Compensation`.
+- Core abstractions: `StateMachine`, `State`, `Transition`, `Action` (imperative "step" and declarative "operation" forms, nestable, with type-safe context mapping via `ContextMapper<P, N>`), `Context`, `Condition`, `Trigger` (Manual / Event / host-driven Data), `Listener` (state entry/exit + transition start/complete/error + action start/complete/error), `Compensation`.
 - Paired `StateResolver<T>` + `StateApplier<T>` (class / lambda / SpEL forms).
 - Condition Descriptor grammar (reference, class, predicate, expression).
 - Multi-branch conditional operations.

@@ -220,20 +220,27 @@ Enables observation and reaction to state machine events.
 **Listener Types:**
 - **State entry/exit listeners** — fire when an entity enters or exits a particular state.
 - **Transition start/complete/error listeners** — fire when a transition starts, when it completes successfully, and when it fails.
+- **Action start/complete/error listeners** — fire when an individual action starts, returns, and throws, at every nesting depth.
 
-Both DSLs support both listener categories symmetrically.
+Both DSLs support all three listener categories symmetrically.
 
-**Listeners observe; they do not gate.** An exception thrown by a listener is caught and logged; it does not fail the transition, does not trigger compensation, does not suppress the listeners registered after it, and does not appear in the `TransitionResult`. This holds at every hook, and it is deliberate: no hook is positioned where failing the transition would be honest. The start and exit hooks run before any step could have been compensated; the complete and entry hooks run after the `StateApplier` has already committed; the error hook runs after compensation is finished. Rejecting a transition is a pre-condition's job (§2.2.9).
+The three categories differ in what they can tell the host. A state listener answers "this entity reached this state"; a transition listener answers "this unit of work ran, and here is its outcome"; an action listener answers what happened *inside* that unit of work — which actions ran, in what order, under which context, and which one threw. The last is the capture a metrics collector cannot give: counters and timings answer "how often" and "how long", not "what did this particular invocation see". Recording individual payloads when they match a condition — "where does this null come from?", "how does this user reach this end state?" — is what action listeners exist for.
 
-**Registration and ordering.** A listener attaches either to a single owner — a state, through `onEntry` / `onExit`; a transition, through `onStart` / `onComplete` / `onError` — or to every owner of that kind, through the `onAnyStateEntry` / `onAnyStateExit` / `onAnyTransitionStart` / `onAnyTransitionComplete` / `onAnyTransitionError` registrations on the state-machine definition. At each hook the owner's own listeners run first, in declaration order, followed by the global ones, also in declaration order. Every listener carries a required id per §2.2.1; listener ids form a single namespace, shared by both categories and unique across the state machine.
+**Listeners observe; they do not gate.** An exception thrown by a listener is caught and logged; it does not fail the transition, does not trigger compensation, does not suppress the listeners registered after it, and does not appear in the `TransitionResult`. This holds at every hook, and it is deliberate: no hook is positioned where failing the transition would be honest. The start and exit hooks run before any step could have been compensated; the complete and entry hooks run after the `StateApplier` has already committed; the transition's error hook runs after compensation is finished. The action hooks are the one position that sits in the middle of a live execution, which makes the rule stricter rather than weaker there: failing on an observer's behalf would compensate work the transition itself had no complaint about. Rejecting a transition is a pre-condition's job (§2.2.9).
 
-**Complete and error partition the outcomes.** Exactly one of them follows every start notification, and neither occurs without one. Two consequences follow. A transition rejected by a pre-condition notifies nothing at all — it never reached the start hook, which §2.4 places after the pre-conditions, and the host already learns of the rejection from the returned `TransitionResult`. And a completion listener never has to check whether the transition actually worked, because a failure reaches the error hook instead.
+**Registration and ordering.** A listener attaches either to a single owner — a state, through `onEntry` / `onExit`; a transition or an action, through `onStart` / `onComplete` / `onError` — or to every owner of that kind, through the `onAnyStateEntry` / `onAnyStateExit` / `onAnyTransitionStart` / `onAnyTransitionComplete` / `onAnyTransitionError` / `onAnyActionStart` / `onAnyActionComplete` / `onAnyActionError` registrations on the state-machine definition. At each hook the owner's own listeners run first, in declaration order, followed by the global ones, also in declaration order. Every listener carries a required id per §2.2.1; listener ids form a single namespace, shared by all three categories and unique across the state machine.
+
+**An action listener attaches to the action, not to the call site.** It is declared on the action's own definition and fires at every invocation of that action — as a transition's attachment, as a container member, as a conditional branch member, and when another action's body dispatches it by id. Which observers an action has is a property of the action, exactly as its compensation is; a by-id reference therefore carries no listener attachment of its own, and needs none. The consequence to expect is that a transition's root action notifies at almost the same moment as the transition's own start hook. It still fires: a listener walking the execution tree wants the root node too.
+
+**Complete and error partition the outcomes.** Exactly one of them follows every start notification, and neither occurs without one. This holds for transitions and for actions alike. Two consequences follow. A transition rejected by a pre-condition notifies nothing at all — it never reached the start hook, which §2.4 places after the pre-conditions, and the host already learns of the rejection from the returned `TransitionResult`. And a completion listener never has to check whether the transition actually worked, because a failure reaches the error hook instead. For actions the error hook fires at *every* enclosing level as the failure propagates outwards, each reporting the same throwable: a container whose member threw did fail, and the whole subtree failed with it.
 
 **Transition listeners receive the outcome and the origin.** At the complete and error hooks the payload carries the same `TransitionResult` the caller receives, so a listener sees the executed path, the compensated path, the error, and the timings without the host having to thread them through. The payload also names the trigger that caused the execution, or reports none when the host invoked the transition directly — that is how a listener reacts to one invocation path (`cancellation-cron` but not `manual-cancel`) without listeners being bound to triggers individually.
 
-**Context typing splits the two categories.** A transition declares exactly one context type, so a listener attached to one receives that type directly. A state does not: it can be entered from transitions carrying different context types, so a state listener takes the firing context as `Object` (possibly `null`). Registrations that span every transition are the same case and likewise take `Object`. The rule of thumb: needing a typed context means writing a transition listener; needing only to know that an entity entered or left a state means writing a state listener, which is then free to treat whatever context it is handed generically — serialising it into an audit trail, for instance.
+**An action listener receives the action's own context.** Where the call site maps the context (§4.5.2), the listener sees the mapped child context — the very object the action's body is handed — not the enclosing transition's. Its payload also carries the qualified path of the invocation, which is the same value that invocation contributes to `executedPath`, so a listener can line its record up against the reported tree without reconstructing the nesting; and the form the action was authored in, which is how a listener filtering noise tells a declarative container from an imperative leaf.
 
-**The transition handed to a listener is read-only.** Listeners receive the topology of the responsible transition (its id, source, and target) but cannot dispatch steps or operations through it, for the same reason a data trigger's gate cannot: work dispatched outside a live execution would produce side effects whose compensations could never run.
+**Context typing splits the categories.** A transition declares exactly one context type, and so does an action, so a listener attached to either receives that type directly. A state does not: it can be entered from transitions carrying different context types, so a state listener takes the firing context as `Object` (possibly `null`). Registrations that span every transition, or every action, are the same case and likewise take `Object`. The rule of thumb: needing a typed context means writing a transition or action listener; needing only to know that an entity entered or left a state means writing a state listener, which is then free to treat whatever context it is handed generically — serialising it into an audit trail, for instance.
+
+**The transition handed to a listener is read-only.** Listeners receive the topology of the responsible transition (its id, source, and target) but cannot dispatch steps or operations through it, for the same reason a data trigger's gate cannot: work dispatched outside a live execution would produce side effects whose compensations could never run. For an action listener the reason is narrower and sharper — it runs *inside* a live execution, so work it dispatched would interleave into the executed path and the compensation stack as though the observed action had dispatched it.
 
 #### 2.2.11 Compensation Engine
 
@@ -282,7 +289,8 @@ StateMachine
 │   │   ├── Action (Step or Operation)
 │   │   │   ├── Nested Actions
 │   │   │   ├── Context
-│   │   │   └── Compensations
+│   │   │   ├── Compensations
+│   │   │   └── Listeners (onStart, onComplete, onError)
 │   │   ├── Conditions (Pre/Post)
 │   │   ├── Triggers (Manual, Event, Data)
 │   │   └── Listeners (onStart, onComplete, onError)
@@ -302,7 +310,7 @@ StateMachine
     3. push its id onto the nesting stack;
     4. execute;
     5. pop the nesting stack.
-   Capturing before execution means an action that throws partway through producing side effects still has its rollback invoked; an action needing completion-time state writes that state into the entity or context during `execute` and reads it back in the compensation, which sees the same references `execute` ran against. Recording before execution means an action that throws still appears on `executedPath` — it did run, and its compensation is on the other list. Pushing the nesting stack for every action means anything it dispatches is qualified beneath it. Asynchronous parts are scheduled here if applicable.
+   Capturing before execution means an action that throws partway through producing side effects still has its rollback invoked; an action needing completion-time state writes that state into the entity or context during `execute` and reads it back in the compensation, which sees the same references `execute` ran against. Recording before execution means an action that throws still appears on `executedPath` — it did run, and its compensation is on the other list. Pushing the nesting stack for every action means anything it dispatches is qualified beneath it. The action's own listeners (§2.2.10) are notified from inside its nesting scope, so each notification's path is the action's own; where the call site maps the context, a mapper's `mapFrom` runs only once those notifications are closed, since a `mapFrom` failure is the parent's and must not turn the child's completion into an error as well. Asynchronous parts are scheduled here if applicable.
 6. **Post-condition Evaluation** — validate successful completion. On failure, run registered compensations in LIFO order; the entity's state field is **not** updated.
 7. **State Application** — invoke the `StateApplier<T>` to write the new state to the entity. The transition is now considered committed.
 8. **Listener Notification (complete)** — notify registered `onComplete` listeners and target-state `onEntry` listeners.
@@ -1159,7 +1167,7 @@ conditions:
 
 ### 3.7 Listeners and Hooks
 
-Both DSLs support state entry/exit listeners and transition start/complete/error listeners.
+The YAML DSL supports state entry/exit listeners and transition start/complete/error listeners. The third category, action start/complete/error, has no YAML spelling yet — see the parity note below.
 
 ```yaml
 # State entry/exit listeners — attached to the state definition
@@ -1196,6 +1204,8 @@ listeners:
       onEntry:
         - class: com.example.listeners.StateAuditListener
 ```
+
+> **Parity gap — action listeners.** The third category (§2.2.10) exists in the Java DSL — `onStart` / `onComplete` / `onError` on an action's own definition, and `onAnyActionStart` / `onAnyActionComplete` / `onAnyActionError` on the state machine — but has no YAML spelling yet. Its shape is not merely the two blocks above with a third noun substituted: an action listener attaches to the action rather than to the call site, and YAML admits inline action definitions at member positions, so where the attachment is written and how a referenced action inherits it both need settling. This closes with the rest of the YAML listener library, which is deferred to Phase 5 for the same reason: YAML references listeners by id from a shared pool, which needs a listener registry the Java DSL does not have.
 
 ### 3.8 Global Configuration
 
@@ -1759,8 +1769,12 @@ public interface ContextMapper<P, N> {
 sm.mapper("payment-from-order", OrderCtx.class, PaymentCtx.class, new OrderToPaymentMapper());
 sm.mapper("payment-from-order", OrderCtx.class, PaymentCtx.class, OrderToPaymentMapper.class);
 sm.mapper("payment-from-order", OrderCtx.class, PaymentCtx.class,
-    order -> new PaymentCtx(order.total(), order.currency()));   // Function form, mapFrom = no-op
+    order -> new PaymentCtx(order.total(), order.currency()));   // read-only: mapFrom stays no-op
+sm.mapperDef("payment-from-order", OrderCtx.class, PaymentCtx.class, m ->   // + name / description
+    m.withName("Payment from order").using(new OrderToPaymentMapper()));
 ```
+
+There are two source forms — an instance and a class — plus a lambda-configurer registration for the cases that also want a name or a description. `ContextMapper` has a single abstract method, so a lambda *is* the instance form: it supplies `mapTo` and leaves `mapFrom` the default no-op, which is exactly the read-only case. There is no separate `Function<P, N>` registration overload; one would be indistinguishable from the instance form at the call site while meaning the same thing.
 
 The mandatory `Class<P>` / `Class<N>` tokens let the build pipeline verify that the mapper's parent type is assignable from the caller's context and the mapper's child type matches the called member's required context. Inline `Function` and inline `ContextMapper` at the call site cannot be reliably introspected at build time (generic erasure); their alignment is checked at first dispatch.
 
@@ -1830,8 +1844,8 @@ The qualified form preserves the structural distinction between an entry that ra
 
 A nested operation's failure surfaces as if it were a member failure of the enclosing parent at that position; the parent's error-handling and compensation rules apply. Mapper failures are attributed to the side of the boundary the parent owns:
 
-- **`mapTo` failure** (parent → child) is a **parent failure**. The child never starts and no child member ids are recorded for this position.
-- **`mapFrom` failure** (child → parent) is also a **parent failure** — the boundary belongs to the parent. The child completed successfully and its compensations are *not* invoked; the parent's error-handling kicks in as if the parent itself raised the writeback failure.
+- **`mapTo` failure** (parent → child) is a **parent failure**. The child never starts, no child member ids are recorded for this position, and no compensation is captured for it.
+- **`mapFrom` failure** (child → parent) is also a **parent failure** — the boundary belongs to the parent — and the parent's error-handling kicks in as if the parent itself raised the writeback failure. The child's own completion stands: it ran, it is on the executed path, and any listener attached to it saw a completion rather than an error. Its **compensation still runs**, though, and for the ordinary reason: a compensation is captured before its action executes (§2.4 step 5) and the enclosing transition drains the whole stack on any failure, whatever had completed by then. "The child succeeded" and "the child is compensated" are not in tension — that is what rollback means.
 
 The same attribution applies to class-based mappers, instance-based mappers, inline `Function`, and inline `ContextMapper` at the call site.
 
@@ -2077,6 +2091,30 @@ The same class registered at `onComplete` and at `onError` tells the two apart t
 `execution.phase()`; a listener registered at only one hook does not need to, since complete and
 error partition the outcomes.
 
+An action listener is the same shape again, over the context the action itself declares. The
+`ActionExecution` carries the phase, the qualified path of this invocation, the form the action was
+authored in, the transition, and — at the error hook — the failure.
+
+```java
+@Component
+public class ChargeAuditListener
+        implements ActionListener<Subscription, BillingContext> {
+
+    @Inject private AuditService auditService;
+
+    @Override
+    public void onAction(Subscription subscription, BillingContext context,
+                         ActionExecution<Subscription> execution) {
+        auditService.record(subscription,
+                            execution.phase(),
+                            execution.path(),          // e.g. activate/charge-card
+                            execution.kind(),          // STEP or OPERATION
+                            context.getPaymentMethodId(),
+                            execution.error());        // null outside the error hook
+    }
+}
+```
+
 #### 4.8.2 Listener Registration
 
 ```java
@@ -2101,12 +2139,35 @@ stateMachineDef
 stateMachineDef
     .onAnyStateEntry("audit-any-entry", StateAuditListener.class)
     .onAnyStateExit("audit-any-exit", StateAuditListener.class);
+
+// Action listeners — attached to the action's own definition, wherever that definition is
+// written: an SM-level registration, a transition's attachment, or an inline member. The
+// listener then fires at every invocation of that action, from every call site.
+stateMachineDef
+    .step("charge-card", BillingContext.class, s -> s
+        .using(ChargeCardAction.class)
+        .onError("charge-audit", ChargeAuditListener.class));
+
+// Global action listeners — they fire for every action at every nesting depth, after that
+// action's own listeners, and take an Object context because they span actions declared
+// against differing context types.
+stateMachineDef
+    .onAnyActionStart("audit-any-action-start", ActionAuditListener.class)
+    .onAnyActionComplete("audit-any-action-complete", ActionAuditListener.class)
+    .onAnyActionError("audit-any-action-error", ActionAuditListener.class);
 ```
 
 Every id-bearing form has an `Identifiable` sibling, and each hook accepts a listener instance, a
-listener class, or a configurer (`Consumer<StateListenerDef<T>>` / `Consumer<TransitionListenerDef<T, C>>`)
-for the cases that also want a name or description. Listener ids are unique across the state
-machine, and the two categories share one namespace.
+listener class, or a configurer (`Consumer<StateListenerDef<T>>` /
+`Consumer<TransitionListenerDef<T, C>>` / `Consumer<ActionListenerDef<T, C>>`) for the cases that
+also want a name or description. Listener ids are unique across the state machine, and all three
+categories share one namespace.
+
+Note the asymmetry the action category forces on the shorthand registrations: an action declared
+through `step(id, Action)` or `step(id, Class)` has no def behind it to hold an attachment, so a
+listener needs the configurer form. That holds at every position — the state-machine registry, a
+transition, a container member, and a conditional branch member — and is the same
+shorthand-versus-configurer split the rest of the DSL already makes for names and descriptions.
 
 ### 4.9 Execution and Usage
 
@@ -2304,7 +2365,7 @@ The 1.0 release is the **smallest useful core** of Transflux: a programmatic and
 
 In-scope capabilities:
 
-- **Core abstractions** — `StateMachine`, `State`, `Transition`, `Action` (imperative "step" and declarative "operation" forms), `Context`, `Condition` (Pre/Post), `Trigger` (Manual, Event, host-driven Data), `Listener` (state entry/exit, transition start/complete/error), `Compensation`.
+- **Core abstractions** — `StateMachine`, `State`, `Transition`, `Action` (imperative "step" and declarative "operation" forms), `Context`, `Condition` (Pre/Post), `Trigger` (Manual, Event, host-driven Data), `Listener` (state entry/exit, transition start/complete/error, action start/complete/error), `Compensation`.
 - **State resolver + applier** — class, lambda (Java only), and SpEL forms.
 - **Both DSLs at parity** — programmatic builder and YAML DSL cover the same surface area, including listener types and condition descriptor forms.
 - **Component library + registry** — reusable component definitions with imports (YAML) and a Java-side `ComponentRegistry`.
