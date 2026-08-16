@@ -20,6 +20,7 @@ package org.transflux.core.impl;
 
 import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.action.ActionPhase;
 import org.transflux.core.action.Compensation;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.MapperDef;
@@ -158,8 +159,15 @@ class TransitionView<T, C> implements Transition<T, C> {
         return contextOverrideStack.isEmpty() ? context : (C) contextOverrideStack.peek();
     }
 
-    void recordExecutedId(String localStepId) {
-        executedPath.add(qualifyActionPath(localStepId));
+    /**
+     * Records an already-qualified path on the executed path. {@link #runAction} qualifies once and
+     * reuses the result for the listener payload, so the qualification happens at the call site
+     * rather than here.
+     *
+     * @param path the qualified path to record
+     */
+    void recordExecutedPath(ActionPath path) {
+        executedPath.add(path);
     }
 
     List<ActionPath> getExecutedPath() {
@@ -168,9 +176,9 @@ class TransitionView<T, C> implements Transition<T, C> {
 
     /**
      * Pushes the supplied nested-operation id onto this view's operation-nesting stack. While
-     * the stack is non-empty every {@link #recordExecutedId(String)} call records the step
-     * id under a {@code parent-op-id/.../child-step-id} qualified path. Each push must be
-     * paired with a matching {@link #exitOperation()} call.
+     * the stack is non-empty {@link #qualifyActionPath(String)} qualifies an action's id as
+     * {@code parent-op-id/.../child-step-id}. Each push must be paired with a matching
+     * {@link #exitOperation()} call.
      *
      * @param operationId the nested-operation id to push; must be non-blank
      */
@@ -219,6 +227,13 @@ class TransitionView<T, C> implements Transition<T, C> {
      * {@link ContextMapper#mapFrom(Object, Object) mapFrom} folds child-side changes back into
      * the parent on successful return only.
      *
+     * <p>Action listeners are notified from inside the nesting scope, so the payload's path is the
+     * action's own. {@code mapFrom} runs only once this action's notifications are closed: a
+     * failing {@code mapFrom} is the parent's failure, and the child did complete, so it must not
+     * turn the child's completion into an error as well. A failure notifies this level and then
+     * propagates, so every enclosing action reports the same throwable on its way out - the
+     * exception is rethrown unchanged so the transition still reports what actually failed.
+     *
      * @param bound the bound action to run; never {@code null}
      * @param mapper the mapper to apply at the boundary, or {@code null} for pass-through
      */
@@ -229,22 +244,33 @@ class TransitionView<T, C> implements Transition<T, C> {
         Object effective = mapper == null ? active : child;
 
         pushCompensation(bound.id(), (Compensation) bound.action().getCompensation(entity, effective));
-        recordExecutedId(bound.id());
+        ActionPath path = qualifyActionPath(bound.id());
+        recordExecutedPath(path);
         enterOperation(bound.id());
         try {
+            stateMachine.notifyActionListeners(bound, ActionPhase.START, entity, effective, path,
+                                               boundTransition, null);
             if (mapper == null) {
                 ((Action) bound.action()).execute(entity, active, this);
-                return;
+            } else {
+                contextOverrideStack.push(child);
+                try {
+                    ((Action) bound.action()).execute(entity, child, this);
+                } finally {
+                    contextOverrideStack.pop();
+                }
             }
-            contextOverrideStack.push(child);
-            try {
-                ((Action) bound.action()).execute(entity, child, this);
-            } finally {
-                contextOverrideStack.pop();
-            }
-            mapper.mapFrom(active, child);
+            stateMachine.notifyActionListeners(bound, ActionPhase.COMPLETE, entity, effective, path,
+                                               boundTransition, null);
+        } catch (Exception e) {
+            stateMachine.notifyActionListeners(bound, ActionPhase.ERROR, entity, effective, path,
+                                               boundTransition, e);
+            throw e;
         } finally {
             exitOperation();
+        }
+        if (mapper != null) {
+            mapper.mapFrom(active, child);
         }
     }
 

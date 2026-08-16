@@ -26,6 +26,8 @@ import org.transflux.core.StateMachine;
 import org.transflux.core.StateMachineDef;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.ActionKind;
+import org.transflux.core.action.ActionListener;
+import org.transflux.core.action.ActionListenerDef;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.MapperDef;
 import org.transflux.core.action.OperationDef;
@@ -53,6 +55,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -111,6 +114,15 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private final List<TransitionListenerDefImpl<T, Object>> globalStartListeners = new ArrayList<>();
     private final List<TransitionListenerDefImpl<T, Object>> globalCompleteListeners = new ArrayList<>();
     private final List<TransitionListenerDefImpl<T, Object>> globalErrorListeners = new ArrayList<>();
+
+    /**
+     * Action listeners attached to every action rather than to one. Kept in declaration order; the
+     * listeners of whichever action is running run ahead of these. They span actions declared
+     * against differing context types and so are typed against {@link Object}.
+     */
+    private final List<ActionListenerDefImpl<T, Object>> globalActionStartListeners = new ArrayList<>();
+    private final List<ActionListenerDefImpl<T, Object>> globalActionCompleteListeners = new ArrayList<>();
+    private final List<ActionListenerDefImpl<T, Object>> globalActionErrorListeners = new ArrayList<>();
 
     /**
      * Listener ids claimed so far. Listeners form one state-machine-wide namespace across both
@@ -198,6 +210,22 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
+    public StateMachineDef<T> step(String id, Consumer<StepDef<T, Object>> configurer) {
+        requireNotBlank(id, "Step ID");
+        requireNotNull(configurer, "Step configurer");
+        StepDefImpl<T, Object> def = new StepDefImpl<>(id);
+        ConfigurableDefImpl.runConfigurer(def, configurer);
+        registerStepDef(def);
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> step(Identifiable stepIdentifiable, Consumer<StepDef<T, Object>> configurer) {
+        requireNotNull(stepIdentifiable, "Step identifiable");
+        return step(stepIdentifiable.getId(), configurer);
+    }
+
+    @Override
     public <C> StateMachineDef<T> step(String id, Class<C> contextType, Action<T, C> step) {
         requireNotBlank(id, "Step ID");
         requireNotNull(contextType, "Context type");
@@ -234,10 +262,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotBlank(id, "Step ID");
         requireNotNull(contextType, "Context type");
         requireNotNull(configurer, "Step configurer");
-        StepDefImpl<T, C> def = new StepDefImpl<>(id, contextType);
-        ConfigurableDefImpl.runConfigurer(def, configurer);
-        registerStepDef(def);
-        tagContextType(id, contextType);
+        registerScopedStep(id, configurer, contextType);
         return this;
     }
 
@@ -897,6 +922,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         tagContextType(id, contextType);
     }
 
+    <C> void registerScopedStep(String id, Consumer<StepDef<T, C>> configurer, Class<C> contextType) {
+        StepDefImpl<T, C> def = new StepDefImpl<>(id, contextType);
+        ConfigurableDefImpl.runConfigurer(def, configurer);
+        registerStepDef(def);
+        tagContextType(id, contextType);
+    }
+
     <C> void registerScopedCondition(String id, Condition<T, C> condition, Class<C> contextType) {
         registerConditionInstance(id, condition);
         tagContextType(id, contextType);
@@ -1193,6 +1225,162 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         return onAnyTransitionError(listenerIdentifiable.getId(), configurer);
     }
 
+    @Override
+    public StateMachineDef<T> onAnyActionStart(String listenerId, ActionListener<T, Object> listener) {
+        requireNotBlank(listenerId, "Action listener ID");
+        requireNotNull(listener, "Action listener");
+        return onAnyActionStart(listenerId, l -> l.using(listener));
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyActionStart(Identifiable listenerIdentifiable,
+                                               ActionListener<T, Object> listener) {
+        requireNotNull(listenerIdentifiable, "Action listener identifiable");
+        return onAnyActionStart(listenerIdentifiable.getId(), listener);
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyActionStart(String listenerId,
+                                               Class<? extends ActionListener<T, Object>> listenerClass) {
+        requireNotBlank(listenerId, "Action listener ID");
+        requireNotNull(listenerClass, "Action listener class");
+        return onAnyActionStart(listenerId, l -> l.using(listenerClass));
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyActionStart(Identifiable listenerIdentifiable,
+                                               Class<? extends ActionListener<T, Object>> listenerClass) {
+        requireNotNull(listenerIdentifiable, "Action listener identifiable");
+        return onAnyActionStart(listenerIdentifiable.getId(), listenerClass);
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyActionStart(String listenerId,
+                                               Consumer<ActionListenerDef<T, Object>> configurer) {
+        globalActionStartListeners.add(declareActionListener(listenerId, configurer));
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyActionStart(Identifiable listenerIdentifiable,
+                                               Consumer<ActionListenerDef<T, Object>> configurer) {
+        requireNotNull(listenerIdentifiable, "Action listener identifiable");
+        return onAnyActionStart(listenerIdentifiable.getId(), configurer);
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyActionComplete(String listenerId, ActionListener<T, Object> listener) {
+        requireNotBlank(listenerId, "Action listener ID");
+        requireNotNull(listener, "Action listener");
+        return onAnyActionComplete(listenerId, l -> l.using(listener));
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyActionComplete(Identifiable listenerIdentifiable,
+                                                  ActionListener<T, Object> listener) {
+        requireNotNull(listenerIdentifiable, "Action listener identifiable");
+        return onAnyActionComplete(listenerIdentifiable.getId(), listener);
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyActionComplete(String listenerId,
+                                                  Class<? extends ActionListener<T, Object>> listenerClass) {
+        requireNotBlank(listenerId, "Action listener ID");
+        requireNotNull(listenerClass, "Action listener class");
+        return onAnyActionComplete(listenerId, l -> l.using(listenerClass));
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyActionComplete(Identifiable listenerIdentifiable,
+                                                  Class<? extends ActionListener<T, Object>> listenerClass) {
+        requireNotNull(listenerIdentifiable, "Action listener identifiable");
+        return onAnyActionComplete(listenerIdentifiable.getId(), listenerClass);
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyActionComplete(String listenerId,
+                                                  Consumer<ActionListenerDef<T, Object>> configurer) {
+        globalActionCompleteListeners.add(declareActionListener(listenerId, configurer));
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyActionComplete(Identifiable listenerIdentifiable,
+                                                  Consumer<ActionListenerDef<T, Object>> configurer) {
+        requireNotNull(listenerIdentifiable, "Action listener identifiable");
+        return onAnyActionComplete(listenerIdentifiable.getId(), configurer);
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyActionError(String listenerId, ActionListener<T, Object> listener) {
+        requireNotBlank(listenerId, "Action listener ID");
+        requireNotNull(listener, "Action listener");
+        return onAnyActionError(listenerId, l -> l.using(listener));
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyActionError(Identifiable listenerIdentifiable,
+                                               ActionListener<T, Object> listener) {
+        requireNotNull(listenerIdentifiable, "Action listener identifiable");
+        return onAnyActionError(listenerIdentifiable.getId(), listener);
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyActionError(String listenerId,
+                                               Class<? extends ActionListener<T, Object>> listenerClass) {
+        requireNotBlank(listenerId, "Action listener ID");
+        requireNotNull(listenerClass, "Action listener class");
+        return onAnyActionError(listenerId, l -> l.using(listenerClass));
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyActionError(Identifiable listenerIdentifiable,
+                                               Class<? extends ActionListener<T, Object>> listenerClass) {
+        requireNotNull(listenerIdentifiable, "Action listener identifiable");
+        return onAnyActionError(listenerIdentifiable.getId(), listenerClass);
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyActionError(String listenerId,
+                                               Consumer<ActionListenerDef<T, Object>> configurer) {
+        globalActionErrorListeners.add(declareActionListener(listenerId, configurer));
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyActionError(Identifiable listenerIdentifiable,
+                                               Consumer<ActionListenerDef<T, Object>> configurer) {
+        requireNotNull(listenerIdentifiable, "Action listener identifiable");
+        return onAnyActionError(listenerIdentifiable.getId(), configurer);
+    }
+
+    /**
+     * Returns the listeners notified when any action starts, in declaration order.
+     *
+     * @return the live global action-start listener list
+     */
+    List<ActionListenerDefImpl<T, Object>> getGlobalActionStartListeners() {
+        return globalActionStartListeners;
+    }
+
+    /**
+     * Returns the listeners notified when any action completes, in declaration order.
+     *
+     * @return the live global action-complete listener list
+     */
+    List<ActionListenerDefImpl<T, Object>> getGlobalActionCompleteListeners() {
+        return globalActionCompleteListeners;
+    }
+
+    /**
+     * Returns the listeners notified when any action fails, in declaration order.
+     *
+     * @return the live global action-error listener list
+     */
+    List<ActionListenerDefImpl<T, Object>> getGlobalActionErrorListeners() {
+        return globalActionErrorListeners;
+    }
+
     /**
      * Returns the listeners notified when any transition starts, in declaration order.
      *
@@ -1237,16 +1425,40 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
-     * Checks every transition's own listener ids against the shared namespace. Runs per build over
-     * a throwaway copy of the eagerly-claimed ids, so building the same definition twice does not
-     * report the second build's transition listeners as duplicates.
+     * Checks the listener ids owned by transitions and by actions against the shared namespace.
+     * Runs per build over a throwaway copy of the eagerly-claimed ids, so building the same
+     * definition twice does not report the second build's own listeners as duplicates.
      */
-    private void checkTransitionListenerIds() {
+    private void checkOwnedListenerIds() {
         Set<String> claimed = new HashSet<>(listenerIds);
+
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             claimTransitionListenerIds(td.getStartListeners(), td.getId(), "onStart", claimed);
             claimTransitionListenerIds(td.getCompleteListeners(), td.getId(), "onComplete", claimed);
             claimTransitionListenerIds(td.getErrorListeners(), td.getId(), "onError", claimed);
+        }
+
+        BiConsumer<String, String> actionListenerIds = (listenerId, ownerLabel) -> {
+            if (!claimed.add(listenerId)) {
+                throw new TransfluxValidationException(
+                    "Listener ID '" + listenerId + "' is already registered (declared on "
+                        + ownerLabel + ")");
+            }
+        };
+
+        for (ActionRegistration<T> registration : actionRegistrations.values()) {
+            if (registration.def() != null) {
+                registration.def().collectListenerIds(actionListenerIds);
+            }
+        }
+        for (OperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
+            composite.collectListenerIds(actionListenerIds);
+        }
+        for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
+            ActionDefImpl<T, ?, ?> actionDef = td.getActionDef();
+            if (actionDef != null) {
+                actionDef.collectListenerIds(actionListenerIds);
+            }
         }
     }
 
@@ -1283,6 +1495,18 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(configurer, "Transition listener configurer");
         TransitionListenerDefImpl<T, Object> listenerDef = new TransitionListenerDefImpl<>(listenerId);
+        // Claimed only once the configurer has returned, so a configurer that throws leaves the id
+        // free for the caller's corrected retry.
+        ConfigurableDefImpl.runConfigurer(listenerDef, configurer);
+        claimListenerId(listenerId);
+        return listenerDef;
+    }
+
+    private ActionListenerDefImpl<T, Object> declareActionListener(
+            String listenerId, Consumer<ActionListenerDef<T, Object>> configurer) {
+        requireNotBlank(listenerId, "Action listener ID");
+        requireNotNull(configurer, "Action listener configurer");
+        ActionListenerDefImpl<T, Object> listenerDef = new ActionListenerDefImpl<>(listenerId);
         // Claimed only once the configurer has returned, so a configurer that throws leaves the id
         // free for the caller's corrected retry.
         ConfigurableDefImpl.runConfigurer(listenerDef, configurer);
@@ -1418,7 +1642,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     private void validateContextCompatibilityAndCycles() {
-        checkTransitionListenerIds();
+        checkOwnedListenerIds();
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             Class<?> transitionContext = td.getContextType();
             ActionDefImpl<T, ?, ?> op = td.getActionDef();

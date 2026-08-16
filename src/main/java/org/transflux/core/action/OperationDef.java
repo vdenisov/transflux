@@ -213,6 +213,32 @@ public interface OperationDef<T, C> extends ActionDef<T, C> {
     OperationDef<T, C> step(Identifiable actionIdentifiable, Class<? extends Action<T, C>> actionClass);
 
     /**
+     * Configurer form of the inline declaration, for a member that also wants a name, a
+     * description, or listeners. The configurer must call {@code using(...)} to supply the body.
+     *
+     * @param id the action id; must be unique across the state machine
+     * @param configurer callback that configures the member
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or {@code configurer} is
+     *         {@code null}
+     */
+    OperationDef<T, C> step(String id, Consumer<StepDef<T, C>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #step(String, Consumer)}.
+     *
+     * @param actionIdentifiable an identifiable supplying the action id
+     * @param configurer callback that configures the member
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code actionIdentifiable} is {@code null}
+     */
+    OperationDef<T, C> step(Identifiable actionIdentifiable, Consumer<StepDef<T, C>> configurer);
+
+    /**
      * Declares a multi-branch conditional at this position - a declarative action whose ordering
      * rule is "first matching branch" rather than "all, in order".
      *
@@ -254,4 +280,65 @@ public interface OperationDef<T, C> extends ActionDef<T, C> {
 
     @Override
     OperationDef<T, C> withDescription(String description);
+
+    @Override
+    OperationDef<T, C> onStart(String listenerId, ActionListener<T, C> listener);
+
+    @Override
+    OperationDef<T, C> onStart(Identifiable listenerIdentifiable, ActionListener<T, C> listener);
+
+    @Override
+    OperationDef<T, C> onStart(String listenerId, Class<? extends ActionListener<T, C>> listenerClass);
+
+    @Override
+    OperationDef<T, C> onStart(Identifiable listenerIdentifiable,
+                               Class<? extends ActionListener<T, C>> listenerClass);
+
+    @Override
+    OperationDef<T, C> onStart(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
+
+    @Override
+    OperationDef<T, C> onStart(Identifiable listenerIdentifiable,
+                               Consumer<ActionListenerDef<T, C>> configurer);
+
+    @Override
+    OperationDef<T, C> onComplete(String listenerId, ActionListener<T, C> listener);
+
+    @Override
+    OperationDef<T, C> onComplete(Identifiable listenerIdentifiable, ActionListener<T, C> listener);
+
+    @Override
+    OperationDef<T, C> onComplete(String listenerId,
+                                  Class<? extends ActionListener<T, C>> listenerClass);
+
+    @Override
+    OperationDef<T, C> onComplete(Identifiable listenerIdentifiable,
+                                  Class<? extends ActionListener<T, C>> listenerClass);
+
+    @Override
+    OperationDef<T, C> onComplete(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
+
+    @Override
+    OperationDef<T, C> onComplete(Identifiable listenerIdentifiable,
+                                  Consumer<ActionListenerDef<T, C>> configurer);
+
+    @Override
+    OperationDef<T, C> onError(String listenerId, ActionListener<T, C> listener);
+
+    @Override
+    OperationDef<T, C> onError(Identifiable listenerIdentifiable, ActionListener<T, C> listener);
+
+    @Override
+    OperationDef<T, C> onError(String listenerId, Class<? extends ActionListener<T, C>> listenerClass);
+
+    @Override
+    OperationDef<T, C> onError(Identifiable listenerIdentifiable,
+                               Class<? extends ActionListener<T, C>> listenerClass);
+
+    @Override
+    OperationDef<T, C> onError(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
+
+    @Override
+    OperationDef<T, C> onError(Identifiable listenerIdentifiable,
+                               Consumer<ActionListenerDef<T, C>> configurer);
 }

@@ -22,6 +22,7 @@ import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.Action;
+import org.transflux.core.action.StepDef;
 
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
@@ -90,6 +91,34 @@ public interface ContextScope<T, C> {
      * @return this scope for chaining
      */
     ContextScope<T, C> step(Identifiable stepIdentifiable, Class<? extends Action<T, C>> stepClass);
+
+    /**
+     * Registers a step under {@code id} via a lambda configurer, tagged with this scope's context
+     * class. Inside the configurer the caller wires the step source with {@code using(...)}, may
+     * set optional {@code withName} / {@code withDescription} metadata, and may attach action
+     * listeners. The configurer is the only place the {@link StepDef} may be mutated; once it
+     * returns the reference is inert.
+     *
+     * @param id the step id
+     * @param configurer the configurer that wires the step def; never {@code null}
+     *
+     * @return this scope for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank,
+     *         {@code configurer} is {@code null}, or another component is already registered
+     *         under {@code id}
+     */
+    ContextScope<T, C> step(String id, Consumer<StepDef<T, C>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #step(String, Consumer)}.
+     *
+     * @param stepIdentifiable an identifiable supplying the step id
+     * @param configurer the configurer that wires the step def
+     *
+     * @return this scope for chaining
+     */
+    ContextScope<T, C> step(Identifiable stepIdentifiable, Consumer<StepDef<T, C>> configurer);
 
     /**
      * Registers a condition instance under {@code id}, tagged with this scope's context class.

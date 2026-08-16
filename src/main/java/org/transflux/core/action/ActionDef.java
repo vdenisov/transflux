@@ -20,9 +20,11 @@ package org.transflux.core.action;
 
 import org.transflux.core.Identifiable;
 
+import java.util.function.Consumer;
+
 /**
- * Def-side anchor for an action, carrying the framework-owned identity and metadata that pure
- * {@link Action} executables do not.
+ * Def-side anchor for an action, carrying the framework-owned identity, metadata, and listeners
+ * that pure {@link Action} executables do not.
  * <p>
  * Two concrete sub-types exist, one per authoring form: {@link StepDef} declares an imperative
  * action (a Java body, supplied as an instance or a class), and {@link OperationDef} declares a
@@ -92,4 +94,215 @@ public interface ActionDef<T, C> extends Identifiable {
      * @return this def for chaining
      */
     ActionDef<T, C> withDescription(String description);
+
+    /**
+     * Attaches a listener notified before this action's body runs.
+     * <p>
+     * The listener belongs to the action, not to any one call site, so it fires at every invocation
+     * - whether the action is attached to a transition, declared or referenced as a container
+     * member, reached through a conditional branch, or dispatched by id from another action's body.
+     * Listeners attached here run before the state-machine-wide
+     * {@code StateMachineDef.onAnyActionStart(...)} registrations, in declaration order within each
+     * group.
+     *
+     * <p>Listeners observe and never gate: an exception thrown by one is logged and swallowed.
+     *
+     * @param listenerId the listener id, unique across the state machine; never {@code null} or
+     *                   blank
+     * @param listener the listener; never {@code null}
+     *
+     * @return this def for chaining
+     *
+     * @throws org.transflux.core.exception.TransfluxValidationException if either argument is
+     *         {@code null} or the id is blank, or if the configurer has already returned
+     */
+    ActionDef<T, C> onStart(String listenerId, ActionListener<T, C> listener);
+
+    /**
+     * {@link Identifiable} overload of {@link #onStart(String, ActionListener)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param listener the listener
+     *
+     * @return this def for chaining
+     */
+    ActionDef<T, C> onStart(Identifiable listenerIdentifiable, ActionListener<T, C> listener);
+
+    /**
+     * Class form of {@link #onStart(String, ActionListener)}. The class is instantiated once,
+     * through its public no-arg constructor, when the state machine is built.
+     *
+     * @param listenerId the listener id
+     * @param listenerClass the listener class
+     *
+     * @return this def for chaining
+     */
+    ActionDef<T, C> onStart(String listenerId, Class<? extends ActionListener<T, C>> listenerClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #onStart(String, Class)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param listenerClass the listener class
+     *
+     * @return this def for chaining
+     */
+    ActionDef<T, C> onStart(Identifiable listenerIdentifiable,
+                            Class<? extends ActionListener<T, C>> listenerClass);
+
+    /**
+     * Configurer form of {@link #onStart(String, ActionListener)}, for a listener that also wants a
+     * name or description.
+     *
+     * @param listenerId the listener id
+     * @param configurer receives the listener def; must call {@code using(...)}
+     *
+     * @return this def for chaining
+     */
+    ActionDef<T, C> onStart(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #onStart(String, Consumer)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param configurer receives the listener def
+     *
+     * @return this def for chaining
+     */
+    ActionDef<T, C> onStart(Identifiable listenerIdentifiable,
+                            Consumer<ActionListenerDef<T, C>> configurer);
+
+    /**
+     * Attaches a listener notified after this action's body returns normally.
+     * <p>
+     * This hook and {@link #onError(String, ActionListener)} partition the outcomes: exactly one of
+     * them follows every start notification, so a completion listener never has to check whether
+     * the action worked. Ordering and the observe-don't-gate rule match
+     * {@link #onStart(String, ActionListener)}.
+     *
+     * @param listenerId the listener id
+     * @param listener the listener
+     *
+     * @return this def for chaining
+     */
+    ActionDef<T, C> onComplete(String listenerId, ActionListener<T, C> listener);
+
+    /**
+     * {@link Identifiable} overload of {@link #onComplete(String, ActionListener)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param listener the listener
+     *
+     * @return this def for chaining
+     */
+    ActionDef<T, C> onComplete(Identifiable listenerIdentifiable, ActionListener<T, C> listener);
+
+    /**
+     * Class form of {@link #onComplete(String, ActionListener)}.
+     *
+     * @param listenerId the listener id
+     * @param listenerClass the listener class
+     *
+     * @return this def for chaining
+     */
+    ActionDef<T, C> onComplete(String listenerId,
+                               Class<? extends ActionListener<T, C>> listenerClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #onComplete(String, Class)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param listenerClass the listener class
+     *
+     * @return this def for chaining
+     */
+    ActionDef<T, C> onComplete(Identifiable listenerIdentifiable,
+                               Class<? extends ActionListener<T, C>> listenerClass);
+
+    /**
+     * Configurer form of {@link #onComplete(String, ActionListener)}.
+     *
+     * @param listenerId the listener id
+     * @param configurer receives the listener def; must call {@code using(...)}
+     *
+     * @return this def for chaining
+     */
+    ActionDef<T, C> onComplete(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #onComplete(String, Consumer)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param configurer receives the listener def
+     *
+     * @return this def for chaining
+     */
+    ActionDef<T, C> onComplete(Identifiable listenerIdentifiable,
+                               Consumer<ActionListenerDef<T, C>> configurer);
+
+    /**
+     * Attaches a listener notified when this action's body, or an action it dispatched, throws.
+     * <p>
+     * A failure is reported at every enclosing level as it propagates outwards, so a container
+     * whose member failed is notified too, with the same throwable. Ordering and the
+     * observe-don't-gate rule match {@link #onStart(String, ActionListener)}.
+     *
+     * @param listenerId the listener id
+     * @param listener the listener
+     *
+     * @return this def for chaining
+     */
+    ActionDef<T, C> onError(String listenerId, ActionListener<T, C> listener);
+
+    /**
+     * {@link Identifiable} overload of {@link #onError(String, ActionListener)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param listener the listener
+     *
+     * @return this def for chaining
+     */
+    ActionDef<T, C> onError(Identifiable listenerIdentifiable, ActionListener<T, C> listener);
+
+    /**
+     * Class form of {@link #onError(String, ActionListener)}.
+     *
+     * @param listenerId the listener id
+     * @param listenerClass the listener class
+     *
+     * @return this def for chaining
+     */
+    ActionDef<T, C> onError(String listenerId, Class<? extends ActionListener<T, C>> listenerClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #onError(String, Class)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param listenerClass the listener class
+     *
+     * @return this def for chaining
+     */
+    ActionDef<T, C> onError(Identifiable listenerIdentifiable,
+                            Class<? extends ActionListener<T, C>> listenerClass);
+
+    /**
+     * Configurer form of {@link #onError(String, ActionListener)}.
+     *
+     * @param listenerId the listener id
+     * @param configurer receives the listener def; must call {@code using(...)}
+     *
+     * @return this def for chaining
+     */
+    ActionDef<T, C> onError(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #onError(String, Consumer)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param configurer receives the listener def
+     *
+     * @return this def for chaining
+     */
+    ActionDef<T, C> onError(Identifiable listenerIdentifiable,
+                            Consumer<ActionListenerDef<T, C>> configurer);
 }

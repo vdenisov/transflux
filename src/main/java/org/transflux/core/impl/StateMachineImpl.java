@@ -24,6 +24,8 @@ import org.transflux.core.Identifiable;
 import org.transflux.core.StateMachine;
 import org.transflux.core.exception.TransfluxReentrancyException;
 import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.action.ActionExecution;
+import org.transflux.core.action.ActionPhase;
 import org.transflux.core.action.Compensation;
 import org.transflux.core.action.Action;
 import org.transflux.core.state.State;
@@ -94,6 +96,14 @@ class StateMachineImpl<T> implements StateMachine<T> {
     private final Map<String, List<BoundStateListener<T>>> entryListenersByState = new LinkedHashMap<>();
     private final Map<String, List<BoundStateListener<T>>> exitListenersByState = new LinkedHashMap<>();
 
+    /**
+     * Listeners registered against every action, bound once. They are notified after the running
+     * action's own listeners rather than merged into each bound action, because one bound action is
+     * shared by every call site that reaches it and merging would bind the same global listener
+     * once per action.
+     */
+    private final BoundActionListeners<T, Object> globalActionListeners;
+
     private final Registry<T> componentRegistry;
     private final StateMachineDefImpl<T> def;
 
@@ -107,6 +117,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
                               .collect(Collectors.toMap(StateDefImpl::getId, StateImpl::new)));
 
         buildStateListenerIndexes(def);
+        this.globalActionListeners = bindGlobalActionListeners(def);
 
         RegistryImpl<T> registry = new RegistryImpl<>();
         this.componentRegistry = registry;
@@ -457,6 +468,78 @@ class StateMachineImpl<T> implements StateMachine<T> {
                          listener.id(), e.getClass().getName(), phase, transition.id(), e.getMessage());
             }
         }
+    }
+
+    /**
+     * Notifies one hook of an action's listeners - the action's own first, then the ones registered
+     * against every action - isolating each from the others and from the execution. A listener that
+     * throws is logged and skipped: listeners observe, and this hook sits in the middle of a live
+     * execution, where failing on an observer's behalf would compensate work the transition itself
+     * had no complaint about.
+     *
+     * @param bound the action being run
+     * @param phase which hook is firing
+     * @param entity the entity the transition is running against
+     * @param context the context the action itself runs against - the mapped child context at a
+     *                mapped call site
+     * @param path the action's qualified path within this execution
+     * @param transition the transition being executed, wrapped read-only for the payload
+     * @param error the failure at {@link ActionPhase#ERROR}, otherwise {@code null}
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    <C> void notifyActionListeners(BoundAction<T, C> bound, ActionPhase phase, T entity, C context,
+                                   ActionPath path, BoundTransition<T, ?> transition, Throwable error) {
+        List<BoundActionListener<T, C>> own = bound.listeners().forPhase(phase);
+        List<BoundActionListener<T, Object>> global = globalActionListeners.forPhase(phase);
+        if (own.isEmpty() && global.isEmpty()) {
+            return;
+        }
+
+        ActionExecution<T> execution = new ActionExecution<>(
+            phase, path, bound.kind(), new TopologyTransition<>(transition), error);
+
+        for (BoundActionListener<T, C> listener : own) {
+            notifyActionListener(listener, entity, context, execution);
+        }
+        for (BoundActionListener<T, Object> listener : global) {
+            notifyActionListener((BoundActionListener) listener, entity, context, execution);
+        }
+    }
+
+    private <C> void notifyActionListener(BoundActionListener<T, C> listener, T entity, C context,
+                                          ActionExecution<T> execution) {
+        try {
+            listener.listener().onAction(entity, context, execution);
+        } catch (Exception e) {
+            log.warn("Action listener '{}' threw '{}' on {} of action '{}': {}",
+                     listener.id(), e.getClass().getName(), execution.phase(), execution.path(),
+                     e.getMessage());
+        }
+    }
+
+    /**
+     * Resolves the state machine's global action listeners once, so a class-form listener yields a
+     * single instance shared by every action rather than one per action.
+     */
+    private BoundActionListeners<T, Object> bindGlobalActionListeners(StateMachineDefImpl<T> def) {
+        return new BoundActionListeners<>(
+            bindActionListeners(def.getGlobalActionStartListeners()),
+            bindActionListeners(def.getGlobalActionCompleteListeners()),
+            bindActionListeners(def.getGlobalActionErrorListeners()));
+    }
+
+    private static <T, C> List<BoundActionListener<T, C>> bindActionListeners(
+            List<ActionListenerDefImpl<T, C>> defs) {
+        if (defs.isEmpty()) {
+            return List.of();
+        }
+
+        List<BoundActionListener<T, C>> bound = new ArrayList<>(defs.size());
+        for (ActionListenerDefImpl<T, C> ld : defs) {
+            bound.add(ld.buildBoundListener());
+        }
+
+        return List.copyOf(bound);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})

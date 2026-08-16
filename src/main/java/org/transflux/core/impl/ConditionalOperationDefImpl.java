@@ -19,6 +19,9 @@
 package org.transflux.core.impl;
 
 import org.transflux.core.action.ActionKind;
+import org.transflux.core.action.ActionListener;
+import org.transflux.core.action.ActionListenerDef;
+import org.transflux.core.action.ActionPhase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.transflux.core.Identifiable;
@@ -36,6 +39,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
@@ -69,6 +73,8 @@ final class ConditionalOperationDefImpl<T, C>
     private static final Logger log = LoggerFactory.getLogger(ConditionalOperationDefImpl.class);
 
     private final List<BranchDefImpl<T, C>> branches = new ArrayList<>();
+    private final ActionListenerSink<T, C, ConditionalOperationDef<T, C>> listeners =
+        new ActionListenerSink<>(this, this);
     private DefaultBranchDefImpl<T, C> defaultBranch;
     private NoMatchBehavior noMatchBehavior = NoMatchBehavior.WARN;
 
@@ -123,6 +129,143 @@ final class ConditionalOperationDefImpl<T, C>
         requireNotNull(behavior, "No-match behavior");
         this.noMatchBehavior = behavior;
         return this;
+    }
+
+    @Override
+    public ConditionalOperationDef<T, C> onStart(String listenerId, ActionListener<T, C> listener) {
+        return listeners.instanceBased(ActionPhase.START, listenerId, listener);
+    }
+
+    @Override
+    public ConditionalOperationDef<T, C> onStart(Identifiable listenerIdentifiable,
+                                                 ActionListener<T, C> listener) {
+        return listeners.instanceBased(ActionPhase.START, listenerIdentifiable, listener);
+    }
+
+    @Override
+    public ConditionalOperationDef<T, C> onStart(String listenerId,
+                                                 Class<? extends ActionListener<T, C>> listenerClass) {
+        return listeners.classBased(ActionPhase.START, listenerId, listenerClass);
+    }
+
+    @Override
+    public ConditionalOperationDef<T, C> onStart(Identifiable listenerIdentifiable,
+                                                 Class<? extends ActionListener<T, C>> listenerClass) {
+        return listeners.classBased(ActionPhase.START, listenerIdentifiable, listenerClass);
+    }
+
+    @Override
+    public ConditionalOperationDef<T, C> onStart(String listenerId,
+                                                 Consumer<ActionListenerDef<T, C>> configurer) {
+        return listeners.configured(ActionPhase.START, listenerId, configurer);
+    }
+
+    @Override
+    public ConditionalOperationDef<T, C> onStart(Identifiable listenerIdentifiable,
+                                                 Consumer<ActionListenerDef<T, C>> configurer) {
+        return listeners.configured(ActionPhase.START, listenerIdentifiable, configurer);
+    }
+
+    @Override
+    public ConditionalOperationDef<T, C> onComplete(String listenerId, ActionListener<T, C> listener) {
+        return listeners.instanceBased(ActionPhase.COMPLETE, listenerId, listener);
+    }
+
+    @Override
+    public ConditionalOperationDef<T, C> onComplete(Identifiable listenerIdentifiable,
+                                                    ActionListener<T, C> listener) {
+        return listeners.instanceBased(ActionPhase.COMPLETE, listenerIdentifiable, listener);
+    }
+
+    @Override
+    public ConditionalOperationDef<T, C> onComplete(String listenerId,
+                                                    Class<? extends ActionListener<T, C>> listenerClass) {
+        return listeners.classBased(ActionPhase.COMPLETE, listenerId, listenerClass);
+    }
+
+    @Override
+    public ConditionalOperationDef<T, C> onComplete(Identifiable listenerIdentifiable,
+                                                    Class<? extends ActionListener<T, C>> listenerClass) {
+        return listeners.classBased(ActionPhase.COMPLETE, listenerIdentifiable, listenerClass);
+    }
+
+    @Override
+    public ConditionalOperationDef<T, C> onComplete(String listenerId,
+                                                    Consumer<ActionListenerDef<T, C>> configurer) {
+        return listeners.configured(ActionPhase.COMPLETE, listenerId, configurer);
+    }
+
+    @Override
+    public ConditionalOperationDef<T, C> onComplete(Identifiable listenerIdentifiable,
+                                                    Consumer<ActionListenerDef<T, C>> configurer) {
+        return listeners.configured(ActionPhase.COMPLETE, listenerIdentifiable, configurer);
+    }
+
+    @Override
+    public ConditionalOperationDef<T, C> onError(String listenerId, ActionListener<T, C> listener) {
+        return listeners.instanceBased(ActionPhase.ERROR, listenerId, listener);
+    }
+
+    @Override
+    public ConditionalOperationDef<T, C> onError(Identifiable listenerIdentifiable,
+                                                 ActionListener<T, C> listener) {
+        return listeners.instanceBased(ActionPhase.ERROR, listenerIdentifiable, listener);
+    }
+
+    @Override
+    public ConditionalOperationDef<T, C> onError(String listenerId,
+                                                 Class<? extends ActionListener<T, C>> listenerClass) {
+        return listeners.classBased(ActionPhase.ERROR, listenerId, listenerClass);
+    }
+
+    @Override
+    public ConditionalOperationDef<T, C> onError(Identifiable listenerIdentifiable,
+                                                 Class<? extends ActionListener<T, C>> listenerClass) {
+        return listeners.classBased(ActionPhase.ERROR, listenerIdentifiable, listenerClass);
+    }
+
+    @Override
+    public ConditionalOperationDef<T, C> onError(String listenerId,
+                                                 Consumer<ActionListenerDef<T, C>> configurer) {
+        return listeners.configured(ActionPhase.ERROR, listenerId, configurer);
+    }
+
+    @Override
+    public ConditionalOperationDef<T, C> onError(Identifiable listenerIdentifiable,
+                                                 Consumer<ActionListenerDef<T, C>> configurer) {
+        return listeners.configured(ActionPhase.ERROR, listenerIdentifiable, configurer);
+    }
+
+    /**
+     * Returns the listener defs collected for one hook, in declaration order.
+     *
+     * @param phase the hook to read
+     *
+     * @return that hook's listener defs
+     */
+    List<ActionListenerDefImpl<T, C>> getListeners(ActionPhase phase) {
+        return listeners.forPhase(phase);
+    }
+
+    /**
+     * Build-time hook: reports every listener id declared on this conditional and on the actions
+     * declared inside its branches.
+     *
+     * @param sink receives {@code (listenerId, ownerLabel)} for each declared listener
+     */
+    void collectListenerIds(BiConsumer<String, String> sink) {
+        for (ActionPhase phase : ActionPhase.values()) {
+            for (ActionListenerDefImpl<T, C> ld : listeners.forPhase(phase)) {
+                sink.accept(ld.getId(), defLabel() + " via " + ActionListenerSink.hook(phase));
+            }
+        }
+
+        for (BranchDefImpl<T, C> branch : branches) {
+            branch.collectListenerIds(sink);
+        }
+        if (defaultBranch != null) {
+            defaultBranch.collectListenerIds(sink);
+        }
     }
 
     /**
@@ -247,7 +390,7 @@ final class ConditionalOperationDefImpl<T, C>
 
         Action<T, C> executor = new ConditionalBranchExecutor(resolvedBranches,
                                                               defaultStepIds, noMatchBehavior, getId());
-        return BoundAction.of(getId(), executor, ActionKind.OPERATION);
+        return BoundAction.of(getId(), executor, ActionKind.OPERATION, listeners.buildBound());
     }
 
     private static <T, C> List<String> collectStepIds(List<ActionRef<T, C>> refs) {

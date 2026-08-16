@@ -75,6 +75,14 @@ final class InlineRegistrationSink<T, C> {
         scope.register(new Component.Action<>(id, contextType, bound));
     }
 
+    void registerInlineStepDef(String id, StepDefImpl<T, C> def) {
+        claimCanonical(canonical, id, def, "Step");
+        if (scope.get(id).isPresent()) {
+            return;
+        }
+        scope.register(new Component.Action<>(id, contextType, def.buildBoundAction()));
+    }
+
     /**
      * Claims an inline branch condition's id, so it competes for the id with every other component
      * exactly as an inline step or operation does.

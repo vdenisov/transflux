@@ -20,10 +20,10 @@ package org.transflux.core.impl;
 
 import org.transflux.core.action.Action;
 import org.transflux.core.action.ActionKind;
-import org.transflux.core.action.OperationDef;
 import org.transflux.core.exception.TransfluxValidationException;
 
 import java.util.Optional;
+import java.util.function.BiConsumer;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
@@ -48,7 +48,8 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <C> the host-supplied context type carried through transition execution
  */
 sealed interface ActionRef<T, C>
-    permits ActionRef.ById, ActionRef.InlineInstance, ActionRef.InlineClass, ActionRef.Conditional {
+    permits ActionRef.ById, ActionRef.InlineInstance, ActionRef.InlineClass, ActionRef.InlineDef,
+            ActionRef.Conditional {
 
     String id();
 
@@ -110,6 +111,17 @@ sealed interface ActionRef<T, C>
     }
 
     /**
+     * Reports the listener ids declared on any def this reference carries, so the build can check
+     * them against the state-machine-wide listener namespace. Only the configurer-declared variants
+     * have a def to report; the rest no-op.
+     *
+     * @param sink receives {@code (listenerId, ownerLabel)} for each declared listener
+     */
+    default void collectListenerIds(BiConsumer<String, String> sink) {
+        // only the configurer-declared variants carry a def that can hold listeners
+    }
+
+    /**
      * Builds the "unknown id" diagnostic for a failing resolution, enriching it with
      * sibling-scope information when an inline declaration of the same id exists in another
      * composite under the SM.
@@ -140,6 +152,10 @@ sealed interface ActionRef<T, C>
     static <T, C> ActionRef<T, C> inline(String id, Class<? extends Action<T, C>> actionClass,
                                          ActionKind kind) {
         return new InlineClass<>(id, actionClass, kind);
+    }
+
+    static <T, C> ActionRef<T, C> inline(String id, StepDefImpl<T, C> def) {
+        return new InlineDef<>(id, def);
     }
 
     static <T, C> ActionRef<T, C> conditional(String id, ConditionalOperationDefImpl<T, C> def) {
@@ -185,6 +201,29 @@ sealed interface ActionRef<T, C>
         }
     }
 
+    /**
+     * An inline declaration made through a configurer, which - unlike the bare instance and class
+     * forms - has a def behind it and can therefore carry a name, a description, and listeners.
+     */
+    @SuppressWarnings("ClassEscapesDefinedScope")
+    record InlineDef<T, C>(String id, StepDefImpl<T, C> def) implements ActionRef<T, C> {
+
+        public InlineDef {
+            requireNotBlank(id, "Action reference ID");
+            requireNotNull(def, "Inline step def");
+        }
+
+        @Override
+        public void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
+            sink.registerInlineStepDef(id, def);
+        }
+
+        @Override
+        public void collectListenerIds(BiConsumer<String, String> sink) {
+            def.collectListenerIds(sink);
+        }
+    }
+
     @SuppressWarnings("ClassEscapesDefinedScope")
     record Conditional<T, C>(String id, ConditionalOperationDefImpl<T, C> def) implements ActionRef<T, C> {
         public Conditional {
@@ -196,6 +235,11 @@ sealed interface ActionRef<T, C>
         public void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
             def.collectInlineRegistrations(sink);
             sink.registerConditional(id, def);
+        }
+
+        @Override
+        public void collectListenerIds(BiConsumer<String, String> sink) {
+            def.collectListenerIds(sink);
         }
     }
 }

@@ -29,6 +29,7 @@ import org.transflux.core.transition.Transition
 import spock.lang.Specification
 import spock.lang.Unroll
 
+import java.util.function.Consumer
 import java.util.function.Predicate
 
 class StateMachineDefImplContextSpec extends Specification {
@@ -48,6 +49,44 @@ class StateMachineDefImplContextSpec extends Specification {
         then:
         sm != null
         smd.getComponentContextType('s-a') == CtxA
+    }
+
+    def 'forContext block registers a step via a configurer, tagged with the scope context'() {
+        given:
+        def smd = baseDef()
+        def captured = null
+        smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
+            scope.step('s-a', { d ->
+                captured = d
+                d.withName('N').using(new StepA())
+            } as Consumer)
+        })
+
+        when:
+        smd.build()
+
+        then:
+        smd.getComponentContextType('s-a') == CtxA
+
+        and: 'the def carries the scope context and the metadata set inside the configurer'
+        captured.getName() == 'N'
+        captured.contextType() == CtxA
+    }
+
+    def 'the ContextScope step configurer and the flat step(id, Class, Consumer) register identically'() {
+        given:
+        def instance = new StepA()
+        def viaScope = baseDef()
+        viaScope.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
+            scope.step('a', { d -> d.using(instance) } as Consumer)
+        })
+        def viaFlat = baseDef()
+        viaFlat.step('a', CtxA, { d -> d.using(instance) } as Consumer)
+
+        expect:
+        viaScope.buildBoundActions()['a'].action.is(instance)
+        viaFlat.buildBoundActions()['a'].action.is(instance)
+        viaScope.getComponentContextType('a') == viaFlat.getComponentContextType('a')
     }
 
     def 'multiple forContext blocks with the same context class accumulate registrations'() {
@@ -250,6 +289,7 @@ class StateMachineDefImplContextSpec extends Specification {
         variant                                          | action
         'step(Id, Step)'                                 | { s -> s.step(identifiable('s1'), new IdOverloadStep()) }
         'step(Id, Class)'                                | { s -> s.step(identifiable('s2'), IdOverloadStep) }
+        'step(Id, Consumer)'                             | { s -> s.step(identifiable('s3'), { d -> d.using(new IdOverloadStep()) } as Consumer) }
         'condition(Id, Condition)'                       | { s -> s.condition(identifiable('c1'), new IdOverloadCondition()) }
         'condition(Id, Class)'                           | { s -> s.condition(identifiable('c2'), IdOverloadCondition) }
         'condition(Id, Predicate)'                       | { s -> s.condition(identifiable('c3'), { e -> true } as Predicate) }
@@ -277,6 +317,7 @@ class StateMachineDefImplContextSpec extends Specification {
         variant                                          | action
         'step(null, Step)'                               | { s -> s.step((Identifiable) null, new IdOverloadStep()) }
         'step(null, Class)'                              | { s -> s.step((Identifiable) null, IdOverloadStep) }
+        'step(null, Consumer)'                           | { s -> s.step((Identifiable) null, { d -> } as Consumer) }
         'condition(null, Condition)'                     | { s -> s.condition((Identifiable) null, new IdOverloadCondition()) }
         'condition(null, Class)'                         | { s -> s.condition((Identifiable) null, IdOverloadCondition) }
         'condition(null, Predicate)'                     | { s -> s.condition((Identifiable) null, { e -> true } as Predicate) }

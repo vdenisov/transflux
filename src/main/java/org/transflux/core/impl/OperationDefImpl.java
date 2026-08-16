@@ -25,6 +25,7 @@ import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.ConditionalOperationDef;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.Action;
+import org.transflux.core.action.StepDef;
 import org.transflux.core.transition.Transition;
 
 import java.util.ArrayList;
@@ -32,6 +33,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -165,6 +167,23 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
+    public OperationDefImpl<T, C> step(String id, Consumer<StepDef<T, C>> configurer) {
+        requireConfigurerActive("step");
+        requireNotBlank(id, "Step ID");
+        requireNotNull(configurer, "Step configurer");
+        StepDefImpl<T, C> def = new StepDefImpl<>(id);
+        ConfigurableDefImpl.runConfigurer(def, configurer);
+        actionRefs.add(ActionRef.inline(id, def));
+        return this;
+    }
+
+    @Override
+    public OperationDefImpl<T, C> step(Identifiable actionIdentifiable, Consumer<StepDef<T, C>> configurer) {
+        requireNotNull(actionIdentifiable, "Step identifiable");
+        return step(actionIdentifiable.getId(), configurer);
+    }
+
+    @Override
     public OperationDefImpl<T, C> conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer) {
         requireConfigurerActive("conditional");
         requireNotBlank(id, "Conditional operation ID");
@@ -277,7 +296,15 @@ final class OperationDefImpl<T, C>
 
         Action<T, C> executor = new CompositeOperationExecutor<>(members, scopeRegistry);
 
-        return BoundAction.of(getId(), executor, ActionKind.OPERATION);
+        return BoundAction.of(getId(), executor, ActionKind.OPERATION, buildBoundListeners());
+    }
+
+    @Override
+    void collectListenerIds(BiConsumer<String, String> sink) {
+        emitOwnListenerIds(sink);
+        for (ActionRef<T, C> ref : actionRefs) {
+            ref.collectListenerIds(sink);
+        }
     }
 
     @Override

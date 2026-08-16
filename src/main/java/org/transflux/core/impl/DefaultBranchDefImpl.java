@@ -22,11 +22,15 @@ import org.transflux.core.action.ActionKind;
 import org.transflux.core.Identifiable;
 import org.transflux.core.action.DefaultBranchDef;
 import org.transflux.core.action.Action;
+import org.transflux.core.action.StepDef;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
+import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
@@ -54,6 +58,12 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
     void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
         for (ActionRef<T, C> ref : actionRefs) {
             ref.collectInlineRegistrations(sink);
+        }
+    }
+
+    void collectListenerIds(BiConsumer<String, String> sink) {
+        for (ActionRef<T, C> ref : actionRefs) {
+            ref.collectListenerIds(sink);
         }
     }
 
@@ -94,5 +104,22 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
     public DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Class<? extends Action<T, C>> stepClass) {
         requireNotNull(stepIdentifiable, "Step identifiable");
         return step(stepIdentifiable.getId(), stepClass);
+    }
+
+    @Override
+    public DefaultBranchDef<T, C> step(String id, Consumer<StepDef<T, C>> configurer) {
+        requireConfigurerActive("step");
+        requireNotBlank(id, "Step ID");
+        requireNotNull(configurer, "Step configurer");
+        StepDefImpl<T, C> def = new StepDefImpl<>(id);
+        ConfigurableDefImpl.runConfigurer(def, configurer);
+        actionRefs.add(ActionRef.inline(id, def));
+        return this;
+    }
+
+    @Override
+    public DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Consumer<StepDef<T, C>> configurer) {
+        requireNotNull(stepIdentifiable, "Step identifiable");
+        return step(stepIdentifiable.getId(), configurer);
     }
 }

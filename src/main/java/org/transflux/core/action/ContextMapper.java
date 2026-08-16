@@ -31,10 +31,10 @@ package org.transflux.core.action;
  * write-back side optional: a nested operation whose results need not propagate to the
  * parent can omit it.
  *
- * <p>Mapper failures are attributed to whichever side of the boundary they conceptually
- * belong to: a {@code mapTo} failure surfaces as a <em>parent</em> member failure at the
- * nested operation's position (the child never started), while a {@code mapFrom} failure
- * surfaces as a <em>child</em> failure (the child completed but its write-back blew up).
+ * <p>Both mapper failures are attributed to the parent, since the boundary is the parent's:
+ * a {@code mapTo} failure fails the parent at the nested action's position and the child never
+ * starts, while a {@code mapFrom} failure fails the parent after the child has already completed
+ * - the child's own completion stands, write-back or not.
  *
  * @param <P> the enclosing parent's context type
  * @param <N> the nested operation's context type

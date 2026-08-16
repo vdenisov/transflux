@@ -23,6 +23,7 @@ import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.Action;
+import org.transflux.core.action.StepDef;
 
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
@@ -69,6 +70,15 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
         requireNotBlank(id, "Step ID");
         requireNotNull(stepClass, "Step class");
         smd.registerScopedStep(id, stepClass, contextType);
+        return this;
+    }
+
+    @Override
+    public ContextScope<T, C> step(String id, Consumer<StepDef<T, C>> configurer) {
+        requireConfigurerActive("step");
+        requireNotBlank(id, "Step ID");
+        requireNotNull(configurer, "Step configurer");
+        smd.registerScopedStep(id, configurer, contextType);
         return this;
     }
 
@@ -138,6 +148,12 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
     public ContextScope<T, C> step(Identifiable stepIdentifiable, Class<? extends Action<T, C>> stepClass) {
         requireNotNull(stepIdentifiable, "Step identifiable");
         return step(stepIdentifiable.getId(), stepClass);
+    }
+
+    @Override
+    public ContextScope<T, C> step(Identifiable stepIdentifiable, Consumer<StepDef<T, C>> configurer) {
+        requireNotNull(stepIdentifiable, "Step identifiable");
+        return step(stepIdentifiable.getId(), configurer);
     }
 
     @Override

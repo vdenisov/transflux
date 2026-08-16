@@ -18,7 +18,10 @@
 
 package org.transflux.core.action;
 
+import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
+
+import java.util.function.Consumer;
 
 /**
  * Def-side anchor for an <em>imperative</em> action - one authored as a Java body, supplied as an
@@ -70,4 +73,64 @@ public interface StepDef<T, C> extends ActionDef<T, C> {
 
     @Override
     StepDef<T, C> withDescription(String description);
+
+    @Override
+    StepDef<T, C> onStart(String listenerId, ActionListener<T, C> listener);
+
+    @Override
+    StepDef<T, C> onStart(Identifiable listenerIdentifiable, ActionListener<T, C> listener);
+
+    @Override
+    StepDef<T, C> onStart(String listenerId, Class<? extends ActionListener<T, C>> listenerClass);
+
+    @Override
+    StepDef<T, C> onStart(Identifiable listenerIdentifiable,
+                          Class<? extends ActionListener<T, C>> listenerClass);
+
+    @Override
+    StepDef<T, C> onStart(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
+
+    @Override
+    StepDef<T, C> onStart(Identifiable listenerIdentifiable,
+                          Consumer<ActionListenerDef<T, C>> configurer);
+
+    @Override
+    StepDef<T, C> onComplete(String listenerId, ActionListener<T, C> listener);
+
+    @Override
+    StepDef<T, C> onComplete(Identifiable listenerIdentifiable, ActionListener<T, C> listener);
+
+    @Override
+    StepDef<T, C> onComplete(String listenerId, Class<? extends ActionListener<T, C>> listenerClass);
+
+    @Override
+    StepDef<T, C> onComplete(Identifiable listenerIdentifiable,
+                             Class<? extends ActionListener<T, C>> listenerClass);
+
+    @Override
+    StepDef<T, C> onComplete(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
+
+    @Override
+    StepDef<T, C> onComplete(Identifiable listenerIdentifiable,
+                             Consumer<ActionListenerDef<T, C>> configurer);
+
+    @Override
+    StepDef<T, C> onError(String listenerId, ActionListener<T, C> listener);
+
+    @Override
+    StepDef<T, C> onError(Identifiable listenerIdentifiable, ActionListener<T, C> listener);
+
+    @Override
+    StepDef<T, C> onError(String listenerId, Class<? extends ActionListener<T, C>> listenerClass);
+
+    @Override
+    StepDef<T, C> onError(Identifiable listenerIdentifiable,
+                          Class<? extends ActionListener<T, C>> listenerClass);
+
+    @Override
+    StepDef<T, C> onError(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
+
+    @Override
+    StepDef<T, C> onError(Identifiable listenerIdentifiable,
+                          Consumer<ActionListenerDef<T, C>> configurer);
 }

@@ -18,10 +18,17 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.Identifiable;
 import org.transflux.core.action.ActionDef;
+import org.transflux.core.action.ActionListener;
+import org.transflux.core.action.ActionListenerDef;
+import org.transflux.core.action.ActionPhase;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 /**
  * Sealed base for concrete {@link ActionDef} implementations.
@@ -46,6 +53,8 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     extends IdentifiedDefImpl<SELF> implements ActionDef<T, C>
     permits StepDefImpl, OperationDefImpl {
 
+    private final ActionListenerSink<T, C, SELF> listeners = new ActionListenerSink<>(this, self());
+
     /**
      * @param id the action id
      * @param label the authored form, used verbatim in diagnostics ({@code "step"} /
@@ -55,6 +64,148 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      */
     protected ActionDefImpl(String id, String label, String idLabel) {
         super(id, label, idLabel);
+    }
+
+    @Override
+    public SELF onStart(String listenerId, ActionListener<T, C> listener) {
+        return listeners.instanceBased(ActionPhase.START, listenerId, listener);
+    }
+
+    @Override
+    public SELF onStart(Identifiable listenerIdentifiable, ActionListener<T, C> listener) {
+        return listeners.instanceBased(ActionPhase.START, listenerIdentifiable, listener);
+    }
+
+    @Override
+    public SELF onStart(String listenerId, Class<? extends ActionListener<T, C>> listenerClass) {
+        return listeners.classBased(ActionPhase.START, listenerId, listenerClass);
+    }
+
+    @Override
+    public SELF onStart(Identifiable listenerIdentifiable,
+                        Class<? extends ActionListener<T, C>> listenerClass) {
+        return listeners.classBased(ActionPhase.START, listenerIdentifiable, listenerClass);
+    }
+
+    @Override
+    public SELF onStart(String listenerId, Consumer<ActionListenerDef<T, C>> configurer) {
+        return listeners.configured(ActionPhase.START, listenerId, configurer);
+    }
+
+    @Override
+    public SELF onStart(Identifiable listenerIdentifiable,
+                        Consumer<ActionListenerDef<T, C>> configurer) {
+        return listeners.configured(ActionPhase.START, listenerIdentifiable, configurer);
+    }
+
+    @Override
+    public SELF onComplete(String listenerId, ActionListener<T, C> listener) {
+        return listeners.instanceBased(ActionPhase.COMPLETE, listenerId, listener);
+    }
+
+    @Override
+    public SELF onComplete(Identifiable listenerIdentifiable, ActionListener<T, C> listener) {
+        return listeners.instanceBased(ActionPhase.COMPLETE, listenerIdentifiable, listener);
+    }
+
+    @Override
+    public SELF onComplete(String listenerId, Class<? extends ActionListener<T, C>> listenerClass) {
+        return listeners.classBased(ActionPhase.COMPLETE, listenerId, listenerClass);
+    }
+
+    @Override
+    public SELF onComplete(Identifiable listenerIdentifiable,
+                           Class<? extends ActionListener<T, C>> listenerClass) {
+        return listeners.classBased(ActionPhase.COMPLETE, listenerIdentifiable, listenerClass);
+    }
+
+    @Override
+    public SELF onComplete(String listenerId, Consumer<ActionListenerDef<T, C>> configurer) {
+        return listeners.configured(ActionPhase.COMPLETE, listenerId, configurer);
+    }
+
+    @Override
+    public SELF onComplete(Identifiable listenerIdentifiable,
+                           Consumer<ActionListenerDef<T, C>> configurer) {
+        return listeners.configured(ActionPhase.COMPLETE, listenerIdentifiable, configurer);
+    }
+
+    @Override
+    public SELF onError(String listenerId, ActionListener<T, C> listener) {
+        return listeners.instanceBased(ActionPhase.ERROR, listenerId, listener);
+    }
+
+    @Override
+    public SELF onError(Identifiable listenerIdentifiable, ActionListener<T, C> listener) {
+        return listeners.instanceBased(ActionPhase.ERROR, listenerIdentifiable, listener);
+    }
+
+    @Override
+    public SELF onError(String listenerId, Class<? extends ActionListener<T, C>> listenerClass) {
+        return listeners.classBased(ActionPhase.ERROR, listenerId, listenerClass);
+    }
+
+    @Override
+    public SELF onError(Identifiable listenerIdentifiable,
+                        Class<? extends ActionListener<T, C>> listenerClass) {
+        return listeners.classBased(ActionPhase.ERROR, listenerIdentifiable, listenerClass);
+    }
+
+    @Override
+    public SELF onError(String listenerId, Consumer<ActionListenerDef<T, C>> configurer) {
+        return listeners.configured(ActionPhase.ERROR, listenerId, configurer);
+    }
+
+    @Override
+    public SELF onError(Identifiable listenerIdentifiable,
+                        Consumer<ActionListenerDef<T, C>> configurer) {
+        return listeners.configured(ActionPhase.ERROR, listenerIdentifiable, configurer);
+    }
+
+    /**
+     * Returns the listener defs collected for one hook, in declaration order. Read by the build
+     * when it claims listener ids against the state-machine-wide namespace.
+     *
+     * @param phase the hook to read
+     *
+     * @return that hook's listener defs
+     */
+    final List<ActionListenerDefImpl<T, C>> getListeners(ActionPhase phase) {
+        return listeners.forPhase(phase);
+    }
+
+    /**
+     * Resolves this def's own listeners into their bound form.
+     *
+     * @return the three hook lists, in declaration order
+     */
+    final BoundActionListeners<T, C> buildBoundListeners() {
+        return listeners.buildBound();
+    }
+
+    /**
+     * Build-time hook: reports every listener id declared on this action and, for the declarative
+     * form, on the actions nested beneath it. The sink receives the listener id and a label naming
+     * where it was declared, so a collision in the state-machine-wide listener namespace can point
+     * at the offender.
+     *
+     * @param sink receives {@code (listenerId, ownerLabel)} for each declared listener
+     */
+    void collectListenerIds(BiConsumer<String, String> sink) {
+        emitOwnListenerIds(sink);
+    }
+
+    /**
+     * Reports the listeners declared directly on this def, hook by hook.
+     *
+     * @param sink receives {@code (listenerId, ownerLabel)} for each declared listener
+     */
+    protected final void emitOwnListenerIds(BiConsumer<String, String> sink) {
+        for (ActionPhase phase : ActionPhase.values()) {
+            for (ActionListenerDefImpl<T, C> ld : getListeners(phase)) {
+                sink.accept(ld.getId(), defLabel() + " via " + ActionListenerSink.hook(phase));
+            }
+        }
     }
 
     /**

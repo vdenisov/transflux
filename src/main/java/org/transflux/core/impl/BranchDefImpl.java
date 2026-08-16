@@ -26,11 +26,14 @@ import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
 import org.transflux.core.action.BranchDef;
 import org.transflux.core.action.Action;
+import org.transflux.core.action.StepDef;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
@@ -76,6 +79,12 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
         sink.registerInlineCondition(branchCondition.descriptor());
         for (ActionRef<T, C> ref : actionRefs) {
             ref.collectInlineRegistrations(sink);
+        }
+    }
+
+    void collectListenerIds(BiConsumer<String, String> sink) {
+        for (ActionRef<T, C> ref : actionRefs) {
+            ref.collectListenerIds(sink);
         }
     }
 
@@ -183,4 +192,20 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
         return step(stepIdentifiable.getId(), stepClass);
     }
 
+    @Override
+    public BranchDef<T, C> step(String id, Consumer<StepDef<T, C>> configurer) {
+        requireConfigurerActive("step");
+        requireNotBlank(id, "Step ID");
+        requireNotNull(configurer, "Step configurer");
+        StepDefImpl<T, C> def = new StepDefImpl<>(id);
+        ConfigurableDefImpl.runConfigurer(def, configurer);
+        actionRefs.add(ActionRef.inline(id, def));
+        return this;
+    }
+
+    @Override
+    public BranchDef<T, C> step(Identifiable stepIdentifiable, Consumer<StepDef<T, C>> configurer) {
+        requireNotNull(stepIdentifiable, "Step identifiable");
+        return step(stepIdentifiable.getId(), configurer);
+    }
 }

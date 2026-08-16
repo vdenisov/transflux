@@ -31,15 +31,36 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param id the framework-owned action id; never {@code null} or blank
  * @param action the bound {@link Action} executable; never {@code null}
  * @param kind the authoring form, carried for diagnostics only; never {@code null}
+ * @param listeners the action's own listeners, in declaration order; never {@code null}. They ride
+ *                  on the bound record rather than on the call site, so an action is observed
+ *                  wherever it runs
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-record BoundAction<T, C>(String id, Action<T, C> action, ActionKind kind) {
+record BoundAction<T, C>(String id, Action<T, C> action, ActionKind kind,
+                         BoundActionListeners<T, C> listeners) {
 
     BoundAction {
         requireNotBlank(id, "Bound action ID");
         requireNotNull(action, "Bound action");
         requireNotNull(kind, "Bound action kind");
+        requireNotNull(listeners, "Bound action listeners");
+    }
+
+    /**
+     * Convenience factory for an action nothing observes - the shape produced wherever no def
+     * exists to carry a listener.
+     *
+     * @param id the action id
+     * @param action the action executable
+     * @param kind the authoring form
+     * @param <T> the entity type
+     * @param <C> the context type
+     *
+     * @return a fresh bound action with no listeners
+     */
+    static <T, C> BoundAction<T, C> of(String id, Action<T, C> action, ActionKind kind) {
+        return new BoundAction<>(id, action, kind, BoundActionListeners.none());
     }
 
     /**
@@ -48,12 +69,14 @@ record BoundAction<T, C>(String id, Action<T, C> action, ActionKind kind) {
      * @param id the action id
      * @param action the action executable
      * @param kind the authoring form
+     * @param listeners the action's own listeners
      * @param <T> the entity type
      * @param <C> the context type
      *
      * @return a fresh bound action
      */
-    static <T, C> BoundAction<T, C> of(String id, Action<T, C> action, ActionKind kind) {
-        return new BoundAction<>(id, action, kind);
+    static <T, C> BoundAction<T, C> of(String id, Action<T, C> action, ActionKind kind,
+                                       BoundActionListeners<T, C> listeners) {
+        return new BoundAction<>(id, action, kind, listeners);
     }
 }

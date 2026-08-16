@@ -119,4 +119,73 @@ public interface ConditionalOperationDef<T, C> extends ActionDef<T, C> {
      * @throws TransfluxValidationException if {@code behavior} is {@code null}
      */
     ConditionalOperationDef<T, C> onNoMatch(NoMatchBehavior behavior);
+
+    @Override
+    ConditionalOperationDef<T, C> onStart(String listenerId, ActionListener<T, C> listener);
+
+    @Override
+    ConditionalOperationDef<T, C> onStart(Identifiable listenerIdentifiable,
+                                          ActionListener<T, C> listener);
+
+    @Override
+    ConditionalOperationDef<T, C> onStart(String listenerId,
+                                          Class<? extends ActionListener<T, C>> listenerClass);
+
+    @Override
+    ConditionalOperationDef<T, C> onStart(Identifiable listenerIdentifiable,
+                                          Class<? extends ActionListener<T, C>> listenerClass);
+
+    @Override
+    ConditionalOperationDef<T, C> onStart(String listenerId,
+                                          Consumer<ActionListenerDef<T, C>> configurer);
+
+    @Override
+    ConditionalOperationDef<T, C> onStart(Identifiable listenerIdentifiable,
+                                          Consumer<ActionListenerDef<T, C>> configurer);
+
+    @Override
+    ConditionalOperationDef<T, C> onComplete(String listenerId, ActionListener<T, C> listener);
+
+    @Override
+    ConditionalOperationDef<T, C> onComplete(Identifiable listenerIdentifiable,
+                                             ActionListener<T, C> listener);
+
+    @Override
+    ConditionalOperationDef<T, C> onComplete(String listenerId,
+                                             Class<? extends ActionListener<T, C>> listenerClass);
+
+    @Override
+    ConditionalOperationDef<T, C> onComplete(Identifiable listenerIdentifiable,
+                                             Class<? extends ActionListener<T, C>> listenerClass);
+
+    @Override
+    ConditionalOperationDef<T, C> onComplete(String listenerId,
+                                             Consumer<ActionListenerDef<T, C>> configurer);
+
+    @Override
+    ConditionalOperationDef<T, C> onComplete(Identifiable listenerIdentifiable,
+                                             Consumer<ActionListenerDef<T, C>> configurer);
+
+    @Override
+    ConditionalOperationDef<T, C> onError(String listenerId, ActionListener<T, C> listener);
+
+    @Override
+    ConditionalOperationDef<T, C> onError(Identifiable listenerIdentifiable,
+                                          ActionListener<T, C> listener);
+
+    @Override
+    ConditionalOperationDef<T, C> onError(String listenerId,
+                                          Class<? extends ActionListener<T, C>> listenerClass);
+
+    @Override
+    ConditionalOperationDef<T, C> onError(Identifiable listenerIdentifiable,
+                                          Class<? extends ActionListener<T, C>> listenerClass);
+
+    @Override
+    ConditionalOperationDef<T, C> onError(String listenerId,
+                                          Consumer<ActionListenerDef<T, C>> configurer);
+
+    @Override
+    ConditionalOperationDef<T, C> onError(Identifiable listenerIdentifiable,
+                                          Consumer<ActionListenerDef<T, C>> configurer);
 }

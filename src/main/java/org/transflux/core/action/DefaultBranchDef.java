@@ -21,6 +21,8 @@ package org.transflux.core.action;
 import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 
+import java.util.function.Consumer;
+
 /**
  * Sub-builder for the default branch of a {@link ConditionalOperationDef}.
  * <p>
@@ -112,4 +114,32 @@ public interface DefaultBranchDef<T, C> {
      *         {@code null}
      */
     DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Class<? extends Action<T, C>> stepClass);
+
+    /**
+     * Configurer form of the inline declaration, for a step that also wants a name, a description,
+     * or listeners. The configurer must call {@code using(...)} to supply the body.
+     *
+     * @param id the step id
+     * @param configurer callback that configures the step
+     *
+     * @return this default branch def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
+     *         {@code configurer} is {@code null}
+     */
+    DefaultBranchDef<T, C> step(String id, Consumer<StepDef<T, C>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #step(String, Consumer)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param stepIdentifiable an identifiable supplying the step id
+     * @param configurer callback that configures the step
+     *
+     * @return this default branch def for chaining
+     *
+     * @throws TransfluxValidationException if {@code stepIdentifiable} or {@code configurer} is
+     *         {@code null}
+     */
+    DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Consumer<StepDef<T, C>> configurer);
 }

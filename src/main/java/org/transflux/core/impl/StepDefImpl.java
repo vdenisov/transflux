@@ -99,7 +99,7 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
      * @throws TransfluxValidationException if no source has been set
      */
     BoundAction<T, C> buildBoundAction() {
-        return BoundAction.of(getId(), source.resolve("Step"), ActionKind.STEP);
+        return BoundAction.of(getId(), source.resolve("Step"), ActionKind.STEP, buildBoundListeners());
     }
 
     @Override

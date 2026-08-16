@@ -18,6 +18,7 @@
 
 package org.transflux.core.impl
 
+import org.transflux.core.Identifiable
 import org.transflux.core.TestContext
 import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
@@ -26,6 +27,8 @@ import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
 import spock.lang.Unroll
+
+import java.util.function.Consumer
 
 import static org.transflux.core.TestStateEnum.ACTIVE
 import static org.transflux.core.TestStateEnum.TRIAL
@@ -426,5 +429,79 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains("'a'")
+    }
+
+    def "step(id, Consumer) registers a def typed against Object and leaves the context tag unset"() {
+        given:
+        def step = new StepA()
+        def captured = null
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
+        smd.step('a', { d -> captured = d; d.withName('N').using(step) } as Consumer)
+
+        when:
+        def map = ((StateMachineDefImpl) smd).buildBoundActions()
+
+        then: 'the bound step resolves to the supplied instance'
+        map['a'].action.is(step)
+
+        and: 'metadata lives on the def, whose context type is the permissive default'
+        captured.getName() == 'N'
+        captured.contextType() == Object
+
+        and: 'the untyped form tags no context, exactly like step(id, Action)'
+        ((StateMachineDefImpl) smd).getComponentContextType('a') == null
+    }
+
+    def "step(Identifiable, Consumer) delegates to the String form"() {
+        given:
+        def step = new StepA()
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
+        smd.step({ -> 'a' } as Identifiable, { d -> d.using(step) } as Consumer)
+
+        expect:
+        ((StateMachineDefImpl) smd).buildBoundActions()['a'].action.is(step)
+    }
+
+    @Unroll
+    def "step(id, Consumer) rejects null or blank id (id='#id')"() {
+        given:
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
+
+        when:
+        smd.step((String) id, { d -> d.using(new StepA()) } as Consumer)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == 'Step ID cannot be null or blank'
+
+        where:
+        id << [null, '', '  ']
+    }
+
+    def "step(id, Consumer) rejects a null configurer"() {
+        given:
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
+
+        when:
+        smd.step('a', (Consumer) null)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == 'Step configurer cannot be null'
+    }
+
+    def "step(id, Consumer) rejects post-configurer mutation of the captured def"() {
+        given:
+        def captured = null
+        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
+        smd.step('a', { d -> captured = d; d.using(new StepA()) } as Consumer)
+
+        when:
+        captured.using(new StepB())
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("step 'a'")
+        e.message.contains('after its configurer has returned')
     }
 }

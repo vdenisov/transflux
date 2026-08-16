@@ -19,6 +19,8 @@
 package org.transflux.core;
 
 import org.transflux.core.action.Action;
+import org.transflux.core.action.ActionListener;
+import org.transflux.core.action.ActionListenerDef;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.StepDef;
@@ -181,6 +183,36 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     StateMachineDef<T> step(Identifiable stepIdentifiable, Class<? extends Action<T, ?>> stepClass);
+
+    /**
+     * Registers a step against this state machine via a lambda configurer, without a declared
+     * context type. Inside the configurer the caller wires the step source with
+     * {@code using(...)}, may set optional {@code withName} / {@code withDescription} metadata,
+     * and may attach action listeners. The def is typed against {@link Object}, matching the
+     * treatment the other untyped registrations receive at the registry level. The configurer is
+     * the only place the {@link StepDef} may be mutated; once it returns the reference is inert.
+     *
+     * @param id the step id
+     * @param configurer the configurer that wires the step def; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank,
+     *         {@code configurer} is {@code null}, or another step is already registered under
+     *         {@code id}
+     */
+    StateMachineDef<T> step(String id, Consumer<StepDef<T, Object>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #step(String, Consumer)} — delegates via
+     * {@link Identifiable#getId()}.
+     *
+     * @param stepIdentifiable an identifiable supplying the step id
+     * @param configurer the configurer that wires the step def
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> step(Identifiable stepIdentifiable, Consumer<StepDef<T, Object>> configurer);
 
     /**
      * Registers a step instance against this state machine under the given id, tagged with
@@ -1074,6 +1106,220 @@ public interface StateMachineDef<T> {
      */
     StateMachineDef<T> onAnyTransitionError(Identifiable listenerIdentifiable,
                                             Consumer<TransitionListenerDef<T, Object>> configurer);
+
+    /**
+     * Attaches a listener notified before <b>any</b> action of this machine runs — at every nesting
+     * depth, and whichever form the action was authored in.
+     *
+     * <p>Global listeners run after the starting action's own start listeners, in declaration
+     * order. They share one id namespace with every other listener on this state machine. Because
+     * they span actions declared against different context types, they receive the context as
+     * {@link Object}.
+     *
+     * @param listenerId the listener id, unique among all listeners on this state machine
+     * @param listener the listener instance; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         or another listener is already registered under the same id
+     */
+    StateMachineDef<T> onAnyActionStart(String listenerId, ActionListener<T, Object> listener);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyActionStart(String, ActionListener)} —
+     * delegates via {@link Identifiable#getId()}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param listener the listener instance; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyActionStart(Identifiable listenerIdentifiable,
+                                        ActionListener<T, Object> listener);
+
+    /**
+     * Attaches a listener class notified before any action runs. The class is instantiated once,
+     * through its public no-arg constructor, when the state machine is built.
+     *
+     * @param listenerId the listener id, unique among all listeners on this state machine
+     * @param listenerClass the listener class; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyActionStart(String listenerId,
+                                        Class<? extends ActionListener<T, Object>> listenerClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyActionStart(String, Class)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param listenerClass the listener class; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyActionStart(Identifiable listenerIdentifiable,
+                                        Class<? extends ActionListener<T, Object>> listenerClass);
+
+    /**
+     * Attaches a global action-start listener declared through a configurer, for the cases where
+     * the listener carries a name or description as well as a body.
+     *
+     * @param listenerId the listener id, unique among all listeners on this state machine
+     * @param configurer callback that configures the listener; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
+     *         another listener is already registered under the same id, or the configurer declares
+     *         no listener
+     */
+    StateMachineDef<T> onAnyActionStart(String listenerId,
+                                        Consumer<ActionListenerDef<T, Object>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyActionStart(String, Consumer)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param configurer callback that configures the listener; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyActionStart(Identifiable listenerIdentifiable,
+                                        Consumer<ActionListenerDef<T, Object>> configurer);
+
+    /**
+     * Attaches a listener notified when <b>any</b> action of this machine returns normally.
+     *
+     * @param listenerId the listener id, unique among all listeners on this state machine
+     * @param listener the listener instance; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyActionComplete(String listenerId, ActionListener<T, Object> listener);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyActionComplete(String, ActionListener)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param listener the listener instance; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyActionComplete(Identifiable listenerIdentifiable,
+                                           ActionListener<T, Object> listener);
+
+    /**
+     * Attaches a listener class notified when any action returns normally.
+     *
+     * @param listenerId the listener id, unique among all listeners on this state machine
+     * @param listenerClass the listener class; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyActionComplete(String listenerId,
+                                           Class<? extends ActionListener<T, Object>> listenerClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyActionComplete(String, Class)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param listenerClass the listener class; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyActionComplete(Identifiable listenerIdentifiable,
+                                           Class<? extends ActionListener<T, Object>> listenerClass);
+
+    /**
+     * Attaches a global action-complete listener declared through a configurer.
+     *
+     * @param listenerId the listener id, unique among all listeners on this state machine
+     * @param configurer callback that configures the listener; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyActionComplete(String listenerId,
+                                           Consumer<ActionListenerDef<T, Object>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyActionComplete(String, Consumer)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param configurer callback that configures the listener; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyActionComplete(Identifiable listenerIdentifiable,
+                                           Consumer<ActionListenerDef<T, Object>> configurer);
+
+    /**
+     * Attaches a listener notified when <b>any</b> action of this machine fails.
+     *
+     * <p>A failure is reported at every enclosing level as it propagates outwards, so a container
+     * whose member threw is notified as well, carrying the same throwable.
+     *
+     * @param listenerId the listener id, unique among all listeners on this state machine
+     * @param listener the listener instance; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyActionError(String listenerId, ActionListener<T, Object> listener);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyActionError(String, ActionListener)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param listener the listener instance; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyActionError(Identifiable listenerIdentifiable,
+                                        ActionListener<T, Object> listener);
+
+    /**
+     * Attaches a listener class notified when any action fails.
+     *
+     * @param listenerId the listener id, unique among all listeners on this state machine
+     * @param listenerClass the listener class; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyActionError(String listenerId,
+                                        Class<? extends ActionListener<T, Object>> listenerClass);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyActionError(String, Class)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param listenerClass the listener class; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyActionError(Identifiable listenerIdentifiable,
+                                        Class<? extends ActionListener<T, Object>> listenerClass);
+
+    /**
+     * Attaches a global action-error listener declared through a configurer.
+     *
+     * @param listenerId the listener id, unique among all listeners on this state machine
+     * @param configurer callback that configures the listener; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyActionError(String listenerId,
+                                        Consumer<ActionListenerDef<T, Object>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #onAnyActionError(String, Consumer)}.
+     *
+     * @param listenerIdentifiable an identifiable supplying the listener id
+     * @param configurer callback that configures the listener; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyActionError(Identifiable listenerIdentifiable,
+                                        Consumer<ActionListenerDef<T, Object>> configurer);
 
     /**
      * Finalizes the definition and builds the runtime state machine.
