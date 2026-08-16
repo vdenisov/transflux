@@ -18,11 +18,13 @@
 
 package org.transflux.core.impl
 
+import org.transflux.core.Identifiable
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.ContextMapper
+import org.transflux.core.action.MapperDef
 import spock.lang.Specification
 
-import java.util.function.Function
+import java.util.function.Consumer
 
 class StateMachineDefImplMapperRegistrationSpec extends Specification {
 
@@ -77,10 +79,10 @@ class StateMachineDefImplMapperRegistrationSpec extends Specification {
         built instanceof PNMapper
     }
 
-    def 'mapper(id, P, N, Function) wraps the function in a ContextMapper with default no-op mapFrom'() {
+    def 'a lambda registers the read-only form, leaving mapFrom the default no-op'() {
         given:
         def smd = new StateMachineDefImpl<Entity>()
-        Function<P, N> fn = { P p ->
+        ContextMapper<P, N> fn = { P p ->
             def n = new N()
             n.value = p.value
             return n
@@ -134,11 +136,73 @@ class StateMachineDefImplMapperRegistrationSpec extends Specification {
         thrown(TransfluxValidationException)
     }
 
-    def 'null function is rejected'() {
+    def 'null mapper configurer is rejected'() {
         when:
-        new StateMachineDefImpl<Entity>().mapper('x', P, N, (Function<P, N>) null)
+        new StateMachineDefImpl<Entity>().mapperDef('x', P, N, (Consumer) null)
 
         then:
-        thrown(TransfluxValidationException)
+        def e = thrown(TransfluxValidationException)
+        e.message == 'Mapper configurer cannot be null'
+    }
+
+    def 'mapperDef registers through a configurer and carries the metadata'() {
+        given:
+        def smd = new StateMachineDefImpl<Entity>()
+        def instance = new PNMapper()
+
+        when:
+        smd.mapperDef('p-to-n', P, N, { MapperDef d ->
+            d.withName('P to N').withDescription('projects value').using(instance)
+        } as Consumer)
+
+        then:
+        def mapperDef = smd.getMapperDef('p-to-n')
+        mapperDef.getName() == 'P to N'
+        mapperDef.getDescription() == 'projects value'
+        ((MapperDefImpl) mapperDef).buildMapper().is(instance)
+    }
+
+    def 'a mapper def is inert once its configurer has returned'() {
+        given:
+        def smd = new StateMachineDefImpl<Entity>()
+        def captured = null
+        smd.mapperDef('p-to-n', P, N, { MapperDef d ->
+            captured = d
+            d.using(new PNMapper())
+        } as Consumer)
+
+        when:
+        captured.withName('too late')
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("mapper 'p-to-n'")
+        e.message.contains('after its configurer has returned')
+    }
+
+    def 'mapperDef accepts an Identifiable id'() {
+        given:
+        def smd = new StateMachineDefImpl<Entity>()
+
+        when:
+        smd.mapperDef({ -> 'p-to-n' } as Identifiable, P, N,
+                      { MapperDef d -> d.using(new PNMapper()) } as Consumer)
+
+        then:
+        smd.getMapperDef('p-to-n') != null
+    }
+
+    def 'mapperDef without using(...) fails at build with a message naming the fix'() {
+        given:
+        def smd = new StateMachineDefImpl<Entity>()
+        smd.mapperDef('p-to-n', P, N, { MapperDef d -> d.withName('nameless') } as Consumer)
+
+        when:
+        ((MapperDefImpl) smd.getMapperDef('p-to-n')).buildMapper()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("MapperDef 'p-to-n'")
+        e.message.contains('using(...)')
     }
 }

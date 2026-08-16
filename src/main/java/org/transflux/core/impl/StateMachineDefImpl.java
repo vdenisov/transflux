@@ -58,7 +58,6 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
@@ -693,7 +692,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotNull(parentType, "Mapper parent type");
         requireNotNull(childType, "Mapper child type");
         requireNotNull(mapper, "Context mapper");
-        registerMapper(new MapperDefImpl<>(id, parentType, childType).using(mapper));
+        registerMapper(configuredMapper(id, parentType, childType, d -> d.using(mapper)));
         return this;
     }
 
@@ -715,7 +714,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotNull(parentType, "Mapper parent type");
         requireNotNull(childType, "Mapper child type");
         requireNotNull(mapperClass, "Context mapper class");
-        registerMapper(new MapperDefImpl<>(id, parentType, childType).using(mapperClass));
+        registerMapper(configuredMapper(id, parentType, childType, d -> d.using(mapperClass)));
         return this;
     }
 
@@ -729,25 +728,33 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public <P, N> StateMachineDef<T> mapper(String id,
-                                            Class<P> parentType,
-                                            Class<N> childType,
-                                            Function<P, N> mapTo) {
+    public <P, N> StateMachineDef<T> mapperDef(String id,
+                                               Class<P> parentType,
+                                               Class<N> childType,
+                                               Consumer<MapperDef<P, N>> configurer) {
         requireNotBlank(id, "Mapper ID");
         requireNotNull(parentType, "Mapper parent type");
         requireNotNull(childType, "Mapper child type");
-        requireNotNull(mapTo, "mapTo function");
-        registerMapper(new MapperDefImpl<>(id, parentType, childType).using(mapTo));
+        requireNotNull(configurer, "Mapper configurer");
+        registerMapper(configuredMapper(id, parentType, childType, configurer));
         return this;
     }
 
     @Override
-    public <P, N> StateMachineDef<T> mapper(Identifiable mapperIdentifiable,
-                                            Class<P> parentType,
-                                            Class<N> childType,
-                                            Function<P, N> mapTo) {
+    public <P, N> StateMachineDef<T> mapperDef(Identifiable mapperIdentifiable,
+                                               Class<P> parentType,
+                                               Class<N> childType,
+                                               Consumer<MapperDef<P, N>> configurer) {
         requireNotNull(mapperIdentifiable, "Mapper identifiable");
-        return mapper(mapperIdentifiable.getId(), parentType, childType, mapTo);
+        return mapperDef(mapperIdentifiable.getId(), parentType, childType, configurer);
+    }
+
+    private static <P, N> MapperDefImpl<P, N> configuredMapper(String id, Class<P> parentType,
+                                                               Class<N> childType,
+                                                               Consumer<MapperDef<P, N>> configurer) {
+        MapperDefImpl<P, N> def = new MapperDefImpl<>(id, parentType, childType);
+        ConfigurableDefImpl.runConfigurer(def, configurer);
+        return def;
     }
 
     private void registerMapper(MapperDefImpl<?, ?> def) {

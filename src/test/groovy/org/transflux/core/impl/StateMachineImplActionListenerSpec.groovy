@@ -379,7 +379,7 @@ class StateMachineImplActionListenerSpec extends Specification {
                  .onStart('capture', { e, ctx, x -> seen << ctx } as ActionListener)
             } as Consumer)
              .mapper('child-from-parent', ParentContext, ChildContext,
-                     { ParentContext p -> new ChildContext(p.tag + '-mapped') } as java.util.function.Function)
+                     { ParentContext p -> new ChildContext(p.tag + '-mapped') } as ContextMapper)
              .state('s1', { st ->
                  st.transitionsTo('s2', 't', ParentContext, { t ->
                      t.operation('wrap', { OperationDef op ->

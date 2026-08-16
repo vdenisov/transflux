@@ -30,7 +30,7 @@ import org.transflux.core.transition.Transition
 import spock.lang.Specification
 import spock.lang.Unroll
 
-import java.util.function.Function
+import java.util.function.Consumer
 import java.util.function.Predicate
 
 import static org.transflux.core.TestStateEnum.ACTIVE
@@ -319,7 +319,7 @@ class StateMachineDefImplSpec extends Specification {
         'operation(Id, Class<C>, Class)'                 | { d -> d.step(identifiable('o2'), Object, IdOverloadOperation) }
         'mapper(Id, parent, child, ContextMapper)'       | { d -> d.mapper(identifiable('m1'), Object, Object, new IdOverloadMapper()) }
         'mapper(Id, parent, child, Class)'               | { d -> d.mapper(identifiable('m2'), Object, Object, IdOverloadMapper) }
-        'mapper(Id, parent, child, Function)'            | { d -> d.mapper(identifiable('m3'), Object, Object, { p -> p } as Function) }
+        'mapperDef(Id, parent, child, Consumer)'         | { d -> d.mapperDef(identifiable('m3'), Object, Object, { m -> m.using(new IdOverloadMapper()) } as Consumer) }
     }
 
     @Unroll

@@ -163,7 +163,7 @@ class OperationDefImplMemberMappingSpec extends Specification {
                     def p = new PaymentCtx()
                     p.cents = n
                     return p
-                } as Function<Number, PaymentCtx>) },
+                } as ContextMapper<Number, PaymentCtx>) },
             { t -> t.operation('outer', { OperationDef<Entity, OrderCtx> c ->
                 c.run('charge', 'wrong-parent')
             }) })

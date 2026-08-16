@@ -59,15 +59,6 @@ record BoundActionListeners<T, C>(List<BoundActionListener<T, C>> onStart,
     }
 
     /**
-     * Returns {@code true} when no hook carries a listener.
-     *
-     * @return whether every hook list is empty
-     */
-    boolean isEmpty() {
-        return onStart.isEmpty() && onComplete.isEmpty() && onError.isEmpty();
-    }
-
-    /**
      * Returns the list for the supplied phase.
      *
      * @param phase the phase being notified

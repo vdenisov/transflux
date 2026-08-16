@@ -21,8 +21,6 @@ package org.transflux.core.action;
 import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 
-import java.util.function.Function;
-
 /**
  * Def-side anchor that pairs a {@link ContextMapper} with a framework-owned id and explicit
  * parent / child type tokens.
@@ -35,11 +33,11 @@ import java.util.function.Function;
  * mapper's {@code P} aligns with each call site's parent context and the mapper's {@code N}
  * matches the called step or operation's required context.
  *
- * <p>Three source forms are supported and mutually exclusive: a pre-constructed
- * {@link ContextMapper} instance, a {@code ContextMapper} class instantiated reflectively at
- * build time, or an inline {@link Function} (parent → child) which the framework wraps in a
- * {@code ContextMapper} whose {@link ContextMapper#mapFrom(Object, Object) mapFrom} is the
- * default no-op.
+ * <p>Two source forms are supported and mutually exclusive: a pre-constructed
+ * {@link ContextMapper} instance and a {@code ContextMapper} class instantiated reflectively at
+ * build time. A lambda supplied to the instance form is the read-only case, since
+ * {@link ContextMapper#mapFrom(Object, Object) mapFrom} defaults to a no-op; overriding
+ * {@code mapFrom} needs the class form or an anonymous instance.
  *
  * @param <P> the enclosing parent's context type at the call site
  * @param <N> the called step or operation's required context type
@@ -85,6 +83,10 @@ public interface MapperDef<P, N> extends Identifiable {
     /**
      * Wires this def to a pre-constructed {@link ContextMapper} instance.
      *
+     * <p>A lambda is the read-only form: {@link ContextMapper#mapFrom(Object, Object) mapFrom}
+     * defaults to a no-op, so {@code p -> child} wires a projection that folds nothing back into
+     * the parent's context.
+     *
      * @param mapper the mapper to invoke at the parent-to-child boundary; never {@code null}
      *
      * @return this def for chaining
@@ -104,19 +106,6 @@ public interface MapperDef<P, N> extends Identifiable {
      * @throws TransfluxValidationException if {@code mapperClass} is {@code null}
      */
     MapperDef<P, N> using(Class<? extends ContextMapper<P, N>> mapperClass);
-
-    /**
-     * Wires this def to a read-only parent-to-child function. The framework wraps it in a
-     * {@link ContextMapper} whose {@link ContextMapper#mapFrom(Object, Object) mapFrom} is the
-     * default no-op.
-     *
-     * @param mapTo the parent-to-child projection; never {@code null}
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code mapTo} is {@code null}
-     */
-    MapperDef<P, N> using(Function<P, N> mapTo);
 
     /**
      * Sets the human-readable name of this mapper.

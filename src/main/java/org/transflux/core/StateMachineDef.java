@@ -22,6 +22,7 @@ import org.transflux.core.action.Action;
 import org.transflux.core.action.ActionListener;
 import org.transflux.core.action.ActionListenerDef;
 import org.transflux.core.action.ContextMapper;
+import org.transflux.core.action.MapperDef;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.StepDef;
 import org.transflux.core.condition.Condition;
@@ -37,7 +38,6 @@ import org.transflux.core.transition.TransitionListenerDef;
 
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
@@ -569,6 +569,11 @@ public interface StateMachineDef<T> {
      * {@code async} block) where its parent type is assignable from the call site's context and
      * its child type matches the called step or operation's required context.
      *
+     * <p>A lambda is the read-only form: {@link ContextMapper#mapFrom(Object, Object) mapFrom}
+     * defaults to a no-op, so {@code p -> child} registers a projection that folds nothing back
+     * into the parent's context. Override {@code mapFrom} — which needs the class or an anonymous
+     * instance — when the child's results have to reach the caller.
+     *
      * @param id the mapper id
      * @param parentType the parent context class
      * @param childType the child context class
@@ -633,38 +638,40 @@ public interface StateMachineDef<T> {
                                      Class<? extends ContextMapper<P, N>> mapperClass);
 
     /**
-     * Registers a read-only parent-to-child function as a mapper. The framework wraps it in a
-     * {@link ContextMapper} whose {@link ContextMapper#mapFrom(Object, Object) mapFrom} is the
-     * default no-op — appropriate when the called step or operation has no results to fold back
-     * into the parent's context.
+     * Registers a mapper under {@code id} through a lambda configurer, for the cases that also
+     * want a name or description. Inside the configurer the caller wires the source with
+     * {@code using(...)}; once it returns the def is inert and any further mutation throws.
      *
-     * @param id the mapper id
+     * @param id the mapper id; never {@code null} or blank
      * @param parentType the parent context class
      * @param childType the child context class
-     * @param mapTo the parent-to-child projection; never {@code null}
+     * @param configurer the configurer that wires the mapper def; never {@code null}
      * @param <P> the parent context type
      * @param <N> the child context type
      *
      * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if any argument is {@code null}, the id is blank, or
+     *         another mapper is already registered under the same id
      */
-    <P, N> StateMachineDef<T> mapper(String id, Class<P> parentType, Class<N> childType,
-                                     Function<P, N> mapTo);
+    <P, N> StateMachineDef<T> mapperDef(String id, Class<P> parentType, Class<N> childType,
+                                        Consumer<MapperDef<P, N>> configurer);
 
     /**
-     * {@link Identifiable} overload of {@link #mapper(String, Class, Class, Function)} —
+     * {@link Identifiable} overload of {@link #mapperDef(String, Class, Class, Consumer)} —
      * delegates via {@link Identifiable#getId()}.
      *
      * @param mapperIdentifiable an identifiable supplying the mapper id
      * @param parentType the parent context class
      * @param childType the child context class
-     * @param mapTo the parent-to-child projection
+     * @param configurer the configurer that wires the mapper def
      * @param <P> the parent context type
      * @param <N> the child context type
      *
      * @return this state machine def for chaining
      */
-    <P, N> StateMachineDef<T> mapper(Identifiable mapperIdentifiable, Class<P> parentType, Class<N> childType,
-                                     Function<P, N> mapTo);
+    <P, N> StateMachineDef<T> mapperDef(Identifiable mapperIdentifiable, Class<P> parentType, Class<N> childType,
+                                        Consumer<MapperDef<P, N>> configurer);
 
     /**
      * Declares a state on this state machine. The configurer is invoked synchronously against

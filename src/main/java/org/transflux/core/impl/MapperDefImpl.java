@@ -24,57 +24,35 @@ import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.MapperDef;
 
-import java.util.function.Function;
-
-import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Default {@link MapperDef} implementation.
  * <p>
- * Holds one of three mutually exclusive source forms — a {@link ContextMapper} instance, a
- * {@code ContextMapper} class, or an inline parent-to-child {@link Function} — plus the parent
- * and child type tokens used by the build-time call-site type-compatibility check. The three
- * source forms are last-write-wins.
+ * Holds one of two mutually exclusive source forms — a {@link ContextMapper} instance or a
+ * {@code ContextMapper} class — plus the parent and child type tokens used by the build-time
+ * call-site type-compatibility check. The two source forms are last-write-wins.
  *
  * @param <P> the parent context type
  * @param <N> the child context type
  */
-final class MapperDefImpl<P, N> implements MapperDef<P, N> {
+final class MapperDefImpl<P, N> extends IdentifiedDefImpl<MapperDefImpl<P, N>>
+        implements MapperDef<P, N> {
+
     private static final Logger log = LoggerFactory.getLogger(MapperDefImpl.class);
 
-    private final String id;
     private final Class<P> parentType;
     private final Class<N> childType;
 
     private final InstanceOrClassSource<ContextMapper<P, N>> source;
 
-    private String name;
-    private String description;
-
     MapperDefImpl(String id, Class<P> parentType, Class<N> childType) {
-        requireNotBlank(id, "Mapper ID");
+        super(id, "mapper", "Mapper ID");
         requireNotNull(parentType, "Mapper parent type");
         requireNotNull(childType, "Mapper child type");
-        this.id = id;
         this.parentType = parentType;
         this.childType = childType;
         this.source = new InstanceOrClassSource<>(log, "Mapper source", "MapperDef '" + id + "'");
-    }
-
-    @Override
-    public String getId() {
-        return id;
-    }
-
-    @Override
-    public String getName() {
-        return name;
-    }
-
-    @Override
-    public String getDescription() {
-        return description;
     }
 
     @Override
@@ -89,6 +67,7 @@ final class MapperDefImpl<P, N> implements MapperDef<P, N> {
 
     @Override
     public MapperDefImpl<P, N> using(ContextMapper<P, N> mapper) {
+        requireConfigurerActive("using");
         requireNotNull(mapper, "Context mapper");
         source.setInstance(mapper);
         return this;
@@ -96,35 +75,15 @@ final class MapperDefImpl<P, N> implements MapperDef<P, N> {
 
     @Override
     public MapperDefImpl<P, N> using(Class<? extends ContextMapper<P, N>> mapperClass) {
+        requireConfigurerActive("using");
         requireNotNull(mapperClass, "Context mapper class");
         source.setClass(mapperClass);
         return this;
     }
 
-    @Override
-    public MapperDefImpl<P, N> using(Function<P, N> mapTo) {
-        requireNotNull(mapTo, "mapTo function");
-        ContextMapper<P, N> wrapped = mapTo::apply;
-        source.setInstance(wrapped);
-        return this;
-    }
-
-    @Override
-    public MapperDefImpl<P, N> withName(String name) {
-        this.name = name;
-        return this;
-    }
-
-    @Override
-    public MapperDefImpl<P, N> withDescription(String description) {
-        this.description = description;
-        return this;
-    }
-
     /**
-     * Resolves this def into a runtime {@link ContextMapper}. The class form is instantiated
-     * reflectively; the inline-function form is wrapped in a mapper whose
-     * {@link ContextMapper#mapFrom(Object, Object) mapFrom} is the default no-op.
+     * Resolves this def into a runtime {@link ContextMapper}, instantiating the class form
+     * reflectively.
      *
      * @return the resolved mapper
      *
@@ -133,7 +92,7 @@ final class MapperDefImpl<P, N> implements MapperDef<P, N> {
     ContextMapper<P, N> buildMapper() {
         if (!source.isSet()) {
             throw new TransfluxValidationException(
-                "MapperDef '" + id + "' has no source set; call using(...) before build");
+                "MapperDef '" + getId() + "' has no source set; call using(...) before build");
         }
         return source.resolve("ContextMapper");
     }

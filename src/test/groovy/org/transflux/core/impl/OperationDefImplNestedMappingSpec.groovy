@@ -151,7 +151,7 @@ class OperationDefImplNestedMappingSpec extends Specification {
         ctx.activationResult == null
     }
 
-    def 'registered mapper supplied as a Function is wrapped with a no-op mapFrom'() {
+    def 'a registered mapper supplied as a lambda gets the default no-op mapFrom'() {
         given:
         def sm = build(
             { smd -> smd.step('charge', ChildCtx, new ChildOp())
@@ -159,7 +159,7 @@ class OperationDefImplNestedMappingSpec extends Specification {
                     def n = new ChildCtx()
                     n.subscriptionId = p.subscriptionId
                     return n
-                } as Function<ParentCtx, ChildCtx>) },
+                } as ContextMapper<ParentCtx, ChildCtx>) },
             { t -> t.operation('outer', { OperationDef<Entity, ParentCtx> c ->
                 c.run('charge', 'parent-to-child')
             }) })

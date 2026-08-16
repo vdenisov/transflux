@@ -127,7 +127,11 @@ class ActionDefImplListenerSpec extends Specification {
         def_.using({ e, ctx, tr -> } as Action)
 
         expect:
-        def_.buildBoundAction().listeners().isEmpty()
+        with(def_.buildBoundAction().listeners()) {
+            onStart().isEmpty()
+            onComplete().isEmpty()
+            onError().isEmpty()
+        }
     }
 
     def 'the configurer form carries metadata through to the bound listener'() {
