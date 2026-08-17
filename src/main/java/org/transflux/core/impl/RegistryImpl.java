@@ -42,25 +42,18 @@ final class RegistryImpl<T> implements Registry<T> {
     private final String label;
 
     /**
-     * Creates a parentless root registry. Equivalent to {@code new RegistryImpl<>(null)}.
+     * Creates a parentless root registry.
      */
     RegistryImpl() {
-        this(null);
+        this(null, "root");
     }
 
     /**
-     * Creates a registry with the supplied parent. {@code null} means parentless (root).
+     * Creates a child registry under the supplied parent. There is deliberately no parent-only
+     * overload: the label is what {@link #label()} reports as the claiming scope, so a child that
+     * did not name itself would be indistinguishable from the root in diagnostics.
      *
-     * @param parent the parent registry, or {@code null}
-     */
-    RegistryImpl(Registry<T> parent) {
-        this(parent, "root");
-    }
-
-    /**
-     * Creates a registry with the supplied parent and scope label.
-     *
-     * @param parent the parent registry, or {@code null}
+     * @param parent the parent registry, or {@code null} for a root
      * @param label the owning container's id, used in diagnostics
      */
     RegistryImpl(Registry<T> parent, String label) {

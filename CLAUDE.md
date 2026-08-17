@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Transflux is a lightweight, embeddable microflow orchestration library (Java). It coordinates state changes for business entities — transitions, sequencing, pre-/post-conditions, triggers, listeners, and Saga-like compensations — without providing its own persistence. Project status: Phases 1 through 3 complete — all three listener categories, the manual / event / data trigger set, and the unified action model have landed. Phase 4 (Async Operations & Error Handling) is in progress — the compensation engine is complete (§4.1); exception-specific routing and everything async are still open. The public API is unstable.
+Transflux is a lightweight, embeddable microflow orchestration library (Java). It coordinates state changes for business entities — transitions, sequencing, pre-/post-conditions, triggers, listeners, and Saga-like compensations — without providing its own persistence. Project status: Phases 1 through 3 complete — all three listener categories, the manual / event / data trigger set, and the unified action model have landed. Phase 4 (Async Operations & Error Handling) is in progress — the compensation engine (§4.1) and the framework-emitted logging baseline (§4.7.1) are complete; exception-specific routing, the shipped logging listeners, and everything async are still open. The public API is unstable.
 
 `requirements.md` is the canonical spec for the vision and component model; consult it before designing new core abstractions. `todo.md` is the roadmap index (phase map, versioning policy, 1.0 contract, post-1.0 themes). Per-phase task breakdowns live one-file-per-phase: **remaining** phases under `docs/roadmap/`, **shipped** phases (verbatim) under `docs/history/`. A phase moves from `docs/roadmap/` to `docs/history/` when it ships. The toolchain/dependency/cadence baseline is in `docs/project-baseline.md`.
 
@@ -113,8 +113,8 @@ INFO staying off the per-transition path is the rule to hold hardest — a host 
 
 | Logger | Covers |
 | --- | --- |
-| `org.transflux.build.lifecycle` | the build pipeline's own progression: phase boundaries and the completion line |
-| `org.transflux.build.validation` | ref / context / cycle checks, id claims |
+| `org.transflux.build.lifecycle` | build phase boundaries; the one completion line per build |
+| `org.transflux.build.validation` | ref / context / cycle checks, id claims, definition-time overwrites |
 | `org.transflux.build.registry` | scope population, parenting, flattening |
 | `org.transflux.build.binding` | defs to bound records; what each id resolved to, and in which scope |
 | `org.transflux.execution.transition` | lifecycle: state resolution, outcome, applier |
@@ -127,7 +127,11 @@ INFO staying off the per-transition path is the rule to hold hardest — a host 
 
 The hierarchy gives both granularities: a host silences `org.transflux.execution` wholesale or `org.transflux.execution.action` alone, and `org.transflux` still covers everything. **Only leaves emit** — a name is either a grouping level or a logger, never both, so no line ever arrives from a parent category. The leaf is a *concern*, not a class: one class routinely spans several (`StateMachineImpl` alone carries transition execution, trigger dispatch, listener-failure reporting, and the compensation drain), which is why this is finer-grained than per-class naming rather than a compromise on it.
 
-Declare loggers through the internal `Loggers` holder rather than scattered `getLogger("...")` string literals — one place to read the whole tree, no typos, and "does this line belong in that domain?" becomes a visible review question. Name the emitting component in the message only when the domain does not already make it obvious.
+Declare loggers through the internal `Loggers` holder (`core.impl`) rather than scattered `getLogger("...")` string literals — one place to read the whole tree, no typos, and "does this line belong in that domain?" becomes a visible review question. Reference the constants at the call site (`Loggers.BUILD_VALIDATION.warn(...)`) rather than aliasing one back into a per-class `log` field, which would hide exactly that question. `LoggersSpec` enforces the tree's shape: every leaf under `org.transflux`, no leaf an ancestor of another, and no `LoggerFactory.getLogger` anywhere outside the holder. Name the emitting component in the message only when the domain does not already make it obvious.
+
+The build phase boundaries all go to `build.lifecycle` rather than to the logger of the phase each announces. The point of those lines is that the last one emitted names the phase that threw; split across leaves, that only holds for a host who enabled every one of them.
+
+The README carries a host-facing copy of the tree and the level policy. It is the surface a host configures, so treat it as public contract — when a leaf is added or its scope changes, update both files.
 
 **Never log entity or context contents.** The entity belongs to the host and may be full of PII; so may the context. Log ids, class names, states, and paths — never `entity.toString()`, never a context dump, at any level. The same applies to exception messages, which surface wherever a stack trace is printed. A host that wants its own payloads logged does it through a listener, where the decision is the host's.
 

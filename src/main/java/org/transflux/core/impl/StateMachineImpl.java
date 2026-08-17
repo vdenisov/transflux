@@ -454,9 +454,11 @@ class StateMachineImpl<T> implements StateMachine<T> {
             try {
                 listener.listener().onState(entity, context, change);
             } catch (Exception e) {
+                // The class name, never the message: a host's own exception can carry anything at
+                // all, including the entity the listener was handed.
                 Loggers.EXECUTION_LISTENER.warn(
-                    "State listener threw, listenerId={}, phase={}, stateId={}, errorType={}, error={}",
-                    listener.id(), phase, stateId, e.getClass().getName(), e.getMessage());
+                    "State listener threw, listenerId={}, phase={}, stateId={}, errorType={}",
+                    listener.id(), phase, stateId, e.getClass().getName());
             }
         }
     }
@@ -483,8 +485,8 @@ class StateMachineImpl<T> implements StateMachine<T> {
                 listener.listener().onTransition(entity, context, execution);
             } catch (Exception e) {
                 Loggers.EXECUTION_LISTENER.warn(
-                    "Transition listener threw, listenerId={}, phase={}, transitionId={}, errorType={}, error={}",
-                    listener.id(), phase, transition.id(), e.getClass().getName(), e.getMessage());
+                    "Transition listener threw, listenerId={}, phase={}, transitionId={}, errorType={}",
+                    listener.id(), phase, transition.id(), e.getClass().getName());
             }
         }
     }
@@ -532,9 +534,8 @@ class StateMachineImpl<T> implements StateMachine<T> {
             listener.listener().onAction(entity, context, execution);
         } catch (Exception e) {
             Loggers.EXECUTION_LISTENER.warn(
-                "Action listener threw, listenerId={}, phase={}, actionPath={}, errorType={}, error={}",
-                listener.id(), execution.phase(), execution.path(), e.getClass().getName(),
-                e.getMessage());
+                "Action listener threw, listenerId={}, phase={}, actionPath={}, errorType={}",
+                listener.id(), execution.phase(), execution.path(), e.getClass().getName());
         }
     }
 
@@ -693,8 +694,11 @@ class StateMachineImpl<T> implements StateMachine<T> {
         // hook, so it must not produce an unmatched error notification.
         boolean started = false;
 
-        Loggers.EXECUTION_TRANSITION.debug("Transition starting, transitionId={}, {}->{}",
-                                           transitionId, sourceStateId, targetStateId);
+        if (Loggers.EXECUTION_TRANSITION.isDebugEnabled()) {
+            Loggers.EXECUTION_TRANSITION.debug(
+                "Transition starting, transitionId={}, sourceStateId={}, targetStateId={}",
+                transitionId, sourceStateId, targetStateId);
+        }
 
         try {
             // Both pre-condition loops return straight out on rejection rather than unwinding
@@ -775,8 +779,8 @@ class StateMachineImpl<T> implements StateMachine<T> {
                     bc.compensation().compensate(entity, bc.context());
                 } catch (Exception ce) {
                     Loggers.EXECUTION_COMPENSATION.warn(
-                        "Compensation threw, actionPath={}, errorType={}, error={}",
-                        bc.path(), ce.getClass().getName(), ce.getMessage());
+                        "Compensation threw, actionPath={}, errorType={}",
+                        bc.path(), ce.getClass().getName());
                 }
             }
 
@@ -1082,16 +1086,21 @@ class StateMachineImpl<T> implements StateMachine<T> {
             // The count is the explanation instead, as it is for wrong-source-state, and 'leaving'
             // separates "nothing here listens for this event" from "no event trigger leaves at all".
             List<TriggerBinding<T, EventTriggerImpl<T>>> leaving = eventTriggersLeaving(currentStateId);
-            List<TriggerBinding<T, EventTriggerImpl<T>>> candidates = leaving.stream()
-                .filter(binding -> binding.trigger().getEventId().equals(eventId))
-                .toList();
             if (Loggers.TRIGGER.isDebugEnabled()) {
+                // Counted here rather than filtered into a list the scan below would reuse: the
+                // count exists for this line alone, and the scan runs on every event dispatch.
+                long candidates = leaving.stream()
+                    .filter(binding -> binding.trigger().getEventId().equals(eventId))
+                    .count();
                 Loggers.TRIGGER.debug("Event dispatch scan, eventId={}, currentState={}, candidates={}, leaving={}",
-                                      eventId, currentStateId, candidates.size(), leaving.size());
+                                      eventId, currentStateId, candidates, leaving.size());
             }
 
-            for (TriggerBinding<T, EventTriggerImpl<T>> binding : candidates) {
+            for (TriggerBinding<T, EventTriggerImpl<T>> binding : leaving) {
                 EventTriggerImpl<T> trigger = binding.trigger();
+                if (!trigger.getEventId().equals(eventId)) {
+                    continue;
+                }
                 if (!contextFits(binding.transition(), context)) {
                     logSkippedIncompatibleContext(trigger, binding.transition(), context);
                     continue;

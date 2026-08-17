@@ -57,7 +57,7 @@ class RegistryImplSpec extends Specification {
         def parent = new RegistryImpl<Entity>()
         parent.register(new Component.Action<>('s1', Ctx,
             BoundAction.<Entity, Ctx> of('s1', new NoopStep(), ActionKind.STEP)))
-        def child = new RegistryImpl<Entity>(parent)
+        def child = new RegistryImpl<Entity>(parent, 'child')
 
         expect:
         child.get('s1').isEmpty()
@@ -68,7 +68,7 @@ class RegistryImplSpec extends Specification {
         def parent = new RegistryImpl<Entity>()
         def parentBound = BoundAction.<Entity, Ctx> of('s1', new NoopStep(), ActionKind.STEP)
         parent.register(new Component.Action<>('s1', Ctx, parentBound))
-        def child = new RegistryImpl<Entity>(parent)
+        def child = new RegistryImpl<Entity>(parent, 'child')
 
         expect:
         child.resolve('s1').isPresent()
@@ -78,7 +78,7 @@ class RegistryImplSpec extends Specification {
     def 'resolve returns empty when neither local nor any ancestor holds the id'() {
         given:
         def parent = new RegistryImpl<Entity>()
-        def child = new RegistryImpl<Entity>(parent)
+        def child = new RegistryImpl<Entity>(parent, 'child')
 
         expect:
         child.resolve('missing').isEmpty()
@@ -90,7 +90,7 @@ class RegistryImplSpec extends Specification {
         def parent = new RegistryImpl<Entity>()
         def parentBound = BoundAction.<Entity, Ctx> of('s1', new NoopStep(), ActionKind.STEP)
         parent.register(new Component.Action<>('s1', Ctx, parentBound))
-        def child = new RegistryImpl<Entity>(parent)
+        def child = new RegistryImpl<Entity>(parent, 'child')
         def childBound = BoundAction.<Entity, Ctx> of('s1', new NoopStep(), ActionKind.STEP)
         child.register(new Component.Action<>('s1', Ctx, childBound))
 
@@ -104,7 +104,7 @@ class RegistryImplSpec extends Specification {
         def parent = new RegistryImpl<Entity>()
         parent.register(new Component.Action<>('parent-only', Ctx,
             BoundAction.<Entity, Ctx> of('parent-only', new NoopStep(), ActionKind.STEP)))
-        def child = new RegistryImpl<Entity>(parent)
+        def child = new RegistryImpl<Entity>(parent, 'child')
         child.register(new Component.Action<>('child-only', Ctx,
             BoundAction.<Entity, Ctx> of('child-only', new NoopStep(), ActionKind.STEP)))
 
@@ -116,7 +116,7 @@ class RegistryImplSpec extends Specification {
     def 'parent returns null for a parentless root, and the supplied parent otherwise'() {
         given:
         def parent = new RegistryImpl<Entity>()
-        def child = new RegistryImpl<Entity>(parent)
+        def child = new RegistryImpl<Entity>(parent, 'child')
 
         expect:
         parent.parent() == null
@@ -159,7 +159,7 @@ class RegistryImplSpec extends Specification {
         def rootBound = BoundAction.<Entity, Ctx> of('s-root', new NoopStep(), ActionKind.STEP)
         root.register(new Component.Action<>('s-root', Ctx, rootBound))
 
-        def child = new RegistryImpl<Entity>(root)
+        def child = new RegistryImpl<Entity>(root, 'child')
         def childBound = BoundAction.<Entity, Ctx> of('s-child', new NoopStep(), ActionKind.STEP)
         child.register(new Component.Action<>('s-child', Ctx, childBound))
 
@@ -179,7 +179,7 @@ class RegistryImplSpec extends Specification {
         def root = new RegistryImpl<Entity>()
         root.register(new Component.Action<>('s-root', Ctx,
             BoundAction.<Entity, Ctx> of('s-root', new NoopStep(), ActionKind.STEP)))
-        def child = new RegistryImpl<Entity>(root)
+        def child = new RegistryImpl<Entity>(root, 'child')
 
         when:
         child.flatten()
@@ -195,7 +195,7 @@ class RegistryImplSpec extends Specification {
         def rootBound = BoundAction.<Entity, Ctx> of('s1', new NoopStep(), ActionKind.STEP)
         root.register(new Component.Action<>('s1', Ctx, rootBound))
 
-        def child = new RegistryImpl<Entity>(root)
+        def child = new RegistryImpl<Entity>(root, 'child')
         def childBound = BoundAction.<Entity, Ctx> of('s1', new NoopStep(), ActionKind.STEP)
         child.register(new Component.Action<>('s1', Ctx, childBound))
 

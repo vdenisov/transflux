@@ -30,7 +30,46 @@ The project is in active design and the public API is unstable. **No releases ar
 - `org.transflux.core.condition` — `Condition` and `ConditionDescriptor`.
 - `org.transflux.core.exception` — `TransfluxException` and its subclasses.
 - `org.transflux.core.trigger` — `Trigger` (runtime catalog view) and its kinds `ManualTrigger` / `EventTrigger` / `DataTrigger`, with the def-side builders `ManualTriggerDef` / `EventTriggerDef` / `DataTriggerDef`. Manual triggers fire via `entity(e).fire(...)`; event and data triggers fire via the host-driven `entity(e).processEvent(...)` / `processDataChange(...)`.
-- `org.transflux.core.impl` — framework-internal implementations: every `*Impl`, the `Registry` / `Component` lookup machinery, the bound-record / action-ref / mapper-ref infrastructure, the SpEL evaluation utilities (`ConditionResolver`, `SpelConditionEvaluator`, `ExpressionIdDerivation`), the runtime-internal `ExecutingTransitionImpl` and `TransitionImpl`, and the shared utilities (`ValidationUtils`, `ThrowingUtils`, `ReflectionUtils`). User code should not depend on this package directly.
+- `org.transflux.core.impl` — framework-internal implementations: every `*Impl`, the `Registry` / `Component` lookup machinery, the bound-record / action-ref / mapper-ref infrastructure, the SpEL evaluation utilities (`ConditionResolver`, `SpelConditionEvaluator`, `ExpressionIdDerivation`), the runtime-internal `ExecutingTransitionImpl` and `TransitionImpl`, the `Loggers` holder declaring the logger tree, and the shared utilities (`ValidationUtils`, `ThrowingUtils`, `ReflectionUtils`). User code should not depend on this package directly.
+
+## Logging
+
+Transflux logs through SLF4J and ships no binding or configuration of its own — the host owns both.
+
+**Logger names are virtual packages, not class names.** Implementation types are concentrated in `org.transflux.core.impl` so they can see each other package-privately without widening the public surface, which makes the real package structure useless for configuration: you would be choosing between "all of Transflux" and one class whose name may change between releases. The names below instead describe concerns, so a host can silence `org.transflux.execution` wholesale or `org.transflux.execution.action` alone. A single class routinely spans several of them.
+
+| Logger | Covers |
+| --- | --- |
+| `org.transflux.build.lifecycle` | build phase boundaries; one completion line per build |
+| `org.transflux.build.validation` | ref / context / cycle checks, id claims, definition-time overwrites |
+| `org.transflux.build.registry` | scope population, parenting, flattening |
+| `org.transflux.build.binding` | defs to bound records — what each id resolved to, and in which scope |
+| `org.transflux.execution.transition` | transition lifecycle: start, applier, outcome |
+| `org.transflux.execution.action` | per-action dispatch, nesting, call-site context mapping, id resolution |
+| `org.transflux.execution.condition` | pre-, post- and branch-condition evaluation |
+| `org.transflux.execution.compensation` | compensation capture and drain |
+| `org.transflux.execution.listener` | observer failures |
+| `org.transflux.trigger` | dispatch scans, filters, gates |
+
+**Only leaves emit.** A name is either a grouping level or a logger, never both, so no line ever arrives from `org.transflux.build` or `org.transflux.execution` themselves — they exist purely so you can configure a subtree.
+
+**Levels.**
+
+| Level | What to expect | Volume |
+| --- | --- | --- |
+| ERROR | Nothing. Failures are returned on `TransitionResult` or thrown. | — |
+| WARN | An observer threw and was swallowed; a compensation threw during a drain; a definition-time setter overwrote a previous value; a `WARN`-mode conditional matched nothing. | rare |
+| INFO | Build completion, and the start of a compensation drain. **Never per transition.** | per build / per rollback |
+| DEBUG | Per transition: outcome, condition results, the trigger scan and why each candidate was skipped, applier invocation. Per build: each bound component and what it resolved to. | O(transitions) |
+| TRACE | Per action: entry and exit with the qualified path and the call-site mapping decision. Registry lookups. | O(actions) |
+
+INFO staying off the per-transition path is the rule held hardest: a host running thousands of transitions a second did not ask for thousands of INFO lines, and the outcome is already on the returned `TransitionResult`.
+
+**The framework never logs your entity or your context.** Ids, class names, states, and qualified paths only — at any level, including inside exception messages. The same rule covers a throwable's type rather than its message wherever the framework reports a failure of its own. A host that wants payloads in its logs does that through a listener, where the decision is the host's to make.
+
+**Framework logging does not duplicate the listener SPI.** `ActionListener`, `TransitionListener` and `StateListener` already expose the execution trace, and a host that registers one controls its format, level, and cost. Framework logging covers what a listener cannot observe: trigger dispatch scans, condition evaluations, registry resolution, call-site mapping, compensation drains, and the build pipeline.
+
+To see why a `processEvent(...)` fired nothing, raise `org.transflux.trigger` to DEBUG — the scan reports its candidate count and one line per candidate with the reason it was passed over.
 
 ## Contributing and Workflow
 - Default branch: `main`.

@@ -84,7 +84,7 @@ class StateMachineImplExecutionLoggingSpec extends Specification {
         sm.entity(new Entity('s1', 1)).transitionTo('s2', new TestContext())
 
         then:
-        capture.messages().contains('Transition starting, transitionId=t, s1->s2')
+        capture.messages().contains('Transition starting, transitionId=t, sourceStateId=s1, targetStateId=s2')
         capture.messages().contains('State applied, transitionId=t, state=s2')
         capture.messages().contains('Transition succeeded, transitionId=t, actions=1')
     }

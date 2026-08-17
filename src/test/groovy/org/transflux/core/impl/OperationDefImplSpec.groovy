@@ -60,7 +60,8 @@ class OperationDefImplSpec extends Specification {
             .state(ACTIVE, {})
             .build()
         def composite = new OperationDefImpl<TestEntity, TestContext>('op1')
-        composite.scopeRegistry = new RegistryImpl<TestEntity>(((StateMachineImpl<TestEntity>) sm).componentRegistry)
+        composite.scopeRegistry = new RegistryImpl<TestEntity>(
+            ((StateMachineImpl<TestEntity>) sm).componentRegistry, composite.getId())
 
         when:
         composite.buildBound((StateMachineImpl<TestEntity>) sm)
@@ -111,7 +112,8 @@ class OperationDefImplSpec extends Specification {
 
         def composite = new OperationDefImpl<TestEntity, TestContext>('op1').tap { beginConfigurer() }
             .run('c-id').run('a-id').run('b-id')
-        composite.scopeRegistry = new RegistryImpl<TestEntity>(((StateMachineImpl<TestEntity>) sm).componentRegistry)
+        composite.scopeRegistry = new RegistryImpl<TestEntity>(
+            ((StateMachineImpl<TestEntity>) sm).componentRegistry, composite.getId())
 
         def entity = new TestEntity('TRIAL')
         def view = new ExecutingTransitionImpl<TestEntity, TestContext>(
@@ -144,7 +146,8 @@ class OperationDefImplSpec extends Specification {
         def composite = new OperationDefImpl<TestEntity, TestContext>('op1').tap { beginConfigurer() }
             .withCompensation(compensation)
             .run('a-id')
-        composite.scopeRegistry = new RegistryImpl<TestEntity>(((StateMachineImpl<TestEntity>) sm).componentRegistry)
+        composite.scopeRegistry = new RegistryImpl<TestEntity>(
+            ((StateMachineImpl<TestEntity>) sm).componentRegistry, composite.getId())
 
         expect:
         composite.buildBound((StateMachineImpl<TestEntity>) sm).compensation().is(compensation)
@@ -162,7 +165,8 @@ class OperationDefImplSpec extends Specification {
 
         def composite = new OperationDefImpl<TestEntity, TestContext>('op1').tap { beginConfigurer() }
             .run('known').run('missing')
-        composite.scopeRegistry = new RegistryImpl<TestEntity>(((StateMachineImpl<TestEntity>) sm).componentRegistry)
+        composite.scopeRegistry = new RegistryImpl<TestEntity>(
+            ((StateMachineImpl<TestEntity>) sm).componentRegistry, composite.getId())
 
         when:
         composite.buildBound((StateMachineImpl<TestEntity>) sm)
