@@ -275,6 +275,14 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
         recordExecutedPath(path);
         enterOperation(bound.id());
         try {
+            // The mapping decision, not the mapped value: the child context is the host's and may
+            // carry anything. Its type is what a reader needs to see the boundary was crossed.
+            if (Loggers.EXECUTION_ACTION.isTraceEnabled()) {
+                Loggers.EXECUTION_ACTION.trace("Action entered, path={}, context={}", path,
+                                               mapper == null
+                                                   ? "pass-through"
+                                                   : "mapped:" + describeType(child));
+            }
             stateMachine.notifyActionListeners(bound, ActionPhase.START, entity, effective, path,
                                                readOnly, null);
             if (mapper == null) {
@@ -289,9 +297,14 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
             }
             stateMachine.notifyActionListeners(bound, ActionPhase.COMPLETE, entity, effective, path,
                                                readOnly, null);
+            Loggers.EXECUTION_ACTION.trace("Action completed, path={}", path);
         } catch (Exception e) {
             stateMachine.notifyActionListeners(bound, ActionPhase.ERROR, entity, effective, path,
                                                readOnly, e);
+            if (Loggers.EXECUTION_ACTION.isTraceEnabled()) {
+                Loggers.EXECUTION_ACTION.trace("Action failed, path={}, errorType={}", path,
+                                               e.getClass().getName());
+            }
             throw e;
         } finally {
             exitOperation();
@@ -304,7 +317,8 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
     private BoundAction<T, ?> resolveAction(String id) {
         requireNotBlank(id, "Action ID");
 
-        Component<T> component = activeScope().resolve(id)
+        Registry<T> scope = activeScope();
+        Component<T> component = scope.resolve(id)
             .orElseThrow(() -> new TransfluxValidationException(
                 "No action registered with id '" + id + "' in the active scope"));
 
@@ -314,7 +328,19 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
                     + ", not an action");
         }
 
+        // Which scope, not merely that it resolved: the id an action dispatches may be its
+        // container's inline one or an SM-level one reached through the parent chain, and that is
+        // the distinction a lexical-visibility surprise turns on.
+        Loggers.EXECUTION_ACTION.trace("Action id resolved, id={}, scope={}", id, scope.label());
         return action.bound();
+    }
+
+    /**
+     * Names a context by type for a trace line. {@code null} is a legitimate context - an
+     * {@code Object.class} component dispatched from a {@code Void.class} caller receives one.
+     */
+    private static String describeType(Object value) {
+        return value == null ? "null" : value.getClass().getName();
     }
 
     /**

@@ -342,7 +342,7 @@ final class OperationDefImpl<T, C>
         @SuppressWarnings("unchecked")
         Map<String, BoundCondition<T, C>> typedConditions = (Map<String, BoundCondition<T, C>>) (Map<?, ?>) conditionRegistry;
 
-        RegistryImpl<T> scope = new RegistryImpl<>(rootRegistry);
+        RegistryImpl<T> scope = new RegistryImpl<>(rootRegistry, getId());
         setScopeRegistry(scope);
 
         InlineRegistrationSink<T, C> sink = new InlineRegistrationSink<>(

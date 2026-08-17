@@ -72,6 +72,16 @@ interface Registry<T> {
     Set<String> ids();
 
     /**
+     * Returns a human-readable name for this scope — {@code "root"} for a state machine's own
+     * registry, otherwise the id of the container that owns it. Registries are otherwise
+     * indistinguishable from one another, which makes "which scope did this id resolve in"
+     * unanswerable in a diagnostic.
+     *
+     * @return the scope label; never {@code null}
+     */
+    String label();
+
+    /**
      * Returns this registry's parent, or {@code null} when this is a root registry.
      *
      * @return the parent registry, or {@code null}

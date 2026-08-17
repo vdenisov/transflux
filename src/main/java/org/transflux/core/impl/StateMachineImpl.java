@@ -674,6 +674,9 @@ class StateMachineImpl<T> implements StateMachine<T> {
         // hook, so it must not produce an unmatched error notification.
         boolean started = false;
 
+        Loggers.EXECUTION_TRANSITION.debug("Transition starting, transitionId={}, {}->{}",
+                                           transitionId, sourceStateId, targetStateId);
+
         try {
             // Both pre-condition loops return straight out on rejection rather than unwinding
             // through the catch below, and that is exact rather than lax: a condition is handed the
@@ -682,21 +685,13 @@ class StateMachineImpl<T> implements StateMachine<T> {
             // because by then it is not.
             for (BoundCondition<T, C> pc : transition.boundPreConditions()) {
                 if (!pc.evaluate(BoundCondition.Role.PRE_CONDITION, entity, context, view.asReadOnly())) {
-                    return TransitionResult.failure(
-                        entity, sourceStateId, targetStateId, transitionId,
-                        new TransfluxValidationException("Pre-condition '" + pc.id()
-                            + "' failed for transition '" + transitionId + "'"),
-                        view.getExecutedPath(), null, startedAt, Instant.now());
+                    return preConditionRejected(entity, transition, pc, view, startedAt);
                 }
             }
 
             for (BoundCondition<T, C> pc : additionalPreConditions) {
                 if (!pc.evaluate(BoundCondition.Role.PRE_CONDITION, entity, context, view.asReadOnly())) {
-                    return TransitionResult.failure(
-                        entity, sourceStateId, targetStateId, transitionId,
-                        new TransfluxValidationException("Pre-condition '" + pc.id()
-                            + "' failed for transition '" + transitionId + "'"),
-                        view.getExecutedPath(), null, startedAt, Instant.now());
+                    return preConditionRejected(entity, transition, pc, view, startedAt);
                 }
             }
 
@@ -722,11 +717,20 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
             if (stateApplier != null) {
                 stateApplier.applyState(entity, targetStateId);
+                Loggers.EXECUTION_TRANSITION.debug("State applied, transitionId={}, state={}",
+                                                   transitionId, targetStateId);
+            } else {
+                Loggers.EXECUTION_TRANSITION.debug(
+                    "No state applier configured, state not written, transitionId={}, state={}",
+                    transitionId, targetStateId);
             }
 
             TransitionResult<T> succeeded = TransitionResult.success(
                 entity, sourceStateId, targetStateId, transitionId,
                 view.getExecutedPath(), startedAt, Instant.now());
+
+            Loggers.EXECUTION_TRANSITION.debug("Transition succeeded, transitionId={}, actions={}",
+                                               transitionId, succeeded.getExecutedPath().size());
 
             notifyTransitionListeners(transition, TransitionPhase.COMPLETE, entity, context,
                                       firingTrigger, succeeded);
@@ -767,6 +771,12 @@ class StateMachineImpl<T> implements StateMachine<T> {
                                                                   startedAt,
                                                                   Instant.now());
 
+            if (Loggers.EXECUTION_TRANSITION.isDebugEnabled()) {
+                Loggers.EXECUTION_TRANSITION.debug(
+                    "Transition failed, transitionId={}, errorType={}, compensated={}",
+                    transitionId, e.getClass().getName(), compensatedPath.size());
+            }
+
             if (started) {
                 notifyTransitionListeners(transition, TransitionPhase.ERROR, entity, context,
                                           firingTrigger, failed);
@@ -779,6 +789,29 @@ class StateMachineImpl<T> implements StateMachine<T> {
                 IN_FLIGHT.remove();
             }
         }
+    }
+
+    /**
+     * Reports a pre-condition rejection and builds the failure result both loops return.
+     *
+     * <p>A rejection here is not an error and produces no listener notification — §2.4 places the
+     * start hook after the pre-conditions — so this line is the only trace a rejected transition
+     * leaves behind. The stack is provably empty at this point, hence no drain and no compensated
+     * path.
+     */
+    private static <T, C> TransitionResult<T> preConditionRejected(T entity,
+                                                                   BoundTransition<T, C> transition,
+                                                                   BoundCondition<T, C> rejecting,
+                                                                   ExecutingTransitionImpl<T, C> view,
+                                                                   Instant startedAt) {
+        Loggers.EXECUTION_TRANSITION.debug("Transition rejected by pre-condition, transitionId={}, conditionId={}",
+                                           transition.id(), rejecting.id());
+
+        return TransitionResult.failure(
+            entity, transition.sourceStateId(), transition.targetStateId(), transition.id(),
+            new TransfluxValidationException("Pre-condition '" + rejecting.id()
+                + "' failed for transition '" + transition.id() + "'"),
+            view.getExecutedPath(), null, startedAt, Instant.now());
     }
 
     /**

@@ -39,6 +39,7 @@ final class RegistryImpl<T> implements Registry<T> {
 
     private final Map<String, Component<T>> components = new LinkedHashMap<>();
     private final Registry<T> parent;
+    private final String label;
 
     /**
      * Creates a parentless root registry. Equivalent to {@code new RegistryImpl<>(null)}.
@@ -53,7 +54,18 @@ final class RegistryImpl<T> implements Registry<T> {
      * @param parent the parent registry, or {@code null}
      */
     RegistryImpl(Registry<T> parent) {
+        this(parent, "root");
+    }
+
+    /**
+     * Creates a registry with the supplied parent and scope label.
+     *
+     * @param parent the parent registry, or {@code null}
+     * @param label the owning container's id, used in diagnostics
+     */
+    RegistryImpl(Registry<T> parent, String label) {
         this.parent = parent;
+        this.label = label;
     }
 
     /**
@@ -104,6 +116,11 @@ final class RegistryImpl<T> implements Registry<T> {
     @Override
     public Set<String> ids() {
         return Collections.unmodifiableSet(components.keySet());
+    }
+
+    @Override
+    public String label() {
+        return label;
     }
 
     @Override
