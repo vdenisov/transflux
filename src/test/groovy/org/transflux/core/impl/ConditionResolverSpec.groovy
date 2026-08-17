@@ -37,7 +37,7 @@ class ConditionResolverSpec extends Specification {
 
     static class TruthyCondition implements Condition<Entity, TestContext> {
         @Override
-        boolean test(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        boolean test(Entity entity, TestContext context, Transition transition) {
             true
         }
     }
@@ -47,7 +47,7 @@ class ConditionResolverSpec extends Specification {
         }
 
         @Override
-        boolean test(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        boolean test(Entity entity, TestContext context, Transition transition) {
             false
         }
     }

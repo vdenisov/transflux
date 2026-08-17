@@ -31,11 +31,11 @@ class ActionExecutionSpec extends Specification {
 
     def 'the record carries the phase, the path, the kind, and the transition'() {
         given:
-        Transition<Entity, Object> transition = Stub(Transition)
+        Transition transition = Stub(Transition)
         def path = ActionPath.of('activate', 'charge')
 
         when:
-        def execution = new ActionExecution<Entity>(
+        def execution = new ActionExecution(
             ActionPhase.COMPLETE, path, ActionKind.STEP, transition, null)
 
         then:
@@ -48,14 +48,14 @@ class ActionExecutionSpec extends Specification {
 
     def 'actionId is the leaf of the path'() {
         expect:
-        new ActionExecution<Entity>(ActionPhase.START, ActionPath.of('activate', 'charge'),
+        new ActionExecution(ActionPhase.START, ActionPath.of('activate', 'charge'),
                                     ActionKind.STEP, Stub(Transition), null).actionId() == 'charge'
     }
 
     @Unroll
     def 'the constructor rejects a null #component'() {
         when:
-        new ActionExecution<Entity>(phase, path, kind, transition, null)
+        new ActionExecution(phase, path, kind, transition, null)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -71,7 +71,7 @@ class ActionExecutionSpec extends Specification {
 
     def 'ERROR requires an error'() {
         when:
-        new ActionExecution<Entity>(ActionPhase.ERROR, ActionPath.of('a'), ActionKind.STEP,
+        new ActionExecution(ActionPhase.ERROR, ActionPath.of('a'), ActionKind.STEP,
                                     Stub(Transition), null)
 
         then:
@@ -82,7 +82,7 @@ class ActionExecutionSpec extends Specification {
     @Unroll
     def '#phase rejects an error'() {
         when:
-        new ActionExecution<Entity>(phase, ActionPath.of('a'), ActionKind.STEP, Stub(Transition),
+        new ActionExecution(phase, ActionPath.of('a'), ActionKind.STEP, Stub(Transition),
                                     new IllegalStateException('boom'))
 
         then:
@@ -98,7 +98,7 @@ class ActionExecutionSpec extends Specification {
         def boom = new IllegalStateException('boom')
 
         expect:
-        new ActionExecution<Entity>(ActionPhase.ERROR, ActionPath.of('a'), ActionKind.OPERATION,
+        new ActionExecution(ActionPhase.ERROR, ActionPath.of('a'), ActionKind.OPERATION,
                                     Stub(Transition), boom).error().is(boom)
     }
 }

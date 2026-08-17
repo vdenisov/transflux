@@ -26,6 +26,7 @@ import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.Action
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
+import org.transflux.core.transition.ExecutingTransition
 import org.transflux.core.transition.Transition
 import org.transflux.core.transition.TransitionDef
 import org.transflux.core.transition.TransitionResult
@@ -433,7 +434,7 @@ class StateMachineImplSpec extends Specification {
         def sm = (StateMachineImpl<TestEntity>) smd.build()
         def entity = new TestEntity('e1', 'TRIAL')
         def ctx = new TestContext()
-        def view = new TransitionView<TestEntity, TestContext>(sm, sm.transitions['trial-to-active'], entity, ctx)
+        def view = new ExecutingTransitionImpl<TestEntity, TestContext>(sm, sm.transitions['trial-to-active'], entity, ctx)
 
         when:
         sm.transitions['trial-to-active'].boundAction.action.execute(entity, ctx, view)
@@ -478,7 +479,7 @@ class StateMachineImplSpec extends Specification {
 
     static class ContextStampStep implements Action<TestEntity, TestContext> {
         @Override
-        void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
+        void execute(TestEntity entity, TestContext context, ExecutingTransition<TestEntity, TestContext> transition) {
             context.tag = entity.id + ':stamped'
             context.counter++
         }
@@ -486,21 +487,21 @@ class StateMachineImplSpec extends Specification {
 
     static class BumpCounterStep implements Action<TestEntity, TestContext> {
         @Override
-        void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
+        void execute(TestEntity entity, TestContext context, ExecutingTransition<TestEntity, TestContext> transition) {
             context.counter++
         }
     }
 
     static class ThrowingStep implements Action<TestEntity, TestContext> {
         @Override
-        void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
+        void execute(TestEntity entity, TestContext context, ExecutingTransition<TestEntity, TestContext> transition) {
             throw new IllegalStateException('step blew up')
         }
     }
 
     static class CallNestedStepOperation implements Action<TestEntity, TestContext> {
         @Override
-        void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
+        void execute(TestEntity entity, TestContext context, ExecutingTransition<TestEntity, TestContext> transition) {
             transition.run('stamp')
             transition.run('bump')
         }
@@ -540,7 +541,7 @@ class StateMachineImplSpec extends Specification {
     def "transitionTo with an inline step should run it and apply state"() {
         given:
         def appliedState = [:] as Map<TestEntity, String>
-        def operation = { TestEntity entity, TestContext ctx, Transition<TestEntity, TestContext> tx ->
+        def operation = { TestEntity entity, TestContext ctx, Transition tx ->
             ctx.tag = 'simple-ran'
         } as Action<TestEntity, TestContext>
 
@@ -720,7 +721,7 @@ class StateMachineImplSpec extends Specification {
         given:
         def appliedState = [:] as Map<TestEntity, String>
         def captured = []
-        def smOp = { TestEntity entity, TestContext ctx, Transition<TestEntity, TestContext> tx ->
+        def smOp = { TestEntity entity, TestContext ctx, Transition tx ->
             captured << entity.id
             ctx.tag = 'sm-op-ran'
         } as Action<TestEntity, TestContext>
@@ -785,7 +786,7 @@ class StateMachineImplSpec extends Specification {
         // IdCtx and TestContext are unrelated types; an IdCtx-typed op cannot be attached to a
         // TestContext-typed transition (the SM-level op's required context is not assignable
         // from the transition's context).
-        def narrowOp = { TestEntity e, IdCtx b, Transition<TestEntity, IdCtx> tx -> } as Action<TestEntity, IdCtx>
+        def narrowOp = { TestEntity e, IdCtx b, Transition tx -> } as Action<TestEntity, IdCtx>
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)

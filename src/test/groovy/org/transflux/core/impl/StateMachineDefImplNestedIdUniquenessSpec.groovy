@@ -25,7 +25,7 @@ import org.transflux.core.action.OperationDef
 import org.transflux.core.action.ConditionalOperationDef
 import org.transflux.core.action.Action
 import org.transflux.core.state.StateResolver
-import org.transflux.core.transition.Transition
+import org.transflux.core.transition.ExecutingTransition
 import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
 
@@ -43,13 +43,13 @@ class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
 
     static class NoOpStep implements Action<Entity, TestContext> {
         @Override
-        void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
         }
     }
 
     static class NoOpOperation implements Action<Entity, TestContext> {
         @Override
-        void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
         }
     }
 

@@ -25,7 +25,7 @@ import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.Action
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
-import org.transflux.core.transition.Transition
+import org.transflux.core.transition.ExecutingTransition
 import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
 
@@ -46,7 +46,7 @@ class StateMachineImplTriggerSpec extends Specification {
         boolean executed = false
 
         @Override
-        void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
             executed = true
         }
     }

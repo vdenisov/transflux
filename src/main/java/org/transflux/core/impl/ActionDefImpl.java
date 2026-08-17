@@ -18,17 +18,22 @@
 
 package org.transflux.core.impl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.transflux.core.Identifiable;
 import org.transflux.core.action.ActionDef;
 import org.transflux.core.action.ActionListener;
 import org.transflux.core.action.ActionListenerDef;
 import org.transflux.core.action.ActionPhase;
+import org.transflux.core.action.Compensation;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Sealed base for concrete {@link ActionDef} implementations.
@@ -53,7 +58,12 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     extends IdentifiedDefImpl<SELF> implements ActionDef<T, C>
     permits StepDefImpl, OperationDefImpl {
 
+    private static final Logger log = LoggerFactory.getLogger(ActionDefImpl.class);
+
     private final ActionListenerSink<T, C, SELF> listeners = new ActionListenerSink<>(this, self());
+
+    private final InstanceOrClassSource<Compensation<T, C>> compensation =
+        new InstanceOrClassSource<>(log, "Compensation source", defLabel());
 
     /**
      * @param id the action id
@@ -64,6 +74,32 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      */
     protected ActionDefImpl(String id, String label, String idLabel) {
         super(id, label, idLabel);
+    }
+
+    @Override
+    public SELF withCompensation(Compensation<T, C> compensation) {
+        requireConfigurerActive("withCompensation");
+        requireNotNull(compensation, "Compensation");
+        this.compensation.setInstance(compensation);
+        return self();
+    }
+
+    @Override
+    public SELF withCompensation(Class<? extends Compensation<T, C>> compensationClass) {
+        requireConfigurerActive("withCompensation");
+        requireNotNull(compensationClass, "Compensation class");
+        this.compensation.setClass(compensationClass);
+        return self();
+    }
+
+    /**
+     * Resolves the compensation declared on this def, instantiating the class form if that is what
+     * was supplied.
+     *
+     * @return the declared compensation, or {@code null} when the def declared none
+     */
+    final Compensation<T, C> buildDeclaredCompensation() {
+        return compensation.resolveOptional("Compensation");
     }
 
     @Override

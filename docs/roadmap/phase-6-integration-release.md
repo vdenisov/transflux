@@ -23,8 +23,9 @@
 ### 6.3 Observability Hooks
 - [ ] `MetricsCollector` SPI (no shipped Micrometer integration in 1.0).
 - [ ] Hook points: transition start/complete/error, step start/complete, compensation execution, trigger evaluation.
-- [ ] Consistent SLF4J logging with predictable logger names.
+- [ ] ~~Consistent SLF4J logging with predictable logger names.~~ **Moved to §4.7.** One line could not settle the shape, and Phases 4 and 5 both add code that should be born compliant rather than retrofitted. The policy now lives in CLAUDE.md §Logging; what remains here is the `MetricsCollector` SPI, which answers "how often / how long" rather than "what did the framework decide".
 - [ ] Configurable flow labels for metric separation.
+- [ ] Re-check §4.7's logger names and level discipline against the shipped release, since Phase 5's YAML code lands between the two.
 
 ### 6.4 1.0 Dependency Baseline Refresh
 

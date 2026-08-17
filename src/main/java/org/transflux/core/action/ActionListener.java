@@ -65,5 +65,5 @@ public interface ActionListener<T, C> {
      * @param execution the phase, the qualified path, the authored form, the transition, and the
      *                  failure when there is one; never {@code null}
      */
-    void onAction(T entity, C context, ActionExecution<T> execution);
+    void onAction(T entity, C context, ActionExecution execution);
 }

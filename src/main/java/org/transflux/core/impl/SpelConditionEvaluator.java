@@ -69,8 +69,8 @@ final class SpelConditionEvaluator {
      * @param expression the SpEL expression text; never {@code null} or blank
      * @param entity the entity bound as the SpEL root object; may be {@code null}
      * @param context the host-supplied context bound as {@code #context}; may be {@code null}
-     * @param transition the per-execution transition view bound as {@code #transition}; may
-     *                   be {@code null}
+     * @param transition the read-only transition view bound as {@code #transition}; may be
+     *                   {@code null}
      * @param <T> the entity type
      * @param <C> the context type
      *
@@ -80,7 +80,7 @@ final class SpelConditionEvaluator {
      *         if the expression cannot be parsed, if evaluation fails, or if the expression
      *         does not evaluate to a {@code Boolean}
      */
-    <T, C> boolean evaluate(String expression, T entity, C context, Transition<T, C> transition) {
+    <T, C> boolean evaluate(String expression, T entity, C context, Transition transition) {
         requireNotBlank(expression, "Expression");
 
         StandardEvaluationContext evalContext = new StandardEvaluationContext(entity);

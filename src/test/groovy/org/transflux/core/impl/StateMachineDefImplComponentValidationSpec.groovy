@@ -24,7 +24,7 @@ import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.OperationDef
 import org.transflux.core.action.Action
 import org.transflux.core.state.StateResolver
-import org.transflux.core.transition.Transition
+import org.transflux.core.transition.ExecutingTransition
 import spock.lang.Specification
 
 /**
@@ -44,7 +44,7 @@ class StateMachineDefImplComponentValidationSpec extends Specification {
 
     static class NoOpStep implements Action<Entity, TestContext> {
         @Override
-        void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
         }
     }
 

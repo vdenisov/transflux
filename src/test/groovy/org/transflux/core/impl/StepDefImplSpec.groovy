@@ -20,7 +20,8 @@ package org.transflux.core.impl
 
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.Action
-import org.transflux.core.transition.Transition
+import org.transflux.core.action.Compensation
+import org.transflux.core.transition.ExecutingTransition
 import spock.lang.Specification
 import spock.lang.Unroll
 
@@ -28,7 +29,22 @@ class StepDefImplSpec extends Specification {
 
     static class NoopStep implements Action<Object, Object> {
         @Override
-        void execute(Object entity, Object context, Transition<Object, Object> transition) {
+        void execute(Object entity, Object context, ExecutingTransition<Object, Object> transition) {
+        }
+    }
+
+    static class NoopCompensation implements Compensation<Object, Object> {
+        @Override
+        void compensate(Object entity, Object context) {
+        }
+    }
+
+    static class CtorlessCompensation implements Compensation<Object, Object> {
+        CtorlessCompensation(String arg) {
+        }
+
+        @Override
+        void compensate(Object entity, Object context) {
         }
     }
 
@@ -37,7 +53,7 @@ class StepDefImplSpec extends Specification {
         }
 
         @Override
-        void execute(Object entity, Object context, Transition<Object, Object> transition) {
+        void execute(Object entity, Object context, ExecutingTransition<Object, Object> transition) {
         }
     }
 
@@ -183,6 +199,99 @@ class StepDefImplSpec extends Specification {
         e.message.contains('CtorlessStep')
     }
 
+    def 'a def that declares no compensation binds none'() {
+        given:
+        def def_ = new StepDefImpl<Object, Object>('s1', Object)
+        def_.beginConfigurer()
+        def_.using(new NoopStep())
+
+        expect:
+        def_.buildBoundAction().compensation() == null
+    }
+
+    def 'withCompensation(instance) rides onto the bound action'() {
+        given:
+        def compensation = new NoopCompensation()
+        def def_ = new StepDefImpl<Object, Object>('s1', Object)
+        def_.beginConfigurer()
+        def_.using(new NoopStep()).withCompensation(compensation)
+
+        expect:
+        def_.buildBoundAction().compensation().is(compensation)
+    }
+
+    def 'withCompensation(class) resolves via the no-arg constructor'() {
+        given:
+        def def_ = new StepDefImpl<Object, Object>('s1', Object)
+        def_.beginConfigurer()
+        def_.using(new NoopStep()).withCompensation(NoopCompensation)
+
+        expect:
+        def_.buildBoundAction().compensation() instanceof NoopCompensation
+    }
+
+    def 'withCompensation(...) twice is last-write-wins'() {
+        given:
+        def second = new NoopCompensation()
+        def def_ = new StepDefImpl<Object, Object>('s1', Object)
+        def_.beginConfigurer()
+        def_.using(new NoopStep()).withCompensation(new NoopCompensation()).withCompensation(second)
+
+        expect:
+        def_.buildBoundAction().compensation().is(second)
+    }
+
+    def 'withCompensation(class) after withCompensation(instance) overrides the instance'() {
+        given:
+        def def_ = new StepDefImpl<Object, Object>('s1', Object)
+        def_.beginConfigurer()
+        def_.using(new NoopStep()).withCompensation(new NoopCompensation()).withCompensation(NoopCompensation)
+
+        expect:
+        def_.buildBoundAction().compensation() instanceof NoopCompensation
+    }
+
+    def 'withCompensation(instance) rejects null'() {
+        given:
+        def def_ = new StepDefImpl<Object, Object>('s1', Object)
+        def_.beginConfigurer()
+
+        when:
+        def_.withCompensation((Compensation<Object, Object>) null)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == 'Compensation cannot be null'
+    }
+
+    def 'withCompensation(class) rejects null'() {
+        given:
+        def def_ = new StepDefImpl<Object, Object>('s1', Object)
+        def_.beginConfigurer()
+
+        when:
+        def_.withCompensation((Class<? extends Compensation<Object, Object>>) null)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == 'Compensation class cannot be null'
+    }
+
+    def 'a compensation class lacking a no-arg constructor fails at build, not at rollback'() {
+        given:
+        def def_ = new StepDefImpl<Object, Object>('s1', Object)
+        def_.beginConfigurer()
+        def_.using(new NoopStep()).withCompensation(CtorlessCompensation)
+
+        when:
+        def_.buildBoundAction()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains('no accessible no-arg constructor')
+        e.message.contains('CtorlessCompensation')
+    }
+
     @Unroll
     def 'post-configurer #mutator throws naming the step'() {
         given:
@@ -199,8 +308,9 @@ class StepDefImplSpec extends Specification {
         e.message.contains('after its configurer has returned')
 
         where:
-        mutator    | action
-        'using'    | { it.using(new NoopStep()) }
-        'withName' | { it.withName('n') }
+        mutator             | action
+        'using'             | { it.using(new NoopStep()) }
+        'withName'          | { it.withName('n') }
+        'withCompensation'  | { it.withCompensation(new NoopCompensation()) }
     }
 }

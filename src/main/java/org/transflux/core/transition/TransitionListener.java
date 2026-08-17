@@ -68,5 +68,5 @@ public interface TransitionListener<T, C> {
      * @param execution the phase, the transition, the trigger that fired it, and — at the
      *                  terminal hooks — the outcome; never {@code null}
      */
-    void onTransition(T entity, C context, TransitionExecution<T, C> execution);
+    void onTransition(T entity, C context, TransitionExecution<T> execution);
 }

@@ -24,6 +24,7 @@ import org.transflux.core.condition.Condition
 import org.transflux.core.action.Action
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
+import org.transflux.core.transition.ExecutingTransition
 import org.transflux.core.transition.Transition
 import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
@@ -47,14 +48,14 @@ class StateMachineImplConditionEvaluationSpec extends Specification {
         boolean executed = false
 
         @Override
-        void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
             executed = true
         }
     }
 
     static class RegistryProbeCondition implements Condition<Entity, TestContext> {
         @Override
-        boolean test(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        boolean test(Entity entity, TestContext context, Transition transition) {
             entity.value > 0
         }
     }

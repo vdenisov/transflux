@@ -30,7 +30,7 @@ class StateChangeSpec extends Specification {
     def 'the record carries the phase, the state, and the transition'() {
         given:
         State<Entity> state = Stub(State)
-        Transition<Entity, ?> transition = Stub(Transition)
+        Transition transition = Stub(Transition)
 
         when:
         def change = new StateChange<Entity>(StatePhase.ENTRY, state, transition)
@@ -71,7 +71,7 @@ class StateChangeSpec extends Specification {
     def 'records with equal components are equal and share a hash code'() {
         given:
         State<Entity> state = Stub(State)
-        Transition<Entity, ?> transition = Stub(Transition)
+        Transition transition = Stub(Transition)
 
         and:
         def a = new StateChange<Entity>(StatePhase.EXIT, state, transition)

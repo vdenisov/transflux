@@ -28,7 +28,7 @@ class ActionListenerDefImplSpec extends Specification {
 
     static class NoopListener implements ActionListener<Object, Object> {
         @Override
-        void onAction(Object entity, Object context, ActionExecution<Object> execution) {
+        void onAction(Object entity, Object context, ActionExecution execution) {
         }
     }
 
@@ -37,7 +37,7 @@ class ActionListenerDefImplSpec extends Specification {
         }
 
         @Override
-        void onAction(Object entity, Object context, ActionExecution<Object> execution) {
+        void onAction(Object entity, Object context, ActionExecution execution) {
         }
     }
 

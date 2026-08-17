@@ -26,7 +26,7 @@ import org.transflux.core.action.ConditionalOperationDef;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.StepDef;
-import org.transflux.core.transition.Transition;
+import org.transflux.core.transition.ExecutingTransition;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -296,7 +296,8 @@ final class OperationDefImpl<T, C>
 
         Action<T, C> executor = new CompositeOperationExecutor<>(members, scopeRegistry);
 
-        return BoundAction.of(getId(), executor, ActionKind.OPERATION, buildBoundListeners());
+        return BoundAction.of(getId(), executor, ActionKind.OPERATION, buildBoundListeners(),
+                              buildDeclaredCompensation());
     }
 
     @Override
@@ -380,9 +381,9 @@ final class OperationDefImpl<T, C>
 
     /**
      * Iterates an ordered list of {@link CompositeMember} entries and invokes each one against
-     * the supplied {@link Transition} view through a single unified dispatch path.
+     * the supplied {@link ExecutingTransition} through a single unified dispatch path.
      *
-     * <p>Every member goes through {@link TransitionView#runAction}, whatever form it was
+     * <p>Every member goes through {@link ExecutingTransitionImpl#runAction}, whatever form it was
      * authored in, so compensation capture, id recording and nesting are identical here and at
      * every other dispatch site. Pass-through mode runs the member against the parent context
      * verbatim; mapped mode produces a child context via {@code mapTo}, runs against it, then
@@ -408,15 +409,15 @@ final class OperationDefImpl<T, C>
         }
 
         @Override
-        public void execute(T entity, C context, Transition<T, C> transition) {
-            if (!(transition instanceof TransitionView<?, ?> rawView)) {
+        public void execute(T entity, C context, ExecutingTransition<T, C> transition) {
+            if (!(transition instanceof ExecutingTransitionImpl<?, ?> rawView)) {
                 throw new TransfluxValidationException(
-                    "Composite operation requires a per-execution TransitionView; got "
+                    "Composite operation must run against the framework's own executing transition; got "
                         + (transition == null ? "null" : transition.getClass().getName()));
             }
 
             @SuppressWarnings("unchecked")
-            TransitionView<T, C> view = (TransitionView<T, C>) rawView;
+            ExecutingTransitionImpl<T, C> view = (ExecutingTransitionImpl<T, C>) rawView;
             view.pushScope(scopeRegistry);
             try {
                 for (CompositeMember<T, C> member : members) {
@@ -428,7 +429,7 @@ final class OperationDefImpl<T, C>
         }
 
         @SuppressWarnings({"unchecked", "rawtypes"})
-        private void dispatchMember(TransitionView<T, C> view, CompositeMember<T, C> member) {
+        private void dispatchMember(ExecutingTransitionImpl<T, C> view, CompositeMember<T, C> member) {
             ResolvedContextMapping mapping = member.mapping();
             ContextMapper<Object, Object> mapper = mapping.isPassThrough() ? null : mapping.mapper();
 

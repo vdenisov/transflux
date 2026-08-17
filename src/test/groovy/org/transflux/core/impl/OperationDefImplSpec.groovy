@@ -28,7 +28,7 @@ import org.transflux.core.action.ContextMapper
 import org.transflux.core.action.Action
 import org.transflux.core.action.Compensation
 import org.transflux.core.state.StateResolver
-import org.transflux.core.transition.Transition
+import org.transflux.core.transition.ExecutingTransition
 import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
 import spock.lang.Unroll
@@ -114,7 +114,7 @@ class OperationDefImplSpec extends Specification {
         composite.scopeRegistry = new RegistryImpl<TestEntity>(((StateMachineImpl<TestEntity>) sm).componentRegistry)
 
         def entity = new TestEntity('TRIAL')
-        def view = new TransitionView<TestEntity, TestContext>(
+        def view = new ExecutingTransitionImpl<TestEntity, TestContext>(
             (StateMachineImpl<TestEntity>) sm,
             ((StateMachineImpl<TestEntity>) sm).transitions['t1'],
             entity,
@@ -128,6 +128,26 @@ class OperationDefImplSpec extends Specification {
         then:
         entity.trail == ['c', 'a', 'b']
         view.executedPath*.toString() == ['c-id', 'a-id', 'b-id']
+    }
+
+    def "declared compensation rides onto the bound container"() {
+        given: 'a container has no Java body, so the def is its only channel for a compensation'
+        def compensation = { e, c -> } as Compensation<TestEntity, TestContext>
+        def sm = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .step('a-id', new AppendStep('a'))
+            .state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', {}) })
+            .state(ACTIVE, {})
+            .build()
+
+        def composite = new OperationDefImpl<TestEntity, TestContext>('op1').tap { beginConfigurer() }
+            .withCompensation(compensation)
+            .run('a-id')
+        composite.scopeRegistry = new RegistryImpl<TestEntity>(((StateMachineImpl<TestEntity>) sm).componentRegistry)
+
+        expect:
+        composite.buildBound((StateMachineImpl<TestEntity>) sm).compensation().is(compensation)
     }
 
     def "build should reject reference to unknown step id"() {
@@ -165,7 +185,7 @@ class OperationDefImplSpec extends Specification {
 
         def sm = (StateMachineImpl<TestEntity>) smd.build()
         def entity = new TestEntity('TRIAL')
-        def view = new TransitionView<TestEntity, TestContext>(sm, sm.transitions['t1'], entity, new TestContext())
+        def view = new ExecutingTransitionImpl<TestEntity, TestContext>(sm, sm.transitions['t1'], entity, new TestContext())
 
         when:
         sm.transitions['t1'].boundAction.action.execute(entity, view.context, view)
@@ -408,14 +428,14 @@ class OperationDefImplSpec extends Specification {
         }
 
         @Override
-        void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
+        void execute(TestEntity entity, TestContext context, ExecutingTransition<TestEntity, TestContext> transition) {
             entity.trail << tag
         }
     }
 
     static class FooStep implements Action<TestEntity, TestContext> {
         @Override
-        void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
+        void execute(TestEntity entity, TestContext context, ExecutingTransition<TestEntity, TestContext> transition) {
             entity.trail << 'foo'
         }
     }
@@ -426,18 +446,18 @@ class OperationDefImplSpec extends Specification {
         }
 
         @Override
-        void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
+        void execute(TestEntity entity, TestContext context, ExecutingTransition<TestEntity, TestContext> transition) {
         }
     }
 
     static class IdOverloadStep implements Action<Object, Object> {
         @Override
-        void execute(Object e, Object c, Transition<Object, Object> t) {}
+        void execute(Object e, Object c, ExecutingTransition<Object, Object> t) {}
     }
 
     static class IdOverloadOp implements Action<Object, Object> {
         @Override
-        void execute(Object e, Object c, Transition<Object, Object> t) {}
+        void execute(Object e, Object c, ExecutingTransition<Object, Object> t) {}
     }
 
     static class CtxAssertEntity {
@@ -450,7 +470,7 @@ class OperationDefImplSpec extends Specification {
 
     static class CtxAssertNoopStep implements Action<CtxAssertEntity, CtxAssertCorrectCtx> {
         @Override
-        void execute(CtxAssertEntity entity, CtxAssertCorrectCtx context, Transition<CtxAssertEntity, CtxAssertCorrectCtx> transition) { }
+        void execute(CtxAssertEntity entity, CtxAssertCorrectCtx context, ExecutingTransition<CtxAssertEntity, CtxAssertCorrectCtx> transition) { }
     }
 
     static class NestedFailEntity {
@@ -466,7 +486,7 @@ class OperationDefImplSpec extends Specification {
 
     static class NestedFailChildOp implements Action<NestedFailEntity, NestedFailChildCtx> {
         @Override
-        void execute(NestedFailEntity entity, NestedFailChildCtx context, Transition<NestedFailEntity, NestedFailChildCtx> transition) {
+        void execute(NestedFailEntity entity, NestedFailChildCtx context, ExecutingTransition<NestedFailEntity, NestedFailChildCtx> transition) {
             entity.trail << 'child-ran'
         }
 

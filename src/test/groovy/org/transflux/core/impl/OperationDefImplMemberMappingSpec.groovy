@@ -24,7 +24,7 @@ import org.transflux.core.action.OperationDef
 import org.transflux.core.action.ContextMapper
 import org.transflux.core.action.Action
 import org.transflux.core.state.StateResolver
-import org.transflux.core.transition.Transition
+import org.transflux.core.transition.ExecutingTransition
 import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
 
@@ -57,7 +57,7 @@ class OperationDefImplMemberMappingSpec extends Specification {
     /** Reusable step that knows only PaymentCtx — never sees any parent. */
     static class ChargeStep implements Action<Entity, PaymentCtx> {
         @Override
-        void execute(Entity entity, PaymentCtx context, Transition<Entity, PaymentCtx> transition) {
+        void execute(Entity entity, PaymentCtx context, ExecutingTransition<Entity, PaymentCtx> transition) {
             context.result = 'charged-' + context.reference + '-' + context.cents
             entity.trail << ('charge:' + context.reference)
         }

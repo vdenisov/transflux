@@ -26,6 +26,7 @@ import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.MapperDef;
 import org.transflux.core.action.Action;
 import org.transflux.core.transition.ActionPath;
+import org.transflux.core.transition.ExecutingTransition;
 import org.transflux.core.transition.Transition;
 
 import java.util.ArrayDeque;
@@ -40,14 +41,14 @@ import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
- * Per-execution view of a {@link Transition}.
+ * The {@link ExecutingTransition} implementation, built fresh for each transition execution and
+ * handed to the underlying {@link Action} as the {@code transition} parameter.
  * <p>
- * The framework builds a fresh {@code TransitionView} for each transition execution and hands
- * it to the underlying {@link Action} as the {@code transition} parameter. Topology
- * accessors delegate to the {@link BoundTransition} record that carries the resolved
- * per-transition data; the dispatch methods declared on {@link Transition} run against the
- * captured execution scope (entity, context, step-id recorder, compensation stack) by
- * resolving the id against the enclosing state machine's registries.
+ * Topology accessors delegate to the {@link BoundTransition} record that carries the resolved
+ * per-transition data; the dispatch methods run against the captured execution scope (entity,
+ * context, step-id recorder, compensation stack) by resolving the id against the enclosing state
+ * machine's registries. Observers get {@link TransitionImpl} instead, which is the reason this
+ * type is reachable from an action's body and from nowhere else.
  *
  * <p>This is framework-internal runtime infrastructure intended only for use by Transflux's
  * own runtime; user code should not reference it directly.
@@ -55,7 +56,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <T> the entity type the enclosing state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-class TransitionView<T, C> implements Transition<T, C> {
+class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
     private final StateMachineImpl<T> stateMachine;
     private final BoundTransition<T, C> boundTransition;
 
@@ -72,8 +73,10 @@ class TransitionView<T, C> implements Transition<T, C> {
 
     private final Deque<String> operationStack = new ArrayDeque<>();
 
-    TransitionView(StateMachineImpl<T> stateMachine, BoundTransition<T, C> boundTransition,
-                   T entity, C context) {
+    private final Transition readOnly;
+
+    ExecutingTransitionImpl(StateMachineImpl<T> stateMachine, BoundTransition<T, C> boundTransition,
+                            T entity, C context) {
         requireNotNull(stateMachine, "State machine");
         requireNotNull(boundTransition, "Bound transition");
 
@@ -81,6 +84,21 @@ class TransitionView<T, C> implements Transition<T, C> {
         this.boundTransition = boundTransition;
         this.entity = entity;
         this.context = context;
+        this.readOnly = TransitionImpl.of(boundTransition);
+    }
+
+    /**
+     * Returns the same transition without the dispatch surface, for handing to code that observes
+     * the execution rather than drives it — conditions and listeners.
+     * <p>
+     * This is a separate object rather than an upcast of {@code this}, and it has to be: an upcast
+     * would let a listener widen its payload back to {@link ExecutingTransition} and dispatch after
+     * all. Built once per execution.
+     *
+     * @return the read-only view; never {@code null}
+     */
+    Transition asReadOnly() {
+        return readOnly;
     }
 
     @Override
@@ -209,8 +227,8 @@ class TransitionView<T, C> implements Transition<T, C> {
      * <p>
      * The order is fixed and uniform:
      * <ol>
-     *   <li>capture the action's {@link Action#getCompensation(Object, Object) compensation} and
-     *       push it onto the rollback stack, against the same context {@code execute} will see;</li>
+     *   <li>capture the action's compensation and push it onto the rollback stack, against the same
+     *       context {@code execute} will see;</li>
      *   <li>record the action's id on the executed path;</li>
      *   <li>push the id onto the operation-nesting stack;</li>
      *   <li>execute;</li>
@@ -222,6 +240,10 @@ class TransitionView<T, C> implements Transition<T, C> {
      * executed and compensated paths consistent with each other. Pushing the nesting stack for
      * every action means anything it dispatches is qualified underneath it, so the reported tree
      * matches the tree that actually ran at every level.
+     *
+     * <p>A compensation declared on the action's def takes precedence over
+     * {@link Action#getCompensation(Object, Object)}, which is then not consulted at all: the
+     * declaration site is the more specific statement of what rolls this action back.
      *
      * <p>With a mapper, {@code mapTo} produces the child context before the action starts and
      * {@link ContextMapper#mapFrom(Object, Object) mapFrom} folds child-side changes back into
@@ -243,13 +265,18 @@ class TransitionView<T, C> implements Transition<T, C> {
         Object child = mapper == null ? null : mapper.mapTo(active);
         Object effective = mapper == null ? active : child;
 
-        pushCompensation(bound.id(), (Compensation) bound.action().getCompensation(entity, effective));
         ActionPath path = qualifyActionPath(bound.id());
+        Compensation<T, Object> declared = bound.compensation();
+        pushCompensation(path,
+                         (Compensation) (declared != null
+                             ? declared
+                             : bound.action().getCompensation(entity, effective)),
+                         (C) effective);
         recordExecutedPath(path);
         enterOperation(bound.id());
         try {
             stateMachine.notifyActionListeners(bound, ActionPhase.START, entity, effective, path,
-                                               boundTransition, null);
+                                               readOnly, null);
             if (mapper == null) {
                 ((Action) bound.action()).execute(entity, active, this);
             } else {
@@ -261,10 +288,10 @@ class TransitionView<T, C> implements Transition<T, C> {
                 }
             }
             stateMachine.notifyActionListeners(bound, ActionPhase.COMPLETE, entity, effective, path,
-                                               boundTransition, null);
+                                               readOnly, null);
         } catch (Exception e) {
             stateMachine.notifyActionListeners(bound, ActionPhase.ERROR, entity, effective, path,
-                                               boundTransition, e);
+                                               readOnly, e);
             throw e;
         } finally {
             exitOperation();
@@ -363,20 +390,25 @@ class TransitionView<T, C> implements Transition<T, C> {
     }
 
     /**
-     * Pushes a {@link Compensation} onto this view's LIFO rollback stack under the supplied
-     * step id. A {@code null} compensation is a no-op; this lets callers forward the result of
+     * Pushes a {@link Compensation} onto this view's LIFO rollback stack at the supplied
+     * qualified path. A {@code null} compensation is a no-op; this lets callers forward the result of
      * {@link org.transflux.core.action.Action#getCompensation(Object, Object)} unconditionally
      * without first checking it for {@code null}.
      *
-     * @param localStepId the id of the step the compensation rolls back; must be non-blank
+     * <p>The context is captured alongside the callback and handed back at rollback time, so a
+     * compensation registered behind a call-site mapper is compensated against the child context
+     * its action ran on rather than the enclosing one.
+     *
+     * @param path the qualified path of the action the compensation rolls back; never {@code null}
      * @param compensation the compensation callback; ignored when {@code null}
+     * @param context the context the compensated action runs against; may be {@code null}
      */
-    void pushCompensation(String localStepId, Compensation<T, C> compensation) {
-        requireNotBlank(localStepId, "Step ID");
+    void pushCompensation(ActionPath path, Compensation<T, C> compensation, C context) {
+        requireNotNull(path, "Action path");
         if (compensation == null) {
             return;
         }
-        compensationStack.push(new BoundCompensation<>(qualifyActionPath(localStepId), compensation));
+        compensationStack.push(new BoundCompensation<>(path, compensation, context));
     }
 
     /**

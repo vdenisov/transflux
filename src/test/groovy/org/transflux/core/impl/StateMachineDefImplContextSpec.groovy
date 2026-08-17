@@ -25,6 +25,7 @@ import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.OperationDef
 import org.transflux.core.action.Action
 import org.transflux.core.state.StateResolver
+import org.transflux.core.transition.ExecutingTransition
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
 import spock.lang.Unroll
@@ -355,35 +356,35 @@ class StateMachineDefImplContextSpec extends Specification {
 
     static class StepA implements Action<Entity, CtxA> {
         @Override
-        void execute(Entity entity, CtxA context, Transition<Entity, CtxA> transition) {
+        void execute(Entity entity, CtxA context, ExecutingTransition<Entity, CtxA> transition) {
             entity.trail << 'step-a'
         }
     }
 
     static class StepB implements Action<Entity, CtxB> {
         @Override
-        void execute(Entity entity, CtxB context, Transition<Entity, CtxB> transition) {
+        void execute(Entity entity, CtxB context, ExecutingTransition<Entity, CtxB> transition) {
             entity.trail << 'step-b'
         }
     }
 
     static class CondA implements Condition<Entity, CtxA> {
         @Override
-        boolean test(Entity entity, CtxA context, Transition<Entity, CtxA> transition) { true }
+        boolean test(Entity entity, CtxA context, Transition transition) { true }
     }
 
     static class IdOverloadStep implements Action<Object, Object> {
         @Override
-        void execute(Object e, Object c, Transition<Object, Object> t) {}
+        void execute(Object e, Object c, ExecutingTransition<Object, Object> t) {}
     }
 
     static class IdOverloadCondition implements Condition<Object, Object> {
         @Override
-        boolean test(Object e, Object c, Transition<Object, Object> t) { true }
+        boolean test(Object e, Object c, Transition t) { true }
     }
 
     static class IdOverloadOperation implements Action<Object, Object> {
         @Override
-        void execute(Object e, Object c, Transition<Object, Object> t) {}
+        void execute(Object e, Object c, ExecutingTransition<Object, Object> t) {}
     }
 }

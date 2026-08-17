@@ -58,7 +58,7 @@ class SpelConditionEvaluatorSpec extends Specification {
         given:
         def eval = new SpelConditionEvaluator()
         def entity = new Entity(value: 5)
-        Transition<Entity, Ctx> transition = Mock()
+        Transition transition = Mock()
         transition.getTargetStateId() >> 'ACTIVE'
 
         expect:

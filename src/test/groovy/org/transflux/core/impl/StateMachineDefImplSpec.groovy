@@ -26,6 +26,7 @@ import org.transflux.core.action.ContextMapper
 import org.transflux.core.action.Action
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
+import org.transflux.core.transition.ExecutingTransition
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
 import spock.lang.Unroll
@@ -398,17 +399,17 @@ class StateMachineDefImplSpec extends Specification {
 
     static class IdOverloadStep implements Action<Object, Object> {
         @Override
-        void execute(Object e, Object c, Transition<Object, Object> t) {}
+        void execute(Object e, Object c, ExecutingTransition<Object, Object> t) {}
     }
 
     static class IdOverloadCondition implements Condition<Object, Object> {
         @Override
-        boolean test(Object e, Object c, Transition<Object, Object> t) { true }
+        boolean test(Object e, Object c, Transition t) { true }
     }
 
     static class IdOverloadOperation implements Action<Object, Object> {
         @Override
-        void execute(Object e, Object c, Transition<Object, Object> t) {}
+        void execute(Object e, Object c, ExecutingTransition<Object, Object> t) {}
     }
 
     static class IdOverloadMapper implements ContextMapper<Object, Object> {

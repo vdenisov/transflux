@@ -27,11 +27,12 @@ import org.slf4j.LoggerFactory;
 import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.BranchDef;
+import org.transflux.core.action.Compensation;
 import org.transflux.core.action.ConditionalOperationDef;
 import org.transflux.core.action.DefaultBranchDef;
 import org.transflux.core.action.NoMatchBehavior;
 import org.transflux.core.action.Action;
-import org.transflux.core.transition.Transition;
+import org.transflux.core.transition.ExecutingTransition;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -55,7 +56,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * <p><b>Build-time resolution.</b> Branch conditions are resolved eagerly against the
  * supplied condition registry. Branch action refs are <em>not</em> resolved eagerly: the
  * executor resolves each member by id at execution time via
- * {@link TransitionView#run(String)}, which consults the active scope and walks the parent
+ * {@link ExecutingTransitionImpl#run(String)}, which consults the active scope and walks the parent
  * chain up to the root registry. This sidesteps the build-order dependency between the bound
  * action registry and the conditional executor that lives in that very registry.
  *
@@ -75,6 +76,8 @@ final class ConditionalOperationDefImpl<T, C>
     private final List<BranchDefImpl<T, C>> branches = new ArrayList<>();
     private final ActionListenerSink<T, C, ConditionalOperationDef<T, C>> listeners =
         new ActionListenerSink<>(this, this);
+    private final InstanceOrClassSource<Compensation<T, C>> compensation =
+        new InstanceOrClassSource<>(log, "Compensation source", defLabel());
     private DefaultBranchDefImpl<T, C> defaultBranch;
     private NoMatchBehavior noMatchBehavior = NoMatchBehavior.WARN;
 
@@ -120,6 +123,23 @@ final class ConditionalOperationDefImpl<T, C>
         DefaultBranchDefImpl<T, C> branch = new DefaultBranchDefImpl<>();
         ConfigurableDefImpl.runConfigurer(branch, configurer);
         this.defaultBranch = branch;
+        return this;
+    }
+
+    @Override
+    public ConditionalOperationDef<T, C> withCompensation(Compensation<T, C> compensation) {
+        requireConfigurerActive("withCompensation");
+        requireNotNull(compensation, "Compensation");
+        this.compensation.setInstance(compensation);
+        return this;
+    }
+
+    @Override
+    public ConditionalOperationDef<T, C> withCompensation(
+            Class<? extends Compensation<T, C>> compensationClass) {
+        requireConfigurerActive("withCompensation");
+        requireNotNull(compensationClass, "Compensation class");
+        this.compensation.setClass(compensationClass);
         return this;
     }
 
@@ -390,7 +410,11 @@ final class ConditionalOperationDefImpl<T, C>
 
         Action<T, C> executor = new ConditionalBranchExecutor(resolvedBranches,
                                                               defaultStepIds, noMatchBehavior, getId());
-        return BoundAction.of(getId(), executor, ActionKind.OPERATION, listeners.buildBound());
+        // Deliberately the same call ActionDefImpl.buildDeclaredCompensation makes: a conditional
+        // sits outside that sealed hierarchy, so nothing but this shared helper keeps the two
+        // declaration channels resolving by the same rule.
+        return BoundAction.of(getId(), executor, ActionKind.OPERATION, listeners.buildBound(),
+                              compensation.resolveOptional("Compensation"));
     }
 
     private static <T, C> List<String> collectStepIds(List<ActionRef<T, C>> refs) {
@@ -437,10 +461,10 @@ final class ConditionalOperationDefImpl<T, C>
      * order and dispatches the first matching branch's members through the central action
      * runner.
      * <p>
-     * Branch members are resolved by id at execution time via {@link TransitionView#run(String)},
+     * Branch members are resolved by id at execution time via {@link ExecutingTransitionImpl#run(String)},
      * which consults the active scope and walks the parent chain up to the root registry. This
      * sidesteps the build-order dependency between the bound action registry and this executor —
-     * by the time {@link #execute(Object, Object, Transition)} runs, the state machine is fully
+     * by the time {@link #execute(Object, Object, ExecutingTransition)} runs, the state machine is fully
      * constructed and every referenced id is resolvable. That the ids <em>are</em> resolvable is
      * established at build time by {@link #checkBranchRefs}.
      */
@@ -461,17 +485,17 @@ final class ConditionalOperationDefImpl<T, C>
         }
 
         @Override
-        public void execute(T entity, C context, Transition<T, C> transition) {
-            if (!(transition instanceof TransitionView<?, ?> rawView)) {
+        public void execute(T entity, C context, ExecutingTransition<T, C> transition) {
+            if (!(transition instanceof ExecutingTransitionImpl<?, ?> rawView)) {
                 throw new TransfluxValidationException(
-                    "Conditional operation requires a per-execution TransitionView; got "
+                    "Conditional operation must run against the framework's own executing transition; got "
                         + (transition == null ? "null" : transition.getClass().getName()));
             }
             @SuppressWarnings("unchecked")
-            TransitionView<T, C> view = (TransitionView<T, C>) rawView;
+            ExecutingTransitionImpl<T, C> view = (ExecutingTransitionImpl<T, C>) rawView;
 
             for (ResolvedBranch<T, C> branch : resolvedBranches) {
-                if (branch.condition().condition().test(entity, context, view)) {
+                if (branch.condition().condition().test(entity, context, view.asReadOnly())) {
                     dispatchActionIds(branch.stepIds(), view);
                     return;
                 }
@@ -492,7 +516,7 @@ final class ConditionalOperationDefImpl<T, C>
             }
         }
 
-        private void dispatchActionIds(List<String> actionIds, TransitionView<T, C> view) {
+        private void dispatchActionIds(List<String> actionIds, ExecutingTransitionImpl<T, C> view) {
             for (String actionId : actionIds) {
                 view.run(actionId);
             }

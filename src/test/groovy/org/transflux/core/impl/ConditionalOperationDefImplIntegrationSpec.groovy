@@ -30,7 +30,7 @@ import org.transflux.core.action.NoMatchBehavior
 import org.transflux.core.action.Action
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
-import org.transflux.core.transition.Transition
+import org.transflux.core.transition.ExecutingTransition
 import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
 
@@ -58,7 +58,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         }
 
         @Override
-        void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
             entity.trail << tag
         }
     }
@@ -71,7 +71,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         }
 
         @Override
-        void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
             entity.trail << tag
         }
 
@@ -84,7 +84,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
 
     static class ThrowingStep implements Action<Entity, TestContext> {
         @Override
-        void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
             throw new RuntimeException('boom')
         }
     }

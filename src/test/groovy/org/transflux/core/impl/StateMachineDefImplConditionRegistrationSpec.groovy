@@ -36,14 +36,14 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
 
     static class CondA implements Condition<TestEntity, TestContext> {
         @Override
-        boolean test(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
+        boolean test(TestEntity entity, TestContext context, Transition transition) {
             entity.value > 0
         }
     }
 
     static class CondB implements Condition<TestEntity, TestContext> {
         @Override
-        boolean test(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
+        boolean test(TestEntity entity, TestContext context, Transition transition) {
             false
         }
     }
@@ -53,7 +53,7 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
         }
 
         @Override
-        boolean test(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
+        boolean test(TestEntity entity, TestContext context, Transition transition) {
             false
         }
     }

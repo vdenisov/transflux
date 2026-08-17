@@ -48,7 +48,7 @@ class DataTriggerDefImplSpec extends Specification {
 
     static class HighPriority implements Condition<Entity, TestContext> {
         @Override
-        boolean test(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        boolean test(Entity entity, TestContext context, Transition transition) {
             return entity.priority > 5
         }
     }

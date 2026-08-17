@@ -44,23 +44,22 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * {@link TransitionPhase#ERROR} partition success from failure, a completion listener never has
  * to check whether the transition actually worked.
  *
- * <p>The transition is a read-only topology view. Its id and source/target accessors answer
- * normally, but every {@code step} and {@code operation} dispatch method throws: a listener runs
- * either before the operation has started or after the outcome is settled, so work it dispatched
- * would produce side effects whose compensations could never be executed.
+ * <p>The transition is the read-only {@link Transition} view rather than the dispatching handle an
+ * action receives: a listener runs either before the operation has started or after the outcome is
+ * settled, so work it dispatched would produce side effects whose compensations could never be
+ * executed.
  *
  * @param phase which point of the execution this notification describes
- * @param transition the transition being executed, as a read-only topology view
+ * @param transition the transition being executed
  * @param firedBy the trigger that caused this execution, or {@code null} when the host invoked
  *                the transition directly
  * @param result the outcome, or {@code null} at {@link TransitionPhase#START}
  * @param <T> the entity type the surrounding state machine manages
- * @param <C> the host-supplied context type carried through transition execution
  */
-public record TransitionExecution<T, C>(TransitionPhase phase,
-                                        Transition<T, C> transition,
-                                        Trigger firedBy,
-                                        TransitionResult<T> result) {
+public record TransitionExecution<T>(TransitionPhase phase,
+                                     Transition transition,
+                                     Trigger firedBy,
+                                     TransitionResult<T> result) {
 
     public TransitionExecution {
         requireNotNull(phase, "Transition execution phase");

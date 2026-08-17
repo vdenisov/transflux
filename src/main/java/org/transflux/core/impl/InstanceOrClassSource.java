@@ -78,6 +78,20 @@ final class InstanceOrClassSource<X> {
     }
 
     /**
+     * Resolves an optional slot: the resolved value when one was declared, {@code null} when none
+     * was. Owners of a slot that may legitimately stay empty - a def's compensation, say - go
+     * through here rather than pairing {@link #isSet()} with {@link #resolve(String)} themselves,
+     * so the "declared or not" rule has one definition.
+     *
+     * @param kindLabel the label naming what is being resolved, used in diagnostics
+     *
+     * @return the resolved value, or {@code null} when nothing was declared
+     */
+    X resolveOptional(String kindLabel) {
+        return isSet() ? resolve(kindLabel) : null;
+    }
+
+    /**
      * The resolution half of the helper without the mutability or warning: returns
      * {@code instance} when non-null, else instantiates {@code klass} via
      * {@link ReflectionUtils#instantiateNoArg}. Used by call sites that already hold the two

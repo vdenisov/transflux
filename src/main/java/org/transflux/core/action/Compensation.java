@@ -26,12 +26,17 @@ package org.transflux.core.action;
  * more steps have already run, giving each unit of work a chance to clean up before the
  * failure is reported to the caller.
  *
- * <p>The same contract is used for both step-level and operation-level rollback. A
- * {@link Action} returns its compensation from {@link Action#getCompensation(Object, Object)}
- * before {@code execute} runs; the runtime captures that compensation against the step's id
- * and pushes it onto the per-execution rollback stack before invoking {@code execute}. The
- * compensation therefore covers partial side effects from a step whose {@code execute} throws
- * partway through, not just steps that completed successfully.
+ * <p>The same contract is used for both authoring forms, and there are two ways to supply one. An
+ * {@link Action} can return its compensation from {@link Action#getCompensation(Object, Object)},
+ * per invocation; any action's def can declare one statically through
+ * {@link ActionDef#withCompensation(Compensation)}, which is the only channel open to a declarative
+ * container, since it has no Java body to override. A declaration wins over the dynamic hook, which
+ * is then not consulted.
+ *
+ * <p>Either way the runtime captures the compensation against the action's id and pushes it onto the
+ * per-execution rollback stack <em>before</em> invoking {@code execute}. The compensation therefore
+ * covers partial side effects from an action whose {@code execute} throws partway through, not just
+ * actions that completed successfully.
  *
  * <p>Implementations should be best-effort: a throw from {@code compensate} is logged and the
  * runtime continues with the remaining compensations on the stack.
@@ -48,7 +53,8 @@ public interface Compensation<T, C> {
      * @param entity the entity the unit of work ran against; matches what was passed to the
      *               original {@code execute(...)} call
      * @param context the host-supplied context the unit of work ran against; matches what was
-     *                passed to the original {@code execute(...)} call and may be {@code null}
+     *                passed to the original {@code execute(...)} call - the mapped child context
+     *                where the call site mapped one - and may be {@code null}
      */
     void compensate(T entity, C context);
 }

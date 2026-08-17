@@ -152,9 +152,13 @@ Defines valid state changes and their associated operations, conditions, and tri
 - Transition-specific listeners (`onStart`, `onComplete`, `onError`).
 - Compensation strategies.
 
+**Two runtime types, split by capability.** `Transition` is the read-only view: the transition's id, source state, and target state, stable for the lifetime of the state machine and carrying nothing that can run work or change anything. It is not parameterized — it describes topology, in the same way `State` and `Trigger` describe theirs. `ExecutingTransition<T, C>` extends it with the `run(...)` dispatch surface (§2.2.6) and exists only while a transition is in flight, because dispatch needs what only a live execution has: the entity and context under transition, the executed-path recorder, the compensation stack, and the scope an id resolves against.
+
+The split is the enforcement mechanism for a rule that runs through the rest of this document. An action's body receives the executing type. Everything that observes an execution rather than driving it — pre- and post-conditions, a branch condition, a data trigger's gate, and all three listener categories — receives the read-only type, so code positioned where dispatched work could not be rolled back has no way to express the dispatch. Where that rule is restated below (§2.2.9, §2.2.10, §3.4.3), it is this typing that carries it.
+
 #### 2.2.5 Action
 
-The unit of work executed during state transitions. `Action<T, C>` is a **pure functional contract** with a single `execute(entity, context, transition)` method plus an optional `getCompensation(entity, context)`; it is identity-free at runtime, and the definition side carries the id, name, and description.
+The unit of work executed during state transitions. `Action<T, C>` is a **pure functional contract** with a single `execute(entity, context, transition)` method plus an optional `getCompensation(entity, context)`; it is identity-free at runtime, and the definition side carries the id, name, and description. The third parameter is the `ExecutingTransition<T, C>` of §2.2.4 — an action's body is the only place the framework hands out the dispatching type.
 
 **Two authoring forms, mutually exclusive:**
 - **`StepDef`** — *imperative*: a Java body, supplied as an `Action<T, C>` instance or as a class the framework instantiates. It binds no children, though it may dispatch other actions by id while it runs.
@@ -205,7 +209,7 @@ Manages the various mechanisms for initiating state transitions.
 
 #### 2.2.9 Condition System
 
-Provides validation and gating mechanisms for transitions. `Condition<T, C>` is a **pure functional contract** with a single `test(entity, context, transition)` method; condition ids live on the def-side authoring vocabulary — the `condition(id, ...)` registry on `StateMachineDef` and on the `ConditionDescriptor` carried by transition / branch / data-trigger attachment sites.
+Provides validation and gating mechanisms for transitions. `Condition<T, C>` is a **pure functional contract** with a single `test(entity, context, transition)` method, whose third parameter is the read-only `Transition` of §2.2.4: deciding whether work runs is not doing work, and the parameter is there so that one condition registered under a single id can tell apart the transitions it is attached to. Condition ids live on the def-side authoring vocabulary — the `condition(id, ...)` registry on `StateMachineDef` and on the `ConditionDescriptor` carried by transition / branch / data-trigger attachment sites.
 
 **Types:**
 - **PreCondition** — validates transition eligibility before execution.
@@ -240,7 +244,7 @@ The three categories differ in what they can tell the host. A state listener ans
 
 **Context typing splits the categories.** A transition declares exactly one context type, and so does an action, so a listener attached to either receives that type directly. A state does not: it can be entered from transitions carrying different context types, so a state listener takes the firing context as `Object` (possibly `null`). Registrations that span every transition, or every action, are the same case and likewise take `Object`. The rule of thumb: needing a typed context means writing a transition or action listener; needing only to know that an entity entered or left a state means writing a state listener, which is then free to treat whatever context it is handed generically — serialising it into an audit trail, for instance.
 
-**The transition handed to a listener is read-only.** Listeners receive the topology of the responsible transition (its id, source, and target) but cannot dispatch steps or operations through it, for the same reason a data trigger's gate cannot: work dispatched outside a live execution would produce side effects whose compensations could never run. For an action listener the reason is narrower and sharper — it runs *inside* a live execution, so work it dispatched would interleave into the executed path and the compensation stack as though the observed action had dispatched it.
+**The transition handed to a listener is read-only.** A listener's payload carries the responsible transition as the read-only `Transition` of §2.2.4 — its id, source, and target, and no way to dispatch — for the same reason a data trigger's gate receives that type: work dispatched outside a live execution would produce side effects whose compensations could never run. For an action listener the reason is narrower and sharper: it runs *inside* a live execution, so work it dispatched would interleave into the executed path and the compensation stack as though the observed action had dispatched it. Because the restriction is carried by the type rather than by a check, a listener that tries has nothing to compile against.
 
 #### 2.2.11 Compensation Engine
 
@@ -252,7 +256,11 @@ Manages error recovery and rollback operations.
 - **A single `Compensation<T, C>` interface**, receiving `(entity, context)`. **Any action may declare one**, in either authoring form.
 - The compensation is captured **before** the action runs and pushed onto the rollback stack at that point, so an action that throws partway through producing side effects still has its rollback registered (§2.4 step 5).
 
-An imperative action can return its compensation dynamically from `getCompensation(entity, context)`, which sees the same entity and context references `execute` will run against. A declarative container has no Java object to hang that on and declares one statically on its def instead. Both shapes predate the unified action model; unifying only stopped hiding them behind a type split.
+There are two authoring channels. An imperative action can return its compensation dynamically from `getCompensation(entity, context)`, which sees the same entity and context references `execute` will run against. Any action's *definition* can declare one statically through `withCompensation(...)`, in an instance or a class form — the only channel open to a declarative container, which has no Java object to hang the dynamic hook on. Both shapes predate the unified action model; unifying only stopped hiding them behind a type split.
+
+**A declaration wins over the dynamic hook**, which is then not consulted at all. The declaration site is the more specific statement of what rolls this action back, and the rule keeps one action to one compensation rather than making `compensatedPath` carry the same qualified path twice.
+
+At rollback each compensation receives **the context its action ran against** — the mapped child context where the call site mapped one (§4.5.2), not the enclosing transition's. That is what makes the compensation's contract, "the same references `execute` saw", hold at a mapped call site.
 
 Container compensation is **additive, not a replacement**: a container's own compensation and its members' all run. Because the container is pushed on entry, before it dispatches anything, LIFO unwinding drains its members first and the container last. One consequence is worth stating plainly, since it reads like a bug in a stack trace otherwise: a container's compensation runs even when its first member fails immediately, before the container itself did anything of its own.
 
@@ -376,7 +384,7 @@ The framework parses each loaded resource exactly once per `StateMachine` build.
 #### 2.7.1 Snapshot Semantics
 
 - **Every external entry point** (`entity(...)`, `executeTransition(...)`, `processEvent(...)`, `processDataChange(...)`, `getTransition(...)`, `getState(...)`, `resolveCurrentState(...)`, catalog lookups) captures the current snapshot at the top of the call and runs against that snapshot for the duration of the call. A swap mid-call does not affect the in-flight call.
-- **`TransitionView`** holds the snapshot it was constructed with; every callback into the view — `view.run(...)`, compensation drains, condition evaluations — resolves against that snapshot. An execution that started before the swap finishes against the pre-swap topology.
+- **The executing transition** holds the snapshot it was constructed with; every callback into it — `run(...)` dispatch, compensation drains, condition evaluations — resolves against that snapshot. An execution that started before the swap finishes against the pre-swap topology.
 - **New invocations** after the swap see the new snapshot.
 
 #### 2.7.2 Replacing the Definition
@@ -1613,7 +1621,7 @@ public class ActivateSubscriptionAction
     
     @Override
     public void execute(Subscription subscription, SubscriptionContext context,
-                        Transition<Subscription, SubscriptionContext> transition) {
+                        ExecutingTransition<Subscription, SubscriptionContext> transition) {
         validateSubscription(subscription.getId());
         
         // Run other registered actions by id, through the transition view
@@ -1933,7 +1941,7 @@ public class PrepareEventActorAction
     
     @Override
     public void execute(Subscription subscription, ActivationContext context,
-                        Transition<Subscription, ActivationContext> transition) {
+                        ExecutingTransition<Subscription, ActivationContext> transition) {
         EventActor eventActor = eventActorService.createEventActor(
             subscription.getId(), "SYSTEM");
         context.setEventActor(eventActor);
@@ -1952,7 +1960,7 @@ public class ValidatePrerequisitesAction
     
     @Override
     public void execute(Subscription subscription, ActivationContext context,
-                        Transition<Subscription, ActivationContext> transition) {
+                        ExecutingTransition<Subscription, ActivationContext> transition) {
         boolean isValid = performValidation(subscription, context);
         context.setValidationResult(isValid);
         context.setValidatedAt(Instant.now());
@@ -1964,15 +1972,27 @@ public class ValidatePrerequisitesAction
 
 ```java
 operation("complex-operation", c -> c
-    .step("validate-prerequisites", ValidatePrerequisitesAction.class, s -> s
+    // A compensation declared on the def; the instance form takes a lambda
+    .step("validate-prerequisites", s -> s
+        .using(ValidatePrerequisitesAction.class)
         .withCompensation(ValidationCompensation.class))
 
     // Action with custom error handling
-    .step("risky-action", RiskyAction.class, s -> s
+    .step("risky-action", s -> s
+        .using(RiskyAction.class)
         .onException(SpecificException.class, h -> h
             .compensateWith(SpecificCompensation.class))
         .onException(Exception.class, h -> h
             .compensateWith(GeneralCompensation.class))));
+```
+
+The declaration is available on any action's def, in either authoring form, and is what a declarative container uses — it has no Java body to override `getCompensation` on:
+
+```java
+operation("charge-and-ship", c -> c
+    .withCompensation((order, ctx) -> auditService.recordRollback(order.getId()))
+    .run("charge-card")
+    .run("reserve-stock"));
 ```
 
 ### 4.7 Conditions and Validators
@@ -2076,7 +2096,7 @@ public class TransitionAuditListener
 
     @Override
     public void onTransition(Subscription subscription, ActivationContext context,
-                             TransitionExecution<Subscription, ActivationContext> execution) {
+                             TransitionExecution<Subscription> execution) {
         Trigger firedBy = execution.firedBy();
         auditService.log(subscription,
                          execution.phase(),
@@ -2104,7 +2124,7 @@ public class ChargeAuditListener
 
     @Override
     public void onAction(Subscription subscription, BillingContext context,
-                         ActionExecution<Subscription> execution) {
+                         ActionExecution execution) {
         auditService.record(subscription,
                             execution.phase(),
                             execution.path(),          // e.g. activate/charge-card

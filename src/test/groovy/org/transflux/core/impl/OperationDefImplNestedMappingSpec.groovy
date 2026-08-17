@@ -23,7 +23,7 @@ import org.transflux.core.action.OperationDef
 import org.transflux.core.action.ContextMapper
 import org.transflux.core.action.Action
 import org.transflux.core.state.StateResolver
-import org.transflux.core.transition.Transition
+import org.transflux.core.transition.ExecutingTransition
 import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
 
@@ -53,7 +53,7 @@ class OperationDefImplNestedMappingSpec extends Specification {
     /** Reads `subscriptionId` from the child context and writes `activationResult` back. */
     static class ChildOp implements Action<Entity, ChildCtx> {
         @Override
-        void execute(Entity entity, ChildCtx context, Transition<Entity, ChildCtx> transition) {
+        void execute(Entity entity, ChildCtx context, ExecutingTransition<Entity, ChildCtx> transition) {
             context.activationResult = 'activated-' + context.subscriptionId
         }
     }

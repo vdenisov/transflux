@@ -30,17 +30,17 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * the change. Together they let a globally-registered listener — which is attached to no
  * particular state — tell one notification from another.
  *
- * <p>The transition is a read-only topology view. Its id and source/target accessors answer
- * normally, but every {@code step} and {@code operation} dispatch method throws: a listener runs
- * either before the operation has started or after the transition has already been committed, so
- * work it dispatched would produce side effects whose compensations could never be executed.
+ * <p>The transition is the read-only {@link Transition} view rather than the dispatching handle an
+ * action receives: a listener runs either before the operation has started or after the transition
+ * has already been committed, so work it dispatched would produce side effects whose compensations
+ * could never be executed.
  *
  * @param phase whether the state is being entered or left
  * @param state the state being entered or left
- * @param transition the transition causing the change, as a read-only topology view
+ * @param transition the transition causing the change
  * @param <T> the entity type the surrounding state machine manages
  */
-public record StateChange<T>(StatePhase phase, State<T> state, Transition<T, ?> transition) {
+public record StateChange<T>(StatePhase phase, State<T> state, Transition transition) {
 
     public StateChange {
         requireNotNull(phase, "State change phase");

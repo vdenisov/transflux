@@ -217,7 +217,7 @@ class ConditionDescriptorSpec extends Specification {
 
     static class SampleCondition implements Condition<Object, Object> {
         @Override
-        boolean test(Object entity, Object context, Transition<Object, Object> transition) {
+        boolean test(Object entity, Object context, Transition transition) {
             true
         }
     }

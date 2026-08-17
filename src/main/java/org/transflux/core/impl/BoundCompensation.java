@@ -30,13 +30,19 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * {@link org.transflux.core.transition.TransitionResult#getCompensatedPath()} under the
  * same qualified-path form as executed steps.
  *
+ * <p>The context captured alongside the callback is the one the action itself ran against - the
+ * mapped child context where the call site maps, the enclosing one otherwise. The drain hands it
+ * back at rollback time, which is what makes {@link Compensation#compensate(Object, Object)}'s
+ * contract - the same references {@code execute} saw - hold at a mapped call site.
+ *
  * @param path the qualified action path the compensation was registered against; never
  *             {@code null}
  * @param compensation the rollback callback; never {@code null}
+ * @param context the context the compensated action ran against; may be {@code null}
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-record BoundCompensation<T, C>(ActionPath path, Compensation<T, C> compensation) {
+record BoundCompensation<T, C>(ActionPath path, Compensation<T, C> compensation, C context) {
 
     BoundCompensation {
         requireNotNull(path, "Bound compensation action path");

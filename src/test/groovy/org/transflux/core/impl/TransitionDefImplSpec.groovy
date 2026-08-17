@@ -26,6 +26,7 @@ import org.transflux.core.action.OperationDef
 import org.transflux.core.action.Action
 import org.transflux.core.action.StepDef
 import org.transflux.core.state.StateResolver
+import org.transflux.core.transition.ExecutingTransition
 import org.transflux.core.transition.Transition
 import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
@@ -524,13 +525,13 @@ class TransitionDefImplSpec extends Specification {
 
     static class FooStep implements Action<Object, Object> {
         @Override
-        void execute(Object entity, Object context, Transition<Object, Object> transition) {
+        void execute(Object entity, Object context, ExecutingTransition<Object, Object> transition) {
         }
     }
 
     static class FooOperation implements Action<Object, Object> {
         @Override
-        void execute(Object entity, Object context, Transition<Object, Object> transition) {
+        void execute(Object entity, Object context, ExecutingTransition<Object, Object> transition) {
         }
     }
 
@@ -544,11 +545,11 @@ class TransitionDefImplSpec extends Specification {
 
     static class IdOverloadOp implements Action<Object, Object> {
         @Override
-        void execute(Object e, Object c, Transition<Object, Object> t) {}
+        void execute(Object e, Object c, ExecutingTransition<Object, Object> t) {}
     }
 
     static class IdOverloadCond implements Condition<Object, Object> {
         @Override
-        boolean test(Object e, Object c, Transition<Object, Object> t) { true }
+        boolean test(Object e, Object c, Transition t) { true }
     }
 }

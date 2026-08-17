@@ -31,12 +31,12 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * plus the resolved {@link BoundAction} and pre/post {@link BoundCondition} lists, all
  * computed once against the live registry.
  *
- * <p>This type does not participate in dispatch. The per-execution
- * {@link org.transflux.core.transition.Transition} surface (topology accessors plus the
- * {@code step(...)} / {@code operation(...)} entry points) lives on {@link TransitionView},
- * which holds a {@code BoundTransition} in its {@code bound} field and runs against the
- * captured execution scope. Members of the {@code Bound*} family are framework-internal
- * data carriers; user code should not reference this type directly.
+ * <p>This type implements neither runtime transition interface. The topology accessors user code
+ * sees are answered by {@link TransitionImpl}, which copies the three strings out of this record;
+ * the {@code run(...)} dispatch surface lives on {@link ExecutingTransitionImpl}, which holds a
+ * {@code BoundTransition} and runs against the captured execution scope. Members of the
+ * {@code Bound*} family are framework-internal data carriers; user code should not reference this
+ * type directly.
  *
  * @param id the transition id; never {@code null} or blank
  * @param sourceStateId the source state id; never {@code null} or blank

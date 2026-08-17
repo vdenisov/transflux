@@ -34,7 +34,7 @@ class StateMachineDefImplTransitionListenerSpec extends Specification {
 
     static class NoopListener implements TransitionListener<Object, Object> {
         @Override
-        void onTransition(Object entity, Object context, TransitionExecution<Object, Object> execution) {
+        void onTransition(Object entity, Object context, TransitionExecution<Object> execution) {
         }
     }
 

@@ -30,9 +30,9 @@ import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Call-site declaration of a {@link ContextMapper} reference. Captures the unresolved choice
- * the user made at a composite-member or {@code TransitionView.step(...)} / {@code .operation(...)}
- * call site; the build pipeline resolves it against the enclosing state machine's mapper
- * registry to produce a runtime {@link ResolvedContextMapping}.
+ * the user made at a composite-member or {@code ExecutingTransition.run(...)} call site; the build
+ * pipeline resolves it against the enclosing state machine's mapper registry to produce a runtime
+ * {@link ResolvedContextMapping}.
  *
  * <p>Four forms are supported:
  * <ul>

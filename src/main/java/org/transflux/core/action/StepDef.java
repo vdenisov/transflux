@@ -75,6 +75,12 @@ public interface StepDef<T, C> extends ActionDef<T, C> {
     StepDef<T, C> withDescription(String description);
 
     @Override
+    StepDef<T, C> withCompensation(Compensation<T, C> compensation);
+
+    @Override
+    StepDef<T, C> withCompensation(Class<? extends Compensation<T, C>> compensationClass);
+
+    @Override
     StepDef<T, C> onStart(String listenerId, ActionListener<T, C> listener);
 
     @Override

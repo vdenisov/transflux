@@ -20,6 +20,7 @@ package org.transflux.core.impl;
 
 import org.transflux.core.action.Action;
 import org.transflux.core.action.ActionKind;
+import org.transflux.core.action.Compensation;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
@@ -34,11 +35,15 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param listeners the action's own listeners, in declaration order; never {@code null}. They ride
  *                  on the bound record rather than on the call site, so an action is observed
  *                  wherever it runs
+ * @param compensation the compensation declared on the action's def, or {@code null} when the def
+ *                     declared none. It takes precedence over
+ *                     {@link Action#getCompensation(Object, Object)}, which is not consulted at all
+ *                     when this is present
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
 record BoundAction<T, C>(String id, Action<T, C> action, ActionKind kind,
-                         BoundActionListeners<T, C> listeners) {
+                         BoundActionListeners<T, C> listeners, Compensation<T, C> compensation) {
 
     BoundAction {
         requireNotBlank(id, "Bound action ID");
@@ -48,8 +53,8 @@ record BoundAction<T, C>(String id, Action<T, C> action, ActionKind kind,
     }
 
     /**
-     * Convenience factory for an action nothing observes - the shape produced wherever no def
-     * exists to carry a listener.
+     * Convenience factory for an action nothing observes and nothing declared a compensation for -
+     * the shape produced wherever no def exists to carry either.
      *
      * @param id the action id
      * @param action the action executable
@@ -57,26 +62,28 @@ record BoundAction<T, C>(String id, Action<T, C> action, ActionKind kind,
      * @param <T> the entity type
      * @param <C> the context type
      *
-     * @return a fresh bound action with no listeners
+     * @return a fresh bound action with no listeners and no declared compensation
      */
     static <T, C> BoundAction<T, C> of(String id, Action<T, C> action, ActionKind kind) {
-        return new BoundAction<>(id, action, kind, BoundActionListeners.none());
+        return new BoundAction<>(id, action, kind, BoundActionListeners.none(), null);
     }
 
     /**
-     * Convenience factory equivalent to the canonical constructor.
+     * Convenience factory for a def-backed action.
      *
      * @param id the action id
      * @param action the action executable
      * @param kind the authoring form
      * @param listeners the action's own listeners
+     * @param compensation the compensation declared on the def, or {@code null}
      * @param <T> the entity type
      * @param <C> the context type
      *
      * @return a fresh bound action
      */
     static <T, C> BoundAction<T, C> of(String id, Action<T, C> action, ActionKind kind,
-                                       BoundActionListeners<T, C> listeners) {
-        return new BoundAction<>(id, action, kind, listeners);
+                                       BoundActionListeners<T, C> listeners,
+                                       Compensation<T, C> compensation) {
+        return new BoundAction<>(id, action, kind, listeners, compensation);
     }
 }

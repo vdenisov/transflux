@@ -32,6 +32,7 @@ import org.transflux.core.action.OperationDef
 import org.transflux.core.action.StepDef
 import org.transflux.core.condition.Condition
 import org.transflux.core.exception.TransfluxValidationException
+import org.transflux.core.transition.ExecutingTransition
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateListener
 import org.transflux.core.state.StateResolver
@@ -88,7 +89,7 @@ class StateMachineImplActionListenerSpec extends Specification {
         }
 
         @Override
-        void onAction(Entity entity, Object context, ActionExecution<Entity> execution) {
+        void onAction(Entity entity, Object context, ActionExecution execution) {
         }
     }
 
@@ -332,10 +333,11 @@ class StateMachineImplActionListenerSpec extends Specification {
         entity.state == 's2'
     }
 
-    def 'the transition handed to a listener refuses to dispatch actions'() {
+    def 'the transition handed to a listener carries no way to dispatch actions'() {
         given:
         def failures = []
         def stepRuns = []
+        def dispatchable = []
         def entity = new Entity('s1')
         def sm = build({ d ->
             d.step('side-effect', Object, { StepDef s ->
@@ -347,6 +349,7 @@ class StateMachineImplActionListenerSpec extends Specification {
                          s.using({ e, ctx, tr -> } as Action)
                           .onStart('meddler', { e, ctx, x ->
                               try {
+                                  dispatchable << (x.transition() instanceof ExecutingTransition)
                                   x.transition().run('side-effect')
                               } catch (Exception ex) {
                                   failures << ex.message
@@ -365,7 +368,7 @@ class StateMachineImplActionListenerSpec extends Specification {
         result.success
         stepRuns.isEmpty()
         failures.size() == 1
-        failures.first().contains('read-only topology view')
+        dispatchable == [false]
     }
 
     def 'the context a listener sees is the one the action itself runs against'() {

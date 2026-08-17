@@ -24,7 +24,7 @@ import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.Action
 import org.transflux.core.state.StateResolver
-import org.transflux.core.transition.Transition
+import org.transflux.core.transition.ExecutingTransition
 import spock.lang.Specification
 import spock.lang.Unroll
 
@@ -41,13 +41,13 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
 
     static class StepA implements Action<TestEntity, TestContext> {
         @Override
-        void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
+        void execute(TestEntity entity, TestContext context, ExecutingTransition<TestEntity, TestContext> transition) {
         }
     }
 
     static class StepB implements Action<TestEntity, TestContext> {
         @Override
-        void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
+        void execute(TestEntity entity, TestContext context, ExecutingTransition<TestEntity, TestContext> transition) {
         }
     }
 
@@ -56,7 +56,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         }
 
         @Override
-        void execute(TestEntity entity, TestContext context, Transition<TestEntity, TestContext> transition) {
+        void execute(TestEntity entity, TestContext context, ExecutingTransition<TestEntity, TestContext> transition) {
         }
     }
 

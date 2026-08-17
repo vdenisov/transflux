@@ -66,6 +66,13 @@ public interface ConditionalOperationDef<T, C> extends ActionDef<T, C> {
      */
     ConditionalOperationDef<T, C> withDescription(String description);
 
+    @Override
+    ConditionalOperationDef<T, C> withCompensation(Compensation<T, C> compensation);
+
+    @Override
+    ConditionalOperationDef<T, C> withCompensation(
+        Class<? extends Compensation<T, C>> compensationClass);
+
     /**
      * Defines a regular conditional branch. The supplied configurer must set exactly one
      * condition on the branch and append at least one step to it.

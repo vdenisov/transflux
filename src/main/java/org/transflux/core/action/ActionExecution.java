@@ -50,23 +50,22 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * other two hooks. Because {@link ActionPhase#COMPLETE} and {@link ActionPhase#ERROR} partition the
  * outcomes, a completion listener never has to check whether the action actually worked.
  *
- * <p>The transition is a read-only topology view. Its id and source/target accessors answer
- * normally, but every {@code run} method throws: an action listener runs inside a live execution,
- * and work it dispatched would interleave into the executed path and the compensation stack as
- * though the observed action had dispatched it.
+ * <p>The transition is the read-only {@link Transition} view rather than the dispatching handle the
+ * observed action itself received: an action listener runs inside a live execution, and work it
+ * dispatched would interleave into the executed path and the compensation stack as though the
+ * observed action had dispatched it.
  *
  * @param phase which point of the execution this notification describes
  * @param path the qualified path of this invocation, outermost enclosing action first
  * @param kind the form the action was authored in
- * @param transition the transition this execution belongs to, as a read-only topology view
+ * @param transition the transition this execution belongs to
  * @param error the failure, or {@code null} at any phase other than {@link ActionPhase#ERROR}
- * @param <T> the entity type the surrounding state machine manages
  */
-public record ActionExecution<T>(ActionPhase phase,
-                                 ActionPath path,
-                                 ActionKind kind,
-                                 Transition<T, ?> transition,
-                                 Throwable error) {
+public record ActionExecution(ActionPhase phase,
+                              ActionPath path,
+                              ActionKind kind,
+                              Transition transition,
+                              Throwable error) {
 
     public ActionExecution {
         requireNotNull(phase, "Action execution phase");

@@ -25,9 +25,11 @@ import org.transflux.core.condition.ConditionDescriptor
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.ActionKind
 import org.transflux.core.action.BranchDef
+import org.transflux.core.action.Compensation
 import org.transflux.core.action.DefaultBranchDef
 import org.transflux.core.action.NoMatchBehavior
 import org.transflux.core.action.Action
+import org.transflux.core.transition.ExecutingTransition
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
 import spock.lang.Unroll
@@ -44,14 +46,14 @@ class ConditionalOperationDefImplSpec extends Specification {
 
     static class AlwaysTrueCondition implements Condition<Entity, TestContext> {
         @Override
-        boolean test(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        boolean test(Entity entity, TestContext context, Transition transition) {
             true
         }
     }
 
     static class NoopStep implements Action<Entity, TestContext> {
         @Override
-        void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
         }
     }
 
@@ -175,6 +177,30 @@ class ConditionalOperationDefImplSpec extends Specification {
         then:
         bound.kind() == ActionKind.OPERATION
         bound.id() == 'c1'
+    }
+
+    def 'declared compensation rides onto the bound conditional'() {
+        given: 'a conditional has no Java body, so the def is its only channel for a compensation'
+        def compensation = { e, c -> } as Compensation<Entity, TestContext>
+        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+            .withCompensation(compensation)
+            .branch('b1', { BranchDef<Entity, TestContext> b ->
+                b.condition('cond1', { e -> true } as Predicate).step('s1', new NoopStep())
+            })
+
+        expect:
+        cond.buildBoundAction([:]).compensation().is(compensation)
+    }
+
+    def 'a conditional that declares no compensation binds none'() {
+        given:
+        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+            .branch('b1', { BranchDef<Entity, TestContext> b ->
+                b.condition('cond1', { e -> true } as Predicate).step('s1', new NoopStep())
+            })
+
+        expect:
+        cond.buildBoundAction([:]).compensation() == null
     }
 
     def 'duplicate branch id is rejected at configurer time'() {

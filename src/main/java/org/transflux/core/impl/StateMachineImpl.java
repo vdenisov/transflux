@@ -194,7 +194,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
      * root of the execution tree obeys the ordering and compensation rules its children do.
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private static <T, C> void runRootAction(TransitionView<T, C> view, BoundAction<T, C> bound) {
+    private static <T, C> void runRootAction(ExecutingTransitionImpl<T, C> view, BoundAction<T, C> bound) {
         view.runAction((BoundAction) bound, null);
     }
 
@@ -431,7 +431,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
         }
 
         StateChange<T> change =
-            new StateChange<>(phase, states.get(stateId), new TopologyTransition<>(transition));
+            new StateChange<>(phase, states.get(stateId), TransitionImpl.of(transition));
 
         for (BoundStateListener<T> listener : listeners) {
             try {
@@ -457,8 +457,8 @@ class StateMachineImpl<T> implements StateMachine<T> {
             return;
         }
 
-        TransitionExecution<T, C> execution = new TransitionExecution<>(
-            phase, new TopologyTransition<>(transition), firedBy, result);
+        TransitionExecution<T> execution = new TransitionExecution<>(
+            phase, TransitionImpl.of(transition), firedBy, result);
 
         for (BoundTransitionListener<T, C> listener : listeners) {
             try {
@@ -483,20 +483,21 @@ class StateMachineImpl<T> implements StateMachine<T> {
      * @param context the context the action itself runs against - the mapped child context at a
      *                mapped call site
      * @param path the action's qualified path within this execution
-     * @param transition the transition being executed, wrapped read-only for the payload
+     * @param transition the read-only view of the transition being executed - the caller's own, so
+     *                   that the one view built per execution serves every notification in it
      * @param error the failure at {@link ActionPhase#ERROR}, otherwise {@code null}
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
     <C> void notifyActionListeners(BoundAction<T, C> bound, ActionPhase phase, T entity, C context,
-                                   ActionPath path, BoundTransition<T, ?> transition, Throwable error) {
+                                   ActionPath path, Transition transition, Throwable error) {
         List<BoundActionListener<T, C>> own = bound.listeners().forPhase(phase);
         List<BoundActionListener<T, Object>> global = globalActionListeners.forPhase(phase);
         if (own.isEmpty() && global.isEmpty()) {
             return;
         }
 
-        ActionExecution<T> execution = new ActionExecution<>(
-            phase, path, bound.kind(), new TopologyTransition<>(transition), error);
+        ActionExecution execution = new ActionExecution(
+            phase, path, bound.kind(), transition, error);
 
         for (BoundActionListener<T, C> listener : own) {
             notifyActionListener(listener, entity, context, execution);
@@ -507,7 +508,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
     }
 
     private <C> void notifyActionListener(BoundActionListener<T, C> listener, T entity, C context,
-                                          ActionExecution<T> execution) {
+                                          ActionExecution execution) {
         try {
             listener.listener().onAction(entity, context, execution);
         } catch (Exception e) {
@@ -664,15 +665,20 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
         C context = (C) firingContext;
         Instant startedAt = Instant.now();
-        TransitionView<T, C> view = new TransitionView<>(this, transition, entity, context);
+        ExecutingTransitionImpl<T, C> view = new ExecutingTransitionImpl<>(this, transition, entity, context);
 
         // Gates the terminal hooks: a pre-condition that rejects or throws never reached the start
         // hook, so it must not produce an unmatched error notification.
         boolean started = false;
 
         try {
+            // Both pre-condition loops return straight out on rejection rather than unwinding
+            // through the catch below, and that is exact rather than lax: a condition is handed the
+            // read-only view, so none of them can have dispatched anything and the compensation
+            // stack is provably still empty. The post-condition loop further down throws instead,
+            // because by then it is not.
             for (BoundCondition<T, C> pc : transition.boundPreConditions()) {
-                if (!pc.condition().test(entity, context, view)) {
+                if (!pc.condition().test(entity, context, view.asReadOnly())) {
                     return TransitionResult.failure(
                         entity, sourceStateId, targetStateId, transitionId,
                         new TransfluxValidationException("Pre-condition '" + pc.id()
@@ -682,7 +688,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
             }
 
             for (BoundCondition<T, C> pc : additionalPreConditions) {
-                if (!pc.condition().test(entity, context, view)) {
+                if (!pc.condition().test(entity, context, view.asReadOnly())) {
                     return TransitionResult.failure(
                         entity, sourceStateId, targetStateId, transitionId,
                         new TransfluxValidationException("Pre-condition '" + pc.id()
@@ -700,21 +706,14 @@ class StateMachineImpl<T> implements StateMachine<T> {
                 runRootAction(view, boundAction);
             }
 
-            // TODO: a failing post-condition must drain the compensation stack the same way the
-            //  catch block below does, and report the drained paths as compensatedPath. Until it
-            //  does, this branch reports an empty compensatedPath even when the operation
-            //  registered compensations.
+            // Thrown rather than returned so a violation unwinds through the catch below, which
+            // drains the compensation stack and reports what it rolled back. That is the same
+            // path a post-condition that *throws* already takes, and it leaves the state applier
+            // below unreached, so the entity's state is not committed.
             for (BoundCondition<T, C> pc : transition.boundPostConditions()) {
-                if (!pc.condition().test(entity, context, view)) {
-                    TransitionResult<T> failed = TransitionResult.failure(
-                        entity, sourceStateId, targetStateId, transitionId,
-                        new TransfluxValidationException("Post-condition '" + pc.id()
-                            + "' failed for transition '" + transitionId + "'"),
-                        view.getExecutedPath(), null, startedAt, Instant.now());
-
-                    notifyTransitionListeners(transition, TransitionPhase.ERROR, entity, context,
-                                              firingTrigger, failed);
-                    return failed;
+                if (!pc.condition().test(entity, context, view.asReadOnly())) {
+                    throw new TransfluxValidationException("Post-condition '" + pc.id()
+                        + "' failed for transition '" + transitionId + "'");
                 }
             }
 
@@ -736,10 +735,17 @@ class StateMachineImpl<T> implements StateMachine<T> {
             List<BoundCompensation<T, C>> drained = view.drainCompensationsLifo();
             List<ActionPath> compensatedPath = new ArrayList<>(drained.size());
 
+            if (!drained.isEmpty()) {
+                // The class name, never the message: an exception raised by the framework itself can
+                // carry the entity, and a host's own exception can carry anything at all.
+                log.info("Transition '{}' failed, draining compensations, count={}, errorType={}",
+                        transitionId, drained.size(), e.getClass().getName());
+            }
+
             for (BoundCompensation<T, C> bc : drained) {
                 compensatedPath.add(bc.path());
                 try {
-                    bc.compensation().compensate(entity, context);
+                    bc.compensation().compensate(entity, bc.context());
                 } catch (Exception ce) {
                     log.warn("Compensation for step '{}' threw '{}': {}",
                             bc.path(), ce.getClass().getName(), ce.getMessage());
@@ -1061,15 +1067,14 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
         /**
          * Evaluates a data trigger's gate ahead of any transition being entered, so the gate never
-         * touches the reentrancy guard. The view handed to the gate exposes the transition's
-         * topology but rejects step and operation dispatch; a held gate fires a fresh execution
-         * that gets a full view of its own.
+         * touches the reentrancy guard. The gate is a condition and therefore sees topology only;
+         * a held gate fires a fresh execution, which is where dispatch becomes available.
          */
         @SuppressWarnings("unchecked")
         private <C> boolean gateHolds(DataTriggerImpl<T, C> trigger, BoundTransition<T, ?> transition,
                                       Object context) {
             C ctx = (C) context;
-            Transition<T, C> probe = new TopologyTransition<>((BoundTransition<T, C>) transition);
+            Transition probe = TransitionImpl.of(transition);
             return sneakyGet(() -> trigger.gate().condition().test(entity, ctx, probe),
                 "Data trigger '" + trigger.getId() + "' gate condition failed");
         }

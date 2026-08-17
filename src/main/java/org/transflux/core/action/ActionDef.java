@@ -96,6 +96,50 @@ public interface ActionDef<T, C> extends Identifiable {
     ActionDef<T, C> withDescription(String description);
 
     /**
+     * Declares the {@link Compensation} that rolls this action's effects back.
+     * <p>
+     * This is the second of the two authoring channels for a compensation. An imperative action can
+     * return one per invocation from {@link Action#getCompensation(Object, Object)}; a declarative
+     * container has no Java object to hang that on and declares one here instead. The declaration
+     * takes precedence: when a def declares a compensation, {@code getCompensation} is not consulted
+     * at all.
+     *
+     * <p>The compensation is registered before the action runs, so an action that throws partway
+     * through producing side effects still has its rollback on the stack. For a container that means
+     * its compensation is registered before it dispatches anything, which has two consequences worth
+     * expecting: the container's compensation is <em>additive</em> - its own and its members' all run,
+     * members first - and it runs even when the first member fails immediately, before the container
+     * itself did anything of its own.
+     *
+     * <p>At rollback the compensation receives the entity and the context the action ran against -
+     * the mapped child context where the call site maps.
+     *
+     * <p>Calling this a second time replaces the prior declaration and logs a warning.
+     *
+     * @param compensation the compensation; never {@code null}
+     *
+     * @return this def for chaining
+     *
+     * @throws org.transflux.core.exception.TransfluxValidationException if {@code compensation} is
+     *         {@code null}, or if the configurer has already returned
+     */
+    ActionDef<T, C> withCompensation(Compensation<T, C> compensation);
+
+    /**
+     * Class form of {@link #withCompensation(Compensation)}. The class is instantiated through its
+     * public no-arg constructor when the state machine is built, so a class the framework cannot
+     * instantiate fails the build rather than the first rollback.
+     *
+     * @param compensationClass the compensation class; never {@code null}
+     *
+     * @return this def for chaining
+     *
+     * @throws org.transflux.core.exception.TransfluxValidationException if
+     *         {@code compensationClass} is {@code null}, or if the configurer has already returned
+     */
+    ActionDef<T, C> withCompensation(Class<? extends Compensation<T, C>> compensationClass);
+
+    /**
      * Attaches a listener notified before this action's body runs.
      * <p>
      * The listener belongs to the action, not to any one call site, so it fires at every invocation

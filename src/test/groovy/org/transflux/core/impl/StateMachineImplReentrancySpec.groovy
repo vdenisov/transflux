@@ -26,6 +26,7 @@ import org.transflux.core.action.OperationDef
 import org.transflux.core.action.Action
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
+import org.transflux.core.transition.ExecutingTransition
 import org.transflux.core.transition.Transition
 import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
@@ -57,7 +58,7 @@ class StateMachineImplReentrancySpec extends Specification {
         boolean fired = false
 
         @Override
-        void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
             if (fired) {
                 return
             }
@@ -91,7 +92,7 @@ class StateMachineImplReentrancySpec extends Specification {
         given:
         StateMachineImpl<Entity> sm = null
         Entity entity = null
-        def op = { Entity e, TestContext c, Transition<Entity, TestContext> t ->
+        def op = { Entity e, TestContext c, Transition t ->
             sm.executeTransition(entity, 's2')
         } as Action<Entity, TestContext>
 
@@ -110,7 +111,7 @@ class StateMachineImplReentrancySpec extends Specification {
         given:
         StateMachineImpl<Entity> sm = null
         Entity entity = null
-        def cond = { Entity e, TestContext c, Transition<Entity, TestContext> t ->
+        def cond = { Entity e, TestContext c, Transition t ->
             sm.executeTransition(entity, 's2')
             return true
         } as Condition<Entity, TestContext>
@@ -198,7 +199,7 @@ class StateMachineImplReentrancySpec extends Specification {
     def 'guard is cleaned up after a failed transition: subsequent top-level call succeeds'() {
         given:
         def sm = build([], { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
-            c.step('boom', { Entity e, TestContext ctx, Transition<Entity, TestContext> tr ->
+            c.step('boom', { Entity e, TestContext ctx, Transition tr ->
                 throw new RuntimeException('boom')
             } as Action<Entity, TestContext>)
         }) })

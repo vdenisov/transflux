@@ -25,7 +25,7 @@ import org.transflux.core.action.Action
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateListener
 import org.transflux.core.state.StateResolver
-import org.transflux.core.transition.Transition
+import org.transflux.core.transition.ExecutingTransition
 import org.transflux.core.transition.TransitionExecution
 import org.transflux.core.transition.TransitionListener
 import org.transflux.core.transition.TransitionPhase
@@ -53,7 +53,7 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         }
 
         @Override
-        void onTransition(Entity entity, Object context, TransitionExecution<Entity, Object> execution) {
+        void onTransition(Entity entity, Object context, TransitionExecution<Entity> execution) {
         }
     }
 
@@ -307,9 +307,10 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         captured.first().firedBy() == null
     }
 
-    def 'the transition handed to a listener refuses to dispatch actions'() {
+    def 'the transition handed to a listener carries no way to dispatch actions'() {
         given:
         def failures = []
+        def dispatchable = []
         def stepRuns = []
         def entity = new Entity('s1')
         def sm = build({ d -> d
@@ -317,6 +318,7 @@ class StateMachineImplTransitionListenerSpec extends Specification {
             .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
                 .onStart('meddler', { e, ctx, ex ->
                     try {
+                        dispatchable << (ex.transition() instanceof ExecutingTransition)
                         ex.transition().run('side-effect')
                     } catch (Exception caught) {
                         failures << caught.message
@@ -331,7 +333,7 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         result.success
         stepRuns.isEmpty()
         failures.size() == 1
-        failures.first().contains('read-only topology view')
+        dispatchable == [false]
     }
 
     @Unroll
@@ -485,7 +487,7 @@ class StateMachineImplTransitionListenerSpec extends Specification {
     private static Action<Entity, Object> compensatingStep(List rolledBack) {
         return new Action<Entity, Object>() {
             @Override
-            void execute(Entity entity, Object context, Transition<Entity, Object> transition) {
+            void execute(Entity entity, Object context, ExecutingTransition<Entity, Object> transition) {
             }
 
             @Override

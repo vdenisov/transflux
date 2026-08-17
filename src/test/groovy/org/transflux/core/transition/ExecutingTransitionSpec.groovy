@@ -31,12 +31,12 @@ import java.util.function.Consumer
 import java.util.function.Function
 
 /**
- * Exercises the {@link Transition} dispatch surface from inside an
+ * Exercises the {@link ExecutingTransition} dispatch surface from inside an
  * {@link Action#execute} body without casting to the framework-internal
- * {@code TransitionView}. Confirms that {@code requirements.md} §2.5.3's
+ * {@code ExecutingTransitionImpl}. Confirms that {@code requirements.md} §2.5.3's
  * "same five forms on step/operation" contract is reachable from user code.
  */
-class TransitionPublicDispatchSpec extends Specification {
+class ExecutingTransitionSpec extends Specification {
 
     def 'transition.run(id, mapperId) resolves the registered mapper and runs the child step'() {
         given:
@@ -208,7 +208,7 @@ class TransitionPublicDispatchSpec extends Specification {
         def sm = build(
             { smd -> smd.step('my-step', ParentCtx, new Action<Entity, ParentCtx>() {
                 @Override
-                void execute(Entity entity, ParentCtx context, Transition<Entity, ParentCtx> transition) {
+                void execute(Entity entity, ParentCtx context, ExecutingTransition<Entity, ParentCtx> transition) {
                     entity.trail << ('step:' + context.input)
                 }
             }) },
@@ -231,7 +231,7 @@ class TransitionPublicDispatchSpec extends Specification {
         def sm = build(
             { smd -> smd.step('my-op', ParentCtx, new Action<Entity, ParentCtx>() {
                 @Override
-                void execute(Entity entity, ParentCtx context, Transition<Entity, ParentCtx> transition) {
+                void execute(Entity entity, ParentCtx context, ExecutingTransition<Entity, ParentCtx> transition) {
                     entity.trail << ('op:' + context.input)
                 }
             }) },
@@ -329,7 +329,7 @@ class TransitionPublicDispatchSpec extends Specification {
 
     static class ChildStep implements Action<Entity, ChildCtx> {
         @Override
-        void execute(Entity entity, ChildCtx context, Transition<Entity, ChildCtx> transition) {
+        void execute(Entity entity, ChildCtx context, ExecutingTransition<Entity, ChildCtx> transition) {
             context.output = 'step-saw-' + context.input
             entity.trail << ('step:' + context.input)
         }
@@ -337,7 +337,7 @@ class TransitionPublicDispatchSpec extends Specification {
 
     static class ChildOperation implements Action<Entity, ChildCtx> {
         @Override
-        void execute(Entity entity, ChildCtx context, Transition<Entity, ChildCtx> transition) {
+        void execute(Entity entity, ChildCtx context, ExecutingTransition<Entity, ChildCtx> transition) {
             context.output = 'op-saw-' + context.input
             entity.trail << ('op:' + context.input)
         }
@@ -360,7 +360,7 @@ class TransitionPublicDispatchSpec extends Specification {
     /** Pass-through child op typed against the parent context. */
     static class ParentPassThroughOp implements Action<Entity, ParentCtx> {
         @Override
-        void execute(Entity entity, ParentCtx context, Transition<Entity, ParentCtx> transition) {
+        void execute(Entity entity, ParentCtx context, ExecutingTransition<Entity, ParentCtx> transition) {
             entity.trail << ('pt:' + context.input)
         }
     }

@@ -29,12 +29,12 @@ class TransitionExecutionSpec extends Specification {
 
     def 'the record carries the phase, the transition, the trigger, and the result'() {
         given:
-        Transition<Entity, Object> transition = Stub(Transition)
+        Transition transition = Stub(Transition)
         Trigger trigger = Stub(Trigger)
         def result = success()
 
         when:
-        def execution = new TransitionExecution<Entity, Object>(TransitionPhase.COMPLETE, transition, trigger, result)
+        def execution = new TransitionExecution<Entity>(TransitionPhase.COMPLETE, transition, trigger, result)
 
         then:
         execution.phase() == TransitionPhase.COMPLETE
@@ -45,13 +45,13 @@ class TransitionExecutionSpec extends Specification {
 
     def 'a direct invocation leaves firedBy null'() {
         expect:
-        new TransitionExecution<Entity, Object>(TransitionPhase.START, Stub(Transition), null, null)
+        new TransitionExecution<Entity>(TransitionPhase.START, Stub(Transition), null, null)
             .firedBy() == null
     }
 
     def 'the constructor rejects a null phase'() {
         when:
-        new TransitionExecution<Entity, Object>(null, Stub(Transition), null, null)
+        new TransitionExecution<Entity>(null, Stub(Transition), null, null)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -60,7 +60,7 @@ class TransitionExecutionSpec extends Specification {
 
     def 'the constructor rejects a null transition'() {
         when:
-        new TransitionExecution<Entity, Object>(TransitionPhase.START, null, null, null)
+        new TransitionExecution<Entity>(TransitionPhase.START, null, null, null)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -69,7 +69,7 @@ class TransitionExecutionSpec extends Specification {
 
     def 'START requires a null result'() {
         when:
-        new TransitionExecution<Entity, Object>(TransitionPhase.START, Stub(Transition), null, success())
+        new TransitionExecution<Entity>(TransitionPhase.START, Stub(Transition), null, success())
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -78,7 +78,7 @@ class TransitionExecutionSpec extends Specification {
 
     def 'COMPLETE requires a result'() {
         when:
-        new TransitionExecution<Entity, Object>(TransitionPhase.COMPLETE, Stub(Transition), null, null)
+        new TransitionExecution<Entity>(TransitionPhase.COMPLETE, Stub(Transition), null, null)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -87,7 +87,7 @@ class TransitionExecutionSpec extends Specification {
 
     def 'ERROR requires a result'() {
         when:
-        new TransitionExecution<Entity, Object>(TransitionPhase.ERROR, Stub(Transition), null, null)
+        new TransitionExecution<Entity>(TransitionPhase.ERROR, Stub(Transition), null, null)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -96,7 +96,7 @@ class TransitionExecutionSpec extends Specification {
 
     def 'COMPLETE rejects a failed result'() {
         when:
-        new TransitionExecution<Entity, Object>(TransitionPhase.COMPLETE, Stub(Transition), null, failure())
+        new TransitionExecution<Entity>(TransitionPhase.COMPLETE, Stub(Transition), null, failure())
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -105,7 +105,7 @@ class TransitionExecutionSpec extends Specification {
 
     def 'ERROR rejects a successful result'() {
         when:
-        new TransitionExecution<Entity, Object>(TransitionPhase.ERROR, Stub(Transition), null, success())
+        new TransitionExecution<Entity>(TransitionPhase.ERROR, Stub(Transition), null, success())
 
         then:
         def e = thrown(TransfluxValidationException)

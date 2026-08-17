@@ -18,13 +18,13 @@
 
 package org.transflux.core.action;
 
-import org.transflux.core.transition.Transition;
+import org.transflux.core.transition.ExecutingTransition;
 
 /**
  * Pure executable contract for a unit of work that runs while a transition is in flight.
  * <p>
  * An {@code Action} is entity-aware: it receives the entity under transition along with the
- * host-supplied context and the per-execution {@link Transition} view. Actions are functional
+ * host-supplied context and the {@link ExecutingTransition} it runs inside. Actions are functional
  * contracts only - they carry no identity. Identity, declared context type, and metadata live on
  * the def side, which pairs the executable with a framework-owned id. The same {@code Action}
  * class or instance can therefore be registered under multiple ids in the same state machine.
@@ -51,21 +51,29 @@ public interface Action<T, C> {
      * @param entity the entity undergoing the transition; never {@code null}
      * @param context the host-supplied context for this execution; may be {@code null} when
      *                the caller opted not to attach one
-     * @param transition the per-execution {@link Transition} view; topology accessors are
-     *                   stable, and the dispatch methods run another registered action in the
-     *                   current execution scope
+     * @param transition the transition this action is running inside; topology accessors are
+     *                   stable, and {@code run(...)} dispatches another registered action into
+     *                   the current execution scope
      */
-    void execute(T entity, C context, Transition<T, C> transition);
+    void execute(T entity, C context, ExecutingTransition<T, C> transition);
 
     /**
      * Returns the {@link Compensation} that rolls back this action's effects, or {@code null}
      * when this action has nothing to roll back.
      * <p>
-     * The runtime invokes this method exactly once per invocation, <em>before</em>
-     * {@link #execute(Object, Object, Transition)} runs. The returned compensation is pushed
+     * The runtime invokes this method at most once per invocation, <em>before</em>
+     * {@link #execute(Object, Object, ExecutingTransition)} runs. The returned compensation is pushed
      * onto the per-execution LIFO rollback stack at that point; if the enclosing transition
      * later fails (this action's own {@code execute} throws, or a subsequent one does), the
      * stack is drained in reverse-push order and each compensation runs in turn.
+     *
+     * <p><b>A compensation declared on the def wins, and this method is then not called at all.</b>
+     * One action registers one compensation, so
+     * {@link org.transflux.core.action.ActionDef#withCompensation(Compensation)
+     * ActionDef.withCompensation(...)} is the more specific statement and takes precedence. Treat
+     * this method as a source of a rollback handler and nothing else: any side effect performed
+     * inside it stops happening the day someone declares a compensation on the def, with no other
+     * change to this class.
      *
      * <p>Capturing the compensation before {@code execute} is deliberate: an action that throws
      * partway through producing side effects - created remote entities, inserted database rows,

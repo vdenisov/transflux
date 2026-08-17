@@ -46,7 +46,7 @@ class ManualTriggerDefImplSpec extends Specification {
 
     static class AlwaysTrue implements Condition<Entity, TestContext> {
         @Override
-        boolean test(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        boolean test(Entity entity, TestContext context, Transition transition) {
             true
         }
     }

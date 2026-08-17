@@ -20,13 +20,16 @@ package org.transflux.core.impl
 
 import org.transflux.core.StateMachine
 import org.transflux.core.TestContext
+import org.transflux.core.exception.TransfluxValidationException
+import org.transflux.core.action.BranchDef
 import org.transflux.core.action.Compensation
 import org.transflux.core.action.OperationDef
 import org.transflux.core.action.ContextMapper
 import org.transflux.core.action.Action
+import org.transflux.core.action.StepDef
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
-import org.transflux.core.transition.Transition
+import org.transflux.core.transition.ExecutingTransition
 import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
 
@@ -52,7 +55,7 @@ class StateMachineImplCompensationSpec extends Specification {
         }
 
         @Override
-        void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
             entity.trail << tag
         }
 
@@ -71,7 +74,7 @@ class StateMachineImplCompensationSpec extends Specification {
         }
 
         @Override
-        void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
             throw new RuntimeException(message)
         }
     }
@@ -84,7 +87,7 @@ class StateMachineImplCompensationSpec extends Specification {
         }
 
         @Override
-        void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
             entity.trail << tag
         }
     }
@@ -97,7 +100,7 @@ class StateMachineImplCompensationSpec extends Specification {
         }
 
         @Override
-        void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
             entity.trail << tag
         }
 
@@ -115,7 +118,7 @@ class StateMachineImplCompensationSpec extends Specification {
         }
 
         @Override
-        void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
             entity.trail << tag
             throw new RuntimeException("execute-blew-up-" + tag)
         }
@@ -141,7 +144,7 @@ class StateMachineImplCompensationSpec extends Specification {
         }
 
         @Override
-        void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
             for (int i = 0; i < totalTarget; i++) {
                 if (i == failAt) {
                     throw new RuntimeException("external-service-failed-at-${i}")
@@ -162,18 +165,50 @@ class StateMachineImplCompensationSpec extends Specification {
         String tag
     }
 
+    /** Class-form declared compensation; writes through the entity, so it needs no shared state. */
+    static class TrailCompensation implements Compensation<Entity, TestContext> {
+        @Override
+        void compensate(Entity entity, TestContext context) {
+            entity.trail << '-declared'
+        }
+    }
+
+    /** Reports the context it was handed, to pin which one the drain hands back. */
+    static class ChildCtxCompensation implements Compensation<Entity, ChildCtx> {
+        @Override
+        void compensate(Entity entity, ChildCtx context) {
+            entity.trail << ('-child:' + (context == null ? 'null-ctx' : context.tag))
+        }
+    }
+
+    /** Throws with no compensation of its own, so a declared one is the only rollback. */
+    static class PlainChildCtxThrowingStep implements Action<Entity, ChildCtx> {
+        @Override
+        void execute(Entity entity, ChildCtx context, ExecutingTransition<Entity, ChildCtx> transition) {
+            throw new RuntimeException('child-blew-up')
+        }
+    }
+
+    /** Marks the child context so an assertion can tell it from the parent one. */
+    static class DerivingChildCtxMapper implements ContextMapper<TestContext, ChildCtx> {
+        @Override
+        ChildCtx mapTo(TestContext parent) {
+            return new ChildCtx(tag: parent.tag + '-mapped')
+        }
+    }
+
     /** Fails after the boundary mapping, and reports the context its compensation was handed. */
     static class ChildCtxThrowingStep implements Action<Entity, ChildCtx> {
         @Override
-        void execute(Entity entity, ChildCtx context, Transition<Entity, ChildCtx> transition) {
+        void execute(Entity entity, ChildCtx context, ExecutingTransition<Entity, ChildCtx> transition) {
             throw new RuntimeException('child-blew-up')
         }
 
         @Override
         Compensation<Entity, ChildCtx> getCompensation(Entity entity, ChildCtx context) {
             String captured = context == null ? 'null-ctx' : context.tag
-            // Untyped params: the rollback drain hands compensations the transition's context,
-            // which is the parent type here.
+            // Captured at push time rather than read off the parameter, so the assertion pins the
+            // context this step actually ran against even if the drain were to hand back another.
             return { e, c -> e.trail << ('-child:' + captured) } as Compensation<Entity, ChildCtx>
         }
     }
@@ -187,7 +222,7 @@ class StateMachineImplCompensationSpec extends Specification {
 
     static class DynamicDispatchStep implements Action<Entity, TestContext> {
         @Override
-        void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
             transition.run('dynamic')
         }
     }
@@ -322,7 +357,7 @@ class StateMachineImplCompensationSpec extends Specification {
         applied.isEmpty()
     }
 
-    def 'post-condition failure: step compensations stay on the stack and no compensation runs'() {
+    def 'post-condition failure: compensations unwind in LIFO order and no state is applied'() {
         given:
         def applied = []
         def sm = build(applied, { t -> t
@@ -338,9 +373,33 @@ class StateMachineImplCompensationSpec extends Specification {
 
         then:
         !result.success
+        result.error instanceof TransfluxValidationException
+        result.error.message == "Post-condition 'always-false' failed for transition 't'"
         result.executedPath*.toString() == ['op', 'op/s1', 'op/s2']
-        result.compensatedPath.isEmpty()
-        entity.trail == ['a', 'b']
+        result.compensatedPath*.toString() == ['op/s2', 'op/s1']
+        entity.trail == ['a', 'b', '-b', '-a']
+        applied.isEmpty()
+    }
+
+    def 'post-condition that throws unwinds the same way'() {
+        given:
+        def applied = []
+        def sm = build(applied, { t -> t
+            .operation('op', { OperationDef<Entity, TestContext> c ->
+                c.step('s1', new TrailStep('a'))
+                 .step('s2', new TrailStep('b'))
+            })
+            .postCondition('blows-up', { Entity e -> throw new RuntimeException('post-blew-up') } as Predicate) })
+        def entity = new Entity('s1')
+
+        when:
+        def result = sm.executeTransition(entity, 's2')
+
+        then:
+        !result.success
+        result.error.message == 'post-blew-up'
+        result.compensatedPath*.toString() == ['op/s2', 'op/s1']
+        entity.trail == ['a', 'b', '-b', '-a']
         applied.isEmpty()
     }
 
@@ -471,6 +530,169 @@ class StateMachineImplCompensationSpec extends Specification {
         result.error.message == 'child-blew-up'
         result.compensatedPath*.toString() == ['op/charge']
         entity.trail == ['-child:parent-tag']
+        applied.isEmpty()
+    }
+
+    def 'declared compensation runs: instance form on a transition-root step'() {
+        given:
+        def applied = []
+        def sm = build(applied, { t -> t.step('charge', { StepDef<Entity, TestContext> s -> s
+            .using(new ThrowingStep('boom'))
+            .withCompensation({ Entity e, TestContext c -> e.trail << '-declared' } as Compensation) }) })
+        def entity = new Entity('s1')
+
+        when:
+        def result = sm.executeTransition(entity, 's2')
+
+        then:
+        !result.success
+        result.compensatedPath*.toString() == ['charge']
+        entity.trail == ['-declared']
+        applied.isEmpty()
+    }
+
+    def 'declared compensation runs: class form, instantiated at build'() {
+        given:
+        def applied = []
+        def sm = build(applied, { t -> t.step('charge', { StepDef<Entity, TestContext> s -> s
+            .using(new ThrowingStep('boom'))
+            .withCompensation(TrailCompensation) }) })
+        def entity = new Entity('s1')
+
+        when:
+        def result = sm.executeTransition(entity, 's2')
+
+        then:
+        result.compensatedPath*.toString() == ['charge']
+        entity.trail == ['-declared']
+    }
+
+    def "declared compensation wins over the action's own getCompensation"() {
+        given: 'ThrowingWithCompStep would append -b; the declaration replaces it rather than adding to it'
+        def applied = []
+        def sm = build(applied, { t -> t.step('charge', { StepDef<Entity, TestContext> s -> s
+            .using(new ThrowingWithCompStep('b'))
+            .withCompensation(TrailCompensation) }) })
+        def entity = new Entity('s1')
+
+        when:
+        def result = sm.executeTransition(entity, 's2')
+
+        then:
+        result.compensatedPath*.toString() == ['charge']
+        entity.trail == ['b', '-declared']
+    }
+
+    def "container compensation is additive and unwinds after its members'"() {
+        given:
+        def applied = []
+        def sm = build(applied, { t -> t.operation('op', { OperationDef<Entity, TestContext> c -> c
+            .withCompensation({ Entity e, TestContext ctx -> e.trail << '-op' } as Compensation)
+            .step('s1', new TrailStep('a'))
+            .step('s2', new ThrowingStep('boom')) }) })
+        def entity = new Entity('s1')
+
+        when:
+        def result = sm.executeTransition(entity, 's2')
+
+        then: 'the container is pushed on entry, so it drains last'
+        !result.success
+        result.compensatedPath*.toString() == ['op/s1', 'op']
+        entity.trail == ['a', '-a', '-op']
+        applied.isEmpty()
+    }
+
+    def 'container compensation runs even when its first member fails immediately'() {
+        given:
+        def applied = []
+        def sm = build(applied, { t -> t.operation('op', { OperationDef<Entity, TestContext> c -> c
+            .withCompensation({ Entity e, TestContext ctx -> e.trail << '-op' } as Compensation)
+            .step('s1', new ThrowingStep('boom')) }) })
+        def entity = new Entity('s1')
+
+        when:
+        def result = sm.executeTransition(entity, 's2')
+
+        then: 'the container had done nothing of its own yet, and still compensates'
+        result.compensatedPath*.toString() == ['op']
+        entity.trail == ['-op']
+    }
+
+    def 'conditional compensation runs when a branch member fails'() {
+        given:
+        def applied = []
+        def sm = build(applied, { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
+            c.conditional('route', { cs -> cs
+                .withCompensation({ Entity e, TestContext ctx -> e.trail << '-cond' } as Compensation)
+                .branch('always', { BranchDef<Entity, TestContext> b -> b
+                    .condition('yes', { Entity e -> true } as Predicate)
+                    .step('inner', new ThrowingStep('boom')) }) })
+        }) })
+        def entity = new Entity('s1')
+
+        when:
+        def result = sm.executeTransition(entity, 's2')
+
+        then:
+        !result.success
+        result.executedPath*.toString() == ['op', 'op/route', 'op/route/inner']
+        result.compensatedPath*.toString() == ['op/route']
+        entity.trail == ['-cond']
+    }
+
+    def 'declared compensation on a container member and on a branch member'() {
+        given:
+        def applied = []
+        def sm = build(applied, { t -> t.operation('op', { OperationDef<Entity, TestContext> c -> c
+            .step('m1', { StepDef<Entity, TestContext> s -> s
+                .using(new NoCompStep('m'))
+                .withCompensation({ Entity e, TestContext ctx -> e.trail << '-m1' } as Compensation) })
+            .conditional('route', { cs -> cs
+                .branch('always', { BranchDef<Entity, TestContext> b -> b
+                    .condition('yes', { Entity e -> true } as Predicate)
+                    .step('m2', { StepDef<Entity, TestContext> s -> s
+                        .using(new ThrowingStep('boom'))
+                        .withCompensation({ Entity e, TestContext ctx -> e.trail << '-m2' } as Compensation) }) }) })
+        }) })
+        def entity = new Entity('s1')
+
+        when:
+        def result = sm.executeTransition(entity, 's2')
+
+        then:
+        !result.success
+        result.compensatedPath*.toString() == ['op/route/m2', 'op/m1']
+        entity.trail == ['m', '-m2', '-m1']
+    }
+
+    def 'declared compensation on a mapped child action receives the child context'() {
+        given: 'the step is registered at SM level and reached by id through a mapper'
+        def applied = []
+        def smd = new StateMachineDefImpl<Entity>()
+        smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+            .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
+            .step('charge', ChildCtx, { StepDef<Entity, ChildCtx> s -> s
+                .using(new PlainChildCtxThrowingStep())
+                .withCompensation(ChildCtxCompensation) })
+            .mapper('child-from-parent', TestContext, ChildCtx, new DerivingChildCtxMapper())
+            .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, { t ->
+                t.operation('op', { OperationDef<Entity, TestContext> c ->
+                    c.run('charge', 'child-from-parent')
+                })
+            }) })
+            .state('s2', {})
+        def sm = smd.build()
+        def entity = new Entity('s1')
+
+        when:
+        def result = sm.entity(entity).transitionTo('s2', new TestContext('parent-tag'))
+
+        then: 'the drain hands back the context the action ran against, not the enclosing one'
+        !result.success
+        result.error.message == 'child-blew-up'
+        result.compensatedPath*.toString() == ['op/charge']
+        entity.trail == ['-child:parent-tag-mapped']
         applied.isEmpty()
     }
 

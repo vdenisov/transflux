@@ -23,7 +23,7 @@ import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.OperationDef
 import org.transflux.core.action.Action
 import org.transflux.core.state.StateResolver
-import org.transflux.core.transition.Transition
+import org.transflux.core.transition.ExecutingTransition
 import spock.lang.Specification
 
 class StateMachineDefImplNestedCycleDetectionSpec extends Specification {
@@ -40,7 +40,7 @@ class StateMachineDefImplNestedCycleDetectionSpec extends Specification {
 
     static class NoopStep implements Action<Entity, Ctx> {
         @Override
-        void execute(Entity entity, Ctx context, Transition<Entity, Ctx> transition) { }
+        void execute(Entity entity, Ctx context, ExecutingTransition<Entity, Ctx> transition) { }
     }
 
     def 'composite referring to itself by id is rejected with a clear cycle message'() {

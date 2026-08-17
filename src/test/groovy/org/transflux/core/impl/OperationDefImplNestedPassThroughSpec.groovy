@@ -26,7 +26,7 @@ import org.transflux.core.action.Action
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.ActionPath
-import org.transflux.core.transition.Transition
+import org.transflux.core.transition.ExecutingTransition
 import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
 
@@ -51,7 +51,7 @@ class OperationDefImplNestedPassThroughSpec extends Specification {
         }
 
         @Override
-        void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
             entity.trail << tag
         }
     }
@@ -64,7 +64,7 @@ class OperationDefImplNestedPassThroughSpec extends Specification {
         }
 
         @Override
-        void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
             entity.trail << tag
         }
 
@@ -82,7 +82,7 @@ class OperationDefImplNestedPassThroughSpec extends Specification {
      */
     static class TwoStepInlineOp implements Action<Entity, TestContext> {
         @Override
-        void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
             transition.run('inner-a')
             transition.run('inner-b')
         }
@@ -90,7 +90,7 @@ class OperationDefImplNestedPassThroughSpec extends Specification {
 
     static class CompensatingNestedOp implements Action<Entity, TestContext> {
         @Override
-        void execute(Entity entity, TestContext context, Transition<Entity, TestContext> transition) {
+        void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
             transition.run('comp-step')
             throw new RuntimeException('nested-boom')
         }

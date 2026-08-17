@@ -20,6 +20,7 @@
 package org.transflux.core.impl
 
 import org.transflux.core.exception.TransfluxValidationException
+import org.transflux.core.action.Compensation
 import org.transflux.core.action.NoMatchBehavior
 import org.transflux.core.action.Action
 import spock.lang.Specification
@@ -29,6 +30,7 @@ class ConfigurableDefImplSpec extends Specification {
 
     static final Action<Object, Object> NOOP_OP = { e, c, t -> } as Action
     static final Action<Object, Object> NOOP_STEP = { e, c, t -> } as Action
+    static final Compensation<Object, Object> NOOP_COMP = { e, c -> } as Compensation
 
     def 'requireConfigurerActive should throw before beginConfigurer'() {
         given:
@@ -141,12 +143,15 @@ class ConfigurableDefImplSpec extends Specification {
         'composite operation' | 'conditional'        | { new OperationDefImpl<Object, Object>('op1') } | { it.conditional('cc', {}) }              | "operation 'op1'"
         'composite operation' | 'usingContext'       | { new OperationDefImpl<Object, Object>('op1') } | { it.usingContext(Object) }               | "operation 'op1'"
         'composite operation' | 'withName'           | { new OperationDefImpl<Object, Object>('op1') } | { it.withName('n') }                      | "operation 'op1'"
+        'composite operation' | 'withCompensation'   | { new OperationDefImpl<Object, Object>('op1') } | { it.withCompensation(NOOP_COMP) }        | "operation 'op1'"
         'step'                | 'using'              | { new StepDefImpl<Object, Object>('op1') }    | { it.using(NOOP_OP) }                     | "step 'op1'"
         'step'                | 'withName'           | { new StepDefImpl<Object, Object>('op1') }    | { it.withName('n') }                      | "step 'op1'"
+        'step'                | 'withCompensation'   | { new StepDefImpl<Object, Object>('op1') }    | { it.withCompensation(NOOP_COMP) }        | "step 'op1'"
         'conditional operation'    | 'branch'             | { new ConditionalOperationDefImpl<Object, Object>('c1') }     | { it.branch('b', {}) }                    | "conditional operation 'c1'"
         'conditional operation'    | 'defaultBranch'      | { new ConditionalOperationDefImpl<Object, Object>('c1') }     | { it.defaultBranch({}) }                  | "conditional operation 'c1'"
         'conditional operation'    | 'onNoMatch'          | { new ConditionalOperationDefImpl<Object, Object>('c1') }     | { it.onNoMatch(NoMatchBehavior.SILENT) }  | "conditional operation 'c1'"
         'conditional operation'    | 'withName'           | { new ConditionalOperationDefImpl<Object, Object>('c1') }     | { it.withName('n') }                      | "conditional operation 'c1'"
+        'conditional operation'    | 'withCompensation'   | { new ConditionalOperationDefImpl<Object, Object>('c1') }     | { it.withCompensation(NOOP_COMP) }        | "conditional operation 'c1'"
         'branch'              | 'condition'          | { new BranchDefImpl<Object, Object>('b1') }              | { it.condition('cnd') }                   | "branch 'b1'"
         'branch'              | 'step'               | { new BranchDefImpl<Object, Object>('b1') }              | { it.run('s') }                          | "branch 'b1'"
         'default branch'      | 'step'               | { new DefaultBranchDefImpl<Object, Object>() }           | { it.run('s') }                          | 'default branch'

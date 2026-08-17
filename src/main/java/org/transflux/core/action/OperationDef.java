@@ -282,6 +282,12 @@ public interface OperationDef<T, C> extends ActionDef<T, C> {
     OperationDef<T, C> withDescription(String description);
 
     @Override
+    OperationDef<T, C> withCompensation(Compensation<T, C> compensation);
+
+    @Override
+    OperationDef<T, C> withCompensation(Class<? extends Compensation<T, C>> compensationClass);
+
+    @Override
     OperationDef<T, C> onStart(String listenerId, ActionListener<T, C> listener);
 
     @Override
