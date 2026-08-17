@@ -781,9 +781,15 @@ class StateMachineImpl<T> implements StateMachine<T> {
         }
     }
 
+    /**
+     * The single point every trigger-driven execution passes through, which is why the fired line is
+     * emitted here rather than at each dispatch site — {@code Trigger fired} is then a complete
+     * record of firings, manual ones included.
+     */
     @SuppressWarnings({"unchecked", "rawtypes"})
     private TransitionResult<T> fireWith(T entity, Object firingContext,
                                          BoundTransition<T, ?> transition, TriggerImpl trigger) {
+        Loggers.TRIGGER.debug("Trigger fired, triggerId={}, transitionId={}", trigger.getId(), transition.id());
         return executeTransitionInternal(entity, firingContext, (BoundTransition) transition, trigger);
     }
 
@@ -808,6 +814,19 @@ class StateMachineImpl<T> implements StateMachine<T> {
             return true;
         }
         return expected.isInstance(firingContext);
+    }
+
+    /**
+     * The same mismatch as {@link #contextMismatchMessage}, rendered as one compact token for the
+     * {@code reason=} field of a trigger-scan line, so a host can grep {@code context-incompatible}
+     * across a scan and still read which types disagreed.
+     */
+    private static String contextMismatchReason(BoundTransition<?, ?> transition, Object firingContext) {
+        String expected = transition.contextType() == Void.class
+            ? "Void (no context)"
+            : transition.contextType().getName();
+        return "context-incompatible(expects=" + expected
+            + ", got=" + firingContext.getClass().getName() + ")";
     }
 
     private static String contextMismatchMessage(BoundTransition<?, ?> transition, Object firingContext) {
@@ -1002,23 +1021,33 @@ class StateMachineImpl<T> implements StateMachine<T> {
             requireNotBlank(eventId, "Event ID");
 
             String currentStateId = resolveCurrentState(entity);
-            for (TriggerBinding<T, EventTriggerImpl<T>> binding : eventTriggersLeaving(currentStateId)) {
+            List<TriggerBinding<T, EventTriggerImpl<T>>> candidates = eventTriggersLeaving(currentStateId);
+            if (Loggers.TRIGGER.isDebugEnabled()) {
+                Loggers.TRIGGER.debug("Event dispatch scan, eventId={}, currentState={}, candidates={}",
+                                      eventId, currentStateId, candidates.size());
+            }
+
+            for (TriggerBinding<T, EventTriggerImpl<T>> binding : candidates) {
                 EventTriggerImpl<T> trigger = binding.trigger();
                 if (!trigger.getEventId().equals(eventId)) {
+                    logSkipped(trigger, "event-id-mismatch");
                     continue;
                 }
                 if (!contextFits(binding.transition(), context)) {
-                    logIneligibleContext(trigger, binding.transition(), context);
+                    logSkippedIncompatibleContext(trigger, binding.transition(), context);
                     continue;
                 }
                 boolean matches = sneakyGet(() -> trigger.matches(eventData, entity, context),
                     "Event trigger '" + trigger.getId() + "' filter failed");
                 if (!matches) {
+                    logSkipped(trigger, "filter-rejected");
                     continue;
                 }
                 return ProcessResult.fired(trigger.getId(),
                     fireWith(entity, context, binding.transition(), trigger));
             }
+
+            Loggers.TRIGGER.debug("No trigger fired, eventId={}, currentState={}", eventId, currentStateId);
             return ProcessResult.notFired();
         }
 
@@ -1042,24 +1071,40 @@ class StateMachineImpl<T> implements StateMachine<T> {
         @Override
         public ProcessResult<T> processDataChange(Object context) {
             String currentStateId = resolveCurrentState(entity);
-            for (TriggerBinding<T, DataTriggerImpl<T, ?>> binding : dataTriggersLeaving(currentStateId)) {
+            List<TriggerBinding<T, DataTriggerImpl<T, ?>>> candidates = dataTriggersLeaving(currentStateId);
+            if (Loggers.TRIGGER.isDebugEnabled()) {
+                Loggers.TRIGGER.debug("Data change dispatch scan, currentState={}, candidates={}",
+                                      currentStateId, candidates.size());
+            }
+
+            for (TriggerBinding<T, DataTriggerImpl<T, ?>> binding : candidates) {
                 DataTriggerImpl<T, ?> trigger = binding.trigger();
                 if (!contextFits(binding.transition(), context)) {
-                    logIneligibleContext(trigger, binding.transition(), context);
+                    logSkippedIncompatibleContext(trigger, binding.transition(), context);
                     continue;
                 }
                 if (!gateHolds(trigger, binding.transition(), context)) {
+                    logSkipped(trigger, "gate-rejected");
                     continue;
                 }
                 return ProcessResult.fired(trigger.getId(),
                     fireWith(entity, context, binding.transition(), trigger));
             }
+
+            Loggers.TRIGGER.debug("No trigger fired, currentState={}", currentStateId);
             return ProcessResult.notFired();
         }
 
-        private void logIneligibleContext(Trigger trigger, BoundTransition<T, ?> transition, Object context) {
-            Loggers.TRIGGER.debug("Trigger skipped, triggerId={}, reason={}", trigger.getId(),
-                contextMismatchMessage(transition, context));
+        private void logSkipped(Trigger trigger, String reason) {
+            Loggers.TRIGGER.debug("Trigger skipped, triggerId={}, reason={}", trigger.getId(), reason);
+        }
+
+        /** Guarded separately: the reason token is built by concatenation, not by the logger. */
+        private void logSkippedIncompatibleContext(Trigger trigger, BoundTransition<T, ?> transition,
+                                                   Object context) {
+            if (Loggers.TRIGGER.isDebugEnabled()) {
+                logSkipped(trigger, contextMismatchReason(transition, context));
+            }
         }
 
         private List<TriggerBinding<T, EventTriggerImpl<T>>> eventTriggersLeaving(String currentStateId) {
