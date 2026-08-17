@@ -18,7 +18,9 @@
 
 package org.transflux.core.impl;
 
+import org.slf4j.Logger;
 import org.transflux.core.condition.Condition;
+import org.transflux.core.transition.Transition;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
@@ -33,9 +35,74 @@ import static org.transflux.core.Preconditions.requireNotNull;
  */
 record BoundCondition<T, C>(String id, Condition<T, C> condition) {
 
+    /**
+     * Where a condition sits in an execution. Carried into the log line so a host reading a mixed
+     * stream can tell a transition's pre- or post-condition from a branch selector or a trigger's
+     * gate. {@code TRIGGER_GATE} is a data trigger's today; event filters do not pass through here,
+     * since they run as an {@code EventFilter} rather than a bound condition.
+     */
+    enum Role {
+        PRE_CONDITION,
+        POST_CONDITION,
+        BRANCH,
+        TRIGGER_GATE
+    }
+
     BoundCondition {
         requireNotBlank(id, "Bound condition ID");
         requireNotNull(condition, "Bound condition");
+    }
+
+    /**
+     * Evaluates the bound condition and reports the outcome.
+     *
+     * <p>This is the single seam every condition kind passes through, which is why the reporting
+     * lives here rather than at the five call sites: the five would drift in format, and a condition
+     * position added later would silently emit nothing. It has to be a method rather than a
+     * decorator applied at construction, because {@link #fromExpression} builds the record directly
+     * and would slip past anything wrapped around {@link #of}.
+     *
+     * <p>A branch selector reports at TRACE and the rest at DEBUG, matching how many of each an
+     * execution produces. A data trigger's gate reports on the trigger logger rather than the
+     * condition one, so a host raising the trigger tree to diagnose a dispatch that fired nothing
+     * sees the gate's value next to the {@code gate-rejected} line that summarises it.
+     *
+     * <p>A throw is reported too, and by class name only. It is the one outcome nothing else
+     * records: a pre-condition that throws lands in the transition's catch before the start hook
+     * fired, so no listener is notified either, and an unreported throw would be indistinguishable
+     * in the log from a condition that was never reached.
+     *
+     * @param role where this condition sits in the execution
+     * @param entity the entity under transition
+     * @param ctx the context the condition evaluates against; may be {@code null}
+     * @param transition the read-only view of the transition being evaluated
+     *
+     * @return whether the condition holds
+     */
+    boolean evaluate(Role role, T entity, C ctx, Transition transition) {
+        Logger log = role == Role.TRIGGER_GATE ? Loggers.TRIGGER : Loggers.EXECUTION_CONDITION;
+
+        boolean held;
+        try {
+            held = condition.test(entity, ctx, transition);
+        } catch (Exception e) {
+            // Aborts the execution whatever the role, so it reports at DEBUG even for a branch.
+            if (log.isDebugEnabled()) {
+                log.debug("Condition failed, conditionId={}, role={}, errorType={}",
+                          id, role, e.getClass().getName());
+            }
+            throw e;
+        }
+
+        if (role == Role.BRANCH) {
+            if (log.isTraceEnabled()) {
+                log.trace("Condition evaluated, conditionId={}, role={}, held={}", id, role, held);
+            }
+        } else if (log.isDebugEnabled()) {
+            log.debug("Condition evaluated, conditionId={}, role={}, held={}", id, role, held);
+        }
+
+        return held;
     }
 
     /**

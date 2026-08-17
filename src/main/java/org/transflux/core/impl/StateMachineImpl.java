@@ -681,7 +681,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
             // stack is provably still empty. The post-condition loop further down throws instead,
             // because by then it is not.
             for (BoundCondition<T, C> pc : transition.boundPreConditions()) {
-                if (!pc.condition().test(entity, context, view.asReadOnly())) {
+                if (!pc.evaluate(BoundCondition.Role.PRE_CONDITION, entity, context, view.asReadOnly())) {
                     return TransitionResult.failure(
                         entity, sourceStateId, targetStateId, transitionId,
                         new TransfluxValidationException("Pre-condition '" + pc.id()
@@ -691,7 +691,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
             }
 
             for (BoundCondition<T, C> pc : additionalPreConditions) {
-                if (!pc.condition().test(entity, context, view.asReadOnly())) {
+                if (!pc.evaluate(BoundCondition.Role.PRE_CONDITION, entity, context, view.asReadOnly())) {
                     return TransitionResult.failure(
                         entity, sourceStateId, targetStateId, transitionId,
                         new TransfluxValidationException("Pre-condition '" + pc.id()
@@ -714,7 +714,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
             // path a post-condition that *throws* already takes, and it leaves the state applier
             // below unreached, so the entity's state is not committed.
             for (BoundCondition<T, C> pc : transition.boundPostConditions()) {
-                if (!pc.condition().test(entity, context, view.asReadOnly())) {
+                if (!pc.evaluate(BoundCondition.Role.POST_CONDITION, entity, context, view.asReadOnly())) {
                     throw new TransfluxValidationException("Post-condition '" + pc.id()
                         + "' failed for transition '" + transitionId + "'");
                 }
@@ -820,13 +820,17 @@ class StateMachineImpl<T> implements StateMachine<T> {
      * The same mismatch as {@link #contextMismatchMessage}, rendered as one compact token for the
      * {@code reason=} field of a trigger-scan line, so a host can grep {@code context-incompatible}
      * across a scan and still read which types disagreed.
+     *
+     * <p>The token holds no {@code ", "} and no whitespace: those separate the {@code key=} fields
+     * of the surrounding line, and a consumer splitting on them must not find a phantom field inside
+     * one field's value.
      */
     private static String contextMismatchReason(BoundTransition<?, ?> transition, Object firingContext) {
         String expected = transition.contextType() == Void.class
-            ? "Void (no context)"
+            ? "Void"
             : transition.contextType().getName();
         return "context-incompatible(expects=" + expected
-            + ", got=" + firingContext.getClass().getName() + ")";
+            + ";got=" + firingContext.getClass().getName() + ")";
     }
 
     private static String contextMismatchMessage(BoundTransition<?, ?> transition, Object firingContext) {
@@ -1021,18 +1025,21 @@ class StateMachineImpl<T> implements StateMachine<T> {
             requireNotBlank(eventId, "Event ID");
 
             String currentStateId = resolveCurrentState(entity);
-            List<TriggerBinding<T, EventTriggerImpl<T>>> candidates = eventTriggersLeaving(currentStateId);
+            // A trigger listening for another event was never a candidate, so it gets no skip line -
+            // one per unrelated trigger would bury the reasons that do explain a fired() == false.
+            // The count is the explanation instead, as it is for wrong-source-state, and 'leaving'
+            // separates "nothing here listens for this event" from "no event trigger leaves at all".
+            List<TriggerBinding<T, EventTriggerImpl<T>>> leaving = eventTriggersLeaving(currentStateId);
+            List<TriggerBinding<T, EventTriggerImpl<T>>> candidates = leaving.stream()
+                .filter(binding -> binding.trigger().getEventId().equals(eventId))
+                .toList();
             if (Loggers.TRIGGER.isDebugEnabled()) {
-                Loggers.TRIGGER.debug("Event dispatch scan, eventId={}, currentState={}, candidates={}",
-                                      eventId, currentStateId, candidates.size());
+                Loggers.TRIGGER.debug("Event dispatch scan, eventId={}, currentState={}, candidates={}, leaving={}",
+                                      eventId, currentStateId, candidates.size(), leaving.size());
             }
 
             for (TriggerBinding<T, EventTriggerImpl<T>> binding : candidates) {
                 EventTriggerImpl<T> trigger = binding.trigger();
-                if (!trigger.getEventId().equals(eventId)) {
-                    logSkipped(trigger, "event-id-mismatch");
-                    continue;
-                }
                 if (!contextFits(binding.transition(), context)) {
                     logSkippedIncompatibleContext(trigger, binding.transition(), context);
                     continue;
@@ -1125,7 +1132,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
                                       Object context) {
             C ctx = (C) context;
             Transition probe = TransitionImpl.of(transition);
-            return sneakyGet(() -> trigger.gate().condition().test(entity, ctx, probe),
+            return sneakyGet(() -> trigger.gate().evaluate(BoundCondition.Role.TRIGGER_GATE, entity, ctx, probe),
                 "Data trigger '" + trigger.getId() + "' gate condition failed");
         }
 

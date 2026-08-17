@@ -492,7 +492,8 @@ final class ConditionalOperationDefImpl<T, C>
             ExecutingTransitionImpl<T, C> view = (ExecutingTransitionImpl<T, C>) rawView;
 
             for (ResolvedBranch<T, C> branch : resolvedBranches) {
-                if (branch.condition().condition().test(entity, context, view.asReadOnly())) {
+                if (branch.condition().evaluate(BoundCondition.Role.BRANCH, entity, context,
+                                                view.asReadOnly())) {
                     dispatchActionIds(branch.stepIds(), view);
                     return;
                 }

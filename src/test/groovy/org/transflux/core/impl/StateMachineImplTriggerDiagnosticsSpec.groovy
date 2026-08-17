@@ -77,12 +77,13 @@ class StateMachineImplTriggerDiagnosticsSpec extends Specification {
 
         then: 'wrong-source-state has no per-candidate line to carry it - the count is the explanation'
         !result.fired()
-        capture.messages().contains('Event dispatch scan, eventId=PAYMENT, currentState=s1, candidates=0')
+        capture.messages()
+            .contains('Event dispatch scan, eventId=PAYMENT, currentState=s1, candidates=0, leaving=0')
         capture.messages().contains('No trigger fired, eventId=PAYMENT, currentState=s1')
         capture.messages().every { !it.startsWith('Trigger skipped') }
     }
 
-    def 'a trigger listening for another event is skipped as event-id-mismatch'() {
+    def 'a trigger listening for another event is not a candidate, and the two counts say which'() {
         given:
         def sm = build({ d -> d
             .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addEventTrigger('paid', 'PAYMENT') }) })
@@ -91,10 +92,13 @@ class StateMachineImplTriggerDiagnosticsSpec extends Specification {
         when:
         def result = sm.entity(new Entity('s1')).processEvent('SHIPPED', null)
 
-        then:
+        then: 'leaving=1 with candidates=0 says a trigger is here but not for this event id'
         !result.fired()
-        capture.messages().contains('Event dispatch scan, eventId=SHIPPED, currentState=s1, candidates=1')
-        capture.messages().contains('Trigger skipped, triggerId=paid, reason=event-id-mismatch')
+        capture.messages()
+            .contains('Event dispatch scan, eventId=SHIPPED, currentState=s1, candidates=0, leaving=1')
+
+        and: 'and it draws no skip line, so the reasons that do explain a miss are not buried'
+        capture.messages().every { !it.startsWith('Trigger skipped') }
     }
 
     def 'a trigger whose transition refuses the context is skipped, naming both types'() {
@@ -109,11 +113,29 @@ class StateMachineImplTriggerDiagnosticsSpec extends Specification {
 
         then:
         !result.fired()
-        capture.messages().any {
-            it.startsWith('Trigger skipped, triggerId=paid, reason=context-incompatible(') &&
-                it.contains("expects=${TestContext.name}") &&
-                it.contains('got=java.lang.String')
-        }
+        capture.messages().contains('Trigger skipped, triggerId=paid, reason=context-incompatible('
+            + "expects=${TestContext.name};got=java.lang.String)".toString())
+
+        and: 'the reason value carries neither the field separator nor whitespace'
+        def reason = capture.messages().find { it.startsWith('Trigger skipped') }.split('reason=')[1]
+        !reason.contains(', ')
+        !reason.contains(' ')
+    }
+
+    def 'a Void-context transition renders its expected type without a space'() {
+        given: 'the reason token would otherwise read "expects=Void (no context)"'
+        def sm = build({ d -> d
+            .state('s1', { st -> st.transitionsTo('s2', 't', Void,
+                { t -> t.addEventTrigger('paid', 'PAYMENT') }) })
+            .state('s2', {}) })
+
+        when:
+        def result = sm.entity(new Entity('s1')).processEvent('PAYMENT', null, 'unwanted')
+
+        then:
+        !result.fired()
+        capture.messages().contains('Trigger skipped, triggerId=paid, '
+            + 'reason=context-incompatible(expects=Void;got=java.lang.String)')
     }
 
     def 'a filter that rejects the payload is skipped as filter-rejected'() {
@@ -148,7 +170,7 @@ class StateMachineImplTriggerDiagnosticsSpec extends Specification {
     }
 
     def 'the scan explains every candidate it passed over before firing'() {
-        given: 'three candidates, each skipped for a different reason, then one that fires'
+        given: 'a non-candidate, two candidates skipped for different reasons, then one that fires'
         def sm = build({ d -> d
             .state('s1', { st -> st
                 .transitionsTo('s2', 'wrong-event', { t -> t.addEventTrigger('other-event', 'SHIPPED') })
@@ -167,11 +189,14 @@ class StateMachineImplTriggerDiagnosticsSpec extends Specification {
 
         and: 'one skip line per passed-over candidate, and nothing unexplained'
         def skips = capture.messages().findAll { it.startsWith('Trigger skipped') }
-        skips.size() == 3
-        skips[0] == 'Trigger skipped, triggerId=other-event, reason=event-id-mismatch'
-        skips[1].startsWith('Trigger skipped, triggerId=bad-ctx, reason=context-incompatible(')
-        skips[2] == 'Trigger skipped, triggerId=rejects, reason=filter-rejected'
+        skips.size() == 2
+        skips[0].startsWith('Trigger skipped, triggerId=bad-ctx, reason=context-incompatible(')
+        skips[1] == 'Trigger skipped, triggerId=rejects, reason=filter-rejected'
         capture.messages().contains('Trigger fired, triggerId=winner, transitionId=accepts')
+
+        and: 'the trigger listening for SHIPPED shows up as the gap between the two counts'
+        capture.messages()
+            .contains('Event dispatch scan, eventId=PAYMENT, currentState=s1, candidates=3, leaving=4')
     }
 
     // --- processDataChange ---
