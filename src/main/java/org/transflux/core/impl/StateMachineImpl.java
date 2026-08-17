@@ -250,16 +250,18 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
         String stateId = stateResolver.resolveState(entity);
 
+        // The entity's type, never the entity: it belongs to the host and may be full of PII, and
+        // this message surfaces wherever the resulting stack trace is printed.
         if (stateId == null || stateId.isBlank()) {
             throw new TransfluxValidationException(
-                "State resolver returned null or blank state ID for entity: " + entity
+                "State resolver returned null or blank state ID, entityType=" + entity.getClass().getName()
             );
         }
 
         if (!states.containsKey(stateId)) {
             throw new TransfluxValidationException(
-                String.format("State resolver returned unknown state ID '%s' for entity: %s",
-                           stateId, entity)
+                String.format("State resolver returned unknown state ID '%s', entityType=%s",
+                           stateId, entity.getClass().getName())
             );
         }
 
@@ -655,9 +657,11 @@ class StateMachineImpl<T> implements StateMachine<T> {
         EntityKey key = new EntityKey(this, entity);
         Set<EntityKey> inFlight = IN_FLIGHT.get();
         if (inFlight.contains(key)) {
+            // The entity's type, never the entity: it belongs to the host and may be full of PII,
+            // and this message surfaces wherever the resulting stack trace is printed.
             throw new TransfluxReentrancyException(
                 "Reentrant transition '" + transitionId + "' to state '" + targetStateId
-                    + "' rejected for entity: " + entity
+                    + "' rejected, entityType=" + entity.getClass().getName()
                     + " (a transition is already in flight for the same state machine and entity)");
         }
         inFlight.add(key);

@@ -18,6 +18,7 @@
 
 package org.transflux.core.impl
 
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.transflux.core.Identifiable
 import org.transflux.core.TestContext
@@ -72,6 +73,20 @@ class ConditionDescriptorSinkSpec extends Specification {
         then:
         sink.descriptor().id() == 'second'
         sink.descriptors().size() == 1
+    }
+
+    def 'the override warning names each descriptor by form and id, never by its contents'() {
+        given:
+        def log = Mock(Logger)
+        def sink = new ConditionDescriptorSink<Entity, TestContext, String>(activeOwner(), 'self', 'condition', log)
+
+        when: 'an expression carrying a literal is overridden'
+        sink.expression('first', 'entity.ssn == "123-45-6789"')
+        sink.ref('second')
+
+        then: 'the descriptor toString - which would render the literal - never reaches the logger'
+        1 * log.warn(_ as String, 'Condition on stub owner',
+                     'ExpressionBased[id=first]', 'Reference[id=second]')
     }
 
     def 'a single-descriptor sink reports no descriptor before anything is declared'() {

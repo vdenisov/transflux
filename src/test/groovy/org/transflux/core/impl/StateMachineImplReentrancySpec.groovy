@@ -85,7 +85,10 @@ class StateMachineImplReentrancySpec extends Specification {
         !result.success
         result.error instanceof TransfluxReentrancyException
         result.error.message.contains("'t'")
-        result.error.message.contains('Entity(e1)')
+
+        and: 'the entity is named by type only - its own toString may carry host PII'
+        result.error.message.contains(Entity.name)
+        !result.error.message.contains('Entity(e1)')
     }
 
     def 'operation that calls back into the same SM with the same entity raises TransfluxReentrancyException'() {

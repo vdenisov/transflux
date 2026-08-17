@@ -193,10 +193,21 @@ final class ConditionDescriptorSink<T, C, D> {
 
     private D store(ConditionDescriptor descriptor) {
         if (log != null) {
-            warnIfSet(descriptor(), descriptor, "Condition on " + owner.defLabel(), log);
+            ConditionDescriptor current = descriptor();
+            warnIfSet(current == null ? null : describe(current), describe(descriptor),
+                      "Condition on " + owner.defLabel(), log);
             descriptors.clear();
         }
         descriptors.add(descriptor);
         return self;
+    }
+
+    /**
+     * Summarises a descriptor as its form and id. A descriptor's own {@code toString()} renders the
+     * whole record - a held condition instance, a predicate lambda's identity, or an expression's
+     * full text - and the override warning would carry all of it into the host's log.
+     */
+    private static String describe(ConditionDescriptor descriptor) {
+        return descriptor.getClass().getSimpleName() + "[id=" + descriptor.id() + "]";
     }
 }

@@ -51,6 +51,20 @@ class StateMachineImplSpec extends Specification {
         }
     }
 
+    /** Entity whose {@code toString()} exposes a field, standing in for a host entity full of PII. */
+    static class LeakyEntity {
+        String state
+
+        LeakyEntity(String state) {
+            this.state = state
+        }
+
+        @Override
+        String toString() {
+            return "LeakyEntity(ssn=123-45-6789)"
+        }
+    }
+
     def "state machine should be constructed from definition"() {
         given:
         def sm = Transflux.defineStateMachine()
@@ -137,6 +151,29 @@ class StateMachineImplSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains("State resolver returned unknown state ID 'UNKNOWN'")
+    }
+
+    def "resolveCurrentState should name the entity by type only, never by toString"() {
+        given:
+        def sm = Transflux.defineStateMachine()
+            .forEntityType(LeakyEntity)
+            .withStateResolver({ e -> resolved } as StateResolver<LeakyEntity>)
+            .state(TRIAL, {})
+            .build()
+
+        when:
+        sm.resolveCurrentState(new LeakyEntity("TRIAL"))
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("entityType=${LeakyEntity.name}")
+        !e.message.contains('123-45-6789')
+
+        where:
+        resolved  | _
+        null      | _
+        '   '     | _
+        'UNKNOWN' | _
     }
 
     def "getState should return state by ID"() {
