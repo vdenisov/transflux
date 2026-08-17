@@ -18,8 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.transflux.core.Identifiable;
 import org.transflux.core.StateMachine;
 import org.transflux.core.exception.TransfluxReentrancyException;
@@ -62,8 +60,6 @@ import static org.transflux.core.impl.ThrowingUtils.sneakyGet;
  * @param <T> the type of entity managed by this state machine
  */
 class StateMachineImpl<T> implements StateMachine<T> {
-    private static final Logger log = LoggerFactory.getLogger(StateMachineImpl.class);
-
     // TODO: extend the reentrancy guard across the async-submission boundary via
     //   capture/restore — the enclosing thread snapshots this set on submission and
     //   the worker installs it before entering the SM, so logical reentrancy stays
@@ -437,8 +433,9 @@ class StateMachineImpl<T> implements StateMachine<T> {
             try {
                 listener.listener().onState(entity, context, change);
             } catch (Exception e) {
-                log.warn("State listener '{}' threw '{}' on {} of state '{}': {}",
-                         listener.id(), e.getClass().getName(), phase, stateId, e.getMessage());
+                Loggers.EXECUTION_LISTENER.warn(
+                    "State listener threw, listenerId={}, phase={}, stateId={}, errorType={}, error={}",
+                    listener.id(), phase, stateId, e.getClass().getName(), e.getMessage());
             }
         }
     }
@@ -464,8 +461,9 @@ class StateMachineImpl<T> implements StateMachine<T> {
             try {
                 listener.listener().onTransition(entity, context, execution);
             } catch (Exception e) {
-                log.warn("Transition listener '{}' threw '{}' on {} of transition '{}': {}",
-                         listener.id(), e.getClass().getName(), phase, transition.id(), e.getMessage());
+                Loggers.EXECUTION_LISTENER.warn(
+                    "Transition listener threw, listenerId={}, phase={}, transitionId={}, errorType={}, error={}",
+                    listener.id(), phase, transition.id(), e.getClass().getName(), e.getMessage());
             }
         }
     }
@@ -512,9 +510,10 @@ class StateMachineImpl<T> implements StateMachine<T> {
         try {
             listener.listener().onAction(entity, context, execution);
         } catch (Exception e) {
-            log.warn("Action listener '{}' threw '{}' on {} of action '{}': {}",
-                     listener.id(), e.getClass().getName(), execution.phase(), execution.path(),
-                     e.getMessage());
+            Loggers.EXECUTION_LISTENER.warn(
+                "Action listener threw, listenerId={}, phase={}, actionPath={}, errorType={}, error={}",
+                listener.id(), execution.phase(), execution.path(), e.getClass().getName(),
+                e.getMessage());
         }
     }
 
@@ -738,8 +737,9 @@ class StateMachineImpl<T> implements StateMachine<T> {
             if (!drained.isEmpty()) {
                 // The class name, never the message: an exception raised by the framework itself can
                 // carry the entity, and a host's own exception can carry anything at all.
-                log.info("Transition '{}' failed, draining compensations, count={}, errorType={}",
-                        transitionId, drained.size(), e.getClass().getName());
+                Loggers.EXECUTION_COMPENSATION.info(
+                    "Draining compensations, transitionId={}, count={}, errorType={}",
+                    transitionId, drained.size(), e.getClass().getName());
             }
 
             for (BoundCompensation<T, C> bc : drained) {
@@ -747,8 +747,9 @@ class StateMachineImpl<T> implements StateMachine<T> {
                 try {
                     bc.compensation().compensate(entity, bc.context());
                 } catch (Exception ce) {
-                    log.warn("Compensation for step '{}' threw '{}': {}",
-                            bc.path(), ce.getClass().getName(), ce.getMessage());
+                    Loggers.EXECUTION_COMPENSATION.warn(
+                        "Compensation threw, actionPath={}, errorType={}, error={}",
+                        bc.path(), ce.getClass().getName(), ce.getMessage());
                 }
             }
 
@@ -1053,7 +1054,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
         }
 
         private void logIneligibleContext(Trigger trigger, BoundTransition<T, ?> transition, Object context) {
-            log.debug("Trigger '{}' is not eligible: {}", trigger.getId(),
+            Loggers.TRIGGER.debug("Trigger skipped, triggerId={}, reason={}", trigger.getId(),
                 contextMismatchMessage(transition, context));
         }
 

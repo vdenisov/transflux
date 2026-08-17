@@ -19,8 +19,6 @@
 package org.transflux.core.impl;
 
 import org.transflux.core.action.ActionKind;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.StepDef;
@@ -46,8 +44,6 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <C> the host-supplied context type this action requires
  */
 final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> implements StepDef<T, C> {
-    private static final Logger log = LoggerFactory.getLogger(StepDefImpl.class);
-
     private final Class<C> contextType;
     private final InstanceOrClassSource<Action<T, C>> source;
 
@@ -67,7 +63,8 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
         super(id, "step", "Step ID");
         requireNotNull(contextType, "Step context type");
         this.contextType = contextType;
-        this.source = new InstanceOrClassSource<>(log, "Step source", "StepDef '" + id + "'");
+        this.source = new InstanceOrClassSource<>(Loggers.BUILD_VALIDATION, "Step source",
+                                                  "StepDef '" + id + "'");
     }
 
     @Override

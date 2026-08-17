@@ -18,8 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.trigger.EventTriggerDef;
@@ -48,8 +46,6 @@ import static org.transflux.core.impl.ValidationUtils.warnIfSet;
 final class EventTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, EventTriggerDefImpl<T, C>>
     implements EventTriggerDef<T, C> {
 
-    private static final Logger log = LoggerFactory.getLogger(EventTriggerDefImpl.class);
-
     private String eventId;
     private Supplier<EventFilter<T>> filterSource;
 
@@ -61,7 +57,7 @@ final class EventTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, EventTriggerD
     public EventTriggerDef<T, C> onEvent(String eventId) {
         requireConfigurerActive("onEvent");
         requireNotBlank(eventId, "Event ID");
-        warnIfSet(this.eventId, eventId, "Event ID", log);
+        warnIfSet(this.eventId, eventId, "Event ID", Loggers.BUILD_VALIDATION);
         this.eventId = eventId;
         return this;
     }
@@ -136,7 +132,7 @@ final class EventTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, EventTriggerD
     }
 
     private EventTriggerDef<T, C> setFilter(Supplier<EventFilter<T>> incoming) {
-        warnIfSet(filterSource != null, "Filter", defLabel(), log);
+        warnIfSet(filterSource != null, "Filter", defLabel(), Loggers.BUILD_VALIDATION);
         this.filterSource = incoming;
         return this;
     }

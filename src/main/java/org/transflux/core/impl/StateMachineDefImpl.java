@@ -18,8 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.transflux.core.ContextScope;
 import org.transflux.core.Identifiable;
 import org.transflux.core.StateMachine;
@@ -70,8 +68,6 @@ import static org.transflux.core.impl.ValidationUtils.warnIfSet;
  * @param <T> the type of entity managed by the state machine being defined
  */
 public class StateMachineDefImpl<T> implements StateMachineDef<T> {
-    private static final Logger log = LoggerFactory.getLogger(StateMachineDefImpl.class);
-
     private Class<T> entityType;
     private String name;
     private String description;
@@ -145,7 +141,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     @Override
     public StateMachineDef<T> withName(String name) {
-        warnIfSet(this.name, name, "Name", log);
+        warnIfSet(this.name, name, "Name", Loggers.BUILD_VALIDATION);
 
         this.name = name;
         return this;
@@ -153,7 +149,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     @Override
     public StateMachineDef<T> withDescription(String description) {
-        warnIfSet(this.description, description, "Description", log);
+        warnIfSet(this.description, description, "Description", Loggers.BUILD_VALIDATION);
 
         this.description = description;
         return this;
@@ -161,7 +157,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     @Override
     public StateMachineDef<T> withVersion(String version) {
-        warnIfSet(this.version, version, "Version", log);
+        warnIfSet(this.version, version, "Version", Loggers.BUILD_VALIDATION);
 
         this.version = version;
         return this;
@@ -172,8 +168,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotNull(stateResolver, "State resolver");
 
         if (this.stateResolver != null) {
-            log.warn("State resolver is already defined: {}. Overriding previous value with {}",
-                               this.stateResolver.getClass().getName(), stateResolver.getClass().getName());
+            Loggers.BUILD_VALIDATION.warn("State resolver overwritten, current={}, incoming={}",
+                                          this.stateResolver.getClass().getName(),
+                                          stateResolver.getClass().getName());
         }
 
         this.stateResolver = stateResolver;
@@ -981,8 +978,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotNull(stateApplier, "State applier");
 
         if (this.stateApplier != null) {
-            log.warn("State applier is already defined: {}. Overriding previous value with {}",
-                               this.stateApplier.getClass().getName(), stateApplier.getClass().getName());
+            Loggers.BUILD_VALIDATION.warn("State applier overwritten, current={}, incoming={}",
+                                          this.stateApplier.getClass().getName(),
+                                          stateApplier.getClass().getName());
         }
 
         this.stateApplier = stateApplier;

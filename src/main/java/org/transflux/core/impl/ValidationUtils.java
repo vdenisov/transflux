@@ -46,7 +46,7 @@ final class ValidationUtils {
      */
     static <T> void warnIfSet(T current, T incoming, String fieldName, Logger log) {
         if (current != null) {
-            log.warn("{} is already defined: {}. Overriding previous value with {}",
+            log.warn("Definition value overwritten, field={}, current={}, incoming={}",
                     fieldName, current, incoming);
         }
     }
@@ -63,7 +63,7 @@ final class ValidationUtils {
      */
     static void warnIfSet(boolean alreadySet, String fieldName, String ownerLabel, Logger log) {
         if (alreadySet) {
-            log.warn("{} already defined for {}; overriding previous value", fieldName, ownerLabel);
+            log.warn("Definition value overwritten, field={}, owner={}", fieldName, ownerLabel);
         }
     }
 }

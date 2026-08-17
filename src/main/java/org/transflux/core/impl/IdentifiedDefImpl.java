@@ -18,9 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.impl.ValidationUtils.warnIfSet;
 
@@ -43,8 +40,6 @@ import static org.transflux.core.impl.ValidationUtils.warnIfSet;
  * @param <SELF> the concrete subclass type, used for covariant fluent returns
  */
 abstract class IdentifiedDefImpl<SELF extends IdentifiedDefImpl<SELF>> extends ConfigurableDefImpl {
-
-    private static final Logger log = LoggerFactory.getLogger(IdentifiedDefImpl.class);
 
     private final String id;
     private final String kind;
@@ -114,7 +109,7 @@ abstract class IdentifiedDefImpl<SELF extends IdentifiedDefImpl<SELF>> extends C
      */
     public SELF withName(String name) {
         requireConfigurerActive("withName");
-        warnIfSet(this.name, name, "Name", log);
+        warnIfSet(this.name, name, "Name", Loggers.BUILD_VALIDATION);
         this.name = name;
         return self();
     }
@@ -129,7 +124,7 @@ abstract class IdentifiedDefImpl<SELF extends IdentifiedDefImpl<SELF>> extends C
      */
     public SELF withDescription(String description) {
         requireConfigurerActive("withDescription");
-        warnIfSet(this.description, description, "Description", log);
+        warnIfSet(this.description, description, "Description", Loggers.BUILD_VALIDATION);
         this.description = description;
         return self();
     }

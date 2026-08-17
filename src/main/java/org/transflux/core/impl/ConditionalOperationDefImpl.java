@@ -22,8 +22,6 @@ import org.transflux.core.action.ActionKind;
 import org.transflux.core.action.ActionListener;
 import org.transflux.core.action.ActionListenerDef;
 import org.transflux.core.action.ActionPhase;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.BranchDef;
@@ -71,13 +69,12 @@ import static org.transflux.core.Preconditions.requireNotNull;
  */
 final class ConditionalOperationDefImpl<T, C>
     extends IdentifiedDefImpl<ConditionalOperationDefImpl<T, C>> implements ConditionalOperationDef<T, C> {
-    private static final Logger log = LoggerFactory.getLogger(ConditionalOperationDefImpl.class);
 
     private final List<BranchDefImpl<T, C>> branches = new ArrayList<>();
     private final ActionListenerSink<T, C, ConditionalOperationDef<T, C>> listeners =
         new ActionListenerSink<>(this, this);
     private final InstanceOrClassSource<Compensation<T, C>> compensation =
-        new InstanceOrClassSource<>(log, "Compensation source", defLabel());
+        new InstanceOrClassSource<>(Loggers.BUILD_VALIDATION, "Compensation source", defLabel());
     private DefaultBranchDefImpl<T, C> defaultBranch;
     private NoMatchBehavior noMatchBehavior = NoMatchBehavior.WARN;
 
@@ -509,8 +506,8 @@ final class ConditionalOperationDefImpl<T, C>
             switch (noMatchBehavior) {
                 case ERROR -> throw new TransfluxValidationException(
                     "Conditional operation '" + conditionalId + "' had no matching branch and no default");
-                case WARN -> log.warn(
-                    "Conditional operation '{}' had no matching branch and no default; skipping.",
+                case WARN -> Loggers.EXECUTION_CONDITION.warn(
+                    "Conditional matched no branch and has no default, conditionalId={}",
                     conditionalId);
                 case SILENT -> { /* skip silently */ }
             }

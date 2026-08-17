@@ -18,8 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
@@ -62,8 +60,6 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <C> the host-supplied context type carried through transition execution
  */
 class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>> implements TransitionDef<T, C> {
-    private static final Logger log = LoggerFactory.getLogger(TransitionDefImpl.class);
-
     private final String sourceStateId;
     private final String targetStateId;
 
@@ -121,7 +117,8 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         requireConfigurerActive("usingContext");
         requireNotNull(contextType, "Transition context type");
         if (this.contextType != null && this.contextType != Object.class && this.contextType != contextType) {
-            log.warn("Transition '{}' context type already declared as {}; overriding with {}",
+            Loggers.BUILD_VALIDATION.warn(
+                "Transition context type overwritten, transitionId={}, current={}, incoming={}",
                 getId(), this.contextType.getName(), contextType.getName());
         }
         this.contextType = (Class<C>) contextType;
@@ -777,7 +774,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
 
     private void warnIfActionSet() {
         if (this.actionDef != null || this.registeredActionRefId != null) {
-            log.warn("Action is already defined for transition '{}'; overriding previous value", getId());
+            Loggers.BUILD_VALIDATION.warn("Transition action overwritten, transitionId={}", getId());
         }
     }
 

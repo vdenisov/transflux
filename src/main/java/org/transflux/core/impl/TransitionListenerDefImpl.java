@@ -18,8 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.transition.TransitionListener;
 import org.transflux.core.transition.TransitionListenerDef;
@@ -40,13 +38,11 @@ import static org.transflux.core.Preconditions.requireNotNull;
 final class TransitionListenerDefImpl<T, C> extends IdentifiedDefImpl<TransitionListenerDefImpl<T, C>>
         implements TransitionListenerDef<T, C> {
 
-    private static final Logger log = LoggerFactory.getLogger(TransitionListenerDefImpl.class);
-
     private final InstanceOrClassSource<TransitionListener<T, C>> source;
 
     TransitionListenerDefImpl(String id) {
         super(id, "transition listener", "Transition listener ID");
-        this.source = new InstanceOrClassSource<>(log, "Transition listener source",
+        this.source = new InstanceOrClassSource<>(Loggers.BUILD_VALIDATION, "Transition listener source",
                                                   "TransitionListenerDef '" + id + "'");
     }
 

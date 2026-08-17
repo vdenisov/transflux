@@ -92,7 +92,7 @@ class InstanceOrClassSourceSpec extends Specification {
         source.setInstance(second)
 
         then:
-        1 * log.warn('{} already defined for {}; overriding previous value', 'Widget source', "WidgetDef 'w1'")
+        1 * log.warn('Definition value overwritten, field={}, owner={}', 'Widget source', "WidgetDef 'w1'")
         source.resolve('Widget').is(second)
     }
 
@@ -106,7 +106,7 @@ class InstanceOrClassSourceSpec extends Specification {
         source.setInstance(instance)
 
         then:
-        1 * log.warn('{} already defined for {}; overriding previous value', 'Widget source', "WidgetDef 'w1'")
+        1 * log.warn('Definition value overwritten, field={}, owner={}', 'Widget source', "WidgetDef 'w1'")
         source.resolve('Widget').is(instance)
     }
 
@@ -119,7 +119,7 @@ class InstanceOrClassSourceSpec extends Specification {
         source.setClass(WidgetImpl)
 
         then:
-        1 * log.warn('{} already defined for {}; overriding previous value', 'Widget source', "WidgetDef 'w1'")
+        1 * log.warn('Definition value overwritten, field={}, owner={}', 'Widget source', "WidgetDef 'w1'")
         source.resolve('Widget') instanceof WidgetImpl
     }
 

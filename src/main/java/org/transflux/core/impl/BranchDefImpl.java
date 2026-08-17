@@ -19,8 +19,6 @@
 package org.transflux.core.impl;
 
 import org.transflux.core.action.ActionKind;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
@@ -46,11 +44,9 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <C> the host-supplied context type carried through transition execution
  */
 final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef<T, C> {
-    private static final Logger log = LoggerFactory.getLogger(BranchDefImpl.class);
-
     private final String branchId;
     private final ConditionDescriptorSink<T, C, BranchDef<T, C>> branchCondition =
-        new ConditionDescriptorSink<>(this, this, "condition", log);
+        new ConditionDescriptorSink<>(this, this, "condition", Loggers.BUILD_VALIDATION);
     private final List<ActionRef<T, C>> actionRefs = new ArrayList<>();
 
     BranchDefImpl(String branchId) {

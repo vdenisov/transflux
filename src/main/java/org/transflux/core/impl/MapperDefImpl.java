@@ -18,8 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.MapperDef;
@@ -39,8 +37,6 @@ import static org.transflux.core.Preconditions.requireNotNull;
 final class MapperDefImpl<P, N> extends IdentifiedDefImpl<MapperDefImpl<P, N>>
         implements MapperDef<P, N> {
 
-    private static final Logger log = LoggerFactory.getLogger(MapperDefImpl.class);
-
     private final Class<P> parentType;
     private final Class<N> childType;
 
@@ -52,7 +48,8 @@ final class MapperDefImpl<P, N> extends IdentifiedDefImpl<MapperDefImpl<P, N>>
         requireNotNull(childType, "Mapper child type");
         this.parentType = parentType;
         this.childType = childType;
-        this.source = new InstanceOrClassSource<>(log, "Mapper source", "MapperDef '" + id + "'");
+        this.source = new InstanceOrClassSource<>(Loggers.BUILD_VALIDATION, "Mapper source",
+                                                  "MapperDef '" + id + "'");
     }
 
     @Override

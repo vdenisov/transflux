@@ -18,8 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.transflux.core.Identifiable;
 import org.transflux.core.action.ActionDef;
 import org.transflux.core.action.ActionListener;
@@ -58,12 +56,10 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     extends IdentifiedDefImpl<SELF> implements ActionDef<T, C>
     permits StepDefImpl, OperationDefImpl {
 
-    private static final Logger log = LoggerFactory.getLogger(ActionDefImpl.class);
-
     private final ActionListenerSink<T, C, SELF> listeners = new ActionListenerSink<>(this, self());
 
     private final InstanceOrClassSource<Compensation<T, C>> compensation =
-        new InstanceOrClassSource<>(log, "Compensation source", defLabel());
+        new InstanceOrClassSource<>(Loggers.BUILD_VALIDATION, "Compensation source", defLabel());
 
     /**
      * @param id the action id

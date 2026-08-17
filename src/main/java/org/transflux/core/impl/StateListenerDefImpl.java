@@ -18,8 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.state.StateListener;
 import org.transflux.core.state.StateListenerDef;
@@ -39,13 +37,11 @@ import static org.transflux.core.Preconditions.requireNotNull;
 final class StateListenerDefImpl<T> extends IdentifiedDefImpl<StateListenerDefImpl<T>>
         implements StateListenerDef<T> {
 
-    private static final Logger log = LoggerFactory.getLogger(StateListenerDefImpl.class);
-
     private final InstanceOrClassSource<StateListener<T>> source;
 
     StateListenerDefImpl(String id) {
         super(id, "state listener", "State listener ID");
-        this.source = new InstanceOrClassSource<>(log, "State listener source",
+        this.source = new InstanceOrClassSource<>(Loggers.BUILD_VALIDATION, "State listener source",
                                                   "StateListenerDef '" + id + "'");
     }
 
