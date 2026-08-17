@@ -139,6 +139,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
         }
 
         def.bindCompositeScopes(registry, conditionRegistry);
+        Loggers.BUILD_REGISTRY.debug("Container scopes bound to the root registry");
 
         def.buildBoundOperationsIncrementally(this, bo -> {
             Class<?> ctx = effectiveContextType(def, bo.id());
@@ -158,10 +159,28 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
         registry.flatten();
         def.flattenCompositeScopes();
+        Loggers.BUILD_REGISTRY.debug("Registry scopes flattened, rootComponents={}", registry.ids().size());
     }
 
     Registry<T> getComponentRegistry() {
         return componentRegistry;
+    }
+
+    int stateCount() {
+        return states.size();
+    }
+
+    int transitionCount() {
+        return transitions.size();
+    }
+
+    int triggerCount() {
+        return triggers.size();
+    }
+
+    /** Root-registry entries only; a container's inline members live in its own scope. */
+    int componentCount() {
+        return componentRegistry.ids().size();
     }
 
     /**

@@ -94,6 +94,7 @@ final class RegistryImpl<T> implements Registry<T> {
         }
 
         components.put(component.id(), component);
+        logBound(component);
     }
 
     @Override
@@ -146,6 +147,26 @@ final class RegistryImpl<T> implements Registry<T> {
                 }
             }
             ancestor = ancestor.parent();
+        }
+    }
+
+    /**
+     * Reports what an id resolved to. Registration is the one seam every component passes through,
+     * so a container's inline members — whose ids are reachable from nowhere else and are therefore
+     * the ids most likely to be misread — are covered on the same terms as the root's.
+     *
+     * <p>The context type is the half a reader cannot infer from the definition: an untyped
+     * registration is tagged {@code Object}, which is what a pass-through check will later admit
+     * unconditionally. The scope says which registry claimed the id, and so which subtree can see
+     * it. {@link #flatten()} copies ancestor entries in directly, so a flattened id is not reported
+     * a second time under the scope that merely inherited it.
+     */
+    private void logBound(Component<T> component) {
+        if (Loggers.BUILD_BINDING.isDebugEnabled()) {
+            Class<?> contextType = component.contextType();
+            Loggers.BUILD_BINDING.debug("Component bound, id={}, kind={}, contextType={}, scope={}",
+                                        component.id(), component.kind(),
+                                        contextType == null ? null : contextType.getName(), label);
         }
     }
 }

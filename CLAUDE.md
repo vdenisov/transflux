@@ -113,9 +113,10 @@ INFO staying off the per-transition path is the rule to hold hardest — a host 
 
 | Logger | Covers |
 | --- | --- |
+| `org.transflux.build.lifecycle` | the build pipeline's own progression: phase boundaries and the completion line |
 | `org.transflux.build.validation` | ref / context / cycle checks, id claims |
 | `org.transflux.build.registry` | scope population, parenting, flattening |
-| `org.transflux.build.binding` | defs to bound records; what each id resolved to |
+| `org.transflux.build.binding` | defs to bound records; what each id resolved to, and in which scope |
 | `org.transflux.execution.transition` | lifecycle: state resolution, outcome, applier |
 | `org.transflux.execution.action` | per-action dispatch, nesting, call-site mapping |
 | `org.transflux.execution.condition` | pre / post / branch evaluation |

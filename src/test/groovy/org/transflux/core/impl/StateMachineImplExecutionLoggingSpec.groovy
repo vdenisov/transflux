@@ -251,11 +251,13 @@ class StateMachineImplExecutionLoggingSpec extends Specification {
 
     def 'no INFO or above is emitted anywhere on a successful transition'() {
         given: 'the rule to hold hardest - the outcome is already on the returned result'
-        capture = LogCapture.start('org.transflux')
         def sm = build({ t -> t
             .preCondition('ok', { Entity e -> true } as Predicate)
             .postCondition('also-ok', { Entity e -> true } as Predicate)
             .operation('op', { OperationDef<Entity, TestContext> op -> op.step('inner', new NoopStep()) }) })
+
+        and: 'captured after the build, whose own completion INFO is not on the transition path'
+        capture = LogCapture.start('org.transflux')
 
         when:
         def result = sm.entity(new Entity('s1', 1)).transitionTo('s2', new TestContext())
@@ -268,10 +270,12 @@ class StateMachineImplExecutionLoggingSpec extends Specification {
 
     def 'a failure with nothing to roll back still stays below INFO'() {
         given: 'the drain INFO is per rollback, not per failure'
-        capture = LogCapture.start('org.transflux')
         def sm = build({ t -> t.operation('op', { OperationDef<Entity, TestContext> op -> op
             .step('fine', new NoopStep())
             .step('boom', new ThrowingStep()) }) })
+
+        and:
+        capture = LogCapture.start('org.transflux')
 
         when:
         def result = sm.entity(new Entity('s1', 1)).transitionTo('s2', new TestContext())

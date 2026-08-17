@@ -1571,10 +1571,31 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     @Override
     public StateMachine<T> build() {
+        // The four phase boundaries, reported so that "why did my definition build into *that*" has
+        // somewhere to start. Each phase names itself before running, so a throw is attributable to
+        // the phase whose line was last emitted — which is why all four go to one logger rather than
+        // to the logger of the phase they announce: split across leaves, the attribution would hold
+        // only for a host who enabled every one of them.
+        Loggers.BUILD_LIFECYCLE.debug("Validating context compatibility and cycles");
         validateContextCompatibilityAndCycles();
+
+        Loggers.BUILD_LIFECYCLE.debug("Populating registries and binding components");
         StateMachineImpl<T> stateMachine = new StateMachineImpl<>(this);
+
+        Loggers.BUILD_LIFECYCLE.debug("Validating registered components");
         validateComponents(stateMachine.getComponentRegistry());
+
+        Loggers.BUILD_LIFECYCLE.debug("Validating conditional branch references");
         validateBranchRefs();
+
+        // The one build-time INFO: rare, and the only report a host gets that its definition
+        // resolved into the shape it expected. The component count is the root registry's, matching
+        // the name the binding pass uses. A generation counter belongs here too once definition
+        // replacement lands.
+        Loggers.BUILD_LIFECYCLE.info("State machine built, states={}, transitions={}, triggers={}, rootComponents={}",
+                                     stateMachine.stateCount(), stateMachine.transitionCount(),
+                                     stateMachine.triggerCount(), stateMachine.componentCount());
+
         return stateMachine;
     }
 

@@ -23,6 +23,13 @@
     </encoder>
   </appender>
 
+  <!--
+    Every spec that builds a state machine emits the build-completion INFO, which is several hundred
+    lines across the suite and says nothing about the test. Specs that assert on build logging raise
+    the level themselves through LogCapture, which sets it on the logger it captures.
+  -->
+  <logger name="org.transflux.build" level="WARN"/>
+
   <root level="INFO">
     <appender-ref ref="STDOUT"/>
   </root>

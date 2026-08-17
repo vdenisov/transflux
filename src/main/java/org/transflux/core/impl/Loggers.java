@@ -46,10 +46,15 @@ final class Loggers {
     /** Scope population, parenting and flattening. */
     static final Logger BUILD_REGISTRY = LoggerFactory.getLogger("org.transflux.build.registry");
 
-    /** Defs to bound records; what each id resolved to. */
+    /** Defs to bound records; what each id resolved to, and in which scope. */
     static final Logger BUILD_BINDING = LoggerFactory.getLogger("org.transflux.build.binding");
 
-    /** Build start and completion, with the resulting component counts. */
+    /**
+     * The build pipeline's own progression: each phase boundary, and the completion line with the
+     * resulting counts. The phase boundaries live here rather than on the logger of the phase they
+     * announce, so that "the last line emitted names the phase that threw" holds for a host who
+     * enabled one leaf rather than the whole {@code org.transflux.build} subtree.
+     */
     static final Logger BUILD_LIFECYCLE = LoggerFactory.getLogger("org.transflux.build.lifecycle");
 
     /** Transition lifecycle: state resolution, outcome, applier. */

@@ -20,6 +20,8 @@ package org.transflux.core.impl;
 
 import org.transflux.core.exception.TransfluxValidationException;
 
+import java.util.Locale;
+
 /**
  * Unified runtime view of a reusable, id-keyed building block that lives in a {@link Registry}.
  * <p>
@@ -57,6 +59,14 @@ sealed interface Component<T> permits Component.Action, Component.Condition {
     Class<?> contextType();
 
     /**
+     * Returns the label naming this component's form in diagnostics — an action reports the form it
+     * was authored in, so the label matches the DSL the host wrote.
+     *
+     * @return the diagnostic label; never {@code null}
+     */
+    String kind();
+
+    /**
      * Validates the component's internal consistency once, at the end of the state machine build.
      * The default is a no-op; variants override when they need to gate the build.
      *
@@ -70,6 +80,12 @@ sealed interface Component<T> permits Component.Action, Component.Condition {
      */
     record Action<T, C>(String id, Class<C> contextType, BoundAction<T, C> bound) implements Component<T> {
         @Override
+        public String kind() {
+            // A missing payload is validate()'s to report, and validate() runs after registration.
+            return bound == null ? "action" : bound.kind().name().toLowerCase(Locale.ROOT);
+        }
+
+        @Override
         public void validate() {
             requireIdMatchesPayload(id, bound == null ? null : bound.id(), "action");
         }
@@ -79,6 +95,11 @@ sealed interface Component<T> permits Component.Action, Component.Condition {
      * Condition variant - wraps a {@link BoundCondition} payload.
      */
     record Condition<T, C>(String id, Class<C> contextType, BoundCondition<T, C> bound) implements Component<T> {
+        @Override
+        public String kind() {
+            return "condition";
+        }
+
         @Override
         public void validate() {
             requireIdMatchesPayload(id, bound == null ? null : bound.id(), "condition");
