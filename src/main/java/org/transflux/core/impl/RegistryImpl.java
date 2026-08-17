@@ -38,6 +38,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
 final class RegistryImpl<T> implements Registry<T> {
 
     private final Map<String, Component<T>> components = new LinkedHashMap<>();
+    private final Map<String, String> declaringScopes = new LinkedHashMap<>();
     private final Registry<T> parent;
     private final String label;
 
@@ -87,6 +88,7 @@ final class RegistryImpl<T> implements Registry<T> {
         }
 
         components.put(component.id(), component);
+        declaringScopes.put(component.id(), label);
         logBound(component);
     }
 
@@ -118,6 +120,18 @@ final class RegistryImpl<T> implements Registry<T> {
     }
 
     @Override
+    public Optional<String> declaringScope(String id) {
+        String local = declaringScopes.get(id);
+        if (local != null) {
+            return Optional.of(local);
+        }
+        if (parent != null) {
+            return parent.declaringScope(id);
+        }
+        return Optional.empty();
+    }
+
+    @Override
     public Registry<T> parent() {
         return parent;
     }
@@ -126,7 +140,9 @@ final class RegistryImpl<T> implements Registry<T> {
      * Copies every ancestor entry that is visible through {@link #resolve(String)} but not held
      * locally into the local map. After this call, {@link #resolve(String)} is a single local-map
      * lookup with no parent-chain traversal. {@link #parent()} is left in place as a public
-     * introspection accessor.
+     * introspection accessor, and each copied entry carries its declaring scope's label across, so
+     * {@link #declaringScope(String)} keeps naming the registry that claimed the id rather than the
+     * one that inherited it.
      *
      * <p>Safe to call once per registry, at the end of the state-machine build pipeline, after
      * every ancestor's local entries are settled.
@@ -134,12 +150,16 @@ final class RegistryImpl<T> implements Registry<T> {
     void flatten() {
         Registry<T> ancestor = parent;
         while (ancestor != null) {
-            for (String id : ancestor.ids()) {
+            Registry<T> current = ancestor;
+            for (String id : current.ids()) {
                 if (!components.containsKey(id)) {
-                    ancestor.get(id).ifPresent(c -> components.put(c.id(), c));
+                    current.get(id).ifPresent(c -> {
+                        components.put(c.id(), c);
+                        current.declaringScope(c.id()).ifPresent(s -> declaringScopes.put(c.id(), s));
+                    });
                 }
             }
-            ancestor = ancestor.parent();
+            ancestor = current.parent();
         }
     }
 

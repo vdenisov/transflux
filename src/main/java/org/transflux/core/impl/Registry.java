@@ -82,6 +82,19 @@ interface Registry<T> {
     String label();
 
     /**
+     * Returns the {@link #label()} of the registry that claimed {@code id}, walking the parent
+     * chain the same way {@link #resolve(String)} does. Unlike {@code label()} on the registry a
+     * lookup started from, this survives {@link RegistryImpl#flatten()}: an ancestor entry copied
+     * into the local map keeps reporting the scope that declared it, which is the half a
+     * lexical-visibility question turns on.
+     *
+     * @param id the component id
+     *
+     * @return the declaring scope's label, or {@link Optional#empty()} if the id resolves nowhere
+     */
+    Optional<String> declaringScope(String id);
+
+    /**
      * Returns this registry's parent, or {@code null} when this is a root registry.
      *
      * @return the parent registry, or {@code null}

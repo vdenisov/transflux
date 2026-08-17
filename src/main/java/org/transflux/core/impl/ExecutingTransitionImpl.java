@@ -328,10 +328,15 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
                     + ", not an action");
         }
 
-        // Which scope, not merely that it resolved: the id an action dispatches may be its
-        // container's inline one or an SM-level one reached through the parent chain, and that is
-        // the distinction a lexical-visibility surprise turns on.
-        Loggers.EXECUTION_ACTION.trace("Action id resolved, id={}, scope={}", id, scope.label());
+        // Which scope claimed the id, not merely that it resolved: the id an action dispatches may
+        // be its container's own inline one or an SM-level one it inherits, and that is the
+        // distinction a lexical-visibility surprise turns on. The active scope would answer the
+        // wrong question - after flattening it is the scope the lookup started in, always the
+        // container.
+        if (Loggers.EXECUTION_ACTION.isTraceEnabled()) {
+            Loggers.EXECUTION_ACTION.trace("Action id resolved, id={}, scope={}", id,
+                                           scope.declaringScope(id).orElse(null));
+        }
         return action.bound();
     }
 

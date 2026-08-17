@@ -104,10 +104,12 @@ For one-off SM-level component registrations the flat overloads stay alongside `
 | ERROR | Nothing. Failures are returned on `TransitionResult` or thrown. | — |
 | WARN | An observer threw and was swallowed; a compensation threw during a drain; a def setter overwrote a previous value; a `WARN`-mode conditional matched nothing; a definition-time smell that is not fatal. | rare |
 | INFO | Rare and consequential events invisible from a return value: build completed, definition swapped, compensation drain started, executor lifecycle. **Never per transition.** | per build / per rollback |
-| DEBUG | Per transition: resolved source state, pre/post-condition outcomes, the trigger scan and why each candidate was skipped, branch selection, applier invocation, outcome. Per build: each bound component and what it resolved to. | O(transitions) |
-| TRACE | Per action: entry/exit with qualified path and mapping decision. Per condition: the evaluated value. Registry lookups. | O(actions) |
+| DEBUG | Per transition: resolved source state, pre/post-condition outcomes, the trigger scan and why each candidate was skipped, applier invocation, outcome. Per build: phase boundaries, registry scoping, and each bound component and what it resolved to. | O(transitions) |
+| TRACE | Per action: entry/exit with qualified path and mapping decision, and which scope a dispatched id was claimed by. Per branch condition: the evaluated value. | O(actions) |
 
 INFO staying off the per-transition path is the rule to hold hardest — a host running thousands of transitions a second did not ask us for thousands of INFO lines, and the outcome is already on the returned `TransitionResult`.
+
+The level a condition reports at follows its volume, not its kind: a pre- or post-condition runs once per transition and belongs at DEBUG, while a conditional's branch selectors run once per branch per action and belong at TRACE alongside the actions they select. `BoundCondition` carries the role, so the split is one branch at one seam rather than a rule spread over call sites.
 
 **Logger names are virtual packages, not classes.** Implementation classes are concentrated in `core.impl` so they can see each other package-privately without widening the public surface, which makes the real package structure useless as a logging hierarchy — a host would get "all of Transflux" or "one class whose name we may refactor next phase". So logger names describe how the code *would* be divided if Java allowed cross-package internal access:
 

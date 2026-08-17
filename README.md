@@ -60,14 +60,16 @@ Transflux logs through SLF4J and ships no binding or configuration of its own �
 | ERROR | Nothing. Failures are returned on `TransitionResult` or thrown. | — |
 | WARN | An observer threw and was swallowed; a compensation threw during a drain; a definition-time setter overwrote a previous value; a `WARN`-mode conditional matched nothing. | rare |
 | INFO | Build completion, and the start of a compensation drain. **Never per transition.** | per build / per rollback |
-| DEBUG | Per transition: outcome, condition results, the trigger scan and why each candidate was skipped, applier invocation. Per build: each bound component and what it resolved to. | O(transitions) |
-| TRACE | Per action: entry and exit with the qualified path and the call-site mapping decision. Registry lookups. | O(actions) |
+| DEBUG | Per transition: outcome, pre- and post-condition results, the trigger scan and why each candidate was skipped, applier invocation. Per build: phase boundaries, registry scoping, and each bound component and what it resolved to. | O(transitions) |
+| TRACE | Per action: entry and exit with the qualified path, the call-site mapping decision, and which scope a dispatched id was claimed by. Per branch condition: the evaluated value. | O(actions) |
 
 INFO staying off the per-transition path is the rule held hardest: a host running thousands of transitions a second did not ask for thousands of INFO lines, and the outcome is already on the returned `TransitionResult`.
 
 **The framework never logs your entity or your context.** Ids, class names, states, and qualified paths only — at any level, including inside exception messages. The same rule covers a throwable's type rather than its message wherever the framework reports a failure of its own. A host that wants payloads in its logs does that through a listener, where the decision is the host's to make.
 
 **Framework logging does not duplicate the listener SPI.** `ActionListener`, `TransitionListener` and `StateListener` already expose the execution trace, and a host that registers one controls its format, level, and cost. Framework logging covers what a listener cannot observe: trigger dispatch scans, condition evaluations, registry resolution, call-site mapping, compensation drains, and the build pipeline.
+
+Both levels of `org.transflux.execution.condition` are worth knowing apart: DEBUG gives pre- and post-conditions, one line per transition, while a conditional's branch selectors sit at TRACE because they run once per branch per action.
 
 To see why a `processEvent(...)` fired nothing, raise `org.transflux.trigger` to DEBUG — the scan reports its candidate count and one line per candidate with the reason it was passed over.
 

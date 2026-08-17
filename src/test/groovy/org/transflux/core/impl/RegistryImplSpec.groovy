@@ -174,6 +174,44 @@ class RegistryImplSpec extends Specification {
         ((Component.Action) child.resolve('s-child').get()).bound() == childBound
     }
 
+    def 'declaringScope names the registry that claimed an id, before and after flatten'() {
+        given: 'the label of the registry a lookup starts in would report the child either way'
+        def root = new RegistryImpl<Entity>()
+        root.register(new Component.Action<>('s-root', Ctx,
+            BoundAction.<Entity, Ctx> of('s-root', new NoopStep(), ActionKind.STEP)))
+
+        def child = new RegistryImpl<Entity>(root, 'child')
+        child.register(new Component.Action<>('s-child', Ctx,
+            BoundAction.<Entity, Ctx> of('s-child', new NoopStep(), ActionKind.STEP)))
+
+        expect:
+        child.declaringScope('s-child') == Optional.of('child')
+        child.declaringScope('s-root') == Optional.of('root')
+        child.declaringScope('absent') == Optional.empty()
+
+        when:
+        child.flatten()
+
+        then: 'the inherited entry keeps reporting root, not the scope that copied it in'
+        child.declaringScope('s-child') == Optional.of('child')
+        child.declaringScope('s-root') == Optional.of('root')
+    }
+
+    def 'declaringScope reports the shadowing scope when a child re-uses an ancestor id'() {
+        given:
+        def root = new RegistryImpl<Entity>()
+        root.register(new Component.Action<>('s1', Ctx,
+            BoundAction.<Entity, Ctx> of('s1', new NoopStep(), ActionKind.STEP)))
+
+        def child = new RegistryImpl<Entity>(root, 'child')
+        child.register(new Component.Action<>('s1', Ctx,
+            BoundAction.<Entity, Ctx> of('s1', new NoopStep(), ActionKind.STEP)))
+
+        expect:
+        child.declaringScope('s1') == Optional.of('child')
+        root.declaringScope('s1') == Optional.of('root')
+    }
+
     def 'flatten leaves the parent unchanged and keeps parent() in place'() {
         given:
         def root = new RegistryImpl<Entity>()

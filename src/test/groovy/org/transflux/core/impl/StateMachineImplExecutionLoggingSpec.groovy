@@ -201,7 +201,7 @@ class StateMachineImplExecutionLoggingSpec extends Specification {
         capture.messages().every { !it.contains('boom') }
     }
 
-    def 'an imperative dispatch reports which scope the id resolved in'() {
+    def 'an imperative dispatch reports which scope claimed the id'() {
         given: 'only a dispatch from inside a body resolves at runtime - container members are bound at build'
         capture = LogCapture.start('org.transflux.execution.action')
         def smd = new StateMachineDefImpl<Entity>()
@@ -221,9 +221,9 @@ class StateMachineImplExecutionLoggingSpec extends Specification {
         when:
         smd.build().entity(new Entity('s1', 1)).transitionTo('s2', new TestContext())
 
-        then: 'the container is the active scope, and reaches its own inline id and the SM-level one alike'
+        then: 'the container reaches both, and the line separates its own inline id from the inherited one'
         capture.messages().contains('Action id resolved, id=inline, scope=op')
-        capture.messages().contains('Action id resolved, id=sm-level, scope=op')
+        capture.messages().contains('Action id resolved, id=sm-level, scope=root')
     }
 
     def 'a dispatch from a transition-attached step resolves against the root scope'() {

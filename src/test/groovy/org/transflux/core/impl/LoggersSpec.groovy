@@ -78,13 +78,12 @@ class LoggersSpec extends Specification {
     }
 
     def 'the holder is not instantiable'() {
-        when:
+        given: 'a holder of constants, never a thing to hold a reference to'
         def ctor = Loggers.getDeclaredConstructor()
-        ctor.setAccessible(true)
-        ctor.newInstance()
 
-        then: 'a private constructor is the whole of it - the class carries no state'
-        notThrown(Exception)
+        expect:
+        Modifier.isPrivate(ctor.modifiers)
+        Loggers.declaredConstructors.length == 1
     }
 
     def 'the framework declares no logger outside the holder'() {
