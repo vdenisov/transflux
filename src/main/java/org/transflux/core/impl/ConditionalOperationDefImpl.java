@@ -407,11 +407,10 @@ final class ConditionalOperationDefImpl<T, C>
 
         Action<T, C> executor = new ConditionalBranchExecutor(resolvedBranches,
                                                               defaultStepIds, noMatchBehavior, getId());
-        // Deliberately the same call ActionDefImpl.buildDeclaredCompensation makes: a conditional
-        // sits outside that sealed hierarchy, so nothing but this shared helper keeps the two
-        // declaration channels resolving by the same rule.
+        // A conditional sits outside the sealed ActionDefImpl hierarchy, so it cannot inherit
+        // buildCompensationRouter - it calls the same shared factory that method delegates to.
         return BoundAction.of(getId(), executor, ActionKind.OPERATION, listeners.buildBound(),
-                              compensation.resolveOptional("Compensation"));
+                              BoundCompensationRouter.from(compensation));
     }
 
     private static <T, C> List<String> collectStepIds(List<ActionRef<T, C>> refs) {

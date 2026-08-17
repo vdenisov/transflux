@@ -20,7 +20,6 @@ package org.transflux.core.impl;
 
 import org.transflux.core.action.Action;
 import org.transflux.core.action.ActionKind;
-import org.transflux.core.action.Compensation;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
@@ -35,15 +34,16 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param listeners the action's own listeners, in declaration order; never {@code null}. They ride
  *                  on the bound record rather than on the call site, so an action is observed
  *                  wherever it runs
- * @param compensation the compensation declared on the action's def, or {@code null} when the def
- *                     declared none. It takes precedence over
- *                     {@link Action#getCompensation(Object, Object)}, which is not consulted at all
- *                     when this is present
+ * @param compensationRouter the compensation table declared on the action's def, or {@code null}
+ *                           when the def declared nothing. Any declaration takes precedence over
+ *                           {@link Action#getCompensation(Object, Object)}, which is then not
+ *                           consulted at all
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
 record BoundAction<T, C>(String id, Action<T, C> action, ActionKind kind,
-                         BoundActionListeners<T, C> listeners, Compensation<T, C> compensation) {
+                         BoundActionListeners<T, C> listeners,
+                         BoundCompensationRouter<T, C> compensationRouter) {
 
     BoundAction {
         requireNotBlank(id, "Bound action ID");
@@ -75,7 +75,7 @@ record BoundAction<T, C>(String id, Action<T, C> action, ActionKind kind,
      * @param action the action executable
      * @param kind the authoring form
      * @param listeners the action's own listeners
-     * @param compensation the compensation declared on the def, or {@code null}
+     * @param compensationRouter the compensation table declared on the def, or {@code null}
      * @param <T> the entity type
      * @param <C> the context type
      *
@@ -83,7 +83,7 @@ record BoundAction<T, C>(String id, Action<T, C> action, ActionKind kind,
      */
     static <T, C> BoundAction<T, C> of(String id, Action<T, C> action, ActionKind kind,
                                        BoundActionListeners<T, C> listeners,
-                                       Compensation<T, C> compensation) {
-        return new BoundAction<>(id, action, kind, listeners, compensation);
+                                       BoundCompensationRouter<T, C> compensationRouter) {
+        return new BoundAction<>(id, action, kind, listeners, compensationRouter);
     }
 }

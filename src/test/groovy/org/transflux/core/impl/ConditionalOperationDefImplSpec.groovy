@@ -189,7 +189,7 @@ class ConditionalOperationDefImplSpec extends Specification {
             })
 
         expect:
-        cond.buildBoundAction([:]).compensation().is(compensation)
+        cond.buildBoundAction([:]).compensationRouter()?.fallback().is(compensation)
     }
 
     def 'a conditional that declares no compensation binds none'() {
@@ -200,7 +200,7 @@ class ConditionalOperationDefImplSpec extends Specification {
             })
 
         expect:
-        cond.buildBoundAction([:]).compensation() == null
+        cond.buildBoundAction([:]).compensationRouter() == null
     }
 
     def 'duplicate branch id is rejected at configurer time'() {

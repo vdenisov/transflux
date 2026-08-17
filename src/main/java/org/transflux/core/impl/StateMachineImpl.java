@@ -766,17 +766,25 @@ class StateMachineImpl<T> implements StateMachine<T> {
             List<ActionPath> compensatedPath = new ArrayList<>(drained.size());
 
             if (!drained.isEmpty()) {
-                // The class name, never the message: an exception raised by the framework itself can
-                // carry the entity, and a host's own exception can carry anything at all.
+                // Candidates rather than a count: an action whose routes all miss the failure is on
+                // the stack but rolls back nothing. The class name, never the message: an exception
+                // raised by the framework itself can carry the entity, and a host's own exception
+                // can carry anything at all.
                 Loggers.EXECUTION_COMPENSATION.info(
-                    "Draining compensations, transitionId={}, count={}, errorType={}",
+                    "Draining compensations, transitionId={}, candidates={}, errorType={}",
                     transitionId, drained.size(), e.getClass().getName());
             }
 
             for (BoundCompensation<T, C> bc : drained) {
+                Compensation<T, C> selected = bc.router().select(e, bc.path());
+                if (selected == null) {
+                    continue;
+                }
+                // Recorded only once the table has answered, so the compensated path reports what
+                // actually rolled back rather than what was merely eligible to.
                 compensatedPath.add(bc.path());
                 try {
-                    bc.compensation().compensate(entity, bc.context());
+                    selected.compensate(entity, bc.context());
                 } catch (Exception ce) {
                     Loggers.EXECUTION_COMPENSATION.warn(
                         "Compensation threw, actionPath={}, errorType={}",

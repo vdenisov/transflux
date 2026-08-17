@@ -206,7 +206,7 @@ class StepDefImplSpec extends Specification {
         def_.using(new NoopStep())
 
         expect:
-        def_.buildBoundAction().compensation() == null
+        def_.buildBoundAction().compensationRouter() == null
     }
 
     def 'withCompensation(instance) rides onto the bound action'() {
@@ -217,7 +217,7 @@ class StepDefImplSpec extends Specification {
         def_.using(new NoopStep()).withCompensation(compensation)
 
         expect:
-        def_.buildBoundAction().compensation().is(compensation)
+        def_.buildBoundAction().compensationRouter()?.fallback().is(compensation)
     }
 
     def 'withCompensation(class) resolves via the no-arg constructor'() {
@@ -227,7 +227,7 @@ class StepDefImplSpec extends Specification {
         def_.using(new NoopStep()).withCompensation(NoopCompensation)
 
         expect:
-        def_.buildBoundAction().compensation() instanceof NoopCompensation
+        def_.buildBoundAction().compensationRouter()?.fallback() instanceof NoopCompensation
     }
 
     def 'withCompensation(...) twice is last-write-wins'() {
@@ -238,7 +238,7 @@ class StepDefImplSpec extends Specification {
         def_.using(new NoopStep()).withCompensation(new NoopCompensation()).withCompensation(second)
 
         expect:
-        def_.buildBoundAction().compensation().is(second)
+        def_.buildBoundAction().compensationRouter()?.fallback().is(second)
     }
 
     def 'withCompensation(class) after withCompensation(instance) overrides the instance'() {
@@ -248,7 +248,7 @@ class StepDefImplSpec extends Specification {
         def_.using(new NoopStep()).withCompensation(new NoopCompensation()).withCompensation(NoopCompensation)
 
         expect:
-        def_.buildBoundAction().compensation() instanceof NoopCompensation
+        def_.buildBoundAction().compensationRouter()?.fallback() instanceof NoopCompensation
     }
 
     def 'withCompensation(instance) rejects null'() {

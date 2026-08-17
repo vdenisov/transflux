@@ -297,7 +297,7 @@ final class OperationDefImpl<T, C>
         Action<T, C> executor = new CompositeOperationExecutor<>(members, scopeRegistry);
 
         return BoundAction.of(getId(), executor, ActionKind.OPERATION, buildBoundListeners(),
-                              buildDeclaredCompensation());
+                              buildCompensationRouter());
     }
 
     @Override

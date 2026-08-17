@@ -108,7 +108,8 @@ class ExecutingTransitionImplSpec extends Specification {
             sm, sm.transitions['t1'], new TestEntity(state: 'TRIAL'), ctx)
 
         when:
-        view.pushCompensation(ActionPath.of('s1'), { e, c -> } as Compensation, childCtx)
+        view.pushCompensation(ActionPath.of('s1'),
+                              BoundCompensationRouter.always({ e, c -> } as Compensation), childCtx)
 
         then:
         def drained = view.drainCompensationsLifo()
@@ -117,7 +118,7 @@ class ExecutingTransitionImplSpec extends Specification {
         drained[0].path().toString() == 's1'
     }
 
-    def "pushCompensation should ignore a null compensation"() {
+    def "pushCompensation should ignore a null router"() {
         given:
         def sm = (StateMachineImpl) viewHostStateMachine()
         def view = new ExecutingTransitionImpl<TestEntity, TestContext>(

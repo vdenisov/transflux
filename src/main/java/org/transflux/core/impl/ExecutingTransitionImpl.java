@@ -241,9 +241,11 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
      * every action means anything it dispatches is qualified underneath it, so the reported tree
      * matches the tree that actually ran at every level.
      *
-     * <p>A compensation declared on the action's def takes precedence over
+     * <p>Any compensation declared on the action's def takes precedence over
      * {@link Action#getCompensation(Object, Object)}, which is then not consulted at all: the
-     * declaration site is the more specific statement of what rolls this action back.
+     * declaration site is the more specific statement of what rolls this action back. What gets
+     * pushed is the whole table rather than one callback, because which rollback applies depends on
+     * a failure that has not happened yet - see {@link BoundCompensationRouter}.
      *
      * <p>With a mapper, {@code mapTo} produces the child context before the action starts and
      * {@link ContextMapper#mapFrom(Object, Object) mapFrom} folds child-side changes back into
@@ -266,11 +268,7 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
         Object effective = mapper == null ? active : child;
 
         ActionPath path = qualifyActionPath(bound.id());
-        Compensation<T, Object> declared = bound.compensation();
-        pushCompensation(path,
-                         (Compensation) (declared != null
-                             ? declared
-                             : bound.action().getCompensation(entity, effective)),
+        pushCompensation(path, (BoundCompensationRouter) resolveRouter(bound, effective),
                          (C) effective);
         recordExecutedPath(path);
         enterOperation(bound.id());
@@ -312,6 +310,26 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
         if (mapper != null) {
             mapper.mapFrom(active, child);
         }
+    }
+
+    /**
+     * Picks the compensation table to push for one invocation, which is the single place the
+     * precedence between the two authoring channels is decided: a def that declared anything at all
+     * yields a router, and the dynamic hook is then never reached.
+     *
+     * @param bound the action about to run
+     * @param effective the context it will run against - what the dynamic hook is handed
+     *
+     * @return the table to push, or {@code null} when nothing rolls this action back
+     */
+    private BoundCompensationRouter<T, Object> resolveRouter(BoundAction<T, Object> bound,
+                                                             Object effective) {
+        BoundCompensationRouter<T, Object> declared = bound.compensationRouter();
+        if (declared != null) {
+            return declared;
+        }
+        Compensation<T, Object> dynamic = bound.action().getCompensation(entity, effective);
+        return dynamic == null ? null : BoundCompensationRouter.always(dynamic);
     }
 
     private BoundAction<T, ?> resolveAction(String id) {
@@ -421,25 +439,25 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
     }
 
     /**
-     * Pushes a {@link Compensation} onto this view's LIFO rollback stack at the supplied
-     * qualified path. A {@code null} compensation is a no-op; this lets callers forward the result of
-     * {@link org.transflux.core.action.Action#getCompensation(Object, Object)} unconditionally
-     * without first checking it for {@code null}.
+     * Pushes an action's compensation table onto this view's LIFO rollback stack at the supplied
+     * qualified path. A {@code null} router is a no-op; this lets callers forward the result of
+     * resolving the two authoring channels unconditionally without first checking it for
+     * {@code null}.
      *
-     * <p>The context is captured alongside the callback and handed back at rollback time, so a
+     * <p>The context is captured alongside the table and handed back at rollback time, so a
      * compensation registered behind a call-site mapper is compensated against the child context
      * its action ran on rather than the enclosing one.
      *
      * @param path the qualified path of the action the compensation rolls back; never {@code null}
-     * @param compensation the compensation callback; ignored when {@code null}
+     * @param router the action's compensation table; ignored when {@code null}
      * @param context the context the compensated action runs against; may be {@code null}
      */
-    void pushCompensation(ActionPath path, Compensation<T, C> compensation, C context) {
+    void pushCompensation(ActionPath path, BoundCompensationRouter<T, C> router, C context) {
         requireNotNull(path, "Action path");
-        if (compensation == null) {
+        if (router == null) {
             return;
         }
-        compensationStack.push(new BoundCompensation<>(path, compensation, context));
+        compensationStack.push(new BoundCompensation<>(path, router, context));
     }
 
     /**

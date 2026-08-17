@@ -89,13 +89,13 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     /**
-     * Resolves the compensation declared on this def, instantiating the class form if that is what
-     * was supplied.
+     * Resolves the compensation table declared on this def, instantiating the class form if that is
+     * what was supplied.
      *
-     * @return the declared compensation, or {@code null} when the def declared none
+     * @return the declared table, or {@code null} when the def declared nothing
      */
-    final Compensation<T, C> buildDeclaredCompensation() {
-        return compensation.resolveOptional("Compensation");
+    final BoundCompensationRouter<T, C> buildCompensationRouter() {
+        return BoundCompensationRouter.from(compensation);
     }
 
     @Override

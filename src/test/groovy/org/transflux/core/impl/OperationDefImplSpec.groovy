@@ -150,7 +150,7 @@ class OperationDefImplSpec extends Specification {
             ((StateMachineImpl<TestEntity>) sm).componentRegistry, composite.getId())
 
         expect:
-        composite.buildBound((StateMachineImpl<TestEntity>) sm).compensation().is(compensation)
+        composite.buildBound((StateMachineImpl<TestEntity>) sm).compensationRouter()?.fallback().is(compensation)
     }
 
     def "build should reject reference to unknown step id"() {
