@@ -67,13 +67,19 @@ public interface Action<T, C> {
      * later fails (this action's own {@code execute} throws, or a subsequent one does), the
      * stack is drained in reverse-push order and each compensation runs in turn.
      *
-     * <p><b>A compensation declared on the def wins, and this method is then not called at all.</b>
-     * One action registers one compensation, so
+     * <p><b>This is the last of the three channels a compensation can come from, and it is
+     * consulted only when nothing more specific already answers every failure.</b> One action runs
+     * one compensation, so a compensation declared on the def through
      * {@link org.transflux.core.action.ActionDef#withCompensation(Compensation)
-     * ActionDef.withCompensation(...)} is the more specific statement and takes precedence. Treat
-     * this method as a source of a rollback handler and nothing else: any side effect performed
-     * inside it stops happening the day someone declares a compensation on the def, with no other
-     * change to this class.
+     * ActionDef.withCompensation(...)} suppresses this method entirely - it is the more specific
+     * statement, and it answers every failure anyway. {@link
+     * org.transflux.core.action.ActionDef#forException(Class) forException(...)} routes do not
+     * suppress it: a route that misses has said nothing about the failure at hand, so what this
+     * method returns stays in place as the fallback those routes fall through to.
+     *
+     * <p>Treat this method as a source of a rollback handler and nothing else: any side effect
+     * performed inside it stops happening the day someone declares a def-side compensation, with
+     * no other change to this class.
      *
      * <p>Capturing the compensation before {@code execute} is deliberate: an action that throws
      * partway through producing side effects - created remote entities, inserted database rows,

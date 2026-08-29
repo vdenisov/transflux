@@ -785,6 +785,9 @@ class StateMachineImpl<T> implements StateMachine<T> {
                 compensatedPath.add(bc.path());
                 try {
                     selected.compensate(entity, bc.context());
+                    // Exception and not Throwable, throughout the drain: an Error says the JVM is
+                    // in an unstable state, and driving the remaining handlers through network
+                    // calls and remote deletes there is worse than abandoning the rollback.
                 } catch (Exception ce) {
                     Loggers.EXECUTION_COMPENSATION.warn(
                         "Compensation threw, actionPath={}, errorType={}",

@@ -241,11 +241,10 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
      * every action means anything it dispatches is qualified underneath it, so the reported tree
      * matches the tree that actually ran at every level.
      *
-     * <p>Any compensation declared on the action's def takes precedence over
-     * {@link Action#getCompensation(Object, Object)}, which is then not consulted at all: the
-     * declaration site is the more specific statement of what rolls this action back. What gets
-     * pushed is the whole table rather than one callback, because which rollback applies depends on
-     * a failure that has not happened yet - see {@link BoundCompensationRouter}.
+     * <p>What gets pushed is the action's whole compensation table rather than one callback, because
+     * which rollback applies depends on a failure that has not happened yet - see
+     * {@link BoundCompensationRouter}. Which entries the table carries is decided by
+     * {@link #resolveRouter}.
      *
      * <p>With a mapper, {@code mapTo} produces the child context before the action starts and
      * {@link ContextMapper#mapFrom(Object, Object) mapFrom} folds child-side changes back into
@@ -314,8 +313,17 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
 
     /**
      * Picks the compensation table to push for one invocation, which is the single place the
-     * precedence between the two authoring channels is decided: a def that declared anything at all
-     * yields a router, and the dynamic hook is then never reached.
+     * precedence between the authoring channels is decided. The rule is one chain, not a switch
+     * between channels: the rollback is the first of a matching route, the declared fallback, and
+     * the action's own {@link Action#getCompensation(Object, Object)} that answers for the failure.
+     *
+     * <p>So the hook is consulted whenever nothing else answers <em>every</em> failure. A def that
+     * declared a fallback suppresses it, since that fallback always answers; a def that declared
+     * only routes does not, because a route that misses has said nothing about this failure and
+     * must not veto on its behalf. The hook has to run here rather than at the drain: it is
+     * documented to see the same references {@code execute} will, which is only true before
+     * {@code execute} runs, and that also keeps rollback registration immune to an action that
+     * fails partway through.
      *
      * @param bound the action about to run
      * @param effective the context it will run against - what the dynamic hook is handed
@@ -325,11 +333,16 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
     private BoundCompensationRouter<T, Object> resolveRouter(BoundAction<T, Object> bound,
                                                              Object effective) {
         BoundCompensationRouter<T, Object> declared = bound.compensationRouter();
-        if (declared != null) {
+        if (declared != null && declared.fallback() != null) {
             return declared;
         }
+
         Compensation<T, Object> dynamic = bound.action().getCompensation(entity, effective);
-        return dynamic == null ? null : BoundCompensationRouter.always(dynamic);
+        if (declared == null) {
+            return dynamic == null ? null : BoundCompensationRouter.always(dynamic);
+        }
+
+        return declared.withFallback(dynamic);
     }
 
     private BoundAction<T, ?> resolveAction(String id) {
@@ -441,7 +454,7 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
     /**
      * Pushes an action's compensation table onto this view's LIFO rollback stack at the supplied
      * qualified path. A {@code null} router is a no-op; this lets callers forward the result of
-     * resolving the two authoring channels unconditionally without first checking it for
+     * resolving an action's compensation channels unconditionally without first checking it for
      * {@code null}.
      *
      * <p>The context is captured alongside the table and handed back at rollback time, so a

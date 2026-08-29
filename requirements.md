@@ -252,13 +252,15 @@ Manages error recovery and rollback operations.
 
 **Features:**
 - Stack-based compensation execution (LIFO).
-- Exception-specific compensation strategies.
 - **A single `Compensation<T, C>` interface**, receiving `(entity, context)`. **Any action may declare one**, in either authoring form.
-- The compensation is captured **before** the action runs and pushed onto the rollback stack at that point, so an action that throws partway through producing side effects still has its rollback registered (§2.4 step 5).
+- **Exception-specific routing** — an action may declare a different rollback for each kind of failure it expects, and the framework selects among them once the failure is known.
+- The compensation is captured **before** the action runs and pushed onto the rollback stack at that point, so an action that throws partway through producing side effects still has its rollback registered (§2.4 step 5). What is pushed is the action's whole routing table, since which entry of it applies depends on a failure that has not happened yet.
 
-There are two authoring channels. An imperative action can return its compensation dynamically from `getCompensation(entity, context)`, which sees the same entity and context references `execute` will run against. Any action's *definition* can declare one statically through `withCompensation(...)`, in an instance or a class form — the only channel open to a declarative container, which has no Java object to hang the dynamic hook on. Both shapes predate the unified action model; unifying only stopped hiding them behind a type split.
+There are three authoring channels. An imperative action can return its compensation dynamically from `getCompensation(entity, context)`, which sees the same entity and context references `execute` will run against. Any action's *definition* can declare one statically through `withCompensation(...)`, in an instance or a class form — the only channel open to a declarative container, which has no Java object to hang the dynamic hook on. And any action's definition can declare **routes** through `forException(...)`, each answering for one kind of failure, optionally narrowed by a guard over the failure itself.
 
-**A declaration wins over the dynamic hook**, which is then not consulted at all. The declaration site is the more specific statement of what rolls this action back, and the rule keeps one action to one compensation rather than making `compensatedPath` carry the same qualified path twice.
+**Exactly one compensation runs for one action**, and it is the first of those three that answers for the failure at hand: a matching route, then the declared fallback, then the dynamic hook. Two consequences follow from that order. A declared fallback suppresses the dynamic hook entirely, because it answers every failure anyway and consulting both would put the same qualified path on `compensatedPath` twice; routes alone do *not* suppress it, because a route that misses has said nothing about this failure and does not get to veto on the action's behalf. And when nothing answers at all, the action is simply not rolled back and does not appear on `compensatedPath` — that list reports what actually ran, not what was eligible to.
+
+**Routing rules.** A route answers when the failure is an instance of its declared exception type (subclasses included) and its guard, where it declared one, accepts. Routes are tried in declaration order and the first match wins — the rule a conditional operation's branches follow (§3.4.3), and the one a Java `catch` chain follows. An unguarded route on a broad type therefore shadows every narrower route declared after it, and the build warns about the shadowed one where it can prove the shadowing; where the earlier route carries a guard it cannot prove anything, since that guard may reject exactly the cases the later route wants, so only the provable case is reported. A warning and not an error: the shape is legal, and an author who wants it that way is not doing anything the framework has to forbid. The guard is consulted only once the type has matched, so it receives the failure already narrowed to that type, and a guard that throws counts as a non-match rather than as a second failure — the drain is already unwinding one, and letting another escape would lose it. Note that the failure a route is matched against is **the one that ended the transition**: the same throwable for every entry on the rollback stack, not necessarily one this action threw, since most of what unwinds never threw anything at all.
 
 At rollback each compensation receives **the context its action ran against** — the mapped child context where the call site mapped one (§4.5.2), not the enclosing transition's. That is what makes the compensation's contract, "the same references `execute` saw", hold at a mapped call site.
 
@@ -313,7 +315,7 @@ StateMachine
 3. **Pre-condition Evaluation** — validate transition eligibility. On failure, return a `TransitionResult` with `isSuccess() == false`; no compensations run because no action has executed, and no listener is notified because the transition never started.
 4. **Listener Notification (start)** — notify registered `onStart` listeners and source-state `onExit` listeners.
 5. **Action Execution** — execute the associated business logic. Every action, at every nesting depth, runs through one path in a fixed order:
-    1. capture its `getCompensation(entity, context)` and push it onto the rollback stack;
+    1. capture its compensation — the routing table its definition declared, with `getCompensation(entity, context)` folded in as the fallback where the definition left that slot open (§2.2.11) — and push it onto the rollback stack;
     2. record its id on the executed path;
     3. push its id onto the nesting stack;
     4. execute;
@@ -329,6 +331,7 @@ A transition that fails at any point from step 5 onwards notifies registered `on
 
 - **Exception Propagation** — controlled exception handling with compensation triggers.
 - **Compensation Stack** — LIFO execution of registered compensation actions.
+- **Exception routing** — each entry on the stack picks its rollback from the failure that ended the transition: the first route whose exception type and guard both hold, otherwise the action's unconditional compensation (§2.2.11). An entry that has nothing to answer with is skipped and stays off `compensatedPath`.
 - **Validation vs. runtime errors** — `TransfluxValidationException` is thrown for definition/lookup errors; all other failure modes (failed conditions, failed actions, post-condition violations, unhandled exceptions inside an action body) are reported through `TransitionResult` after compensation has run.
 
 ### 2.6 Definition Sourcing
@@ -978,15 +981,18 @@ operations:
       - step: finalize
         class: com.example.actions.FinalizeActivationStep
         
+    # Unconditional rollback for this operation — the fallback when no route below answers
+    compensation: com.example.compensations.GeneralCompensation
+
     errorHandling:
       - exception: com.example.exceptions.RecoverableException
         condition:
           predicate: com.example.predicates.RecoverableErrorPredicate
         compensation: com.example.compensations.RecoverableCompensation
-        
-      - exception: java.lang.Exception
-        compensation: com.example.compensations.GeneralCompensation
-        
+
+      - exception: com.example.exceptions.GatewayTimeoutException
+        compensation: com.example.compensations.ReconcileLaterCompensation
+
     # Async part — anchored to a named sync member; runs concurrently from that point on
     async:
       enabled: true
@@ -997,6 +1003,8 @@ operations:
         - step: external-integrations
           class: com.example.actions.ExternalIntegrationStep
 ```
+
+> **Error handling is the routing table of §2.2.11.** Each `errorHandling:` entry is one route: `exception:` is the failure type it answers for, the optional `condition:` is its guard over that failure, and `compensation:` is what it runs. Entries are tried in declaration order and the first match wins, so the list is ordered the way a Java `catch` chain is. The unconditional fallback is the owner's own `compensation:` key, exactly as in the Java DSL — there is deliberately no separate "for every exception" entry spelling, since an entry on `java.lang.Exception` and the `compensation:` key would then be two ways to say the same thing with an ordering question between them. The block is accepted on any action, not only on an operation.
 
 > **Parity gap — inline nested operations.** The `- operation: notify-flow` entry above declares a whole child container at a member position. YAML makes inline definitions first-class everywhere a component is accepted (§3.1.2), so the grammar admits it; the Java DSL does **not** yet — a container there references another container by id and declares only steps and conditionals inline. Closing the gap is additive and is tracked in Phase 5 alongside the rest of the YAML work. Until it closes, this is the one shape §3 describes that §4 cannot express.
 
@@ -1685,12 +1693,13 @@ trialActiveTransition.operation("complex-subscription-activation", c -> c
 
     .step("finalize", FinalizeSubscriptionActivationAction.class)
 
-    // Error handling
-    .onException(RecoverableException.class, h -> h
+    // Error handling: a route for the one failure worth treating specially, and an
+    // unconditional fallback for everything else. The fallback is a property of the
+    // action, so where it sits in the chain does not matter.
+    .forException(RecoverableException.class)
         .matching(e -> e.getCode() == RECOVERABLE_ERROR)
-        .compensateWith(RecoverableCompensation.class))
-    .onAllExceptions(h -> h
-        .compensateWith(GeneralCompensation.class))
+        .withCompensation(RecoverableCompensation.class)
+    .withCompensation(GeneralCompensation.class)
 
     // Async part — anchored to a sync step. Use startBefore for join-point kickoff,
     // startAfter when the async work depends on the named step completing first.
@@ -1977,14 +1986,18 @@ operation("complex-operation", c -> c
         .using(ValidatePrerequisitesAction.class)
         .withCompensation(ValidationCompensation.class))
 
-    // Action with custom error handling
-    .step("risky-action", s -> s
-        .using(RiskyAction.class)
-        .onException(SpecificException.class, h -> h
-            .compensateWith(SpecificCompensation.class))
-        .onException(Exception.class, h -> h
-            .compensateWith(GeneralCompensation.class))));
+    // The same, plus rollbacks for the failures worth telling apart
+    .step("charge-card", s -> s
+        .using(ChargeCardAction.class)
+        .withCompensation(RefundCompensation.class)
+        .forException(GatewayTimeoutException.class)
+            .withCompensation(ReconcileLaterCompensation.class)
+        .forException(CardDeclinedException.class)
+            .matching(CardDeclinedException::isPermanent)
+            .withCompensation(BlacklistCardCompensation.class)));
 ```
+
+Which reads: normally refund, on a gateway timeout reconcile later instead, and on a permanent decline blacklist the card. Each `forException(...)` opens a route that has to be closed with `withCompensation(...)`; opening one and dropping the result fails the build rather than quietly declaring nothing. Routes are tried in declaration order and only one of them runs, per §2.2.11.
 
 The declaration is available on any action's def, in either authoring form, and is what a declarative container uses — it has no Java body to override `getCompensation` on:
 

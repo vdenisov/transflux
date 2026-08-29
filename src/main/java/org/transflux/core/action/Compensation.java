@@ -26,12 +26,14 @@ package org.transflux.core.action;
  * more steps have already run, giving each unit of work a chance to clean up before the
  * failure is reported to the caller.
  *
- * <p>The same contract is used for both authoring forms, and there are two ways to supply one. An
+ * <p>The same contract is used for both authoring forms, and there are three ways to supply one. An
  * {@link Action} can return its compensation from {@link Action#getCompensation(Object, Object)},
  * per invocation; any action's def can declare one statically through
  * {@link ActionDef#withCompensation(Compensation)}, which is the only channel open to a declarative
- * container, since it has no Java body to override. A declaration wins over the dynamic hook, which
- * is then not consulted.
+ * container since it has no Java body to override; and a def can declare rollbacks for particular
+ * failures through {@link ActionDef#forException(Class)}. Exactly one of them runs: the first that
+ * answers for the failure, taking a matching route first, then the declared fallback, then the
+ * dynamic hook.
  *
  * <p>Either way the runtime captures the compensation against the action's id and pushes it onto the
  * per-execution rollback stack <em>before</em> invoking {@code execute}. The compensation therefore

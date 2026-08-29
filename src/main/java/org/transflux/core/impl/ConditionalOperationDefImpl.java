@@ -26,6 +26,7 @@ import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.BranchDef;
 import org.transflux.core.action.Compensation;
+import org.transflux.core.action.CompensationRouteDef;
 import org.transflux.core.action.ConditionalOperationDef;
 import org.transflux.core.action.DefaultBranchDef;
 import org.transflux.core.action.NoMatchBehavior;
@@ -73,8 +74,8 @@ final class ConditionalOperationDefImpl<T, C>
     private final List<BranchDefImpl<T, C>> branches = new ArrayList<>();
     private final ActionListenerSink<T, C, ConditionalOperationDef<T, C>> listeners =
         new ActionListenerSink<>(this, this);
-    private final InstanceOrClassSource<Compensation<T, C>> compensation =
-        new InstanceOrClassSource<>(Loggers.BUILD_VALIDATION, "Compensation source", defLabel());
+    private final CompensationSink<T, C, ConditionalOperationDef<T, C>> compensation =
+        new CompensationSink<>(this, this);
     private DefaultBranchDefImpl<T, C> defaultBranch;
     private NoMatchBehavior noMatchBehavior = NoMatchBehavior.WARN;
 
@@ -125,19 +126,19 @@ final class ConditionalOperationDefImpl<T, C>
 
     @Override
     public ConditionalOperationDef<T, C> withCompensation(Compensation<T, C> compensation) {
-        requireConfigurerActive("withCompensation");
-        requireNotNull(compensation, "Compensation");
-        this.compensation.setInstance(compensation);
-        return this;
+        return this.compensation.withCompensationInstance(compensation);
     }
 
     @Override
     public ConditionalOperationDef<T, C> withCompensation(
             Class<? extends Compensation<T, C>> compensationClass) {
-        requireConfigurerActive("withCompensation");
-        requireNotNull(compensationClass, "Compensation class");
-        this.compensation.setClass(compensationClass);
-        return this;
+        return this.compensation.withCompensationClass(compensationClass);
+    }
+
+    @Override
+    public <X extends Throwable> CompensationRouteDef<T, C, X, ConditionalOperationDef<T, C>>
+            forException(Class<X> exceptionType) {
+        return compensation.forException(exceptionType);
     }
 
     @Override
@@ -408,9 +409,9 @@ final class ConditionalOperationDefImpl<T, C>
         Action<T, C> executor = new ConditionalBranchExecutor(resolvedBranches,
                                                               defaultStepIds, noMatchBehavior, getId());
         // A conditional sits outside the sealed ActionDefImpl hierarchy, so it cannot inherit
-        // buildCompensationRouter - it calls the same shared factory that method delegates to.
+        // buildCompensationRouter - it drives the same sink that method delegates to.
         return BoundAction.of(getId(), executor, ActionKind.OPERATION, listeners.buildBound(),
-                              BoundCompensationRouter.from(compensation));
+                              compensation.buildRouter());
     }
 
     private static <T, C> List<String> collectStepIds(List<ActionRef<T, C>> refs) {

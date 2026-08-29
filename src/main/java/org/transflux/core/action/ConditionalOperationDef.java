@@ -73,6 +73,10 @@ public interface ConditionalOperationDef<T, C> extends ActionDef<T, C> {
     ConditionalOperationDef<T, C> withCompensation(
         Class<? extends Compensation<T, C>> compensationClass);
 
+    @Override
+    <X extends Throwable> CompensationRouteDef<T, C, X, ? extends ConditionalOperationDef<T, C>>
+        forException(Class<X> exceptionType);
+
     /**
      * Defines a regular conditional branch. The supplied configurer must set exactly one
      * condition on the branch and append at least one step to it.

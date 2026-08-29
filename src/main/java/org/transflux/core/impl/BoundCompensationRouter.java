@@ -35,9 +35,12 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * table and {@link #select(Throwable, ActionPath)} resolves it once the drain knows the throwable.
  *
  * @param routes the declared routes, tried in order; never {@code null}, possibly empty
- * @param fallback the compensation to use when no route matches, or {@code null} when the action
- *                 declared none - in which case a failure outside every route rolls this action back
- *                 not at all, and it contributes nothing to the compensated path
+ * @param fallback the compensation to use when no route matches: the one the def declared, or -
+ *                 where it declared none - whatever the action's own
+ *                 {@link org.transflux.core.action.Action#getCompensation(Object, Object)} returned,
+ *                 folded in at push time by {@link #withFallback}. {@code null} when neither
+ *                 supplied one, in which case a failure outside every route rolls this action back
+ *                 not at all and it contributes nothing to the compensated path
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
@@ -66,24 +69,24 @@ record BoundCompensationRouter<T, C>(List<BoundCompensationRoute<T, C>> routes,
     }
 
     /**
-     * Builds the table a def declared, resolving its compensation slot and instantiating the class
-     * form if that is what was supplied.
+     * Returns this table with {@code dynamic} installed as its fallback, for folding in what
+     * {@link org.transflux.core.action.Action#getCompensation(Object, Object)} returned.
      * <p>
-     * Every def-side caller goes through here - the sealed {@link ActionDefImpl} hierarchy and the
-     * conditional, which sits outside it - so the two cannot drift apart as the table grows beyond
-     * a lone fallback.
+     * A table that already declared a fallback keeps it - the def-side declaration is the more
+     * specific statement, and it answers every failure anyway - and a {@code null} argument changes
+     * nothing. Only the "routes but no fallback" table actually gains one, which is the case where
+     * a route that misses would otherwise leave the action unrolled-back despite its own class
+     * offering a rollback.
      *
-     * @param compensation the def's compensation slot; never {@code null}
-     * @param <T> the entity type
-     * @param <C> the context type
+     * @param dynamic the compensation the action's own hook returned; may be {@code null}
      *
-     * @return the declared table, or {@code null} when the def declared nothing
+     * @return this table, or a copy carrying the supplied fallback
      */
-    static <T, C> BoundCompensationRouter<T, C> from(
-            InstanceOrClassSource<Compensation<T, C>> compensation) {
-        requireNotNull(compensation, "Compensation source");
-        Compensation<T, C> declared = compensation.resolveOptional("Compensation");
-        return declared == null ? null : always(declared);
+    BoundCompensationRouter<T, C> withFallback(Compensation<T, C> dynamic) {
+        if (dynamic == null || fallback != null) {
+            return this;
+        }
+        return new BoundCompensationRouter<>(routes, dynamic);
     }
 
     /**

@@ -12,7 +12,7 @@ Transflux is a lightweight microflow orchestration library designed to automate 
 See requirements.md for the full vision and scope.
 
 ## Project Status
-Phases 1 through 3 are complete: the programmatic builder, paired `StateResolver` / `StateApplier`, `TransitionResult` with executed/compensated action paths and timing metadata, actions with conditions and compensations, manual / event / data triggers, and state, transition and action listeners are all in place. Async execution, the YAML DSL, and Spring integration are upcoming phases.
+Phases 1 through 3 are complete: the programmatic builder, paired `StateResolver` / `StateApplier`, `TransitionResult` with executed/compensated action paths and timing metadata, actions with conditions and compensations, manual / event / data triggers, and state, transition and action listeners are all in place. Phase 4 is under way: the compensation engine, exception-specific compensation routing, and the framework's logging baseline have landed. Async execution, the YAML DSL, and Spring integration are upcoming phases.
 
 The project is in active design and the public API is unstable. **No releases are published before v1.0** — see `todo.md` for the phased roadmap.
 
@@ -26,7 +26,7 @@ The project is in active design and the public API is unstable. **No releases ar
 - `org.transflux.core` — entry point (`Transflux`), `StateMachine` / `StateMachineDef`, `ContextScope`, the `Identifiable` marker, and the `Preconditions` argument-precondition helpers.
 - `org.transflux.core.state` — `State`, `StateDef`, the host-supplied `StateResolver` / `StateApplier` bridges, and the entry/exit listener surface (`StateListener`, its `StateListenerDef` builder, and the `StateChange` / `StatePhase` payload).
 - `org.transflux.core.transition` — `Transition` (the read-only runtime view) and `ExecutingTransition` (the same transition plus the `run(...)` dispatch an action's body needs), `TransitionDef`, `TransitionResult`, `ProcessResult` (the outcome of `processEvent` / `processDataChange`), `ActionPath` (the qualified-id value carrier in `TransitionResult.executedPath` / `compensatedPath`), and the start/complete/error listener surface (`TransitionListener`, its `TransitionListenerDef` builder, and the `TransitionExecution` / `TransitionPhase` payload).
-- `org.transflux.core.action` — `Action` (the single executable contract) and `ActionKind`, `Compensation`, `ContextMapper`, the def-side types (`ActionDef` and its `StepDef` / `OperationDef` forms, `ConditionalOperationDef`, `MapperDef`, `BranchDef`, `DefaultBranchDef`, `NoMatchBehavior`), and the start/complete/error listener surface (`ActionListener`, its `ActionListenerDef` builder, and the `ActionExecution` / `ActionPhase` payload).
+- `org.transflux.core.action` — `Action` (the single executable contract) and `ActionKind`, `Compensation`, `ContextMapper`, the def-side types (`ActionDef` and its `StepDef` / `OperationDef` forms, `ConditionalOperationDef`, `MapperDef`, `BranchDef`, `DefaultBranchDef`, `NoMatchBehavior`, `CompensationRouteDef`), and the start/complete/error listener surface (`ActionListener`, its `ActionListenerDef` builder, and the `ActionExecution` / `ActionPhase` payload).
 - `org.transflux.core.condition` — `Condition` and `ConditionDescriptor`.
 - `org.transflux.core.exception` — `TransfluxException` and its subclasses.
 - `org.transflux.core.trigger` — `Trigger` (runtime catalog view) and its kinds `ManualTrigger` / `EventTrigger` / `DataTrigger`, with the def-side builders `ManualTriggerDef` / `EventTriggerDef` / `DataTriggerDef`. Manual triggers fire via `entity(e).fire(...)`; event and data triggers fire via the host-driven `entity(e).processEvent(...)` / `processDataChange(...)`.
@@ -58,7 +58,7 @@ Transflux logs through SLF4J and ships no binding or configuration of its own �
 | Level | What to expect | Volume |
 | --- | --- | --- |
 | ERROR | Nothing. Failures are returned on `TransitionResult` or thrown. | — |
-| WARN | An observer threw and was swallowed; a compensation threw during a drain; a definition-time setter overwrote a previous value; a `WARN`-mode conditional matched nothing. | rare |
+| WARN | An observer threw and was swallowed; a compensation threw during a drain, or a compensation route's guard did; a definition-time setter overwrote a previous value; a compensation route is provably unreachable; a `WARN`-mode conditional matched nothing. | rare |
 | INFO | Build completion, and the start of a compensation drain. **Never per transition.** | per build / per rollback |
 | DEBUG | Per transition: outcome, pre- and post-condition results, the trigger scan and why each candidate was skipped, applier invocation. Per build: phase boundaries, registry scoping, and each bound component and what it resolved to. | O(transitions) |
 | TRACE | Per action: entry and exit with the qualified path, the call-site mapping decision, and which scope a dispatched id was claimed by. Per branch condition: the evaluated value. | O(actions) |

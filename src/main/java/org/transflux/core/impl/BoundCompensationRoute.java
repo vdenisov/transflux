@@ -51,9 +51,12 @@ record BoundCompensationRoute<T, C>(Class<? extends Throwable> exceptionType,
     /**
      * Reports whether this route answers for the supplied failure.
      *
-     * <p>A guard that throws is treated as a non-match rather than propagated: this runs inside a
-     * rollback that is already unwinding a failure, and letting a second one out would lose the
-     * first. Same posture as a compensation that throws mid-drain.
+     * <p>A guard that throws an {@code Exception} is treated as a non-match rather than propagated:
+     * this runs inside a rollback that is already unwinding a failure, and letting a second one out
+     * would lose the first. An {@code Error} is deliberately not caught, here or anywhere else in
+     * the drain - it says the JVM is in an unstable state, and driving the remaining rollback
+     * handlers through network calls and remote deletes in that state is worse than abandoning the
+     * rollback. Same posture as a compensation that throws mid-drain.
      *
      * @param error the failure that ended the transition; never {@code null}
      * @param path the qualified path of the action being rolled back, for diagnostics

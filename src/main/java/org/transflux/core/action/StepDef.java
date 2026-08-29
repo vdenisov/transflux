@@ -81,6 +81,10 @@ public interface StepDef<T, C> extends ActionDef<T, C> {
     StepDef<T, C> withCompensation(Class<? extends Compensation<T, C>> compensationClass);
 
     @Override
+    <X extends Throwable> CompensationRouteDef<T, C, X, ? extends StepDef<T, C>> forException(
+        Class<X> exceptionType);
+
+    @Override
     StepDef<T, C> onStart(String listenerId, ActionListener<T, C> listener);
 
     @Override

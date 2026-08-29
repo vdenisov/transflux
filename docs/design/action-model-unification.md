@@ -137,7 +137,7 @@ Important: `ActionKind` plays no part in any of the above. If it ever starts sel
 
 ## Compensation
 
-Phase 4 owns the compensation engine - exception-specific routing, `onException` / `onAllExceptions`, per-branch async stacks. This phase deliberately ships no new compensation DSL. What it does is settle the model those things will be built on, and one capability falls out of the unification whether we want it or not.
+Phase 4 owns the compensation engine - the def-side declaration, exception-specific routing, per-branch async stacks. This phase deliberately ships no new compensation DSL. What it does is settle the model those things will be built on, and one capability falls out of the unification whether we want it or not.
 
 That capability is the dynamic hook. Because there is one interface and it carries `getCompensation(entity, context)`, *every* action can now return a compensation - including one attached directly to a transition, which previously could not. This is not new DSL, it is the absence of an artificial restriction, and the uniform runner above already calls the hook for everything. A declarative container synthesized by the framework returns null from it, so nothing changes for existing definitions.
 

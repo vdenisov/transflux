@@ -288,6 +288,10 @@ public interface OperationDef<T, C> extends ActionDef<T, C> {
     OperationDef<T, C> withCompensation(Class<? extends Compensation<T, C>> compensationClass);
 
     @Override
+    <X extends Throwable> CompensationRouteDef<T, C, X, ? extends OperationDef<T, C>> forException(
+        Class<X> exceptionType);
+
+    @Override
     OperationDef<T, C> onStart(String listenerId, ActionListener<T, C> listener);
 
     @Override

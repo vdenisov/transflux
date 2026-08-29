@@ -96,13 +96,19 @@ public interface ActionDef<T, C> extends Identifiable {
     ActionDef<T, C> withDescription(String description);
 
     /**
-     * Declares the {@link Compensation} that rolls this action's effects back.
+     * Declares the {@link Compensation} that rolls this action's effects back, whatever the failure.
      * <p>
-     * This is the second of the two authoring channels for a compensation. An imperative action can
+     * This is the second of the three authoring channels for a compensation. An imperative action can
      * return one per invocation from {@link Action#getCompensation(Object, Object)}; a declarative
-     * container has no Java object to hang that on and declares one here instead. The declaration
-     * takes precedence: when a def declares a compensation, {@code getCompensation} is not consulted
-     * at all.
+     * container has no Java object to hang that on and declares one here instead. This one takes
+     * precedence: a def that declares it here suppresses {@code getCompensation}, which is then not
+     * consulted at all, since this answers every failure anyway.
+     *
+     * <p>Where {@link #forException(Class)} routes are also declared, this is the <em>fallback</em>:
+     * the routes are tried first, in declaration order, and this runs only when none of them answers
+     * for the failure. Its position on the chain does not matter, which is what the {@code with}
+     * prefix promises everywhere else in this DSL - it sets a property rather than registering an
+     * ordered hook.
      *
      * <p>The compensation is registered before the action runs, so an action that throws partway
      * through producing side effects still has its rollback on the stack. For a container that means
@@ -138,6 +144,49 @@ public interface ActionDef<T, C> extends Identifiable {
      *         {@code compensationClass} is {@code null}, or if the configurer has already returned
      */
     ActionDef<T, C> withCompensation(Class<? extends Compensation<T, C>> compensationClass);
+
+    /**
+     * Opens a compensation route: a rollback that applies to one kind of failure rather than to
+     * every one. The returned {@link CompensationRouteDef} takes an optional guard and the
+     * compensation itself, and hands this def back so the chain continues.
+     *
+     * <pre>{@code
+     * .withCompensation(RefundCompensation.class)
+     * .forException(GatewayTimeoutException.class)
+     *     .withCompensation(ReconcileLaterCompensation.class)
+     * }</pre>
+     *
+     * <p>Routes are tried in the order they are declared and the first whose exception type
+     * <em>and</em> guard both hold wins - the same "first match" rule a conditional operation's
+     * branches obey, and the same one a Java {@code catch} chain obeys. A route matches subclasses
+     * of its declared type, so an unguarded route on a broad type shadows every narrower route
+     * declared after it; the build warns when it can prove that.
+     *
+     * <p>Only one compensation ever runs for one action. The rollback is the first of these that
+     * answers for the failure: a matching route, then the fallback declared by
+     * {@link #withCompensation(Compensation)}, then whatever the action's own
+     * {@link Action#getCompensation(Object, Object)} returned. So a matching route replaces the
+     * fallback rather than running alongside it, and declaring routes does <em>not</em> suppress an
+     * imperative action's own rollback - a route that misses has said nothing about this failure and
+     * does not veto on its behalf. When nothing at all answers, this action is not rolled back and
+     * does not appear on
+     * {@link org.transflux.core.transition.TransitionResult#getCompensatedPath() the compensated
+     * path}.
+     *
+     * <p>The failure a route is matched against is the one that ended the transition, which is the
+     * same throwable every action on the rollback stack is matched against - not necessarily one
+     * this action threw.
+     *
+     * @param exceptionType the failure type this route answers for; never {@code null}
+     * @param <X> the failure type, threaded into the route's guard
+     *
+     * @return the new route, to be closed with {@code withCompensation(...)}
+     *
+     * @throws org.transflux.core.exception.TransfluxValidationException if {@code exceptionType} is
+     *         {@code null}, or if the configurer has already returned
+     */
+    <X extends Throwable> CompensationRouteDef<T, C, X, ? extends ActionDef<T, C>> forException(
+        Class<X> exceptionType);
 
     /**
      * Attaches a listener notified before this action's body runs.

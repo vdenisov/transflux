@@ -35,9 +35,9 @@ import static org.transflux.core.Preconditions.requireNotNull;
  *                  on the bound record rather than on the call site, so an action is observed
  *                  wherever it runs
  * @param compensationRouter the compensation table declared on the action's def, or {@code null}
- *                           when the def declared nothing. Any declaration takes precedence over
- *                           {@link Action#getCompensation(Object, Object)}, which is then not
- *                           consulted at all
+ *                           when the def declared nothing. What the action's own
+ *                           {@link Action#getCompensation(Object, Object)} returns is folded in as
+ *                           the fallback at push time, unless the def declared one of its own
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */

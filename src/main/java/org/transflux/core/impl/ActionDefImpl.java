@@ -24,14 +24,13 @@ import org.transflux.core.action.ActionListener;
 import org.transflux.core.action.ActionListenerDef;
 import org.transflux.core.action.ActionPhase;
 import org.transflux.core.action.Compensation;
+import org.transflux.core.action.CompensationRouteDef;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-
-import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Sealed base for concrete {@link ActionDef} implementations.
@@ -58,8 +57,7 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
 
     private final ActionListenerSink<T, C, SELF> listeners = new ActionListenerSink<>(this, self());
 
-    private final InstanceOrClassSource<Compensation<T, C>> compensation =
-        new InstanceOrClassSource<>(Loggers.BUILD_VALIDATION, "Compensation source", defLabel());
+    private final CompensationSink<T, C, SELF> compensation = new CompensationSink<>(this, self());
 
     /**
      * @param id the action id
@@ -74,28 +72,28 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
 
     @Override
     public SELF withCompensation(Compensation<T, C> compensation) {
-        requireConfigurerActive("withCompensation");
-        requireNotNull(compensation, "Compensation");
-        this.compensation.setInstance(compensation);
-        return self();
+        return this.compensation.withCompensationInstance(compensation);
     }
 
     @Override
     public SELF withCompensation(Class<? extends Compensation<T, C>> compensationClass) {
-        requireConfigurerActive("withCompensation");
-        requireNotNull(compensationClass, "Compensation class");
-        this.compensation.setClass(compensationClass);
-        return self();
+        return this.compensation.withCompensationClass(compensationClass);
+    }
+
+    @Override
+    public <X extends Throwable> CompensationRouteDef<T, C, X, SELF> forException(
+            Class<X> exceptionType) {
+        return compensation.forException(exceptionType);
     }
 
     /**
-     * Resolves the compensation table declared on this def, instantiating the class form if that is
-     * what was supplied.
+     * Resolves the compensation table declared on this def, instantiating any class forms that were
+     * supplied.
      *
      * @return the declared table, or {@code null} when the def declared nothing
      */
     final BoundCompensationRouter<T, C> buildCompensationRouter() {
-        return BoundCompensationRouter.from(compensation);
+        return compensation.buildRouter();
     }
 
     @Override
