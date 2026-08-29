@@ -128,9 +128,9 @@ class OperationDefImplNestedMappingSpec extends Specification {
         ctx.activationResult == 'activated-sub-inline-mapper'
     }
 
-    def 'inline read-only Function at the call site projects parent to child (mapFrom is no-op)'() {
+    def 'an inline mapper lambda at the call site projects parent to child (mapFrom is no-op)'() {
         given:
-        Function<ParentCtx, ChildCtx> mapTo = { ParentCtx p ->
+        ContextMapper<ParentCtx, ChildCtx> mapTo = { ParentCtx p ->
             def n = new ChildCtx()
             n.subscriptionId = p.subscriptionId
             return n

@@ -52,6 +52,7 @@ final class MapperDefImpl<P, N> extends IdentifiedDefImpl<MapperDefImpl<P, N>>
                                                   "MapperDef '" + id + "'");
     }
 
+
     @Override
     public Class<P> parentType() {
         return parentType;

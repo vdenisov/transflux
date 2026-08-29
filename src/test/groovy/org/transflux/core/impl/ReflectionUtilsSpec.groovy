@@ -75,4 +75,5 @@ class ReflectionUtilsSpec extends Specification {
         def e = thrown(TransfluxValidationException)
         e.message.startsWith("Failed to instantiate operation class '")
     }
+
 }

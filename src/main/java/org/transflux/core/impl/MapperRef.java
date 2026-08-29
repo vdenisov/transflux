@@ -23,7 +23,6 @@ import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.MapperDef;
 
 import java.util.Map;
-import java.util.function.Function;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
@@ -34,19 +33,19 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * pipeline resolves it against the enclosing state machine's mapper registry to produce a runtime
  * {@link ResolvedContextMapping}.
  *
- * <p>Four forms are supported:
+ * <p>Three forms are supported:
  * <ul>
  *   <li>{@link PassThrough} — no mapper; the parent's context flows to the called step or
  *       operation unchanged (subject to type compatibility at build time).</li>
  *   <li>{@link ById} — references a {@link MapperDef} registered on the state machine.</li>
- *   <li>{@link InlineFunction} — an inline read-only parent-to-child projection; equivalent to
- *       a {@link ContextMapper} whose {@link ContextMapper#mapFrom(Object, Object) mapFrom} is
- *       the default no-op.</li>
- *   <li>{@link InlineMapper} — a fully-supplied {@link ContextMapper} instance.</li>
+ *   <li>{@link InlineMapper} — a {@link ContextMapper} supplied at the call site. A lambda is one:
+ *       it fills in {@code mapTo} and leaves
+ *       {@link ContextMapper#mapFrom(Object, Object) mapFrom} the interface's no-op, which is why
+ *       there is no separate function-shaped form.</li>
  * </ul>
  */
 sealed interface MapperRef
-    permits MapperRef.PassThrough, MapperRef.ById, MapperRef.InlineFunction, MapperRef.InlineMapper {
+    permits MapperRef.PassThrough, MapperRef.ById, MapperRef.InlineMapper {
 
     /**
      * Resolves this reference into a runtime {@link ResolvedContextMapping} suitable for
@@ -84,6 +83,7 @@ sealed interface MapperRef
                          String memberId, Class<?> componentContext,
                          Map<String, MapperDefImpl<?, ?>> mapperRegistry);
 
+
     /**
      * Returns the singleton {@link PassThrough} reference.
      *
@@ -102,17 +102,6 @@ sealed interface MapperRef
      */
     static MapperRef byId(String mapperId) {
         return new ById(mapperId);
-    }
-
-    /**
-     * Returns an inline read-only mapper reference wrapping the supplied function.
-     *
-     * @param fn the parent-to-child projection; must not be {@code null}
-     *
-     * @return the inline-function reference
-     */
-    static MapperRef inline(Function<?, ?> fn) {
-        return new InlineFunction(fn);
     }
 
     /**
@@ -208,36 +197,6 @@ sealed interface MapperRef
     }
 
     /**
-     * Variant carrying an inline read-only parent-to-child function. The function is wrapped at
-     * build time in a {@link ContextMapper} whose {@code mapFrom} is the default no-op.
-     *
-     * @param fn the parent-to-child projection; never {@code null}
-     */
-    @SuppressWarnings("ClassEscapesDefinedScope")
-    record InlineFunction(Function<?, ?> fn) implements MapperRef {
-        public InlineFunction {
-            requireNotNull(fn, "Inline mapper function");
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public ResolvedContextMapping resolve(StateMachineImpl<?> stateMachine, String enclosingId) {
-            Function<Object, Object> typed = (Function<Object, Object>) fn;
-            ContextMapper<Object, Object> wrapper = typed::apply;
-            return ResolvedContextMapping.mapped(wrapper);
-        }
-
-        @Override
-        public void validateAgainst(Class<?> scopeContext, String scopeLabel, String kind,
-                                    String memberId, Class<?> componentContext,
-                                    Map<String, MapperDefImpl<?, ?>> mapperRegistry) {
-            // Generic-parameter erasure prevents reliable build-time introspection of the
-            // function's parent / child types; alignment is checked at first dispatch when the
-            // user-supplied value is invoked.
-        }
-    }
-
-    /**
      * Variant carrying an inline fully-supplied {@link ContextMapper}.
      *
      * @param mapper the mapper; never {@code null}
@@ -258,7 +217,8 @@ sealed interface MapperRef
         public void validateAgainst(Class<?> scopeContext, String scopeLabel, String kind,
                                     String memberId, Class<?> componentContext,
                                     Map<String, MapperDefImpl<?, ?>> mapperRegistry) {
-            // Same erasure constraint as InlineFunction — deferred to first dispatch.
+            // Generic-parameter erasure prevents build-time introspection of the supplied
+            // mapper's parent / child types; alignment is checked at first dispatch.
         }
     }
 }

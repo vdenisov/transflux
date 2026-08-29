@@ -24,6 +24,7 @@ import org.transflux.core.exception.TransfluxReentrancyException;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.ActionExecution;
 import org.transflux.core.action.ActionPhase;
+import org.transflux.core.action.ForkRejectionPolicy;
 import org.transflux.core.action.Compensation;
 import org.transflux.core.action.Action;
 import org.transflux.core.state.State;
@@ -40,14 +41,20 @@ import org.transflux.core.transition.TransitionResult;
 import org.transflux.core.trigger.Trigger;
 
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
@@ -60,12 +67,22 @@ import static org.transflux.core.impl.ThrowingUtils.sneakyGet;
  * @param <T> the type of entity managed by this state machine
  */
 class StateMachineImpl<T> implements StateMachine<T> {
-    // TODO: extend the reentrancy guard across the async-submission boundary via
-    //   capture/restore — the enclosing thread snapshots this set on submission and
-    //   the worker installs it before entering the SM, so logical reentrancy stays
-    //   detected when an operation spawns async work that calls back into the same
-    //   SM for the same entity.
+    // Thread-confined by construction, and deliberately not carried across a fork: capture and
+    // restore would make a branch a continuation of the transition that spawned it, which it is
+    // not - it outlives that transition, owns a different rollback stack, and reports to nobody.
+    // Branches are kept out of the machine altogether instead; see ASYNC_BRANCH below.
     private static final ThreadLocal<Set<EntityKey>> IN_FLIGHT = ThreadLocal.withInitial(HashSet::new);
+
+    /**
+     * The state machines whose branches the calling thread is currently running. Consulted to
+     * refuse a call back into one of them: a forked member is fire-and-forget, so a transition it
+     * drove would report its outcome to nobody.
+     */
+    private static final ThreadLocal<Deque<StateMachineImpl<?>>> ASYNC_BRANCH =
+        ThreadLocal.withInitial(ArrayDeque::new);
+
+    // ponytail: fixed 10s drain window on close; make it configurable if a host ever needs longer.
+    private static final long ASYNC_SHUTDOWN_TIMEOUT_MS = 10_000L;
 
     private final StateResolver<T> stateResolver;
     private final StateApplier<T> stateApplier;
@@ -103,11 +120,39 @@ class StateMachineImpl<T> implements StateMachine<T> {
     private final Registry<T> componentRegistry;
     private final StateMachineDefImpl<T> def;
 
+    /**
+     * Where forked members run, and whether shutting it down is this state machine's business.
+     * Both are {@code null} / {@code false} for a definition that never forks, which is every
+     * definition that predates the capability.
+     */
+    private final ExecutorService asyncExecutor;
+    private final boolean ownsAsyncExecutor;
+    private final ForkRejectionPolicy forkRejectionPolicy;
+    private final AtomicBoolean closed = new AtomicBoolean();
+
     @SuppressWarnings({"unchecked", "rawtypes"})
     StateMachineImpl(StateMachineDefImpl<T> def) {
         this.def = def;
         this.stateResolver = def.getStateResolver();
         this.stateApplier = def.getStateApplier();
+        this.forkRejectionPolicy = def.getForkRejectionPolicy();
+
+        ExecutorService supplied = def.getAsyncExecutor();
+        if (supplied != null) {
+            this.asyncExecutor = supplied;
+            this.ownsAsyncExecutor = false;
+            Loggers.EXECUTION_ASYNC.info("Async executor supplied by host, executorType={}",
+                                         supplied.getClass().getName());
+        } else if (def.definitionForks()) {
+            AsyncPoolSpec spec = def.getAsyncPoolSpec();
+            this.asyncExecutor = spec.newPool();
+            this.ownsAsyncExecutor = true;
+            Loggers.EXECUTION_ASYNC.info("Async pool created, threads={}, queueCapacity={}",
+                                         spec.threads(), spec.queueCapacity());
+        } else {
+            this.asyncExecutor = null;
+            this.ownsAsyncExecutor = false;
+        }
 
         this.states.putAll(def.getStates().values().stream()
                               .collect(Collectors.toMap(StateDefImpl::getId, StateImpl::new)));
@@ -217,9 +262,123 @@ class StateMachineImpl<T> implements StateMachine<T> {
         return stateApplier;
     }
 
+    /**
+     * Hands one branch to the executor, and answers for a refusal.
+     * <p>
+     * A refused submission is an operational condition rather than a broken definition - the queue
+     * filled up, or the state machine has been closed - so what happens next is the host's
+     * declared {@link ForkRejectionPolicy} rather than a rule of the framework's.
+     *
+     * @param task the branch to run
+     * @param path the forked member's qualified path, for diagnostics
+     *
+     * @throws java.util.concurrent.RejectedExecutionException under
+     *         {@link ForkRejectionPolicy#FAIL}, failing the transition that was forking
+     */
+    void submitBranch(Runnable task, ActionPath path) {
+        if (asyncExecutor == null) {
+            throw new TransfluxValidationException(
+                "No async executor is configured, yet a forked member was reached at '" + path
+                    + "'; this state machine was built believing its definition never forks");
+        }
+
+        try {
+            asyncExecutor.execute(task);
+        } catch (RejectedExecutionException e) {
+            if (forkRejectionPolicy == ForkRejectionPolicy.FAIL) {
+                throw e;
+            }
+            // A branch that never starts is invisible everywhere else: no listener fires, and the
+            // transition's result is unchanged by design.
+            Loggers.EXECUTION_ASYNC.warn("Async branch not started, path={}, errorType={}",
+                                         path, e.getClass().getName());
+        }
+    }
+
+    /**
+     * Marks the calling thread as running a branch this state machine spawned. Paired with
+     * {@link #exitAsyncBranch()} in a {@code finally}, and nested rather than boolean so a branch
+     * that drives another state machine which forks onto the same thread stays correct.
+     */
+    void enterAsyncBranch() {
+        ASYNC_BRANCH.get().push(this);
+    }
+
+    /**
+     * Clears the mark, and drops the thread-local entirely once the last branch on this thread has
+     * returned - a pooled thread must not go on holding a reference to a state machine, which is a
+     * reference to its whole definition graph and classloader.
+     */
+    void exitAsyncBranch() {
+        Deque<StateMachineImpl<?>> stack = ASYNC_BRANCH.get();
+        stack.pop();
+        if (stack.isEmpty()) {
+            ASYNC_BRANCH.remove();
+        }
+    }
+
+    /**
+     * Refuses a call into this state machine from inside a branch it spawned, for any entity.
+     * <p>
+     * A forked member is fire-and-forget: nothing joins it and its outcome reaches no caller, so a
+     * transition driven from there would report success or failure to nobody. Work that has to
+     * drive a machine belongs on the synchronous path, or on an executor the host owns and watches.
+     * Other state machines are unaffected - only the one that spawned the branch is closed to it.
+     *
+     * @throws TransfluxReentrancyException if the calling thread is running a branch of this
+     *         state machine
+     */
+    private void rejectIfInsideAsyncBranch() {
+        // No entity in the message, because the ban is not entity-scoped and there is nothing to
+        // name - which also keeps the host's data out of the stack trace.
+        if (ASYNC_BRANCH.get().contains(this)) {
+            throw new TransfluxReentrancyException(
+                "Dispatch into this state machine rejected: the calling thread is running an async"
+                    + " branch it spawned, and a forked member may not drive the machine that"
+                    + " forked it");
+        }
+    }
+
+    @Override
+    public void close() {
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
+        if (asyncExecutor == null) {
+            return;
+        }
+        if (!ownsAsyncExecutor) {
+            Loggers.EXECUTION_ASYNC.debug("Async close ignored, executor is host-supplied");
+            return;
+        }
+
+        asyncExecutor.shutdown();
+        boolean terminated;
+        try {
+            terminated = asyncExecutor.awaitTermination(ASYNC_SHUTDOWN_TIMEOUT_MS,
+                                                        TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            terminated = false;
+        }
+
+        if (terminated) {
+            Loggers.EXECUTION_ASYNC.info("Async pool shut down, terminated={}", true);
+        } else {
+            // Never shutdownNow(): a branch interrupted mid-compensation leaves exactly the
+            // half-rolled-back state the compensation existed to prevent. That promise is this
+            // method's alone - daemon workers still die where they stand at JVM exit, which is why
+            // a host that cares registers this as a shutdown hook or supplies its own factory.
+            Loggers.EXECUTION_ASYNC.warn(
+                "Async pool did not terminate within the shutdown timeout, timeoutMs={}",
+                ASYNC_SHUTDOWN_TIMEOUT_MS);
+        }
+    }
+
     @Override
     public EntityBinding<T> entity(T entity) {
         requireNotNull(entity, "Entity");
+        rejectIfInsideAsyncBranch();
         return new EntityBindingImpl(entity);
     }
 
@@ -674,6 +833,10 @@ class StateMachineImpl<T> implements StateMachine<T> {
         String targetStateId = transition.targetStateId();
         String transitionId = transition.id();
 
+        // The backstop for an EntityBinding captured on the spawning thread and used inside the
+        // branch, which would otherwise have passed the check at entity(...) before the fork.
+        rejectIfInsideAsyncBranch();
+
         EntityKey key = new EntityKey(this, entity);
         Set<EntityKey> inFlight = IN_FLIGHT.get();
         if (inFlight.contains(key)) {
@@ -762,38 +925,8 @@ class StateMachineImpl<T> implements StateMachine<T> {
             return succeeded;
 
         } catch (Exception e) {
-            List<BoundCompensation<T, C>> drained = view.drainCompensationsLifo();
-            List<ActionPath> compensatedPath = new ArrayList<>(drained.size());
-
-            if (!drained.isEmpty()) {
-                // Candidates rather than a count: an action whose routes all miss the failure is on
-                // the stack but rolls back nothing. The class name, never the message: an exception
-                // raised by the framework itself can carry the entity, and a host's own exception
-                // can carry anything at all.
-                Loggers.EXECUTION_COMPENSATION.info(
-                    "Draining compensations, transitionId={}, candidates={}, errorType={}",
-                    transitionId, drained.size(), e.getClass().getName());
-            }
-
-            for (BoundCompensation<T, C> bc : drained) {
-                Compensation<T, C> selected = bc.router().select(e, bc.path());
-                if (selected == null) {
-                    continue;
-                }
-                // Recorded only once the table has answered, so the compensated path reports what
-                // actually rolled back rather than what was merely eligible to.
-                compensatedPath.add(bc.path());
-                try {
-                    selected.compensate(entity, bc.context());
-                    // Exception and not Throwable, throughout the drain: an Error says the JVM is
-                    // in an unstable state, and driving the remaining handlers through network
-                    // calls and remote deletes there is worse than abandoning the rollback.
-                } catch (Exception ce) {
-                    Loggers.EXECUTION_COMPENSATION.warn(
-                        "Compensation threw, actionPath={}, errorType={}",
-                        bc.path(), ce.getClass().getName());
-                }
-            }
+            List<ActionPath> compensatedPath =
+                CompensationDrain.forTransition(view, entity, e, transitionId);
 
             TransitionResult<T> failed = TransitionResult.failure(entity,
                                                                   sourceStateId,

@@ -60,7 +60,7 @@ The first stable release. Semantic versioning applies from this point on.
 - Condition Descriptor grammar (reference, class, predicate, expression).
 - Multi-branch conditional operations.
 - LIFO compensation engine with exception-specific routing.
-- Async operations anchored via `startBefore` / `startAfter`.
+- Forked members (`fork(...)`), fire-and-forget, on a configurable per-state-machine executor.
 - Spring auto-configuration (optional) + manual wiring via `ComponentRegistry`.
 - `MetricsCollector` SPI hook (no shipped backend integration).
 

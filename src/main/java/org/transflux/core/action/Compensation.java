@@ -43,6 +43,16 @@ package org.transflux.core.action;
  * <p>Implementations should be best-effort: a throw from {@code compensate} is logged and the
  * runtime continues with the remaining compensations on the stack.
  *
+ * <p><b>Do not assume an invocation has an instance to itself.</b> Nothing promises that each call
+ * site, or each invocation, is given its own object. A registration may be an instance the host
+ * built and handed over, or a class the framework instantiates; either way one object normally
+ * serves every call site that reaches it, and a host-supplied one may be shared more widely still.
+ *
+ * <p>Invocations can also overlap in time. A host driving two transitions at once is enough for
+ * that on its own, and a definition that forks (see {@link OperationDef#fork(String)}) produces it
+ * inside a single transition - a synchronous call site and a forked one, or two sibling forks.
+ * Implementations should therefore be stateless, or thread-safe about whatever state they keep.
+ *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */

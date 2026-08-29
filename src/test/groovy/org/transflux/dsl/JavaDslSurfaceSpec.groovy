@@ -1,0 +1,130 @@
+/*
+ *
+ *  * Copyright 2025 Victor Denisov
+ *  *
+ *  * Licensed under the Apache License, Version 2.0 (the "License");
+ *  * you may not use this file except in compliance with the License.
+ *  * You may obtain a copy of the License at
+ *  *
+ *  *     http://www.apache.org/licenses/LICENSE-2.0
+ *  *
+ *  * Unless required by applicable law or agreed to in writing, software
+ *  * distributed under the License is distributed on an "AS IS" BASIS,
+ *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  * See the License for the specific language governing permissions and
+ *  * limitations under the License.
+ *
+ */
+
+package org.transflux.dsl
+
+import spock.lang.Specification
+
+import java.util.concurrent.TimeUnit
+
+/**
+ * Drives the Java DSL fixtures, so the shapes that must compile also demonstrably run.
+ * <p>
+ * The compile-time half of this guardrail has already happened by the time a single feature method
+ * executes: {@link JavaDslSurface} is Java, so javac has resolved every overload in it, and an
+ * ambiguous or uninferable call shape fails {@code test-compile} rather than reaching here. What
+ * this spec adds is proof that the shapes are not merely legal but wired - a call that compiles
+ * against the wrong overload would build the wrong machine, and Groovy specs on their own could
+ * never have caught the ambiguity that motivated the fixture.
+ */
+class JavaDslSurfaceSpec extends Specification {
+
+    def 'every mapper-bearing call shape builds and runs, synchronous and forked'() {
+        given:
+        def sm = JavaDslSurface.mapperCallSites()
+        def order = new JavaDslSurface.Order()
+
+        when:
+        def result = sm.entity(order).transitionTo('s2', new JavaDslSurface.OrderCtx())
+
+        then: 'the seven synchronous members ran, mapped ones against the mapped context'
+        result.success
+        order.state == 's2'
+
+        and: 'at least the synchronous ones - the forked seven add to this as they land'
+        order.trail.count { it == 'recording' } >= 2
+        order.trail.count { it == 'notify:o-1' } >= 5
+
+        cleanup:
+        sm.close()
+    }
+
+    def 'the same grammar dispatched from inside an action body builds and runs'() {
+        given:
+        def sm = JavaDslSurface.dispatchFromActionBody()
+        def order = new JavaDslSurface.Order()
+
+        when:
+        def result = sm.entity(order).transitionTo('s2', new JavaDslSurface.OrderCtx())
+
+        then:
+        result.success
+        order.trail.contains('recording')
+        order.trail.contains('notify:o-1')
+
+        cleanup:
+        sm.close()
+    }
+
+    def 'the declaration shapes build and run'() {
+        given:
+        def sm = JavaDslSurface.declarationShapes()
+        def order = new JavaDslSurface.Order()
+
+        when:
+        def result = sm.entity(order).transitionTo('s2', new JavaDslSurface.OrderCtx())
+
+        then:
+        result.success
+        order.trail.contains('inline')
+
+        cleanup:
+        sm.close()
+    }
+
+    def 'the compensation shapes build, and the routed rollback runs'() {
+        given:
+        def sm = JavaDslSurface.compensationShapes()
+        def order = new JavaDslSurface.Order()
+
+        expect: 'nothing fails here; the chain compiling is the point, and it still executes'
+        sm.entity(order).transitionTo('s2', new JavaDslSurface.OrderCtx()).success
+
+        cleanup:
+        sm.close()
+    }
+
+    def 'the executor configuration builds, forks, and closes'() {
+        given:
+        def sm = JavaDslSurface.executorConfiguration()
+        def order = new JavaDslSurface.Order()
+
+        when:
+        def result = sm.entity(order).transitionTo('s2', new JavaDslSurface.OrderCtx())
+
+        then:
+        result.success
+
+        and: 'the branch lands on a thread the host named'
+        waitFor { order.trail.contains('recording') }
+
+        cleanup:
+        sm.close()
+    }
+
+    private static boolean waitFor(Closure<Boolean> condition) {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        while (System.nanoTime() < deadline) {
+            if (condition.call()) {
+                return true
+            }
+            Thread.sleep(10)
+        }
+        return false
+    }
+}

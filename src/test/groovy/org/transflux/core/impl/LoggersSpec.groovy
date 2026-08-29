@@ -69,6 +69,7 @@ class LoggersSpec extends Specification {
             'org.transflux.build.registry',
             'org.transflux.build.validation',
             'org.transflux.execution.action',
+            'org.transflux.execution.async',
             'org.transflux.execution.compensation',
             'org.transflux.execution.condition',
             'org.transflux.execution.listener',

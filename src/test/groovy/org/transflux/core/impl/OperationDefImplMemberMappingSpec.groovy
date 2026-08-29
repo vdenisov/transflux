@@ -116,9 +116,9 @@ class OperationDefImplMemberMappingSpec extends Specification {
         ctx.chargeResult == 'charged-ord-2-500.00'
     }
 
-    def 'step-level mapping at call site via inline Function (read-only)'() {
+    def 'step-level mapping at call site via an inline mapper lambda (read-only)'() {
         given:
-        Function<OrderCtx, PaymentCtx> mapTo = { OrderCtx o ->
+        ContextMapper<OrderCtx, PaymentCtx> mapTo = { OrderCtx o ->
             def p = new PaymentCtx()
             p.reference = o.orderId
             p.cents = o.amount * 100

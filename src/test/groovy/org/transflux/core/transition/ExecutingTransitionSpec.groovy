@@ -62,9 +62,9 @@ class ExecutingTransitionSpec extends Specification {
         entity.trail == ['step:foo']
     }
 
-    def 'transition.run(id, Function) wraps the projection and runs the child step'() {
+    def 'transition.run(id, mapper lambda) wraps the projection and runs the child step'() {
         given:
-        Function<ParentCtx, ChildCtx> mapTo = { p ->
+        ContextMapper<ParentCtx, ChildCtx> mapTo = { p ->
             def c = new ChildCtx()
             c.input = p.input
             return c
@@ -155,9 +155,9 @@ class ExecutingTransitionSpec extends Specification {
         entity.trail == ['op:qux']
     }
 
-    def 'transition.run(id, Function) runs the operation under the projected child context'() {
+    def 'transition.run(id, mapper lambda) runs the operation under the projected child context'() {
         given:
-        Function<ParentCtx, ChildCtx> mapTo = { p ->
+        ContextMapper<ParentCtx, ChildCtx> mapTo = { p ->
             def c = new ChildCtx()
             c.input = p.input
             return c

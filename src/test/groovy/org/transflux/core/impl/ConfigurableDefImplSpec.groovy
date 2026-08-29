@@ -140,6 +140,7 @@ class ConfigurableDefImplSpec extends Specification {
         desc                  | mutator              | factory                                                  | action                                    | label
         'composite operation' | 'step'               | { new OperationDefImpl<Object, Object>('op1') } | { it.run('s') }                          | "operation 'op1'"
         'composite operation' | 'operation'          | { new OperationDefImpl<Object, Object>('op1') } | { it.run('o') }                     | "operation 'op1'"
+        'composite operation' | 'fork'               | { new OperationDefImpl<Object, Object>('op1') } | { it.fork('f') }                          | "operation 'op1'"
         'composite operation' | 'conditional'        | { new OperationDefImpl<Object, Object>('op1') } | { it.conditional('cc', {}) }              | "operation 'op1'"
         'composite operation' | 'usingContext'       | { new OperationDefImpl<Object, Object>('op1') } | { it.usingContext(Object) }               | "operation 'op1'"
         'composite operation' | 'withName'           | { new OperationDefImpl<Object, Object>('op1') } | { it.withName('n') }                      | "operation 'op1'"

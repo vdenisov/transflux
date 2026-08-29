@@ -22,7 +22,6 @@ import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.ContextMapper;
 
-import java.util.function.Function;
 
 /**
  * A {@link Transition} that is currently executing — the handle an
@@ -41,9 +40,9 @@ import java.util.function.Function;
  * call site, so there is one verb rather than one per form.
  *
  * <p><b>Mapper-aware overloads.</b> {@code run(...)} accepts an optional mapper specification -
- * a registered {@code mapper} by id, an inline {@link Function} for read-only projection, or a
- * fully-supplied {@link ContextMapper} instance - that bridges the active context to whatever
- * the referenced action requires. Pass-through forms (mapper-less) require the called action's
+ * a registered {@code mapper} by id, or an inline {@link ContextMapper}, which a lambda satisfies
+ * for the read-only projection case - that bridges the active context to whatever the referenced
+ * action requires. Pass-through forms (mapper-less) require the called action's
  * context type to be assignable from the active context.
  *
  * <p><b>Example usage from inside an action:</b>
@@ -92,18 +91,6 @@ public interface ExecutingTransition<T, C> extends Transition {
      */
     void run(String id, String mapperId);
 
-    /**
-     * Runs the action registered under {@code id} with an inline read-only parent-to-child
-     * projection. The supplied function is wrapped as a {@link ContextMapper} whose
-     * {@link ContextMapper#mapFrom(Object, Object) mapFrom} is a no-op.
-     *
-     * @param id the registered action id
-     * @param inlineMapTo the parent-to-child projection
-     *
-     * @throws TransfluxValidationException when {@code inlineMapTo} is {@code null} or no action
-     *         is registered under {@code id}
-     */
-    void run(String id, Function<C, ?> inlineMapTo);
 
     /**
      * Runs the action registered under {@code id} with an inline fully-supplied

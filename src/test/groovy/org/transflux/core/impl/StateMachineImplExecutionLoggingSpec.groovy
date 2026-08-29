@@ -23,6 +23,7 @@ import org.transflux.core.StateMachine
 import org.transflux.core.StateMachineDef
 import org.transflux.core.TestContext
 import org.transflux.core.action.Action
+import org.transflux.core.action.ContextMapper
 import org.transflux.core.action.OperationDef
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
@@ -172,7 +173,7 @@ class StateMachineImplExecutionLoggingSpec extends Specification {
             .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
                 t.operation('op', { OperationDef<Entity, TestContext> op ->
                     op.run('child',
-                           { TestContext parent -> new ChildCtx(tag: 'secret-value') } as Function) }) }) })
+                           { TestContext parent -> new ChildCtx(tag: 'secret-value') } as ContextMapper) }) }) })
             .state('s2', {})
 
         when:

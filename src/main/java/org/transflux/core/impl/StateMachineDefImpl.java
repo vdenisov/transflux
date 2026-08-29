@@ -27,6 +27,7 @@ import org.transflux.core.action.ActionKind;
 import org.transflux.core.action.ActionListener;
 import org.transflux.core.action.ActionListenerDef;
 import org.transflux.core.action.ContextMapper;
+import org.transflux.core.action.ForkRejectionPolicy;
 import org.transflux.core.action.MapperDef;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.StepDef;
@@ -53,6 +54,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadFactory;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
@@ -93,6 +96,12 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private final Map<String, Class<?>> componentContextTypes = new LinkedHashMap<>();
 
     private final Map<String, TransitionDefImpl<T, ?>> transitionsById = new LinkedHashMap<>();
+
+    private ExecutorService asyncExecutor;
+
+    private AsyncPoolSpec asyncPoolSpec;
+
+    private ForkRejectionPolicy forkRejectionPolicy;
 
     /**
      * State listeners attached to every state rather than to one. Kept in declaration order; the
@@ -174,6 +183,37 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
 
         this.stateResolver = stateResolver;
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> withAsyncExecutor(ExecutorService executor) {
+        requireNotNull(executor, "Async executor");
+        warnIfAsyncTargetSet();
+
+        this.asyncPoolSpec = null;
+        this.asyncExecutor = executor;
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> withAsyncPool(int threads, int queueCapacity) {
+        return applyPoolSpec(new AsyncPoolSpec(threads, queueCapacity, null));
+    }
+
+    @Override
+    public StateMachineDef<T> withAsyncPool(int threads, int queueCapacity, ThreadFactory threadFactory) {
+        requireNotNull(threadFactory, "Async thread factory");
+        return applyPoolSpec(new AsyncPoolSpec(threads, queueCapacity, threadFactory));
+    }
+
+    @Override
+    public StateMachineDef<T> withForkRejectionPolicy(ForkRejectionPolicy policy) {
+        requireNotNull(policy, "Fork rejection policy");
+        ValidationUtils.warnIfSet(this.forkRejectionPolicy != null, "Fork rejection policy",
+                                  "StateMachineDef", Loggers.BUILD_VALIDATION);
+
+        this.forkRejectionPolicy = policy;
         return this;
     }
 
@@ -908,8 +948,80 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         return componentContextTypes.getOrDefault(id, Object.class);
     }
 
+    /**
+     * Records a pool spec, which competes with a host-supplied executor for the same slot: where
+     * forked members run. The later declaration wins, as it does for every other def-side setter.
+     *
+     * @param spec the sizing to build from
+     *
+     * @return this def for chaining
+     */
+    private StateMachineDef<T> applyPoolSpec(AsyncPoolSpec spec) {
+        warnIfAsyncTargetSet();
+
+        this.asyncExecutor = null;
+        this.asyncPoolSpec = spec;
+        return this;
+    }
+
+    private void warnIfAsyncTargetSet() {
+        ValidationUtils.warnIfSet(asyncExecutor != null || asyncPoolSpec != null,
+                                  "Async executor", "StateMachineDef", Loggers.BUILD_VALIDATION);
+    }
+
     Map<String, MapperDefImpl<?, ?>> getMapperRegistrations() {
         return mapperRegistrations;
+    }
+
+    /**
+     * Returns the executor the host supplied for forked members.
+     *
+     * @return the executor, or {@code null} when the state machine should build its own
+     */
+    ExecutorService getAsyncExecutor() {
+        return asyncExecutor;
+    }
+
+    /**
+     * Returns the pool sizing to build from, which is the default unless the host said otherwise.
+     *
+     * @return the pool spec; never {@code null}
+     */
+    AsyncPoolSpec getAsyncPoolSpec() {
+        return asyncPoolSpec != null ? asyncPoolSpec : AsyncPoolSpec.DEFAULT;
+    }
+
+    /**
+     * Returns what to do when a submission is refused.
+     *
+     * @return the policy; never {@code null}
+     */
+    ForkRejectionPolicy getForkRejectionPolicy() {
+        return forkRejectionPolicy != null ? forkRejectionPolicy : ForkRejectionPolicy.DROP;
+    }
+
+    /**
+     * Reports whether anything in this definition forks, which is what decides whether the state
+     * machine builds a pool at all.
+     * <p>
+     * Containers are reachable from exactly two places - registered at SM level, or attached to a
+     * transition - because a container cannot be declared inline as a member. So this walk is
+     * complete without descending into anything.
+     *
+     * @return whether any container declares a forked member
+     */
+    boolean definitionForks() {
+        for (OperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
+            if (composite.declaresFork()) {
+                return true;
+            }
+        }
+        for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
+            if (td.getActionDef() instanceof OperationDefImpl<?, ?> op && op.declaresFork()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     OperationDefImpl<T, ?> getSmCompositeOperation(String id) {

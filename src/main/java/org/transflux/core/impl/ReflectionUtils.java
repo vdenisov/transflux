@@ -66,4 +66,5 @@ final class ReflectionUtils {
                 "Failed to instantiate " + typeName.toLowerCase() + " class '" + type.getName() + "'", e);
         }
     }
+
 }

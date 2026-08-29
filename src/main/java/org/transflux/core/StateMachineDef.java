@@ -22,6 +22,7 @@ import org.transflux.core.action.Action;
 import org.transflux.core.action.ActionListener;
 import org.transflux.core.action.ActionListenerDef;
 import org.transflux.core.action.ContextMapper;
+import org.transflux.core.action.ForkRejectionPolicy;
 import org.transflux.core.action.MapperDef;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.StepDef;
@@ -36,6 +37,8 @@ import org.transflux.core.transition.TransitionDef;
 import org.transflux.core.transition.TransitionListener;
 import org.transflux.core.transition.TransitionListenerDef;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadFactory;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -134,6 +137,76 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     StateMachineDef<T> withStateApplier(StateApplier<T> stateApplier);
+
+    /**
+     * Supplies the executor that forked members run on, in place of the one this state machine
+     * would otherwise build for itself.
+     * <p>
+     * The executor stays the host's: {@link StateMachine#close()} leaves it running, because a
+     * pool shared with the rest of an application is not the state machine's to shut down.
+     *
+     * <p>This and {@link #withAsyncPool(int, int)} configure the same thing, so the later call
+     * replaces the earlier one and logs a warning.
+     *
+     * @param executor the executor to submit forked members to; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if {@code executor} is {@code null}
+     */
+    StateMachineDef<T> withAsyncExecutor(ExecutorService executor);
+
+    /**
+     * Sizes the pool this state machine builds for forked members, replacing the default of ten
+     * threads and a queue of a hundred.
+     * <p>
+     * A pool is built only if the definition actually forks, and only when no executor was
+     * supplied. Its threads are daemons, and it is shut down by {@link StateMachine#close()} -
+     * see the overload below to change the first of those.
+     *
+     * @param threads the number of worker threads; must be positive
+     * @param queueCapacity how many submissions may wait for a thread; must be positive
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is not positive
+     */
+    StateMachineDef<T> withAsyncPool(int threads, int queueCapacity);
+
+    /**
+     * {@link #withAsyncPool(int, int)} with control over how worker threads are created - naming,
+     * priority, thread groups, or a context-propagating factory.
+     * <p>
+     * This is also where a host decides what JVM exit does to work in flight. The default factory
+     * makes daemon threads, so a process that ends without {@link StateMachine#close()} takes any
+     * running branch down with it; supplying non-daemon threads here makes the process wait for
+     * them instead, at the cost of an exit that waits on an idle pool. The third option needs no
+     * factory at all - register {@code close()} as a shutdown hook and it drains within its own
+     * bounded window.
+     *
+     * @param threads the number of worker threads; must be positive
+     * @param queueCapacity how many submissions may wait for a thread; must be positive
+     * @param threadFactory the factory to create worker threads with; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if either count is not positive, or the factory is
+     *         {@code null}
+     */
+    StateMachineDef<T> withAsyncPool(int threads, int queueCapacity, ThreadFactory threadFactory);
+
+    /**
+     * Decides what happens when the executor refuses a forked member - a full queue, or a pool
+     * that has already been closed. Defaults to {@link ForkRejectionPolicy#DROP}.
+     *
+     * @param policy the policy to apply at every fork site in this state machine; never
+     *               {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if {@code policy} is {@code null}
+     */
+    StateMachineDef<T> withForkRejectionPolicy(ForkRejectionPolicy policy);
 
     /**
      * Registers a step instance against this state machine under the given id, without a

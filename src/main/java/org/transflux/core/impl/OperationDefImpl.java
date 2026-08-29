@@ -24,6 +24,7 @@ import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.ConditionalOperationDef;
 import org.transflux.core.action.ContextMapper;
+import org.transflux.core.action.ForkableContext;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.StepDef;
 import org.transflux.core.transition.ExecutingTransition;
@@ -35,7 +36,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
@@ -55,7 +55,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
 final class OperationDefImpl<T, C>
     extends ActionDefImpl<T, C, OperationDefImpl<T, C>> implements OperationDef<T, C> {
 
-    private final List<ActionRef<T, C>> actionRefs = new ArrayList<>();
+    private final List<DeclaredMember<T, C>> members = new ArrayList<>();
 
     private Class<C> declaredContextType;
 
@@ -83,36 +83,17 @@ final class OperationDefImpl<T, C>
 
     @Override
     public OperationDefImpl<T, C> run(String id) {
-        requireConfigurerActive("run");
-        actionRefs.add(ActionRef.byId(id));
-        return this;
+        return reference("run", id, false);
     }
 
     @Override
     public OperationDefImpl<T, C> run(String id, String mapperId) {
-        requireConfigurerActive("run");
-        requireNotBlank(id, "Action reference ID");
-        requireNotBlank(mapperId, "Mapper reference ID");
-        actionRefs.add(ActionRef.byId(id, MapperRef.byId(mapperId)));
-        return this;
-    }
-
-    @Override
-    public OperationDefImpl<T, C> run(String id, Function<C, ?> inlineMapTo) {
-        requireConfigurerActive("run");
-        requireNotBlank(id, "Action reference ID");
-        requireNotNull(inlineMapTo, "Inline mapper function");
-        actionRefs.add(ActionRef.byId(id, MapperRef.inline(inlineMapTo)));
-        return this;
+        return reference("run", id, mapperId, false);
     }
 
     @Override
     public OperationDefImpl<T, C> run(String id, ContextMapper<C, ?> inlineMapper) {
-        requireConfigurerActive("run");
-        requireNotBlank(id, "Action reference ID");
-        requireNotNull(inlineMapper, "Inline mapper instance");
-        actionRefs.add(ActionRef.byId(id, MapperRef.inline(inlineMapper)));
-        return this;
+        return reference("run", id, inlineMapper, false);
     }
 
     @Override
@@ -141,9 +122,49 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
+    public OperationDefImpl<T, C> fork(String id) {
+        return reference("fork", id, true);
+    }
+
+    @Override
+    public OperationDefImpl<T, C> fork(String id, String mapperId) {
+        return reference("fork", id, mapperId, true);
+    }
+
+    @Override
+    public OperationDefImpl<T, C> fork(String id, ContextMapper<C, ?> inlineMapper) {
+        return reference("fork", id, inlineMapper, true);
+    }
+
+    @Override
+    public OperationDefImpl<T, C> fork(Identifiable registeredAction) {
+        requireNotNull(registeredAction, "Action identifiable");
+        return fork(registeredAction.getId());
+    }
+
+    @Override
+    public OperationDefImpl<T, C> fork(Identifiable registeredAction, Identifiable mapper) {
+        requireNotNull(registeredAction, "Action identifiable");
+        requireNotNull(mapper, "Mapper identifiable");
+        return fork(registeredAction.getId(), mapper.getId());
+    }
+
+    @Override
+    public OperationDefImpl<T, C> fork(Identifiable registeredAction, String mapperId) {
+        requireNotNull(registeredAction, "Action identifiable");
+        return fork(registeredAction.getId(), mapperId);
+    }
+
+    @Override
+    public OperationDefImpl<T, C> fork(String id, Identifiable mapper) {
+        requireNotNull(mapper, "Mapper identifiable");
+        return fork(id, mapper.getId());
+    }
+
+    @Override
     public OperationDefImpl<T, C> step(String id, Action<T, C> action) {
         requireConfigurerActive("step");
-        actionRefs.add(ActionRef.inline(id, action, ActionKind.STEP));
+        members.add(new DeclaredMember<>(ActionRef.inline(id, action, ActionKind.STEP), false));
         return this;
     }
 
@@ -156,7 +177,7 @@ final class OperationDefImpl<T, C>
     @Override
     public OperationDefImpl<T, C> step(String id, Class<? extends Action<T, C>> actionClass) {
         requireConfigurerActive("step");
-        actionRefs.add(ActionRef.inline(id, actionClass, ActionKind.STEP));
+        members.add(new DeclaredMember<>(ActionRef.inline(id, actionClass, ActionKind.STEP), false));
         return this;
     }
 
@@ -173,7 +194,7 @@ final class OperationDefImpl<T, C>
         requireNotNull(configurer, "Step configurer");
         StepDefImpl<T, C> def = new StepDefImpl<>(id);
         ConfigurableDefImpl.runConfigurer(def, configurer);
-        actionRefs.add(ActionRef.inline(id, def));
+        members.add(new DeclaredMember<>(ActionRef.inline(id, def), false));
         return this;
     }
 
@@ -191,7 +212,7 @@ final class OperationDefImpl<T, C>
 
         ConditionalOperationDefImpl<T, C> def = new ConditionalOperationDefImpl<>(id);
         ConfigurableDefImpl.runConfigurer(def, configurer);
-        actionRefs.add(ActionRef.conditional(id, def));
+        members.add(new DeclaredMember<>(ActionRef.conditional(id, def), false));
 
         return this;
     }
@@ -225,7 +246,17 @@ final class OperationDefImpl<T, C>
      * @return an unmodifiable view of the action ref list
      */
     List<ActionRef<T, C>> getActionRefs() {
-        return Collections.unmodifiableList(actionRefs);
+        return members.stream().map(DeclaredMember::ref).toList();
+    }
+
+    /**
+     * Reports whether any member of this container is forked, which is what tells the build
+     * whether an executor is needed at all.
+     *
+     * @return whether a forked member was declared
+     */
+    boolean declaresFork() {
+        return members.stream().anyMatch(DeclaredMember::forked);
     }
 
     /**
@@ -238,8 +269,8 @@ final class OperationDefImpl<T, C>
      */
     List<String> getByIdReferenceIds() {
         List<String> ids = new ArrayList<>();
-        for (ActionRef<T, C> ref : actionRefs) {
-            if (ref instanceof ActionRef.ById<T, C> r) {
+        for (DeclaredMember<T, C> member : members) {
+            if (member.ref() instanceof ActionRef.ById<T, C> r) {
                 ids.add(r.id());
             }
         }
@@ -252,8 +283,8 @@ final class OperationDefImpl<T, C>
      * register their own bound action. Drives the scope-binding pass in {@link #bindScope}.
      */
     void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
-        for (ActionRef<T, C> ref : actionRefs) {
-            ref.collectInlineRegistrations(sink);
+        for (DeclaredMember<T, C> member : members) {
+            member.ref().collectInlineRegistrations(sink);
         }
     }
 
@@ -274,11 +305,11 @@ final class OperationDefImpl<T, C>
      */
     @Override
     BoundAction<T, C> buildBound(StateMachineImpl<T> stateMachine) {
-        if (actionRefs.isEmpty()) {
+        if (members.isEmpty()) {
             throw new TransfluxValidationException(
                 "OperationDef '" + getId()
-                    + "' has no members; call run(...), step(...) or conditional(...) at least"
-                    + " once before build");
+                    + "' has no members; call run(...), fork(...), step(...) or conditional(...)"
+                    + " at least once before build");
         }
 
         if (scopeRegistry == null) {
@@ -287,14 +318,15 @@ final class OperationDefImpl<T, C>
                     + "' has no scope registry; state-machine construction did not wire it");
         }
 
-        List<CompositeMember<T, C>> members = new ArrayList<>(actionRefs.size());
-        for (ActionRef<T, C> ref : actionRefs) {
-            BoundAction<T, C> bound = ref.resolve(stateMachine, scopeRegistry, getId());
+        List<CompositeMember<T, C>> bound = new ArrayList<>(members.size());
+        for (DeclaredMember<T, C> member : members) {
+            ActionRef<T, C> ref = member.ref();
+            BoundAction<T, C> action = ref.resolve(stateMachine, scopeRegistry, getId());
             ResolvedContextMapping mapping = ref.mapperRef().resolve(stateMachine, getId());
-            members.add(new CompositeMember<>(bound, mapping));
+            bound.add(new CompositeMember<>(action, mapping, member.forked()));
         }
 
-        Action<T, C> executor = new CompositeOperationExecutor<>(members, scopeRegistry);
+        Action<T, C> executor = new CompositeOperationExecutor<>(bound, scopeRegistry);
 
         return BoundAction.of(getId(), executor, ActionKind.OPERATION, buildBoundListeners(),
                               buildCompensationRouter());
@@ -303,8 +335,8 @@ final class OperationDefImpl<T, C>
     @Override
     void collectListenerIds(BiConsumer<String, String> sink) {
         emitOwnListenerIds(sink);
-        for (ActionRef<T, C> ref : actionRefs) {
-            ref.collectListenerIds(sink);
+        for (DeclaredMember<T, C> member : members) {
+            member.ref().collectListenerIds(sink);
         }
     }
 
@@ -312,13 +344,18 @@ final class OperationDefImpl<T, C>
     void checkRefs(Class<?> scopeContext, String scopeLabel, StateMachineDefImpl<T> smDef) {
         Class<?> effectiveScope = scopeContext != null ? scopeContext : Object.class;
 
-        for (ActionRef<T, C> ref : actionRefs) {
+        for (DeclaredMember<T, C> member : members) {
+            ActionRef<T, C> ref = member.ref();
             if (ref instanceof ActionRef.ById<T, ?> byId) {
                 Class<?> componentCtx = smDef.componentContextTypeOrDefault(byId.id());
                 byId.mapperRef().validateAgainst(effectiveScope, scopeLabel, "action",
                     byId.id(), componentCtx, smDef.getMapperRegistrations());
             } else if (ref instanceof ActionRef.Conditional<T, C> conditional) {
                 conditional.def().checkRefs(effectiveScope, smDef);
+            }
+
+            if (member.forked()) {
+                checkForkBoundary(ref, effectiveScope);
             }
         }
     }
@@ -328,8 +365,8 @@ final class OperationDefImpl<T, C>
         if (scopeRegistry == null) {
             return;
         }
-        for (ActionRef<T, C> ref : actionRefs) {
-            if (ref instanceof ActionRef.Conditional<T, C> conditional) {
+        for (DeclaredMember<T, C> member : members) {
+            if (member.ref() instanceof ActionRef.Conditional<T, C> conditional) {
                 conditional.def().checkBranchRefs(scopeRegistry);
             }
         }
@@ -371,12 +408,120 @@ final class OperationDefImpl<T, C>
     }
 
     /**
+     * Appends a by-id member in pass-through mode. The four {@code reference} overloads are what
+     * keeps {@code run} and {@code fork} from drifting apart: the two verbs differ only in the
+     * flag they pass.
+     *
+     * @param verb the DSL verb, named in the configurer-guard message
+     * @param id the referenced action id
+     * @param forked whether the member is handed to the executor rather than run in line
+     *
+     * @return this def for chaining
+     */
+    private OperationDefImpl<T, C> reference(String verb, String id, boolean forked) {
+        requireConfigurerActive(verb);
+        members.add(new DeclaredMember<>(ActionRef.byId(id), forked));
+        return this;
+    }
+
+    /**
+     * Appends a by-id member mapped by a registered mapper.
+     *
+     * @param verb the DSL verb, named in the configurer-guard message
+     * @param id the referenced action id
+     * @param mapperId the registered mapper id
+     * @param forked whether the member is handed to the executor rather than run in line
+     *
+     * @return this def for chaining
+     */
+    private OperationDefImpl<T, C> reference(String verb, String id, String mapperId, boolean forked) {
+        requireConfigurerActive(verb);
+        requireNotBlank(id, "Action reference ID");
+        requireNotBlank(mapperId, "Mapper reference ID");
+        members.add(new DeclaredMember<>(ActionRef.byId(id, MapperRef.byId(mapperId)), forked));
+        return this;
+    }
+
+
+    /**
+     * Appends a by-id member mapped by an inline mapper instance.
+     *
+     * @param verb the DSL verb, named in the configurer-guard message
+     * @param id the referenced action id
+     * @param inlineMapper the mapper to apply at the boundary
+     * @param forked whether the member is handed to the executor rather than run in line
+     *
+     * @return this def for chaining
+     */
+    private OperationDefImpl<T, C> reference(String verb, String id, ContextMapper<C, ?> inlineMapper,
+                                             boolean forked) {
+        requireConfigurerActive(verb);
+        requireNotBlank(id, "Action reference ID");
+        requireNotNull(inlineMapper, "Inline mapper instance");
+        members.add(new DeclaredMember<>(ActionRef.byId(id, MapperRef.inline(inlineMapper)), forked));
+        return this;
+    }
+
+    /**
+     * Warns when a forked member will share the enclosing context rather than being handed one of
+     * its own.
+     * <p>
+     * Nothing is rejected here. A mapper that overrides
+     * {@link ContextMapper#mapFrom(Object, Object) mapFrom} is simply not applied to a forked
+     * member - the branch runs with the mapping already done and no mapper to write back with - and
+     * the framework cannot tell a mapper that overrides it from a proxy that merely appears to, so
+     * refusing the definition would fail builds over an implementation detail of the host's
+     * container.
+     *
+     * @param ref the forked member's reference
+     * @param scopeContext this operation's effective context type
+     */
+    private void checkForkBoundary(ActionRef<T, C> ref, Class<?> scopeContext) {
+        // A mapper produces the branch's own context, so there is nothing left to share.
+        if (!(ref.mapperRef() instanceof MapperRef.PassThrough)
+                || scopeContext == Void.class
+                || ForkableContext.class.isAssignableFrom(scopeContext)) {
+            return;
+        }
+
+        if (scopeContext == Object.class) {
+            Loggers.BUILD_VALIDATION.warn(
+                "Forked member may share the enclosing context; the operation declares no context"
+                    + " type, so forkability cannot be checked - declare usingContext(...),"
+                    + " implement ForkableContext, or map at the call site, operationId={},"
+                    + " actionId={}", getId(), ref.id());
+            return;
+        }
+
+        Loggers.BUILD_VALIDATION.warn(
+            "Forked member shares the enclosing context; implement ForkableContext or map at the"
+                + " call site, operationId={}, actionId={}, contextType={}",
+            getId(), ref.id(), scopeContext.getName());
+    }
+
+    /**
+     * A member as declared: the reference itself, and whether the declaring verb was {@code fork}.
+     * <p>
+     * The flag rides beside the reference rather than inside it because forking is a property of
+     * the call site, exactly as the call-site mapper is - the same registered action is forked at
+     * one position and run in line at another.
+     *
+     * @param ref the member reference
+     * @param forked whether this position hands the member to the executor
+     * @param <T> the entity type the surrounding state machine manages
+     * @param <C> the host-supplied context type carried through transition execution
+     */
+    private record DeclaredMember<T, C>(ActionRef<T, C> ref, boolean forked) {
+    }
+
+    /**
      * Pairs a resolved composite member with its context-mapping configuration. Each member is
      * dispatched uniformly: optional {@link ContextMapper#mapTo(Object) mapTo} before, the
      * bound action's invocation against the (possibly mapped) child context, optional
      * {@link ContextMapper#mapFrom(Object, Object) mapFrom} after on success.
      */
-    private record CompositeMember<T, C>(BoundAction<T, C> action, ResolvedContextMapping mapping) {
+    private record CompositeMember<T, C>(BoundAction<T, C> action, ResolvedContextMapping mapping,
+                                         boolean forked) {
     }
 
     /**
@@ -431,8 +576,16 @@ final class OperationDefImpl<T, C>
         @SuppressWarnings({"unchecked", "rawtypes"})
         private void dispatchMember(ExecutingTransitionImpl<T, C> view, CompositeMember<T, C> member) {
             ResolvedContextMapping mapping = member.mapping();
-            ContextMapper<Object, Object> mapper = mapping.isPassThrough() ? null : mapping.mapper();
 
+            if (member.forked()) {
+                // Returns as soon as the branch is handed over, so the members after it start
+                // without waiting - the position in this list is when the work begins, not when
+                // it ends.
+                view.submitBranch((BoundAction) member.action(), mapping);
+                return;
+            }
+
+            ContextMapper<Object, Object> mapper = mapping.isPassThrough() ? null : mapping.mapper();
             view.runAction((BoundAction) member.action(), mapper);
         }
     }

@@ -23,6 +23,7 @@ import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.ActionPhase;
 import org.transflux.core.action.Compensation;
 import org.transflux.core.action.ContextMapper;
+import org.transflux.core.action.ForkableContext;
 import org.transflux.core.action.MapperDef;
 import org.transflux.core.action.Action;
 import org.transflux.core.transition.ActionPath;
@@ -31,11 +32,11 @@ import org.transflux.core.transition.Transition;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
-import java.util.function.Function;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
@@ -77,6 +78,25 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
 
     ExecutingTransitionImpl(StateMachineImpl<T> stateMachine, BoundTransition<T, C> boundTransition,
                             T entity, C context) {
+        this(stateMachine, boundTransition, entity, context, List.of(), List.of());
+    }
+
+    /**
+     * Builds a view whose lexical position is inherited rather than empty - the constructor a
+     * forked member's branch uses.
+     * <p>
+     * The two inherited stacks are <em>copied</em> at construction and never shared: the thread
+     * that spawned the branch keeps pushing and popping its own as it walks on, and a branch
+     * reading those would see its qualified paths and its id resolution change underneath it. The
+     * three that are not inherited start empty, which is what makes the branch's rollback its own.
+     *
+     * @param nesting the enclosing action-nesting stack, outermost last, as
+     *                {@link Deque#iterator()} yields it
+     * @param scopes the enclosing lexical-scope stack, in the same order
+     */
+    ExecutingTransitionImpl(StateMachineImpl<T> stateMachine, BoundTransition<T, C> boundTransition,
+                            T entity, C context, Collection<String> nesting,
+                            Collection<Registry<T>> scopes) {
         requireNotNull(stateMachine, "State machine");
         requireNotNull(boundTransition, "Bound transition");
 
@@ -85,6 +105,10 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
         this.entity = entity;
         this.context = context;
         this.readOnly = TransitionImpl.of(boundTransition);
+
+        // addLast preserves head-to-tail order, so a copy of a push-built stack keeps its head.
+        this.operationStack.addAll(nesting);
+        this.scopeStack.addAll(scopes);
     }
 
     /**
@@ -127,13 +151,6 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
     public void run(String id, String mapperId) {
         requireNotBlank(mapperId, "Mapper reference ID");
         runAction((BoundAction) resolveAction(id), resolveRegisteredMapper(mapperId));
-    }
-
-    @Override
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    public void run(String id, Function<C, ?> inlineMapTo) {
-        requireNotNull(inlineMapTo, "Inline mapper function");
-        runAction((BoundAction) resolveAction(id), wrapFunction((Function) inlineMapTo));
     }
 
     @Override
@@ -345,6 +362,104 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
         return declared.withFallback(dynamic);
     }
 
+    /**
+     * Hands one forked member to the executor and returns without waiting for it.
+     * <p>
+     * Everything the branch needs is produced here, on this thread, before the submission: the
+     * context it will run against, and a view of its own carrying copies of the two stacks that
+     * describe where it sits. That ordering is what the memory model rests on - every write this
+     * method performs happens-before the branch starts, and nothing is shared afterwards.
+     *
+     * <p>Producing the context can fail, and when it does the failure is this transition's: the
+     * host's {@code mapTo} or {@code fork} threw at a position this transition was executing, and
+     * no branch exists yet to attribute it to. A refused <em>submission</em> is a different thing
+     * and answers to the state machine's fork-rejection policy instead.
+     *
+     * @param action the member to run on the branch
+     * @param mapping the call site's context mapping
+     */
+    void submitBranch(BoundAction<T, Object> action, ResolvedContextMapping mapping) {
+        Object active = getContext();
+        Object branchContext = acquireBranchContext(active, mapping, action.id());
+
+        ActionPath path = qualifyActionPath(action.id());
+        ExecutingTransitionImpl<T, Object> branch = branchView(branchContext);
+
+        stateMachine.submitBranch(new AsyncBranchTask<>(stateMachine, branch, action, path), path);
+
+        // After the submit, not before: a refused branch reports itself, and a line claiming it was
+        // submitted would then be followed by one saying it never started.
+        if (Loggers.EXECUTION_ASYNC.isTraceEnabled()) {
+            Loggers.EXECUTION_ASYNC.trace("Async branch submitted, path={}, context={}",
+                                          path, describeAcquisition(active, branchContext, mapping));
+        }
+    }
+
+    /**
+     * Produces the context one branch runs against: the call site's mapper first, then the
+     * context's own {@link ForkableContext#fork() fork}, then the enclosing reference.
+     *
+     * @param parent the context active at the fork site
+     * @param mapping the call site's context mapping
+     * @param actionId the forked member's id, for the failure message
+     *
+     * @return the branch's context
+     *
+     * @throws TransfluxValidationException if {@code fork()} returns {@code null}
+     */
+    private Object acquireBranchContext(Object parent, ResolvedContextMapping mapping,
+                                        String actionId) {
+        if (!mapping.isPassThrough()) {
+            return mapping.mapper().mapTo(parent);
+        }
+
+        if (parent instanceof ForkableContext<?> forkable) {
+            Object forked = forkable.fork();
+            if (forked == null) {
+                throw new TransfluxValidationException(
+                    "ForkableContext returned null while forking action '" + actionId
+                        + "' in transition '" + getId() + "'; fork() must produce a context");
+            }
+            return forked;
+        }
+
+        return parent;
+    }
+
+    /**
+     * Builds the branch's own view, inheriting this one's lexical position by copy.
+     *
+     * @param branchContext the context the branch runs against
+     *
+     * @return the branch's view
+     */
+    @SuppressWarnings("unchecked")
+    private ExecutingTransitionImpl<T, Object> branchView(Object branchContext) {
+        return new ExecutingTransitionImpl<>(stateMachine,
+                                             (BoundTransition<T, Object>) boundTransition,
+                                             entity, branchContext,
+                                             new ArrayList<>(operationStack),
+                                             new ArrayList<>(scopeStack));
+    }
+
+    /**
+     * Names how a branch got its context, for the submission trace - the decision, never the
+     * value, since the context is the host's and may carry anything.
+     *
+     * @param parent the context active at the fork site
+     * @param branchContext what the branch will run against
+     * @param mapping the call site's context mapping
+     *
+     * @return {@code "mapped:<type>"}, {@code "forked"} or {@code "shared"}
+     */
+    private static String describeAcquisition(Object parent, Object branchContext,
+                                              ResolvedContextMapping mapping) {
+        if (!mapping.isPassThrough()) {
+            return "mapped:" + describeType(branchContext);
+        }
+        return branchContext == parent ? "shared" : "forked";
+    }
+
     private BoundAction<T, ?> resolveAction(String id) {
         requireNotBlank(id, "Action ID");
 
@@ -428,10 +543,6 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
         @SuppressWarnings("unchecked")
         MapperDefImpl<Object, Object> impl = (MapperDefImpl<Object, Object>) mapperDef;
         return impl.buildMapper();
-    }
-
-    private ContextMapper<Object, Object> wrapFunction(Function<Object, Object> fn) {
-        return fn::apply;
     }
 
     private ActionPath qualifyActionPath(String localStepId) {

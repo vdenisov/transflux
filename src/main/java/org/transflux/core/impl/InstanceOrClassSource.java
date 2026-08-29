@@ -62,6 +62,7 @@ final class InstanceOrClassSource<X> {
         this.instance = null;
     }
 
+
     boolean isSet() {
         return instance != null || klass != null;
     }

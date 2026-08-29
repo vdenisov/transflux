@@ -67,7 +67,31 @@ import java.util.Collection;
  *
  * @param <T> the type of entity managed by this state machine
  */
-public interface StateMachine<T> {
+public interface StateMachine<T> extends AutoCloseable {
+
+    /**
+     * Releases what this state machine owns - which is a thread pool, and only when it built one
+     * for itself.
+     * <p>
+     * A state machine whose definition never forks holds no resources, so closing it does nothing.
+     * One that forks against a host-supplied executor leaves that executor running: it was never
+     * this state machine's to shut down. Only a pool the framework built is shut down here, and
+     * then gracefully - already-submitted branches are given a bounded chance to finish rather
+     * than being interrupted mid-flight.
+     *
+     * <p>Closing more than once is harmless. Forking after a close is refused like any other
+     * refused submission, which means the state machine keeps running transitions.
+     *
+     * <p><b>JVM exit is a different matter, and this method does not govern it.</b> A pool the
+     * framework builds uses daemon threads, so a host that never calls this and simply lets the
+     * process end can have a branch killed where it stands - mid-compensation, if that is where it
+     * was. The default favours the host who forgot: the alternative makes every exit wait on an
+     * idle pool. A host that wants the process to wait for its branches supplies non-daemon threads
+     * through {@link StateMachineDef#withAsyncPool(int, int, java.util.concurrent.ThreadFactory)},
+     * and a host that wants this method called on the way out registers it as a shutdown hook.
+     */
+    @Override
+    void close();
 
     /**
      * Begins a fluent execution scope for the given entity. Preferred usage is

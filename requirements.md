@@ -54,9 +54,19 @@ A `StateMachine<T>` handle (see §2.7) is safe for concurrent use across threads
 
 Concurrent transitions on the **same entity** are the host's responsibility to serialize; the framework does not lock or queue per-entity work. Hosts that need single-writer semantics must enforce them externally (database row locks, application-level mutexes, single-threaded executors, etc.).
 
+**Components are shared, so host-implemented contracts must tolerate concurrent invocation.** An `Action`, `Condition`, `ContextMapper`, `Compensation` or listener reaches the runtime either as an instance the host supplied or as a class the framework instantiates, and in both cases one object normally serves every call site that reaches it — a host-supplied instance may be shared more widely than the framework can see. The framework makes no promise that a given invocation gets an object to itself, and hosts should not build on the current instantiation strategy.
+
+Invocations can overlap in time for two independent reasons: a host driving two transitions concurrently (which this section already permits), and a forked member (§4.5.3), which runs on another thread while the transition that spawned it carries on. Implementations must therefore be stateless, or thread-safe about whatever state they keep.
+
+**The entity is not synchronised across a fork either.** A branch receives the same entity reference the transition holds, and the framework adds no locking around it — the rule above applies. Context is the one thing a host can have isolated automatically, and only by asking (§4.5.3.1).
+
 #### 2.1.3 Reentrancy
 
 Reentrancy is **fail-fast**. Invoking a transition from within a listener, operation, step, or condition on the same `StateMachine<T>` snapshot for the same entity throws `TransfluxReentrancyException`. The guard keys on the snapshot the in-flight execution is running against (see §2.7) — a definition swap that produces a new snapshot does not lift the guard for any execution already in flight against the previous one. Triggering a transition on a *different* entity from within an executing transition is permitted (provided the host is prepared to handle the implications).
+
+**A forked member may not drive the state machine that forked it, for any entity.** This is a separate and stricter rule, and it is categorical: an action running on a branch that calls `transitionTo`, `fire`, `processEvent`, `processDataChange` or `executeTransition` on the spawning machine is rejected with the same `TransfluxReentrancyException`, whether or not the entity is the one under transition, and whether or not that transition has finished. A forked member is fire-and-forget (§4.5.3.6), so a transition driven from one would report its outcome to nobody — the result would be discarded and a failure would surface only as a log line. Work that has to drive the machine belongs on the synchronous path, or on an executor the host owns and watches. Other state machines are unaffected: only the one that spawned the branch is closed to it.
+
+The guard the two rules use is deliberately not the same mechanism. The reentrancy check above is about one thread's call stack, which is why it permits a different entity; the fork ban is about work that has left the transition's timeline entirely, which is why it does not.
 
 #### 2.1.4 TransitionResult
 
@@ -170,7 +180,7 @@ The unit of work executed during state transitions. `Action<T, C>` is a **pure f
 
 **Features:**
 - Type safety (entity, context) with generics.
-- Synchronous and asynchronous execution parts.
+- Synchronous execution, and forked members that the enclosing container does not wait for.
 - Error handling and compensation strategies.
 - Granular control through nesting: an action may contain or dispatch others, recursively.
 
@@ -191,7 +201,7 @@ Manages shared state during transition execution.
 - Type-safe data access and manipulation.
 - The host populates the context before invocation; the host reads results after the transition completes.
 
-Context access in concurrent (async) execution paths is governed by the rules in §4.5.3 — by default the sync and async paths share the same context reference; isolation is opt-in via the `ForkableContext` interface.
+Context access in concurrent execution paths is governed by the rules in §4.5.3 — by default a forked member shares the enclosing context reference; isolation is opt-in, either by implementing `ForkableContext` or by mapping at the fork's call site.
 
 **Null ctx for Object-typed components from Void callers.** A transition declared with `Void.class` context (see §2.2.4) rejects any non-null firing value at the dispatch boundary. A composite member or imperative `view.run` call inside that transition may still pass through to an `Object.class`-typed reusable component — the build-time pass-through check admits this unconditionally, since `Object.class` components are by definition context-agnostic. At runtime, the component's `ctx` parameter receives `null`. Component bodies registered under `Object.class` are expected to tolerate `null` ctx; the canonical reason to register under `Object.class` is "this component ignores ctx," which the null-tolerance follows from.
 
@@ -320,7 +330,7 @@ StateMachine
     3. push its id onto the nesting stack;
     4. execute;
     5. pop the nesting stack.
-   Capturing before execution means an action that throws partway through producing side effects still has its rollback invoked; an action needing completion-time state writes that state into the entity or context during `execute` and reads it back in the compensation, which sees the same references `execute` ran against. Recording before execution means an action that throws still appears on `executedPath` — it did run, and its compensation is on the other list. Pushing the nesting stack for every action means anything it dispatches is qualified beneath it. The action's own listeners (§2.2.10) are notified from inside its nesting scope, so each notification's path is the action's own; where the call site maps the context, a mapper's `mapFrom` runs only once those notifications are closed, since a `mapFrom` failure is the parent's and must not turn the child's completion into an error as well. Asynchronous parts are scheduled here if applicable.
+   Capturing before execution means an action that throws partway through producing side effects still has its rollback invoked; an action needing completion-time state writes that state into the entity or context during `execute` and reads it back in the compensation, which sees the same references `execute` ran against. Recording before execution means an action that throws still appears on `executedPath` — it did run, and its compensation is on the other list. Pushing the nesting stack for every action means anything it dispatches is qualified beneath it. The action's own listeners (§2.2.10) are notified from inside its nesting scope, so each notification's path is the action's own; where the call site maps the context, a mapper's `mapFrom` runs only once those notifications are closed, since a `mapFrom` failure is the parent's and must not turn the child's completion into an error as well. A forked member is submitted at its position in the member list and the container moves straight on to the next one, so what step 5 owns is the moment forked work *starts*, never the moment it finishes (§4.5.3.6).
 6. **Post-condition Evaluation** — validate successful completion. On failure, run registered compensations in LIFO order; the entity's state field is **not** updated.
 7. **State Application** — invoke the `StateApplier<T>` to write the new state to the entity. The transition is now considered committed.
 8. **Listener Notification (complete)** — notify registered `onComplete` listeners and target-state `onEntry` listeners.
@@ -993,25 +1003,20 @@ operations:
       - exception: com.example.exceptions.GatewayTimeoutException
         compensation: com.example.compensations.ReconcileLaterCompensation
 
-    # Async part — anchored to a named sync member; runs concurrently from that point on
-    async:
-      enabled: true
-      startBeforeStep: finalize     # OR: startAfterStep: last-business-step
-      actions:
-        - step: async-notifications
-          class: com.example.actions.AsyncNotificationStep
-        - step: external-integrations
-          class: com.example.actions.ExternalIntegrationStep
+      # Forked members: submitted at this position, and not waited for
+      - run: async-notifications
+        async: true
+
+      - run: external-integrations
+        async: true
+        mapper: notification-from-activation
 ```
 
 > **Error handling is the routing table of §2.2.11.** Each `errorHandling:` entry is one route: `exception:` is the failure type it answers for, the optional `condition:` is its guard over that failure, and `compensation:` is what it runs. Entries are tried in declaration order and the first match wins, so the list is ordered the way a Java `catch` chain is. The unconditional fallback is the owner's own `compensation:` key, exactly as in the Java DSL — there is deliberately no separate "for every exception" entry spelling, since an entry on `java.lang.Exception` and the `compensation:` key would then be two ways to say the same thing with an ordering question between them. The block is accepted on any action, not only on an operation.
 
 > **Parity gap — inline nested operations.** The `- operation: notify-flow` entry above declares a whole child container at a member position. YAML makes inline definitions first-class everywhere a component is accepted (§3.1.2), so the grammar admits it; the Java DSL does **not** yet — a container there references another container by id and declares only steps and conditionals inline. Closing the gap is additive and is tracked in Phase 5 alongside the rest of the YAML work. Until it closes, this is the one shape §3 describes that §4 cannot express.
 
-> **Async semantics.** The async block is always anchored to a sync step. Two anchor forms are supported; exactly one must be specified.
->
-> - `startBeforeStep: <stepId>` — async steps are scheduled when execution **reaches** the named sync step. Use this when the async work doesn't depend on the named step's results — for example, at a join point right after conditional branches merge (`stepA → if/else → stepD`), anchor `startBeforeStep: stepD` so the async kicks off as soon as the branches converge, regardless of which branch ran. This avoids duplicating identical async blocks at the end of each branch.
-> - `startAfterStep: <stepId>` — async steps are scheduled when the named sync step **completes successfully**. Use this when the async work observes or notifies about the results of that step — for example, sending non-essential post-action notifications about completed business logic. The async work cannot run before the step it depends on.
+> **Forking is a per-member flag, not a block.** `async: true` on a member entry maps to the Java DSL's `fork(...)` (§4.4.2): the member is submitted where it appears in the `actions:` list and the members after it do not wait for it. This is the same shape §3.1.1 already uses for a listener's `config: { async: true }`, and it is why there is no `async:` block with `enabled` and an anchor — a position in an ordered list already says when work starts, and the two anchor forms an earlier design proposed ("when execution reaches x", "when x completes successfully") are just the positions before and after `x`. A forked member accepts the same `mapper:` key any other reference does; what it may not accept is a mapper that writes back (§4.5.3.2).
 
 #### 3.4.3 Multi-Branch Conditional Operations
 
@@ -1227,11 +1232,12 @@ listeners:
 
 ```yaml
 config:
-  # Async settings
+  # Where forked members run, and what happens when the queue is full
   async:
     threadPoolSize: 10
     queueCapacity: 100
-    
+    onRejection: DROP        # OR: FAIL
+
   # Metrics settings
   metrics:
     enabled: true
@@ -1243,6 +1249,8 @@ config:
     includeContext: true
     includeTimings: true
 ```
+
+> **The `async` block configures this state machine's executor**, mapping to `withAsyncPool(...)` and `withForkRejectionPolicy(...)` on the Java `StateMachineDef` (§4.10.1). It is per state machine rather than process-wide because the pool's lifecycle is the state machine's: `StateMachine.close()` shuts down a pool the framework built. A host that would rather share one executor across several machines supplies it in Java through `withAsyncExecutor(...)`; there is no YAML spelling for that, since a YAML document cannot name a live object. A definition that forks nothing builds no pool, whatever this block says.
 
 ### 3.9 Expression Language Support
 
@@ -1403,7 +1411,6 @@ public class SubscriptionComponentRegistry implements ComponentRegistry {
     public Action analyticsUpdateAction() {
         return step("analytics-update")
             .using(UpdateAnalyticsAction.class)
-            .async(true)
             .build();
     }
 }
@@ -1656,7 +1663,7 @@ public class ActivateSubscriptionAction
         .step("activate-subscription", ActivateSubscriptionAction.class)))
 ```
 
-> Any action attaches to a transition, in either form, so there is no wrapper to author when the unit of work is a single Java body. Asynchronous dispatch is a planned capability — the `async(...)` form shown in §4.4.2 is aspirational.
+> Any action attaches to a transition, in either form, so there is no wrapper to author when the unit of work is a single Java body. Asynchronous dispatch is a property of a *member position* inside a declarative container rather than of an action, so it is spelled `fork(...)` there (§4.4.2) and has no equivalent at a transition's own attachment point — a transition with nothing to wait for is a transition with nothing to do.
 
 #### 4.4.2 Declarative Actions (Operations)
 
@@ -1701,15 +1708,13 @@ trialActiveTransition.operation("complex-subscription-activation", c -> c
         .withCompensation(RecoverableCompensation.class)
     .withCompensation(GeneralCompensation.class)
 
-    // Async part — anchored to a sync step. Use startBefore for join-point kickoff,
-    // startAfter when the async work depends on the named step completing first.
-    .async(a -> a
-        .startBefore("finalize")             // OR: .startAfter("last-business-step")
-        .step("async-notifications", AsyncNotificationStep.class)
-        .step("external-integrations", ExternalIntegrationStep.class)));
+    // Forked members: submitted where they are written, and not waited for. Everything
+    // after them starts immediately.
+    .fork("async-notifications")
+    .fork("external-integrations", "notification-from-activation"));
 ```
 
-> **Async semantics.** Exactly one anchor must be specified; the Java DSL mirrors the YAML form (§3.4.2). Use `startBefore(stepId)` to kick off async work at a join point — common when conditional branches converge on a downstream step. Use `startAfter(stepId)` when the async work must observe the results of the named step (e.g., post-action notifications about completed business logic).
+> **Fork semantics.** `fork(...)` takes the same seven call shapes as `run(...)` and puts the member at the position it is written: the work starts when execution reaches that point, and the members after it do not wait. That subsumes both anchors an earlier design proposed — "kick off at a join point" is a fork declared after the conditional, and "kick off once the previous member succeeded" is a fork declared after it, since a member that throws never reaches the next one. What a forked member does with its context is §4.5.3; what happens to its outcome is §4.5.3.6.
 
 #### 4.4.3 Multi-Branch Conditional Operations
 
@@ -1762,8 +1767,10 @@ Every by-id reference takes the same `(actionId, [mapperSpec])` grammar, whether
 |---|---|---|
 | Pass-through | `.run("id")` | `view.run("id")` |
 | Mapper by registered id | `.run("id", "mapperId")` | `view.run("id", "mapperId")` |
-| Inline `Function<C, ?>` | `.run("id", parent -> child)` | `view.run("id", parent -> child)` |
 | Inline `ContextMapper<C, ?>` | `.run("id", mapperInstance)` | `view.run("id", mapperInstance)` |
+| Inline projection (a lambda, which *is* a `ContextMapper`) | `.run("id", parent -> child)` | `view.run("id", parent -> child)` |
+
+The last two rows are one overload, not two. A read-only projection is a `ContextMapper` that leaves `mapFrom` alone, so a lambda supplies it directly; there is deliberately no separate `Function<C, ?>` overload, because the two carry the same descriptor and a lambda written at the call site would match both. The same reasoning already removed the `Function` form from mapper *registration*.
 
 Inline *declaration* forms (`.step("id", Action<T, C>)`, its class variant, and `.conditional("id", configurer)`) define a new member typed against the container's own `C` and always run pass-through — by definition the member shares the container's context type, so no boundary mapping is needed.
 
@@ -1868,7 +1875,7 @@ The same attribution applies to class-based mappers, instance-based mappers, inl
 
 Compensations registered by a *synchronously-executed* nested operation are pushed onto the **enclosing parent's** LIFO compensation stack as the child runs. When the parent unwinds, child compensations interleave correctly with sibling steps — there is one stack per synchronous execution path, not one per nesting level.
 
-A nested operation hosted inside an `async` block is a different story: the async branch owns its own LIFO compensation stack, independent from the enclosing transition's sync stack and from sibling async branches. The branch's stack accumulates compensations from the async root and from any operations nested below it; on failure (or timeout, or external cancellation), only that branch's stack unwinds. This decouples async rollback from sync rollback entirely — sync work failing while an async branch is still running does not drain the async branch's stack, and an async-branch failure does not trigger sync compensation. Surfacing of async outcomes into `TransitionResult` follows the standard async result-handling rules.
+A **forked** member is a different story: it owns its own LIFO compensation stack, independent of the enclosing transition's and of its siblings'. That stack accumulates compensations from the forked member and from anything nested below it; on failure, only it unwinds. This decouples the two rollbacks entirely — synchronous work failing while a branch is still running does not drain the branch's stack, and a branch's failure does not trigger the transition's compensation. Nothing about a branch reaches `TransitionResult`; see §4.5.3.6.
 
 ##### 4.5.2.8 Condition Scope
 
@@ -1880,61 +1887,75 @@ Pre- and post-conditions declared **inside** the nested operation's own def (the
 
 A transition with `Void` context (or a container typed `<T, Void>`) cannot pass-through to any member that requires a non-`Void` context. A mapper from `Void` to a populated child context is expressible but rare — the mapper's `mapTo(null)` would have to fabricate the child shape from nothing — and is flagged at build time only if the mapper is registered with `Void.class` as `parentType`. The common case is to lift the caller's context type or to attach the child member to a sibling transition that carries a populated context.
 
-#### 4.5.3 Async Context Handling
+#### 4.5.3 Forked Members and Their Context
 
-An `async` block introduces a concurrency boundary: the branch runs on a separate thread from the enclosing sync path and from sibling async branches. The host owns the context type, so Transflux does not impose a one-size-fits-all concurrency model on it. Two opt-in paths exist for hosts that want isolation; a documented shared-reference fallback covers the rest.
+A forked member introduces a concurrency boundary: it runs on a separate thread from the enclosing path and from its sibling forks. The host owns the context type, so Transflux does not impose a one-size-fits-all concurrency model on it. Two opt-in paths exist for hosts that want isolation; a documented shared-reference fallback covers the rest.
 
-##### 4.5.3.1 ForkableContext (per-branch isolation, same context type)
+##### 4.5.3.1 ForkableContext (per-member isolation, same context type)
 
-Hosts that want each async branch to run against an isolated copy of the existing context implement `ForkableContext`:
+Hosts that want each forked member to run against an isolated copy of the existing context implement `ForkableContext`:
 
 ```java
 public interface ForkableContext<C> {
-    C fork();   // produce an isolated context for an async branch
+    C fork();   // produce an isolated context for a forked member
 }
 ```
 
-Runtime rule: at the async-branch boundary, if the context implements `ForkableContext`, the branch receives `context.fork()`; otherwise it receives the same reference held by the enclosing sync path (see §4.5.3.3). The host owns the copy strategy — deep, shallow, copy-on-write, or anything else appropriate to the context shape. Transflux does not perform reflective deep-copy; the failure modes (lazy proxies, transient fields, singletons captured by reference, framework-managed handles) make implicit reflection a worse default than explicit host control.
+Runtime rule: at the fork boundary, if the context implements `ForkableContext`, the branch receives `context.fork()`; otherwise it receives the same reference held by the enclosing path (see §4.5.3.3). The host owns the copy strategy — deep, shallow, copy-on-write, or anything else appropriate to the context shape. Transflux does not perform reflective deep-copy; the failure modes (lazy proxies, transient fields, singletons captured by reference, framework-managed handles) make implicit reflection a worse default than explicit host control. A `fork()` that returns `null` is rejected as a broken implementation.
 
-For a JSON-friendly POJO context, Transflux ships an optional `JacksonForkableContext` adapter that implements `fork()` via a Jackson round-trip. Hosts with weirder shapes write their own.
+A convenience adapter implementing `fork()` through a JSON round-trip is **deferred**: it needs a JSON databinder that is not currently a dependency, and a host that wants one writes it in a few lines against the mapper it already configures.
 
-##### 4.5.3.2 ContextMapper on `async` (full isolation, different context type)
+##### 4.5.3.2 ContextMapper on a forked call site (full isolation, different context type)
 
-When an async branch needs a distinctly-shaped context — e.g., a notification subflow that needs only an order id and a customer email — declare a mapper at the `async` call site using the same call-site grammar as any other reference (§4.5.2.1). The mapper is supplied positionally, exactly as for sync actions:
+When a forked member needs a distinctly-shaped context — e.g., a notification subflow that needs only an order id and a customer email — declare a mapper at the call site using the same call-site grammar as any other reference (§4.5.2.1). The mapper is supplied positionally, exactly as for synchronous members:
 
 ```java
-.async(a -> a
-    .startAfter("finalize")
-    .run("send-receipt", "notification-from-order"))    // by registered mapper id
+.fork("send-receipt", "notification-from-order")    // by registered mapper id
 
 // or with an inline projection at the call site:
-.async(a -> a
-    .startAfter("finalize")
-    .run("send-receipt", parent ->
-        new AsyncNotificationCtx(parent.getOrderId(), parent.getCustomerId())))
+.fork("send-receipt", parent ->
+    new AsyncNotificationCtx(parent.getOrderId(), parent.getCustomerId()))
 ```
 
-`mapTo` runs once on the enclosing sync thread before the async branch is submitted; the constructed context is what the branch sees. `mapFrom` is **not** supported on async blocks, because async results do not merge back synchronously into the parent context — supplying a full `ContextMapper` with a non-default `mapFrom` on an async call site is rejected at definition time. Surfacing of async outcomes follows the result-handling design in §4.10 rather than the mapper pattern.
+`mapTo` runs on the enclosing thread before the member is submitted; the constructed context is what the branch sees, and a mapper therefore takes precedence over `ForkableContext` — there is nothing left to fork.
+
+`mapFrom` is **not applied** at a forked call site, because a forked outcome does not merge back into the parent context. This is structural rather than policed: the branch runs with the mapping already done and no mapper to write back with, so the write-back call is unreachable for it. Supplying a mapper that overrides `mapFrom` is therefore accepted and simply has no effect there. The framework deliberately does not reject it — it cannot distinguish a mapper that overrides `mapFrom` from a proxy that merely appears to (a JDK dynamic proxy declares every interface method, defaults included), so the check would fail builds over the host container's implementation details. Outcomes follow §4.5.3.6.
 
 ##### 4.5.3.3 Shared-reference fallback and definition-time warning
 
-When neither `ForkableContext` nor a context mapper is declared, the async branch receives the same context reference as the enclosing sync path. This is a legitimate design choice for branches that only read from context — common cases include post-action notifications, audit logging, and any work fired off after the last sync step where the context is effectively read-only by then.
+When neither `ForkableContext` nor a context mapper is declared, the branch receives the same context reference as the enclosing path. This is a legitimate design choice for members that only read from context — common cases include post-action notifications, audit logging, and any work fired off after the last synchronous member, where the context is effectively read-only by then.
 
-To prevent silent sharing, the framework emits a definition-time **warning** (not an error) when an async block is declared on a context type that does not implement `ForkableContext` and that does not declare a mapper. The warning identifies the operation and links to this section. Hosts that intend to share — explicitly — can suppress it via standard logging configuration.
+To prevent silent sharing, the framework emits a definition-time **warning** (not an error), **per forked member** rather than per container — a container may mix a mapped member with an unmapped one, and only the unmapped one is sharing. The warning names the operation and the action. It is not emitted when the member declares a mapper, when the declared context type is `Void`, or when that type implements `ForkableContext`.
+
+Where the container's declared context type is `Object` — which is what a transition that never called `usingContext(...)` has — the framework cannot establish anything about the runtime object, and says so: the warning fires with a distinct message reporting that forkability could not be checked, and naming the three ways out (declare the context type, implement `ForkableContext`, or map at the call site). Hosts that intend to share — explicitly — suppress either message through standard logging configuration.
 
 ##### 4.5.3.4 Memory-Model Guarantees
 
-Transflux guarantees, at the async-branch submission boundary:
+Transflux guarantees, at the fork boundary:
 
-- All writes the enclosing path performed *before* submission are visible to the async branch (happens-before via the executor submission).
+- All writes the enclosing path performed *before* submission are visible to the branch. This rests on the executor submission's happens-before edge, and it is the only synchronisation in the design.
 - Writes performed by the enclosing path *after* submission are **not** synchronized with the branch and may or may not be observed.
-- Symmetrically, writes the async branch performs are not synchronized back into the enclosing path.
+- Symmetrically, writes the branch performs are not synchronized back into the enclosing path.
 
-These guarantees apply to both shared-reference and `ForkableContext` modes. In `ForkableContext` mode the second and third points are moot for the branch's own writes, since each side mutates a distinct object — but the host's `fork()` implementation is responsible for the snapshot itself being self-consistent (e.g., not capturing references to mutable nested objects it expects to remain stable).
+The second and third points hold by construction rather than by promise: nothing mutable is shared across the boundary after submission. Everything the branch reads — its context, its own execution view, the bound records it runs — is either produced before the submission or immutable for the life of the state machine.
 
-##### 4.5.3.5 Sibling Async Branches
+These guarantees apply to both shared-reference and `ForkableContext` modes. In `ForkableContext` mode the second and third points are moot for the branch's own writes, since each side mutates a distinct object — but the host's `fork()` implementation is responsible for the snapshot itself being self-consistent (e.g., not capturing references to mutable nested objects it expects to remain stable). The **entity** is shared in every mode; see §2.1.2.
 
-Multiple async branches under the same `async` block follow the same rules pairwise: each branch independently obtains its context per §4.5.3.1 / §4.5.3.2 / §4.5.3.3. `ForkableContext.fork()` is invoked once per branch, not once per `async` block.
+##### 4.5.3.5 Sibling Forked Members
+
+Several forked members in the same container follow the same rules pairwise: each independently obtains its context per §4.5.3.1 / §4.5.3.2 / §4.5.3.3. `ForkableContext.fork()` is invoked once per forked member, not once per container.
+
+##### 4.5.3.6 Outcomes
+
+A forked member is **fire-and-forget**, and every consequence below follows from that one word.
+
+- `TransitionResult` is unchanged by forking. A forked member appears on neither `getExecutedPath()` nor `getCompensatedPath()`: those report what the transition itself ran and rolled back, and the branch is not that.
+- A branch failure never reaches the caller and never triggers the transition's compensation. It drains that branch's own stack (§4.5.2.7) and is logged.
+- The transition does not wait for a branch, at any point. It may complete, apply its state and return while branches are still running.
+- **Submission is the commitment point.** Once a member has been handed to the executor it runs, whatever the enclosing path does next — there is no cancellation, and no timeout.
+- Hosts observe branches through the action-listener SPI (§2.2.10): a listener attached to the action fires on a forked invocation exactly as on a synchronous one, with the member's qualified path and the branch's own context.
+
+Two failures at the boundary are told apart deliberately. Host code that cannot *produce* the branch's context — a throwing `mapTo` or `fork()` — fails the enclosing transition, per §4.5.2.7's attribution rule; nothing has been submitted, and a definition that cannot build its context is broken rather than merely busy. A *refused submission* — a full queue, or a state machine that has been closed — is an operational condition, and what happens is the host's declared policy: lose that member with a warning (the default), or fail the transition.
 
 ### 4.6 Writing an Action
 
@@ -2267,14 +2288,14 @@ List<TransitionResult<Subscription>> results = stateMachine
 
 ```java
 TransfluxConfiguration config = TransfluxConfiguration.builder()
-    .asyncThreadPoolSize(10)
-    .asyncQueueCapacity(100)
     .metricsEnabled(true)
     .flowLabel("subscription-management")
     .build();
 
 Transflux transflux = Transflux.create(config);
 ```
+
+> **Async settings are not here.** Where forked members run belongs to the state machine, because the state machine is the thing that can own a pool's lifecycle: it is declared with `withAsyncExecutor(...)` or `withAsyncPool(threads, queueCapacity[, threadFactory])` on `StateMachineDef`, and released by `StateMachine.close()`, which shuts down a pool the framework built and leaves a host-supplied executor alone. `withForkRejectionPolicy(...)` sits beside them. A process-wide `TransfluxConfiguration` could carry defaults for these one day, but it cannot carry the pool itself without taking over a lifetime it does not own.
 
 #### 4.10.2 Spring Integration
 

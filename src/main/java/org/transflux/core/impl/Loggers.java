@@ -72,6 +72,13 @@ final class Loggers {
     /** Observer failures. */
     static final Logger EXECUTION_LISTENER = LoggerFactory.getLogger("org.transflux.execution.listener");
 
+    /**
+     * Executor lifecycle, and the outcome of forked members - what the listener SPI cannot show,
+     * since it sees actions rather than submissions and never sees a branch refused before it
+     * started.
+     */
+    static final Logger EXECUTION_ASYNC = LoggerFactory.getLogger("org.transflux.execution.async");
+
     /** Trigger dispatch scans, filters and gates. */
     static final Logger TRIGGER = LoggerFactory.getLogger("org.transflux.trigger");
 
