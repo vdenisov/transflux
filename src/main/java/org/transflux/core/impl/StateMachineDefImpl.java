@@ -1863,16 +1863,66 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     private void detectCompositeCycles() {
+        Map<String, List<String>> nodes = collectCycleNodes();
         Set<String> visited = new HashSet<>();
         Deque<String> stack = new ArrayDeque<>();
-        for (String id : smCompositeOperations.keySet()) {
+        for (String id : nodes.keySet()) {
             if (!visited.contains(id)) {
-                dfsComposite(id, visited, stack);
+                dfsComposite(id, nodes, visited, stack);
             }
         }
     }
 
-    private void dfsComposite(String id, Set<String> visited, Deque<String> stack) {
+    /**
+     * Collects every action a by-id reference can reach, keyed by the id that reaches it, with the
+     * ids it reaches in turn as its outgoing edges.
+     * <p>
+     * A container declared in place and a conditional are nodes in their own right, not merely
+     * members of one: each is registered under its id in the enclosing scope, so a sibling - or
+     * one of its own descendants - can name it, and a self-reference resolves and then recurses
+     * without bound at execution. Rooting only at state-machine level left that edge invisible.
+     * <p>
+     * <b>Only an id that resolves becomes a node.</b> A container attached to a transition is
+     * registered in no registry, so nothing can name it and it can never lie on a cycle; entering
+     * it as a node would let its id shadow a state-machine-level container's and answer for edges
+     * that are not that container's, which both rejects sound definitions and hides real cycles.
+     * Its descendants are registered in its scope, so they are nodes and are rooted like any
+     * other - a cycle buried under a transition-attached container is still found.
+     * <p>
+     * Registered containers go in first, and the rest through {@code putIfAbsent}: this pass runs
+     * before ids are claimed, so a nested id colliding with a state-machine-level one is still
+     * possible here, and a real container must not be shadowed by it and reported as a cycle
+     * before the collision itself is reported.
+     * <p>
+     * The edge lists stay over-approximate in the way this detector already is: it does not reason
+     * about which branch of a conditional is selectable, just as it does not reason about whether
+     * a container is ever reached.
+     *
+     * @return each node's outgoing ids, in declaration order
+     */
+    private Map<String, List<String>> collectCycleNodes() {
+        Map<String, List<String>> nodes = new LinkedHashMap<>();
+        for (Map.Entry<String, OperationDefImpl<T, ?>> e : smCompositeOperations.entrySet()) {
+            nodes.put(e.getKey(), e.getValue().getByIdReferenceIds());
+        }
+
+        BiConsumer<String, List<String>> sink = nodes::putIfAbsent;
+        for (OperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
+            composite.collectNestedCycleNodes(sink);
+        }
+
+        for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
+            ActionDefImpl<T, ?, ?> op = td.getActionDef();
+            if (op != null) {
+                op.collectNestedCycleNodes(sink);
+            }
+        }
+
+        return nodes;
+    }
+
+    private void dfsComposite(String id, Map<String, List<String>> nodes, Set<String> visited,
+                              Deque<String> stack) {
         if (stack.contains(id)) {
             List<String> path = new ArrayList<>(stack);
             path.add(id);
@@ -1883,14 +1933,14 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         if (visited.contains(id)) {
             return;
         }
-        OperationDefImpl<T, ?> composite = smCompositeOperations.get(id);
-        if (composite == null) {
+        List<String> edges = nodes.get(id);
+        if (edges == null) {
             return;
         }
         stack.push(id);
-        for (String refId : composite.getByIdReferenceIds()) {
-            if (smCompositeOperations.containsKey(refId)) {
-                dfsComposite(refId, visited, stack);
+        for (String refId : edges) {
+            if (nodes.containsKey(refId)) {
+                dfsComposite(refId, nodes, visited, stack);
             }
         }
         stack.pop();

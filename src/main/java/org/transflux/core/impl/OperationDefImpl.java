@@ -441,6 +441,19 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
+    void collectNestedCycleNodes(BiConsumer<String, List<String>> sink) {
+        // visitAllMembers is transitive, so one pass reaches every depth and every position.
+        // Each id deposited here is registered in some scope, so something can name it.
+        members.visitAllMembers(member -> {
+            if (member.ref() instanceof ActionRef.InlineOperation<T, C> inline) {
+                sink.accept(inline.id(), inline.def().getByIdReferenceIds());
+            } else if (member.ref() instanceof ActionRef.Conditional<T, C> conditional) {
+                sink.accept(conditional.id(), conditional.def().branchByIdReferenceIds());
+            }
+        });
+    }
+
+    @Override
     void collectScopes(Consumer<Registry<T>> sink) {
         if (scopeRegistry == null) {
             return;

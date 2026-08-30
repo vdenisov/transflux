@@ -308,6 +308,18 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     abstract Optional<String> scanScopeFor(String id, String excludingId);
 
     /**
+     * Build-time hook: deposits every dispatching action declared <em>beneath</em> this one into
+     * the cycle detector's node table, each with the by-id references it reaches. This action's
+     * own entry is not deposited - only the caller knows whether it is registered under an id that
+     * resolves to it, and an id nothing can name can never be part of a cycle. The simple variant
+     * deposits nothing: an imperative action's dispatches happen against a live transition, which
+     * is not visible at definition time.
+     *
+     * @param sink receives {@code (id, referencedIds)} per node
+     */
+    abstract void collectNestedCycleNodes(BiConsumer<String, List<String>> sink);
+
+    /**
      * Build-time hook: deposits every lexical scope in this action's subtree, so a pass that has
      * to reach components living only inside a scope sees the nested ones too. The simple variant
      * deposits nothing.

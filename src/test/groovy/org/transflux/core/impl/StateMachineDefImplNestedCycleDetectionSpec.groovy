@@ -213,6 +213,146 @@ class StateMachineDefImplNestedCycleDetectionSpec extends Specification {
         sm != null
     }
 
+    def 'an inline container referencing itself by id is rejected'() {
+        given: 'it is registered in the enclosing scope, so its own run(id) resolves and recurses'
+        def smd = baseDef()
+        smd.forContext(Ctx, { ContextScope<Entity, Ctx> scope ->
+            scope.operation('a', { OperationDef<Entity, Ctx> c ->
+                c.operation('inner', { OperationDef<Entity, Ctx> nested -> nested.run('inner') })
+            })
+        })
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains('cycle')
+        e.message.contains('inner')
+    }
+
+    def 'a conditional whose own branch references it by id is rejected'() {
+        given: 'a conditional is registered under its id too, so a branch can name it'
+        def smd = baseDef()
+        smd.forContext(Ctx, { ContextScope<Entity, Ctx> scope ->
+            scope.operation('a', { OperationDef<Entity, Ctx> c ->
+                c.conditional('route', { ConditionalOperationDef<Entity, Ctx> cs ->
+                    cs.branch('base', { BranchDef<Entity, Ctx> b ->
+                        b.condition('always', { Entity e -> true } as Predicate).run('route')
+                    })
+                })
+            })
+        })
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains('cycle')
+        e.message.contains('route')
+    }
+
+    def 'a cycle closed from inside an inline container back to its enclosing one is rejected'() {
+        given:
+        def smd = baseDef()
+        smd.forContext(Ctx, { ContextScope<Entity, Ctx> scope ->
+            scope.operation('a', { OperationDef<Entity, Ctx> c ->
+                c.operation('inner', { OperationDef<Entity, Ctx> nested -> nested.run('a') })
+            })
+        })
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains('cycle')
+    }
+
+    def 'an inline container referencing an SM-level container acyclically still builds'() {
+        given:
+        def smd = baseDef()
+        smd.forContext(Ctx, { ContextScope<Entity, Ctx> scope ->
+            scope.step('leaf', { Entity e, Ctx c, t -> } as Action)
+            scope.operation('b', { OperationDef<Entity, Ctx> c -> c.run('leaf') })
+            scope.operation('a', { OperationDef<Entity, Ctx> c ->
+                c.operation('inner', { OperationDef<Entity, Ctx> nested -> nested.run('b') })
+            })
+        })
+
+        when:
+        smd.build()
+
+        then:
+        noExceptionThrown()
+    }
+
+    def 'a cycle inside a transition-attached container is rejected'() {
+        given: 'the roots are every node, not only the ones registered at SM level'
+        def smd = new StateMachineDefImpl<Entity>()
+        smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+            .state('s1', { s -> s.transitionsTo('s2', 't', Ctx, { t ->
+                t.operation('attached', { OperationDef<Entity, Ctx> c ->
+                    c.operation('inner', { OperationDef<Entity, Ctx> nested -> nested.run('inner') })
+                })
+            }) })
+            .state('s2', {})
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains('cycle')
+        e.message.contains('inner')
+    }
+
+    def "a transition-attached container's id does not answer for a same-named SM-level one"() {
+        given: 'nothing can name a transition-attached container, so it is on no cycle'
+        def smd = new StateMachineDefImpl<Entity>()
+        smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+        smd.forContext(Ctx, { ContextScope<Entity, Ctx> scope ->
+            scope.step('leaf', { Entity e, Ctx c, t -> } as Action)
+            scope.operation('a', { OperationDef<Entity, Ctx> c -> c.run('leaf') })
+        })
+        smd.state('s1', { s -> s.transitionsTo('s2', 't', Ctx, { t ->
+            t.operation('a', { OperationDef<Entity, Ctx> c -> c.run('a') })
+        }) })
+        smd.state('s2', {})
+
+        when: 'the inner run(a) reaches the acyclic SM-level container, not the attached one'
+        smd.build()
+
+        then:
+        noExceptionThrown()
+    }
+
+    def "a transition-attached container's id does not hide a same-named SM-level cycle"() {
+        given: 'the mirror case: the real container self-refs and must still be caught'
+        def smd = new StateMachineDefImpl<Entity>()
+        smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+        smd.forContext(Ctx, { ContextScope<Entity, Ctx> scope ->
+            scope.step('leaf', { Entity e, Ctx c, t -> } as Action)
+            scope.operation('a', { OperationDef<Entity, Ctx> c -> c.run('a') })
+        })
+        smd.state('s1', { s -> s.transitionsTo('s2', 't', Ctx, { t ->
+            t.operation('a', { OperationDef<Entity, Ctx> c -> c.run('leaf') })
+        }) })
+        smd.state('s2', {})
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains('cycle')
+        e.message.contains('a')
+    }
+
     private static StateMachineDefImpl<Entity> baseDef() {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)

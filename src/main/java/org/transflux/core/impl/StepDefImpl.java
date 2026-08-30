@@ -24,7 +24,9 @@ import org.transflux.core.action.Action;
 import org.transflux.core.action.StepDef;
 
 import java.util.Map;
+import java.util.List;
 import java.util.Optional;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import static org.transflux.core.Preconditions.requireNotNull;
@@ -131,6 +133,11 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
     @Override
     Optional<String> scanScopeFor(String id, String excludingId) {
         return Optional.empty();
+    }
+
+    @Override
+    void collectNestedCycleNodes(BiConsumer<String, List<String>> sink) {
+        // An imperative action declares no members, so it contributes no node.
     }
 
     @Override

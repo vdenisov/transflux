@@ -301,6 +301,23 @@ final class ConditionalOperationDefImpl<T, C>
     }
 
     /**
+     * Returns the ids this conditional reaches by reference, across every branch and the default
+     * one - its outgoing edges for cycle detection. A conditional is registered under its own id
+     * in the enclosing scope, so one of its branches naming it closes a cycle.
+     *
+     * @return the referenced ids in declaration order
+     */
+    List<String> branchByIdReferenceIds() {
+        List<String> ids = new ArrayList<>();
+        visitBranchMembers(member -> {
+            if (member.ref() instanceof ActionRef.ById<T, C> byId) {
+                ids.add(byId.id());
+            }
+        });
+        return Collections.unmodifiableList(ids);
+    }
+
+    /**
      * Visits every member of every branch, and the default branch's, recursing into any
      * conditional nested inside one.
      *
