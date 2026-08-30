@@ -104,10 +104,10 @@ sealed interface ActionRef<T, C>
 
     /**
      * Deposits any inline-declaration payloads this reference carries into the supplied sink.
-     * By-id references no-op (they contribute nothing to the enclosing composite's local scope);
-     * inline declarations push themselves into the sink; the {@link Conditional} variant recurses
-     * into its branches' inline members and then registers the conditional's own bound action.
-     * Drives the scope-binding pass on {@link OperationDefImpl}.
+     * By-id references no-op (they contribute nothing to the enclosing scope); an inline
+     * declaration pushes itself into the sink, and the two forms that own a scope - a nested
+     * container and a conditional - hand the sink their def so it can allocate that scope before
+     * registering them. Drives the scope-binding pass on {@link OperationDefImpl}.
      */
     default void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
         // by-id references contribute no inline registration; overridden in the inline variants
@@ -266,9 +266,9 @@ sealed interface ActionRef<T, C>
     }
 
     /**
-     * A declarative container declared in place. Unlike every other inline form it owns a lexical
-     * scope of its own, so its inline registrations land beneath it rather than in the enclosing
-     * container's - which is why it hands the sink the whole def rather than depositing its
+     * A declarative container declared in place. Like a conditional, and unlike an inline step, it
+     * owns a lexical scope, so its inline registrations land beneath it rather than in the
+     * enclosing one - which is why it hands the sink the whole def rather than depositing its
      * children into the enclosing scope first.
      */
     @SuppressWarnings("ClassEscapesDefinedScope")

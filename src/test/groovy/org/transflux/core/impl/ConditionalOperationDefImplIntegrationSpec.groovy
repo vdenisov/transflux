@@ -932,6 +932,21 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         e.message.endsWith('cycle detected: route -> route')
     }
 
+    def 'a registered conditional is named as one when a branch fails to resolve'() {
+        when: 'the same def reported at a transition slot reads the same way here'
+        build([], { smd ->
+            smd.conditional('route', TestContext, { ConditionalOperationDef<Entity, TestContext> cs ->
+                cs.branch('critical', { BranchDef<Entity, TestContext> b -> b
+                    .condition('yes', { Entity e -> true } as Predicate)
+                    .run('ghost') }) })
+        }, { t -> t.run('route') })
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.startsWith("SM-level conditional operation 'route' > branch 'critical'"
+                                 + " references unknown action id 'ghost'")
+    }
+
     private static StateMachine<Entity> build(List<String> applied,
                                               Consumer<StateMachineDefImpl<Entity>> smdRegistrations,
                                               Consumer<TransitionDef<Entity, TestContext>> transitionConfigurer) {

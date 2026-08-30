@@ -1746,6 +1746,15 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
+     * Names a state-machine-level registration as a position in the definition tree. It uses the
+     * def's own label, so a registered conditional reads as one rather than as a "composite" -
+     * the same phrasing the transition-attached path produces for the same def.
+     */
+    private static String smLevelLabel(ActionDefImpl<?, ?, ?> def) {
+        return "SM-level " + def.defLabel();
+    }
+
+    /**
      * Names an action attached to a transition as a position in the definition tree. The
      * transition is the root and the action is nested beneath it, so the label names both - an
      * SM-level container, being a root itself, needs no such composition.
@@ -1777,7 +1786,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
 
         for (Map.Entry<String, ActionDefImpl<T, ?, ?>> e : smCompositeOperations.entrySet()) {
-            e.getValue().bindMembers(stateMachine, "SM-level composite '" + e.getKey() + "'");
+            e.getValue().bindMembers(stateMachine, smLevelLabel(e.getValue()));
         }
     }
 
@@ -1835,7 +1844,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
         for (Map.Entry<String, ActionDefImpl<T, ?, ?>> e : smCompositeOperations.entrySet()) {
             Class<?> scopeContext = componentContextTypes.get(e.getKey());
-            e.getValue().checkRefs(scopeContext, "SM-level composite '" + e.getKey() + "'", this);
+            e.getValue().checkRefs(scopeContext, smLevelLabel(e.getValue()), this);
         }
         detectCompositeCycles();
     }

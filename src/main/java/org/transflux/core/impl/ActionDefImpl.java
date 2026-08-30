@@ -41,11 +41,15 @@ import java.util.function.Consumer;
  * return the precise subclass type covariantly.
  *
  * <p>The abstract dispatch methods ({@link #buildBound}, {@link #checkRefs},
- * {@link #bindMembers}, {@link #bindScope}, {@link #flattenScope}, {@link #scanScopeFor},
- * {@link #collectScopes}) let the state-machine build pipeline drive both authoring forms
- * uniformly. {@link StepDefImpl} no-ops the scope and ref hooks, since an imperative action
- * binds no children at definition time; only {@link OperationDefImpl} carries real bodies for
- * them.
+ * {@link #bindMembers}, {@link #bindScope}, {@link #visitScopeOwners}, {@link #declaresFork},
+ * {@link #ownByIdReferenceIds}, {@link #collectNestedCycleNodes}) let the state-machine build
+ * pipeline drive every authoring form uniformly. {@link StepDefImpl} no-ops the ones that walk
+ * children, since an imperative action binds none at definition time.
+ *
+ * <p>{@link #flattenScope}, {@link #collectScopes} and {@link #scanScopeFor} are deliberately
+ * {@code final} here rather than abstract: two forms own scopes, and each of those three has to
+ * reach every scope beneath this action. Writing them once over {@link #visitScopeOwners} is what
+ * stops one of them reaching a position the others miss.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
@@ -366,16 +370,17 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      * @return the holder's id, or empty
      */
     final Optional<String> scanScopeFor(String id, String excludingId) {
-        Optional<String>[] hit = new Optional[] {Optional.<String>empty()};
         if (holdsInScope(id, excludingId)) {
             return Optional.of(getId());
         }
+
+        String[] hit = {null};
         visitScopeOwners(owner -> {
-            if (hit[0].isEmpty() && owner.holdsInScope(id, excludingId)) {
-                hit[0] = Optional.of(owner.getId());
+            if (hit[0] == null && owner.holdsInScope(id, excludingId)) {
+                hit[0] = owner.getId();
             }
         });
-        return hit[0];
+        return Optional.ofNullable(hit[0]);
     }
 
     private boolean holdsInScope(String id, String excludingId) {

@@ -1847,6 +1847,8 @@ Component identifiers are unique **across the entire state machine** — uniquen
 
 **Visibility, however, is lexical.** A component inline-declared inside a container (`op.step("foo", new FooAction())` and friends) is reachable only from inside that container's lexical subtree — its own member references, its conditional branches, and any `view.run("foo")` issued while that container is on the call stack. Sibling containers cannot resolve another's inline ids by reference: doing so raises a build-time error ("unknown action id in scope"). SM-level (root) registrations are reachable from every container via the parent-chain walk.
 
+**A conditional is a scope of its own**, nested inside whatever encloses it. A component declared inside one of its branches belongs to the conditional rather than to the enclosing container, so *every* branch can reach it — a step several branches share is declared once, in whichever branch reads best — while nothing outside the conditional can, including the enclosing container and its other members. Resolution from inside a branch still walks outwards, so a branch reaches the enclosing container's inline ids and the root's as before. The conditional's *own* id is registered in the enclosing scope, not its own, so it can be named from either side: by a sibling of the conditional, and by its own branches.
+
 Two practical consequences:
 
 - Promoting an inline nested registration to a top-level reusable component (or inlining a top-level one) is a payload-preserving refactor and produces no silent override. Global uniqueness blocks an accidental shadow at promotion time; lexical visibility blocks an accidental shadow at inlining time.

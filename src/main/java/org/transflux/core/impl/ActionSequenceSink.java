@@ -44,8 +44,8 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * Every owning def declares one sink and implements its public methods as one-line delegates, so
  * validation order, argument labels and the configurer guard are written once. The owners have no
  * closer common ancestor than {@link ConfigurableDefImpl} to hang this on: {@code OperationDefImpl}
- * extends the sealed {@code ActionDefImpl}, which permits only itself and {@code StepDefImpl},
- * while the two branch defs extend {@code ConfigurableDefImpl} directly. That base supplies
+ * extends the sealed {@code ActionDefImpl}, while the two branch defs - not being actions - extend
+ * {@code ConfigurableDefImpl} directly. That base supplies
  * everything member declaration needs - the configurer guard, the def label, and
  * {@link ConfigurableDefImpl#runConfigurer} - and nothing more.
  *

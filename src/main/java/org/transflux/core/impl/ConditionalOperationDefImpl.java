@@ -147,10 +147,10 @@ final class ConditionalOperationDefImpl<T, C>
     }
 
     /**
-     * Walks every branch (and the default branch, if present) and forwards each branch's
-     * action refs to the supplied sink. Used by {@link OperationDefImpl#bindScope}
-     * to populate the enclosing composite's scope with the conditional's inline step
-     * registrations.
+     * Walks every branch (and the default branch, if present) and forwards each branch's action
+     * refs to the supplied sink. Driven from {@link #bindScopeUnder} against a sink over
+     * <em>this conditional's</em> scope, which is what puts every branch's inline declarations in
+     * one place: shared between the branches, and out of reach from outside.
      */
     void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
         for (BranchDefImpl<T, C> branch : branches) {
@@ -230,8 +230,6 @@ final class ConditionalOperationDefImpl<T, C>
      *
      * @param stateMachine the state machine under construction, whose mapper registry and
      *                     diagnostics the resolution consults
-     * @param scope the enclosing operation's scope registry; resolution walks the parent chain
-     *              up to the state-machine root
      * @param ownLabel this conditional's own full position label; each branch label extends it
      * @param enclosingOperationId the id of the operation that declared this conditional
      *
