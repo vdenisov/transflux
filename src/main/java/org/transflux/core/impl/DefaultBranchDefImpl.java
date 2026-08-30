@@ -108,6 +108,41 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
     }
 
     @Override
+    public DefaultBranchDef<T, C> fork(String id) {
+        return members.fork(id);
+    }
+
+    @Override
+    public DefaultBranchDef<T, C> fork(String id, String mapperId) {
+        return members.fork(id, mapperId);
+    }
+
+    @Override
+    public DefaultBranchDef<T, C> fork(String id, ContextMapper<C, ?> inlineMapper) {
+        return members.fork(id, inlineMapper);
+    }
+
+    @Override
+    public DefaultBranchDef<T, C> fork(Identifiable registeredAction) {
+        return members.fork(registeredAction);
+    }
+
+    @Override
+    public DefaultBranchDef<T, C> fork(Identifiable registeredAction, Identifiable mapper) {
+        return members.fork(registeredAction, mapper);
+    }
+
+    @Override
+    public DefaultBranchDef<T, C> fork(Identifiable registeredAction, String mapperId) {
+        return members.fork(registeredAction, mapperId);
+    }
+
+    @Override
+    public DefaultBranchDef<T, C> fork(String id, Identifiable mapper) {
+        return members.fork(id, mapper);
+    }
+
+    @Override
     public DefaultBranchDef<T, C> step(String id, Action<T, C> step) {
         return members.step(id, step);
     }

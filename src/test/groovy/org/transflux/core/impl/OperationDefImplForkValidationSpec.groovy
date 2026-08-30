@@ -27,6 +27,7 @@ import org.transflux.core.transition.ExecutingTransition
 import spock.lang.Specification
 
 import java.util.function.Consumer
+import java.util.function.Predicate
 
 /**
  * How the build treats the context boundary a forked member crosses: nothing is refused, and a
@@ -166,6 +167,41 @@ class OperationDefImplForkValidationSpec extends Specification {
         } finally {
             capture.stop()
         }
+    }
+
+    def 'a forked branch member warns too, and declaredIn names the branch'() {
+        when:
+        def messages = buildCapturingValidation(PlainCtx, { smd -> }, { op ->
+            op.conditional('route', { cs ->
+                cs.branch('critical', { b ->
+                    b.condition('always', { e -> true } as Predicate).fork('send')
+                } as Consumer)
+            } as Consumer)
+        })
+
+        then: 'operationId still names whose context is shared; declaredIn locates the position'
+        def warning = messages.find { it.contains('Forked member shares the enclosing context') }
+        warning != null
+        warning.contains('operationId=op')
+        warning.contains("declaredIn=conditional operation 'route' branch 'critical'")
+        warning.contains('actionId=send')
+    }
+
+    def 'a forked default-branch member warns, naming the default branch'() {
+        when:
+        def messages = buildCapturingValidation(Object, { smd -> }, { op ->
+            op.conditional('route', { cs ->
+                cs.branch('never', { b ->
+                    b.condition('nope', { e -> false } as Predicate).step('unreached', new NoopAction())
+                } as Consumer)
+                  .defaultBranch({ d -> d.fork('send') } as Consumer)
+            } as Consumer)
+        })
+
+        then:
+        def warning = messages.find { it.contains('forkability cannot be checked') }
+        warning != null
+        warning.contains("declaredIn=conditional operation 'route' default branch")
     }
 
     private static void build(Class ctxType, Closure registrations, Closure members) {

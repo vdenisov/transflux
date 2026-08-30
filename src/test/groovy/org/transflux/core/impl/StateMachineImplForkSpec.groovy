@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.function.Consumer
+import java.util.function.Predicate
 
 /**
  * What forking a member changes about the transition that declares it: the member leaves the
@@ -226,6 +227,63 @@ class StateMachineImplForkSpec extends Specification {
 
         then: 'the inline member is visible only inside the container, and the branch is inside it'
         ran.contains('inline-only')
+    }
+
+    def 'a forked branch member runs on another thread and stays off both paths'() {
+        given: 'a branch member forks exactly as a container member does'
+        def done = new CountDownLatch(1)
+        def branchThread = new ConcurrentLinkedQueue<String>()
+        sm = build({ smd ->
+            smd.step('notify', { e, c, t ->
+                branchThread.add(Thread.currentThread().name)
+                done.countDown()
+            } as Action)
+        }, { op ->
+            op.conditional('route', { cs ->
+                cs.branch('only', { b ->
+                    b.condition('always', { e -> true } as Predicate).fork('notify')
+                } as Consumer)
+            } as Consumer)
+        })
+
+        when:
+        def result = sm.executeTransition(new Entity('s1'), 's2')
+        done.await(WAIT_SECONDS, TimeUnit.SECONDS)
+
+        then:
+        result.success
+        branchThread.size() == 1
+        branchThread.first() != Thread.currentThread().name
+        result.executedPath*.toString() == ['op', 'op/route']
+        result.compensatedPath.isEmpty()
+    }
+
+    def 'a forked branch member is notified under the conditional qualified path'() {
+        given:
+        def done = new CountDownLatch(1)
+        def paths = new ConcurrentLinkedQueue<String>()
+        sm = build({ smd ->
+            smd.step('notify', { e, c, t -> } as Action)
+             .onAnyActionComplete('watch', { e, c, execution ->
+                 paths.add(execution.path().toString())
+                 if (execution.path().toString().contains('notify')) {
+                     done.countDown()
+                 }
+             } as ActionListener)
+        }, { op ->
+            op.conditional('route', { cs ->
+                cs.branch('only', { b ->
+                    b.condition('always', { e -> true } as Predicate).fork('notify')
+                } as Consumer)
+            } as Consumer)
+        })
+
+        when:
+        sm.executeTransition(new Entity('s1'), 's2')
+        done.await(WAIT_SECONDS, TimeUnit.SECONDS)
+
+        then: 'the conditional pushed its own id, so the member qualifies beneath it'
+        paths.any { it == 'op/route/notify' }
     }
 
     private StateMachine<Entity> build(Closure registrations, Closure members) {

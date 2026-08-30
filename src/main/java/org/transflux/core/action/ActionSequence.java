@@ -151,6 +151,124 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
     SELF run(String id, Identifiable mapper);
 
     /**
+     * Appends a <em>forked</em> reference to the action registered under {@code id}: the member is
+     * handed to the state machine's executor and runs on another thread, while the enclosing
+     * sequence carries on to its next member without waiting.
+     * <p>
+     * A forked member is fire-and-forget. Nothing joins it and nothing cancels it, and its outcome
+     * reaches neither the caller nor the
+     * {@link org.transflux.core.transition.TransitionResult TransitionResult} - it appears on
+     * neither the executed nor the compensated path. Observe one through an {@link ActionListener}
+     * attached to the action itself, which fires for a forked invocation exactly as it does for a
+     * synchronous one.
+     *
+     * <p>It owns its rollback. A compensation registered while the forked member runs unwinds that
+     * member alone, and a failure inside it never rolls back the sequence that declared it. The
+     * converse holds too: submission is the commitment point, so once the member is handed over it
+     * runs even if this transition fails immediately afterwards.
+     *
+     * <p>The forked member's context is decided here: a mapper supplied at this call site produces
+     * it, otherwise a context implementing {@link ForkableContext} is forked, otherwise the member
+     * shares the enclosing context reference. Sharing is legitimate for work that only reads, and
+     * the build warns where it cannot establish that much.
+     *
+     * <p><b>The entity is shared either way.</b> A forked member receives the same entity the
+     * transition is running against, and the framework adds no locking around it - so a forked
+     * member writing to the entity while the enclosing path also writes to it is a data race the
+     * host owns, exactly as two concurrent transitions on one entity already are. {@link ForkableContext} isolates the
+     * context; there is no equivalent for the entity, deliberately, since it belongs to the host.
+     *
+     * <p>An action reached this way may not drive the state machine that spawned it.
+     *
+     * @param id the registered action id
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null} or blank
+     */
+    SELF fork(String id);
+
+    /**
+     * Forked form of {@link #run(String, String)} - see {@link #fork(String)} for what forking
+     * changes. The registered mapper produces the forked member's context, so {@link ForkableContext} is
+     * not consulted, and its {@link ContextMapper#mapFrom(Object, Object) mapFrom} is not applied:
+     * there is no moment at which a forked member could write back.
+     *
+     * @param id the registered action id
+     * @param mapperId the registered mapper id
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null} or blank
+     */
+    SELF fork(String id, String mapperId);
+
+    /**
+     * Forked form of {@link #run(String, ContextMapper)} - see {@link #fork(String)} for what
+     * forking changes. A lambda is the projection form here too, and it runs on the submitting
+     * thread before the branch starts.
+     *
+     * @param id the registered action id
+     * @param inlineMapper the mapper to apply at the boundary
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or {@code inlineMapper} is
+     *         {@code null}
+     */
+    SELF fork(String id, ContextMapper<C, ?> inlineMapper);
+
+    /**
+     * {@link Identifiable} overload of {@link #fork(String)}.
+     *
+     * @param registeredAction an identifiable supplying the action id
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code registeredAction} is {@code null}
+     */
+    SELF fork(Identifiable registeredAction);
+
+    /**
+     * {@link Identifiable} overload of {@link #fork(String, String)} - both action and mapper
+     * supplied as identifiables.
+     *
+     * @param registeredAction an identifiable supplying the action id
+     * @param mapper an identifiable supplying the mapper id
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if either argument is {@code null}
+     */
+    SELF fork(Identifiable registeredAction, Identifiable mapper);
+
+    /**
+     * Mixed-form overload of {@link #fork(String, String)} - action identifiable + mapper id.
+     *
+     * @param registeredAction an identifiable supplying the action id
+     * @param mapperId the registered mapper id
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code registeredAction} is {@code null} or
+     *         {@code mapperId} is {@code null}/blank
+     */
+    SELF fork(Identifiable registeredAction, String mapperId);
+
+    /**
+     * Mixed-form overload of {@link #fork(String, String)} - action id + mapper identifiable.
+     *
+     * @param id the registered action id
+     * @param mapper an identifiable supplying the mapper id
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or {@code mapper}
+     *         is {@code null}
+     */
+    SELF fork(String id, Identifiable mapper);
+
+    /**
      * Declares an imperative action inline at this position, from a supplied {@link Action}
      * instance. The action is registered into the enclosing container's lexical scope under
      * {@code id}; it is visible only inside that container's subtree, and its id must be unique

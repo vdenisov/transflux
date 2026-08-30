@@ -36,6 +36,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.function.Consumer
+import java.util.function.Predicate
 
 /**
  * Who owns the executor, and what closing the state machine does to it.
@@ -206,6 +207,32 @@ class StateMachineImplAsyncExecutorSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains('thread count must be positive')
+    }
+
+    def 'a definition that forks only from inside a branch still builds a pool'() {
+        given: 'the fork walk has to descend into a conditional to see this one'
+        def done = new CountDownLatch(1)
+        capture = LogCapture.start('org.transflux.execution.async')
+        def sm = build({ smd -> smd.step('notify', { e, c, t -> done.countDown() } as Action) },
+                       { op ->
+                           op.conditional('route', { cs ->
+                               cs.branch('only', { b ->
+                                   b.condition('always', { e -> true } as Predicate).fork('notify')
+                               } as Consumer)
+                           } as Consumer)
+                       }, { smd -> })
+
+        when: 'without the descent there is no executor, and the branch fails at submission'
+        def result = sm.executeTransition(new Entity('s1'), 's2')
+        done.await(WAIT_SECONDS, TimeUnit.SECONDS)
+
+        then:
+        result.success
+        done.count == 0
+        capture.messages().any { it.contains('Async pool created') }
+
+        cleanup:
+        sm.close()
     }
 
     private StateMachine<Entity> buildForking(CountDownLatch done, Closure asyncConfig) {

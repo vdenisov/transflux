@@ -455,7 +455,7 @@ final class ConditionalOperationDefImpl<T, C>
             bound.add(new CompositeMember<>(
                 ref.resolve(stateMachine, scope, ownerLabel, enclosingOperationId),
                 ref.mapperRef().resolve(stateMachine, enclosingOperationId),
-                false));
+                member.forked()));
         }
         return Collections.unmodifiableList(bound);
     }

@@ -267,7 +267,7 @@ final class ActionSequenceSink<T, C, D> {
             }
 
             if (member.forked()) {
-                checkForkBoundary(ref, effectiveScope, enclosingOperationId);
+                checkForkBoundary(ref, effectiveScope, enclosingOperationId, scopeLabel);
             }
         }
     }
@@ -298,8 +298,14 @@ final class ActionSequenceSink<T, C, D> {
      * Warns when a forked member would share the context it was declared against. Nothing is
      * rejected: a shared context may be exactly what the author intended, and the framework
      * cannot tell.
+     * <p>
+     * {@code operationId} names the container whose context is at stake - the right anchor, since
+     * that is whose context the fork does or does not isolate, and whose {@code usingContext} the
+     * message advises declaring. {@code declaredIn} names the position the member was written at,
+     * which is the same thing at a container position and a branch at a branch position.
      */
-    private void checkForkBoundary(ActionRef<T, C> ref, Class<?> scopeContext, String enclosingOperationId) {
+    private void checkForkBoundary(ActionRef<T, C> ref, Class<?> scopeContext,
+                                   String enclosingOperationId, String declaredIn) {
         // A mapper produces the branch's own context, so there is nothing left to share.
         if (!(ref.mapperRef() instanceof MapperRef.PassThrough)
                 || scopeContext == Void.class
@@ -312,14 +318,14 @@ final class ActionSequenceSink<T, C, D> {
                 "Forked member may share the enclosing context; the operation declares no context"
                     + " type, so forkability cannot be checked - declare usingContext(...),"
                     + " implement ForkableContext, or map at the call site, operationId={},"
-                    + " actionId={}", enclosingOperationId, ref.id());
+                    + " declaredIn={}, actionId={}", enclosingOperationId, declaredIn, ref.id());
             return;
         }
 
         Loggers.BUILD_VALIDATION.warn(
             "Forked member shares the enclosing context; implement ForkableContext or map at the"
-                + " call site, operationId={}, actionId={}, contextType={}",
-            enclosingOperationId, ref.id(), scopeContext.getName());
+                + " call site, operationId={}, declaredIn={}, actionId={}, contextType={}",
+            enclosingOperationId, declaredIn, ref.id(), scopeContext.getName());
     }
 
     /**

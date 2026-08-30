@@ -49,6 +49,13 @@ class ActionSequenceSpec extends Specification {
     def 'the declared member grammar is exactly the documented one'() {
         expect: 'a widening is a deliberate edit here, not a side effect elsewhere'
         signatures(ActionSequence).toSorted() == [
+            'fork(java.lang.String)',
+            'fork(java.lang.String,java.lang.String)',
+            'fork(java.lang.String,org.transflux.core.Identifiable)',
+            'fork(java.lang.String,org.transflux.core.action.ContextMapper)',
+            'fork(org.transflux.core.Identifiable)',
+            'fork(org.transflux.core.Identifiable,java.lang.String)',
+            'fork(org.transflux.core.Identifiable,org.transflux.core.Identifiable)',
             'run(java.lang.String)',
             'run(java.lang.String,java.lang.String)',
             'run(java.lang.String,org.transflux.core.Identifiable)',

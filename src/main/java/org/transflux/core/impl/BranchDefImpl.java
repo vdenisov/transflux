@@ -191,6 +191,41 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     }
 
     @Override
+    public BranchDef<T, C> fork(String id) {
+        return members.fork(id);
+    }
+
+    @Override
+    public BranchDef<T, C> fork(String id, String mapperId) {
+        return members.fork(id, mapperId);
+    }
+
+    @Override
+    public BranchDef<T, C> fork(String id, ContextMapper<C, ?> inlineMapper) {
+        return members.fork(id, inlineMapper);
+    }
+
+    @Override
+    public BranchDef<T, C> fork(Identifiable registeredAction) {
+        return members.fork(registeredAction);
+    }
+
+    @Override
+    public BranchDef<T, C> fork(Identifiable registeredAction, Identifiable mapper) {
+        return members.fork(registeredAction, mapper);
+    }
+
+    @Override
+    public BranchDef<T, C> fork(Identifiable registeredAction, String mapperId) {
+        return members.fork(registeredAction, mapperId);
+    }
+
+    @Override
+    public BranchDef<T, C> fork(String id, Identifiable mapper) {
+        return members.fork(id, mapper);
+    }
+
+    @Override
     public BranchDef<T, C> step(String id, Action<T, C> step) {
         return members.step(id, step);
     }
