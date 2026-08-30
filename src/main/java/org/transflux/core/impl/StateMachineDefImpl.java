@@ -1003,10 +1003,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * Reports whether anything in this definition forks, which is what decides whether the state
      * machine builds a pool at all.
      * <p>
-     * Containers are reachable from exactly two roots - registered at SM level, or attached to a
-     * transition - because a container cannot be declared inline as a member. Each root is then
+     * The roots are exactly two - a container registered at SM level, or one attached to a
+     * transition - since every other container is declared inside one of them. Each root is then
      * walked in full: {@link OperationDefImpl#declaresFork()} descends through any conditional's
-     * branches, since a branch member forks through the same path a container member does.
+     * branches and any container declared in place, since a member forks through the same path
+     * wherever it sits.
      *
      * @return whether any container declares a forked member
      */
@@ -1766,12 +1767,12 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             ActionDefImpl<T, ?, ?> op = td.getActionDef();
             if (op != null) {
-                validateScope(op.getScopeRegistry(), validated);
+                op.collectScopes(scope -> validateScope(scope, validated));
             }
         }
 
         for (OperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
-            validateScope(composite.getScopeRegistry(), validated);
+            composite.collectScopes(scope -> validateScope(scope, validated));
         }
     }
 

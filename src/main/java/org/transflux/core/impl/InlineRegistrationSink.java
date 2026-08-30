@@ -103,6 +103,24 @@ final class InlineRegistrationSink<T, C> {
     }
 
     /**
+     * Registers a container declared in place. It is the one inline form that owns a scope, so its
+     * own registry is allocated here, parented on the scope this sink writes into - which is what
+     * confines its inline ids to its own subtree while leaving the enclosing chain reachable from
+     * inside it.
+     *
+     * @param id the nested container's id
+     * @param def the nested container's def
+     */
+    void registerInlineOperation(String id, OperationDefImpl<T, C> def) {
+        claimCanonical(canonical, id, def, "Operation");
+        if (scope.get(id).isPresent()) {
+            return;
+        }
+        def.bindScopeUnder(scope, canonical, conditionRegistry, contextType);
+        scope.register(new Component.Action<>(id, contextType, def.buildBound()));
+    }
+
+    /**
      * The label used when claiming an id and when reporting an instantiation failure. It names the
      * form the member was declared in, so the diagnostic matches the DSL the user wrote.
      */

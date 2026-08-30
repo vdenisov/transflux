@@ -22,6 +22,7 @@ import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
 import org.transflux.core.action.ConditionalOperationDef;
+import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.BranchDef;
 import org.transflux.core.action.Action;
@@ -231,6 +232,17 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     public BranchDef<T, C> conditional(Identifiable conditionalIdentifiable,
                                      Consumer<ConditionalOperationDef<T, C>> configurer) {
         return members.conditional(conditionalIdentifiable, configurer);
+    }
+
+    @Override
+    public BranchDef<T, C> operation(String id, Consumer<OperationDef<T, C>> configurer) {
+        return members.operation(id, configurer);
+    }
+
+    @Override
+    public BranchDef<T, C> operation(Identifiable operationIdentifiable,
+                                     Consumer<OperationDef<T, C>> configurer) {
+        return members.operation(operationIdentifiable, configurer);
     }
 
     @Override

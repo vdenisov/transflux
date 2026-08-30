@@ -42,7 +42,7 @@ import java.util.function.Consumer;
  *
  * <p>The abstract dispatch methods ({@link #buildBound}, {@link #checkRefs},
  * {@link #bindMembers}, {@link #bindScope}, {@link #flattenScope}, {@link #scanScopeFor},
- * {@link #getScopeRegistry}) let the state-machine build pipeline drive both authoring forms
+ * {@link #collectScopes}) let the state-machine build pipeline drive both authoring forms
  * uniformly. {@link StepDefImpl} no-ops the scope and ref hooks, since an imperative action
  * binds no children at definition time; only {@link OperationDefImpl} carries real bodies for
  * them.
@@ -308,11 +308,11 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     abstract Optional<String> scanScopeFor(String id, String excludingId);
 
     /**
-     * Build-time hook: returns this operation's lexical-scope registry so the build can reach the
-     * components that live only inside it. The simple variant, and a composite whose scope has not
-     * been bound yet, return {@code null}.
+     * Build-time hook: deposits every lexical scope in this action's subtree, so a pass that has
+     * to reach components living only inside a scope sees the nested ones too. The simple variant
+     * deposits nothing.
      *
-     * @return the scope registry, or {@code null} when this operation owns none
+     * @param sink receives each scope registry, outermost first
      */
-    abstract Registry<T> getScopeRegistry();
+    abstract void collectScopes(Consumer<Registry<T>> sink);
 }

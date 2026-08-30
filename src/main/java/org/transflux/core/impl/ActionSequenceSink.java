@@ -24,7 +24,9 @@ import org.transflux.core.action.ActionKind;
 import org.transflux.core.action.ConditionalOperationDef;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.ForkableContext;
+import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.StepDef;
+import org.transflux.core.exception.TransfluxValidationException;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -189,6 +191,23 @@ final class ActionSequenceSink<T, C, D> {
         return conditional(conditionalIdentifiable.getId(), configurer);
     }
 
+    D operation(String id, Consumer<OperationDef<T, C>> configurer) {
+        owner.requireConfigurerActive("operation");
+        requireNotBlank(id, "Operation ID");
+        requireNotNull(configurer, "Operation configurer");
+
+        OperationDefImpl<T, C> def = new OperationDefImpl<>(id);
+        ConfigurableDefImpl.runConfigurer(def, configurer);
+        members.add(new DeclaredMember<>(ActionRef.operation(id, def), false));
+
+        return self;
+    }
+
+    D operation(Identifiable operationIdentifiable, Consumer<OperationDef<T, C>> configurer) {
+        requireNotNull(operationIdentifiable, "Operation identifiable");
+        return operation(operationIdentifiable.getId(), configurer);
+    }
+
     /**
      * Returns the declared members in declaration order.
      *
@@ -264,12 +283,39 @@ final class ActionSequenceSink<T, C, D> {
                     byId.id(), componentCtx, smDef.getMapperRegistrations());
             } else if (ref instanceof ActionRef.Conditional<T, C> conditional) {
                 conditional.def().checkRefs(effectiveScope, scopeLabel, enclosingOperationId, smDef);
+            } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
+                Class<?> nestedScope = nestedContext(nested, effectiveScope, scopeLabel);
+                nested.def().checkRefs(nestedScope,
+                                       scopeLabel + " > " + nested.def().defLabel(), smDef);
             }
 
             if (member.forked()) {
                 checkForkBoundary(ref, effectiveScope, enclosingOperationId, scopeLabel);
             }
         }
+    }
+
+    /**
+     * Resolves the context a nested container's own members are checked against. It runs
+     * pass-through, so a container that re-types must widen: its declared type has to accept the
+     * enclosing one, exactly as a by-id reference without a mapper must.
+     */
+    private Class<?> nestedContext(ActionRef.InlineOperation<T, C> nested, Class<?> effectiveScope,
+                                   String scopeLabel) {
+        Class<?> declared = nested.def().contextType();
+        if (declared == Object.class || declared == effectiveScope) {
+            return effectiveScope;
+        }
+
+        if (!declared.isAssignableFrom(effectiveScope)) {
+            throw new TransfluxValidationException(
+                "Context type mismatch: " + scopeLabel + " (context " + effectiveScope.getName()
+                    + ") declares " + nested.def().defLabel() + " with context "
+                    + declared.getName() + ", which it is not assignable to."
+                    + " An inline operation runs pass-through, so its context must accept the"
+                    + " enclosing one.");
+        }
+        return declared;
     }
 
     private D reference(String verb, String id, boolean forked) {

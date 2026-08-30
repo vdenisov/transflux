@@ -34,6 +34,7 @@ import spock.lang.Specification
 import spock.lang.Unroll
 
 import java.util.function.Consumer
+import java.util.function.Predicate
 
 import static org.transflux.core.TestStateEnum.ACTIVE
 import static org.transflux.core.TestStateEnum.TRIAL
@@ -200,6 +201,86 @@ class OperationDefImplSpec extends Specification {
         result.success
         entity.trail == ['from-second']
         result.executedPath*.toString() == ['first', 'first/second', 'first/second/inner']
+    }
+
+    def "an inline container reaches the enclosing container's inline ids"() {
+        given: 'resolution walks the nested scope first, then the chain that encloses it'
+        def smd = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', TestContext, { t ->
+            t.operation('outer', { OperationDef<TestEntity, TestContext> c ->
+                c.step('outer-inline', new AppendStep('outer'))
+                 .operation('inner', { OperationDef<TestEntity, TestContext> nested ->
+                     nested.run('outer-inline')
+                 })
+            })
+        }) })
+        smd.state(ACTIVE, {})
+
+        def sm = smd.build()
+        def entity = new TestEntity('TRIAL')
+
+        when:
+        def result = sm.entity(entity).transitionTo(ACTIVE, new TestContext())
+
+        then:
+        result.success
+        entity.trail == ['outer', 'outer']
+        result.executedPath*.toString() == ['outer', 'outer/outer-inline', 'outer/inner',
+                                            'outer/inner/outer-inline']
+    }
+
+    def "a sibling cannot reach an inline container's own ids"() {
+        given: 'the nested scope is private to its subtree, exactly as a container scope is'
+        def smd = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', TestContext, { t ->
+            t.operation('outer', { OperationDef<TestEntity, TestContext> c ->
+                c.operation('inner', { OperationDef<TestEntity, TestContext> nested ->
+                     nested.step('buried', new AppendStep('buried'))
+                 })
+                 .run('buried')
+            })
+        }) })
+        smd.state(ACTIVE, {})
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("unknown action id 'buried'")
+        e.message.contains('inner')
+    }
+
+    def "a container declared inside a branch is reached by the scope walks too"() {
+        given: 'nesting position must not decide whether a scope is seen by the build'
+        def smd = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', TestContext, { t ->
+            t.operation('outer', { OperationDef<TestEntity, TestContext> c ->
+                c.conditional('route', { cs ->
+                    cs.branch('only', { b ->
+                        b.condition('always', { TestEntity e -> true } as Predicate)
+                         .operation('nested', { OperationDef<TestEntity, TestContext> n ->
+                             n.step('buried', new AppendStep('buried'))
+                         })
+                    })
+                }).run('buried')
+            })
+        }) })
+        smd.state(ACTIVE, {})
+
+        when:
+        smd.build()
+
+        then: 'the sibling-scope hint names the branch-nested container, as it does a direct one'
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("unknown action id 'buried'")
+        e.message.contains("sibling composite 'nested'")
     }
 
     def "composite using inline class form is reflectively instantiated through the SM registry"() {

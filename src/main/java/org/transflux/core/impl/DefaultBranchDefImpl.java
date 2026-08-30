@@ -20,6 +20,7 @@ package org.transflux.core.impl;
 
 import org.transflux.core.Identifiable;
 import org.transflux.core.action.ConditionalOperationDef;
+import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.DefaultBranchDef;
 import org.transflux.core.action.Action;
@@ -148,6 +149,17 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
     public DefaultBranchDef<T, C> conditional(Identifiable conditionalIdentifiable,
                                      Consumer<ConditionalOperationDef<T, C>> configurer) {
         return members.conditional(conditionalIdentifiable, configurer);
+    }
+
+    @Override
+    public DefaultBranchDef<T, C> operation(String id, Consumer<OperationDef<T, C>> configurer) {
+        return members.operation(id, configurer);
+    }
+
+    @Override
+    public DefaultBranchDef<T, C> operation(Identifiable operationIdentifiable,
+                                     Consumer<OperationDef<T, C>> configurer) {
+        return members.operation(operationIdentifiable, configurer);
     }
 
     @Override

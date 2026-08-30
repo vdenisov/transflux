@@ -54,6 +54,32 @@ class JavaDslSurfaceSpec extends Specification {
         sm.close()
     }
 
+    def 'a sequence declared in place builds and runs at every position that holds one'() {
+        given:
+        def sm = JavaDslSurface.inlineSequenceShapes()
+        def order = new JavaDslSurface.Order()
+
+        when:
+        def result = sm.entity(order).transitionTo('s2', new JavaDslSurface.OrderCtx())
+
+        then: 'each nested container ran, including the one two levels down'
+        result.success
+        order.trail.contains('in-container')
+        order.trail.contains('identifiable')
+        order.trail.contains('two-deep')
+        order.trail.contains('in-branch')
+
+        and: 'the default branch did not run, since the first branch matched'
+        !order.trail.contains('in-default')
+
+        and: 'nesting shows in the reported path'
+        result.executedPath*.toString().contains('op/in-container/in-container-step')
+        result.executedPath*.toString().contains('op/nested/two-deep/two-deep-step')
+
+        cleanup:
+        sm.close()
+    }
+
     def 'the same grammar dispatched from inside an action body builds and runs'() {
         given:
         def sm = JavaDslSurface.dispatchFromActionBody()

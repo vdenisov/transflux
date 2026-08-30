@@ -50,7 +50,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  */
 sealed interface ActionRef<T, C>
     permits ActionRef.ById, ActionRef.InlineInstance, ActionRef.InlineClass, ActionRef.InlineDef,
-            ActionRef.Conditional {
+            ActionRef.Conditional, ActionRef.InlineOperation {
 
     String id();
 
@@ -176,6 +176,10 @@ sealed interface ActionRef<T, C>
         return new Conditional<>(id, def);
     }
 
+    static <T, C> ActionRef<T, C> operation(String id, OperationDefImpl<T, C> def) {
+        return new InlineOperation<>(id, def);
+    }
+
     record ById<T, C>(String id, MapperRef mapperRef) implements ActionRef<T, C> {
         public ById {
             requireNotBlank(id, "Action reference ID");
@@ -259,6 +263,36 @@ sealed interface ActionRef<T, C>
         @Override
         public void visitNestedMembers(Consumer<ActionSequenceSink.DeclaredMember<T, C>> visitor) {
             def.visitBranchMembers(visitor);
+        }
+    }
+
+    /**
+     * A declarative container declared in place. Unlike every other inline form it owns a lexical
+     * scope of its own, so its inline registrations land beneath it rather than in the enclosing
+     * container's - which is why it hands the sink the whole def rather than depositing its
+     * children into the enclosing scope first.
+     */
+    @SuppressWarnings("ClassEscapesDefinedScope")
+    record InlineOperation<T, C>(String id, OperationDefImpl<T, C> def) implements ActionRef<T, C> {
+
+        public InlineOperation {
+            requireNotBlank(id, "Action reference ID");
+            requireNotNull(def, "Inline operation def");
+        }
+
+        @Override
+        public void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
+            sink.registerInlineOperation(id, def);
+        }
+
+        @Override
+        public void collectListenerIds(BiConsumer<String, String> sink) {
+            def.collectListenerIds(sink);
+        }
+
+        @Override
+        public void visitNestedMembers(Consumer<ActionSequenceSink.DeclaredMember<T, C>> visitor) {
+            def.visitMembers(visitor);
         }
     }
 }

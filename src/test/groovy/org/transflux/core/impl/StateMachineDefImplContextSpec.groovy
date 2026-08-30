@@ -251,6 +251,45 @@ class StateMachineDefImplContextSpec extends Specification {
         e.message.contains('s')
     }
 
+    def 'an inline container narrowing the enclosing context is rejected at build'() {
+        given: 'it runs pass-through, so it may widen but never narrow'
+        def smd = baseDef()
+        smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
+            scope.operation('outer', { OperationDef<Entity, CtxA> c ->
+                c.operation('inner', { OperationDef<Entity, CtxA> nested ->
+                    nested.usingContext(CtxB).step('s', new StepB())
+                })
+            })
+        })
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains('Context type mismatch')
+        e.message.contains("operation 'inner'")
+        e.message.contains(CtxB.name)
+    }
+
+    def 'an inline container widening to Object is accepted'() {
+        given: 'Object accepts the enclosing context, which is what pass-through requires'
+        def smd = baseDef()
+        smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
+            scope.operation('outer', { OperationDef<Entity, CtxA> c ->
+                c.operation('inner', { OperationDef<Entity, CtxA> nested ->
+                    nested.usingContext(Object).step('s', new StepA())
+                })
+            })
+        })
+
+        when:
+        smd.build()
+
+        then:
+        noExceptionThrown()
+    }
+
     def 'legacy (untagged) registrations skip the context-compatibility check'() {
         given:
         def smd = new StateMachineDefImpl<Entity>()

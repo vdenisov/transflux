@@ -619,6 +619,28 @@ class StateMachineImplCompensationSpec extends Specification {
         entity.trail == ['-op']
     }
 
+    def "an inline container's compensation unwinds inside its parent's"() {
+        given: 'a container declared in place is an action, so it is pushed and drained like one'
+        def applied = []
+        def sm = build(applied, { t -> t.operation('outer', { OperationDef<Entity, TestContext> c -> c
+            .withCompensation({ Entity e, TestContext ctx -> e.trail << '-outer' } as Compensation)
+            .step('a', new TrailStep('a'))
+            .operation('inner', { OperationDef<Entity, TestContext> nested -> nested
+                .withCompensation({ Entity e, TestContext ctx -> e.trail << '-inner' } as Compensation)
+                .step('b', new TrailStep('b'))
+                .step('boom', new ThrowingStep('boom')) }) }) })
+        def entity = new Entity('s1')
+
+        when:
+        def result = sm.executeTransition(entity, 's2')
+
+        then: 'members-first at each level, and the nested container drains before the outer one'
+        !result.success
+        result.compensatedPath*.toString() == ['outer/inner/b', 'outer/inner', 'outer/a', 'outer']
+        entity.trail == ['a', 'b', '-b', '-inner', '-a', '-outer']
+        applied.isEmpty()
+    }
+
     def 'conditional compensation runs when a branch member fails'() {
         given:
         def applied = []

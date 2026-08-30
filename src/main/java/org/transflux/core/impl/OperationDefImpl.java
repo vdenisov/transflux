@@ -194,6 +194,16 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
+    public OperationDefImpl<T, C> operation(String id, Consumer<OperationDef<T, C>> configurer) {
+        return members.operation(id, configurer);
+    }
+
+    @Override
+    public OperationDefImpl<T, C> operation(Identifiable operationIdentifiable, Consumer<OperationDef<T, C>> configurer) {
+        return members.operation(operationIdentifiable, configurer);
+    }
+
+    @Override
     public OperationDefImpl<T, C> usingContext(Class<C> contextType) {
         requireConfigurerActive("usingContext");
         requireNotNull(contextType, "Context type");
@@ -254,6 +264,15 @@ final class OperationDefImpl<T, C>
             }
         });
         return Collections.unmodifiableList(ids);
+    }
+
+    /**
+     * Visits every member in this container's subtree, in declaration order.
+     *
+     * @param visitor receives each member
+     */
+    void visitMembers(Consumer<ActionSequenceSink.DeclaredMember<T, C>> visitor) {
+        members.visitAllMembers(visitor);
     }
 
     /**
@@ -340,6 +359,9 @@ final class OperationDefImpl<T, C>
             if (ref instanceof ActionRef.Conditional<T, C> conditional) {
                 conditional.def().bindBranchMembers(stateMachine, scopeRegistry, positionLabel,
                                                    getId());
+            } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
+                nested.def().bindMembers(stateMachine,
+                                         positionLabel + " > " + nested.def().defLabel());
             }
         }
 
@@ -353,32 +375,106 @@ final class OperationDefImpl<T, C>
         @SuppressWarnings("unchecked")
         Map<String, BoundCondition<T, C>> typedConditions = (Map<String, BoundCondition<T, C>>) (Map<?, ?>) conditionRegistry;
 
-        RegistryImpl<T> scope = new RegistryImpl<>(rootRegistry, getId());
+        bindScopeUnder(rootRegistry, canonical, typedConditions, null);
+    }
+
+    /**
+     * Allocates this container's lexical scope under {@code parentRegistry} and populates it with
+     * everything declared inline inside it, descending into nested containers as it goes.
+     * <p>
+     * The parent is the root registry for a container reached from one of the definition's roots,
+     * and the enclosing container's scope for one declared in place - which is the whole of what
+     * makes an inline container's ids private to its own subtree.
+     *
+     * @param parentRegistry the registry this container's scope parents onto
+     * @param canonical the per-build canonical-payload table enforcing SM-wide id uniqueness
+     * @param conditionRegistry the resolved SM-wide condition registry
+     * @param inheritedContext the enclosing position's context type, which this container's own
+     *                         inline members are tagged with when it declares none of its own;
+     *                         {@code null} at a root. The tag is diagnostic - it names the context
+     *                         in the binding log - so inheriting it keeps a nested member's line
+     *                         honest without the def itself being rewritten
+     */
+    @SuppressWarnings("unchecked")
+    void bindScopeUnder(RegistryImpl<T> parentRegistry,
+                        Map<String, Object> canonical,
+                        Map<String, BoundCondition<T, C>> conditionRegistry,
+                        Class<?> inheritedContext) {
+        Class<C> tagged = declaredContextType != null ? declaredContextType
+            : (Class<C>) (inheritedContext != null ? inheritedContext : Object.class);
+
+        RegistryImpl<T> scope = new RegistryImpl<>(parentRegistry, getId());
         setScopeRegistry(scope);
 
         InlineRegistrationSink<T, C> sink = new InlineRegistrationSink<>(
-            scope, canonical, contextType(), typedConditions);
+            scope, canonical, tagged, conditionRegistry);
         collectInlineRegistrations(sink);
     }
 
     @Override
     void flattenScope() {
-        if (scopeRegistry != null) {
-            scopeRegistry.flatten();
+        if (scopeRegistry == null) {
+            return;
+        }
+        scopeRegistry.flatten();
+        for (OperationDefImpl<T, C> nested : nestedContainers()) {
+            if (nested.scopeRegistry != null) {
+                nested.scopeRegistry.flatten();
+            }
         }
     }
 
     @Override
     Optional<String> scanScopeFor(String id, String excludingId) {
-        if (!getId().equals(excludingId) && scopeRegistry != null && scopeRegistry.get(id).isPresent()) {
+        // Innermost first: the container that actually claimed the id is the useful answer, and
+        // ids are unique, so at most one scope in the subtree holds it either way.
+        for (OperationDefImpl<T, C> nested : nestedContainers()) {
+            if (nested.holdsInScope(id, excludingId)) {
+                return Optional.of(nested.getId());
+            }
+        }
+
+        if (holdsInScope(id, excludingId)) {
             return Optional.of(getId());
         }
         return Optional.empty();
     }
 
     @Override
-    Registry<T> getScopeRegistry() {
-        return scopeRegistry;
+    void collectScopes(Consumer<Registry<T>> sink) {
+        if (scopeRegistry == null) {
+            return;
+        }
+        sink.accept(scopeRegistry);
+        for (OperationDefImpl<T, C> nested : nestedContainers()) {
+            if (nested.scopeRegistry != null) {
+                sink.accept(nested.scopeRegistry);
+            }
+        }
+    }
+
+    private boolean holdsInScope(String id, String excludingId) {
+        return !getId().equals(excludingId) && scopeRegistry != null
+            && scopeRegistry.get(id).isPresent();
+    }
+
+    /**
+     * Every container declared in place beneath this one, at any depth and in whichever position -
+     * a member of this container, of a conditional's branch, or of another nested container.
+     * <p>
+     * The walk is {@link ActionSequenceSink#visitAllMembers}, which already descends through every
+     * nesting form; collecting into a list rather than recursing per pass keeps the three scope
+     * walks that need this from each re-deriving the descent, and from each getting it wrong in a
+     * different position.
+     */
+    private List<OperationDefImpl<T, C>> nestedContainers() {
+        List<OperationDefImpl<T, C>> nested = new ArrayList<>();
+        members.visitAllMembers(member -> {
+            if (member.ref() instanceof ActionRef.InlineOperation<T, C> inline) {
+                nested.add(inline.def());
+            }
+        });
+        return nested;
     }
 
     /**

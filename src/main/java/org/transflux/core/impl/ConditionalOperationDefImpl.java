@@ -468,6 +468,9 @@ final class ConditionalOperationDefImpl<T, C>
             // first when a resolution fails.
             if (ref instanceof ActionRef.Conditional<T, C> nested) {
                 nested.def().bindBranchMembers(stateMachine, scope, ownerLabel, enclosingOperationId);
+            } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
+                // A container declared in a branch does own a scope, and binds against its own.
+                nested.def().bindMembers(stateMachine, ownerLabel + " > " + nested.def().defLabel());
             }
         }
         return Collections.unmodifiableList(bound);

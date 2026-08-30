@@ -181,6 +181,46 @@ class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
         e.message.contains('twin')
     }
 
+    def 'an id claimed twice across an inline container boundary is rejected'() {
+        given: 'a nested container is a fresh scope, but not a fresh namespace'
+        def smd = baseDef({ t -> t.operation('outer', { OperationDef<Entity, TestContext> c ->
+            c.step('twin', new NoOpStep())
+             .operation('inner', { OperationDef<Entity, TestContext> nested ->
+                 nested.step('twin', new NoOpStep())
+             })
+        }) })
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains('twin')
+    }
+
+    def 'an inline container id colliding with an SM-level step is rejected'() {
+        given:
+        def smd = new StateMachineDefImpl<Entity>()
+        smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+        smd.step('clash', new NoOpStep())
+        smd.state('s1', { s -> s.transitionsTo('s2', 't', TestContext, { t ->
+            t.operation('outer', { OperationDef<Entity, TestContext> c ->
+                c.operation('clash', { OperationDef<Entity, TestContext> nested ->
+                    nested.step('inner', new NoOpStep())
+                })
+            })
+        }) })
+        smd.state('s2', {})
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains('clash')
+    }
+
     private static StateMachineDefImpl<Entity> baseDef(Consumer<TransitionDef<Entity, TestContext>> transitionConfigurer) {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)

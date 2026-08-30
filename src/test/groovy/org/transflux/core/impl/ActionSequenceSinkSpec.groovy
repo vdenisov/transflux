@@ -55,9 +55,10 @@ class ActionSequenceSinkSpec extends Specification {
         sink.fork('b')
         sink.step('c', new NoopStep())
         sink.conditional('d', { cond -> cond })
+        sink.operation('e', { op -> op })
 
         then:
-        sink.members()*.ref()*.id() == ['a', 'b', 'c', 'd']
+        sink.members()*.ref()*.id() == ['a', 'b', 'c', 'd', 'e']
     }
 
     def 'only a fork-declared member carries the flag'() {
@@ -120,6 +121,7 @@ class ActionSequenceSinkSpec extends Specification {
         'fork'        | { target -> target.fork('a') }
         'step'        | { target -> target.step('a', new NoopStep()) }
         'conditional' | { target -> target.conditional('a', { cond -> cond }) }
+        'operation'   | { target -> target.operation('a', { op -> op }) }
     }
 
     def 'Identifiable overloads reject null before reaching the guard: #desc'() {

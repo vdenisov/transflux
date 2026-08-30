@@ -373,4 +373,41 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      * @throws TransfluxValidationException if {@code conditionalIdentifiable} is {@code null}
      */
     SELF conditional(Identifiable conditionalIdentifiable, Consumer<ConditionalOperationDef<T, C>> configurer);
+
+    /**
+     * Declares a nested sequence at this position - an operation, declared in place rather than
+     * registered elsewhere and referenced. Use it for a group of actions that belongs to one call
+     * site: it can carry its own compensation and listeners, and it unwinds as a unit.
+     *
+     * <p>The nested operation is registered into the enclosing container's lexical scope under
+     * {@code id}, so it is visible only inside that container's subtree, and its id must be unique
+     * across the state machine. Its own members resolve against its scope first and the enclosing
+     * chain after, so it can reach what encloses it while a sibling cannot reach into it.
+     *
+     * <p>It is typed against the enclosing context and runs pass-through. Calling
+     * {@link OperationDef#usingContext(Class)} inside the configurer re-types it, and the boundary
+     * is then checked exactly as a by-id reference's is: the declared type must be assignable from
+     * the enclosing one.
+     *
+     * @param id the operation's id; must be unique across the state machine
+     * @param configurer callback that declares the members
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or {@code configurer} is
+     *         {@code null}
+     */
+    SELF operation(String id, Consumer<OperationDef<T, C>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #operation(String, Consumer)}.
+     *
+     * @param operationIdentifiable an identifiable supplying the operation's id
+     * @param configurer callback that declares the members
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code operationIdentifiable} is {@code null}
+     */
+    SELF operation(Identifiable operationIdentifiable, Consumer<OperationDef<T, C>> configurer);
 }

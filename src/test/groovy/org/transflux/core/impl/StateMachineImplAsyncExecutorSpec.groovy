@@ -235,6 +235,28 @@ class StateMachineImplAsyncExecutorSpec extends Specification {
         sm.close()
     }
 
+    def 'a definition that forks only from inside an inline container still builds a pool'() {
+        given: 'the fork walk has to descend into a container declared in place to see this one'
+        def done = new CountDownLatch(1)
+        capture = LogCapture.start('org.transflux.execution.async')
+        def sm = build({ smd -> smd.step('notify', { e, c, t -> done.countDown() } as Action) },
+                       { op ->
+                           op.operation('nested', { nested -> nested.fork('notify') } as Consumer)
+                       }, { smd -> })
+
+        when:
+        def result = sm.executeTransition(new Entity('s1'), 's2')
+        done.await(WAIT_SECONDS, TimeUnit.SECONDS)
+
+        then:
+        result.success
+        done.count == 0
+        capture.messages().any { it.contains('Async pool created') }
+
+        cleanup:
+        sm.close()
+    }
+
     private StateMachine<Entity> buildForking(CountDownLatch done, Closure asyncConfig) {
         return build({ smd -> smd.step('notify', { e, c, t -> done.countDown() } as Action) },
                      { op -> op.fork('notify') }, asyncConfig)

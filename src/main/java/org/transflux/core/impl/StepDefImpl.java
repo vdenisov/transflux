@@ -25,6 +25,7 @@ import org.transflux.core.action.StepDef;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static org.transflux.core.Preconditions.requireNotNull;
 
@@ -133,7 +134,7 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
     }
 
     @Override
-    Registry<T> getScopeRegistry() {
-        return null;
+    void collectScopes(Consumer<Registry<T>> sink) {
+        // An imperative action owns no lexical scope.
     }
 }

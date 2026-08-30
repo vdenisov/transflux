@@ -58,6 +58,8 @@ class ActionSequenceSpec extends Specification {
             'fork(org.transflux.core.Identifiable)',
             'fork(org.transflux.core.Identifiable,java.lang.String)',
             'fork(org.transflux.core.Identifiable,org.transflux.core.Identifiable)',
+            'operation(java.lang.String,java.util.function.Consumer)',
+            'operation(org.transflux.core.Identifiable,java.util.function.Consumer)',
             'run(java.lang.String)',
             'run(java.lang.String,java.lang.String)',
             'run(java.lang.String,org.transflux.core.Identifiable)',
@@ -84,7 +86,8 @@ class ActionSequenceSpec extends Specification {
 
     def '#type declares no member form of its own'() {
         expect: 'the grammar lives in exactly one place, so the three cannot drift'
-        type.declaredMethods*.name.toSet().intersect(['run', 'fork', 'step', 'conditional'].toSet()).isEmpty()
+        type.declaredMethods*.name.toSet()
+            .intersect(['run', 'fork', 'step', 'conditional', 'operation'].toSet()).isEmpty()
 
         where:
         type << SEQUENCES

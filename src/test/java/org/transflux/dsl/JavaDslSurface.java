@@ -107,6 +107,7 @@ public final class JavaDslSurface {
     public enum Ids implements Identifiable {
         RECORD("record"),
         NOTIFY("notify"),
+        NESTED("nested"),
         NOTIFY_FROM_ORDER("notify-from-order");
 
         private final String id;
@@ -227,6 +228,45 @@ public final class JavaDslSurface {
                                     .branch("deep-default", ib -> ib
                                         .condition("deep-default-cond", (order, ctx) -> true)
                                         .run("record"))))))))
+            .state("s2", s -> { })
+            .build();
+    }
+
+    /**
+     * A sequence declared in place, at each position that holds one: inside a container, inside a
+     * branch and a default branch, and nested two deep. The nesting is what proves the form is
+     * recursive rather than a single extra level.
+     *
+     * @return the built state machine
+     */
+    public static StateMachine<Order> inlineSequenceShapes() {
+        return Transflux.<Order>defineStateMachine()
+            .forEntityType(Order.class)
+            .withStateResolver(o -> o.state)
+            .withStateApplier((o, s) -> o.state = s)
+            .step("record", new RecordingAction())
+            .state("s1", s -> s
+                .transitionsTo("s2", "t", OrderCtx.class, t -> t
+                    .operation("op", c -> c
+                        .operation("in-container", inner -> inner
+                            .step("in-container-step", (order, ctx, view) -> order.trail.add("in-container"))
+                            .run("record"))
+                        .operation(Ids.NESTED, inner -> inner
+                            .step("identifiable-form", (order, ctx, view) -> order.trail.add("identifiable"))
+                            .operation("two-deep", deepest -> deepest
+                                .step("two-deep-step", (order, ctx, view) -> order.trail.add("two-deep"))))
+                        .conditional("branching", cond -> cond
+                            .branch("taken", b -> b
+                                .condition("always", (order, ctx) -> true)
+                                .operation("in-branch", inner -> inner
+                                    .step("in-branch-step", (order, ctx, view) -> order.trail.add("in-branch"))
+                                    .conditional("deep-conditional", deep -> deep
+                                        .branch("deep-taken", db -> db
+                                            .condition("deep-always", (order, ctx) -> true)
+                                            .run("record")))))
+                            .defaultBranch(d -> d
+                                .operation("in-default", inner -> inner
+                                    .step("in-default-step", (order, ctx, view) -> order.trail.add("in-default"))))))))
             .state("s2", s -> { })
             .build();
     }
