@@ -18,20 +18,15 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.action.ActionKind;
 import org.transflux.core.Identifiable;
 import org.transflux.core.action.DefaultBranchDef;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.StepDef;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-import static org.transflux.core.Preconditions.requireNotBlank;
-import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Implementation of {@link DefaultBranchDef} used by {@link ConditionalOperationDefImpl}.
@@ -41,8 +36,8 @@ import static org.transflux.core.Preconditions.requireNotNull;
  */
 final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements DefaultBranchDef<T, C> {
 
-    private final List<ActionRef<T, C>> actionRefs = new ArrayList<>();
-
+    private final ActionSequenceSink<T, C, DefaultBranchDef<T, C>> members =
+        new ActionSequenceSink<>(this, this);
     DefaultBranchDefImpl() {
     }
 
@@ -51,75 +46,64 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
         return "default branch";
     }
 
+    List<ActionSequenceSink.DeclaredMember<T, C>> getMembers() {
+        return members.members();
+    }
+
     List<ActionRef<T, C>> getActionRefs() {
-        return Collections.unmodifiableList(actionRefs);
+        return members.members().stream().map(ActionSequenceSink.DeclaredMember::ref).toList();
+    }
+
+    void checkRefs(Class<?> scopeContext, String ownerLabel, String enclosingOperationId,
+                   StateMachineDefImpl<T> smDef) {
+        members.checkRefs(scopeContext, ownerLabel, enclosingOperationId, smDef);
     }
 
     void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
-        for (ActionRef<T, C> ref : actionRefs) {
-            ref.collectInlineRegistrations(sink);
-        }
+        members.collectInlineRegistrations(sink);
     }
 
     void collectListenerIds(BiConsumer<String, String> sink) {
-        for (ActionRef<T, C> ref : actionRefs) {
-            ref.collectListenerIds(sink);
-        }
+        members.collectListenerIds(sink);
     }
 
     @Override
     public DefaultBranchDef<T, C> run(String id) {
-        requireConfigurerActive("run");
-        actionRefs.add(ActionRef.byId(id));
-        return this;
+        return members.run(id);
     }
 
     @Override
     public DefaultBranchDef<T, C> run(Identifiable registeredAction) {
-        requireNotNull(registeredAction, "Action identifiable");
-        return run(registeredAction.getId());
+        return members.run(registeredAction);
     }
 
     @Override
     public DefaultBranchDef<T, C> step(String id, Action<T, C> step) {
-        requireConfigurerActive("step");
-        actionRefs.add(ActionRef.inline(id, step, ActionKind.STEP));
-        return this;
+        return members.step(id, step);
     }
 
     @Override
     public DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Action<T, C> step) {
-        requireNotNull(stepIdentifiable, "Step identifiable");
-        return step(stepIdentifiable.getId(), step);
+        return members.step(stepIdentifiable, step);
     }
 
     @Override
     public DefaultBranchDef<T, C> step(String id, Class<? extends Action<T, C>> stepClass) {
-        requireConfigurerActive("step");
-        actionRefs.add(ActionRef.inline(id, stepClass, ActionKind.STEP));
-        return this;
+        return members.step(id, stepClass);
     }
 
     @Override
     public DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Class<? extends Action<T, C>> stepClass) {
-        requireNotNull(stepIdentifiable, "Step identifiable");
-        return step(stepIdentifiable.getId(), stepClass);
+        return members.step(stepIdentifiable, stepClass);
     }
 
     @Override
     public DefaultBranchDef<T, C> step(String id, Consumer<StepDef<T, C>> configurer) {
-        requireConfigurerActive("step");
-        requireNotBlank(id, "Step ID");
-        requireNotNull(configurer, "Step configurer");
-        StepDefImpl<T, C> def = new StepDefImpl<>(id);
-        ConfigurableDefImpl.runConfigurer(def, configurer);
-        actionRefs.add(ActionRef.inline(id, def));
-        return this;
+        return members.step(id, configurer);
     }
 
     @Override
     public DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Consumer<StepDef<T, C>> configurer) {
-        requireNotNull(stepIdentifiable, "Step identifiable");
-        return step(stepIdentifiable.getId(), configurer);
+        return members.step(stepIdentifiable, configurer);
     }
 }

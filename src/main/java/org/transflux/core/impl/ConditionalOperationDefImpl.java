@@ -301,24 +301,23 @@ final class ConditionalOperationDefImpl<T, C>
     }
 
     /**
-     * Build-time hook: validates the pass-through context compatibility of every by-id branch
-     * member, exactly as {@link OperationDefImpl#checkRefs} does for its own members. Branch
-     * members never carry a mapper - {@code run} on a branch has no mapper-bearing overload - so
-     * every reference here is a pass-through crossing.
+     * Build-time hook: runs the shared member check over every branch, exactly as the enclosing
+     * operation runs it over its own members.
      *
      * @param scopeContext the enclosing operation's context type
+     * @param enclosingOperationId the id of the operation that declared this conditional
      * @param smDef the state-machine def whose component registrations the check consults
      */
-    void checkRefs(Class<?> scopeContext, StateMachineDefImpl<T> smDef) {
+    void checkRefs(Class<?> scopeContext, String enclosingOperationId, StateMachineDefImpl<T> smDef) {
         Class<?> effectiveScope = scopeContext != null ? scopeContext : Object.class;
 
         for (BranchDefImpl<T, C> branch : branches) {
-            checkRefContexts(branch.getActionRefs(), effectiveScope,
-                branchLabel("branch '" + branch.getBranchId() + "'"), smDef);
+            branch.checkRefs(effectiveScope, branchLabel("branch '" + branch.getBranchId() + "'"),
+                             enclosingOperationId, smDef);
         }
         if (defaultBranch != null) {
-            checkRefContexts(defaultBranch.getActionRefs(), effectiveScope,
-                branchLabel("default branch"), smDef);
+            defaultBranch.checkRefs(effectiveScope, branchLabel("default branch"),
+                                    enclosingOperationId, smDef);
         }
     }
 
@@ -355,13 +354,13 @@ final class ConditionalOperationDefImpl<T, C>
             resolved.add(new ResolvedBranch<>(
                 branch.getBranchId(),
                 executor.conditions.get(i),
-                bindMembers(branch.getActionRefs(), stateMachine, scope,
+                bindMembers(branch.getMembers(), stateMachine, scope,
                             branchLabel("branch '" + branch.getBranchId() + "'"),
                             enclosingOperationId)));
         }
 
         List<CompositeMember<T, C>> defaultMembers = defaultBranch == null ? null
-            : bindMembers(defaultBranch.getActionRefs(), stateMachine, scope,
+            : bindMembers(defaultBranch.getMembers(), stateMachine, scope,
                           branchLabel("default branch"), enclosingOperationId);
 
         executor.bind(resolved, defaultMembers);
@@ -406,7 +405,7 @@ final class ConditionalOperationDefImpl<T, C>
                     "Branch '" + branch.getBranchId() + "' on conditional operation '" + getId()
                         + "' must declare a condition");
             }
-            if (branch.getActionRefs().isEmpty()) {
+            if (branch.getMembers().isEmpty()) {
                 throw new TransfluxValidationException(
                     "Branch '" + branch.getBranchId() + "' on conditional operation '" + getId()
                         + "' must declare at least one action");
@@ -416,7 +415,7 @@ final class ConditionalOperationDefImpl<T, C>
             conditions.add(ConditionResolver.resolve(branch.getDescriptor(), conditionRegistry, path));
         }
 
-        if (defaultBranch != null && defaultBranch.getActionRefs().isEmpty()) {
+        if (defaultBranch != null && defaultBranch.getMembers().isEmpty()) {
             throw new TransfluxValidationException(
                 "Default branch on conditional operation '" + getId() + "' must declare at least one action");
         }
@@ -430,13 +429,14 @@ final class ConditionalOperationDefImpl<T, C>
                               compensation.buildRouter());
     }
 
-    private List<CompositeMember<T, C>> bindMembers(List<ActionRef<T, C>> refs,
+    private List<CompositeMember<T, C>> bindMembers(List<ActionSequenceSink.DeclaredMember<T, C>> declared,
                                                     StateMachineImpl<T> stateMachine,
                                                     Registry<T> scope,
                                                     String ownerLabel,
                                                     String enclosingOperationId) {
-        List<CompositeMember<T, C>> bound = new ArrayList<>(refs.size());
-        for (ActionRef<T, C> ref : refs) {
+        List<CompositeMember<T, C>> bound = new ArrayList<>(declared.size());
+        for (ActionSequenceSink.DeclaredMember<T, C> member : declared) {
+            ActionRef<T, C> ref = member.ref();
             bound.add(new CompositeMember<>(
                 ref.resolve(stateMachine, scope, ownerLabel, enclosingOperationId),
                 ref.mapperRef().resolve(stateMachine, enclosingOperationId),
@@ -447,17 +447,6 @@ final class ConditionalOperationDefImpl<T, C>
 
     private String branchLabel(String branchPart) {
         return "conditional operation '" + getId() + "' " + branchPart;
-    }
-
-    private void checkRefContexts(List<ActionRef<T, C>> refs, Class<?> scopeContext,
-                                  String label, StateMachineDefImpl<T> smDef) {
-        for (ActionRef<T, C> ref : refs) {
-            if (ref instanceof ActionRef.ById<T, ?> byId) {
-                Class<?> componentCtx = smDef.componentContextTypeOrDefault(byId.id());
-                byId.mapperRef().validateAgainst(scopeContext, label, "action",
-                    byId.id(), componentCtx, smDef.getMapperRegistrations());
-            }
-        }
     }
 
     /**
