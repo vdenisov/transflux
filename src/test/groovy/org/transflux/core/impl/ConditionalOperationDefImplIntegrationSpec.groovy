@@ -455,6 +455,24 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         result.executedPath*.toString() == ['first', 'first/route', 'first/route/second', 'first/route/second/inner']
     }
 
+    def 'a failing branch member is named by its whole enclosing position'() {
+        when: 'the id is unknown, so resolution reports where it was declared'
+        build([], { smd -> },
+            { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
+                c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+                    cs.branch('critical', { BranchDef<Entity, TestContext> b ->
+                        b.condition('critical-cond', { Entity e -> true } as Predicate)
+                         .run('ghost')
+                    })
+                })
+            }) })
+
+        then: 'each level of the nesting appears, so the branch is locatable and not merely named'
+        def e = thrown(TransfluxValidationException)
+        e.message.startsWith("transition 't' > operation 'op' > conditional operation 'route'"
+                                 + " > branch 'critical' references unknown action id 'ghost'")
+    }
+
     def 'branch referencing an id registered as a condition is rejected at build time'() {
         when:
         build([], { smd -> smd.condition('not-an-action', { Entity e -> true } as Predicate) },

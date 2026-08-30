@@ -320,18 +320,22 @@ final class ConditionalOperationDefImpl<T, C>
      * operation runs it over its own members.
      *
      * @param scopeContext the enclosing operation's context type
+     * @param enclosingLabel names the position that declared this conditional; each branch label
+     *                       extends it, so a message locates the branch rather than only naming it
      * @param enclosingOperationId the id of the operation that declared this conditional
      * @param smDef the state-machine def whose component registrations the check consults
      */
-    void checkRefs(Class<?> scopeContext, String enclosingOperationId, StateMachineDefImpl<T> smDef) {
+    void checkRefs(Class<?> scopeContext, String enclosingLabel, String enclosingOperationId,
+                   StateMachineDefImpl<T> smDef) {
         Class<?> effectiveScope = scopeContext != null ? scopeContext : Object.class;
 
         for (BranchDefImpl<T, C> branch : branches) {
-            branch.checkRefs(effectiveScope, branchLabel("branch '" + branch.getBranchId() + "'"),
+            branch.checkRefs(effectiveScope,
+                             branchLabel(enclosingLabel, "branch '" + branch.getBranchId() + "'"),
                              enclosingOperationId, smDef);
         }
         if (defaultBranch != null) {
-            defaultBranch.checkRefs(effectiveScope, branchLabel("default branch"),
+            defaultBranch.checkRefs(effectiveScope, branchLabel(enclosingLabel, "default branch"),
                                     enclosingOperationId, smDef);
         }
     }
@@ -350,13 +354,15 @@ final class ConditionalOperationDefImpl<T, C>
      *                     diagnostics the resolution consults
      * @param scope the enclosing operation's scope registry; resolution walks the parent chain
      *              up to the state-machine root
+     * @param enclosingLabel names the position that declared this conditional; each branch label
+     *                        extends it
      * @param enclosingOperationId the id of the operation that declared this conditional
      *
      * @throws TransfluxValidationException if a branch names an id that no action in scope
      *         carries, or if no executor was built for this conditional
      */
     void bindBranchMembers(StateMachineImpl<T> stateMachine, Registry<T> scope,
-                           String enclosingOperationId) {
+                           String enclosingLabel, String enclosingOperationId) {
         if (executor == null) {
             throw new TransfluxValidationException(
                 "Conditional operation '" + getId()
@@ -370,13 +376,13 @@ final class ConditionalOperationDefImpl<T, C>
                 branch.getBranchId(),
                 executor.conditions.get(i),
                 bindMembers(branch.getMembers(), stateMachine, scope,
-                            branchLabel("branch '" + branch.getBranchId() + "'"),
+                            branchLabel(enclosingLabel, "branch '" + branch.getBranchId() + "'"),
                             enclosingOperationId)));
         }
 
         List<CompositeMember<T, C>> defaultMembers = defaultBranch == null ? null
             : bindMembers(defaultBranch.getMembers(), stateMachine, scope,
-                          branchLabel("default branch"), enclosingOperationId);
+                          branchLabel(enclosingLabel, "default branch"), enclosingOperationId);
 
         executor.bind(resolved, defaultMembers);
     }
@@ -461,14 +467,19 @@ final class ConditionalOperationDefImpl<T, C>
             // against the same two. Recursing after the member is built names the outer position
             // first when a resolution fails.
             if (ref instanceof ActionRef.Conditional<T, C> nested) {
-                nested.def().bindBranchMembers(stateMachine, scope, enclosingOperationId);
+                nested.def().bindBranchMembers(stateMachine, scope, ownerLabel, enclosingOperationId);
             }
         }
         return Collections.unmodifiableList(bound);
     }
 
-    private String branchLabel(String branchPart) {
-        return "conditional operation '" + getId() + "' " + branchPart;
+    /**
+     * Names one branch as a position in the definition tree: the enclosing position, then this
+     * conditional, then the branch. A nested conditional extends the same chain, so a message
+     * locates a branch rather than only naming it.
+     */
+    private String branchLabel(String enclosingLabel, String branchPart) {
+        return enclosingLabel + " > conditional operation '" + getId() + "' > " + branchPart;
     }
 
     /**

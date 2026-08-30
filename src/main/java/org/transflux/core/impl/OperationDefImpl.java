@@ -314,12 +314,13 @@ final class OperationDefImpl<T, C>
      * bound members on the executor, then descends into any conditional a member declares.
      *
      * @param stateMachine the state machine under construction
+     * @param positionLabel names this container's position in the definition tree
      *
      * @throws TransfluxValidationException if a referenced id resolves to nothing, or to
      *         something that is not an action
      */
     @Override
-    void bindMembers(StateMachineImpl<T> stateMachine) {
+    void bindMembers(StateMachineImpl<T> stateMachine, String positionLabel) {
         if (executor == null) {
             throw new TransfluxValidationException(
                 "OperationDef '" + getId()
@@ -329,15 +330,16 @@ final class OperationDefImpl<T, C>
         List<CompositeMember<T, C>> bound = new ArrayList<>(members.members().size());
         for (ActionSequenceSink.DeclaredMember<T, C> member : members.members()) {
             ActionRef<T, C> ref = member.ref();
-            BoundAction<T, C> action = ref.resolve(stateMachine, scopeRegistry,
-                                                  "OperationDef '" + getId() + "'", getId());
+            BoundAction<T, C> action = ref.resolve(stateMachine, scopeRegistry, positionLabel,
+                                                  getId());
             ResolvedContextMapping mapping = ref.mapperRef().resolve(stateMachine, getId());
             bound.add(new CompositeMember<>(action, mapping, member.forked()));
 
             // Recursing after the member is built names the outer position first when a
             // resolution fails.
             if (ref instanceof ActionRef.Conditional<T, C> conditional) {
-                conditional.def().bindBranchMembers(stateMachine, scopeRegistry, getId());
+                conditional.def().bindBranchMembers(stateMachine, scopeRegistry, positionLabel,
+                                                   getId());
             }
         }
 

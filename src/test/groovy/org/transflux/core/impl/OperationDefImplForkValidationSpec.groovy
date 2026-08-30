@@ -183,7 +183,8 @@ class OperationDefImplForkValidationSpec extends Specification {
         def warning = messages.find { it.contains('Forked member shares the enclosing context') }
         warning != null
         warning.contains('operationId=op')
-        warning.contains("declaredIn=conditional operation 'route' branch 'critical'")
+        warning.contains("declaredIn=transition 't' > operation 'op' > conditional operation 'route'"
+                             + " > branch 'critical'")
         warning.contains('actionId=send')
     }
 
@@ -201,7 +202,8 @@ class OperationDefImplForkValidationSpec extends Specification {
         then:
         def warning = messages.find { it.contains('forkability cannot be checked') }
         warning != null
-        warning.contains("declaredIn=conditional operation 'route' default branch")
+        warning.contains("declaredIn=transition 't' > operation 'op' > conditional operation 'route'"
+                             + " > default branch")
     }
 
     private static void build(Class ctxType, Closure registrations, Closure members) {

@@ -125,7 +125,7 @@ class OperationDefImplSpec extends Specification {
 
         when:
         def bound = composite.buildBound()
-        composite.bindMembers((StateMachineImpl<TestEntity>) sm)
+        composite.bindMembers((StateMachineImpl<TestEntity>) sm, "operation 'op1'")
         bound.action.execute(entity, view.context, view)
 
         then:
@@ -171,7 +171,7 @@ class OperationDefImplSpec extends Specification {
 
         when:
         composite.buildBound()
-        composite.bindMembers((StateMachineImpl<TestEntity>) sm)
+        composite.bindMembers((StateMachineImpl<TestEntity>) sm, "operation 'op1'")
 
         then:
         def e = thrown(TransfluxValidationException)

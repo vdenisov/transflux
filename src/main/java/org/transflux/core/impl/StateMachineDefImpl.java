@@ -1709,6 +1709,15 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
+     * Names an action attached to a transition as a position in the definition tree. The
+     * transition is the root and the action is nested beneath it, so the label names both - an
+     * SM-level container, being a root itself, needs no such composition.
+     */
+    private static String attachedActionLabel(TransitionDefImpl<?, ?> td, ActionDefImpl<?, ?, ?> op) {
+        return "transition '" + td.getId() + "' > " + op.defLabel();
+    }
+
+    /**
      * Resolves every declared member - a container's own, and those inside any conditional it
      * holds - and installs the bound members on the executors that iterate them.
      * <p>
@@ -1726,12 +1735,12 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             ActionDefImpl<T, ?, ?> op = td.getActionDef();
             if (op != null) {
-                op.bindMembers(stateMachine);
+                op.bindMembers(stateMachine, attachedActionLabel(td, op));
             }
         }
 
-        for (OperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
-            composite.bindMembers(stateMachine);
+        for (Map.Entry<String, OperationDefImpl<T, ?>> e : smCompositeOperations.entrySet()) {
+            e.getValue().bindMembers(stateMachine, "SM-level composite '" + e.getKey() + "'");
         }
     }
 
@@ -1783,7 +1792,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             Class<?> transitionContext = td.getContextType();
             ActionDefImpl<T, ?, ?> op = td.getActionDef();
             if (op != null) {
-                op.checkRefs(transitionContext, "transition '" + td.getId() + "'", this);
+                op.checkRefs(transitionContext, attachedActionLabel(td, op), this);
             }
             checkConditionRefs(td);
         }

@@ -263,7 +263,7 @@ final class ActionSequenceSink<T, C, D> {
                 byId.mapperRef().validateAgainst(effectiveScope, scopeLabel, "action",
                     byId.id(), componentCtx, smDef.getMapperRegistrations());
             } else if (ref instanceof ActionRef.Conditional<T, C> conditional) {
-                conditional.def().checkRefs(effectiveScope, enclosingOperationId, smDef);
+                conditional.def().checkRefs(effectiveScope, scopeLabel, enclosingOperationId, smDef);
             }
 
             if (member.forked()) {
