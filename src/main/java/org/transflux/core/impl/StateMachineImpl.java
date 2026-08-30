@@ -165,14 +165,14 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
         // The order below is load-bearing:
         //  1. SM-level conditions and steps populate the root registry first, so that
-        //  2. composite scopes (bindCompositeScopes) and operations (buildBoundOperations...)
-        //     can resolve by-id refs against the root via the parent chain, and finally
-        //  3. conditional branch members bind once every container is built, since a branch may
-        //     reference a container declared after its own, and a conditional's own bound action
-        //     lives in the scope its branches resolve against, and finally
+        //  2. composite scopes (bindCompositeScopes) are allocated and every container is
+        //     registered under its id (buildBoundOperations), before
+        //  3. every declared member binds in one pass, once each container's own bound action is
+        //     in the scope its members resolve against — which is what lets a member reference a
+        //     container declared after its own — and finally
         //  4. flatten() runs strictly last (root, then composite scopes), collapsing each chain
-        //     so runtime resolve() is a single map lookup. Composite refs are resolved against
-        //     the still-chained scopes during build, so flattening earlier — or switching
+        //     so runtime resolve() is a single map lookup. Members are resolved against the
+        //     still-chained scopes during build, so flattening earlier — or switching
         //     build-time resolution from resolve() to get() — breaks root fallback.
         Map<String, BoundCondition<T, ?>> conditionRegistry = def.buildBoundConditions();
         for (BoundCondition<T, ?> bc : conditionRegistry.values()) {
@@ -189,7 +189,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
         def.bindCompositeScopes(registry, conditionRegistry);
         Loggers.BUILD_REGISTRY.debug("Container scopes bound to the root registry");
 
-        def.buildBoundOperationsIncrementally(this, bo -> {
+        def.buildBoundOperations(bo -> {
             Class<?> ctx = effectiveContextType(def, bo.id());
             registry.register(new Component.Action(bo.id(), ctx, bo));
         });
@@ -205,7 +205,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
             registerDataTriggers(td, conditionRegistry);
         }
 
-        def.bindConditionalBranchMembers(this);
+        def.bindDeferredMembers(this);
 
         registry.flatten();
         def.flattenCompositeScopes();

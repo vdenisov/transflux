@@ -101,7 +101,7 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
     }
 
     @Override
-    BoundAction<T, C> buildBound(StateMachineImpl<T> stateMachine) {
+    BoundAction<T, C> buildBound() {
         return buildBoundAction();
     }
 
@@ -111,8 +111,8 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
     }
 
     @Override
-    void bindBranchMembers(StateMachineImpl<T> stateMachine) {
-        // An imperative action declares no conditionals, so it owns no branch members.
+    void bindMembers(StateMachineImpl<T> stateMachine) {
+        // An imperative action declares no members.
     }
 
     @Override

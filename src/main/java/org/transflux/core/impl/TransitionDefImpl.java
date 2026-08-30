@@ -149,8 +149,9 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
      * Package-private hook used by {@link BoundTransition} to materialize the runtime
      * {@link BoundAction}, or {@code null} when this transition has no action attached.
      *
-     * @param stateMachine the enclosing state machine; required by declarative containers to
-     *                     resolve member references against the action registry
+     * @param stateMachine the enclosing state machine; consulted to resolve an attachment made
+     *                     by id. A declarative container resolves its own members later, in
+     *                     {@link ActionDefImpl#bindMembers}
      *
      * @return the bound action, or {@code null}
      */
@@ -184,7 +185,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         if (actionDef == null) {
             return null;
         }
-        return actionDef.buildBound(stateMachine);
+        return actionDef.buildBound();
     }
 
     ActionDefImpl<T, C, ?> getActionDef() {

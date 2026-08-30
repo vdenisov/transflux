@@ -64,7 +64,7 @@ class OperationDefImplSpec extends Specification {
             ((StateMachineImpl<TestEntity>) sm).componentRegistry, composite.getId())
 
         when:
-        composite.buildBound((StateMachineImpl<TestEntity>) sm)
+        composite.buildBound()
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -124,7 +124,8 @@ class OperationDefImplSpec extends Specification {
         )
 
         when:
-        def bound = composite.buildBound((StateMachineImpl<TestEntity>) sm)
+        def bound = composite.buildBound()
+        composite.bindMembers((StateMachineImpl<TestEntity>) sm)
         bound.action.execute(entity, view.context, view)
 
         then:
@@ -150,7 +151,7 @@ class OperationDefImplSpec extends Specification {
             ((StateMachineImpl<TestEntity>) sm).componentRegistry, composite.getId())
 
         expect:
-        composite.buildBound((StateMachineImpl<TestEntity>) sm).compensationRouter()?.fallback().is(compensation)
+        composite.buildBound().compensationRouter()?.fallback().is(compensation)
     }
 
     def "build should reject reference to unknown step id"() {
@@ -169,12 +170,36 @@ class OperationDefImplSpec extends Specification {
             ((StateMachineImpl<TestEntity>) sm).componentRegistry, composite.getId())
 
         when:
-        composite.buildBound((StateMachineImpl<TestEntity>) sm)
+        composite.buildBound()
+        composite.bindMembers((StateMachineImpl<TestEntity>) sm)
 
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains('op1')
         e.message.contains("'missing'")
+    }
+
+    def "an SM-level container may reference one declared after it"() {
+        given: 'members bind once every container is registered, not while each one builds'
+        def smd = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+        smd.operation('first', TestContext, { OperationDef<TestEntity, TestContext> c -> c.run('second') })
+        smd.operation('second', TestContext,
+                      { OperationDef<TestEntity, TestContext> c -> c.step('inner', new AppendStep('from-second')) })
+        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', TestContext, { t -> t.run('first') }) })
+        smd.state(ACTIVE, {})
+
+        def sm = smd.build()
+        def entity = new TestEntity('TRIAL')
+
+        when:
+        def result = sm.entity(entity).transitionTo(ACTIVE, new TestContext())
+
+        then:
+        result.success
+        entity.trail == ['from-second']
+        result.executedPath*.toString() == ['first', 'first/second', 'first/second/inner']
     }
 
     def "composite using inline class form is reflectively instantiated through the SM registry"() {

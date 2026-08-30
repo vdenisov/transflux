@@ -42,11 +42,11 @@ import static org.transflux.core.Preconditions.requireNotNull;
 /**
  * Implementation of {@link OperationDef}.
  * <p>
- * Holds the composite's member references in declaration order. References are not resolved
- * eagerly; they are resolved against the enclosing state machine's step, operation, and mapper
- * registries when {@link #buildBound(StateMachineImpl)} is invoked during state-machine
- * construction. Inline references contributed by this composite must already have been
- * registered with the state-machine def before that point.
+ * Holds the composite's member references in declaration order. Building is two passes:
+ * {@link #buildBound()} produces the {@link BoundAction} that goes into the enclosing scope, and
+ * {@link #bindMembers(StateMachineImpl)} resolves the members afterwards. They cannot be one pass
+ * - a sibling member may reference this container by id, and such a reference captures the bound
+ * action by value, so it must already be in the scope its own members resolve against.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
@@ -61,13 +61,15 @@ final class OperationDefImpl<T, C>
 
     private RegistryImpl<T> scopeRegistry;
 
+    private CompositeOperationExecutor<T, C> executor;
+
     OperationDefImpl(String id) {
         super(id, "operation", "Operation ID");
     }
 
     /**
      * Wires this composite's lexical-scope registry. Called once during state-machine
-     * construction, before {@link #buildBound(StateMachineImpl)} runs.
+     * construction, before {@link #buildBound()} runs.
      *
      * @param scopeRegistry the scope registry; never {@code null}
      */
@@ -264,22 +266,17 @@ final class OperationDefImpl<T, C>
     }
 
     /**
-     * Resolves each member reference against the state machine's step, operation, and mapper
-     * registries and produces a {@link BoundAction} whose underlying {@link Action}
-     * iterates the bound members in declaration order. Step and operation members are
-     * dispatched through a unified per-member path that consults the resolved
-     * {@link ResolvedContextMapping} carried alongside each bound action.
-     *
-     * @param stateMachine the enclosing state machine; the step, operation, and mapper
-     *                     registries must already contain every referenced id
+     * Produces the {@link BoundAction} carrying this container's executor, listeners and
+     * compensation table. The members it will iterate are installed by
+     * {@link #bindMembers(StateMachineImpl)}; until then the executor holds none.
      *
      * @return the bound operation
      *
-     * @throws TransfluxValidationException if the composite has no members, or any referenced
-     *         id is not registered on the state machine
+     * @throws TransfluxValidationException if the composite has no members, or its lexical scope
+     *         was never wired
      */
     @Override
-    BoundAction<T, C> buildBound(StateMachineImpl<T> stateMachine) {
+    BoundAction<T, C> buildBound() {
         if (members.members().isEmpty()) {
             throw new TransfluxValidationException(
                 "OperationDef '" + getId()
@@ -293,16 +290,9 @@ final class OperationDefImpl<T, C>
                     + "' has no scope registry; state-machine construction did not wire it");
         }
 
-        List<CompositeMember<T, C>> bound = new ArrayList<>(members.members().size());
-        for (ActionSequenceSink.DeclaredMember<T, C> member : members.members()) {
-            ActionRef<T, C> ref = member.ref();
-            BoundAction<T, C> action = ref.resolve(stateMachine, scopeRegistry,
-                                                  "OperationDef '" + getId() + "'", getId());
-            ResolvedContextMapping mapping = ref.mapperRef().resolve(stateMachine, getId());
-            bound.add(new CompositeMember<>(action, mapping, member.forked()));
-        }
-
-        Action<T, C> executor = new CompositeOperationExecutor<>(bound, scopeRegistry);
+        // A fresh executor per build: the members a later pass installs belong to the machine
+        // being built, so an earlier machine's container keeps the members it was built with.
+        this.executor = new CompositeOperationExecutor<>(scopeRegistry);
 
         return BoundAction.of(getId(), executor, ActionKind.OPERATION, buildBoundListeners(),
                               buildCompensationRouter());
@@ -319,16 +309,39 @@ final class OperationDefImpl<T, C>
         members.checkRefs(scopeContext, scopeLabel, getId(), smDef);
     }
 
+    /**
+     * Resolves each member reference against this container's lexical scope and installs the
+     * bound members on the executor, then descends into any conditional a member declares.
+     *
+     * @param stateMachine the state machine under construction
+     *
+     * @throws TransfluxValidationException if a referenced id resolves to nothing, or to
+     *         something that is not an action
+     */
     @Override
-    void bindBranchMembers(StateMachineImpl<T> stateMachine) {
-        if (scopeRegistry == null) {
-            return;
+    void bindMembers(StateMachineImpl<T> stateMachine) {
+        if (executor == null) {
+            throw new TransfluxValidationException(
+                "OperationDef '" + getId()
+                    + "' has no executor; state-machine construction did not build it");
         }
+
+        List<CompositeMember<T, C>> bound = new ArrayList<>(members.members().size());
         for (ActionSequenceSink.DeclaredMember<T, C> member : members.members()) {
-            if (member.ref() instanceof ActionRef.Conditional<T, C> conditional) {
+            ActionRef<T, C> ref = member.ref();
+            BoundAction<T, C> action = ref.resolve(stateMachine, scopeRegistry,
+                                                  "OperationDef '" + getId() + "'", getId());
+            ResolvedContextMapping mapping = ref.mapperRef().resolve(stateMachine, getId());
+            bound.add(new CompositeMember<>(action, mapping, member.forked()));
+
+            // Recursing after the member is built names the outer position first when a
+            // resolution fails.
+            if (ref instanceof ActionRef.Conditional<T, C> conditional) {
                 conditional.def().bindBranchMembers(stateMachine, scopeRegistry, getId());
             }
         }
+
+        executor.bind(bound);
     }
 
     @Override
@@ -369,15 +382,21 @@ final class OperationDefImpl<T, C>
     /**
      * Iterates an ordered list of {@link CompositeMember} entries and invokes each one against
      * the supplied {@link ExecutingTransition} through a single unified dispatch path.
+     * <p>
+     * The members arrive after construction: a container's bound action has to be in the scope
+     * its own members resolve against, so binding them is a later pass.
      */
-    @SuppressWarnings("ClassCanBeRecord")
     private static final class CompositeOperationExecutor<T, C> implements Action<T, C> {
-        private final List<CompositeMember<T, C>> members;
         private final Registry<T> scopeRegistry;
 
-        CompositeOperationExecutor(List<CompositeMember<T, C>> members, Registry<T> scopeRegistry) {
-            this.members = members;
+        private List<CompositeMember<T, C>> members;
+
+        CompositeOperationExecutor(Registry<T> scopeRegistry) {
             this.scopeRegistry = scopeRegistry;
+        }
+
+        void bind(List<CompositeMember<T, C>> members) {
+            this.members = members;
         }
 
         @Override

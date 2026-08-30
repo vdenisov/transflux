@@ -41,7 +41,7 @@ import java.util.function.Consumer;
  * return the precise subclass type covariantly.
  *
  * <p>The abstract dispatch methods ({@link #buildBound}, {@link #checkRefs},
- * {@link #bindBranchMembers}, {@link #bindScope}, {@link #flattenScope}, {@link #scanScopeFor},
+ * {@link #bindMembers}, {@link #bindScope}, {@link #flattenScope}, {@link #scanScopeFor},
  * {@link #getScopeRegistry}) let the state-machine build pipeline drive both authoring forms
  * uniformly. {@link StepDefImpl} no-ops the scope and ref hooks, since an imperative action
  * binds no children at definition time; only {@link OperationDefImpl} carries real bodies for
@@ -239,15 +239,13 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     /**
-     * Resolves this operation into a runtime {@link BoundAction}. The {@code stateMachine}
-     * argument is consumed by the composite variant to resolve member references; the simple
-     * variant ignores it.
+     * Resolves this action into a runtime {@link BoundAction}. A composite's members are not
+     * resolved here - {@link #bindMembers} installs them afterwards, once every scope is
+     * populated - so what comes back may still be waiting for them.
      *
-     * @param stateMachine the enclosing state machine under construction
-     *
-     * @return the bound operation
+     * @return the bound action
      */
-    abstract BoundAction<T, C> buildBound(StateMachineImpl<T> stateMachine);
+    abstract BoundAction<T, C> buildBound();
 
     /**
      * Build-time hook: validates this operation's member references (if any) against the
@@ -262,15 +260,16 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     abstract void checkRefs(Class<?> scopeContext, String scopeLabel, StateMachineDefImpl<T> smDef);
 
     /**
-     * Build-time hook: resolves every member declared inside a conditional's branches against
-     * this action's lexical scope and installs the bound members on the conditional's executor.
-     * Runs after every scope is populated, which is why it is separate from {@link #buildBound} —
-     * a conditional's own bound action goes into the scope its branches resolve against. The
-     * simple variant no-ops.
+     * Build-time hook: resolves every member this action declares - its own, and those inside any
+     * conditional it holds - against the matching lexical scope, and installs them on the
+     * executors that will iterate them. Runs after every scope is populated and every container's
+     * bound action is registered, which is why it is separate from {@link #buildBound}: a
+     * container's bound action goes into the scope its own members resolve against, so a member
+     * may name a container declared after it. The simple variant no-ops.
      *
      * @param stateMachine the state machine under construction
      */
-    abstract void bindBranchMembers(StateMachineImpl<T> stateMachine);
+    abstract void bindMembers(StateMachineImpl<T> stateMachine);
 
     /**
      * Build-time hook: allocates and populates this operation's lexical-scope registry against

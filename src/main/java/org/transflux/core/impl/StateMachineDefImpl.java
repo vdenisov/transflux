@@ -904,19 +904,18 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     /**
      * Resolves the SM-level declarative containers into {@link BoundAction} instances and
-     * surfaces each one to the supplied callback. Runs after the imperative actions are already
-     * in the registry, since a container's members resolve against them. Framework-internal.
+     * surfaces each one to the supplied callback. The members each one will iterate are installed
+     * later, by {@link #bindDeferredMembers}. Framework-internal.
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    void buildBoundOperationsIncrementally(StateMachineImpl<T> stateMachine,
-                                           Consumer<BoundAction<T, ?>> afterBuild) {
+    void buildBoundOperations(Consumer<BoundAction<T, ?>> afterBuild) {
         for (Map.Entry<String, OperationDefImpl<T, ?>> e : smCompositeOperations.entrySet()) {
             if (actionRegistrations.containsKey(e.getKey())) {
                 throw new TransfluxValidationException(
                     "Operation ID '" + e.getKey() + "' is already registered");
             }
             OperationDefImpl raw = e.getValue();
-            BoundAction<T, ?> bo = raw.buildBound(stateMachine);
+            BoundAction<T, ?> bo = raw.buildBound();
             afterBuild.accept(bo);
         }
     }
@@ -1710,31 +1709,29 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
-     * Resolves every member declared inside a conditional's branches and installs the bound
-     * members on the conditional's executor.
+     * Resolves every declared member - a container's own, and those inside any conditional it
+     * holds - and installs the bound members on the executors that iterate them.
      * <p>
-     * Branch members are the one position that cannot bind during
-     * {@link OperationDefImpl#buildBound}: a conditional's bound action is registered
-     * <em>into</em> the very scope its branches resolve against, so the members can only be
-     * resolved once every scope is populated. Binding here rather than inside {@code buildBound}
-     * also keeps a branch free to reference a container declared after its own — containers are
-     * registered into the root registry as they are built, so an earlier container's branch
-     * would otherwise fail to see a later one.
+     * Members cannot bind during {@link OperationDefImpl#buildBound}, because a container's or a
+     * conditional's bound action is registered <em>into</em> the very scope its own members
+     * resolve against: a sibling may name it by id, and such a reference captures the bound
+     * action by value. Binding here, once every scope is populated and every container is
+     * registered, also frees a member to reference a container declared after its own.
      *
      * @param stateMachine the state machine under construction
      *
-     * @throws TransfluxValidationException if a branch names an id that no action in scope carries
+     * @throws TransfluxValidationException if a member names an id that no action in scope carries
      */
-    void bindConditionalBranchMembers(StateMachineImpl<T> stateMachine) {
+    void bindDeferredMembers(StateMachineImpl<T> stateMachine) {
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             ActionDefImpl<T, ?, ?> op = td.getActionDef();
             if (op != null) {
-                op.bindBranchMembers(stateMachine);
+                op.bindMembers(stateMachine);
             }
         }
 
         for (OperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
-            composite.bindBranchMembers(stateMachine);
+            composite.bindMembers(stateMachine);
         }
     }
 
