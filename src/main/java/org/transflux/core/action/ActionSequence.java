@@ -347,4 +347,30 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      * @throws TransfluxValidationException if {@code actionIdentifiable} is {@code null}
      */
     SELF step(Identifiable actionIdentifiable, Consumer<StepDef<T, C>> configurer);
+
+    /**
+     * Declares a multi-branch conditional at this position - a declarative action whose ordering
+     * rule is "first matching branch" rather than "all, in order".
+     *
+     * @param id the conditional's id; must be unique across the state machine
+     * @param configurer callback that declares the branches
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or {@code configurer} is
+     *         {@code null}
+     */
+    SELF conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer);
+
+    /**
+     * {@link Identifiable} overload of {@link #conditional(String, Consumer)}.
+     *
+     * @param conditionalIdentifiable an identifiable supplying the conditional's id
+     * @param configurer callback that declares the branches
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code conditionalIdentifiable} is {@code null}
+     */
+    SELF conditional(Identifiable conditionalIdentifiable, Consumer<ConditionalOperationDef<T, C>> configurer);
 }

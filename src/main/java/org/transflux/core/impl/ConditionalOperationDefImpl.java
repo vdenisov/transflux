@@ -456,6 +456,13 @@ final class ConditionalOperationDefImpl<T, C>
                 ref.resolve(stateMachine, scope, ownerLabel, enclosingOperationId),
                 ref.mapperRef().resolve(stateMachine, enclosingOperationId),
                 member.forked()));
+
+            // A conditional nested in a branch owns no scope and does not re-type, so it binds
+            // against the same two. Recursing after the member is built names the outer position
+            // first when a resolution fails.
+            if (ref instanceof ActionRef.Conditional<T, C> nested) {
+                nested.def().bindBranchMembers(stateMachine, scope, enclosingOperationId);
+            }
         }
         return Collections.unmodifiableList(bound);
     }

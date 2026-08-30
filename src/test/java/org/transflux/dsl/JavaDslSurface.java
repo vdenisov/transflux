@@ -203,7 +203,11 @@ public final class JavaDslSurface {
                                 .fork("notify", parent -> new NotifyCtx(parent.orderId))
                                 .fork(Ids.NOTIFY, Ids.NOTIFY_FROM_ORDER)
                                 .fork(Ids.NOTIFY, "notify-from-order")
-                                .fork("notify", Ids.NOTIFY_FROM_ORDER))
+                                .fork("notify", Ids.NOTIFY_FROM_ORDER)
+                                .conditional("nested-in-branch", inner -> inner
+                                    .branch("deep", ib -> ib
+                                        .condition("deep-cond", (order, ctx) -> true)
+                                        .run("record"))))
                             .defaultBranch(d -> d
                                 .run("record")
                                 .run(Ids.RECORD)
@@ -218,7 +222,11 @@ public final class JavaDslSurface {
                                     .using(RecordingAction.class)
                                     .withName("In the default branch"))
                                 .fork("record")
-                                .fork(Ids.NOTIFY, Ids.NOTIFY_FROM_ORDER))))))
+                                .fork(Ids.NOTIFY, Ids.NOTIFY_FROM_ORDER)
+                                .conditional("nested-in-default", inner -> inner
+                                    .branch("deep-default", ib -> ib
+                                        .condition("deep-default-cond", (order, ctx) -> true)
+                                        .run("record"))))))))
             .state("s2", s -> { })
             .build();
     }

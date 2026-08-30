@@ -542,6 +542,100 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         seen == ['parent-tag-inline']
     }
 
+    def 'a conditional nested inside a branch selects and reports at two levels'() {
+        given:
+        def applied = []
+        def sm = build(applied, { smd -> },
+            { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
+                c.conditional('outer', { ConditionalOperationDef<Entity, TestContext> cs ->
+                    cs.branch('high', { BranchDef<Entity, TestContext> b ->
+                        b.conditionExpression('priority >= 5')
+                         .conditional('inner', { ConditionalOperationDef<Entity, TestContext> ics ->
+                             ics.branch('vip', { BranchDef<Entity, TestContext> ib ->
+                                 ib.condition('is-vip', { Entity e -> e.tier == 'VIP' } as Predicate)
+                                   .step('vip-leaf', new TrailStep('vip-leaf'))
+                             }).defaultBranch({ DefaultBranchDef<Entity, TestContext> d ->
+                                 d.step('plain-leaf', new TrailStep('plain-leaf'))
+                             })
+                         })
+                    }).defaultBranch({ DefaultBranchDef<Entity, TestContext> d ->
+                        d.step('low-leaf', new TrailStep('low-leaf'))
+                    })
+                })
+            }) })
+        def entity = new Entity('s1')
+        entity.priority = 7
+        entity.tier = 'VIP'
+
+        when:
+        def result = sm.executeTransition(entity, 's2')
+
+        then: 'each conditional pushed its own id, so the leaf reports at full depth'
+        result.success
+        entity.trail == ['vip-leaf']
+        result.executedPath*.toString() == ['op', 'op/outer', 'op/outer/inner', 'op/outer/inner/vip-leaf']
+    }
+
+    def 'a nested conditional falls through to its own default branch'() {
+        given:
+        def applied = []
+        def sm = build(applied, { smd -> },
+            { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
+                c.conditional('outer', { ConditionalOperationDef<Entity, TestContext> cs ->
+                    cs.branch('high', { BranchDef<Entity, TestContext> b ->
+                        b.conditionExpression('priority >= 5')
+                         .conditional('inner', { ConditionalOperationDef<Entity, TestContext> ics ->
+                             ics.branch('vip', { BranchDef<Entity, TestContext> ib ->
+                                 ib.condition('is-vip', { Entity e -> e.tier == 'VIP' } as Predicate)
+                                   .step('vip-leaf', new TrailStep('vip-leaf'))
+                             }).defaultBranch({ DefaultBranchDef<Entity, TestContext> d ->
+                                 d.step('plain-leaf', new TrailStep('plain-leaf'))
+                             })
+                         })
+                    })
+                })
+            }) })
+        def entity = new Entity('s1')
+        entity.priority = 7
+        entity.tier = 'REGULAR'
+
+        when:
+        def result = sm.executeTransition(entity, 's2')
+
+        then:
+        result.success
+        entity.trail == ['plain-leaf']
+    }
+
+    def 'a branch member declared inside a nested conditional resolves in the enclosing container scope'() {
+        given:
+        def applied = []
+        def sm = build(applied, { smd -> },
+            { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
+                c.step('shared', new TrailStep('shared'))
+                 .conditional('outer', { ConditionalOperationDef<Entity, TestContext> cs ->
+                    cs.branch('only', { BranchDef<Entity, TestContext> b ->
+                        b.condition('always', { Entity e -> true } as Predicate)
+                         .conditional('inner', { ConditionalOperationDef<Entity, TestContext> ics ->
+                             ics.branch('deep', { BranchDef<Entity, TestContext> ib ->
+                                 ib.condition('also-always', { Entity e -> true } as Predicate)
+                                   .run('shared')
+                             })
+                         })
+                    })
+                })
+            }) })
+
+        when:
+        def entity = new Entity('s1')
+        def result = sm.executeTransition(entity, 's2')
+
+        then: 'the inline sibling is visible two conditionals deep'
+        result.success
+        entity.trail == ['shared', 'shared']
+        result.executedPath*.toString() == ['op', 'op/shared', 'op/outer', 'op/outer/inner', 'op/outer/inner/shared']
+    }
+
     private static StateMachine<Entity> build(List<String> applied,
                                               Consumer<StateMachineDefImpl<Entity>> smdRegistrations,
                                               Consumer<TransitionDef<Entity, TestContext>> transitionConfigurer) {

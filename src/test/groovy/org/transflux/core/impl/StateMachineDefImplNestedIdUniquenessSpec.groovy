@@ -157,6 +157,30 @@ class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
         e.message.contains('twin')
     }
 
+    def 'an id claimed twice at different nesting depths is rejected'() {
+        given: 'ids are global, so nesting buys no fresh namespace'
+        def smd = baseDef({ t -> t.operation('outer', { OperationDef<Entity, TestContext> c ->
+            c.step('twin', new NoOpStep())
+             .conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+                cs.branch('only', { BranchDef<Entity, TestContext> b ->
+                    b.conditionExpression('true')
+                     .conditional('inner', { ConditionalOperationDef<Entity, TestContext> ics ->
+                         ics.branch('deep', { BranchDef<Entity, TestContext> ib ->
+                             ib.conditionExpression('true').step('twin', new NoOpStep())
+                         })
+                     })
+                })
+            })
+        }) })
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains('twin')
+    }
+
     private static StateMachineDefImpl<Entity> baseDef(Consumer<TransitionDef<Entity, TestContext>> transitionConfigurer) {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)

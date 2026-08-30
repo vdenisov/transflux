@@ -49,6 +49,8 @@ class ActionSequenceSpec extends Specification {
     def 'the declared member grammar is exactly the documented one'() {
         expect: 'a widening is a deliberate edit here, not a side effect elsewhere'
         signatures(ActionSequence).toSorted() == [
+            'conditional(java.lang.String,java.util.function.Consumer)',
+            'conditional(org.transflux.core.Identifiable,java.util.function.Consumer)',
             'fork(java.lang.String)',
             'fork(java.lang.String,java.lang.String)',
             'fork(java.lang.String,org.transflux.core.Identifiable)',
@@ -75,6 +77,14 @@ class ActionSequenceSpec extends Specification {
     def '#type offers every member form'() {
         expect:
         signatures(type).containsAll(signatures(ActionSequence))
+
+        where:
+        type << SEQUENCES
+    }
+
+    def '#type declares no member form of its own'() {
+        expect: 'the grammar lives in exactly one place, so the three cannot drift'
+        type.declaredMethods*.name.toSet().intersect(['run', 'fork', 'step', 'conditional'].toSet()).isEmpty()
 
         where:
         type << SEQUENCES
