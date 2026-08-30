@@ -1004,9 +1004,10 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * Reports whether anything in this definition forks, which is what decides whether the state
      * machine builds a pool at all.
      * <p>
-     * Containers are reachable from exactly two places - registered at SM level, or attached to a
-     * transition - because a container cannot be declared inline as a member. So this walk is
-     * complete without descending into anything.
+     * Containers are reachable from exactly two roots - registered at SM level, or attached to a
+     * transition - because a container cannot be declared inline as a member. Each root is then
+     * walked in full: {@link OperationDefImpl#declaresFork()} descends through any conditional's
+     * branches, since a branch member forks through the same path a container member does.
      *
      * @return whether any container declares a forked member
      */

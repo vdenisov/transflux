@@ -301,6 +301,21 @@ final class ConditionalOperationDefImpl<T, C>
     }
 
     /**
+     * Visits every member of every branch, and the default branch's, recursing into any
+     * conditional nested inside one.
+     *
+     * @param visitor receives each member, in declaration order
+     */
+    void visitBranchMembers(Consumer<ActionSequenceSink.DeclaredMember<T, C>> visitor) {
+        for (BranchDefImpl<T, C> branch : branches) {
+            branch.visitMembers(visitor);
+        }
+        if (defaultBranch != null) {
+            defaultBranch.visitMembers(visitor);
+        }
+    }
+
+    /**
      * Build-time hook: runs the shared member check over every branch, exactly as the enclosing
      * operation runs it over its own members.
      *

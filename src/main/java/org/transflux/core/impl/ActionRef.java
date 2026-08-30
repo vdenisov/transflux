@@ -24,6 +24,7 @@ import org.transflux.core.exception.TransfluxValidationException;
 
 import java.util.Optional;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
@@ -121,6 +122,18 @@ sealed interface ActionRef<T, C>
      */
     default void collectListenerIds(BiConsumer<String, String> sink) {
         // only the configurer-declared variants carry a def that can hold listeners
+    }
+
+    /**
+     * Visits every member nested beneath this reference. Only a {@link Conditional} nests
+     * anything - its branches are member lists like any other - so every other variant no-ops.
+     * A by-id reference is deliberately not followed: it names a component resolved elsewhere,
+     * and following it would turn a finite source tree into a graph that can cycle.
+     *
+     * @param visitor receives each nested member, in declaration order
+     */
+    default void visitNestedMembers(Consumer<ActionSequenceSink.DeclaredMember<T, C>> visitor) {
+        // only a conditional nests a member list
     }
 
     /**
@@ -241,6 +254,11 @@ sealed interface ActionRef<T, C>
         @Override
         public void collectListenerIds(BiConsumer<String, String> sink) {
             def.collectListenerIds(sink);
+        }
+
+        @Override
+        public void visitNestedMembers(Consumer<ActionSequenceSink.DeclaredMember<T, C>> visitor) {
+            def.visitBranchMembers(visitor);
         }
     }
 }

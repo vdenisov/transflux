@@ -199,6 +199,25 @@ final class ActionSequenceSink<T, C, D> {
     }
 
     /**
+     * Visits every member of this sequence and, recursively, every member nested inside one -
+     * a conditional member's branches and their own nested conditionals.
+     * <p>
+     * The walk terminates by construction: the edge set is the source nesting, every
+     * {@code conditional(...)} and {@code branch(...)} constructs a fresh def, no DSL method
+     * accepts an already-built one, and the configurer guard makes a def inert once its lambda
+     * returns - so the structure is a finite tree rather than a graph. Only a by-id reference
+     * can close a loop, and this walk does not follow one.
+     *
+     * @param visitor receives each member, in declaration order, outermost first
+     */
+    void visitAllMembers(Consumer<DeclaredMember<T, C>> visitor) {
+        for (DeclaredMember<T, C> member : members) {
+            visitor.accept(member);
+            member.ref().visitNestedMembers(visitor);
+        }
+    }
+
+    /**
      * Walks this sequence's action refs and forwards each to the supplied sink. By-id refs
      * no-op; inline refs push themselves; conditional refs recurse into their branches and then
      * register their own bound action.

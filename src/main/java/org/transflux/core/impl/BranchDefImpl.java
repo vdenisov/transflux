@@ -71,6 +71,10 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
         return members.members().stream().map(ActionSequenceSink.DeclaredMember::ref).toList();
     }
 
+    void visitMembers(java.util.function.Consumer<ActionSequenceSink.DeclaredMember<T, C>> visitor) {
+        members.visitAllMembers(visitor);
+    }
+
     void checkRefs(Class<?> scopeContext, String ownerLabel, String enclosingOperationId,
                    StateMachineDefImpl<T> smDef) {
         members.checkRefs(scopeContext, ownerLabel, enclosingOperationId, smDef);

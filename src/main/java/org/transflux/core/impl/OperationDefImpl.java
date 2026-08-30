@@ -219,29 +219,38 @@ final class OperationDefImpl<T, C>
 
     /**
      * Reports whether any member of this container is forked, which is what tells the build
-     * whether an executor is needed at all.
+     * whether an executor is needed at all. Members nested inside a conditional's branches count:
+     * a branch member is dispatched through the same path a container member is.
      *
-     * @return whether a forked member was declared
+     * @return whether a forked member was declared anywhere in this container's subtree
      */
     boolean declaresFork() {
-        return members.members().stream().anyMatch(ActionSequenceSink.DeclaredMember::forked);
+        boolean[] forks = {false};
+        members.visitAllMembers(member -> forks[0] |= member.forked());
+        return forks[0];
     }
 
     /**
-     * Returns the ids of every by-id reference declared by this composite - the candidate edges
+     * Returns the ids of every by-id reference in this composite's subtree - the candidate edges
      * for the cycle-detection pass. A reference to an imperative action cannot close a cycle
      * (it binds no children at definition time), so the caller narrows this list to ids that
      * name a declarative container before walking it.
+     *
+     * <p>The walk descends into a conditional's branches, because a branch member dispatches
+     * through the same path a container member does and can close the same cycle. It is
+     * over-approximate in the way the detector already was: it does not reason about which
+     * branch is selectable, just as it does not reason about whether a container is ever
+     * reached.
      *
      * @return the referenced ids in declaration order
      */
     List<String> getByIdReferenceIds() {
         List<String> ids = new ArrayList<>();
-        for (ActionSequenceSink.DeclaredMember<T, C> member : members.members()) {
+        members.visitAllMembers(member -> {
             if (member.ref() instanceof ActionRef.ById<T, C> r) {
                 ids.add(r.id());
             }
-        }
+        });
         return Collections.unmodifiableList(ids);
     }
 
