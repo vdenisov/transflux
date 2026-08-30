@@ -46,7 +46,7 @@
 
 #### 4.3.2 Deferred from the fork work
 
-- [ ] **Inline forked declarations, reserved as `forkStep(...)`** - moved to [Phase 4b §4b.5](phase-4b-action-sequence-grammar.md), as `forkStep` / `forkOperation` / `forkConditional` on the shared `ActionSequence` grammar. The two constraints found here still hold there: it cannot be an overload of `fork` (the erasure note in §4.3), and forking an inline *operation* needs the inline `operation(...)` member form first, which Phase 4b §4b.3 adds.
+- [ ] **Inline forked declarations, reserved as `forkStep(...)`** - moved to [Phase 4b §4b.6](phase-4b-action-sequence-grammar.md), as `forkStep` / `forkOperation` / `forkConditional` on the shared `ActionSequence` grammar. The two constraints found here still hold there: it cannot be an overload of `fork` (the erasure note in §4.3), and forking an inline *operation* needs the inline `operation(...)` member form first, which Phase 4b §4b.3 adds.
 - [ ] **A per-fork rejection-policy override.** `withForkRejectionPolicy(...)` is machine-wide, which is the right grain for a stance about saturation but not for a machine that forks both an audit write and a metrics ping. The arithmetic to know before adding it: the policy is a trailing parameter on all seven `fork` overloads, so it is fourteen, and every later addition to the fork grammar doubles again. Additive whenever the evidence turns up. Worth remembering that at one pool per state machine the optional work is already competing for the critical work's queue slots, so the fix for genuinely mixed criticality is a separate executor rather than a policy.
 
 ### 4.4 Async Compensation

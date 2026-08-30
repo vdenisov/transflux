@@ -114,5 +114,6 @@ Tracked as checkboxes in the [Phase 4b roadmap](../roadmap/phase-4b-action-seque
 | 2 | `ActionSequence` extracted; branch members gain mapper, fork and inline conditional; invariant test | M | 1 |
 | 3 | Inline sequence at a member position; `definitionForks()` descends | M | 1 |
 | 4 | Transition slot accepts an inline conditional | S | - |
-| 5 | `forkStep` / `forkOperation` / `forkConditional` | S | 2, 3 |
-| 6 | Reconcile `requirements.md` §3.4.2, the YAML grammar, CLAUDE.md and the README | S | 2, 3, 4, 5 |
+| 5 | Drop the `Identifiable` overloads and `OperationDef.usingContext`; a context is declared where the action is | M | 3 |
+| 6 | `forkStep` / `forkOperation` / `forkConditional` | S | 2, 3, 5 |
+| 7 | Reconcile `requirements.md` §3.4.2, the YAML grammar, CLAUDE.md and the README | S | 2, 3, 4, 5, 6 |

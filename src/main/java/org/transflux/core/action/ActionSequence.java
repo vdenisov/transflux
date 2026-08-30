@@ -384,10 +384,11 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      * across the state machine. Its own members resolve against its scope first and the enclosing
      * chain after, so it can reach what encloses it while a sibling cannot reach into it.
      *
-     * <p>It is typed against the enclosing context and runs pass-through. Calling
-     * {@link OperationDef#usingContext(Class)} inside the configurer re-types it, and the boundary
-     * is then checked exactly as a by-id reference's is: the declared type must be assignable from
-     * the enclosing one.
+     * <p>It is typed against the enclosing context and runs pass-through: the members declared
+     * inside it receive the same context this position does. There is no way to give it a context
+     * of its own - {@link OperationDef#usingContext(Class)} accepts only the enclosing type
+     * restated, since the configurer has already bound it. To cross a context boundary, reference
+     * a component declared against that context through {@link #run(String, ContextMapper)}.
      *
      * @param id the operation's id; must be unique across the state machine
      * @param configurer callback that declares the members

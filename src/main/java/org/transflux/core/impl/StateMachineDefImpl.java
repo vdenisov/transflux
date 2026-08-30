@@ -1924,11 +1924,14 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private void dfsComposite(String id, Map<String, List<String>> nodes, Set<String> visited,
                               Deque<String> stack) {
         if (stack.contains(id)) {
+            // The stack is LIFO, so it iterates most-recent-first; reverse it to walk the path the
+            // way the definition reads, then keep everything from the repeated id onwards.
             List<String> path = new ArrayList<>(stack);
+            Collections.reverse(path);
             path.add(id);
-            int start = path.indexOf(id);
             throw new TransfluxValidationException(
-                "Composite operation cycle detected: " + String.join(" -> ", path.subList(start, path.size())));
+                "Composite operation cycle detected: "
+                    + String.join(" -> ", path.subList(path.indexOf(id), path.size())));
         }
         if (visited.contains(id)) {
             return;

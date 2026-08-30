@@ -426,8 +426,8 @@ final class OperationDefImpl<T, C>
 
     @Override
     Optional<String> scanScopeFor(String id, String excludingId) {
-        // Innermost first: the container that actually claimed the id is the useful answer, and
-        // ids are unique, so at most one scope in the subtree holds it either way.
+        // Outermost first, the order the member walk yields. Which one answers does not matter
+        // while ids are unique - at most one scope in the subtree can hold the id.
         for (OperationDefImpl<T, C> nested : nestedContainers()) {
             if (nested.holdsInScope(id, excludingId)) {
                 return Optional.of(nested.getId());

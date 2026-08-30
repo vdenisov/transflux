@@ -66,7 +66,7 @@ class StateMachineDefImplNestedCycleDetectionSpec extends Specification {
         e.message.contains('a')
     }
 
-    def 'two composites referring to each other (A -> B -> A) are rejected'() {
+    def 'two composites referring to each other (A -> B -> A) are rejected, naming both'() {
         given:
         def smd = baseDef()
         smd.forContext(Ctx, { ContextScope<Entity, Ctx> scope ->
@@ -82,10 +82,10 @@ class StateMachineDefImplNestedCycleDetectionSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message.contains('cycle')
+        e.message.endsWith('cycle detected: a -> b -> a')
     }
 
-    def 'three composites forming A -> B -> C -> A are rejected'() {
+    def 'three composites forming A -> B -> C -> A are rejected, naming the whole path'() {
         given:
         def smd = baseDef()
         smd.forContext(Ctx, { ContextScope<Entity, Ctx> scope ->
@@ -101,9 +101,9 @@ class StateMachineDefImplNestedCycleDetectionSpec extends Specification {
         when:
         smd.build()
 
-        then:
+        then: 'every node on the path is named, in the order the definition reads'
         def e = thrown(TransfluxValidationException)
-        e.message.contains('cycle')
+        e.message.endsWith('cycle detected: a -> b -> c -> a')
     }
 
     def 'acyclic composite chain A -> B is accepted'() {
@@ -265,9 +265,12 @@ class StateMachineDefImplNestedCycleDetectionSpec extends Specification {
         when:
         smd.build()
 
-        then:
+        then: 'the enclosing container is named; the nested one is not, and that is the known limit'
+        // A container's edges include its whole subtree's, so the closing edge is attributed to
+        // the outermost container rather than to `inner`, which shortens the path. Naming `inner`
+        // would need structural parent-to-child edges instead of the transitive edge set.
         def e = thrown(TransfluxValidationException)
-        e.message.contains('cycle')
+        e.message.endsWith('cycle detected: a -> a')
     }
 
     def 'an inline container referencing an SM-level container acyclically still builds'() {
