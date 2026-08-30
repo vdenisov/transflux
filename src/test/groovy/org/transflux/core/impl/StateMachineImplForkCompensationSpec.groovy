@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.function.Consumer
+import java.util.function.Predicate
 
 /**
  * A forked member owns its rollback: its stack unwinds alone, and neither direction of failure
@@ -188,6 +189,52 @@ class StateMachineImplForkCompensationSpec extends Specification {
         then:
         trail.isEmpty()
         result.success
+    }
+
+    def 'a forked branch member owns its rollback, and the sync path keeps its own'() {
+        given: 'the fork is declared at a branch position rather than a container one'
+        def branchDone = new CountDownLatch(1)
+        sm = build({ smd ->
+            smd.operation('inner', Object, { OperationDef<Entity, Object> op ->
+                op.step('branch-work', { StepDef<Entity, Object> s ->
+                    s.using({ e, c, t -> trail.add('branch-work') } as Action)
+                     .withCompensation({ e, c -> trail.add('-branch-work') } as Compensation)
+                } as Consumer)
+                  .step('branch-boom', { StepDef<Entity, Object> s ->
+                      s.using({ e, c, t ->
+                          try {
+                              throw new IllegalStateException('branch failed')
+                          } finally {
+                              branchDone.countDown()
+                          }
+                      } as Action)
+                  } as Consumer)
+            } as Consumer)
+             .step('sync', { StepDef<Entity, Object> s ->
+                 s.using({ e, c, t -> trail.add('sync') } as Action)
+                  .withCompensation({ e, c -> trail.add('-sync') } as Compensation)
+             } as Consumer)
+        }, { op ->
+            op.conditional('route', { cs ->
+                cs.branch('only', { b ->
+                    b.condition('always', { e -> true } as Predicate).fork('inner')
+                } as Consumer)
+            } as Consumer)
+              .run('sync')
+        })
+
+        when:
+        def result = sm.executeTransition(new Entity('s1'), 's2')
+        branchDone.await(WAIT_SECONDS, TimeUnit.SECONDS)
+        Thread.sleep(200)
+
+        then: 'the branch unwound only what it ran, and the transition rolled back nothing'
+        trail.toList().containsAll(['branch-work', '-branch-work', 'sync'])
+        !trail.contains('-sync')
+
+        and:
+        result.success
+        result.compensatedPath.isEmpty()
     }
 
     private StateMachine<Entity> build(Closure registrations, Closure members) {

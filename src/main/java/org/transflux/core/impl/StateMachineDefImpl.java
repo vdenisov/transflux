@@ -1686,7 +1686,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     public StateMachine<T> build() {
         // The three phase boundaries, reported so that "why did my definition build into *that*" has
         // somewhere to start. Each phase names itself before running, so a throw is attributable to
-        // the phase whose line was last emitted — which is why all four go to one logger rather than
+        // the phase whose line was last emitted — which is why all three go to one logger rather than
         // to the logger of the phase they announce: split across leaves, the attribution would hold
         // only for a host who enabled every one of them.
         Loggers.BUILD_LIFECYCLE.debug("Validating context compatibility and cycles");

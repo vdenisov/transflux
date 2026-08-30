@@ -435,8 +435,8 @@ class ConditionalOperationDefImplSpec extends Specification {
         branch.run(identifiable('my-step'))
 
         then:
-        branch.actionRefs.size() == 1
-        branch.actionRefs[0].id() == 'my-step'
+        branch.members.size() == 1
+        branch.members[0].ref().id() == 'my-step'
     }
 
     def 'DefaultBranchDef.run(Identifiable) appends a by-id reference'() {
@@ -447,8 +447,8 @@ class ConditionalOperationDefImplSpec extends Specification {
         defaultBranch.run(identifiable('my-step'))
 
         then:
-        defaultBranch.actionRefs.size() == 1
-        defaultBranch.actionRefs[0].id() == 'my-step'
+        defaultBranch.members.size() == 1
+        defaultBranch.members[0].ref().id() == 'my-step'
     }
 
     def 'BranchDef.condition(Identifiable, Condition) builds an InstanceBased descriptor under the id'() {
@@ -499,8 +499,8 @@ class ConditionalOperationDefImplSpec extends Specification {
         branch.step(identifiable('inline-step'), new NoopStep())
 
         then:
-        branch.actionRefs.size() == 1
-        branch.actionRefs[0].id() == 'inline-step'
+        branch.members.size() == 1
+        branch.members[0].ref().id() == 'inline-step'
     }
 
     def 'BranchDef.step(Identifiable, Class) appends an inline step class under the id'() {
@@ -511,8 +511,8 @@ class ConditionalOperationDefImplSpec extends Specification {
         branch.step(identifiable('inline-step'), NoopStep)
 
         then:
-        branch.actionRefs.size() == 1
-        branch.actionRefs[0].id() == 'inline-step'
+        branch.members.size() == 1
+        branch.members[0].ref().id() == 'inline-step'
     }
 
     def 'DefaultBranchDef.step(Identifiable, Step) appends an inline step under the id'() {
@@ -523,8 +523,8 @@ class ConditionalOperationDefImplSpec extends Specification {
         defaultBranch.step(identifiable('inline-step'), new NoopStep())
 
         then:
-        defaultBranch.actionRefs.size() == 1
-        defaultBranch.actionRefs[0].id() == 'inline-step'
+        defaultBranch.members.size() == 1
+        defaultBranch.members[0].ref().id() == 'inline-step'
     }
 
     def 'DefaultBranchDef.step(Identifiable, Class) appends an inline step class under the id'() {
@@ -535,8 +535,8 @@ class ConditionalOperationDefImplSpec extends Specification {
         defaultBranch.step(identifiable('inline-step'), NoopStep)
 
         then:
-        defaultBranch.actionRefs.size() == 1
-        defaultBranch.actionRefs[0].id() == 'inline-step'
+        defaultBranch.members.size() == 1
+        defaultBranch.members[0].ref().id() == 'inline-step'
     }
 
     def 'BranchDef two-arg Identifiable overloads reject null identifiable'() {

@@ -52,11 +52,7 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
         return members.members();
     }
 
-    List<ActionRef<T, C>> getActionRefs() {
-        return members.members().stream().map(ActionSequenceSink.DeclaredMember::ref).toList();
-    }
-
-    void visitMembers(java.util.function.Consumer<ActionSequenceSink.DeclaredMember<T, C>> visitor) {
+    void visitMembers(Consumer<ActionSequenceSink.DeclaredMember<T, C>> visitor) {
         members.visitAllMembers(visitor);
     }
 
