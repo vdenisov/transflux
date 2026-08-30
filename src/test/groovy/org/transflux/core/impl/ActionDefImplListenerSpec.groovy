@@ -31,9 +31,8 @@ import spock.lang.Unroll
 import java.util.function.Consumer
 
 /**
- * The per-action listener hooks, which {@code StepDefImpl} and {@code OperationDefImpl} both
- * inherit from {@code ActionDefImpl}. The conditional's own copy is covered separately, since its
- * impl deliberately sits outside that base.
+ * The per-action listener hooks, which every authoring form inherits from {@code ActionDefImpl}.
+ * The conditional is covered separately, since its branch recursion is its own.
  */
 class ActionDefImplListenerSpec extends Specification {
 

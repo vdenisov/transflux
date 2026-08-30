@@ -1018,7 +1018,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             }
         }
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
-            if (td.getActionDef() instanceof OperationDefImpl<?, ?> op && op.declaresFork()) {
+            ActionDefImpl<T, ?, ?> op = td.getActionDef();
+            if (op != null && op.declaresFork()) {
                 return true;
             }
         }
@@ -1903,7 +1904,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private Map<String, List<String>> collectCycleNodes() {
         Map<String, List<String>> nodes = new LinkedHashMap<>();
         for (Map.Entry<String, OperationDefImpl<T, ?>> e : smCompositeOperations.entrySet()) {
-            nodes.put(e.getKey(), e.getValue().getByIdReferenceIds());
+            nodes.put(e.getKey(), e.getValue().ownByIdReferenceIds());
         }
 
         BiConsumer<String, List<String>> sink = nodes::putIfAbsent;

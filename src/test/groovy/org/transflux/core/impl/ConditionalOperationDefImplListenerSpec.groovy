@@ -32,9 +32,9 @@ import spock.lang.Unroll
 import java.util.function.Consumer
 
 /**
- * A conditional operation's own listener hooks. Its impl extends {@code IdentifiedDefImpl} rather
- * than the sealed {@code ActionDefImpl}, so it carries its own copy of the hook family and needs
- * its own coverage.
+ * A conditional operation's listener hooks. The family itself is inherited from
+ * {@code ActionDefImpl}; what is covered here is that a conditional carries it like any other
+ * action, and that listener-id collection descends into its branches.
  */
 class ConditionalOperationDefImplListenerSpec extends Specification {
 

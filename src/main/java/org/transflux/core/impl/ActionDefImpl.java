@@ -53,7 +53,7 @@ import java.util.function.Consumer;
  */
 sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>>
     extends IdentifiedDefImpl<SELF> implements ActionDef<T, C>
-    permits StepDefImpl, OperationDefImpl {
+    permits StepDefImpl, OperationDefImpl, ConditionalOperationDefImpl {
 
     private final ActionListenerSink<T, C, SELF> listeners = new ActionListenerSink<>(this, self());
 
@@ -306,6 +306,24 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      * @return this composite's id when the scan matches, otherwise empty
      */
     abstract Optional<String> scanScopeFor(String id, String excludingId);
+
+    /**
+     * Reports whether anything in this action's subtree is forked, which is what tells the build
+     * whether an executor is needed at all. The imperative variant answers {@code false}: it
+     * declares no members, and a body that dispatches by id cannot fork.
+     *
+     * @return whether a forked member is declared anywhere beneath this action
+     */
+    abstract boolean declaresFork();
+
+    /**
+     * Returns the ids this action reaches by reference - its outgoing edges for cycle detection.
+     * A reference to an imperative action cannot close a cycle, so the caller narrows this to ids
+     * that name a node before walking it.
+     *
+     * @return the referenced ids in declaration order
+     */
+    abstract List<String> ownByIdReferenceIds();
 
     /**
      * Build-time hook: deposits every dispatching action declared <em>beneath</em> this one into

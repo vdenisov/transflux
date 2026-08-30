@@ -136,6 +136,16 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
     }
 
     @Override
+    boolean declaresFork() {
+        return false;
+    }
+
+    @Override
+    List<String> ownByIdReferenceIds() {
+        return List.of();
+    }
+
+    @Override
     void collectNestedCycleNodes(BiConsumer<String, List<String>> sink) {
         // An imperative action declares no members, so it contributes no node.
     }

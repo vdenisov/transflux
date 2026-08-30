@@ -38,6 +38,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -67,16 +68,18 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <C> the host-supplied context type carried through transition execution
  */
 final class ConditionalOperationDefImpl<T, C>
-    extends IdentifiedDefImpl<ConditionalOperationDefImpl<T, C>> implements ConditionalOperationDef<T, C> {
+    extends ActionDefImpl<T, C, ConditionalOperationDefImpl<T, C>> implements ConditionalOperationDef<T, C> {
 
     private final List<BranchDefImpl<T, C>> branches = new ArrayList<>();
-    private final ActionListenerSink<T, C, ConditionalOperationDef<T, C>> listeners =
-        new ActionListenerSink<>(this, this);
-    private final CompensationSink<T, C, ConditionalOperationDef<T, C>> compensation =
-        new CompensationSink<>(this, this);
     private DefaultBranchDefImpl<T, C> defaultBranch;
     private NoMatchBehavior noMatchBehavior = NoMatchBehavior.WARN;
     private ConditionalBranchExecutor executor;
+
+    /**
+     * Captured by {@link #bindScope} so {@link #buildBound()} can resolve the branch conditions.
+     * The hook takes no arguments, and the registry is only available two build phases earlier.
+     */
+    private Map<String, BoundCondition<T, C>> boundConditions;
 
     ConditionalOperationDefImpl(String id) {
         super(id, "conditional operation", "Conditional operation ID");
@@ -124,144 +127,11 @@ final class ConditionalOperationDefImpl<T, C>
     }
 
     @Override
-    public ConditionalOperationDef<T, C> withCompensation(Compensation<T, C> compensation) {
-        return this.compensation.withCompensationInstance(compensation);
-    }
-
-    @Override
-    public ConditionalOperationDef<T, C> withCompensation(
-            Class<? extends Compensation<T, C>> compensationClass) {
-        return this.compensation.withCompensationClass(compensationClass);
-    }
-
-    @Override
-    public <X extends Throwable> CompensationRouteDef<T, C, X, ConditionalOperationDef<T, C>>
-            forException(Class<X> exceptionType) {
-        return compensation.forException(exceptionType);
-    }
-
-    @Override
     public ConditionalOperationDef<T, C> onNoMatch(NoMatchBehavior behavior) {
         requireConfigurerActive("onNoMatch");
         requireNotNull(behavior, "No-match behavior");
         this.noMatchBehavior = behavior;
         return this;
-    }
-
-    @Override
-    public ConditionalOperationDef<T, C> onStart(String listenerId, ActionListener<T, C> listener) {
-        return listeners.instanceBased(ActionPhase.START, listenerId, listener);
-    }
-
-    @Override
-    public ConditionalOperationDef<T, C> onStart(Identifiable listenerIdentifiable,
-                                                 ActionListener<T, C> listener) {
-        return listeners.instanceBased(ActionPhase.START, listenerIdentifiable, listener);
-    }
-
-    @Override
-    public ConditionalOperationDef<T, C> onStart(String listenerId,
-                                                 Class<? extends ActionListener<T, C>> listenerClass) {
-        return listeners.classBased(ActionPhase.START, listenerId, listenerClass);
-    }
-
-    @Override
-    public ConditionalOperationDef<T, C> onStart(Identifiable listenerIdentifiable,
-                                                 Class<? extends ActionListener<T, C>> listenerClass) {
-        return listeners.classBased(ActionPhase.START, listenerIdentifiable, listenerClass);
-    }
-
-    @Override
-    public ConditionalOperationDef<T, C> onStart(String listenerId,
-                                                 Consumer<ActionListenerDef<T, C>> configurer) {
-        return listeners.configured(ActionPhase.START, listenerId, configurer);
-    }
-
-    @Override
-    public ConditionalOperationDef<T, C> onStart(Identifiable listenerIdentifiable,
-                                                 Consumer<ActionListenerDef<T, C>> configurer) {
-        return listeners.configured(ActionPhase.START, listenerIdentifiable, configurer);
-    }
-
-    @Override
-    public ConditionalOperationDef<T, C> onComplete(String listenerId, ActionListener<T, C> listener) {
-        return listeners.instanceBased(ActionPhase.COMPLETE, listenerId, listener);
-    }
-
-    @Override
-    public ConditionalOperationDef<T, C> onComplete(Identifiable listenerIdentifiable,
-                                                    ActionListener<T, C> listener) {
-        return listeners.instanceBased(ActionPhase.COMPLETE, listenerIdentifiable, listener);
-    }
-
-    @Override
-    public ConditionalOperationDef<T, C> onComplete(String listenerId,
-                                                    Class<? extends ActionListener<T, C>> listenerClass) {
-        return listeners.classBased(ActionPhase.COMPLETE, listenerId, listenerClass);
-    }
-
-    @Override
-    public ConditionalOperationDef<T, C> onComplete(Identifiable listenerIdentifiable,
-                                                    Class<? extends ActionListener<T, C>> listenerClass) {
-        return listeners.classBased(ActionPhase.COMPLETE, listenerIdentifiable, listenerClass);
-    }
-
-    @Override
-    public ConditionalOperationDef<T, C> onComplete(String listenerId,
-                                                    Consumer<ActionListenerDef<T, C>> configurer) {
-        return listeners.configured(ActionPhase.COMPLETE, listenerId, configurer);
-    }
-
-    @Override
-    public ConditionalOperationDef<T, C> onComplete(Identifiable listenerIdentifiable,
-                                                    Consumer<ActionListenerDef<T, C>> configurer) {
-        return listeners.configured(ActionPhase.COMPLETE, listenerIdentifiable, configurer);
-    }
-
-    @Override
-    public ConditionalOperationDef<T, C> onError(String listenerId, ActionListener<T, C> listener) {
-        return listeners.instanceBased(ActionPhase.ERROR, listenerId, listener);
-    }
-
-    @Override
-    public ConditionalOperationDef<T, C> onError(Identifiable listenerIdentifiable,
-                                                 ActionListener<T, C> listener) {
-        return listeners.instanceBased(ActionPhase.ERROR, listenerIdentifiable, listener);
-    }
-
-    @Override
-    public ConditionalOperationDef<T, C> onError(String listenerId,
-                                                 Class<? extends ActionListener<T, C>> listenerClass) {
-        return listeners.classBased(ActionPhase.ERROR, listenerId, listenerClass);
-    }
-
-    @Override
-    public ConditionalOperationDef<T, C> onError(Identifiable listenerIdentifiable,
-                                                 Class<? extends ActionListener<T, C>> listenerClass) {
-        return listeners.classBased(ActionPhase.ERROR, listenerIdentifiable, listenerClass);
-    }
-
-    @Override
-    public ConditionalOperationDef<T, C> onError(String listenerId,
-                                                 Consumer<ActionListenerDef<T, C>> configurer) {
-        return listeners.configured(ActionPhase.ERROR, listenerId, configurer);
-    }
-
-    @Override
-    public ConditionalOperationDef<T, C> onError(Identifiable listenerIdentifiable,
-                                                 Consumer<ActionListenerDef<T, C>> configurer) {
-        return listeners.configured(ActionPhase.ERROR, listenerIdentifiable, configurer);
-    }
-
-    /**
-     * Returns the listener defs collected for one hook, in declaration order.
-     *
-     * @param phase the hook to read
-     *
-     * @return that hook's listener defs
-     */
-    List<ActionListenerDefImpl<T, C>> getListeners(ActionPhase phase) {
-        return listeners.forPhase(phase);
     }
 
     /**
@@ -270,12 +140,9 @@ final class ConditionalOperationDefImpl<T, C>
      *
      * @param sink receives {@code (listenerId, ownerLabel)} for each declared listener
      */
+    @Override
     void collectListenerIds(BiConsumer<String, String> sink) {
-        for (ActionPhase phase : ActionPhase.values()) {
-            for (ActionListenerDefImpl<T, C> ld : listeners.forPhase(phase)) {
-                sink.accept(ld.getId(), defLabel() + " via " + ActionListenerSink.hook(phase));
-            }
-        }
+        emitOwnListenerIds(sink);
 
         for (BranchDefImpl<T, C> branch : branches) {
             branch.collectListenerIds(sink);
@@ -461,10 +328,8 @@ final class ConditionalOperationDefImpl<T, C>
         // A fresh executor per build: the members a later pass installs belong to the machine
         // being built, so an earlier machine's conditional keeps the members it was built with.
         this.executor = new ConditionalBranchExecutor(conditions);
-        // A conditional sits outside the sealed ActionDefImpl hierarchy, so it cannot inherit
-        // buildCompensationRouter - it drives the same sink that method delegates to.
-        return BoundAction.of(getId(), executor, ActionKind.OPERATION, listeners.buildBound(),
-                              compensation.buildRouter());
+        return BoundAction.of(getId(), executor, ActionKind.OPERATION, buildBoundListeners(),
+                              buildCompensationRouter());
     }
 
     private List<CompositeMember<T, C>> bindMembers(List<ActionSequenceSink.DeclaredMember<T, C>> declared,
@@ -500,6 +365,75 @@ final class ConditionalOperationDefImpl<T, C>
      */
     private String branchLabel(String enclosingLabel, String branchPart) {
         return enclosingLabel + " > conditional operation '" + getId() + "' > " + branchPart;
+    }
+
+    @Override
+    BoundAction<T, C> buildBound() {
+        if (boundConditions == null) {
+            throw new TransfluxValidationException(
+                "Conditional operation '" + getId()
+                    + "' has no condition registry; state-machine construction did not wire it");
+        }
+        return buildBoundAction(boundConditions);
+    }
+
+    @Override
+    void bindScope(RegistryImpl<T> rootRegistry,
+                   Map<String, Object> canonical,
+                   Map<String, BoundCondition<T, ?>> conditionRegistry) {
+        @SuppressWarnings("unchecked")
+        Map<String, BoundCondition<T, C>> typed =
+            (Map<String, BoundCondition<T, C>>) (Map<?, ?>) conditionRegistry;
+        this.boundConditions = typed;
+    }
+
+    @Override
+    void checkRefs(Class<?> scopeContext, String scopeLabel, StateMachineDefImpl<T> smDef) {
+        // At a root position this conditional is itself the enclosing one.
+        checkRefs(scopeContext, scopeLabel, getId(), smDef);
+    }
+
+    @Override
+    void bindMembers(StateMachineImpl<T> stateMachine, String positionLabel) {
+        bindBranchMembers(stateMachine, stateMachine.getComponentRegistry(), positionLabel, getId());
+    }
+
+    @Override
+    void flattenScope() {
+        // A conditional owns no scope; its members live in the enclosing one.
+    }
+
+    @Override
+    Optional<String> scanScopeFor(String id, String excludingId) {
+        return Optional.empty();
+    }
+
+    @Override
+    void collectScopes(Consumer<Registry<T>> sink) {
+        // No scope of its own to hand over.
+    }
+
+    @Override
+    void collectNestedCycleNodes(BiConsumer<String, List<String>> sink) {
+        visitBranchMembers(member -> {
+            if (member.ref() instanceof ActionRef.InlineOperation<T, C> inline) {
+                sink.accept(inline.id(), inline.def().ownByIdReferenceIds());
+            } else if (member.ref() instanceof ActionRef.Conditional<T, C> nested) {
+                sink.accept(nested.id(), nested.def().ownByIdReferenceIds());
+            }
+        });
+    }
+
+    @Override
+    boolean declaresFork() {
+        boolean[] forks = {false};
+        visitBranchMembers(member -> forks[0] |= member.forked());
+        return forks[0];
+    }
+
+    @Override
+    List<String> ownByIdReferenceIds() {
+        return branchByIdReferenceIds();
     }
 
     /**

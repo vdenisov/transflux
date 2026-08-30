@@ -236,6 +236,7 @@ final class OperationDefImpl<T, C>
      *
      * @return whether a forked member was declared anywhere in this container's subtree
      */
+    @Override
     boolean declaresFork() {
         boolean[] forks = {false};
         members.visitAllMembers(member -> forks[0] |= member.forked());
@@ -256,7 +257,8 @@ final class OperationDefImpl<T, C>
      *
      * @return the referenced ids in declaration order
      */
-    List<String> getByIdReferenceIds() {
+    @Override
+    List<String> ownByIdReferenceIds() {
         List<String> ids = new ArrayList<>();
         members.visitAllMembers(member -> {
             if (member.ref() instanceof ActionRef.ById<T, C> r) {
@@ -446,7 +448,7 @@ final class OperationDefImpl<T, C>
         // Each id deposited here is registered in some scope, so something can name it.
         members.visitAllMembers(member -> {
             if (member.ref() instanceof ActionRef.InlineOperation<T, C> inline) {
-                sink.accept(inline.id(), inline.def().getByIdReferenceIds());
+                sink.accept(inline.id(), inline.def().ownByIdReferenceIds());
             } else if (member.ref() instanceof ActionRef.Conditional<T, C> conditional) {
                 sink.accept(conditional.id(), conditional.def().branchByIdReferenceIds());
             }

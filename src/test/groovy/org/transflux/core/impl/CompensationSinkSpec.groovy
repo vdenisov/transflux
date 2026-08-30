@@ -168,7 +168,7 @@ class CompensationSinkSpec extends Specification {
         messages.every { !it.contains('Compensation route is unreachable') }
     }
 
-    def 'the conditional drives the same sink, outside the sealed hierarchy'() {
+    def 'the conditional drives the same sink as the other authoring forms'() {
         given:
         def fallback = new NoopCompensation()
         def cond = new ConditionalOperationDefImpl<Object, Object>('c1')

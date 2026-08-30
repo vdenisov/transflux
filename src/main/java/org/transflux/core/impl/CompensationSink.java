@@ -33,11 +33,8 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * <p>
  * Every owning def declares one sink and implements its public methods as one-line delegates, so
  * validation order, argument labels, the configurer guard and the build-time checks are written
- * once. {@code StepDefImpl} and {@code OperationDefImpl} share one sink declared on their common
- * base, {@code ActionDefImpl}. {@code ConditionalOperationDefImpl} declares a second one of its own:
- * it deliberately extends {@link IdentifiedDefImpl} instead of that sealed base, so there is no
- * single place to hang the storage for all three. This mirrors {@link ActionListenerSink} exactly,
- * and for the same reason.
+ * once. Every authoring form shares one sink, declared on their common base {@code ActionDefImpl}.
+ * This mirrors {@link ActionListenerSink} exactly, and for the same reason.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the context type the owning action runs against
