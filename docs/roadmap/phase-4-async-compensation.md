@@ -1,4 +1,4 @@
-> Part of the [Transflux roadmap](../../todo.md). In progress — §4.1, §4.2, §4.3 (with §4.3.1 and §4.4's per-branch stacks) and §4.7.1 have landed; the rest is forward-looking.
+> Part of the [Transflux roadmap](../../todo.md). In progress — §4.1, §4.2, §4.3 (with §4.3.1 and §4.4's per-branch stacks) and §4.7.1 have landed; the rest is forward-looking. Paused for [Phase 4b](phase-4b-action-sequence-grammar.md), which the remaining items build on.
 
 ## Phase 4: Async Operations & Error Handling (v0.4.0)
 *Target: The compensation engine, async anchoring, and exception-specific recovery.*
@@ -46,8 +46,7 @@
 
 #### 4.3.2 Deferred from the fork work
 
-- [ ] **Inline forked declarations, reserved as `forkStep(...)`** - and possibly answered instead by [one grammar for declaring a sequence of actions](../design/member-sequence-grammar.md), which proposes a declaration-only verb that every reference verb composes with, so the fork-specific declaration forms never need to exist. Reading the two together: the note below is what ships if that proposal is not taken.
-- [ ] **The forkStep shape, if the proposal above is declined.** A container can declare a member inline but cannot fork one, so a one-off forked body has to be registered at SM level first. Two constraints for whoever picks this up. (a) It cannot be an overload of `fork` - see the erasure note in §4.3 - so the name has to differ, and `forkStep` keeps the `run`/`step` split and the autocomplete prefix. (b) An inline nested *operation* cannot be forked at all until the Java-vs-YAML parity gap closes, because `OperationDef` has no inline `operation(...)` member form to begin with; that is Phase 5's, not this one's. Purely additive: an inline forked member is the same `ActionRef` carrying the same flag, and inline members never carry a mapper.
+- [ ] **Inline forked declarations, reserved as `forkStep(...)`** - moved to [Phase 4b §4b.5](phase-4b-action-sequence-grammar.md), as `forkStep` / `forkOperation` / `forkConditional` on the shared `ActionSequence` grammar. The two constraints found here still hold there: it cannot be an overload of `fork` (the erasure note in §4.3), and forking an inline *operation* needs the inline `operation(...)` member form first, which Phase 4b §4b.3 adds.
 - [ ] **A per-fork rejection-policy override.** `withForkRejectionPolicy(...)` is machine-wide, which is the right grain for a stance about saturation but not for a machine that forks both an audit write and a metrics ping. The arithmetic to know before adding it: the policy is a trailing parameter on all seven `fork` overloads, so it is fourteen, and every later addition to the fork grammar doubles again. Additive whenever the evidence turns up. Worth remembering that at one pool per state machine the optional work is already competing for the critical work's queue slots, so the fix for genuinely mixed criticality is a separate executor rather than a policy.
 
 ### 4.4 Async Compensation

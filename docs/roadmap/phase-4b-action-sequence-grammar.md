@@ -1,0 +1,51 @@
+> Part of the [Transflux roadmap](../../todo.md). Planned — interrupts Phase 4, which resumes once this ships. Design: [one grammar for declaring a sequence of actions](../design/action-sequence-grammar.md).
+
+## Phase 4b: Action Sequence Grammar (v0.4.0, with Phase 4)
+*Target: every position that holds an ordered list of actions — a declarative container, a conditional branch, a conditional's default branch — admits the same member grammar, declared once on a self-typed `ActionSequence<T, C, SELF>` base. A branch member may carry a mapper, be forked, or declare a conditional inline; a container member may declare a sequence inline; a forked member may be declared inline; a transition may attach a conditional inline. Additive: every call shape that compiles today still compiles, and nothing on `TransitionResult`, the paths, or the compensation stack changes shape.*
+
+### 4b.1 Branches carry bound members
+*The one step with runtime risk, landed alone and behaviour-neutral: no DSL change, every existing spec passes unchanged.*
+- [ ] `ResolvedBranch(branchId, condition, List<String> stepIds)` becomes a branch holding the same resolved member records a container holds (`BoundAction` paired with its `ResolvedContextMapping`, plus the fork flag), resolved at build time by the same code `OperationDefImpl.buildBound` uses rather than re-resolved by id against the active scope on every run.
+- [ ] The conditional's executor becomes a member-list executor over the selected branch — the same loop a container runs, so a branch member reaches `ExecutingTransitionImpl.runAction` through the path every other member already takes. Path qualification, compensation capture, nesting and listener notification stay where they are; the conditional owns nothing of its own beyond branch selection and the no-match policy.
+- [ ] `BranchDefImpl` / `DefaultBranchDefImpl` hold `ActionRef` lists like a container does instead of id lists; `InlineRegistrationSink` builds branch members through the container's binding code.
+- [ ] `StateMachineDefImpl.validateBranchRefs` folds into the `ActionDefImpl.checkRefs` walk it duplicates, if the post-construction ordering it exists for (a conditional's bound action registers into the scope its branches resolve against) still allows it; otherwise it stays and the reason is documented at the call.
+- [ ] Specs: `ConditionalOperationDefImplSpec` and `StateMachineImplCompensationSpec` pass unchanged; a new case pins that a branch member's `ActionExecution.path` and its compensation's captured context are the ones the container path would have produced.
+
+### 4b.2 `ActionSequence<T, C, SELF>`
+*The invariant, expressed once. Self-typed so a generic helper — the Phase 5 YAML mapper first of all — keeps the concrete chain type: `<S extends ActionSequence<T, C, S>> void fill(S sequence)`.*
+- [ ] `ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>>` in `core.action`, carrying the full member grammar: `run` (7 overloads), `fork` (7), `step` (6: instance, class, configurer, each with its `Identifiable` sibling), `conditional` (2), and `operation` (2, from §4b.3). No `Def` suffix — it is a grammar mixin with no identity, like `ContextScope`.
+- [ ] `OperationDef<T, C> extends ActionDef<T, C>, ActionSequence<T, C, OperationDef<T, C>>`; `BranchDef<T, C> extends ActionSequence<T, C, BranchDef<T, C>>`; `DefaultBranchDef<T, C> extends ActionSequence<T, C, DefaultBranchDef<T, C>>`. The per-subtype member declarations go; what stays on `BranchDef` is `condition(...)`, and on `OperationDef` the action-level surface (`usingContext`, compensation, routes, listeners). JavaDoc for each member form lives on the base, once.
+- [ ] Branch and default-branch members gain the call-site mapper — the `run(id, mapperId)` / `run(id, inlineMapper)` / `run(id, Identifiable mapper)` forms and their siblings — with the same `checkRefs` context-compatibility check a container member gets, descending through `ActionRef.Conditional` into each branch.
+- [ ] Branch and default-branch members gain `fork(...)` in all seven forms, with the same per-member forkability warning §4.3.1 emits for a container member.
+- [ ] Branch and default-branch members may declare a `conditional(...)` inline — recursion. The nested conditional registers into the enclosing container's scope like every other inline member; ids stay globally unique, and the definition is a finite tree by construction, so no new cycle case.
+- [ ] `definitionForks()` descends through conditionals, branches and (from §4b.3) nested containers instead of stopping at state-machine-level and transition-attached containers. Without this a definition that forks only from inside a branch never gets an executor.
+- [ ] `ActionSequenceSpec`: reflects over `OperationDef`, `BranchDef` and `DefaultBranchDef` and asserts that the set of member-grammar methods — name, parameter types, and return type equal to the declaring subtype — is identical across the three. This is the test nothing else replaces.
+- [ ] `JavaDslSurface` gains every new call shape on a branch and a default branch — each mapper form, each fork form, an inline conditional inside a branch — and `JavaDslSurfaceSpec` drives them. Groovy alone would not catch an overload that stopped resolving.
+- [ ] Specs: `StateMachineImplForkSpec` gains a forked branch member (runs on another thread, appears on neither path, listener sees it under `conditional/branch-member`); `StateMachineImplForkCompensationSpec` gains a forked branch member's own stack; a mapped branch member's compensation receives the mapped context; a nested conditional reports `outer/inner/member` on `executedPath`.
+
+### 4b.3 Inline sequence at a member position
+*The cell the table in the design doc had empty, and what a forked inline group needs.*
+- [ ] `operation(String id, Consumer<OperationDef<T, C>> configurer)` and its `Identifiable` sibling on `ActionSequence`. The child is typed against the enclosing container's `C` and runs pass-through, like every inline declaration; its own `usingContext(...)` remains available inside the configurer, in which case the parent-to-child boundary is checked exactly as a by-id reference's is.
+- [ ] The inline container's `Registry` parents onto the enclosing container's registry, not the root, so its inline ids are visible only within its subtree and it can reach the enclosing container's inline ids — the same lexical rule an inline conditional follows today. `flatten()` at the end of construction still makes runtime resolution one lookup.
+- [ ] `checkRefs` and the cycle detector descend into the inline container. An inline container cannot close a cycle by itself (it is literal source), but a by-id reference from inside it can, and the existing detector has to see the edge.
+- [ ] Build-time validation names the nesting in its messages (`operation 'outer' > operation 'inner'`), since an inline id claimed twice at different depths is otherwise hard to find.
+- [ ] `JavaDslSurface` gains an inline operation inside a container, inside a branch, and two deep; `JavaDslSurfaceSpec` drives them.
+- [ ] Specs: `OperationDefImplSpec` gains scope visibility for an inline container's ids (reachable from inside, rejected from a sibling); `StateMachineImplCompensationSpec` gains an inline container's additive compensation unwinding members-first inside its parent; an `executedPath` case at three levels.
+
+### 4b.4 Transition slot accepts an inline conditional
+*Independent of the rest; small.*
+- [ ] `TransitionDef.conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer)` and its `Identifiable` sibling, beside the existing `step(...)` and `operation(...)` attachment forms. The slot still takes no `fork` — nothing continues past it.
+- [ ] `JavaDslSurface` and `JavaDslSurfaceSpec` gain the shape; `TransitionDefImplSpec` covers attachment, path reporting (`conditional/branch-member`), and the `NoMatchBehavior.ERROR` case failing the transition.
+
+### 4b.5 Inline forked declarations
+*Deferred from §4.3.2 with the name `forkStep` reserved; lands here because once the grammar is declared once, a declaration verb per authored form costs ten methods rather than thirty.*
+- [ ] `forkStep(...)` (6 overloads mirroring `step`), `forkOperation(...)` (2, mirroring `operation`) and `forkConditional(...)` (2, mirroring `conditional`) on `ActionSequence`. They cannot be overloads of `fork` — an implicitly-typed lambda is applicable to `ContextMapper<C, ?>` and to `Consumer<StepDef<T, C>>` alike — so the `fork` prefix keeps the asynchronous surface together under autocomplete while the suffix names the form.
+- [ ] Runtime: the same `ActionRef` carrying the same fork flag; an inline forked member never carries a mapper, so the context is `ForkableContext.fork()` or the shared reference, with the §4.3.1 warning applying per member.
+- [ ] `JavaDslSurface` gains each verb at a container position and a branch position; `JavaDslSurfaceSpec` drives them; `StateMachineImplForkSpec` gains an inline forked step, an inline forked operation whose members run in order on the worker, and an inline forked conditional.
+
+### 4b.6 Reconcile the documents
+- [ ] `requirements.md`: §3.4.2's parity-gap note goes; §4's Java DSL section shows the inline `operation` and `forkStep` / `forkOperation` / `forkConditional` shapes and a conditional nested in a branch; the vocabulary in §2.2.5 gains one sentence naming `ActionSequence` as the shared member grammar and stating that a branch is not an operation.
+- [ ] `CLAUDE.md`: the "Verbs split by call-site category" paragraph reflects that the overload count no longer follows the position (every sequence position carries the full family; only the transition slot stays narrow); the "Fork invariants" paragraph drops "a container is never declarable inline" from the `definitionForks()` rationale; the `core.action` package line lists `ActionSequence`; the design-doc pointer reads as shipped.
+- [ ] `README.md`: the DSL overview shows a nested conditional and an inline operation at a member position.
+- [ ] Phase 5 §5.0's "inline nested declarative containers" item and §5.3's member-grammar item point here as done; the YAML mapper is written against `ActionSequence`.
+- [ ] Move this file to `docs/history/`, update the phase map in `todo.md`, and resume Phase 4.
