@@ -233,6 +233,33 @@ public final class JavaDslSurface {
     }
 
     /**
+     * A conditional attached straight to a transition's action slot - the slot holds one action,
+     * and a conditional is one, so it needs no wrapping operation.
+     *
+     * @return the built state machine
+     */
+    public static StateMachine<Order> transitionConditional() {
+        return Transflux.<Order>defineStateMachine()
+            .forEntityType(Order.class)
+            .withStateResolver(o -> o.state)
+            .withStateApplier((o, s) -> o.state = s)
+            .step("record", new RecordingAction())
+            .state("s1", s -> s
+                .transitionsTo("s2", "t", OrderCtx.class, t -> t
+                    .conditional("route", cond -> cond
+                        .branch("premium", b -> b
+                            .condition("is-premium", (order, ctx) -> "o-1".equals(ctx.orderId))
+                            .step("shared", (order, ctx, view) -> order.trail.add("shared"))
+                            .run("record"))
+                        .branch("standard", b -> b
+                            .condition("is-standard", (order, ctx) -> false)
+                            .run("shared"))
+                        .defaultBranch(d -> d.run("record")))))
+            .state("s2", s -> { })
+            .build();
+    }
+
+    /**
      * A sequence declared in place, at each position that holds one: inside a container, inside a
      * branch and a default branch, and nested two deep. The nesting is what proves the form is
      * recursive rather than a single extra level.

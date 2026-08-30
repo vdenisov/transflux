@@ -23,7 +23,6 @@ import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
 
 import java.util.function.BiPredicate;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**

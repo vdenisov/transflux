@@ -36,9 +36,15 @@ import java.util.function.Consumer;
  *
  * <p>A conditional is a declarative action — its ordering rule is "first matching branch"
  * rather than "all members, in order", which is the only thing separating it from
- * {@link OperationDef}. It appears in its enclosing operation's declaration-order member list,
- * and the actions it dispatches go through the same runner as any other action, so executed-id
- * tracking and compensation registration stay uniform however an action was reached.
+ * {@link OperationDef}. Being an action, it occupies any position one can: a member of a
+ * container or of a branch, and a transition's attachment, where it attaches directly rather than
+ * through a wrapping operation. The actions it dispatches go through the same runner as any other
+ * action, so executed-id tracking and compensation registration stay uniform however an action was
+ * reached.
+ *
+ * <p>A conditional owns the lexical scope its branches declare into, so every branch reaches what
+ * any branch declares - a step common to several is declared once - while nothing outside the
+ * conditional can reach any of it.
  *
  * <p>The conditional must declare at least one regular branch; a default branch alone is not
  * a valid configuration. Branch ids must be unique within the conditional.

@@ -24,7 +24,6 @@ import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.ConditionalOperationDef;
 import org.transflux.core.action.ContextMapper;
-import org.transflux.core.action.ForkableContext;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.StepDef;
 import org.transflux.core.transition.ExecutingTransition;
@@ -33,7 +32,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -289,8 +287,8 @@ final class OperationDefImpl<T, C>
         if (members.members().isEmpty()) {
             throw new TransfluxValidationException(
                 "OperationDef '" + getId()
-                    + "' has no members; call run(...), fork(...), step(...) or conditional(...)"
-                    + " at least once before build");
+                    + "' has no members; call run(...), fork(...), step(...), operation(...) or"
+                    + " conditional(...) at least once before build");
         }
 
         if (ownScope() == null) {
@@ -347,7 +345,8 @@ final class OperationDefImpl<T, C>
             // Recursing after the member is built names the outer position first when a
             // resolution fails.
             if (ref instanceof ActionRef.Conditional<T, C> conditional) {
-                conditional.def().bindBranchMembers(stateMachine, positionLabel, getId());
+                conditional.def().bindBranchMembers(
+                    stateMachine, positionLabel + " > " + conditional.def().defLabel(), getId());
             } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
                 nested.def().bindMembers(stateMachine,
                                          positionLabel + " > " + nested.def().defLabel());

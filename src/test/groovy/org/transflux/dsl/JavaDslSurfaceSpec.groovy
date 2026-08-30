@@ -54,6 +54,23 @@ class JavaDslSurfaceSpec extends Specification {
         sm.close()
     }
 
+    def 'a conditional attached to a transition builds and runs'() {
+        given:
+        def sm = JavaDslSurface.transitionConditional()
+        def order = new JavaDslSurface.Order()
+
+        when:
+        def result = sm.entity(order).transitionTo('s2', new JavaDslSurface.OrderCtx())
+
+        then: 'the conditional is the transition root, so no wrapper appears on the path'
+        result.success
+        order.trail == ['shared', 'recording']
+        result.executedPath*.toString() == ['route', 'route/shared', 'route/record']
+
+        cleanup:
+        sm.close()
+    }
+
     def 'a sequence declared in place builds and runs at every position that holds one'() {
         given:
         def sm = JavaDslSurface.inlineSequenceShapes()

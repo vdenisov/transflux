@@ -19,14 +19,9 @@
 package org.transflux.core.impl;
 
 import org.transflux.core.action.ActionKind;
-import org.transflux.core.action.ActionListener;
-import org.transflux.core.action.ActionListenerDef;
-import org.transflux.core.action.ActionPhase;
 import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.BranchDef;
-import org.transflux.core.action.Compensation;
-import org.transflux.core.action.CompensationRouteDef;
 import org.transflux.core.action.ConditionalOperationDef;
 import org.transflux.core.action.DefaultBranchDef;
 import org.transflux.core.action.NoMatchBehavior;
@@ -38,7 +33,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -204,22 +198,22 @@ final class ConditionalOperationDefImpl<T, C>
      * operation runs it over its own members.
      *
      * @param scopeContext the enclosing operation's context type
-     * @param enclosingLabel names the position that declared this conditional; each branch label
-     *                       extends it, so a message locates the branch rather than only naming it
+     * @param ownLabel this conditional's own full position label; each branch label extends it,
+     *                 so a message locates the branch rather than only naming it
      * @param enclosingOperationId the id of the operation that declared this conditional
      * @param smDef the state-machine def whose component registrations the check consults
      */
-    void checkRefs(Class<?> scopeContext, String enclosingLabel, String enclosingOperationId,
+    void checkRefs(Class<?> scopeContext, String ownLabel, String enclosingOperationId,
                    StateMachineDefImpl<T> smDef) {
         Class<?> effectiveScope = scopeContext != null ? scopeContext : Object.class;
 
         for (BranchDefImpl<T, C> branch : branches) {
             branch.checkRefs(effectiveScope,
-                             branchLabel(enclosingLabel, "branch '" + branch.getBranchId() + "'"),
+                             branchLabel(ownLabel, "branch '" + branch.getBranchId() + "'"),
                              enclosingOperationId, smDef);
         }
         if (defaultBranch != null) {
-            defaultBranch.checkRefs(effectiveScope, branchLabel(enclosingLabel, "default branch"),
+            defaultBranch.checkRefs(effectiveScope, branchLabel(ownLabel, "default branch"),
                                     enclosingOperationId, smDef);
         }
     }
@@ -238,15 +232,14 @@ final class ConditionalOperationDefImpl<T, C>
      *                     diagnostics the resolution consults
      * @param scope the enclosing operation's scope registry; resolution walks the parent chain
      *              up to the state-machine root
-     * @param enclosingLabel names the position that declared this conditional; each branch label
-     *                        extends it
+     * @param ownLabel this conditional's own full position label; each branch label extends it
      * @param enclosingOperationId the id of the operation that declared this conditional
      *
      * @throws TransfluxValidationException if a branch names an id that no action in scope
      *         carries, or if no executor was built for this conditional
      */
     void bindBranchMembers(StateMachineImpl<T> stateMachine,
-                           String enclosingLabel, String enclosingOperationId) {
+                           String ownLabel, String enclosingOperationId) {
         if (executor == null) {
             throw new TransfluxValidationException(
                 "Conditional operation '" + getId()
@@ -260,13 +253,13 @@ final class ConditionalOperationDefImpl<T, C>
                 branch.getBranchId(),
                 executor.conditions.get(i),
                 bindMembers(branch.getMembers(), stateMachine,
-                            branchLabel(enclosingLabel, "branch '" + branch.getBranchId() + "'"),
+                            branchLabel(ownLabel, "branch '" + branch.getBranchId() + "'"),
                             enclosingOperationId)));
         }
 
         List<CompositeMember<T, C>> defaultMembers = defaultBranch == null ? null
             : bindMembers(defaultBranch.getMembers(), stateMachine,
-                          branchLabel(enclosingLabel, "default branch"), enclosingOperationId);
+                          branchLabel(ownLabel, "default branch"), enclosingOperationId);
 
         executor.bind(resolved, defaultMembers);
     }
@@ -348,7 +341,8 @@ final class ConditionalOperationDefImpl<T, C>
             // Each nested form binds against its own scope. Recursing after the member is built
             // names the outer position first when a resolution fails.
             if (ref instanceof ActionRef.Conditional<T, C> nested) {
-                nested.def().bindBranchMembers(stateMachine, ownerLabel, enclosingOperationId);
+                nested.def().bindBranchMembers(
+                    stateMachine, ownerLabel + " > " + nested.def().defLabel(), enclosingOperationId);
             } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
                 // A container declared in a branch does own a scope, and binds against its own.
                 nested.def().bindMembers(stateMachine, ownerLabel + " > " + nested.def().defLabel());
@@ -362,8 +356,8 @@ final class ConditionalOperationDefImpl<T, C>
      * conditional, then the branch. A nested conditional extends the same chain, so a message
      * locates a branch rather than only naming it.
      */
-    private String branchLabel(String enclosingLabel, String branchPart) {
-        return enclosingLabel + " > conditional operation '" + getId() + "' > " + branchPart;
+    private String branchLabel(String ownLabel, String branchPart) {
+        return ownLabel + " > " + branchPart;
     }
 
     @Override

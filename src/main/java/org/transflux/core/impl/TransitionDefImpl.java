@@ -22,6 +22,7 @@ import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
 import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.action.ConditionalOperationDef;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.StepDef;
@@ -334,6 +335,16 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     public TransitionDef<T, C> operation(Identifiable operationIdentifiable, Consumer<OperationDef<T, C>> configurer) {
         requireNotNull(operationIdentifiable, "Operation identifiable");
         return operation(operationIdentifiable.getId(), configurer);
+    }
+
+    @Override
+    public TransitionDef<T, C> conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer) {
+        requireConfigurerActive("conditional");
+        requireNotNull(configurer, "Conditional configurer");
+        ConditionalOperationDefImpl<T, C> conditional = new ConditionalOperationDefImpl<>(id);
+        ConfigurableDefImpl.runConfigurer(conditional, configurer);
+        attachAction(conditional);
+        return this;
     }
 
     @Override

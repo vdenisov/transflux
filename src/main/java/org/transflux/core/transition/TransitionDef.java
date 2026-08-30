@@ -21,6 +21,7 @@ package org.transflux.core.transition;
 import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.action.ConditionalOperationDef;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.StepDef;
@@ -271,6 +272,32 @@ public interface TransitionDef<T, C> extends Identifiable {
      * @return this transition def for chaining
      */
     TransitionDef<T, C> operation(Identifiable operationIdentifiable, Consumer<OperationDef<T, C>> configurer);
+
+    /**
+     * Attaches a multi-branch conditional - the declarative action whose ordering rule is "first
+     * matching branch" rather than "all, in order". The conditional must declare at least one
+     * branch, and each branch a condition and at least one member.
+     * <p>
+     * It attaches directly, without a wrapping operation: the slot holds one action, and a
+     * conditional is one. So the executed path reads {@code <id>/<branch member>} rather than
+     * carrying a synthetic level, and the conditional's own compensation and listeners are the
+     * transition's root action's.
+     * <p>
+     * With no matching branch and no default, what happens is the conditional's
+     * {@link org.transflux.core.action.NoMatchBehavior}; under
+     * {@link org.transflux.core.action.NoMatchBehavior#ERROR} the transition fails and the
+     * compensations accumulated so far are drained.
+     *
+     * @param id the conditional's id; never {@code null} or blank
+     * @param configurer the fluent configurer; never {@code null}
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is {@code null}/blank,
+     *         {@code configurer} is {@code null}, or the configurer leaves the conditional
+     *         without any branches
+     */
+    TransitionDef<T, C> conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer);
 
     /**
      * Attaches an action already registered on the enclosing state machine, whichever form it

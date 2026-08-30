@@ -257,6 +257,40 @@ class StateMachineImplAsyncExecutorSpec extends Specification {
         sm.close()
     }
 
+    def 'a definition that forks only from a transition-attached conditional still builds a pool'() {
+        given: 'the fork walk reaches an attached conditional, which is not an operation'
+        def done = new CountDownLatch(1)
+        capture = LogCapture.start('org.transflux.execution.async')
+        def smd = new StateMachineDefImpl<Entity>()
+        StateMachineDef<Entity> builder = smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+            .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
+        builder.step('notify', { e, c, t -> done.countDown() } as Action)
+        builder.state('s1', { s ->
+            s.transitionsTo('s2', 't', { t ->
+                t.conditional('route', { cs ->
+                    cs.branch('only', { b ->
+                        b.condition('always', { e -> true } as Predicate).fork('notify')
+                    } as Consumer)
+                } as Consumer)
+            } as Consumer)
+        } as Consumer)
+        builder.state('s2', {} as Consumer)
+        def sm = smd.build()
+
+        when:
+        def result = sm.executeTransition(new Entity('s1'), 's2')
+        done.await(WAIT_SECONDS, TimeUnit.SECONDS)
+
+        then:
+        result.success
+        done.count == 0
+        capture.messages().any { it.contains('Async pool created') }
+
+        cleanup:
+        sm.close()
+    }
+
     private StateMachine<Entity> buildForking(CountDownLatch done, Closure asyncConfig) {
         return build({ smd -> smd.step('notify', { e, c, t -> done.countDown() } as Action) },
                      { op -> op.fork('notify') }, asyncConfig)

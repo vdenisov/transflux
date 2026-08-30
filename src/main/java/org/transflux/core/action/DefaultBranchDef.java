@@ -18,10 +18,7 @@
 
 package org.transflux.core.action;
 
-import org.transflux.core.Identifiable;
-import org.transflux.core.exception.TransfluxValidationException;
 
-import java.util.function.Consumer;
 
 /**
  * Sub-builder for the default branch of a {@link ConditionalOperationDef}.

@@ -772,6 +772,94 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         Recorder.RAN[0].is(Recorder.CREATED[0])
     }
 
+    def 'a conditional attaches straight to a transition, with no wrapping operation'() {
+        given:
+        def applied = []
+        def sm = build(applied, { smd -> },
+            { t -> t.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs -> cs
+                .branch('low', { BranchDef<Entity, TestContext> b -> b
+                    .condition('is-low', { Entity e -> false } as Predicate)
+                    .step('low-step', new TrailStep('low')) })
+                .branch('high', { BranchDef<Entity, TestContext> b -> b
+                    .condition('is-high', { Entity e -> true } as Predicate)
+                    .step('high-step', new TrailStep('high')) }) }) })
+        def entity = new Entity('s1')
+
+        when:
+        def result = sm.executeTransition(entity, 's2')
+
+        then: 'the conditional is the root action, so no synthetic level appears on the path'
+        result.success
+        entity.trail == ['high']
+        result.executedPath*.toString() == ['route', 'route/high-step']
+        applied == ['s2']
+    }
+
+    def 'a transition-attached conditional falls through to its default branch'() {
+        given:
+        def applied = []
+        def sm = build(applied, { smd -> },
+            { t -> t.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs -> cs
+                .branch('never', { BranchDef<Entity, TestContext> b -> b
+                    .condition('no', { Entity e -> false } as Predicate)
+                    .step('unreached', new TrailStep('unreached')) })
+                .defaultBranch({ DefaultBranchDef<Entity, TestContext> d ->
+                    d.step('fallback', new TrailStep('fallback')) }) }) })
+        def entity = new Entity('s1')
+
+        when:
+        def result = sm.executeTransition(entity, 's2')
+
+        then:
+        result.success
+        entity.trail == ['fallback']
+        result.executedPath*.toString() == ['route', 'route/fallback']
+    }
+
+    def 'a transition-attached conditional under ERROR fails the transition when nothing matches'() {
+        given:
+        def applied = []
+        def sm = build(applied, { smd -> },
+            { t -> t.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs -> cs
+                .onNoMatch(NoMatchBehavior.ERROR)
+                .branch('never', { BranchDef<Entity, TestContext> b -> b
+                    .condition('no', { Entity e -> false } as Predicate)
+                    .step('unreached', new TrailStep('unreached')) }) }) })
+        def entity = new Entity('s1')
+
+        when:
+        def result = sm.executeTransition(entity, 's2')
+
+        then: 'the conditional is the root action, so its failure is the transition failure'
+        !result.success
+        result.error.message.contains("'route'")
+        entity.trail.isEmpty()
+        applied.isEmpty()
+    }
+
+    def "a transition-attached conditional's branches share its scope"() {
+        given: 'the scope is parented on the root registry, there being no enclosing container'
+        def applied = []
+        def sm = build(applied, { smd -> smd.step('sm-level', new TrailStep('sm-level')) },
+            { t -> t.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs -> cs
+                .branch('never', { BranchDef<Entity, TestContext> b -> b
+                    .condition('no', { Entity e -> false } as Predicate)
+                    .step('shared', new TrailStep('shared')) })
+                .branch('taken', { BranchDef<Entity, TestContext> b -> b
+                    .condition('yes', { Entity e -> true } as Predicate)
+                    .run('shared')
+                    .run('sm-level') }) }) })
+        def entity = new Entity('s1')
+
+        when:
+        def result = sm.executeTransition(entity, 's2')
+
+        then: 'a branch reaches its sibling branch, and still walks out to the root'
+        result.success
+        entity.trail == ['shared', 'sm-level']
+        result.executedPath*.toString() == ['route', 'route/shared', 'route/sm-level']
+    }
+
     private static StateMachine<Entity> build(List<String> applied,
                                               Consumer<StateMachineDefImpl<Entity>> smdRegistrations,
                                               Consumer<TransitionDef<Entity, TestContext>> transitionConfigurer) {

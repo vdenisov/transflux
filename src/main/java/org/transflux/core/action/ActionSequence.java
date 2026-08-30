@@ -270,9 +270,10 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
 
     /**
      * Declares an imperative action inline at this position, from a supplied {@link Action}
-     * instance. The action is registered into the enclosing container's lexical scope under
-     * {@code id}; it is visible only inside that container's subtree, and its id must be unique
-     * across the state machine.
+     * instance. The action is registered into the scope that owns this position - the enclosing
+     * container's, or the conditional's when this is one of its branches - so it is visible from
+     * anywhere inside that scope's subtree, including a sibling branch, and from nowhere outside
+     * it. Its id must be unique across the state machine.
      *
      * @param id the action id; must be unique across the state machine
      * @param action the action to invoke
@@ -379,10 +380,12 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      * registered elsewhere and referenced. Use it for a group of actions that belongs to one call
      * site: it can carry its own compensation and listeners, and it unwinds as a unit.
      *
-     * <p>The nested operation is registered into the enclosing container's lexical scope under
-     * {@code id}, so it is visible only inside that container's subtree, and its id must be unique
-     * across the state machine. Its own members resolve against its scope first and the enclosing
-     * chain after, so it can reach what encloses it while a sibling cannot reach into it.
+     * <p>The nested operation is registered into the scope that owns this position - the
+     * enclosing container's, or the conditional's when this is one of its branches - so it is
+     * visible from anywhere inside that scope's subtree and from nowhere outside it, and its id
+     * must be unique across the state machine. Its own members resolve against its own scope
+     * first and the enclosing chain after, so it can reach what encloses it while nothing can
+     * reach into it.
      *
      * <p>It is typed against the enclosing context and runs pass-through: the members declared
      * inside it receive the same context this position does. There is no way to give it a context
