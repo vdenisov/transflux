@@ -19,6 +19,7 @@
 package org.transflux.core.impl;
 
 import org.transflux.core.Identifiable;
+import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.DefaultBranchDef;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.StepDef;
@@ -79,6 +80,31 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
     @Override
     public DefaultBranchDef<T, C> run(Identifiable registeredAction) {
         return members.run(registeredAction);
+    }
+
+    @Override
+    public DefaultBranchDef<T, C> run(String id, String mapperId) {
+        return members.run(id, mapperId);
+    }
+
+    @Override
+    public DefaultBranchDef<T, C> run(String id, ContextMapper<C, ?> inlineMapper) {
+        return members.run(id, inlineMapper);
+    }
+
+    @Override
+    public DefaultBranchDef<T, C> run(Identifiable registeredAction, Identifiable mapper) {
+        return members.run(registeredAction, mapper);
+    }
+
+    @Override
+    public DefaultBranchDef<T, C> run(Identifiable registeredAction, String mapperId) {
+        return members.run(registeredAction, mapperId);
+    }
+
+    @Override
+    public DefaultBranchDef<T, C> run(String id, Identifiable mapper) {
+        return members.run(id, mapper);
     }
 
     @Override

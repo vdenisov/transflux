@@ -87,6 +87,23 @@ class JavaDslSurfaceSpec extends Specification {
         sm.close()
     }
 
+    def 'every branch member shape builds and runs, on a branch and on the default branch'() {
+        given:
+        def sm = JavaDslSurface.branchMemberShapes()
+        def order = new JavaDslSurface.Order()
+
+        when:
+        def result = sm.entity(order).transitionTo('s2', new JavaDslSurface.OrderCtx())
+
+        then: 'the taken branch ran its members; the default branch was not reached'
+        result.success
+        order.trail.contains('branch-inline')
+        !order.trail.contains('default-inline')
+
+        cleanup:
+        sm.close()
+    }
+
     def 'the compensation shapes build, and the routed rollback runs'() {
         given:
         def sm = JavaDslSurface.compensationShapes()

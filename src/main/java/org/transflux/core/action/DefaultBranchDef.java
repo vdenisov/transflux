@@ -28,118 +28,14 @@ import java.util.function.Consumer;
  * <p>
  * The default branch carries no condition; the framework runs its steps when every
  * preceding {@link BranchDef} evaluated to {@code false}. The default branch must declare
- * at least one step.
+ * at least one member.
+ *
+ * <p>Its members are declared through the grammar every ordered action list shares; see
+ * {@link ActionSequence}. The default branch adds nothing to it - it has neither a condition nor
+ * an identity of its own.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-public interface DefaultBranchDef<T, C> {
-
-    /**
-     * Appends a reference to an action registered on the enclosing state machine.
-     *
-     * @param id the registered action id
-     *
-     * @return this default branch def for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null} or blank
-     */
-    DefaultBranchDef<T, C> run(String id);
-
-    /**
-     * {@link Identifiable} overload of {@link #run(String)} - delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param registeredAction an identifiable supplying the action id
-     *
-     * @return this default branch def for chaining
-     *
-     * @throws TransfluxValidationException if {@code registeredAction} is {@code null}
-     */
-    DefaultBranchDef<T, C> run(Identifiable registeredAction);
-
-    /**
-     * Appends an inline {@link Action} instance under the supplied id. The step is
-     * auto-registered on the enclosing state machine at build time.
-     *
-     * @param id the step id
-     * @param step the step instance
-     *
-     * @return this default branch def for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
-     *         {@code step} is {@code null}
-     */
-    DefaultBranchDef<T, C> step(String id, Action<T, C> step);
-
-    /**
-     * {@link Identifiable} overload of {@link #step(String, Action)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param stepIdentifiable an identifiable supplying the step id
-     * @param step the step instance
-     *
-     * @return this default branch def for chaining
-     *
-     * @throws TransfluxValidationException if {@code stepIdentifiable} or {@code step} is
-     *         {@code null}
-     */
-    DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Action<T, C> step);
-
-    /**
-     * Appends an inline {@link Action} class under the supplied id. The framework reflectively
-     * instantiates the class through its public no-arg constructor at state-machine build
-     * time and auto-registers it.
-     *
-     * @param id the step id
-     * @param stepClass the step class
-     *
-     * @return this default branch def for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
-     *         {@code stepClass} is {@code null}
-     */
-    DefaultBranchDef<T, C> step(String id, Class<? extends Action<T, C>> stepClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #step(String, Class)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param stepIdentifiable an identifiable supplying the step id
-     * @param stepClass the step class
-     *
-     * @return this default branch def for chaining
-     *
-     * @throws TransfluxValidationException if {@code stepIdentifiable} or {@code stepClass} is
-     *         {@code null}
-     */
-    DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Class<? extends Action<T, C>> stepClass);
-
-    /**
-     * Configurer form of the inline declaration, for a step that also wants a name, a description,
-     * or listeners. The configurer must call {@code using(...)} to supply the body.
-     *
-     * @param id the step id
-     * @param configurer callback that configures the step
-     *
-     * @return this default branch def for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
-     *         {@code configurer} is {@code null}
-     */
-    DefaultBranchDef<T, C> step(String id, Consumer<StepDef<T, C>> configurer);
-
-    /**
-     * {@link Identifiable} overload of {@link #step(String, Consumer)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param stepIdentifiable an identifiable supplying the step id
-     * @param configurer callback that configures the step
-     *
-     * @return this default branch def for chaining
-     *
-     * @throws TransfluxValidationException if {@code stepIdentifiable} or {@code configurer} is
-     *         {@code null}
-     */
-    DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Consumer<StepDef<T, C>> configurer);
+public interface DefaultBranchDef<T, C> extends ActionSequence<T, C, DefaultBranchDef<T, C>> {
 }

@@ -164,6 +164,57 @@ public final class JavaDslSurface {
     }
 
     /**
+     * The whole member grammar at a branch and at a default-branch position - the same family
+     * {@link #mapperCallSites()} exercises on a container, proving the three positions really do
+     * take the same call shapes and not merely the same method names.
+     *
+     * @return the built state machine
+     */
+    public static StateMachine<Order> branchMemberShapes() {
+        return Transflux.<Order>defineStateMachine()
+            .forEntityType(Order.class)
+            .withStateResolver(o -> o.state)
+            .withStateApplier((o, s) -> o.state = s)
+            .step("record", new RecordingAction())
+            .step(Ids.NOTIFY, NotifyCtx.class, new NotifyAction())
+            .mapper(Ids.NOTIFY_FROM_ORDER, OrderCtx.class, NotifyCtx.class,
+                    parent -> new NotifyCtx(parent.orderId))
+            .state("s1", s -> s
+                .transitionsTo("s2", "t", OrderCtx.class, t -> t
+                    .operation("op", c -> c
+                        .conditional("branching", cond -> cond
+                            .branch("taken", b -> b
+                                .condition("always", (order, ctx) -> true)
+                                .run("record")
+                                .run(Ids.RECORD)
+                                .run("notify", "notify-from-order")
+                                .run("notify", parent -> new NotifyCtx(parent.orderId))
+                                .run(Ids.NOTIFY, Ids.NOTIFY_FROM_ORDER)
+                                .run(Ids.NOTIFY, "notify-from-order")
+                                .run("notify", Ids.NOTIFY_FROM_ORDER)
+                                .step("branch-instance", (order, ctx, view) -> order.trail.add("branch-inline"))
+                                .step("branch-class", RecordingAction.class)
+                                .step("branch-configured", step -> step
+                                    .using(RecordingAction.class)
+                                    .withName("In a branch")))
+                            .defaultBranch(d -> d
+                                .run("record")
+                                .run(Ids.RECORD)
+                                .run("notify", "notify-from-order")
+                                .run("notify", parent -> new NotifyCtx(parent.orderId))
+                                .run(Ids.NOTIFY, Ids.NOTIFY_FROM_ORDER)
+                                .run(Ids.NOTIFY, "notify-from-order")
+                                .run("notify", Ids.NOTIFY_FROM_ORDER)
+                                .step("default-instance", (order, ctx, view) -> order.trail.add("default-inline"))
+                                .step("default-class", RecordingAction.class)
+                                .step("default-configured", step -> step
+                                    .using(RecordingAction.class)
+                                    .withName("In the default branch")))))))
+            .state("s2", s -> { })
+            .build();
+    }
+
+    /**
      * The same mapper grammar as dispatched from inside an action's body, which is the second
      * surface carrying it.
      *

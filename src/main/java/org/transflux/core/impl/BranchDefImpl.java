@@ -21,6 +21,7 @@ package org.transflux.core.impl;
 import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
+import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.BranchDef;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.StepDef;
@@ -162,6 +163,31 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     @Override
     public BranchDef<T, C> run(Identifiable registeredAction) {
         return members.run(registeredAction);
+    }
+
+    @Override
+    public BranchDef<T, C> run(String id, String mapperId) {
+        return members.run(id, mapperId);
+    }
+
+    @Override
+    public BranchDef<T, C> run(String id, ContextMapper<C, ?> inlineMapper) {
+        return members.run(id, inlineMapper);
+    }
+
+    @Override
+    public BranchDef<T, C> run(Identifiable registeredAction, Identifiable mapper) {
+        return members.run(registeredAction, mapper);
+    }
+
+    @Override
+    public BranchDef<T, C> run(Identifiable registeredAction, String mapperId) {
+        return members.run(registeredAction, mapperId);
+    }
+
+    @Override
+    public BranchDef<T, C> run(String id, Identifiable mapper) {
+        return members.run(id, mapper);
     }
 
     @Override

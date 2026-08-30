@@ -23,6 +23,7 @@ import org.transflux.core.TestContext
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.BranchDef
 import org.transflux.core.action.Compensation
+import org.transflux.core.action.ContextMapper
 import org.transflux.core.action.OperationDef
 import org.transflux.core.action.ConditionalOperationDef
 import org.transflux.core.action.DefaultBranchDef
@@ -38,6 +39,10 @@ import java.util.function.Consumer
 import java.util.function.Predicate
 
 class ConditionalOperationDefImplIntegrationSpec extends Specification {
+
+    static class ChildCtx {
+        String tag
+    }
 
     static class Entity {
         String state
@@ -468,6 +473,73 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         e.message.contains("branch 'critical'")
         e.message.contains("'not-an-action'")
         e.message.contains('not an action')
+    }
+
+    def 'a mapped branch member runs against the mapped child context'() {
+        given: 'the branch member crosses a context boundary the container member grammar allows'
+        def applied = []
+        def seen = []
+        def smd = new StateMachineDefImpl<Entity>()
+        smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+            .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
+            .step('child-step', ChildCtx, { Entity e, ChildCtx c, ExecutingTransition tr ->
+                seen << c.tag
+            } as Action)
+            .mapper('child-from-parent', TestContext, ChildCtx,
+                    { TestContext p -> new ChildCtx(tag: p.tag + '-mapped') } as ContextMapper)
+            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
+                t.operation('op', { OperationDef<Entity, TestContext> c ->
+                    c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+                        cs.branch('only', { BranchDef<Entity, TestContext> b ->
+                            b.condition('always', { Entity e -> true } as Predicate)
+                             .run('child-step', 'child-from-parent')
+                        })
+                    })
+                })
+            }) })
+            .state('s2', {})
+        def entity = new Entity('s1')
+
+        when:
+        def result = smd.build().entity(entity).transitionTo('s2', new TestContext('parent-tag'))
+
+        then:
+        result.success
+        seen == ['parent-tag-mapped']
+        result.executedPath*.toString() == ['op', 'op/route', 'op/route/child-step']
+    }
+
+    def 'an inline mapper on a branch member is applied at the boundary'() {
+        given:
+        def applied = []
+        def seen = []
+        def smd = new StateMachineDefImpl<Entity>()
+        smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+            .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
+            .step('child-step', ChildCtx, { Entity e, ChildCtx c, ExecutingTransition tr ->
+                seen << c.tag
+            } as Action)
+            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
+                t.operation('op', { OperationDef<Entity, TestContext> c ->
+                    c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+                        cs.branch('only', { BranchDef<Entity, TestContext> b ->
+                            b.condition('always', { Entity e -> true } as Predicate)
+                             .run('child-step',
+                                  { TestContext p -> new ChildCtx(tag: p.tag + '-inline') } as ContextMapper)
+                        })
+                    })
+                })
+            }) })
+            .state('s2', {})
+
+        when:
+        def result = smd.build().entity(new Entity('s1')).transitionTo('s2', new TestContext('parent-tag'))
+
+        then:
+        result.success
+        seen == ['parent-tag-inline']
     }
 
     private static StateMachine<Entity> build(List<String> applied,
