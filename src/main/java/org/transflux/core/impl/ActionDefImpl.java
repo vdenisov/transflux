@@ -55,6 +55,12 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     extends IdentifiedDefImpl<SELF> implements ActionDef<T, C>
     permits StepDefImpl, OperationDefImpl, ConditionalOperationDefImpl {
 
+    /**
+     * This action's lexical scope, allocated during the build by whoever parents it. Null for an
+     * imperative action, which owns none, and until the scope-binding pass has run.
+     */
+    private RegistryImpl<T> scopeRegistry;
+
     private final ActionListenerSink<T, C, SELF> listeners = new ActionListenerSink<>(this, self());
 
     private final CompensationSink<T, C, SELF> compensation = new CompensationSink<>(this, self());
@@ -288,24 +294,94 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
                             Map<String, BoundCondition<T, ?>> conditionRegistry);
 
     /**
-     * Build-time hook: flattens this operation's scope registry (if any) so runtime
-     * {@link Registry#resolve(String)} is a single map lookup. The simple variant no-ops.
+     * Wires this action's lexical scope. Called once during state-machine construction, before
+     * {@link #buildBound()} runs.
+     *
+     * @param scopeRegistry the scope registry; never {@code null}
      */
-    abstract void flattenScope();
+    final void setScopeRegistry(RegistryImpl<T> scopeRegistry) {
+        this.scopeRegistry = scopeRegistry;
+    }
 
     /**
-     * Build-time diagnostic hook: returns this operation's id when its local scope registry
-     * contains an entry for {@code id} and this operation's id is not {@code excludingId}.
-     * Used by {@link ActionRef} resolution to enrich "unknown id" diagnostics when an id
-     * exists inline in a sibling composite. The simple variant always returns
-     * {@link Optional#empty()}.
+     * Returns this action's own lexical scope, without descending.
+     *
+     * @return the scope registry, or {@code null} when this action owns none
+     */
+    final RegistryImpl<T> ownScope() {
+        return scopeRegistry;
+    }
+
+    /**
+     * Build-time hook: visits every action beneath this one that owns a lexical scope, at any
+     * depth and in any position, excluding this action itself. The walks below are written once
+     * over it, so a new position that can hold a scope cannot be reached by some of them and
+     * missed by others.
+     *
+     * @param visitor receives each scope-owning descendant
+     */
+    abstract void visitScopeOwners(Consumer<ActionDefImpl<T, C, ?>> visitor);
+
+    /**
+     * Flattens this action's scope and every scope beneath it, so runtime
+     * {@link Registry#resolve(String)} is a single map lookup. Order does not matter:
+     * {@link RegistryImpl#flatten()} walks the whole ancestor chain itself.
+     */
+    final void flattenScope() {
+        if (scopeRegistry != null) {
+            scopeRegistry.flatten();
+        }
+        visitScopeOwners(owner -> {
+            if (owner.scopeRegistry != null) {
+                owner.scopeRegistry.flatten();
+            }
+        });
+    }
+
+    /**
+     * Deposits this action's scope and every scope beneath it, so a pass that has to reach
+     * components living only inside a scope sees the nested ones too.
+     *
+     * @param sink receives each scope registry, outermost first
+     */
+    final void collectScopes(Consumer<Registry<T>> sink) {
+        if (scopeRegistry != null) {
+            sink.accept(scopeRegistry);
+        }
+        visitScopeOwners(owner -> {
+            if (owner.scopeRegistry != null) {
+                sink.accept(owner.scopeRegistry);
+            }
+        });
+    }
+
+    /**
+     * Build-time diagnostic: reports which action in this subtree holds {@code id} in its own
+     * scope, so an "unknown id" message can say where the id does live. Ids are unique, so at
+     * most one scope can answer.
      *
      * @param id the id being scanned for
-     * @param excludingId the id of the composite originating the search (excluded from the scan)
+     * @param excludingId the id of the action originating the search, excluded from the scan
      *
-     * @return this composite's id when the scan matches, otherwise empty
+     * @return the holder's id, or empty
      */
-    abstract Optional<String> scanScopeFor(String id, String excludingId);
+    final Optional<String> scanScopeFor(String id, String excludingId) {
+        Optional<String>[] hit = new Optional[] {Optional.<String>empty()};
+        if (holdsInScope(id, excludingId)) {
+            return Optional.of(getId());
+        }
+        visitScopeOwners(owner -> {
+            if (hit[0].isEmpty() && owner.holdsInScope(id, excludingId)) {
+                hit[0] = Optional.of(owner.getId());
+            }
+        });
+        return hit[0];
+    }
+
+    private boolean holdsInScope(String id, String excludingId) {
+        return !getId().equals(excludingId) && scopeRegistry != null
+            && scopeRegistry.get(id).isPresent();
+    }
 
     /**
      * Reports whether anything in this action's subtree is forked, which is what tells the build
@@ -337,12 +413,4 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      */
     abstract void collectNestedCycleNodes(BiConsumer<String, List<String>> sink);
 
-    /**
-     * Build-time hook: deposits every lexical scope in this action's subtree, so a pass that has
-     * to reach components living only inside a scope sees the nested ones too. The simple variant
-     * deposits nothing.
-     *
-     * @param sink receives each scope registry, outermost first
-     */
-    abstract void collectScopes(Consumer<Registry<T>> sink);
 }

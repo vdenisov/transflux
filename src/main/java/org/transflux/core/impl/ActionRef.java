@@ -251,7 +251,6 @@ sealed interface ActionRef<T, C>
 
         @Override
         public void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
-            def.collectInlineRegistrations(sink);
             sink.registerConditional(id, def);
         }
 

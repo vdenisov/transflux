@@ -93,13 +93,23 @@ final class InlineRegistrationSink<T, C> {
         claimInlineCondition(canonical, descriptor);
     }
 
+    /**
+     * Registers a conditional declared in place. Like a nested container it owns a scope, so its
+     * own registry is allocated here, parented on the scope this sink writes into - which is what
+     * lets its branches share what any of them declares while keeping all of it out of reach of
+     * the conditional's siblings. The conditional itself is registered into this sink's scope, so
+     * naming it by id still works from either side.
+     *
+     * @param id the conditional's id
+     * @param def the conditional's def
+     */
     void registerConditional(String id, ConditionalOperationDefImpl<T, C> def) {
         claimCanonical(canonical, id, def, "Conditional operation");
         if (scope.get(id).isPresent()) {
             return;
         }
-        BoundAction<T, C> bound = def.buildBoundAction(conditionRegistry);
-        scope.register(new Component.Action<>(id, contextType, bound));
+        def.bindScopeUnder(scope, canonical, conditionRegistry, contextType);
+        scope.register(new Component.Action<>(id, contextType, def.buildBound()));
     }
 
     /**

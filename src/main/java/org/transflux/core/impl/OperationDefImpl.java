@@ -59,22 +59,10 @@ final class OperationDefImpl<T, C>
 
     private Class<C> declaredContextType;
 
-    private RegistryImpl<T> scopeRegistry;
-
     private CompositeOperationExecutor<T, C> executor;
 
     OperationDefImpl(String id) {
         super(id, "operation", "Operation ID");
-    }
-
-    /**
-     * Wires this composite's lexical-scope registry. Called once during state-machine
-     * construction, before {@link #buildBound()} runs.
-     *
-     * @param scopeRegistry the scope registry; never {@code null}
-     */
-    void setScopeRegistry(RegistryImpl<T> scopeRegistry) {
-        this.scopeRegistry = scopeRegistry;
     }
 
     @Override
@@ -305,7 +293,7 @@ final class OperationDefImpl<T, C>
                     + " at least once before build");
         }
 
-        if (scopeRegistry == null) {
+        if (ownScope() == null) {
             throw new TransfluxValidationException(
                 "OperationDef '" + getId()
                     + "' has no scope registry; state-machine construction did not wire it");
@@ -313,7 +301,7 @@ final class OperationDefImpl<T, C>
 
         // A fresh executor per build: the members a later pass installs belong to the machine
         // being built, so an earlier machine's container keeps the members it was built with.
-        this.executor = new CompositeOperationExecutor<>(scopeRegistry);
+        this.executor = new CompositeOperationExecutor<T, C>(ownScope());
 
         return BoundAction.of(getId(), executor, ActionKind.OPERATION, buildBoundListeners(),
                               buildCompensationRouter());
@@ -351,7 +339,7 @@ final class OperationDefImpl<T, C>
         List<CompositeMember<T, C>> bound = new ArrayList<>(members.members().size());
         for (ActionSequenceSink.DeclaredMember<T, C> member : members.members()) {
             ActionRef<T, C> ref = member.ref();
-            BoundAction<T, C> action = ref.resolve(stateMachine, scopeRegistry, positionLabel,
+            BoundAction<T, C> action = ref.resolve(stateMachine, ownScope(), positionLabel,
                                                   getId());
             ResolvedContextMapping mapping = ref.mapperRef().resolve(stateMachine, getId());
             bound.add(new CompositeMember<>(action, mapping, member.forked()));
@@ -359,8 +347,7 @@ final class OperationDefImpl<T, C>
             // Recursing after the member is built names the outer position first when a
             // resolution fails.
             if (ref instanceof ActionRef.Conditional<T, C> conditional) {
-                conditional.def().bindBranchMembers(stateMachine, scopeRegistry, positionLabel,
-                                                   getId());
+                conditional.def().bindBranchMembers(stateMachine, positionLabel, getId());
             } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
                 nested.def().bindMembers(stateMachine,
                                          positionLabel + " > " + nested.def().defLabel());
@@ -408,38 +395,22 @@ final class OperationDefImpl<T, C>
         RegistryImpl<T> scope = new RegistryImpl<>(parentRegistry, getId());
         setScopeRegistry(scope);
 
+
         InlineRegistrationSink<T, C> sink = new InlineRegistrationSink<>(
             scope, canonical, tagged, conditionRegistry);
         collectInlineRegistrations(sink);
     }
 
     @Override
-    void flattenScope() {
-        if (scopeRegistry == null) {
-            return;
-        }
-        scopeRegistry.flatten();
-        for (OperationDefImpl<T, C> nested : nestedContainers()) {
-            if (nested.scopeRegistry != null) {
-                nested.scopeRegistry.flatten();
+    void visitScopeOwners(Consumer<ActionDefImpl<T, C, ?>> visitor) {
+        // visitAllMembers is transitive, so one pass reaches every depth and every position.
+        members.visitAllMembers(member -> {
+            if (member.ref() instanceof ActionRef.InlineOperation<T, C> inline) {
+                visitor.accept(inline.def());
+            } else if (member.ref() instanceof ActionRef.Conditional<T, C> conditional) {
+                visitor.accept(conditional.def());
             }
-        }
-    }
-
-    @Override
-    Optional<String> scanScopeFor(String id, String excludingId) {
-        // Outermost first, the order the member walk yields. Which one answers does not matter
-        // while ids are unique - at most one scope in the subtree can hold the id.
-        for (OperationDefImpl<T, C> nested : nestedContainers()) {
-            if (nested.holdsInScope(id, excludingId)) {
-                return Optional.of(nested.getId());
-            }
-        }
-
-        if (holdsInScope(id, excludingId)) {
-            return Optional.of(getId());
-        }
-        return Optional.empty();
+        });
     }
 
     @Override
@@ -453,43 +424,6 @@ final class OperationDefImpl<T, C>
                 sink.accept(conditional.id(), conditional.def().branchByIdReferenceIds());
             }
         });
-    }
-
-    @Override
-    void collectScopes(Consumer<Registry<T>> sink) {
-        if (scopeRegistry == null) {
-            return;
-        }
-        sink.accept(scopeRegistry);
-        for (OperationDefImpl<T, C> nested : nestedContainers()) {
-            if (nested.scopeRegistry != null) {
-                sink.accept(nested.scopeRegistry);
-            }
-        }
-    }
-
-    private boolean holdsInScope(String id, String excludingId) {
-        return !getId().equals(excludingId) && scopeRegistry != null
-            && scopeRegistry.get(id).isPresent();
-    }
-
-    /**
-     * Every container declared in place beneath this one, at any depth and in whichever position -
-     * a member of this container, of a conditional's branch, or of another nested container.
-     * <p>
-     * The walk is {@link ActionSequenceSink#visitAllMembers}, which already descends through every
-     * nesting form; collecting into a list rather than recursing per pass keeps the three scope
-     * walks that need this from each re-deriving the descent, and from each getting it wrong in a
-     * different position.
-     */
-    private List<OperationDefImpl<T, C>> nestedContainers() {
-        List<OperationDefImpl<T, C>> nested = new ArrayList<>();
-        members.visitAllMembers(member -> {
-            if (member.ref() instanceof ActionRef.InlineOperation<T, C> inline) {
-                nested.add(inline.def());
-            }
-        });
-        return nested;
     }
 
     /**

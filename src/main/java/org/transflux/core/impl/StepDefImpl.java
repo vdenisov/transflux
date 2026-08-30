@@ -126,13 +126,8 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
     }
 
     @Override
-    void flattenScope() {
-        // No scope registry to flatten.
-    }
-
-    @Override
-    Optional<String> scanScopeFor(String id, String excludingId) {
-        return Optional.empty();
+    void visitScopeOwners(Consumer<ActionDefImpl<T, C, ?>> visitor) {
+        // An imperative action declares no members, so nothing beneath it owns a scope.
     }
 
     @Override
@@ -150,8 +145,4 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
         // An imperative action declares no members, so it contributes no node.
     }
 
-    @Override
-    void collectScopes(Consumer<Registry<T>> sink) {
-        // An imperative action owns no lexical scope.
-    }
 }

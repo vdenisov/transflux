@@ -55,6 +55,21 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         }
     }
 
+    /** Records which build's instance was created and which one actually ran. */
+    static class Recorder implements Action<Entity, TestContext> {
+        static final List<Recorder> CREATED = []
+        static final List<Recorder> RAN = []
+
+        Recorder() {
+            CREATED << this
+        }
+
+        @Override
+        void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
+            RAN << this
+        }
+    }
+
     static class TrailStep implements Action<Entity, TestContext> {
         final String tag
 
@@ -652,6 +667,109 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         result.success
         entity.trail == ['shared', 'shared']
         result.executedPath*.toString() == ['op', 'op/shared', 'op/outer', 'op/outer/inner', 'op/outer/inner/shared']
+    }
+
+    def 'one branch reaches an action another branch declared'() {
+        given: 'the branches share the conditional scope, so a common step is declared once'
+        def applied = []
+        def sm = build(applied, { smd -> },
+            { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
+                c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs -> cs
+                    .branch('never', { BranchDef<Entity, TestContext> b -> b
+                        .condition('no', { Entity e -> false } as Predicate)
+                        .step('common', new TrailStep('common')) })
+                    .branch('taken', { BranchDef<Entity, TestContext> b -> b
+                        .condition('yes', { Entity e -> true } as Predicate)
+                        .run('common') }) })
+            }) })
+        def entity = new Entity('s1')
+
+        when:
+        def result = sm.executeTransition(entity, 's2')
+
+        then:
+        result.success
+        entity.trail == ['common']
+        result.executedPath*.toString() == ['op', 'op/route', 'op/route/common']
+    }
+
+    def "a sibling of the conditional cannot reach what a branch declared"() {
+        when: 'the conditional scope is private from outside, as a container scope is'
+        build([], { smd -> },
+            { t -> t.operation('op', { OperationDef<Entity, TestContext> c -> c
+                .conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+                    cs.branch('only', { BranchDef<Entity, TestContext> b -> b
+                        .condition('yes', { Entity e -> true } as Predicate)
+                        .step('buried', new TrailStep('buried')) }) })
+                .run('buried') })
+            })
+
+        then: 'and the diagnostic says where the id does live'
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("unknown action id 'buried'")
+        e.message.contains("sibling composite 'route'")
+    }
+
+    def "an action dispatched from a branch member's body resolves in the conditional's scope"() {
+        given: 'the executor pushes its scope, so an imperative run(id) sees what branches share'
+        def applied = []
+        def sm = build(applied, { smd -> },
+            { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
+                c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs -> cs
+                    .branch('other', { BranchDef<Entity, TestContext> b -> b
+                        .condition('no', { Entity e -> false } as Predicate)
+                        .step('sibling-leaf', new TrailStep('sibling-leaf')) })
+                    .branch('taken', { BranchDef<Entity, TestContext> b -> b
+                        .condition('yes', { Entity e -> true } as Predicate)
+                        .step('dispatcher', { Entity e, TestContext ctx, ExecutingTransition view ->
+                            view.run('sibling-leaf')
+                        } as Action) }) })
+            }) })
+        def entity = new Entity('s1')
+
+        when:
+        def result = sm.executeTransition(entity, 's2')
+
+        then:
+        result.success
+        entity.trail == ['sibling-leaf']
+        result.executedPath*.toString().contains('op/route/dispatcher/sibling-leaf')
+    }
+
+    def 'a machine keeps the conditional scope it was built with when the def is built again'() {
+        given: 'a class-based inline member, so each build instantiates its own'
+        Recorder.CREATED.clear()
+        Recorder.RAN.clear()
+        def smd = new StateMachineDefImpl<Entity>()
+        smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+            .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
+        smd.state('s1', { s -> s.transitionsTo('s2', 't', TestContext, { t ->
+            t.operation('op', { OperationDef<Entity, TestContext> c ->
+                c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs -> cs
+                    .branch('other', { BranchDef<Entity, TestContext> b -> b
+                        .condition('no', { Entity e -> false } as Predicate)
+                        .step('leaf', Recorder) })
+                    .branch('taken', { BranchDef<Entity, TestContext> b -> b
+                        .condition('yes', { Entity e -> true } as Predicate)
+                        .step('dispatcher', { Entity e, TestContext ctx, ExecutingTransition view ->
+                            view.run('leaf')
+                        } as Action) }) })
+            })
+        }) })
+        smd.state('s2', {})
+
+        def first = smd.build()
+        smd.build()
+
+        when: 'the first machine runs after a second was built from the same def'
+        def result = first.executeTransition(new Entity('s1'), 's2')
+
+        then: 'it dispatched the member from its own build, not from the later one'
+        result.success
+        Recorder.CREATED.size() == 2
+        Recorder.RAN.size() == 1
+        Recorder.RAN[0].is(Recorder.CREATED[0])
     }
 
     private static StateMachine<Entity> build(List<String> applied,

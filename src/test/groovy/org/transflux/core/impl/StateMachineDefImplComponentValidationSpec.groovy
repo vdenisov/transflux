@@ -78,7 +78,7 @@ class StateMachineDefImplComponentValidationSpec extends Specification {
         given:
         def smd = defWithComposites()
         def sm = smd.build()
-        plant(smd.transitionsById['t'].actionDef.scopeRegistry)
+        plant(smd.transitionsById['t'].actionDef.ownScope())
 
         when:
         smd.validateComponents(sm.componentRegistry)
@@ -92,7 +92,7 @@ class StateMachineDefImplComponentValidationSpec extends Specification {
         given:
         def smd = defWithComposites()
         def sm = smd.build()
-        plant(smd.getSmCompositeOperation('sm-level').scopeRegistry)
+        plant(smd.getSmCompositeOperation('sm-level').ownScope())
 
         when:
         smd.validateComponents(sm.componentRegistry)

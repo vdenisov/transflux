@@ -245,7 +245,7 @@ final class ConditionalOperationDefImpl<T, C>
      * @throws TransfluxValidationException if a branch names an id that no action in scope
      *         carries, or if no executor was built for this conditional
      */
-    void bindBranchMembers(StateMachineImpl<T> stateMachine, Registry<T> scope,
+    void bindBranchMembers(StateMachineImpl<T> stateMachine,
                            String enclosingLabel, String enclosingOperationId) {
         if (executor == null) {
             throw new TransfluxValidationException(
@@ -259,13 +259,13 @@ final class ConditionalOperationDefImpl<T, C>
             resolved.add(new ResolvedBranch<>(
                 branch.getBranchId(),
                 executor.conditions.get(i),
-                bindMembers(branch.getMembers(), stateMachine, scope,
+                bindMembers(branch.getMembers(), stateMachine,
                             branchLabel(enclosingLabel, "branch '" + branch.getBranchId() + "'"),
                             enclosingOperationId)));
         }
 
         List<CompositeMember<T, C>> defaultMembers = defaultBranch == null ? null
-            : bindMembers(defaultBranch.getMembers(), stateMachine, scope,
+            : bindMembers(defaultBranch.getMembers(), stateMachine,
                           branchLabel(enclosingLabel, "default branch"), enclosingOperationId);
 
         executor.bind(resolved, defaultMembers);
@@ -327,16 +327,16 @@ final class ConditionalOperationDefImpl<T, C>
 
         // A fresh executor per build: the members a later pass installs belong to the machine
         // being built, so an earlier machine's conditional keeps the members it was built with.
-        this.executor = new ConditionalBranchExecutor(conditions);
+        this.executor = new ConditionalBranchExecutor(conditions, ownScope());
         return BoundAction.of(getId(), executor, ActionKind.OPERATION, buildBoundListeners(),
                               buildCompensationRouter());
     }
 
     private List<CompositeMember<T, C>> bindMembers(List<ActionSequenceSink.DeclaredMember<T, C>> declared,
                                                     StateMachineImpl<T> stateMachine,
-                                                    Registry<T> scope,
                                                     String ownerLabel,
                                                     String enclosingOperationId) {
+        Registry<T> scope = ownScope();
         List<CompositeMember<T, C>> bound = new ArrayList<>(declared.size());
         for (ActionSequenceSink.DeclaredMember<T, C> member : declared) {
             ActionRef<T, C> ref = member.ref();
@@ -345,11 +345,10 @@ final class ConditionalOperationDefImpl<T, C>
                 ref.mapperRef().resolve(stateMachine, enclosingOperationId),
                 member.forked()));
 
-            // A conditional nested in a branch owns no scope and does not re-type, so it binds
-            // against the same two. Recursing after the member is built names the outer position
-            // first when a resolution fails.
+            // Each nested form binds against its own scope. Recursing after the member is built
+            // names the outer position first when a resolution fails.
             if (ref instanceof ActionRef.Conditional<T, C> nested) {
-                nested.def().bindBranchMembers(stateMachine, scope, ownerLabel, enclosingOperationId);
+                nested.def().bindBranchMembers(stateMachine, ownerLabel, enclosingOperationId);
             } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
                 // A container declared in a branch does own a scope, and binds against its own.
                 nested.def().bindMembers(stateMachine, ownerLabel + " > " + nested.def().defLabel());
@@ -384,7 +383,40 @@ final class ConditionalOperationDefImpl<T, C>
         @SuppressWarnings("unchecked")
         Map<String, BoundCondition<T, C>> typed =
             (Map<String, BoundCondition<T, C>>) (Map<?, ?>) conditionRegistry;
-        this.boundConditions = typed;
+        bindScopeUnder(rootRegistry, canonical, typed, null);
+    }
+
+    /**
+     * Allocates this conditional's lexical scope under {@code parentRegistry} and populates it
+     * with everything its branches declare inline.
+     * <p>
+     * The scope is what makes a conditional's members shared between its own branches and private
+     * from outside it: every branch resolves against this one registry and then up the chain, so a
+     * step declared in one branch is reachable from another, while a sibling of the conditional
+     * cannot see in. The conditional's own bound action is registered by the caller into the
+     * <em>enclosing</em> scope, so naming the conditional by id still works from either side.
+     *
+     * @param parentRegistry the registry this scope parents onto
+     * @param canonical the per-build canonical-payload table enforcing SM-wide id uniqueness
+     * @param conditionRegistry the resolved SM-wide condition registry, also captured for
+     *                          {@link #buildBound()}
+     * @param inheritedContext the enclosing position's context type, used to tag what this
+     *                         conditional registers; {@code null} at a root
+     */
+    void bindScopeUnder(RegistryImpl<T> parentRegistry,
+                        Map<String, Object> canonical,
+                        Map<String, BoundCondition<T, C>> conditionRegistry,
+                        Class<?> inheritedContext) {
+        this.boundConditions = conditionRegistry;
+
+        @SuppressWarnings("unchecked")
+        Class<C> tagged = (Class<C>) (inheritedContext != null ? inheritedContext : Object.class);
+
+        RegistryImpl<T> scope = new RegistryImpl<>(parentRegistry, getId());
+        setScopeRegistry(scope);
+
+        collectInlineRegistrations(
+            new InlineRegistrationSink<>(scope, canonical, tagged, conditionRegistry));
     }
 
     @Override
@@ -395,22 +427,18 @@ final class ConditionalOperationDefImpl<T, C>
 
     @Override
     void bindMembers(StateMachineImpl<T> stateMachine, String positionLabel) {
-        bindBranchMembers(stateMachine, stateMachine.getComponentRegistry(), positionLabel, getId());
+        bindBranchMembers(stateMachine, positionLabel, getId());
     }
 
     @Override
-    void flattenScope() {
-        // A conditional owns no scope; its members live in the enclosing one.
-    }
-
-    @Override
-    Optional<String> scanScopeFor(String id, String excludingId) {
-        return Optional.empty();
-    }
-
-    @Override
-    void collectScopes(Consumer<Registry<T>> sink) {
-        // No scope of its own to hand over.
+    void visitScopeOwners(Consumer<ActionDefImpl<T, C, ?>> visitor) {
+        visitBranchMembers(member -> {
+            if (member.ref() instanceof ActionRef.InlineOperation<T, C> inline) {
+                visitor.accept(inline.def());
+            } else if (member.ref() instanceof ActionRef.Conditional<T, C> nested) {
+                visitor.accept(nested.def());
+            }
+        });
     }
 
     @Override
@@ -448,11 +476,20 @@ final class ConditionalOperationDefImpl<T, C>
      */
     private final class ConditionalBranchExecutor implements Action<T, C> {
         private final List<BoundCondition<T, C>> conditions;
+
+        /**
+         * Captured at construction, not read from the def at dispatch: the def's field is
+         * overwritten by the next build, and an earlier machine must keep the scope it was built
+         * with. The sibling container executor captures for the same reason.
+         */
+        private final Registry<T> scopeRegistry;
+
         private List<ResolvedBranch<T, C>> resolvedBranches;
         private List<CompositeMember<T, C>> defaultMembers;
 
-        ConditionalBranchExecutor(List<BoundCondition<T, C>> conditions) {
+        ConditionalBranchExecutor(List<BoundCondition<T, C>> conditions, Registry<T> scopeRegistry) {
             this.conditions = conditions;
+            this.scopeRegistry = scopeRegistry;
         }
 
         void bind(List<ResolvedBranch<T, C>> resolvedBranches, List<CompositeMember<T, C>> defaultMembers) {
@@ -493,8 +530,15 @@ final class ConditionalOperationDefImpl<T, C>
         }
 
         private void dispatchMembers(List<CompositeMember<T, C>> members, ExecutingTransitionImpl<T, C> view) {
-            for (CompositeMember<T, C> member : members) {
-                member.dispatch(view);
+            // The conditional's own scope, so an id dispatched from inside a branch member's body
+            // resolves against what the branches share before walking out to the enclosing chain.
+            view.pushScope(scopeRegistry);
+            try {
+                for (CompositeMember<T, C> member : members) {
+                    member.dispatch(view);
+                }
+            } finally {
+                view.popScope();
             }
         }
     }

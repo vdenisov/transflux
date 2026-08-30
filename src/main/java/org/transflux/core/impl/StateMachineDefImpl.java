@@ -1898,6 +1898,16 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * The edge lists stay over-approximate in the way this detector already is: it does not reason
      * about which branch of a conditional is selectable, just as it does not reason about whether
      * a container is ever reached.
+     * <p>
+     * Two consequences of that over-approximation are known and accepted, because both only affect
+     * <em>which</em> message a rejected definition gets, never whether a sound one is accepted.
+     * An action's edges include its whole subtree's, so a cycle closed from inside a nested
+     * position is attributed to the outermost one and the reported path is shorter than the real
+     * chain. And the walk does not model lexical visibility, so a reference to an id the referrer
+     * cannot actually see can be reported as a cycle rather than as an unknown id - this pass runs
+     * before any scope exists, so it has nothing to check visibility against. Naming the real
+     * fault in both cases needs structural parent-to-child edges and a visibility-aware walk;
+     * neither is worth it while the outcome is a failed build either way.
      *
      * @return each node's outgoing ids, in declaration order
      */
