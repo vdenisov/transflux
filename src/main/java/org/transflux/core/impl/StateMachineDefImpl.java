@@ -1683,7 +1683,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     @Override
     public StateMachine<T> build() {
-        // The four phase boundaries, reported so that "why did my definition build into *that*" has
+        // The three phase boundaries, reported so that "why did my definition build into *that*" has
         // somewhere to start. Each phase names itself before running, so a throw is attributable to
         // the phase whose line was last emitted — which is why all four go to one logger rather than
         // to the logger of the phase they announce: split across leaves, the attribution would hold
@@ -1697,9 +1697,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         Loggers.BUILD_LIFECYCLE.debug("Validating registered components");
         validateComponents(stateMachine.getComponentRegistry());
 
-        Loggers.BUILD_LIFECYCLE.debug("Validating conditional branch references");
-        validateBranchRefs();
-
         // The one build-time INFO: rare, and the only report a host gets that its definition
         // resolved into the shape it expected. The component count is the root registry's, matching
         // the name the binding pass uses. A generation counter belongs here too once definition
@@ -1712,28 +1709,31 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
-     * Verifies that every by-id member declared inside a conditional's branches resolves in its
-     * enclosing operation's scope.
+     * Resolves every member declared inside a conditional's branches and installs the bound
+     * members on the conditional's executor.
      * <p>
-     * Branch members are the one reference position whose ids cannot be checked in
-     * {@link #validateContextCompatibilityAndCycles()}: a conditional's bound action is
-     * registered <em>into</em> the very scope its branches resolve against, so the registry is
-     * only complete once construction has populated and flattened it. Running here — after
-     * {@link #validateComponents} — closes the gap that otherwise deferred a typo'd branch
-     * reference to the first execution that reached that branch.
+     * Branch members are the one position that cannot bind during
+     * {@link OperationDefImpl#buildBound}: a conditional's bound action is registered
+     * <em>into</em> the very scope its branches resolve against, so the members can only be
+     * resolved once every scope is populated. Binding here rather than inside {@code buildBound}
+     * also keeps a branch free to reference a container declared after its own — containers are
+     * registered into the root registry as they are built, so an earlier container's branch
+     * would otherwise fail to see a later one.
+     *
+     * @param stateMachine the state machine under construction
      *
      * @throws TransfluxValidationException if a branch names an id that no action in scope carries
      */
-    private void validateBranchRefs() {
+    void bindConditionalBranchMembers(StateMachineImpl<T> stateMachine) {
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             ActionDefImpl<T, ?, ?> op = td.getActionDef();
             if (op != null) {
-                op.checkBranchRefs();
+                op.bindBranchMembers(stateMachine);
             }
         }
 
         for (OperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
-            composite.checkBranchRefs();
+            composite.bindBranchMembers(stateMachine);
         }
     }
 

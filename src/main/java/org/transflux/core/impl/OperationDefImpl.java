@@ -321,7 +321,8 @@ final class OperationDefImpl<T, C>
         List<CompositeMember<T, C>> bound = new ArrayList<>(members.size());
         for (DeclaredMember<T, C> member : members) {
             ActionRef<T, C> ref = member.ref();
-            BoundAction<T, C> action = ref.resolve(stateMachine, scopeRegistry, getId());
+            BoundAction<T, C> action = ref.resolve(stateMachine, scopeRegistry,
+                                                  "OperationDef '" + getId() + "'", getId());
             ResolvedContextMapping mapping = ref.mapperRef().resolve(stateMachine, getId());
             bound.add(new CompositeMember<>(action, mapping, member.forked()));
         }
@@ -361,13 +362,13 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
-    void checkBranchRefs() {
+    void bindBranchMembers(StateMachineImpl<T> stateMachine) {
         if (scopeRegistry == null) {
             return;
         }
         for (DeclaredMember<T, C> member : members) {
             if (member.ref() instanceof ActionRef.Conditional<T, C> conditional) {
-                conditional.def().checkBranchRefs(scopeRegistry);
+                conditional.def().bindBranchMembers(stateMachine, scopeRegistry, getId());
             }
         }
     }
@@ -515,33 +516,8 @@ final class OperationDefImpl<T, C>
     }
 
     /**
-     * Pairs a resolved composite member with its context-mapping configuration. Each member is
-     * dispatched uniformly: optional {@link ContextMapper#mapTo(Object) mapTo} before, the
-     * bound action's invocation against the (possibly mapped) child context, optional
-     * {@link ContextMapper#mapFrom(Object, Object) mapFrom} after on success.
-     */
-    private record CompositeMember<T, C>(BoundAction<T, C> action, ResolvedContextMapping mapping,
-                                         boolean forked) {
-    }
-
-    /**
      * Iterates an ordered list of {@link CompositeMember} entries and invokes each one against
      * the supplied {@link ExecutingTransition} through a single unified dispatch path.
-     *
-     * <p>Every member goes through {@link ExecutingTransitionImpl#runAction}, whatever form it was
-     * authored in, so compensation capture, id recording and nesting are identical here and at
-     * every other dispatch site. Pass-through mode runs the member against the parent context
-     * verbatim; mapped mode produces a child context via {@code mapTo}, runs against it, then
-     * folds back through {@code mapFrom} on success.
-     *
-     * <p>Mapper failure attribution: a {@code mapTo} failure throws before the member starts
-     * and therefore surfaces as a parent member failure at the member's position — no child
-     * step ids are recorded for it, and no compensation is captured for it either. A
-     * {@code mapFrom} failure throws after the member has returned successfully, so any inner
-     * step ids the member drove are already on the executed list; the failure attaches to the
-     * parent's position and is treated as a parent failure. The child's own completion stands,
-     * but its compensations still run: a compensation is captured before the action executes and
-     * the enclosing transition drains the whole stack on any failure, whatever completed.
      */
     @SuppressWarnings("ClassCanBeRecord")
     private static final class CompositeOperationExecutor<T, C> implements Action<T, C> {
@@ -566,27 +542,11 @@ final class OperationDefImpl<T, C>
             view.pushScope(scopeRegistry);
             try {
                 for (CompositeMember<T, C> member : members) {
-                    dispatchMember(view, member);
+                    member.dispatch(view);
                 }
             } finally {
                 view.popScope();
             }
-        }
-
-        @SuppressWarnings({"unchecked", "rawtypes"})
-        private void dispatchMember(ExecutingTransitionImpl<T, C> view, CompositeMember<T, C> member) {
-            ResolvedContextMapping mapping = member.mapping();
-
-            if (member.forked()) {
-                // Returns as soon as the branch is handed over, so the members after it start
-                // without waiting - the position in this list is when the work begins, not when
-                // it ends.
-                view.submitBranch((BoundAction) member.action(), mapping);
-                return;
-            }
-
-            ContextMapper<Object, Object> mapper = mapping.isPassThrough() ? null : mapping.mapper();
-            view.runAction((BoundAction) member.action(), mapper);
         }
     }
 }

@@ -423,6 +423,53 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         result.executedPath*.toString() == ['op', 'op/shared', 'op/route', 'op/route/shared']
     }
 
+    def 'a branch may reference a container declared after the one holding the conditional'() {
+        given: 'members bind after every container is built, not while each one builds'
+        def applied = []
+        def sm = build(applied,
+            { smd -> smd.operation('first', TestContext, { OperationDef<Entity, TestContext> op ->
+                    op.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+                        cs.branch('only', { BranchDef<Entity, TestContext> b ->
+                            b.condition('always', { Entity e -> true } as Predicate).run('second')
+                        })
+                    })
+                })
+                .operation('second', TestContext, { OperationDef<Entity, TestContext> op ->
+                    op.step('inner', new TrailStep('from-second'))
+                })
+            },
+            { t -> t.run('first') })
+        def entity = new Entity('s1')
+
+        when:
+        def result = sm.executeTransition(entity, 's2')
+
+        then:
+        result.success
+        entity.trail == ['from-second']
+        result.executedPath*.toString() == ['first', 'first/route', 'first/route/second', 'first/route/second/inner']
+    }
+
+    def 'branch referencing an id registered as a condition is rejected at build time'() {
+        when:
+        build([], { smd -> smd.condition('not-an-action', { Entity e -> true } as Predicate) },
+            { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
+                c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+                    cs.branch('critical', { BranchDef<Entity, TestContext> b ->
+                        b.condition('critical-cond', { Entity e -> true } as Predicate)
+                         .run('not-an-action')
+                    })
+                })
+            }) })
+
+        then: 'the id resolves, but to the wrong kind of component'
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("conditional operation 'route'")
+        e.message.contains("branch 'critical'")
+        e.message.contains("'not-an-action'")
+        e.message.contains('not an action')
+    }
+
     private static StateMachine<Entity> build(List<String> applied,
                                               Consumer<StateMachineDefImpl<Entity>> smdRegistrations,
                                               Consumer<TransitionDef<Entity, TestContext>> transitionConfigurer) {

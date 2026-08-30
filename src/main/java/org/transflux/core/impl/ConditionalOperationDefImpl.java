@@ -52,18 +52,16 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * branches are validated at build time, not at configurer return — the configurer surface is
  * permissive and validation is centralized in {@link #buildBoundAction(Map)}.
  *
- * <p><b>Build-time resolution.</b> Branch conditions are resolved eagerly against the
- * supplied condition registry. Branch action refs are <em>not</em> resolved eagerly: the
- * executor resolves each member by id at execution time via
- * {@link ExecutingTransitionImpl#run(String)}, which consults the active scope and walks the parent
- * chain up to the root registry. This sidesteps the build-order dependency between the bound
- * action registry and the conditional executor that lives in that very registry.
- *
- * <p>Deferring <em>resolution</em> does not mean deferring <em>validation</em>. Two build-time
- * passes cover branch members: {@link #checkRefs} validates their pass-through context
- * compatibility alongside the enclosing operation's own members, and {@link #checkBranchRefs}
- * verifies each id resolves once the scope registries are populated and flattened. A typo in a
- * branch therefore fails the build rather than the first execution that reaches that branch.
+ * <p><b>Building takes two passes.</b> {@link #buildBoundAction(Map)} validates the shape,
+ * resolves the branch conditions and produces the {@link BoundAction} that goes into the
+ * enclosing operation's scope; {@link #bindBranchMembers} then resolves the branch members and
+ * installs them. They are separate because the bound action has to be in that scope before its
+ * own members can be resolved — a sibling member may reference the conditional by id, and such a
+ * reference captures the bound action by value — while resolving the members needs every scope
+ * populated and the state machine in existence. A branch member that names an unknown id
+ * therefore fails the build rather than the first execution that reaches that branch; its
+ * pass-through context compatibility is checked earlier still, by {@link #checkRefs}, alongside
+ * the enclosing operation's own members.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
@@ -78,6 +76,7 @@ final class ConditionalOperationDefImpl<T, C>
         new CompensationSink<>(this, this);
     private DefaultBranchDefImpl<T, C> defaultBranch;
     private NoMatchBehavior noMatchBehavior = NoMatchBehavior.WARN;
+    private ConditionalBranchExecutor executor;
 
     ConditionalOperationDefImpl(String id) {
         super(id, "conditional operation", "Conditional operation ID");
@@ -324,31 +323,55 @@ final class ConditionalOperationDefImpl<T, C>
     }
 
     /**
-     * Build-time hook: verifies that every by-id branch member resolves to an action in the
-     * enclosing operation's lexical scope.
-     * <p>
-     * This runs after the scope registries have been populated and flattened, which is why it is
-     * a separate pass from {@link #checkRefs} rather than part of it. It checks presence only and
-     * does not bind anything, so the lazy resolution the executor relies on is unaffected.
+     * Second build pass: resolves every branch member against the enclosing operation's lexical
+     * scope and installs the bound members on the executor built by the first pass.
      *
+     * <p>The two passes exist because the conditional's {@link BoundAction} has to be in the
+     * enclosing scope before its own members can be resolved — a sibling member may reference
+     * the conditional by id, and such a reference captures the bound action by value. The
+     * identity is therefore fixed while the scopes are still being populated, and only the
+     * members can wait until every scope is complete and the state machine exists.
+     *
+     * @param stateMachine the state machine under construction, whose mapper registry and
+     *                     diagnostics the resolution consults
      * @param scope the enclosing operation's scope registry; resolution walks the parent chain
      *              up to the state-machine root
+     * @param enclosingOperationId the id of the operation that declared this conditional
      *
-     * @throws TransfluxValidationException if a branch names an id that no action in scope carries
+     * @throws TransfluxValidationException if a branch names an id that no action in scope
+     *         carries, or if no executor was built for this conditional
      */
-    void checkBranchRefs(Registry<T> scope) {
-        for (BranchDefImpl<T, C> branch : branches) {
-            checkRefsResolvable(branch.getActionRefs(), scope,
-                branchLabel("branch '" + branch.getBranchId() + "'"));
+    void bindBranchMembers(StateMachineImpl<T> stateMachine, Registry<T> scope,
+                           String enclosingOperationId) {
+        if (executor == null) {
+            throw new TransfluxValidationException(
+                "Conditional operation '" + getId()
+                    + "' has no executor; state-machine construction did not build it");
         }
-        if (defaultBranch != null) {
-            checkRefsResolvable(defaultBranch.getActionRefs(), scope, branchLabel("default branch"));
+
+        List<ResolvedBranch<T, C>> resolved = new ArrayList<>(branches.size());
+        for (int i = 0; i < branches.size(); i++) {
+            BranchDefImpl<T, C> branch = branches.get(i);
+            resolved.add(new ResolvedBranch<>(
+                branch.getBranchId(),
+                executor.conditions.get(i),
+                bindMembers(branch.getActionRefs(), stateMachine, scope,
+                            branchLabel("branch '" + branch.getBranchId() + "'"),
+                            enclosingOperationId)));
         }
+
+        List<CompositeMember<T, C>> defaultMembers = defaultBranch == null ? null
+            : bindMembers(defaultBranch.getActionRefs(), stateMachine, scope,
+                          branchLabel("default branch"), enclosingOperationId);
+
+        executor.bind(resolved, defaultMembers);
     }
 
     /**
-     * Resolves this conditional into a {@link BoundAction} whose executable {@link Action} runs
-     * the matching branch's steps against the supplied transition view.
+     * First build pass: validates this conditional's shape, resolves each branch's condition, and
+     * produces the {@link BoundAction} whose executable {@link Action} runs the matching branch
+     * against the supplied transition view. The branch members are filled in later, by
+     * {@link #bindBranchMembers}.
      *
      * @param conditionRegistry the resolved state-machine condition registry, used to bind
      *                          each branch's condition descriptor
@@ -370,7 +393,7 @@ final class ConditionalOperationDefImpl<T, C>
         }
 
         Set<String> seen = new HashSet<>();
-        List<ResolvedBranch<T, C>> resolvedBranches = new ArrayList<>(branches.size());
+        List<BoundCondition<T, C>> conditions = new ArrayList<>(branches.size());
         for (int i = 0; i < branches.size(); i++) {
             BranchDefImpl<T, C> branch = branches.get(i);
             if (!seen.add(branch.getBranchId())) {
@@ -390,36 +413,36 @@ final class ConditionalOperationDefImpl<T, C>
             }
 
             String path = "conditional:" + getId() + ":branch[" + i + "]";
-            BoundCondition<T, C> bound = ConditionResolver.resolve(
-                branch.getDescriptor(), conditionRegistry, path);
-
-            List<String> stepIds = collectStepIds(branch.getActionRefs());
-            resolvedBranches.add(new ResolvedBranch<>(branch.getBranchId(), bound, stepIds));
+            conditions.add(ConditionResolver.resolve(branch.getDescriptor(), conditionRegistry, path));
         }
 
-        List<String> defaultStepIds = null;
-        if (defaultBranch != null) {
-            if (defaultBranch.getActionRefs().isEmpty()) {
-                throw new TransfluxValidationException(
-                    "Default branch on conditional operation '" + getId() + "' must declare at least one action");
-            }
-            defaultStepIds = collectStepIds(defaultBranch.getActionRefs());
+        if (defaultBranch != null && defaultBranch.getActionRefs().isEmpty()) {
+            throw new TransfluxValidationException(
+                "Default branch on conditional operation '" + getId() + "' must declare at least one action");
         }
 
-        Action<T, C> executor = new ConditionalBranchExecutor(resolvedBranches,
-                                                              defaultStepIds, noMatchBehavior, getId());
+        // A fresh executor per build: the members a later pass installs belong to the machine
+        // being built, so an earlier machine's conditional keeps the members it was built with.
+        this.executor = new ConditionalBranchExecutor(conditions);
         // A conditional sits outside the sealed ActionDefImpl hierarchy, so it cannot inherit
         // buildCompensationRouter - it drives the same sink that method delegates to.
         return BoundAction.of(getId(), executor, ActionKind.OPERATION, listeners.buildBound(),
                               compensation.buildRouter());
     }
 
-    private static <T, C> List<String> collectStepIds(List<ActionRef<T, C>> refs) {
-        List<String> ids = new ArrayList<>(refs.size());
+    private List<CompositeMember<T, C>> bindMembers(List<ActionRef<T, C>> refs,
+                                                    StateMachineImpl<T> stateMachine,
+                                                    Registry<T> scope,
+                                                    String ownerLabel,
+                                                    String enclosingOperationId) {
+        List<CompositeMember<T, C>> bound = new ArrayList<>(refs.size());
         for (ActionRef<T, C> ref : refs) {
-            ids.add(ref.id());
+            bound.add(new CompositeMember<>(
+                ref.resolve(stateMachine, scope, ownerLabel, enclosingOperationId),
+                ref.mapperRef().resolve(stateMachine, enclosingOperationId),
+                false));
         }
-        return Collections.unmodifiableList(ids);
+        return Collections.unmodifiableList(bound);
     }
 
     private String branchLabel(String branchPart) {
@@ -437,48 +460,28 @@ final class ConditionalOperationDefImpl<T, C>
         }
     }
 
-    private void checkRefsResolvable(List<ActionRef<T, C>> refs, Registry<T> scope, String label) {
-        for (ActionRef<T, C> ref : refs) {
-            if (!(ref instanceof ActionRef.ById<T, C>)) {
-                continue;
-            }
-            Component<T> component = scope.resolve(ref.id())
-                .orElseThrow(() -> new TransfluxValidationException(
-                    label + " references unknown action id '" + ref.id() + "' in its scope"));
-            if (!(component instanceof Component.Action<T, ?>)) {
-                throw new TransfluxValidationException(
-                    label + " references id '" + ref.id() + "' which is registered as a "
-                        + component.getClass().getSimpleName().toLowerCase() + ", not an action");
-            }
-        }
-    }
-
     /**
      * Framework-built {@link Action} that evaluates the conditional's branches in declaration
      * order and dispatches the first matching branch's members through the central action
      * runner.
      * <p>
-     * Branch members are resolved by id at execution time via {@link ExecutingTransitionImpl#run(String)},
-     * which consults the active scope and walks the parent chain up to the root registry. This
-     * sidesteps the build-order dependency between the bound action registry and this executor —
-     * by the time {@link #execute(Object, Object, ExecutingTransition)} runs, the state machine is fully
-     * constructed and every referenced id is resolvable. That the ids <em>are</em> resolvable is
-     * established at build time by {@link #checkBranchRefs}.
+     * The branch conditions arrive with the executor; the members are installed afterwards by
+     * {@link #bindBranchMembers}, once every scope is populated and the state machine exists.
+     * Both are in place before any execution — the machine is not handed to a host until its
+     * constructor returns.
      */
     private final class ConditionalBranchExecutor implements Action<T, C> {
-        private final List<ResolvedBranch<T, C>> resolvedBranches;
-        private final List<String> defaultStepIds;
-        private final NoMatchBehavior noMatchBehavior;
-        private final String conditionalId;
+        private final List<BoundCondition<T, C>> conditions;
+        private List<ResolvedBranch<T, C>> resolvedBranches;
+        private List<CompositeMember<T, C>> defaultMembers;
 
-        ConditionalBranchExecutor(List<ResolvedBranch<T, C>> resolvedBranches,
-                                  List<String> defaultStepIds,
-                                  NoMatchBehavior noMatchBehavior,
-                                  String conditionalId) {
+        ConditionalBranchExecutor(List<BoundCondition<T, C>> conditions) {
+            this.conditions = conditions;
+        }
+
+        void bind(List<ResolvedBranch<T, C>> resolvedBranches, List<CompositeMember<T, C>> defaultMembers) {
             this.resolvedBranches = resolvedBranches;
-            this.defaultStepIds = defaultStepIds;
-            this.noMatchBehavior = noMatchBehavior;
-            this.conditionalId = conditionalId;
+            this.defaultMembers = defaultMembers;
         }
 
         @Override
@@ -494,29 +497,28 @@ final class ConditionalOperationDefImpl<T, C>
             for (ResolvedBranch<T, C> branch : resolvedBranches) {
                 if (branch.condition().evaluate(BoundCondition.Role.BRANCH, entity, context,
                                                 view.asReadOnly())) {
-                    dispatchActionIds(branch.stepIds(), view);
+                    dispatchMembers(branch.members(), view);
                     return;
                 }
             }
 
-            if (defaultStepIds != null) {
-                dispatchActionIds(defaultStepIds, view);
+            if (defaultMembers != null) {
+                dispatchMembers(defaultMembers, view);
                 return;
             }
 
             switch (noMatchBehavior) {
                 case ERROR -> throw new TransfluxValidationException(
-                    "Conditional operation '" + conditionalId + "' had no matching branch and no default");
+                    "Conditional operation '" + getId() + "' had no matching branch and no default");
                 case WARN -> Loggers.EXECUTION_CONDITION.warn(
-                    "Conditional matched no branch and has no default, conditionalId={}",
-                    conditionalId);
+                    "Conditional matched no branch and has no default, conditionalId={}", getId());
                 case SILENT -> { /* skip silently */ }
             }
         }
 
-        private void dispatchActionIds(List<String> actionIds, ExecutingTransitionImpl<T, C> view) {
-            for (String actionId : actionIds) {
-                view.run(actionId);
+        private void dispatchMembers(List<CompositeMember<T, C>> members, ExecutingTransitionImpl<T, C> view) {
+            for (CompositeMember<T, C> member : members) {
+                member.dispatch(view);
             }
         }
     }

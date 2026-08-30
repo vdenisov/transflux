@@ -111,7 +111,7 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
     }
 
     @Override
-    void checkBranchRefs() {
+    void bindBranchMembers(StateMachineImpl<T> stateMachine) {
         // An imperative action declares no conditionals, so it owns no branch members.
     }
 

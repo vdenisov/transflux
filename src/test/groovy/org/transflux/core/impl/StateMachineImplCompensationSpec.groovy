@@ -24,6 +24,7 @@ import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.BranchDef
 import org.transflux.core.action.Compensation
 import org.transflux.core.action.OperationDef
+import org.transflux.core.action.ConditionalOperationDef
 import org.transflux.core.action.ContextMapper
 import org.transflux.core.action.Action
 import org.transflux.core.action.StepDef
@@ -692,6 +693,44 @@ class StateMachineImplCompensationSpec extends Specification {
         !result.success
         result.error.message == 'child-blew-up'
         result.compensatedPath*.toString() == ['op/charge']
+        entity.trail == ['-child:parent-tag-mapped']
+        applied.isEmpty()
+    }
+
+    def 'declared compensation on a branch member receives the context its branch ran against'() {
+        given: 'the conditional sits inside a container reached by id through a mapper'
+        def applied = []
+        def smd = new StateMachineDefImpl<Entity>()
+        smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+            .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
+            .step('charge', ChildCtx, { StepDef<Entity, ChildCtx> s -> s
+                .using(new PlainChildCtxThrowingStep())
+                .withCompensation(ChildCtxCompensation) })
+            .mapper('child-from-parent', TestContext, ChildCtx, new DerivingChildCtxMapper())
+            .operation('inner', ChildCtx, { OperationDef<Entity, ChildCtx> op ->
+                op.conditional('route', { ConditionalOperationDef<Entity, ChildCtx> cs ->
+                    cs.branch('only', { BranchDef<Entity, ChildCtx> b ->
+                        b.condition('always', { Entity e -> true } as Predicate).run('charge')
+                    })
+                })
+            })
+            .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, { t ->
+                t.operation('op', { OperationDef<Entity, TestContext> c ->
+                    c.run('inner', 'child-from-parent')
+                })
+            }) })
+            .state('s2', {})
+        def sm = smd.build()
+        def entity = new Entity('s1')
+
+        when:
+        def result = sm.entity(entity).transitionTo('s2', new TestContext('parent-tag'))
+
+        then: 'a branch member is compensated exactly as the same member at a container position'
+        !result.success
+        result.error.message == 'child-blew-up'
+        result.compensatedPath*.toString() == ['op/inner/route/charge']
         entity.trail == ['-child:parent-tag-mapped']
         applied.isEmpty()
     }

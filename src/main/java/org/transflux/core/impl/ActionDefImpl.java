@@ -41,7 +41,7 @@ import java.util.function.Consumer;
  * return the precise subclass type covariantly.
  *
  * <p>The abstract dispatch methods ({@link #buildBound}, {@link #checkRefs},
- * {@link #checkBranchRefs}, {@link #bindScope}, {@link #flattenScope}, {@link #scanScopeFor},
+ * {@link #bindBranchMembers}, {@link #bindScope}, {@link #flattenScope}, {@link #scanScopeFor},
  * {@link #getScopeRegistry}) let the state-machine build pipeline drive both authoring forms
  * uniformly. {@link StepDefImpl} no-ops the scope and ref hooks, since an imperative action
  * binds no children at definition time; only {@link OperationDefImpl} carries real bodies for
@@ -262,12 +262,15 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     abstract void checkRefs(Class<?> scopeContext, String scopeLabel, StateMachineDefImpl<T> smDef);
 
     /**
-     * Build-time hook: verifies that every by-id member declared inside a conditional's branches
-     * resolves in this action's lexical scope. Runs after the scope registries are populated and
-     * flattened, which is why it is separate from {@link #checkRefs} — branch members are the one
-     * position whose ids cannot be checked before that point. The simple variant no-ops.
+     * Build-time hook: resolves every member declared inside a conditional's branches against
+     * this action's lexical scope and installs the bound members on the conditional's executor.
+     * Runs after every scope is populated, which is why it is separate from {@link #buildBound} —
+     * a conditional's own bound action goes into the scope its branches resolve against. The
+     * simple variant no-ops.
+     *
+     * @param stateMachine the state machine under construction
      */
-    abstract void checkBranchRefs();
+    abstract void bindBranchMembers(StateMachineImpl<T> stateMachine);
 
     /**
      * Build-time hook: allocates and populates this operation's lexical-scope registry against

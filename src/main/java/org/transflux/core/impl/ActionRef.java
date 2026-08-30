@@ -70,8 +70,11 @@ sealed interface ActionRef<T, C>
      * @param stateMachine the enclosing state machine, retained for error reporting
      * @param scopeRegistry the enclosing composite's scope registry; resolution walks the
      *                      parent chain up to the state-machine root
-     * @param enclosingCompositeId the id of the composite that declared this reference, surfaced
-     *                             in the error message when it does not resolve
+     * @param ownerLabel names the position that declared this reference (a container, or one
+     *                   branch of a conditional), surfaced in the error message when it does
+     *                   not resolve
+     * @param excludingCompositeId the id of the composite whose own scope the sibling-scope
+     *                             enrichment must skip
      *
      * @return the bound action; never {@code null}
      *
@@ -80,18 +83,17 @@ sealed interface ActionRef<T, C>
      */
     @SuppressWarnings("unchecked")
     default BoundAction<T, C> resolve(StateMachineImpl<T> stateMachine, Registry<T> scopeRegistry,
-                                      String enclosingCompositeId) {
+                                      String ownerLabel, String excludingCompositeId) {
         Optional<Component<T>> resolved = scopeRegistry.resolve(id());
         if (resolved.isEmpty()) {
             throw new TransfluxValidationException(
-                unknownIdMessage(id(), stateMachine, enclosingCompositeId));
+                unknownIdMessage(id(), stateMachine, ownerLabel, excludingCompositeId));
         }
 
         Component<T> component = resolved.get();
         if (!(component instanceof Component.Action<T, ?> action)) {
             throw new TransfluxValidationException(
-                "OperationDef '" + enclosingCompositeId
-                    + "' references id '" + id() + "' which is registered as a "
+                ownerLabel + " references id '" + id() + "' which is registered as a "
                     + component.getClass().getSimpleName().toLowerCase()
                     + ", not an action");
         }
@@ -127,10 +129,9 @@ sealed interface ActionRef<T, C>
      * composite under the SM.
      */
     static String unknownIdMessage(String id, StateMachineImpl<?> stateMachine,
-                                   String enclosingCompositeId) {
-        String base = "OperationDef '" + enclosingCompositeId
-            + "' references unknown action id '" + id + "' in its scope";
-        return stateMachine.findInlineSiblingScope(id, enclosingCompositeId)
+                                   String ownerLabel, String excludingCompositeId) {
+        String base = ownerLabel + " references unknown action id '" + id + "' in its scope";
+        return stateMachine.findInlineSiblingScope(id, excludingCompositeId)
             .map(siblingId -> base + ". An inline action with this id is registered in sibling composite '"
                 + siblingId + "' — inline registrations are only visible inside their own composite's subtree."
                 + " Move to SM root if shared use is intended.")

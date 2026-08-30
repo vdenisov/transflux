@@ -22,14 +22,17 @@ import java.util.List;
 
 /**
  * Resolved view of a conditional branch held by the conditional executor — the branch id
- * paired with its resolved {@link BoundCondition} and the ordered list of step ids the
- * branch will dispatch when its condition matches.
+ * paired with its resolved {@link BoundCondition} and the bound members the branch dispatches
+ * when its condition matches. The members are the same {@link CompositeMember} records a
+ * declarative container holds, so a branch member reaches the runtime the way every other
+ * member does.
  *
- * @param branchId the branch id
+ * @param branchId the branch id; carried for diagnostics, not consulted during dispatch
  * @param condition the resolved branch condition
- * @param stepIds the ordered step ids the branch dispatches when its condition matches
+ * @param members the ordered members the branch dispatches when its condition matches
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-record ResolvedBranch<T, C>(String branchId, BoundCondition<T, C> condition, List<String> stepIds) {
+record ResolvedBranch<T, C>(String branchId, BoundCondition<T, C> condition,
+                            List<CompositeMember<T, C>> members) {
 }

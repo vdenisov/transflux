@@ -97,8 +97,7 @@ class StateMachineDefImplBuildLoggingSpec extends Specification {
         def phases = capture.messages().findAll { it.startsWith('Validating') || it.startsWith('Populating') }
         phases == ['Validating context compatibility and cycles',
                    'Populating registries and binding components',
-                   'Validating registered components',
-                   'Validating conditional branch references']
+                   'Validating registered components']
     }
 
     def 'a build that fails validation reports the phase it got to, and no completion line'() {
