@@ -24,6 +24,7 @@ import org.transflux.core.action.ActionListenerDef;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.ForkRejectionPolicy;
 import org.transflux.core.action.MapperDef;
+import org.transflux.core.action.ConditionalOperationDef;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.StepDef;
 import org.transflux.core.condition.Condition;
@@ -620,6 +621,23 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     <C> StateMachineDef<T> operation(String id, Class<C> contextType, Consumer<OperationDef<T, C>> configurer);
+
+    /**
+     * Registers a conditional operation against this state machine under the given id, tagged with
+     * the supplied context class. It shares one namespace with steps, operations and conditions,
+     * and is referenced the same way any of them is - {@code run(id)} from a member position, a
+     * transition attachment, or an action body - because which form an action was authored in is a
+     * property of its declaration rather than of the call.
+     *
+     * @param id the conditional's id
+     * @param contextType the conditional's declared context class; never {@code null}
+     * @param configurer callback that declares the branches; never {@code null}
+     * @param <C> the conditional's context type
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> conditional(String id, Class<C> contextType,
+                                       Consumer<ConditionalOperationDef<T, C>> configurer);
 
     /**
      * {@link Identifiable} overload of

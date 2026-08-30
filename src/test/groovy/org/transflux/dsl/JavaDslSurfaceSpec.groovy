@@ -54,6 +54,24 @@ class JavaDslSurfaceSpec extends Specification {
         sm.close()
     }
 
+    def 'a conditional registered at SM level builds and runs, in both registration forms'() {
+        given:
+        def sm = JavaDslSurface.registeredConditional()
+        def order = new JavaDslSurface.Order()
+
+        when:
+        def result = sm.entity(order).transitionTo('s2', new JavaDslSurface.OrderCtx())
+
+        then:
+        result.success
+        order.trail == ['recording', 'fallback']
+        result.executedPath*.toString() == ['op', 'op/flat', 'op/flat/record',
+                                            'op/scoped', 'op/scoped/fallback']
+
+        cleanup:
+        sm.close()
+    }
+
     def 'a conditional attached to a transition builds and runs'() {
         given:
         def sm = JavaDslSurface.transitionConditional()

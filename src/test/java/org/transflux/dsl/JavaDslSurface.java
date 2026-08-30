@@ -233,6 +233,38 @@ public final class JavaDslSurface {
     }
 
     /**
+     * A conditional registered at state-machine level, in both registration forms, and reached by
+     * id - which says nothing about the form it was authored in.
+     *
+     * @return the built state machine
+     */
+    public static StateMachine<Order> registeredConditional() {
+        return Transflux.<Order>defineStateMachine()
+            .forEntityType(Order.class)
+            .withStateResolver(o -> o.state)
+            .withStateApplier((o, s) -> o.state = s)
+            .step("record", new RecordingAction())
+            .conditional("flat", OrderCtx.class, cond -> cond
+                .branch("always", b -> b
+                    .condition("yes", (order, ctx) -> true)
+                    .run("record")))
+            .forContext(OrderCtx.class, scope -> scope
+                .conditional("scoped", cond -> cond
+                    .branch("never", b -> b
+                        .condition("no", (order, ctx) -> false)
+                        .step("unreached", (order, ctx, view) -> order.trail.add("unreached")))
+                    .defaultBranch(d -> d
+                        .step("fallback", (order, ctx, view) -> order.trail.add("fallback")))))
+            .state("s1", s -> s
+                .transitionsTo("s2", "t", OrderCtx.class, t -> t
+                    .operation("op", c -> c
+                        .run("flat")
+                        .run("scoped"))))
+            .state("s2", s -> { })
+            .build();
+    }
+
+    /**
      * A conditional attached straight to a transition's action slot - the slot holds one action,
      * and a conditional is one, so it needs no wrapping operation.
      *

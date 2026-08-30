@@ -29,6 +29,7 @@ import org.transflux.core.action.ActionListenerDef;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.ForkRejectionPolicy;
 import org.transflux.core.action.MapperDef;
+import org.transflux.core.action.ConditionalOperationDef;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.StepDef;
 import org.transflux.core.condition.Condition;
@@ -89,7 +90,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     private final Map<String, ConditionRegistration<T>> conditionRegistrations = new LinkedHashMap<>();
 
-    private final Map<String, OperationDefImpl<T, ?>> smCompositeOperations = new LinkedHashMap<>();
+    private final Map<String, ActionDefImpl<T, ?, ?>> smCompositeOperations = new LinkedHashMap<>();
 
     private final Map<String, MapperDefImpl<?, ?>> mapperRegistrations = new LinkedHashMap<>();
 
@@ -400,7 +401,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             }
         }
 
-        for (OperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
+        for (ActionDefImpl<T, ?, ?> composite : smCompositeOperations.values()) {
             composite.bindScope(rootRegistry, canonical, conditionRegistry);
         }
     }
@@ -425,7 +426,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             }
         }
 
-        for (OperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
+        for (ActionDefImpl<T, ?, ?> composite : smCompositeOperations.values()) {
             Optional<String> hit = composite.scanScopeFor(id, excludingCompositeId);
             if (hit.isPresent()) {
                 return hit;
@@ -455,7 +456,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             }
         }
 
-        for (OperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
+        for (ActionDefImpl<T, ?, ?> composite : smCompositeOperations.values()) {
             composite.flattenScope();
         }
     }
@@ -715,6 +716,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
+    public <C> StateMachineDef<T> conditional(String id, Class<C> contextType,
+                                              Consumer<ConditionalOperationDef<T, C>> configurer) {
+        registerScopedConditional(id, configurer, contextType);
+        return this;
+    }
+
+    @Override
     public <C> StateMachineDef<T> operation(Identifiable operationIdentifiable, Class<C> contextType, Consumer<OperationDef<T, C>> configurer) {
         requireNotNull(operationIdentifiable, "Operation identifiable");
         return operation(operationIdentifiable.getId(), contextType, configurer);
@@ -907,16 +915,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * surfaces each one to the supplied callback. The members each one will iterate are installed
      * later, by {@link #bindDeferredMembers}. Framework-internal.
      */
-    @SuppressWarnings({"unchecked", "rawtypes"})
     void buildBoundOperations(Consumer<BoundAction<T, ?>> afterBuild) {
-        for (Map.Entry<String, OperationDefImpl<T, ?>> e : smCompositeOperations.entrySet()) {
+        for (Map.Entry<String, ActionDefImpl<T, ?, ?>> e : smCompositeOperations.entrySet()) {
             if (actionRegistrations.containsKey(e.getKey())) {
                 throw new TransfluxValidationException(
                     "Operation ID '" + e.getKey() + "' is already registered");
             }
-            OperationDefImpl raw = e.getValue();
-            BoundAction<T, ?> bo = raw.buildBound();
-            afterBuild.accept(bo);
+            afterBuild.accept(e.getValue().buildBound());
         }
     }
 
@@ -1012,7 +1017,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @return whether any container declares a forked member
      */
     boolean definitionForks() {
-        for (OperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
+        for (ActionDefImpl<T, ?, ?> composite : smCompositeOperations.values()) {
             if (composite.declaresFork()) {
                 return true;
             }
@@ -1026,7 +1031,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         return false;
     }
 
-    OperationDefImpl<T, ?> getSmCompositeOperation(String id) {
+    ActionDefImpl<T, ?, ?> getSmCompositeOperation(String id) {
         return smCompositeOperations.get(id);
     }
 
@@ -1073,6 +1078,40 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotBlank(id, "Composite operation ID");
         requireNotNull(contextType, "Context type");
         requireNotNull(configurer, "Composite operation configurer");
+        claimSmLevelActionId(id);
+
+        OperationDefImpl<T, C> composite = new OperationDefImpl<>(id);
+        ConfigurableDefImpl.runConfigurer(composite, configurer);
+        smCompositeOperations.put(id, composite);
+        tagContextType(id, contextType);
+    }
+
+    /**
+     * Registers a conditional at state-machine level, so it can be referenced by id like any other
+     * declarative action. It shares the container's namespace and the container's build passes -
+     * a conditional is an action, and being registered is a property of the declaration site
+     * rather than of the form.
+     *
+     * @param id the conditional's id
+     * @param configurer callback declaring the branches
+     * @param contextType the context the conditional runs against
+     * @param <C> the conditional's context type
+     */
+    <C> void registerScopedConditional(String id,
+                                       Consumer<ConditionalOperationDef<T, C>> configurer,
+                                       Class<C> contextType) {
+        requireNotBlank(id, "Conditional operation ID");
+        requireNotNull(contextType, "Context type");
+        requireNotNull(configurer, "Conditional operation configurer");
+        claimSmLevelActionId(id);
+
+        ConditionalOperationDefImpl<T, C> conditional = new ConditionalOperationDefImpl<>(id);
+        ConfigurableDefImpl.runConfigurer(conditional, configurer);
+        smCompositeOperations.put(id, conditional);
+        tagContextType(id, contextType);
+    }
+
+    private void claimSmLevelActionId(String id) {
         if (smCompositeOperations.containsKey(id)) {
             throw new TransfluxValidationException(
                 "Composite operation id '" + id + "' is already registered at SM level");
@@ -1081,10 +1120,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             throw new TransfluxValidationException(
                 "Component id '" + id + "' is already registered");
         }
-        OperationDefImpl<T, C> composite = new OperationDefImpl<>(id);
-        ConfigurableDefImpl.runConfigurer(composite, configurer);
-        smCompositeOperations.put(id, composite);
-        tagContextType(id, contextType);
     }
 
     @Override
@@ -1570,7 +1605,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
                 registration.def().collectListenerIds(actionListenerIds);
             }
         }
-        for (OperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
+        for (ActionDefImpl<T, ?, ?> composite : smCompositeOperations.values()) {
             composite.collectListenerIds(actionListenerIds);
         }
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
@@ -1741,7 +1776,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             }
         }
 
-        for (Map.Entry<String, OperationDefImpl<T, ?>> e : smCompositeOperations.entrySet()) {
+        for (Map.Entry<String, ActionDefImpl<T, ?, ?>> e : smCompositeOperations.entrySet()) {
             e.getValue().bindMembers(stateMachine, "SM-level composite '" + e.getKey() + "'");
         }
     }
@@ -1772,7 +1807,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             }
         }
 
-        for (OperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
+        for (ActionDefImpl<T, ?, ?> composite : smCompositeOperations.values()) {
             composite.collectScopes(scope -> validateScope(scope, validated));
         }
     }
@@ -1798,7 +1833,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             }
             checkConditionRefs(td);
         }
-        for (Map.Entry<String, OperationDefImpl<T, ?>> e : smCompositeOperations.entrySet()) {
+        for (Map.Entry<String, ActionDefImpl<T, ?, ?>> e : smCompositeOperations.entrySet()) {
             Class<?> scopeContext = componentContextTypes.get(e.getKey());
             e.getValue().checkRefs(scopeContext, "SM-level composite '" + e.getKey() + "'", this);
         }
@@ -1913,12 +1948,12 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      */
     private Map<String, List<String>> collectCycleNodes() {
         Map<String, List<String>> nodes = new LinkedHashMap<>();
-        for (Map.Entry<String, OperationDefImpl<T, ?>> e : smCompositeOperations.entrySet()) {
+        for (Map.Entry<String, ActionDefImpl<T, ?, ?>> e : smCompositeOperations.entrySet()) {
             nodes.put(e.getKey(), e.getValue().ownByIdReferenceIds());
         }
 
         BiConsumer<String, List<String>> sink = nodes::putIfAbsent;
-        for (OperationDefImpl<T, ?> composite : smCompositeOperations.values()) {
+        for (ActionDefImpl<T, ?, ?> composite : smCompositeOperations.values()) {
             composite.collectNestedCycleNodes(sink);
         }
 

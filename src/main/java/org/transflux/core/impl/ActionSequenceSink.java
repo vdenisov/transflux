@@ -363,10 +363,11 @@ final class ActionSequenceSink<T, C, D> {
 
         if (scopeContext == Object.class) {
             Loggers.BUILD_VALIDATION.warn(
-                "Forked member may share the enclosing context; the operation declares no context"
-                    + " type, so forkability cannot be checked - declare usingContext(...),"
-                    + " implement ForkableContext, or map at the call site, operationId={},"
-                    + " declaredIn={}, actionId={}", enclosingOperationId, declaredIn, ref.id());
+                "Forked member may share the enclosing context; no context type is declared where"
+                    + " it runs, so forkability cannot be checked - declare one on the enclosing"
+                    + " position, implement ForkableContext, or map at the call site,"
+                    + " operationId={}, declaredIn={}, actionId={}",
+                enclosingOperationId, declaredIn, ref.id());
             return;
         }
 

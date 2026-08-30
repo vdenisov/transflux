@@ -860,6 +860,78 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         result.executedPath*.toString() == ['route', 'route/shared', 'route/sm-level']
     }
 
+    def 'a conditional registered at SM level is referenced by id like any other action'() {
+        given:
+        def applied = []
+        def sm = build(applied,
+            { smd -> smd.conditional('route', TestContext, { ConditionalOperationDef<Entity, TestContext> cs -> cs
+                .branch('never', { BranchDef<Entity, TestContext> b -> b
+                    .condition('no', { Entity e -> false } as Predicate)
+                    .step('unreached', new TrailStep('unreached')) })
+                .branch('taken', { BranchDef<Entity, TestContext> b -> b
+                    .condition('yes', { Entity e -> true } as Predicate)
+                    .step('chosen', new TrailStep('chosen')) }) }) },
+            { t -> t.operation('op', { OperationDef<Entity, TestContext> c -> c.run('route') }) })
+        def entity = new Entity('s1')
+
+        when:
+        def result = sm.executeTransition(entity, 's2')
+
+        then: 'the call site says nothing about which form it reached'
+        result.success
+        entity.trail == ['chosen']
+        result.executedPath*.toString() == ['op', 'op/route', 'op/route/chosen']
+    }
+
+    def 'a registered conditional can be attached to a transition by id'() {
+        given:
+        def applied = []
+        def sm = build(applied,
+            { smd -> smd.conditional('route', TestContext, { ConditionalOperationDef<Entity, TestContext> cs ->
+                cs.branch('taken', { BranchDef<Entity, TestContext> b -> b
+                    .condition('yes', { Entity e -> true } as Predicate)
+                    .step('chosen', new TrailStep('chosen')) }) }) },
+            { t -> t.run('route') })
+        def entity = new Entity('s1')
+
+        when:
+        def result = sm.executeTransition(entity, 's2')
+
+        then:
+        result.success
+        entity.trail == ['chosen']
+        result.executedPath*.toString() == ['route', 'route/chosen']
+    }
+
+    def 'a registered conditional shares the action namespace'() {
+        when:
+        build([], { smd ->
+            smd.step('clash', new TrailStep('step'))
+            smd.conditional('clash', TestContext, { ConditionalOperationDef<Entity, TestContext> cs ->
+                cs.branch('b', { BranchDef<Entity, TestContext> b -> b
+                    .condition('yes', { Entity e -> true } as Predicate)
+                    .step('inner', new TrailStep('inner')) }) })
+        }, { t -> t.run('clash') })
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains('clash')
+    }
+
+    def 'a cycle through a registered conditional is rejected'() {
+        when: 'the conditional is a cycle node like any other registered action'
+        build([], { smd ->
+            smd.conditional('route', TestContext, { ConditionalOperationDef<Entity, TestContext> cs ->
+                cs.branch('b', { BranchDef<Entity, TestContext> b -> b
+                    .condition('yes', { Entity e -> true } as Predicate)
+                    .run('route') }) })
+        }, { t -> t.run('route') })
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.endsWith('cycle detected: route -> route')
+    }
+
     private static StateMachine<Entity> build(List<String> applied,
                                               Consumer<StateMachineDefImpl<Entity>> smdRegistrations,
                                               Consumer<TransitionDef<Entity, TestContext>> transitionConfigurer) {
