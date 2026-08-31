@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.Identifiable;
 import org.transflux.core.StateMachine;
 import org.transflux.core.exception.TransfluxReentrancyException;
 import org.transflux.core.exception.TransfluxValidationException;
@@ -393,33 +392,8 @@ class StateMachineImpl<T> implements StateMachine<T> {
     }
 
     @Override
-    public TransitionResult<T> executeTransition(T entity, Identifiable targetState) {
-        requireNotNull(targetState, "Target state identifiable");
-        return executeTransition(entity, targetState.getId());
-    }
-
-    @Override
     public TransitionResult<T> executeTransition(T entity, String targetStateId, String transitionId) {
         return entity(entity).transitionTo(targetStateId, transitionId);
-    }
-
-    @Override
-    public TransitionResult<T> executeTransition(T entity, Identifiable targetState, Identifiable transition) {
-        requireNotNull(targetState, "Target state identifiable");
-        requireNotNull(transition, "Transition identifiable");
-        return executeTransition(entity, targetState.getId(), transition.getId());
-    }
-
-    @Override
-    public TransitionResult<T> executeTransition(T entity, Identifiable targetState, String transitionId) {
-        requireNotNull(targetState, "Target state identifiable");
-        return executeTransition(entity, targetState.getId(), transitionId);
-    }
-
-    @Override
-    public TransitionResult<T> executeTransition(T entity, String targetStateId, Identifiable transition) {
-        requireNotNull(transition, "Transition identifiable");
-        return executeTransition(entity, targetStateId, transition.getId());
     }
 
     @Override
@@ -487,12 +461,6 @@ class StateMachineImpl<T> implements StateMachine<T> {
             throw new TransfluxValidationException("Trigger '" + triggerId + "' does not exist");
         }
         return trigger;
-    }
-
-    @Override
-    public Trigger getTrigger(Identifiable trigger) {
-        requireNotNull(trigger, "Trigger identifiable");
-        return getTrigger(trigger.getId());
     }
 
     State<T> getState(String stateId) {
@@ -1133,56 +1101,6 @@ class StateMachineImpl<T> implements StateMachine<T> {
         }
 
         @Override
-        public TransitionResult<T> transitionTo(Identifiable targetState) {
-            requireNotNull(targetState, "Target state identifiable");
-            return transitionTo(targetState.getId());
-        }
-
-        @Override
-        public TransitionResult<T> transitionTo(Identifiable targetState, Identifiable transition) {
-            requireNotNull(targetState, "Target state identifiable");
-            requireNotNull(transition, "Transition identifiable");
-            return transitionTo(targetState.getId(), transition.getId());
-        }
-
-        @Override
-        public TransitionResult<T> transitionTo(Identifiable targetState, String transitionId) {
-            requireNotNull(targetState, "Target state identifiable");
-            return transitionTo(targetState.getId(), transitionId);
-        }
-
-        @Override
-        public TransitionResult<T> transitionTo(String targetStateId, Identifiable transition) {
-            requireNotNull(transition, "Transition identifiable");
-            return transitionTo(targetStateId, transition.getId());
-        }
-
-        @Override
-        public TransitionResult<T> transitionTo(Identifiable targetState, Object firingContext) {
-            requireNotNull(targetState, "Target state identifiable");
-            return transitionTo(targetState.getId(), firingContext);
-        }
-
-        @Override
-        public TransitionResult<T> transitionTo(Identifiable targetState, Identifiable transition, Object firingContext) {
-            requireNotNull(targetState, "Target state identifiable");
-            requireNotNull(transition, "Transition identifiable");
-            return transitionTo(targetState.getId(), transition.getId(), firingContext);
-        }
-
-        @Override
-        public TransitionResult<T> transitionTo(Identifiable targetState, String transitionId, Object firingContext) {
-            requireNotNull(targetState, "Target state identifiable");
-            return transitionTo(targetState.getId(), transitionId, firingContext);
-        }
-
-        @Override
-        public TransitionResult<T> transitionTo(String targetStateId, Identifiable transition, Object firingContext) {
-            requireNotNull(transition, "Transition identifiable");
-            return transitionTo(targetStateId, transition.getId(), firingContext);
-        }
-
-        @Override
         public TransitionResult<T> fire(String triggerId) {
             return fire(triggerId, (Object) null);
         }
@@ -1205,18 +1123,6 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
             verifyFireContext(transition, firingContext);
             return fireWith(entity, firingContext, transition, trigger);
-        }
-
-        @Override
-        public TransitionResult<T> fire(Identifiable trigger) {
-            requireNotNull(trigger, "Trigger identifiable");
-            return fire(trigger.getId());
-        }
-
-        @Override
-        public TransitionResult<T> fire(Identifiable trigger, Object firingContext) {
-            requireNotNull(trigger, "Trigger identifiable");
-            return fire(trigger.getId(), firingContext);
         }
 
         @Override
@@ -1266,18 +1172,6 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
             Loggers.TRIGGER.debug("No trigger fired, eventId={}, currentState={}", eventId, currentStateId);
             return ProcessResult.notFired();
-        }
-
-        @Override
-        public ProcessResult<T> processEvent(Identifiable event, Object eventData) {
-            requireNotNull(event, "Event identifiable");
-            return processEvent(event.getId(), eventData);
-        }
-
-        @Override
-        public ProcessResult<T> processEvent(Identifiable event, Object eventData, Object context) {
-            requireNotNull(event, "Event identifiable");
-            return processEvent(event.getId(), eventData, context);
         }
 
         @Override

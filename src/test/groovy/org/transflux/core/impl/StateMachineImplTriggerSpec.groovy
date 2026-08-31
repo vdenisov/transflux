@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl
 
-import org.transflux.core.Identifiable
 import org.transflux.core.StateMachine
 import org.transflux.core.TestContext
 import org.transflux.core.exception.TransfluxValidationException
@@ -194,26 +193,10 @@ class StateMachineImplTriggerSpec extends Specification {
         def op = new FlaggingOperation()
         def applied = []
         def sm = build(op, applied, { t -> t.addManualTrigger('go', { mt -> mt.withName('Go') }) })
-        Identifiable goId = { -> 'go' } as Identifiable
 
         expect:
         sm.getTriggers()*.id == ['go']
         sm.getTrigger('go').name == 'Go'
-        sm.getTrigger(goId).name == 'Go'
-    }
-
-    def 'firing by Identifiable delegates to the id form'() {
-        given:
-        def op = new FlaggingOperation()
-        def applied = []
-        def sm = build(op, applied, { t -> t.addManualTrigger('go') })
-        Identifiable goId = { -> 'go' } as Identifiable
-
-        when:
-        def result = sm.entity(new Entity('s1')).fire(goId)
-
-        then:
-        result.success
     }
 
     def 'null and blank arguments are rejected'() {
@@ -230,13 +213,7 @@ class StateMachineImplTriggerSpec extends Specification {
         thrown(TransfluxValidationException)
 
         when:
-        binding.fire((Identifiable) null)
-
-        then:
-        thrown(TransfluxValidationException)
-
-        when:
-        sm.getTrigger((Identifiable) null)
+        sm.getTrigger((String) null)
 
         then:
         thrown(TransfluxValidationException)

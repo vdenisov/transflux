@@ -195,7 +195,7 @@ class OperationDefImplSpec extends Specification {
         def entity = new TestEntity('TRIAL')
 
         when:
-        def result = sm.entity(entity).transitionTo(ACTIVE, new TestContext())
+        def result = sm.entity(entity).transitionTo(ACTIVE.id, new TestContext())
 
         then:
         result.success
@@ -222,7 +222,7 @@ class OperationDefImplSpec extends Specification {
         def entity = new TestEntity('TRIAL')
 
         when:
-        def result = sm.entity(entity).transitionTo(ACTIVE, new TestContext())
+        def result = sm.entity(entity).transitionTo(ACTIVE.id, new TestContext())
 
         then:
         result.success

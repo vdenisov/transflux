@@ -366,7 +366,7 @@ class StateMachineDefImplSpec extends Specification {
         def sm = smd.build()
 
         when:
-        def result = sm.entity(new Object()).transitionTo(ACTIVE)
+        def result = sm.entity(new Object()).transitionTo(ACTIVE.id)
 
         then: 'the SM-level operation runs through the composite reference'
         result.success

@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl
 
-import org.transflux.core.Identifiable
 import org.transflux.core.StateMachine
 import org.transflux.core.StateMachineDef
 import org.transflux.core.TestContext
@@ -271,17 +270,6 @@ class StateMachineImplEventDispatchSpec extends Specification {
         e.message.contains("Event trigger 'go' filter failed")
         e.message.contains('payload was not a PaymentEvent')
         e.cause === boom
-    }
-
-    def 'the Identifiable event overload delegates to the id form'() {
-        given:
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', { t -> t.addEventTrigger('go', 'GO') }) })
-            .state('s2', {}) })
-        Identifiable evt = { -> 'GO' } as Identifiable
-
-        expect:
-        sm.entity(new Entity('s1')).processEvent(evt, null).fired()
     }
 
     def 'a blank event id is rejected'() {

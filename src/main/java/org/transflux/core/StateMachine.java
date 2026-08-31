@@ -125,19 +125,6 @@ public interface StateMachine<T> extends AutoCloseable {
     TransitionResult<T> executeTransition(T entity, String targetStateId);
 
     /**
-     * {@link Identifiable} overload of {@link #executeTransition(Object, String)} — delegates
-     * via {@link Identifiable#getId()}.
-     *
-     * @param entity the entity to transition
-     * @param targetState an identifiable supplying the target state id
-     *
-     * @return the result of the transition execution
-     *
-     * @throws TransfluxValidationException if {@code targetState} is {@code null}
-     */
-    TransitionResult<T> executeTransition(T entity, Identifiable targetState);
-
-    /**
      * Executes a specific transition for the given entity.
      * <p>
      * This method executes the transition identified by both the target state and transition ID,
@@ -153,50 +140,6 @@ public interface StateMachine<T> extends AutoCloseable {
      *         is not in the correct source state
      */
     TransitionResult<T> executeTransition(T entity, String targetStateId, String transitionId);
-
-    /**
-     * {@link Identifiable} overload of {@link #executeTransition(Object, String, String)} —
-     * both target state and transition supplied as identifiables.
-     *
-     * @param entity the entity to transition
-     * @param targetState an identifiable supplying the target state id
-     * @param transition an identifiable supplying the transition id
-     *
-     * @return the result of the transition execution
-     *
-     * @throws TransfluxValidationException if either identifiable is {@code null}
-     */
-    TransitionResult<T> executeTransition(T entity, Identifiable targetState, Identifiable transition);
-
-    /**
-     * Mixed-form overload of {@link #executeTransition(Object, String, String)} — target
-     * identifiable, transition by id.
-     *
-     * @param entity the entity to transition
-     * @param targetState an identifiable supplying the target state id
-     * @param transitionId the transition id
-     *
-     * @return the result of the transition execution
-     *
-     * @throws TransfluxValidationException if {@code targetState} is {@code null} or
-     *         {@code transitionId} is {@code null}/blank
-     */
-    TransitionResult<T> executeTransition(T entity, Identifiable targetState, String transitionId);
-
-    /**
-     * Mixed-form overload of {@link #executeTransition(Object, String, String)} — target
-     * by id, transition identifiable.
-     *
-     * @param entity the entity to transition
-     * @param targetStateId the target state id
-     * @param transition an identifiable supplying the transition id
-     *
-     * @return the result of the transition execution
-     *
-     * @throws TransfluxValidationException if {@code targetStateId} is {@code null}/blank
-     *         or {@code transition} is {@code null}
-     */
-    TransitionResult<T> executeTransition(T entity, String targetStateId, Identifiable transition);
 
     /**
      * Resolves and returns the current state ID of the given entity.
@@ -252,19 +195,6 @@ public interface StateMachine<T> extends AutoCloseable {
      *         trigger is registered under it
      */
     Trigger getTrigger(String triggerId);
-
-    /**
-     * {@link Identifiable} overload of {@link #getTrigger(String)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param trigger an identifiable supplying the trigger id
-     *
-     * @return the trigger
-     *
-     * @throws TransfluxValidationException if {@code trigger} is {@code null} or no trigger is
-     *         registered under its id
-     */
-    Trigger getTrigger(Identifiable trigger);
 
     /**
      * Fluent execution scope returned by {@link StateMachine#entity(Object)}.
@@ -323,116 +253,6 @@ public interface StateMachine<T> extends AutoCloseable {
         TransitionResult<T> transitionTo(String targetStateId, String transitionId, Object context);
 
         /**
-         * {@link Identifiable} overload of {@link #transitionTo(String)} — delegates via
-         * {@link Identifiable#getId()}.
-         *
-         * @param targetState an identifiable supplying the target state id
-         *
-         * @return the result of the transition execution
-         *
-         * @throws TransfluxValidationException if {@code targetState} is {@code null}
-         */
-        TransitionResult<T> transitionTo(Identifiable targetState);
-
-        /**
-         * {@link Identifiable} overload of {@link #transitionTo(String, String)} — both
-         * target state and transition supplied as identifiables.
-         *
-         * @param targetState an identifiable supplying the target state id
-         * @param transition an identifiable supplying the transition id
-         *
-         * @return the result of the transition execution
-         *
-         * @throws TransfluxValidationException if either identifiable is {@code null}
-         */
-        TransitionResult<T> transitionTo(Identifiable targetState, Identifiable transition);
-
-        /**
-         * Mixed-form overload of {@link #transitionTo(String, String)} — target identifiable,
-         * transition by id.
-         *
-         * @param targetState an identifiable supplying the target state id
-         * @param transitionId the transition id
-         *
-         * @return the result of the transition execution
-         *
-         * @throws TransfluxValidationException if {@code targetState} is {@code null}
-         *         or {@code transitionId} is {@code null}/blank
-         */
-        TransitionResult<T> transitionTo(Identifiable targetState, String transitionId);
-
-        /**
-         * Mixed-form overload of {@link #transitionTo(String, String)} — target by id,
-         * transition identifiable.
-         *
-         * @param targetStateId the target state id
-         * @param transition an identifiable supplying the transition id
-         *
-         * @return the result of the transition execution
-         *
-         * @throws TransfluxValidationException if {@code targetStateId} is {@code null}/blank
-         *         or {@code transition} is {@code null}
-         */
-        TransitionResult<T> transitionTo(String targetStateId, Identifiable transition);
-
-        /**
-         * {@link Identifiable} overload of {@link #transitionTo(String, Object)} — target
-         * identifiable with firing context.
-         *
-         * @param targetState an identifiable supplying the target state id
-         * @param context the fire-time context; may be {@code null}
-         *
-         * @return the result of the transition execution
-         *
-         * @throws TransfluxValidationException if {@code targetState} is {@code null}
-         */
-        TransitionResult<T> transitionTo(Identifiable targetState, Object context);
-
-        /**
-         * {@link Identifiable} overload of {@link #transitionTo(String, String, Object)} —
-         * both target and transition as identifiables, with firing context.
-         *
-         * @param targetState an identifiable supplying the target state id
-         * @param transition an identifiable supplying the transition id
-         * @param context the fire-time context; may be {@code null}
-         *
-         * @return the result of the transition execution
-         *
-         * @throws TransfluxValidationException if either identifiable is {@code null}
-         */
-        TransitionResult<T> transitionTo(Identifiable targetState, Identifiable transition, Object context);
-
-        /**
-         * Mixed-form overload of {@link #transitionTo(String, String, Object)} — target
-         * identifiable, transition by id, with firing context.
-         *
-         * @param targetState an identifiable supplying the target state id
-         * @param transitionId the transition id
-         * @param context the fire-time context; may be {@code null}
-         *
-         * @return the result of the transition execution
-         *
-         * @throws TransfluxValidationException if {@code targetState} is {@code null}
-         *         or {@code transitionId} is {@code null}/blank
-         */
-        TransitionResult<T> transitionTo(Identifiable targetState, String transitionId, Object context);
-
-        /**
-         * Mixed-form overload of {@link #transitionTo(String, String, Object)} — target by
-         * id, transition identifiable, with firing context.
-         *
-         * @param targetStateId the target state id
-         * @param transition an identifiable supplying the transition id
-         * @param context the fire-time context; may be {@code null}
-         *
-         * @return the result of the transition execution
-         *
-         * @throws TransfluxValidationException if {@code targetStateId} is {@code null}/blank
-         *         or {@code transition} is {@code null}
-         */
-        TransitionResult<T> transitionTo(String targetStateId, Identifiable transition, Object context);
-
-        /**
          * Fires the manual trigger registered under {@code triggerId} with no firing context.
          * <p>
          * The trigger determines its own transition, so no target state is supplied. The entity
@@ -464,31 +284,6 @@ public interface StateMachine<T> extends AutoCloseable {
          *         or the context type does not match
          */
         TransitionResult<T> fire(String triggerId, Object context);
-
-        /**
-         * {@link Identifiable} overload of {@link #fire(String)} — delegates via
-         * {@link Identifiable#getId()}.
-         *
-         * @param trigger an identifiable supplying the trigger id
-         *
-         * @return the result of the transition execution
-         *
-         * @throws TransfluxValidationException if {@code trigger} is {@code null}
-         */
-        TransitionResult<T> fire(Identifiable trigger);
-
-        /**
-         * {@link Identifiable} overload of {@link #fire(String, Object)} — delegates via
-         * {@link Identifiable#getId()}.
-         *
-         * @param trigger an identifiable supplying the trigger id
-         * @param context the fire-time context; may be {@code null}
-         *
-         * @return the result of the transition execution
-         *
-         * @throws TransfluxValidationException if {@code trigger} is {@code null}
-         */
-        TransitionResult<T> fire(Identifiable trigger, Object context);
 
         /**
          * Processes a host-published event against the entity's eligible event triggers, with no
@@ -524,33 +319,6 @@ public interface StateMachine<T> extends AutoCloseable {
          *         matched transition's context type does not accept {@code context}
          */
         ProcessResult<T> processEvent(String eventId, Object eventData, Object context);
-
-        /**
-         * {@link Identifiable} overload of {@link #processEvent(String, Object)} — event id supplied
-         * as an identifiable.
-         *
-         * @param event an identifiable supplying the event id
-         * @param eventData the event payload; may be {@code null}
-         *
-         * @return the outcome — a fired transition's result, or a not-fired marker when nothing matched
-         *
-         * @throws TransfluxValidationException if {@code event} is {@code null}
-         */
-        ProcessResult<T> processEvent(Identifiable event, Object eventData);
-
-        /**
-         * {@link Identifiable} overload of {@link #processEvent(String, Object, Object)} — event id
-         * supplied as an identifiable.
-         *
-         * @param event an identifiable supplying the event id
-         * @param eventData the event payload; may be {@code null}
-         * @param context the fire-time context for the transition; may be {@code null}
-         *
-         * @return the outcome — a fired transition's result, or a not-fired marker when nothing matched
-         *
-         * @throws TransfluxValidationException if {@code event} is {@code null}
-         */
-        ProcessResult<T> processEvent(Identifiable event, Object eventData, Object context);
 
         /**
          * Re-evaluates the entity's eligible data triggers, with no firing context.
