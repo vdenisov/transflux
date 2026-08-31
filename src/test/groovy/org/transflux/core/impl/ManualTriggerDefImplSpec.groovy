@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl
 
-import org.transflux.core.Identifiable
 import org.transflux.core.StateMachine
 import org.transflux.core.TestContext
 import org.transflux.core.condition.Condition
@@ -77,22 +76,6 @@ class ManualTriggerDefImplSpec extends Specification {
         def trigger = sm.getTrigger('manual-cancel')
         trigger.name == 'Cancel'
         trigger.description == 'User-initiated cancellation'
-    }
-
-    def 'Identifiable overloads delegate via getId'() {
-        given:
-        Identifiable simpleId = { -> 'simple' } as Identifiable
-        Identifiable configuredId = { -> 'configured' } as Identifiable
-
-        when:
-        def sm = buildSm({ t ->
-            t.addManualTrigger(simpleId)
-            t.addManualTrigger(configuredId, { mt -> mt.withName('Configured') })
-        })
-
-        then:
-        sm.getTrigger('simple').id == 'simple'
-        sm.getTrigger('configured').name == 'Configured'
     }
 
     def 'captured ManualTriggerDef rejects mutation after the configurer returns'() {
@@ -168,12 +151,6 @@ class ManualTriggerDefImplSpec extends Specification {
 
     def 'pre-conditions in every authoring form resolve and gate the trigger'() {
         given:
-        Identifiable refId = { -> 'registered' } as Identifiable
-        Identifiable instId = { -> 'inst-i' } as Identifiable
-        Identifiable clsId = { -> 'cls-i' } as Identifiable
-        Identifiable bipId = { -> 'bip-i' } as Identifiable
-        Identifiable predId = { -> 'pred-i' } as Identifiable
-        Identifiable exprId = { -> 'expr-i' } as Identifiable
         def alwaysTrue = new AlwaysTrue()
         BiPredicate<Entity, TestContext> biTrue = { e, c -> true } as BiPredicate
         Predicate<Entity> predTrue = { e -> true } as Predicate
@@ -186,18 +163,12 @@ class ManualTriggerDefImplSpec extends Specification {
             .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
                 t.addManualTrigger('go', { mt -> mt
                     .preCondition('registered')
-                    .preCondition(refId)
                     .preConditionExpression('true')
                     .preCondition('inst', alwaysTrue)
-                    .preCondition(instId, alwaysTrue)
                     .preCondition('cls', AlwaysTrue)
-                    .preCondition(clsId, AlwaysTrue)
                     .preCondition('bip', biTrue)
-                    .preCondition(bipId, biTrue)
                     .preCondition('pred', predTrue)
-                    .preCondition(predId, predTrue)
-                    .preCondition('expr', 'true')
-                    .preCondition(exprId, 'true') })
+                    .preCondition('expr', 'true') })
             }) })
             .state('s2', {})
         def sm = smd.build()

@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl
 
-import org.transflux.core.Identifiable
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.state.StateChange
 import org.transflux.core.state.StateListener
@@ -60,40 +59,16 @@ class StateMachineDefImplTransitionListenerSpec extends Specification {
         [smd.getGlobalStartListeners(), smd.getGlobalCompleteListeners(), smd.getGlobalErrorListeners()]*.size().sum() == 1
 
         where:
-        hook                        | form         | declare                                                 | listeners
-        'onAnyTransitionStart'      | 'instance'   | { it.onAnyTransitionStart('l1', new NoopListener()) }   | { it.getGlobalStartListeners() }
-        'onAnyTransitionStart'      | 'class'      | { it.onAnyTransitionStart('l1', NoopListener) }         | { it.getGlobalStartListeners() }
-        'onAnyTransitionStart'      | 'configurer' | { it.onAnyTransitionStart('l1', usingNoop()) }          | { it.getGlobalStartListeners() }
-        'onAnyTransitionComplete'   | 'instance'   | { it.onAnyTransitionComplete('l1', new NoopListener()) }| { it.getGlobalCompleteListeners() }
-        'onAnyTransitionComplete'   | 'class'      | { it.onAnyTransitionComplete('l1', NoopListener) }      | { it.getGlobalCompleteListeners() }
-        'onAnyTransitionComplete'   | 'configurer' | { it.onAnyTransitionComplete('l1', usingNoop()) }       | { it.getGlobalCompleteListeners() }
-        'onAnyTransitionError'      | 'instance'   | { it.onAnyTransitionError('l1', new NoopListener()) }   | { it.getGlobalErrorListeners() }
-        'onAnyTransitionError'      | 'class'      | { it.onAnyTransitionError('l1', NoopListener) }         | { it.getGlobalErrorListeners() }
-        'onAnyTransitionError'      | 'configurer' | { it.onAnyTransitionError('l1', usingNoop()) }          | { it.getGlobalErrorListeners() }
-    }
-
-    @Unroll
-    def 'the Identifiable overload of #hook in the #form form delegates via getId'() {
-        given:
-        def smd = new StateMachineDefImpl<Object>()
-
-        when:
-        declare.call(smd)
-
-        then:
-        listeners.call(smd)*.getId() == ['l1']
-
-        where:
-        hook                      | form         | declare                                                       | listeners
-        'onAnyTransitionStart'    | 'instance'   | { it.onAnyTransitionStart(idOf('l1'), new NoopListener()) }   | { it.getGlobalStartListeners() }
-        'onAnyTransitionStart'    | 'class'      | { it.onAnyTransitionStart(idOf('l1'), NoopListener) }         | { it.getGlobalStartListeners() }
-        'onAnyTransitionStart'    | 'configurer' | { it.onAnyTransitionStart(idOf('l1'), usingNoop()) }          | { it.getGlobalStartListeners() }
-        'onAnyTransitionComplete' | 'instance'   | { it.onAnyTransitionComplete(idOf('l1'), new NoopListener()) }| { it.getGlobalCompleteListeners() }
-        'onAnyTransitionComplete' | 'class'      | { it.onAnyTransitionComplete(idOf('l1'), NoopListener) }      | { it.getGlobalCompleteListeners() }
-        'onAnyTransitionComplete' | 'configurer' | { it.onAnyTransitionComplete(idOf('l1'), usingNoop()) }       | { it.getGlobalCompleteListeners() }
-        'onAnyTransitionError'    | 'instance'   | { it.onAnyTransitionError(idOf('l1'), new NoopListener()) }   | { it.getGlobalErrorListeners() }
-        'onAnyTransitionError'    | 'class'      | { it.onAnyTransitionError(idOf('l1'), NoopListener) }         | { it.getGlobalErrorListeners() }
-        'onAnyTransitionError'    | 'configurer' | { it.onAnyTransitionError(idOf('l1'), usingNoop()) }          | { it.getGlobalErrorListeners() }
+        hook                      | form         | declare                                                  | listeners
+        'onAnyTransitionStart'    | 'instance'   | { it.onAnyTransitionStart('l1', new NoopListener()) }    | { it.getGlobalStartListeners() }
+        'onAnyTransitionStart'    | 'class'      | { it.onAnyTransitionStart('l1', NoopListener) }          | { it.getGlobalStartListeners() }
+        'onAnyTransitionStart'    | 'configurer' | { it.onAnyTransitionStart('l1', usingNoop()) }           | { it.getGlobalStartListeners() }
+        'onAnyTransitionComplete' | 'instance'   | { it.onAnyTransitionComplete('l1', new NoopListener()) } | { it.getGlobalCompleteListeners() }
+        'onAnyTransitionComplete' | 'class'      | { it.onAnyTransitionComplete('l1', NoopListener) }       | { it.getGlobalCompleteListeners() }
+        'onAnyTransitionComplete' | 'configurer' | { it.onAnyTransitionComplete('l1', usingNoop()) }        | { it.getGlobalCompleteListeners() }
+        'onAnyTransitionError'    | 'instance'   | { it.onAnyTransitionError('l1', new NoopListener()) }    | { it.getGlobalErrorListeners() }
+        'onAnyTransitionError'    | 'class'      | { it.onAnyTransitionError('l1', NoopListener) }          | { it.getGlobalErrorListeners() }
+        'onAnyTransitionError'    | 'configurer' | { it.onAnyTransitionError('l1', usingNoop()) }           | { it.getGlobalErrorListeners() }
     }
 
     def 'global listeners are kept in declaration order'() {
@@ -194,31 +169,6 @@ class StateMachineDefImplTransitionListenerSpec extends Specification {
         'onAnyTransitionError-cfg'    | { it.onAnyTransitionError('  ', usingNoop()) }
     }
 
-    @Unroll
-    def '#hook rejects a null Identifiable'() {
-        given:
-        def smd = new StateMachineDefImpl<Object>()
-
-        when:
-        action.call(smd)
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message == 'Transition listener identifiable cannot be null'
-
-        where:
-        hook                          | action
-        'onAnyTransitionStart'        | { it.onAnyTransitionStart((Identifiable) null, new NoopListener()) }
-        'onAnyTransitionStart-cls'    | { it.onAnyTransitionStart((Identifiable) null, NoopListener) }
-        'onAnyTransitionStart-cfg'    | { it.onAnyTransitionStart((Identifiable) null, usingNoop()) }
-        'onAnyTransitionComplete'     | { it.onAnyTransitionComplete((Identifiable) null, new NoopListener()) }
-        'onAnyTransitionComplete-cls' | { it.onAnyTransitionComplete((Identifiable) null, NoopListener) }
-        'onAnyTransitionComplete-cfg' | { it.onAnyTransitionComplete((Identifiable) null, usingNoop()) }
-        'onAnyTransitionError'        | { it.onAnyTransitionError((Identifiable) null, new NoopListener()) }
-        'onAnyTransitionError-cls'    | { it.onAnyTransitionError((Identifiable) null, NoopListener) }
-        'onAnyTransitionError-cfg'    | { it.onAnyTransitionError((Identifiable) null, usingNoop()) }
-    }
-
     def 'a null configurer is rejected'() {
         given:
         def smd = new StateMachineDefImpl<Object>()
@@ -233,9 +183,5 @@ class StateMachineDefImplTransitionListenerSpec extends Specification {
 
     private static Consumer<TransitionListenerDef<Object, Object>> usingNoop() {
         return { TransitionListenerDef l -> l.using(NoopListener) } as Consumer
-    }
-
-    private static Identifiable idOf(String value) {
-        return { -> value } as Identifiable
     }
 }

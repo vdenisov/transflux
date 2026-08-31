@@ -46,23 +46,12 @@ class StateDefImplLambdaConfigurerSpec extends Specification {
         }
     }
 
-    def 'configurer wires transitions via Identifiable target overload'() {
-        given:
-        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-
-        when:
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', {}) })
-
-        then:
-        smd.getTransition('trial-to-active').sourceStateId == TRIAL.id
-    }
-
     def 'configurer wires a typed-context transition'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
 
         when:
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 'trial-to-active', String, { t -> }) })
+        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 'trial-to-active', String, { t -> }) })
 
         then:
         smd.getTransition('trial-to-active').contextType == String
@@ -72,7 +61,7 @@ class StateDefImplLambdaConfigurerSpec extends Specification {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
         StateDef<Object> captured = null
-        smd.state(TRIAL, { s -> captured = s })
+        smd.state(TRIAL.id, { s -> captured = s })
 
         when:
         captured.withName('late')
@@ -88,7 +77,7 @@ class StateDefImplLambdaConfigurerSpec extends Specification {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
         StateDef<Object> captured = null
-        smd.state(TRIAL, { s -> captured = s })
+        smd.state(TRIAL.id, { s -> captured = s })
 
         when:
         action.call(captured)
@@ -110,9 +99,9 @@ class StateDefImplLambdaConfigurerSpec extends Specification {
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
 
         when:
-        smd.state(TRIAL, { s ->
-            s.transitionsTo(ACTIVE, 'trial-to-active', { t -> t.withName('inner') })
-            s.transitionsTo(EXPIRED, 'trial-to-expired', {})
+        smd.state(TRIAL.id, { s ->
+            s.transitionsTo(ACTIVE.id, 'trial-to-active', { t -> t.withName('inner') })
+            s.transitionsTo(EXPIRED.id, 'trial-to-expired', {})
         })
 
         then:
@@ -124,8 +113,8 @@ class StateDefImplLambdaConfigurerSpec extends Specification {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
         TransitionDef<Object, Object> capturedT = null
-        smd.state(TRIAL, { s ->
-            s.transitionsTo(ACTIVE, 'trial-to-active', { t -> capturedT = t })
+        smd.state(TRIAL.id, { s ->
+            s.transitionsTo(ACTIVE.id, 'trial-to-active', { t -> capturedT = t })
         })
 
         when:

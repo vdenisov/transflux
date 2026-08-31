@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl
 
-import org.transflux.core.Identifiable
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.state.StateChange
 import org.transflux.core.state.StateListener
@@ -50,13 +49,10 @@ class StateMachineDefImplStateListenerSpec extends Specification {
         smd.getGlobalEntryListeners().first().buildBoundListener().listener() != null
 
         where:
-        form                      | declare
-        'instance'                | { it.onAnyStateEntry('l1', new NoopListener()) }
-        'class'                   | { it.onAnyStateEntry('l1', NoopListener) }
-        'configurer'              | { it.onAnyStateEntry('l1', usingNoop()) }
-        'Identifiable/instance'   | { it.onAnyStateEntry(idOf('l1'), new NoopListener()) }
-        'Identifiable/class'      | { it.onAnyStateEntry(idOf('l1'), NoopListener) }
-        'Identifiable/configurer' | { it.onAnyStateEntry(idOf('l1'), usingNoop()) }
+        form         | declare
+        'instance'   | { it.onAnyStateEntry('l1', new NoopListener()) }
+        'class'      | { it.onAnyStateEntry('l1', NoopListener) }
+        'configurer' | { it.onAnyStateEntry('l1', usingNoop()) }
     }
 
     @Unroll
@@ -73,13 +69,10 @@ class StateMachineDefImplStateListenerSpec extends Specification {
         smd.getGlobalExitListeners().first().buildBoundListener().listener() != null
 
         where:
-        form                      | declare
-        'instance'                | { it.onAnyStateExit('l1', new NoopListener()) }
-        'class'                   | { it.onAnyStateExit('l1', NoopListener) }
-        'configurer'              | { it.onAnyStateExit('l1', usingNoop()) }
-        'Identifiable/instance'   | { it.onAnyStateExit(idOf('l1'), new NoopListener()) }
-        'Identifiable/class'      | { it.onAnyStateExit(idOf('l1'), NoopListener) }
-        'Identifiable/configurer' | { it.onAnyStateExit(idOf('l1'), usingNoop()) }
+        form         | declare
+        'instance'   | { it.onAnyStateExit('l1', new NoopListener()) }
+        'class'      | { it.onAnyStateExit('l1', NoopListener) }
+        'configurer' | { it.onAnyStateExit('l1', usingNoop()) }
     }
 
     def 'global listeners are kept in declaration order'() {
@@ -155,35 +148,13 @@ class StateMachineDefImplStateListenerSpec extends Specification {
         e.message == 'State listener ID cannot be null or blank'
 
         where:
-        hook                    | action
-        'onAnyStateEntry'       | { it.onAnyStateEntry('  ', new NoopListener()) }
-        'onAnyStateEntry-cls'   | { it.onAnyStateEntry('  ', NoopListener) }
-        'onAnyStateEntry-cfg'   | { it.onAnyStateEntry('  ', usingNoop()) }
-        'onAnyStateExit'        | { it.onAnyStateExit('  ', new NoopListener()) }
-        'onAnyStateExit-cls'    | { it.onAnyStateExit('  ', NoopListener) }
-        'onAnyStateExit-cfg'    | { it.onAnyStateExit('  ', usingNoop()) }
-    }
-
-    @Unroll
-    def '#hook rejects a null Identifiable'() {
-        given:
-        def smd = new StateMachineDefImpl<Object>()
-
-        when:
-        action.call(smd)
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message == 'State listener identifiable cannot be null'
-
-        where:
-        hook                    | action
-        'onAnyStateEntry'       | { it.onAnyStateEntry((Identifiable) null, new NoopListener()) }
-        'onAnyStateEntry-cls'   | { it.onAnyStateEntry((Identifiable) null, NoopListener) }
-        'onAnyStateEntry-cfg'   | { it.onAnyStateEntry((Identifiable) null, usingNoop()) }
-        'onAnyStateExit'        | { it.onAnyStateExit((Identifiable) null, new NoopListener()) }
-        'onAnyStateExit-cls'    | { it.onAnyStateExit((Identifiable) null, NoopListener) }
-        'onAnyStateExit-cfg'    | { it.onAnyStateExit((Identifiable) null, usingNoop()) }
+        hook                  | action
+        'onAnyStateEntry'     | { it.onAnyStateEntry('  ', new NoopListener()) }
+        'onAnyStateEntry-cls' | { it.onAnyStateEntry('  ', NoopListener) }
+        'onAnyStateEntry-cfg' | { it.onAnyStateEntry('  ', usingNoop()) }
+        'onAnyStateExit'      | { it.onAnyStateExit('  ', new NoopListener()) }
+        'onAnyStateExit-cls'  | { it.onAnyStateExit('  ', NoopListener) }
+        'onAnyStateExit-cfg'  | { it.onAnyStateExit('  ', usingNoop()) }
     }
 
     def 'a null configurer is rejected'() {
@@ -200,9 +171,5 @@ class StateMachineDefImplStateListenerSpec extends Specification {
 
     private static Consumer<StateListenerDef<Object>> usingNoop() {
         return { StateListenerDef l -> l.using(NoopListener) } as Consumer
-    }
-
-    private static Identifiable idOf(String value) {
-        return { -> value } as Identifiable
     }
 }

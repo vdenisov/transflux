@@ -19,7 +19,6 @@
 package org.transflux.core.condition
 
 
-import org.transflux.core.Identifiable
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
@@ -191,29 +190,6 @@ class ConditionDescriptorSpec extends Specification {
         id << [null, '', '  ']
     }
 
-    def 'ref(Identifiable) builds the same Reference descriptor as ref(String)'() {
-        when:
-        def fromIdentifiable = ConditionDescriptor.ref(id('cond-1'))
-        def fromString = ConditionDescriptor.ref('cond-1')
-
-        then:
-        fromIdentifiable.id() == 'cond-1'
-        fromIdentifiable.class == fromString.class
-        fromIdentifiable == fromString
-    }
-
-    def 'ref(Identifiable) rejects null'() {
-        when:
-        ConditionDescriptor.ref((Identifiable) null)
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message.toLowerCase().contains('identifiable')
-    }
-
-    private static Identifiable id(String value) {
-        return { -> value } as Identifiable
-    }
 
     static class SampleCondition implements Condition<Object, Object> {
         @Override

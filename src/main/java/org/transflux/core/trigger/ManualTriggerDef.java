@@ -110,18 +110,6 @@ public interface ManualTriggerDef<T, C> extends Identifiable {
     ManualTriggerDef<T, C> preCondition(String registeredConditionId);
 
     /**
-     * {@link Identifiable} overload of {@link #preCondition(String)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param registeredCondition an identifiable supplying the condition id
-     *
-     * @return this trigger def for chaining
-     *
-     * @throws TransfluxValidationException if {@code registeredCondition} is {@code null}
-     */
-    ManualTriggerDef<T, C> preCondition(Identifiable registeredCondition);
-
-    /**
      * Appends an inline SpEL pre-condition with an auto-derived id. The id is computed
      * deterministically from the expression text and the descriptor's position. Use
      * {@link #preCondition(String, String)} when an explicit id is preferred.
@@ -148,16 +136,6 @@ public interface ManualTriggerDef<T, C> extends Identifiable {
     ManualTriggerDef<T, C> preCondition(String id, Condition<T, C> condition);
 
     /**
-     * {@link Identifiable} overload of {@link #preCondition(String, Condition)}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param condition the condition instance
-     *
-     * @return this trigger def for chaining
-     */
-    ManualTriggerDef<T, C> preCondition(Identifiable conditionIdentifiable, Condition<T, C> condition);
-
-    /**
      * Appends a pre-condition built from a {@link Condition} class under the given id. The class
      * is reflectively instantiated through its public no-arg constructor when the state machine
      * is built.
@@ -171,16 +149,6 @@ public interface ManualTriggerDef<T, C> extends Identifiable {
      *         {@code conditionClass} is {@code null}
      */
     ManualTriggerDef<T, C> preCondition(String id, Class<? extends Condition<T, C>> conditionClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #preCondition(String, Class)}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param conditionClass the condition class
-     *
-     * @return this trigger def for chaining
-     */
-    ManualTriggerDef<T, C> preCondition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass);
 
     /**
      * Appends a pre-condition built from a {@link BiPredicate} over {@code (entity, context)}
@@ -198,16 +166,6 @@ public interface ManualTriggerDef<T, C> extends Identifiable {
     ManualTriggerDef<T, C> preCondition(String id, BiPredicate<T, C> predicate);
 
     /**
-     * {@link Identifiable} overload of {@link #preCondition(String, BiPredicate)}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param predicate the predicate
-     *
-     * @return this trigger def for chaining
-     */
-    ManualTriggerDef<T, C> preCondition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate);
-
-    /**
      * Convenience overload of {@link #preCondition(String, BiPredicate)} accepting an entity-only
      * {@link Predicate}; the context is ignored at evaluation time.
      *
@@ -217,16 +175,6 @@ public interface ManualTriggerDef<T, C> extends Identifiable {
      * @return this trigger def for chaining
      */
     ManualTriggerDef<T, C> preCondition(String id, Predicate<T> predicate);
-
-    /**
-     * {@link Identifiable} overload of {@link #preCondition(String, Predicate)}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param predicate the entity predicate
-     *
-     * @return this trigger def for chaining
-     */
-    ManualTriggerDef<T, C> preCondition(Identifiable conditionIdentifiable, Predicate<T> predicate);
 
     /**
      * Appends a pre-condition built from a SpEL expression under the given id.
@@ -240,13 +188,4 @@ public interface ManualTriggerDef<T, C> extends Identifiable {
      */
     ManualTriggerDef<T, C> preCondition(String id, String expression);
 
-    /**
-     * {@link Identifiable} overload of {@link #preCondition(String, String)}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param expression the SpEL expression text
-     *
-     * @return this trigger def for chaining
-     */
-    ManualTriggerDef<T, C> preCondition(Identifiable conditionIdentifiable, String expression);
 }

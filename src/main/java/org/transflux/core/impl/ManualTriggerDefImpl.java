@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
 import org.transflux.core.exception.TransfluxValidationException;
@@ -60,11 +59,6 @@ final class ManualTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, ManualTrigge
     }
 
     @Override
-    public ManualTriggerDef<T, C> preCondition(Identifiable registeredCondition) {
-        return preConditions.ref(registeredCondition);
-    }
-
-    @Override
     public ManualTriggerDef<T, C> preConditionExpression(String expression) {
         return preConditions.expression(expression);
     }
@@ -75,18 +69,8 @@ final class ManualTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, ManualTrigge
     }
 
     @Override
-    public ManualTriggerDef<T, C> preCondition(Identifiable conditionIdentifiable, Condition<T, C> condition) {
-        return preConditions.instanceBased(conditionIdentifiable, condition);
-    }
-
-    @Override
     public ManualTriggerDef<T, C> preCondition(String id, Class<? extends Condition<T, C>> conditionClass) {
         return preConditions.classBased(id, conditionClass);
-    }
-
-    @Override
-    public ManualTriggerDef<T, C> preCondition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass) {
-        return preConditions.classBased(conditionIdentifiable, conditionClass);
     }
 
     @Override
@@ -95,28 +79,13 @@ final class ManualTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, ManualTrigge
     }
 
     @Override
-    public ManualTriggerDef<T, C> preCondition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate) {
-        return preConditions.predicate(conditionIdentifiable, predicate);
-    }
-
-    @Override
     public ManualTriggerDef<T, C> preCondition(String id, Predicate<T> predicate) {
         return preConditions.predicate(id, predicate);
     }
 
     @Override
-    public ManualTriggerDef<T, C> preCondition(Identifiable conditionIdentifiable, Predicate<T> predicate) {
-        return preConditions.predicate(conditionIdentifiable, predicate);
-    }
-
-    @Override
     public ManualTriggerDef<T, C> preCondition(String id, String expression) {
         return preConditions.expression(id, expression);
-    }
-
-    @Override
-    public ManualTriggerDef<T, C> preCondition(Identifiable conditionIdentifiable, String expression) {
-        return preConditions.expression(conditionIdentifiable, expression);
     }
 
     /**

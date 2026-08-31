@@ -19,7 +19,6 @@
 package org.transflux.core.impl;
 
 import org.transflux.core.ContextScope;
-import org.transflux.core.Identifiable;
 import org.transflux.core.StateMachine;
 import org.transflux.core.StateMachineDef;
 import org.transflux.core.action.Action;
@@ -227,23 +226,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> step(Identifiable stepIdentifiable, Action<T, ?> step) {
-        requireNotNull(stepIdentifiable, "Step identifiable");
-        return step(stepIdentifiable.getId(), step);
-    }
-
-    @Override
     public StateMachineDef<T> step(String id, Class<? extends Action<T, ?>> stepClass) {
         requireNotBlank(id, "Step ID");
         requireNotNull(stepClass, "Step class");
         registerStepClass(id, stepClass);
         return this;
-    }
-
-    @Override
-    public StateMachineDef<T> step(Identifiable stepIdentifiable, Class<? extends Action<T, ?>> stepClass) {
-        requireNotNull(stepIdentifiable, "Step identifiable");
-        return step(stepIdentifiable.getId(), stepClass);
     }
 
     @Override
@@ -257,12 +244,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> step(Identifiable stepIdentifiable, Consumer<StepDef<T, Object>> configurer) {
-        requireNotNull(stepIdentifiable, "Step identifiable");
-        return step(stepIdentifiable.getId(), configurer);
-    }
-
-    @Override
     public <C> StateMachineDef<T> step(String id, Class<C> contextType, Action<T, C> step) {
         requireNotBlank(id, "Step ID");
         requireNotNull(contextType, "Context type");
@@ -270,12 +251,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         registerStepInstance(id, step);
         tagContextType(id, contextType);
         return this;
-    }
-
-    @Override
-    public <C> StateMachineDef<T> step(Identifiable stepIdentifiable, Class<C> contextType, Action<T, C> step) {
-        requireNotNull(stepIdentifiable, "Step identifiable");
-        return step(stepIdentifiable.getId(), contextType, step);
     }
 
     @Override
@@ -289,24 +264,12 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public <C> StateMachineDef<T> step(Identifiable stepIdentifiable, Class<C> contextType, Class<? extends Action<T, C>> stepClass) {
-        requireNotNull(stepIdentifiable, "Step identifiable");
-        return step(stepIdentifiable.getId(), contextType, stepClass);
-    }
-
-    @Override
     public <C> StateMachineDef<T> step(String id, Class<C> contextType, Consumer<StepDef<T, C>> configurer) {
         requireNotBlank(id, "Step ID");
         requireNotNull(contextType, "Context type");
         requireNotNull(configurer, "Step configurer");
         registerScopedStep(id, configurer, contextType);
         return this;
-    }
-
-    @Override
-    public <C> StateMachineDef<T> step(Identifiable stepIdentifiable, Class<C> contextType, Consumer<StepDef<T, C>> configurer) {
-        requireNotNull(stepIdentifiable, "Step identifiable");
-        return step(stepIdentifiable.getId(), contextType, configurer);
     }
 
     private void registerStepDef(StepDefImpl<T, ?> def) {
@@ -572,23 +535,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> condition(Identifiable conditionIdentifiable, Condition<T, ?> condition) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return condition(conditionIdentifiable.getId(), condition);
-    }
-
-    @Override
     public StateMachineDef<T> condition(String id, Class<? extends Condition<T, ?>> conditionClass) {
         requireNotBlank(id, "Condition ID");
         requireNotNull(conditionClass, "Condition class");
         registerConditionClass(id, conditionClass);
         return this;
-    }
-
-    @Override
-    public StateMachineDef<T> condition(Identifiable conditionIdentifiable, Class<? extends Condition<T, ?>> conditionClass) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return condition(conditionIdentifiable.getId(), conditionClass);
     }
 
     @Override
@@ -600,21 +551,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> condition(Identifiable conditionIdentifiable, BiPredicate<T, ?> predicate) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return condition(conditionIdentifiable.getId(), predicate);
-    }
-
-    @Override
     public StateMachineDef<T> condition(String id, Predicate<T> predicate) {
         requireNotNull(predicate, "Predicate");
         return condition(id, adaptEntityPredicate(predicate));
-    }
-
-    @Override
-    public StateMachineDef<T> condition(Identifiable conditionIdentifiable, Predicate<T> predicate) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return condition(conditionIdentifiable.getId(), predicate);
     }
 
     @Override
@@ -623,12 +562,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotBlank(spelExpression, "SpEL expression");
         registerConditionExpression(id, spelExpression);
         return this;
-    }
-
-    @Override
-    public StateMachineDef<T> condition(Identifiable conditionIdentifiable, String spelExpression) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return condition(conditionIdentifiable.getId(), spelExpression);
     }
 
     @Override
@@ -642,12 +575,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public <C> StateMachineDef<T> condition(Identifiable conditionIdentifiable, Class<C> contextType, Condition<T, C> condition) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return condition(conditionIdentifiable.getId(), contextType, condition);
-    }
-
-    @Override
     public <C> StateMachineDef<T> condition(String id, Class<C> contextType, Class<? extends Condition<T, C>> conditionClass) {
         requireNotBlank(id, "Condition ID");
         requireNotNull(contextType, "Context type");
@@ -655,12 +582,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         registerConditionClass(id, conditionClass);
         tagContextType(id, contextType);
         return this;
-    }
-
-    @Override
-    public <C> StateMachineDef<T> condition(Identifiable conditionIdentifiable, Class<C> contextType, Class<? extends Condition<T, C>> conditionClass) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return condition(conditionIdentifiable.getId(), contextType, conditionClass);
     }
 
     @Override
@@ -674,23 +595,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public <C> StateMachineDef<T> conditionPredicate(Identifiable conditionIdentifiable, Class<C> contextType, BiPredicate<T, C> predicate) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return conditionPredicate(conditionIdentifiable.getId(), contextType, predicate);
-    }
-
-    @Override
     @SuppressWarnings("unchecked")
     public <C> StateMachineDef<T> conditionPredicate(String id, Class<C> contextType, Predicate<T> predicate) {
         requireNotNull(predicate, "Predicate");
         BiPredicate<T, C> adapted = (BiPredicate<T, C>) adaptEntityPredicate(predicate);
         return conditionPredicate(id, contextType, adapted);
-    }
-
-    @Override
-    public <C> StateMachineDef<T> conditionPredicate(Identifiable conditionIdentifiable, Class<C> contextType, Predicate<T> predicate) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return conditionPredicate(conditionIdentifiable.getId(), contextType, predicate);
     }
 
     @Override
@@ -701,12 +610,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         registerConditionExpression(id, spelExpression);
         tagContextType(id, contextType);
         return this;
-    }
-
-    @Override
-    public <C> StateMachineDef<T> conditionExpression(Identifiable conditionIdentifiable, Class<C> contextType, String spelExpression) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return conditionExpression(conditionIdentifiable.getId(), contextType, spelExpression);
     }
 
     @Override
@@ -723,12 +626,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public <C> StateMachineDef<T> operation(Identifiable operationIdentifiable, Class<C> contextType, Consumer<OperationDef<T, C>> configurer) {
-        requireNotNull(operationIdentifiable, "Operation identifiable");
-        return operation(operationIdentifiable.getId(), contextType, configurer);
-    }
-
-    @Override
     public <P, N> StateMachineDef<T> mapper(String id,
                                             Class<P> parentType,
                                             Class<N> childType,
@@ -739,15 +636,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotNull(mapper, "Context mapper");
         registerMapper(configuredMapper(id, parentType, childType, d -> d.using(mapper)));
         return this;
-    }
-
-    @Override
-    public <P, N> StateMachineDef<T> mapper(Identifiable mapperIdentifiable,
-                                            Class<P> parentType,
-                                            Class<N> childType,
-                                            ContextMapper<P, N> mapper) {
-        requireNotNull(mapperIdentifiable, "Mapper identifiable");
-        return mapper(mapperIdentifiable.getId(), parentType, childType, mapper);
     }
 
     @Override
@@ -764,15 +652,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public <P, N> StateMachineDef<T> mapper(Identifiable mapperIdentifiable,
-                                            Class<P> parentType,
-                                            Class<N> childType,
-                                            Class<? extends ContextMapper<P, N>> mapperClass) {
-        requireNotNull(mapperIdentifiable, "Mapper identifiable");
-        return mapper(mapperIdentifiable.getId(), parentType, childType, mapperClass);
-    }
-
-    @Override
     public <P, N> StateMachineDef<T> mapperDef(String id,
                                                Class<P> parentType,
                                                Class<N> childType,
@@ -783,15 +662,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotNull(configurer, "Mapper configurer");
         registerMapper(configuredMapper(id, parentType, childType, configurer));
         return this;
-    }
-
-    @Override
-    public <P, N> StateMachineDef<T> mapperDef(Identifiable mapperIdentifiable,
-                                               Class<P> parentType,
-                                               Class<N> childType,
-                                               Consumer<MapperDef<P, N>> configurer) {
-        requireNotNull(mapperIdentifiable, "Mapper identifiable");
-        return mapperDef(mapperIdentifiable.getId(), parentType, childType, configurer);
     }
 
     private static <P, N> MapperDefImpl<P, N> configuredMapper(String id, Class<P> parentType,
@@ -1147,22 +1017,10 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> state(Identifiable stateIdentifiable, Consumer<StateDef<T>> configurer) {
-        requireNotNull(stateIdentifiable, "State identifiable");
-        return state(stateIdentifiable.getId(), configurer);
-    }
-
-    @Override
     public StateMachineDef<T> onAnyStateEntry(String listenerId, StateListener<T> listener) {
         requireNotBlank(listenerId, "State listener ID");
         requireNotNull(listener, "State listener");
         return onAnyStateEntry(listenerId, l -> l.using(listener));
-    }
-
-    @Override
-    public StateMachineDef<T> onAnyStateEntry(Identifiable listenerIdentifiable, StateListener<T> listener) {
-        requireNotNull(listenerIdentifiable, "State listener identifiable");
-        return onAnyStateEntry(listenerIdentifiable.getId(), listener);
     }
 
     @Override
@@ -1173,23 +1031,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyStateEntry(Identifiable listenerIdentifiable,
-                                              Class<? extends StateListener<T>> listenerClass) {
-        requireNotNull(listenerIdentifiable, "State listener identifiable");
-        return onAnyStateEntry(listenerIdentifiable.getId(), listenerClass);
-    }
-
-    @Override
     public StateMachineDef<T> onAnyStateEntry(String listenerId, Consumer<StateListenerDef<T>> configurer) {
         globalEntryListeners.add(declareStateListener(listenerId, configurer));
         return this;
-    }
-
-    @Override
-    public StateMachineDef<T> onAnyStateEntry(Identifiable listenerIdentifiable,
-                                              Consumer<StateListenerDef<T>> configurer) {
-        requireNotNull(listenerIdentifiable, "State listener identifiable");
-        return onAnyStateEntry(listenerIdentifiable.getId(), configurer);
     }
 
     @Override
@@ -1200,12 +1044,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyStateExit(Identifiable listenerIdentifiable, StateListener<T> listener) {
-        requireNotNull(listenerIdentifiable, "State listener identifiable");
-        return onAnyStateExit(listenerIdentifiable.getId(), listener);
-    }
-
-    @Override
     public StateMachineDef<T> onAnyStateExit(String listenerId, Class<? extends StateListener<T>> listenerClass) {
         requireNotBlank(listenerId, "State listener ID");
         requireNotNull(listenerClass, "State listener class");
@@ -1213,23 +1051,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyStateExit(Identifiable listenerIdentifiable,
-                                             Class<? extends StateListener<T>> listenerClass) {
-        requireNotNull(listenerIdentifiable, "State listener identifiable");
-        return onAnyStateExit(listenerIdentifiable.getId(), listenerClass);
-    }
-
-    @Override
     public StateMachineDef<T> onAnyStateExit(String listenerId, Consumer<StateListenerDef<T>> configurer) {
         globalExitListeners.add(declareStateListener(listenerId, configurer));
         return this;
-    }
-
-    @Override
-    public StateMachineDef<T> onAnyStateExit(Identifiable listenerIdentifiable,
-                                             Consumer<StateListenerDef<T>> configurer) {
-        requireNotNull(listenerIdentifiable, "State listener identifiable");
-        return onAnyStateExit(listenerIdentifiable.getId(), configurer);
     }
 
     /**
@@ -1258,25 +1082,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyTransitionStart(Identifiable listenerIdentifiable,
-                                                   TransitionListener<T, Object> listener) {
-        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
-        return onAnyTransitionStart(listenerIdentifiable.getId(), listener);
-    }
-
-    @Override
     public StateMachineDef<T> onAnyTransitionStart(String listenerId,
                                                    Class<? extends TransitionListener<T, Object>> listenerClass) {
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(listenerClass, "Transition listener class");
         return onAnyTransitionStart(listenerId, l -> l.using(listenerClass));
-    }
-
-    @Override
-    public StateMachineDef<T> onAnyTransitionStart(Identifiable listenerIdentifiable,
-                                                   Class<? extends TransitionListener<T, Object>> listenerClass) {
-        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
-        return onAnyTransitionStart(listenerIdentifiable.getId(), listenerClass);
     }
 
     @Override
@@ -1287,24 +1097,10 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyTransitionStart(Identifiable listenerIdentifiable,
-                                                   Consumer<TransitionListenerDef<T, Object>> configurer) {
-        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
-        return onAnyTransitionStart(listenerIdentifiable.getId(), configurer);
-    }
-
-    @Override
     public StateMachineDef<T> onAnyTransitionComplete(String listenerId, TransitionListener<T, Object> listener) {
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(listener, "Transition listener");
         return onAnyTransitionComplete(listenerId, l -> l.using(listener));
-    }
-
-    @Override
-    public StateMachineDef<T> onAnyTransitionComplete(Identifiable listenerIdentifiable,
-                                                      TransitionListener<T, Object> listener) {
-        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
-        return onAnyTransitionComplete(listenerIdentifiable.getId(), listener);
     }
 
     @Override
@@ -1316,13 +1112,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyTransitionComplete(Identifiable listenerIdentifiable,
-                                                      Class<? extends TransitionListener<T, Object>> listenerClass) {
-        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
-        return onAnyTransitionComplete(listenerIdentifiable.getId(), listenerClass);
-    }
-
-    @Override
     public StateMachineDef<T> onAnyTransitionComplete(String listenerId,
                                                       Consumer<TransitionListenerDef<T, Object>> configurer) {
         globalCompleteListeners.add(declareTransitionListener(listenerId, configurer));
@@ -1330,24 +1119,10 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyTransitionComplete(Identifiable listenerIdentifiable,
-                                                      Consumer<TransitionListenerDef<T, Object>> configurer) {
-        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
-        return onAnyTransitionComplete(listenerIdentifiable.getId(), configurer);
-    }
-
-    @Override
     public StateMachineDef<T> onAnyTransitionError(String listenerId, TransitionListener<T, Object> listener) {
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(listener, "Transition listener");
         return onAnyTransitionError(listenerId, l -> l.using(listener));
-    }
-
-    @Override
-    public StateMachineDef<T> onAnyTransitionError(Identifiable listenerIdentifiable,
-                                                   TransitionListener<T, Object> listener) {
-        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
-        return onAnyTransitionError(listenerIdentifiable.getId(), listener);
     }
 
     @Override
@@ -1359,13 +1134,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyTransitionError(Identifiable listenerIdentifiable,
-                                                   Class<? extends TransitionListener<T, Object>> listenerClass) {
-        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
-        return onAnyTransitionError(listenerIdentifiable.getId(), listenerClass);
-    }
-
-    @Override
     public StateMachineDef<T> onAnyTransitionError(String listenerId,
                                                    Consumer<TransitionListenerDef<T, Object>> configurer) {
         globalErrorListeners.add(declareTransitionListener(listenerId, configurer));
@@ -1373,24 +1141,10 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyTransitionError(Identifiable listenerIdentifiable,
-                                                   Consumer<TransitionListenerDef<T, Object>> configurer) {
-        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
-        return onAnyTransitionError(listenerIdentifiable.getId(), configurer);
-    }
-
-    @Override
     public StateMachineDef<T> onAnyActionStart(String listenerId, ActionListener<T, Object> listener) {
         requireNotBlank(listenerId, "Action listener ID");
         requireNotNull(listener, "Action listener");
         return onAnyActionStart(listenerId, l -> l.using(listener));
-    }
-
-    @Override
-    public StateMachineDef<T> onAnyActionStart(Identifiable listenerIdentifiable,
-                                               ActionListener<T, Object> listener) {
-        requireNotNull(listenerIdentifiable, "Action listener identifiable");
-        return onAnyActionStart(listenerIdentifiable.getId(), listener);
     }
 
     @Override
@@ -1402,13 +1156,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyActionStart(Identifiable listenerIdentifiable,
-                                               Class<? extends ActionListener<T, Object>> listenerClass) {
-        requireNotNull(listenerIdentifiable, "Action listener identifiable");
-        return onAnyActionStart(listenerIdentifiable.getId(), listenerClass);
-    }
-
-    @Override
     public StateMachineDef<T> onAnyActionStart(String listenerId,
                                                Consumer<ActionListenerDef<T, Object>> configurer) {
         globalActionStartListeners.add(declareActionListener(listenerId, configurer));
@@ -1416,24 +1163,10 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyActionStart(Identifiable listenerIdentifiable,
-                                               Consumer<ActionListenerDef<T, Object>> configurer) {
-        requireNotNull(listenerIdentifiable, "Action listener identifiable");
-        return onAnyActionStart(listenerIdentifiable.getId(), configurer);
-    }
-
-    @Override
     public StateMachineDef<T> onAnyActionComplete(String listenerId, ActionListener<T, Object> listener) {
         requireNotBlank(listenerId, "Action listener ID");
         requireNotNull(listener, "Action listener");
         return onAnyActionComplete(listenerId, l -> l.using(listener));
-    }
-
-    @Override
-    public StateMachineDef<T> onAnyActionComplete(Identifiable listenerIdentifiable,
-                                                  ActionListener<T, Object> listener) {
-        requireNotNull(listenerIdentifiable, "Action listener identifiable");
-        return onAnyActionComplete(listenerIdentifiable.getId(), listener);
     }
 
     @Override
@@ -1445,13 +1178,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyActionComplete(Identifiable listenerIdentifiable,
-                                                  Class<? extends ActionListener<T, Object>> listenerClass) {
-        requireNotNull(listenerIdentifiable, "Action listener identifiable");
-        return onAnyActionComplete(listenerIdentifiable.getId(), listenerClass);
-    }
-
-    @Override
     public StateMachineDef<T> onAnyActionComplete(String listenerId,
                                                   Consumer<ActionListenerDef<T, Object>> configurer) {
         globalActionCompleteListeners.add(declareActionListener(listenerId, configurer));
@@ -1459,24 +1185,10 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyActionComplete(Identifiable listenerIdentifiable,
-                                                  Consumer<ActionListenerDef<T, Object>> configurer) {
-        requireNotNull(listenerIdentifiable, "Action listener identifiable");
-        return onAnyActionComplete(listenerIdentifiable.getId(), configurer);
-    }
-
-    @Override
     public StateMachineDef<T> onAnyActionError(String listenerId, ActionListener<T, Object> listener) {
         requireNotBlank(listenerId, "Action listener ID");
         requireNotNull(listener, "Action listener");
         return onAnyActionError(listenerId, l -> l.using(listener));
-    }
-
-    @Override
-    public StateMachineDef<T> onAnyActionError(Identifiable listenerIdentifiable,
-                                               ActionListener<T, Object> listener) {
-        requireNotNull(listenerIdentifiable, "Action listener identifiable");
-        return onAnyActionError(listenerIdentifiable.getId(), listener);
     }
 
     @Override
@@ -1488,24 +1200,10 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyActionError(Identifiable listenerIdentifiable,
-                                               Class<? extends ActionListener<T, Object>> listenerClass) {
-        requireNotNull(listenerIdentifiable, "Action listener identifiable");
-        return onAnyActionError(listenerIdentifiable.getId(), listenerClass);
-    }
-
-    @Override
     public StateMachineDef<T> onAnyActionError(String listenerId,
                                                Consumer<ActionListenerDef<T, Object>> configurer) {
         globalActionErrorListeners.add(declareActionListener(listenerId, configurer));
         return this;
-    }
-
-    @Override
-    public StateMachineDef<T> onAnyActionError(Identifiable listenerIdentifiable,
-                                               Consumer<ActionListenerDef<T, Object>> configurer) {
-        requireNotNull(listenerIdentifiable, "Action listener identifiable");
-        return onAnyActionError(listenerIdentifiable.getId(), configurer);
     }
 
     /**

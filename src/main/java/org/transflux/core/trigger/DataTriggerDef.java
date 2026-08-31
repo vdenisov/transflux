@@ -110,18 +110,6 @@ public interface DataTriggerDef<T, C> extends Identifiable {
     DataTriggerDef<T, C> condition(String registeredConditionId);
 
     /**
-     * {@link Identifiable} overload of {@link #condition(String)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param registeredCondition an identifiable supplying the condition id
-     *
-     * @return this trigger def for chaining
-     *
-     * @throws TransfluxValidationException if {@code registeredCondition} is {@code null}
-     */
-    DataTriggerDef<T, C> condition(Identifiable registeredCondition);
-
-    /**
      * Sets the gate to an inline SpEL expression with an auto-derived id. The id is computed
      * deterministically from the expression text and the descriptor's position. Use
      * {@link #condition(String, String)} when an explicit id is preferred.
@@ -148,16 +136,6 @@ public interface DataTriggerDef<T, C> extends Identifiable {
     DataTriggerDef<T, C> condition(String id, Condition<T, C> condition);
 
     /**
-     * {@link Identifiable} overload of {@link #condition(String, Condition)}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param condition the condition instance
-     *
-     * @return this trigger def for chaining
-     */
-    DataTriggerDef<T, C> condition(Identifiable conditionIdentifiable, Condition<T, C> condition);
-
-    /**
      * Sets the gate to a {@link Condition} class under the given id. The class is reflectively
      * instantiated through its public no-arg constructor when the state machine is built.
      *
@@ -170,16 +148,6 @@ public interface DataTriggerDef<T, C> extends Identifiable {
      *         {@code conditionClass} is {@code null}
      */
     DataTriggerDef<T, C> condition(String id, Class<? extends Condition<T, C>> conditionClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #condition(String, Class)}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param conditionClass the condition class
-     *
-     * @return this trigger def for chaining
-     */
-    DataTriggerDef<T, C> condition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass);
 
     /**
      * Sets the gate to a {@link BiPredicate} over {@code (entity, context)} under the given id. The
@@ -196,16 +164,6 @@ public interface DataTriggerDef<T, C> extends Identifiable {
     DataTriggerDef<T, C> condition(String id, BiPredicate<T, C> predicate);
 
     /**
-     * {@link Identifiable} overload of {@link #condition(String, BiPredicate)}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param predicate the predicate
-     *
-     * @return this trigger def for chaining
-     */
-    DataTriggerDef<T, C> condition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate);
-
-    /**
      * Convenience overload of {@link #condition(String, BiPredicate)} accepting an entity-only
      * {@link Predicate}; the context is ignored at evaluation time.
      *
@@ -215,16 +173,6 @@ public interface DataTriggerDef<T, C> extends Identifiable {
      * @return this trigger def for chaining
      */
     DataTriggerDef<T, C> condition(String id, Predicate<T> predicate);
-
-    /**
-     * {@link Identifiable} overload of {@link #condition(String, Predicate)}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param predicate the entity predicate
-     *
-     * @return this trigger def for chaining
-     */
-    DataTriggerDef<T, C> condition(Identifiable conditionIdentifiable, Predicate<T> predicate);
 
     /**
      * Sets the gate to a SpEL expression under the given id.
@@ -238,13 +186,4 @@ public interface DataTriggerDef<T, C> extends Identifiable {
      */
     DataTriggerDef<T, C> condition(String id, String expression);
 
-    /**
-     * {@link Identifiable} overload of {@link #condition(String, String)}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param expression the SpEL expression text
-     *
-     * @return this trigger def for chaining
-     */
-    DataTriggerDef<T, C> condition(Identifiable conditionIdentifiable, String expression);
 }

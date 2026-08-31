@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl
 
-import org.transflux.core.Identifiable
 import org.transflux.core.action.ActionExecution
 import org.transflux.core.action.ActionListener
 import org.transflux.core.action.ActionListenerDef
@@ -51,13 +50,10 @@ class StateMachineDefImplActionListenerSpec extends Specification {
         smd.getGlobalActionStartListeners().first().buildBoundListener().listener() != null
 
         where:
-        form                      | declare
-        'instance'                | { it.onAnyActionStart('l1', new NoopListener()) }
-        'class'                   | { it.onAnyActionStart('l1', NoopListener) }
-        'configurer'              | { it.onAnyActionStart('l1', usingNoop()) }
-        'Identifiable/instance'   | { it.onAnyActionStart(idOf('l1'), new NoopListener()) }
-        'Identifiable/class'      | { it.onAnyActionStart(idOf('l1'), NoopListener) }
-        'Identifiable/configurer' | { it.onAnyActionStart(idOf('l1'), usingNoop()) }
+        form         | declare
+        'instance'   | { it.onAnyActionStart('l1', new NoopListener()) }
+        'class'      | { it.onAnyActionStart('l1', NoopListener) }
+        'configurer' | { it.onAnyActionStart('l1', usingNoop()) }
     }
 
     @Unroll
@@ -74,13 +70,10 @@ class StateMachineDefImplActionListenerSpec extends Specification {
         smd.getGlobalActionErrorListeners().isEmpty()
 
         where:
-        form                      | declare
-        'instance'                | { it.onAnyActionComplete('l1', new NoopListener()) }
-        'class'                   | { it.onAnyActionComplete('l1', NoopListener) }
-        'configurer'              | { it.onAnyActionComplete('l1', usingNoop()) }
-        'Identifiable/instance'   | { it.onAnyActionComplete(idOf('l1'), new NoopListener()) }
-        'Identifiable/class'      | { it.onAnyActionComplete(idOf('l1'), NoopListener) }
-        'Identifiable/configurer' | { it.onAnyActionComplete(idOf('l1'), usingNoop()) }
+        form         | declare
+        'instance'   | { it.onAnyActionComplete('l1', new NoopListener()) }
+        'class'      | { it.onAnyActionComplete('l1', NoopListener) }
+        'configurer' | { it.onAnyActionComplete('l1', usingNoop()) }
     }
 
     @Unroll
@@ -97,13 +90,10 @@ class StateMachineDefImplActionListenerSpec extends Specification {
         smd.getGlobalActionCompleteListeners().isEmpty()
 
         where:
-        form                      | declare
-        'instance'                | { it.onAnyActionError('l1', new NoopListener()) }
-        'class'                   | { it.onAnyActionError('l1', NoopListener) }
-        'configurer'              | { it.onAnyActionError('l1', usingNoop()) }
-        'Identifiable/instance'   | { it.onAnyActionError(idOf('l1'), new NoopListener()) }
-        'Identifiable/class'      | { it.onAnyActionError(idOf('l1'), NoopListener) }
-        'Identifiable/configurer' | { it.onAnyActionError(idOf('l1'), usingNoop()) }
+        form         | declare
+        'instance'   | { it.onAnyActionError('l1', new NoopListener()) }
+        'class'      | { it.onAnyActionError('l1', NoopListener) }
+        'configurer' | { it.onAnyActionError('l1', usingNoop()) }
     }
 
     def 'global action listeners are kept in declaration order'() {
@@ -192,41 +182,16 @@ class StateMachineDefImplActionListenerSpec extends Specification {
         e.message == 'Action listener ID cannot be null or blank'
 
         where:
-        hook                       | action
-        'onAnyActionStart'         | { it.onAnyActionStart('  ', new NoopListener()) }
-        'onAnyActionStart-cls'     | { it.onAnyActionStart('  ', NoopListener) }
-        'onAnyActionStart-cfg'     | { it.onAnyActionStart('  ', usingNoop()) }
-        'onAnyActionComplete'      | { it.onAnyActionComplete('  ', new NoopListener()) }
-        'onAnyActionComplete-cls'  | { it.onAnyActionComplete('  ', NoopListener) }
-        'onAnyActionComplete-cfg'  | { it.onAnyActionComplete('  ', usingNoop()) }
-        'onAnyActionError'         | { it.onAnyActionError('  ', new NoopListener()) }
-        'onAnyActionError-cls'     | { it.onAnyActionError('  ', NoopListener) }
-        'onAnyActionError-cfg'     | { it.onAnyActionError('  ', usingNoop()) }
-    }
-
-    @Unroll
-    def '#hook rejects a null Identifiable'() {
-        given:
-        def smd = new StateMachineDefImpl<Object>()
-
-        when:
-        action.call(smd)
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message == 'Action listener identifiable cannot be null'
-
-        where:
-        hook                       | action
-        'onAnyActionStart'         | { it.onAnyActionStart((Identifiable) null, new NoopListener()) }
-        'onAnyActionStart-cls'     | { it.onAnyActionStart((Identifiable) null, NoopListener) }
-        'onAnyActionStart-cfg'     | { it.onAnyActionStart((Identifiable) null, usingNoop()) }
-        'onAnyActionComplete'      | { it.onAnyActionComplete((Identifiable) null, new NoopListener()) }
-        'onAnyActionComplete-cls'  | { it.onAnyActionComplete((Identifiable) null, NoopListener) }
-        'onAnyActionComplete-cfg'  | { it.onAnyActionComplete((Identifiable) null, usingNoop()) }
-        'onAnyActionError'         | { it.onAnyActionError((Identifiable) null, new NoopListener()) }
-        'onAnyActionError-cls'     | { it.onAnyActionError((Identifiable) null, NoopListener) }
-        'onAnyActionError-cfg'     | { it.onAnyActionError((Identifiable) null, usingNoop()) }
+        hook                      | action
+        'onAnyActionStart'        | { it.onAnyActionStart('  ', new NoopListener()) }
+        'onAnyActionStart-cls'    | { it.onAnyActionStart('  ', NoopListener) }
+        'onAnyActionStart-cfg'    | { it.onAnyActionStart('  ', usingNoop()) }
+        'onAnyActionComplete'     | { it.onAnyActionComplete('  ', new NoopListener()) }
+        'onAnyActionComplete-cls' | { it.onAnyActionComplete('  ', NoopListener) }
+        'onAnyActionComplete-cfg' | { it.onAnyActionComplete('  ', usingNoop()) }
+        'onAnyActionError'        | { it.onAnyActionError('  ', new NoopListener()) }
+        'onAnyActionError-cls'    | { it.onAnyActionError('  ', NoopListener) }
+        'onAnyActionError-cfg'    | { it.onAnyActionError('  ', usingNoop()) }
     }
 
     def 'a null configurer is rejected'() {
@@ -243,9 +208,5 @@ class StateMachineDefImplActionListenerSpec extends Specification {
 
     private static Consumer<ActionListenerDef<Object, Object>> usingNoop() {
         return { ActionListenerDef l -> l.using(NoopListener) } as Consumer
-    }
-
-    private static Identifiable idOf(String value) {
-        return { -> value } as Identifiable
     }
 }

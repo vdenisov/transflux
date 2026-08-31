@@ -56,8 +56,8 @@ class OperationDefImplSpec extends Specification {
         def sm = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-            .state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', {}) })
-            .state(ACTIVE, {})
+            .state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', {}) })
+            .state(ACTIVE.id, {})
             .build()
         def composite = new OperationDefImpl<TestEntity, TestContext>('op1')
         composite.scopeRegistry = new RegistryImpl<TestEntity>(
@@ -106,8 +106,8 @@ class OperationDefImplSpec extends Specification {
             .step('a-id', new AppendStep('a'))
             .step('b-id', new AppendStep('b'))
             .step('c-id', new AppendStep('c'))
-            .state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', {}) })
-            .state(ACTIVE, {})
+            .state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', {}) })
+            .state(ACTIVE.id, {})
             .build()
 
         def composite = new OperationDefImpl<TestEntity, TestContext>('op1').tap { beginConfigurer() }
@@ -140,8 +140,8 @@ class OperationDefImplSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('a-id', new AppendStep('a'))
-            .state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', {}) })
-            .state(ACTIVE, {})
+            .state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', {}) })
+            .state(ACTIVE.id, {})
             .build()
 
         def composite = new OperationDefImpl<TestEntity, TestContext>('op1').tap { beginConfigurer() }
@@ -160,8 +160,8 @@ class OperationDefImplSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('known', new FooStep())
-            .state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', {}) })
-            .state(ACTIVE, {})
+            .state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', {}) })
+            .state(ACTIVE.id, {})
             .build()
 
         def composite = new OperationDefImpl<TestEntity, TestContext>('op1').tap { beginConfigurer() }
@@ -187,8 +187,8 @@ class OperationDefImplSpec extends Specification {
         smd.operation('first', TestContext, { OperationDef<TestEntity, TestContext> c -> c.run('second') })
         smd.operation('second', TestContext,
                       { OperationDef<TestEntity, TestContext> c -> c.step('inner', new AppendStep('from-second')) })
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', TestContext, { t -> t.run('first') }) })
-        smd.state(ACTIVE, {})
+        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', TestContext, { t -> t.run('first') }) })
+        smd.state(ACTIVE.id, {})
 
         def sm = smd.build()
         def entity = new TestEntity('TRIAL')
@@ -207,7 +207,7 @@ class OperationDefImplSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', TestContext, { t ->
+        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', TestContext, { t ->
             t.operation('outer', { OperationDef<TestEntity, TestContext> c ->
                 c.step('outer-inline', new AppendStep('outer'))
                  .operation('inner', { OperationDef<TestEntity, TestContext> nested ->
@@ -215,7 +215,7 @@ class OperationDefImplSpec extends Specification {
                  })
             })
         }) })
-        smd.state(ACTIVE, {})
+        smd.state(ACTIVE.id, {})
 
         def sm = smd.build()
         def entity = new TestEntity('TRIAL')
@@ -235,7 +235,7 @@ class OperationDefImplSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', TestContext, { t ->
+        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', TestContext, { t ->
             t.operation('outer', { OperationDef<TestEntity, TestContext> c ->
                 c.operation('inner', { OperationDef<TestEntity, TestContext> nested ->
                      nested.step('buried', new AppendStep('buried'))
@@ -243,7 +243,7 @@ class OperationDefImplSpec extends Specification {
                  .run('buried')
             })
         }) })
-        smd.state(ACTIVE, {})
+        smd.state(ACTIVE.id, {})
 
         when:
         smd.build()
@@ -259,7 +259,7 @@ class OperationDefImplSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', TestContext, { t ->
+        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', TestContext, { t ->
             t.operation('outer', { OperationDef<TestEntity, TestContext> c ->
                 c.conditional('route', { cs ->
                     cs.branch('only', { b ->
@@ -271,7 +271,7 @@ class OperationDefImplSpec extends Specification {
                 }).run('buried')
             })
         }) })
-        smd.state(ACTIVE, {})
+        smd.state(ACTIVE.id, {})
 
         when:
         smd.build()
@@ -287,10 +287,10 @@ class OperationDefImplSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', { t ->
+        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', { t ->
             t.operation('op1', { OperationDef<TestEntity, TestContext> c -> c.step('foo-id', FooStep) })
         }) })
-        smd.state(ACTIVE, {})
+        smd.state(ACTIVE.id, {})
 
         def sm = (StateMachineImpl<TestEntity>) smd.build()
         def entity = new TestEntity('TRIAL')
@@ -308,10 +308,10 @@ class OperationDefImplSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', { t ->
+        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', { t ->
             t.operation('op1', { OperationDef<TestEntity, TestContext> c -> c.step('bad-id', CtorlessStep) })
         }) })
-        smd.state(ACTIVE, {})
+        smd.state(ACTIVE.id, {})
 
         when:
         smd.build()

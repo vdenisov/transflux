@@ -110,18 +110,6 @@ public interface EventTriggerDef<T, C> extends Identifiable {
     EventTriggerDef<T, C> onEvent(String eventId);
 
     /**
-     * {@link Identifiable} overload of {@link #onEvent(String)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param event an identifiable supplying the event id
-     *
-     * @return this trigger def for chaining
-     *
-     * @throws TransfluxValidationException if {@code event} is {@code null}
-     */
-    EventTriggerDef<T, C> onEvent(Identifiable event);
-
-    /**
      * Sets a filter over {@code (eventData, entity)} that further gates firing once the event id
      * matches. Replaces any filter previously set on this trigger.
      *

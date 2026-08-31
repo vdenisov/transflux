@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.trigger.EventTriggerDef;
 
@@ -60,12 +59,6 @@ final class EventTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, EventTriggerD
         warnIfSet(this.eventId, eventId, "Event ID", Loggers.BUILD_VALIDATION);
         this.eventId = eventId;
         return this;
-    }
-
-    @Override
-    public EventTriggerDef<T, C> onEvent(Identifiable event) {
-        requireNotNull(event, "Event identifiable");
-        return onEvent(event.getId());
     }
 
     @Override

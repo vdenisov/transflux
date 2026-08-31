@@ -61,8 +61,8 @@ class ExecutingTransitionImplSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('foo-id', step)
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', {}) })
-        smd.state(ACTIVE, {})
+        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', {}) })
+        smd.state(ACTIVE.id, {})
 
         def sm = (StateMachineImpl) smd.build()
         def entity = new TestEntity(state: 'TRIAL')
@@ -83,8 +83,8 @@ class ExecutingTransitionImplSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', {}) })
-        smd.state(ACTIVE, {})
+        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', {}) })
+        smd.state(ACTIVE.id, {})
 
         def sm = (StateMachineImpl) smd.build()
         def view = new ExecutingTransitionImpl<TestEntity, TestContext>(
@@ -136,8 +136,8 @@ class ExecutingTransitionImplSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', {}) })
-        smd.state(ACTIVE, {})
+        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', {}) })
+        smd.state(ACTIVE.id, {})
 
         def sm = (StateMachineImpl) smd.build()
         def view = new ExecutingTransitionImpl<TestEntity, TestContext>(
@@ -157,8 +157,8 @@ class ExecutingTransitionImplSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', {}) })
-        smd.state(ACTIVE, {})
+        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', {}) })
+        smd.state(ACTIVE.id, {})
         return smd.build()
     }
 }

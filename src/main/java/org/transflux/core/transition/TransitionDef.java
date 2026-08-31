@@ -181,16 +181,6 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> step(String id, Action<T, C> action);
 
     /**
-     * {@link Identifiable} overload of {@link #step(String, Action)}.
-     *
-     * @param stepIdentifiable an identifiable supplying the step id
-     * @param action the action instance
-     *
-     * @return this transition def for chaining
-     */
-    TransitionDef<T, C> step(Identifiable stepIdentifiable, Action<T, C> action);
-
-    /**
      * Attaches an imperative action - a step - using an {@link Action} class. The framework
      * instantiates it via its public no-arg constructor at state machine build time.
      *
@@ -203,16 +193,6 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         {@code actionClass} is {@code null}
      */
     TransitionDef<T, C> step(String id, Class<? extends Action<T, C>> actionClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #step(String, Class)}.
-     *
-     * @param stepIdentifiable an identifiable supplying the step id
-     * @param actionClass the action class
-     *
-     * @return this transition def for chaining
-     */
-    TransitionDef<T, C> step(Identifiable stepIdentifiable, Class<? extends Action<T, C>> actionClass);
 
     /**
      * Attaches an imperative action - a step - built through a fluent configurer. Use this form
@@ -235,16 +215,6 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> step(String id, Consumer<StepDef<T, C>> configurer);
 
     /**
-     * {@link Identifiable} overload of {@link #step(String, Consumer)}.
-     *
-     * @param stepIdentifiable an identifiable supplying the step id
-     * @param configurer the fluent configurer
-     *
-     * @return this transition def for chaining
-     */
-    TransitionDef<T, C> step(Identifiable stepIdentifiable, Consumer<StepDef<T, C>> configurer);
-
-    /**
      * Attaches a declarative action - an operation - built through a fluent configurer. The
      * operation must declare at least one member.
      * <p>
@@ -262,16 +232,6 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         without any members
      */
     TransitionDef<T, C> operation(String id, Consumer<OperationDef<T, C>> configurer);
-
-    /**
-     * {@link Identifiable} overload of {@link #operation(String, Consumer)}.
-     *
-     * @param operationIdentifiable an identifiable supplying the operation id
-     * @param configurer the fluent configurer
-     *
-     * @return this transition def for chaining
-     */
-    TransitionDef<T, C> operation(Identifiable operationIdentifiable, Consumer<OperationDef<T, C>> configurer);
 
     /**
      * Attaches a multi-branch conditional - the declarative action whose ordering rule is "first
@@ -320,18 +280,6 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> run(String id);
 
     /**
-     * {@link Identifiable} overload of {@link #run(String)} - delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param registeredAction an identifiable supplying the action id
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if {@code registeredAction} is {@code null}
-     */
-    TransitionDef<T, C> run(Identifiable registeredAction);
-
-    /**
      * Appends a pre-condition that references a condition already registered on the enclosing
      * state machine through {@link org.transflux.core.StateMachineDef#condition StateMachineDef.condition(...)}.
      *
@@ -343,18 +291,6 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         blank
      */
     TransitionDef<T, C> preCondition(String registeredConditionId);
-
-    /**
-     * {@link Identifiable} overload of {@link #preCondition(String)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param registeredCondition an identifiable supplying the condition id
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if {@code registeredCondition} is {@code null}
-     */
-    TransitionDef<T, C> preCondition(Identifiable registeredCondition);
 
     /**
      * Appends an inline SpEL pre-condition with an auto-derived id. The id is computed
@@ -384,16 +320,6 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> preCondition(String id, Condition<T, C> condition);
 
     /**
-     * {@link Identifiable} overload of {@link #preCondition(String, Condition)}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param condition the condition instance
-     *
-     * @return this transition def for chaining
-     */
-    TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, Condition<T, C> condition);
-
-    /**
      * Appends a pre-condition built from a {@link Condition} class under the given id. The
      * class is reflectively instantiated through its public no-arg constructor when the state
      * machine is built.
@@ -407,16 +333,6 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         {@code conditionClass} is {@code null}
      */
     TransitionDef<T, C> preCondition(String id, Class<? extends Condition<T, C>> conditionClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #preCondition(String, Class)}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param conditionClass the condition class
-     *
-     * @return this transition def for chaining
-     */
-    TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass);
 
     /**
      * Appends a pre-condition built from a {@link BiPredicate} over {@code (entity, context)}
@@ -434,16 +350,6 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> preCondition(String id, BiPredicate<T, C> predicate);
 
     /**
-     * {@link Identifiable} overload of {@link #preCondition(String, BiPredicate)}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param predicate the predicate
-     *
-     * @return this transition def for chaining
-     */
-    TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate);
-
-    /**
      * Convenience overload of {@link #preCondition(String, BiPredicate)} accepting an
      * entity-only {@link Predicate}; the context is ignored at evaluation time.
      *
@@ -453,16 +359,6 @@ public interface TransitionDef<T, C> extends Identifiable {
      * @return this transition def for chaining
      */
     TransitionDef<T, C> preCondition(String id, Predicate<T> predicate);
-
-    /**
-     * {@link Identifiable} overload of {@link #preCondition(String, Predicate)}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param predicate the entity predicate
-     *
-     * @return this transition def for chaining
-     */
-    TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, Predicate<T> predicate);
 
     /**
      * Appends a pre-condition built from a SpEL expression under the given id.
@@ -478,16 +374,6 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> preCondition(String id, String expression);
 
     /**
-     * {@link Identifiable} overload of {@link #preCondition(String, String)}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param expression the SpEL expression text
-     *
-     * @return this transition def for chaining
-     */
-    TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, String expression);
-
-    /**
      * Appends a post-condition that references a condition already registered on the enclosing
      * state machine through {@link org.transflux.core.StateMachineDef#condition StateMachineDef.condition(...)}.
      *
@@ -499,18 +385,6 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         blank
      */
     TransitionDef<T, C> postCondition(String registeredConditionId);
-
-    /**
-     * {@link Identifiable} overload of {@link #postCondition(String)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param registeredCondition an identifiable supplying the condition id
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if {@code registeredCondition} is {@code null}
-     */
-    TransitionDef<T, C> postCondition(Identifiable registeredCondition);
 
     /**
      * Appends an inline SpEL post-condition with an auto-derived id. The id is computed
@@ -540,16 +414,6 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> postCondition(String id, Condition<T, C> condition);
 
     /**
-     * {@link Identifiable} overload of {@link #postCondition(String, Condition)}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param condition the condition instance
-     *
-     * @return this transition def for chaining
-     */
-    TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, Condition<T, C> condition);
-
-    /**
      * Appends a post-condition built from a {@link Condition} class under the given id. The
      * class is reflectively instantiated through its public no-arg constructor when the state
      * machine is built.
@@ -563,16 +427,6 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         {@code conditionClass} is {@code null}
      */
     TransitionDef<T, C> postCondition(String id, Class<? extends Condition<T, C>> conditionClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #postCondition(String, Class)}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param conditionClass the condition class
-     *
-     * @return this transition def for chaining
-     */
-    TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass);
 
     /**
      * Appends a post-condition built from a {@link BiPredicate} over {@code (entity, context)}
@@ -590,16 +444,6 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> postCondition(String id, BiPredicate<T, C> predicate);
 
     /**
-     * {@link Identifiable} overload of {@link #postCondition(String, BiPredicate)}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param predicate the predicate
-     *
-     * @return this transition def for chaining
-     */
-    TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate);
-
-    /**
      * Convenience overload of {@link #postCondition(String, BiPredicate)} accepting an
      * entity-only {@link Predicate}; the context is ignored at evaluation time.
      *
@@ -609,16 +453,6 @@ public interface TransitionDef<T, C> extends Identifiable {
      * @return this transition def for chaining
      */
     TransitionDef<T, C> postCondition(String id, Predicate<T> predicate);
-
-    /**
-     * {@link Identifiable} overload of {@link #postCondition(String, Predicate)}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param predicate the entity predicate
-     *
-     * @return this transition def for chaining
-     */
-    TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, Predicate<T> predicate);
 
     /**
      * Appends a post-condition built from a SpEL expression under the given id.
@@ -634,16 +468,6 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> postCondition(String id, String expression);
 
     /**
-     * {@link Identifiable} overload of {@link #postCondition(String, String)}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param expression the SpEL expression text
-     *
-     * @return this transition def for chaining
-     */
-    TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, String expression);
-
-    /**
      * Attaches a manual trigger to this transition under the given id, with no extra metadata or
      * pre-conditions. The trigger is invokable through {@code entity(e).fire(id)}.
      *
@@ -654,17 +478,6 @@ public interface TransitionDef<T, C> extends Identifiable {
      * @throws TransfluxValidationException if {@code id} is {@code null} or blank
      */
     TransitionDef<T, C> addManualTrigger(String id);
-
-    /**
-     * {@link Identifiable} overload of {@link #addManualTrigger(String)}.
-     *
-     * @param triggerIdentifiable an identifiable supplying the trigger id
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if {@code triggerIdentifiable} is {@code null}
-     */
-    TransitionDef<T, C> addManualTrigger(Identifiable triggerIdentifiable);
 
     /**
      * Attaches a manual trigger built through a fluent configurer. Use this form to set the
@@ -687,18 +500,6 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> addManualTrigger(String id, Consumer<ManualTriggerDef<T, C>> configurer);
 
     /**
-     * {@link Identifiable} overload of {@link #addManualTrigger(String, Consumer)}.
-     *
-     * @param triggerIdentifiable an identifiable supplying the trigger id
-     * @param configurer the fluent configurer
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if {@code triggerIdentifiable} is {@code null}
-     */
-    TransitionDef<T, C> addManualTrigger(Identifiable triggerIdentifiable, Consumer<ManualTriggerDef<T, C>> configurer);
-
-    /**
      * Attaches an event trigger to this transition, listening for {@code eventId} with no filter.
      * The trigger fires on every event of that id published through
      * {@code entity(e).processEvent(eventId, eventData)} while the entity is in this transition's
@@ -714,57 +515,17 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> addEventTrigger(String id, String eventId);
 
     /**
-     * {@link Identifiable} overload of {@link #addEventTrigger(String, String)} — trigger id
-     * supplied as an identifiable.
+     * Attaches an event trigger whose id is the event id, listening for {@code eventId} with no
+     * filter. Use it when one event maps to exactly one trigger and a separate trigger id would
+     * only restate the event's.
      *
-     * @param triggerIdentifiable an identifiable supplying the trigger id
-     * @param eventId the event id this trigger listens for
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if {@code triggerIdentifiable} is {@code null}
-     */
-    TransitionDef<T, C> addEventTrigger(Identifiable triggerIdentifiable, String eventId);
-
-    /**
-     * Mixed-form overload of {@link #addEventTrigger(String, String)} — event id supplied as an
-     * identifiable.
-     *
-     * @param id the trigger id; never {@code null} or blank
-     * @param event an identifiable supplying the event id
+     * @param eventId the event id, used as this trigger's id too; never {@code null} or blank
      *
      * @return this transition def for chaining
      *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or {@code event} is
-     *         {@code null}
+     * @throws TransfluxValidationException if {@code eventId} is {@code null} or blank
      */
-    TransitionDef<T, C> addEventTrigger(String id, Identifiable event);
-
-    /**
-     * {@link Identifiable} overload of {@link #addEventTrigger(String, String)} — both trigger id
-     * and event id supplied as identifiables.
-     *
-     * @param triggerIdentifiable an identifiable supplying the trigger id
-     * @param event an identifiable supplying the event id
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if either identifiable is {@code null}
-     */
-    TransitionDef<T, C> addEventTrigger(Identifiable triggerIdentifiable, Identifiable event);
-
-    /**
-     * Attaches an event trigger whose id <b>and</b> listened-for event id are both the given
-     * identifiable's id, with no filter. Convenient when one event maps to exactly one trigger and
-     * a separate trigger id would be redundant.
-     *
-     * @param event an identifiable supplying both the trigger id and the event id
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if {@code event} is {@code null}
-     */
-    TransitionDef<T, C> addEventTrigger(Identifiable event);
+    TransitionDef<T, C> addEventTrigger(String eventId);
 
     /**
      * Attaches an event trigger built through a fluent configurer. Use this form to declare the
@@ -784,18 +545,6 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         {@code configurer} is {@code null}
      */
     TransitionDef<T, C> addEventTrigger(String id, Consumer<EventTriggerDef<T, C>> configurer);
-
-    /**
-     * {@link Identifiable} overload of {@link #addEventTrigger(String, Consumer)}.
-     *
-     * @param triggerIdentifiable an identifiable supplying the trigger id
-     * @param configurer the fluent configurer
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if {@code triggerIdentifiable} is {@code null}
-     */
-    TransitionDef<T, C> addEventTrigger(Identifiable triggerIdentifiable, Consumer<EventTriggerDef<T, C>> configurer);
 
     /**
      * Attaches a data trigger built through a fluent configurer. The configurer must declare the
@@ -818,18 +567,6 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> addDataTrigger(String id, Consumer<DataTriggerDef<T, C>> configurer);
 
     /**
-     * {@link Identifiable} overload of {@link #addDataTrigger(String, Consumer)}.
-     *
-     * @param triggerIdentifiable an identifiable supplying the trigger id
-     * @param configurer the fluent configurer
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if {@code triggerIdentifiable} is {@code null}
-     */
-    TransitionDef<T, C> addDataTrigger(Identifiable triggerIdentifiable, Consumer<DataTriggerDef<T, C>> configurer);
-
-    /**
      * Attaches a listener notified once this transition's pre-conditions have passed, before its
      * operation runs.
      *
@@ -849,20 +586,6 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> onStart(String listenerId, TransitionListener<T, C> listener);
 
     /**
-     * {@link Identifiable} overload of {@link #onStart(String, TransitionListener)} — delegates
-     * via {@link Identifiable#getId()}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listener the listener instance; never {@code null}
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
-     *         or another listener is already registered under the same id
-     */
-    TransitionDef<T, C> onStart(Identifiable listenerIdentifiable, TransitionListener<T, C> listener);
-
-    /**
      * Attaches a listener class notified when this transition starts. The class is instantiated
      * through its public no-arg constructor when the state machine is built.
      *
@@ -875,17 +598,6 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         or another listener is already registered under the same id
      */
     TransitionDef<T, C> onStart(String listenerId, Class<? extends TransitionListener<T, C>> listenerClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #onStart(String, Class)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this transition def for chaining
-     */
-    TransitionDef<T, C> onStart(Identifiable listenerIdentifiable,
-                                Class<? extends TransitionListener<T, C>> listenerClass);
 
     /**
      * Attaches a start listener declared through a configurer, for the cases where the listener
@@ -901,17 +613,6 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         no listener
      */
     TransitionDef<T, C> onStart(String listenerId, Consumer<TransitionListenerDef<T, C>> configurer);
-
-    /**
-     * {@link Identifiable} overload of {@link #onStart(String, Consumer)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param configurer callback that configures the listener; never {@code null}
-     *
-     * @return this transition def for chaining
-     */
-    TransitionDef<T, C> onStart(Identifiable listenerIdentifiable,
-                                Consumer<TransitionListenerDef<T, C>> configurer);
 
     /**
      * Attaches a listener notified after this transition succeeds and its new state has been
@@ -931,20 +632,6 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> onComplete(String listenerId, TransitionListener<T, C> listener);
 
     /**
-     * {@link Identifiable} overload of {@link #onComplete(String, TransitionListener)} — delegates
-     * via {@link Identifiable#getId()}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listener the listener instance; never {@code null}
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
-     *         or another listener is already registered under the same id
-     */
-    TransitionDef<T, C> onComplete(Identifiable listenerIdentifiable, TransitionListener<T, C> listener);
-
-    /**
      * Attaches a listener class notified when this transition completes successfully. The class is
      * instantiated through its public no-arg constructor when the state machine is built.
      *
@@ -957,17 +644,6 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         or another listener is already registered under the same id
      */
     TransitionDef<T, C> onComplete(String listenerId, Class<? extends TransitionListener<T, C>> listenerClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #onComplete(String, Class)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this transition def for chaining
-     */
-    TransitionDef<T, C> onComplete(Identifiable listenerIdentifiable,
-                                   Class<? extends TransitionListener<T, C>> listenerClass);
 
     /**
      * Attaches a completion listener declared through a configurer, for the cases where the
@@ -983,17 +659,6 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         no listener
      */
     TransitionDef<T, C> onComplete(String listenerId, Consumer<TransitionListenerDef<T, C>> configurer);
-
-    /**
-     * {@link Identifiable} overload of {@link #onComplete(String, Consumer)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param configurer callback that configures the listener; never {@code null}
-     *
-     * @return this transition def for chaining
-     */
-    TransitionDef<T, C> onComplete(Identifiable listenerIdentifiable,
-                                   Consumer<TransitionListenerDef<T, C>> configurer);
 
     /**
      * Attaches a listener notified after this transition fails, once any compensations it
@@ -1013,20 +678,6 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> onError(String listenerId, TransitionListener<T, C> listener);
 
     /**
-     * {@link Identifiable} overload of {@link #onError(String, TransitionListener)} — delegates
-     * via {@link Identifiable#getId()}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listener the listener instance; never {@code null}
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
-     *         or another listener is already registered under the same id
-     */
-    TransitionDef<T, C> onError(Identifiable listenerIdentifiable, TransitionListener<T, C> listener);
-
-    /**
      * Attaches a listener class notified when this transition fails. The class is instantiated
      * through its public no-arg constructor when the state machine is built.
      *
@@ -1039,17 +690,6 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         or another listener is already registered under the same id
      */
     TransitionDef<T, C> onError(String listenerId, Class<? extends TransitionListener<T, C>> listenerClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #onError(String, Class)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this transition def for chaining
-     */
-    TransitionDef<T, C> onError(Identifiable listenerIdentifiable,
-                                Class<? extends TransitionListener<T, C>> listenerClass);
 
     /**
      * Attaches an error listener declared through a configurer, for the cases where the listener
@@ -1066,14 +706,4 @@ public interface TransitionDef<T, C> extends Identifiable {
      */
     TransitionDef<T, C> onError(String listenerId, Consumer<TransitionListenerDef<T, C>> configurer);
 
-    /**
-     * {@link Identifiable} overload of {@link #onError(String, Consumer)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param configurer callback that configures the listener; never {@code null}
-     *
-     * @return this transition def for chaining
-     */
-    TransitionDef<T, C> onError(Identifiable listenerIdentifiable,
-                                Consumer<TransitionListenerDef<T, C>> configurer);
 }

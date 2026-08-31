@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl
 
-import org.transflux.core.Identifiable
 import org.transflux.core.Transflux
 import org.transflux.core.condition.Condition
 import org.transflux.core.exception.TransfluxValidationException
@@ -43,8 +42,8 @@ class StateMachineDefImplSpec extends Specification {
     def "getTransition by id should return correct transition definition"() {
         given:
         def smd = Transflux.defineStateMachine()
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, "trial-to-active", {}) })
-        smd.state(ACTIVE, {})
+        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, "trial-to-active", {}) })
+        smd.state(ACTIVE.id, {})
 
         expect:
         smd.getTransition("trial-to-active").with {
@@ -56,8 +55,8 @@ class StateMachineDefImplSpec extends Specification {
     def "getTransition by id should error when transition not found"() {
         given:
         def smd = Transflux.defineStateMachine()
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, "trial-to-active", {}) })
-        smd.state(ACTIVE, {})
+        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, "trial-to-active", {}) })
+        smd.state(ACTIVE.id, {})
 
         when:
         smd.getTransition("NOPE")
@@ -70,10 +69,10 @@ class StateMachineDefImplSpec extends Specification {
     def "transition id must be unique"() {
         given:
         def smd = Transflux.defineStateMachine()
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, "DUP", {}) })
+        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, "DUP", {}) })
 
         when:
-        smd.state(ACTIVE, { s -> s.transitionsTo(EXPIRED, "DUP", {}) })
+        smd.state(ACTIVE.id, { s -> s.transitionsTo(EXPIRED.id, "DUP", {}) })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -188,18 +187,6 @@ class StateMachineDefImplSpec extends Specification {
         e.message == 'State ID S1 already defined'
     }
 
-    def "state with Identifiable should reject null"() {
-        given:
-        def smd = Transflux.defineStateMachine()
-
-        when:
-        smd.state((Identifiable) null, {})
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message == 'State identifiable cannot be null'
-    }
-
     def "build should return StateMachine instance"() {
         given:
         def smd = Transflux.defineStateMachine()
@@ -239,10 +226,10 @@ class StateMachineDefImplSpec extends Specification {
         e.message == expectedMessage
 
         where:
-        scenario                  | sourceStateId | targetStateId | transitionId | expectedMessage
-        'null source state ID'    | null          | 'T'           | 'X'          | 'Source state ID cannot be null or blank'
-        'null target state ID'    | 'S'           | null          | 'X'          | 'Target state ID cannot be null or blank'
-        'null transition ID'      | 'S'           | 'T'           | null         | 'Transition ID cannot be null or blank'
+        scenario               | sourceStateId | targetStateId | transitionId | expectedMessage
+        'null source state ID' | null          | 'T'           | 'X'          | 'Source state ID cannot be null or blank'
+        'null target state ID' | 'S'           | null          | 'X'          | 'Target state ID cannot be null or blank'
+        'null transition ID'   | 'S'           | 'T'           | null         | 'Transition ID cannot be null or blank'
     }
 
     def "forEntityType should reject null"() {
@@ -257,97 +244,6 @@ class StateMachineDefImplSpec extends Specification {
         e.message == 'Entity type cannot be null'
     }
 
-    @Unroll
-    def 'step Identifiable overload accepted: #variant'() {
-        given:
-        def smd = new StateMachineDefImpl<>()
-        smd.forEntityType(Object)
-
-        when:
-        action.call(smd)
-
-        then:
-        notThrown(Exception)
-
-        where:
-        variant                                | action
-        'step(Id, Step)'                       | { d -> d.step(identifiable('s1'), new IdOverloadStep()) }
-        'step(Id, Class)'                      | { d -> d.step(identifiable('s2'), IdOverloadStep) }
-        'step(Id, Class<C>, Step)'             | { d -> d.step(identifiable('s3'), Object, new IdOverloadStep()) }
-        'step(Id, Class<C>, Class)'            | { d -> d.step(identifiable('s4'), Object, IdOverloadStep) }
-    }
-
-    @Unroll
-    def 'condition Identifiable overload accepted: #variant'() {
-        given:
-        def smd = new StateMachineDefImpl<>()
-        smd.forEntityType(Object)
-
-        when:
-        action.call(smd)
-
-        then:
-        notThrown(Exception)
-
-        where:
-        variant                                          | action
-        'condition(Id, Condition)'                       | { d -> d.condition(identifiable('c1'), new IdOverloadCondition()) }
-        'condition(Id, Class)'                           | { d -> d.condition(identifiable('c2'), IdOverloadCondition) }
-        'condition(Id, Predicate)'                       | { d -> d.condition(identifiable('c3'), { e -> true } as Predicate) }
-        'condition(Id, String spel)'                     | { d -> d.condition(identifiable('c4'), 'true') }
-        'condition(Id, Class<C>, Condition)'             | { d -> d.condition(identifiable('c5'), Object, new IdOverloadCondition()) }
-        'condition(Id, Class<C>, Class)'                 | { d -> d.condition(identifiable('c6'), Object, IdOverloadCondition) }
-        'conditionPredicate(Id, Class<C>, Predicate)'    | { d -> d.conditionPredicate(identifiable('c7'), Object, { e -> true } as Predicate) }
-        'conditionExpression(Id, Class<C>, String)'      | { d -> d.conditionExpression(identifiable('c8'), Object, 'true') }
-    }
-
-    @Unroll
-    def 'operation/composite/mapper Identifiable overload accepted: #variant'() {
-        given:
-        def smd = new StateMachineDefImpl<>()
-        smd.forEntityType(Object)
-
-        when:
-        action.call(smd)
-
-        then:
-        notThrown(Exception)
-
-        where:
-        variant                                          | action
-        'operation(Id, Class<C>, Consumer)'     | { d -> d.operation(identifiable('co1'), Object, { c -> c.run('any') }) }
-        'operation(Id, Class<C>, Operation)'             | { d -> d.step(identifiable('o1'), Object, new IdOverloadOperation()) }
-        'operation(Id, Class<C>, Class)'                 | { d -> d.step(identifiable('o2'), Object, IdOverloadOperation) }
-        'mapper(Id, parent, child, ContextMapper)'       | { d -> d.mapper(identifiable('m1'), Object, Object, new IdOverloadMapper()) }
-        'mapper(Id, parent, child, Class)'               | { d -> d.mapper(identifiable('m2'), Object, Object, IdOverloadMapper) }
-        'mapperDef(Id, parent, child, Consumer)'         | { d -> d.mapperDef(identifiable('m3'), Object, Object, { m -> m.using(new IdOverloadMapper()) } as Consumer) }
-    }
-
-    @Unroll
-    def 'Identifiable overload rejects null: #variant'() {
-        given:
-        def smd = new StateMachineDefImpl<>()
-        smd.forEntityType(Object)
-
-        when:
-        action.call(smd)
-
-        then:
-        thrown(TransfluxValidationException)
-
-        where:
-        variant                                          | action
-        'step(null, Step)'                               | { d -> d.step((Identifiable) null, new IdOverloadStep()) }
-        'step(null, Class)'                              | { d -> d.step((Identifiable) null, IdOverloadStep) }
-        'condition(null, Condition)'                     | { d -> d.condition((Identifiable) null, new IdOverloadCondition()) }
-        'condition(null, Class)'                         | { d -> d.condition((Identifiable) null, IdOverloadCondition) }
-        'condition(null, Predicate)'                     | { d -> d.condition((Identifiable) null, { e -> true } as Predicate) }
-        'condition(null, String spel)'                   | { d -> d.condition((Identifiable) null, 'true') }
-        'operation(null, Class, Consumer)'      | { d -> d.operation((Identifiable) null, Object, { c -> c.run('x') }) }
-        'operation(null, Class, Operation)'              | { d -> d.step((Identifiable) null, Object, new IdOverloadOperation()) }
-        'mapper(null, parent, child, ContextMapper)'     | { d -> d.mapper((Identifiable) null, Object, Object, new IdOverloadMapper()) }
-    }
-
     def "step(id, Class, Consumer) registers an SM-level operation invokable by id, with metadata on the def"() {
         given:
         def ran = []
@@ -359,10 +255,10 @@ class StateMachineDefImplSpec extends Specification {
             captured = d
             d.withName('N').withDescription('D').using({ e, c, t -> ran << 'op' } as Action)
         })
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', { t ->
+        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', { t ->
             t.operation('wrap', { c -> c.run('op') })
         }) })
-        smd.state(ACTIVE, {})
+        smd.state(ACTIVE.id, {})
         def sm = smd.build()
 
         when:
@@ -393,9 +289,6 @@ class StateMachineDefImplSpec extends Specification {
         e.message.contains('after its configurer has returned')
     }
 
-    private static Identifiable identifiable(String value) {
-        return { -> value } as Identifiable
-    }
 
     static class IdOverloadStep implements Action<Object, Object> {
         @Override

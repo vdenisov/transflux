@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl
 
-import org.transflux.core.Identifiable
 import org.transflux.core.StateMachine
 import org.transflux.core.StateMachineDef
 import org.transflux.core.TestContext
@@ -63,12 +62,9 @@ class DataTriggerDefImplSpec extends Specification {
         !sm.entity(new Entity('s1', 3)).processDataChange().fired()
 
         where:
-        form              | setup
-        'reference'       | { StateMachineDef d -> d.condition('high', { e -> ((Entity) e).priority > 5 } as Predicate)
+        form        | setup
+        'reference' | { StateMachineDef d -> d.condition('high', { e -> ((Entity) e).priority > 5 } as Predicate)
                                 .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addDataTrigger('dt', { dt -> dt.condition('high') }) }) })
-                                .state('s2', {}) }
-        'reference (Id)'  | { StateMachineDef d -> d.condition('high', { e -> ((Entity) e).priority > 5 } as Predicate)
-                                .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addDataTrigger('dt', { dt -> dt.condition(idOf('high')) }) }) })
                                 .state('s2', {}) }
         'instance'        | { StateMachineDef d -> d
                                 .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addDataTrigger('dt', { dt -> dt.condition('inst', new HighPriority()) }) }) })
@@ -118,9 +114,6 @@ class DataTriggerDefImplSpec extends Specification {
         thrown(TransfluxValidationException)
     }
 
-    private static Identifiable idOf(String value) {
-        return { -> value } as Identifiable
-    }
 
     private static StateMachine<Entity> build(Consumer<StateMachineDef<Entity>> cfg) {
         def smd = new StateMachineDefImpl<Entity>()

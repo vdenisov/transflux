@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
 import org.transflux.core.exception.TransfluxValidationException;
@@ -59,11 +58,6 @@ final class DataTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, DataTriggerDef
     }
 
     @Override
-    public DataTriggerDef<T, C> condition(Identifiable registeredCondition) {
-        return gate.ref(registeredCondition);
-    }
-
-    @Override
     public DataTriggerDef<T, C> conditionExpression(String expression) {
         return gate.expression(expression);
     }
@@ -74,18 +68,8 @@ final class DataTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, DataTriggerDef
     }
 
     @Override
-    public DataTriggerDef<T, C> condition(Identifiable conditionIdentifiable, Condition<T, C> condition) {
-        return gate.instanceBased(conditionIdentifiable, condition);
-    }
-
-    @Override
     public DataTriggerDef<T, C> condition(String id, Class<? extends Condition<T, C>> conditionClass) {
         return gate.classBased(id, conditionClass);
-    }
-
-    @Override
-    public DataTriggerDef<T, C> condition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass) {
-        return gate.classBased(conditionIdentifiable, conditionClass);
     }
 
     @Override
@@ -94,28 +78,13 @@ final class DataTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, DataTriggerDef
     }
 
     @Override
-    public DataTriggerDef<T, C> condition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate) {
-        return gate.predicate(conditionIdentifiable, predicate);
-    }
-
-    @Override
     public DataTriggerDef<T, C> condition(String id, Predicate<T> predicate) {
         return gate.predicate(id, predicate);
     }
 
     @Override
-    public DataTriggerDef<T, C> condition(Identifiable conditionIdentifiable, Predicate<T> predicate) {
-        return gate.predicate(conditionIdentifiable, predicate);
-    }
-
-    @Override
     public DataTriggerDef<T, C> condition(String id, String expression) {
         return gate.expression(id, expression);
-    }
-
-    @Override
-    public DataTriggerDef<T, C> condition(Identifiable conditionIdentifiable, String expression) {
-        return gate.expression(conditionIdentifiable, expression);
     }
 
     /**

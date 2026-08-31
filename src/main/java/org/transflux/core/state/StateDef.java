@@ -105,20 +105,6 @@ public interface StateDef<T> extends Identifiable {
     StateDef<T> onEntry(String listenerId, StateListener<T> listener);
 
     /**
-     * {@link Identifiable} overload of {@link #onEntry(String, StateListener)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listener the listener instance; never {@code null}
-     *
-     * @return this StateDef instance for chaining inside the configurer body
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
-     *         or another state listener is already registered under the same id
-     */
-    StateDef<T> onEntry(Identifiable listenerIdentifiable, StateListener<T> listener);
-
-    /**
      * Attaches a listener class notified when an entity enters this state. The class is
      * instantiated through its public no-arg constructor when the state machine is built.
      *
@@ -131,16 +117,6 @@ public interface StateDef<T> extends Identifiable {
      *         or another state listener is already registered under the same id
      */
     StateDef<T> onEntry(String listenerId, Class<? extends StateListener<T>> listenerClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #onEntry(String, Class)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this StateDef instance for chaining inside the configurer body
-     */
-    StateDef<T> onEntry(Identifiable listenerIdentifiable, Class<? extends StateListener<T>> listenerClass);
 
     /**
      * Attaches an entry listener declared through a configurer, for the cases where the listener
@@ -156,16 +132,6 @@ public interface StateDef<T> extends Identifiable {
      *         declares no listener
      */
     StateDef<T> onEntry(String listenerId, Consumer<StateListenerDef<T>> configurer);
-
-    /**
-     * {@link Identifiable} overload of {@link #onEntry(String, Consumer)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param configurer callback that configures the listener; never {@code null}
-     *
-     * @return this StateDef instance for chaining inside the configurer body
-     */
-    StateDef<T> onEntry(Identifiable listenerIdentifiable, Consumer<StateListenerDef<T>> configurer);
 
     /**
      * Attaches a listener notified when an entity leaves this state.
@@ -186,20 +152,6 @@ public interface StateDef<T> extends Identifiable {
     StateDef<T> onExit(String listenerId, StateListener<T> listener);
 
     /**
-     * {@link Identifiable} overload of {@link #onExit(String, StateListener)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listener the listener instance; never {@code null}
-     *
-     * @return this StateDef instance for chaining inside the configurer body
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
-     *         or another state listener is already registered under the same id
-     */
-    StateDef<T> onExit(Identifiable listenerIdentifiable, StateListener<T> listener);
-
-    /**
      * Attaches a listener class notified when an entity leaves this state. The class is
      * instantiated through its public no-arg constructor when the state machine is built.
      *
@@ -212,16 +164,6 @@ public interface StateDef<T> extends Identifiable {
      *         or another state listener is already registered under the same id
      */
     StateDef<T> onExit(String listenerId, Class<? extends StateListener<T>> listenerClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #onExit(String, Class)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this StateDef instance for chaining inside the configurer body
-     */
-    StateDef<T> onExit(Identifiable listenerIdentifiable, Class<? extends StateListener<T>> listenerClass);
 
     /**
      * Attaches an exit listener declared through a configurer, for the cases where the listener
@@ -237,16 +179,6 @@ public interface StateDef<T> extends Identifiable {
      *         declares no listener
      */
     StateDef<T> onExit(String listenerId, Consumer<StateListenerDef<T>> configurer);
-
-    /**
-     * {@link Identifiable} overload of {@link #onExit(String, Consumer)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param configurer callback that configures the listener; never {@code null}
-     *
-     * @return this StateDef instance for chaining inside the configurer body
-     */
-    StateDef<T> onExit(Identifiable listenerIdentifiable, Consumer<StateListenerDef<T>> configurer);
 
     /**
      * Declares an outgoing transition from this state with pass-through ({@link Object}) context.
@@ -284,105 +216,4 @@ public interface StateDef<T> extends Identifiable {
     <C> StateDef<T> transitionsTo(String targetStateId, String transitionId, Class<C> contextType,
                                   Consumer<TransitionDef<T, C>> configurer);
 
-    /**
-     * Declares an outgoing transition with pass-through context to a target state identified by
-     * an {@link Identifiable}.
-     *
-     * @param targetStateIdentifiable an identifiable providing the target state ID
-     * @param transitionId the unique identifier for this transition
-     * @param configurer callback that configures the transition; never {@code null}
-     *
-     * @return this StateDef instance for chaining inside the configurer body
-     *
-     * @throws TransfluxValidationException if any argument is {@code null}, the target id is
-     *         blank, or the transition id is blank
-     */
-    StateDef<T> transitionsTo(Identifiable targetStateIdentifiable, String transitionId,
-                              Consumer<TransitionDef<T, Object>> configurer);
-
-    /**
-     * Declares an outgoing transition with the supplied context class to a target state
-     * identified by an {@link Identifiable}.
-     *
-     * @param targetStateIdentifiable an identifiable providing the target state ID
-     * @param transitionId the unique identifier for this transition
-     * @param contextType the transition's context class
-     * @param configurer callback that configures the transition; never {@code null}
-     * @param <C> the transition context type
-     *
-     * @return this StateDef instance for chaining inside the configurer body
-     *
-     * @throws TransfluxValidationException if any argument is {@code null}, the target id is
-     *         blank, or the transition id is blank
-     */
-    <C> StateDef<T> transitionsTo(Identifiable targetStateIdentifiable, String transitionId,
-                                  Class<C> contextType, Consumer<TransitionDef<T, C>> configurer);
-
-    /**
-     * Declares an outgoing transition with pass-through context, with the transition id supplied
-     * by an {@link Identifiable}.
-     *
-     * @param targetStateId the ID of the target state
-     * @param transitionIdentifiable an identifiable providing the transition id
-     * @param configurer callback that configures the transition; never {@code null}
-     *
-     * @return this StateDef instance for chaining inside the configurer body
-     *
-     * @throws TransfluxValidationException if any argument is {@code null}, the target id is
-     *         blank, or the transition id is blank
-     */
-    StateDef<T> transitionsTo(String targetStateId, Identifiable transitionIdentifiable,
-                              Consumer<TransitionDef<T, Object>> configurer);
-
-    /**
-     * Declares an outgoing typed-context transition, with the transition id supplied by an
-     * {@link Identifiable}.
-     *
-     * @param targetStateId the ID of the target state
-     * @param transitionIdentifiable an identifiable providing the transition id
-     * @param contextType the transition's context class
-     * @param configurer callback that configures the transition; never {@code null}
-     * @param <C> the transition context type
-     *
-     * @return this StateDef instance for chaining inside the configurer body
-     *
-     * @throws TransfluxValidationException if any argument is {@code null}, the target id is
-     *         blank, or the transition id is blank
-     */
-    <C> StateDef<T> transitionsTo(String targetStateId, Identifiable transitionIdentifiable,
-                                  Class<C> contextType, Consumer<TransitionDef<T, C>> configurer);
-
-    /**
-     * Declares an outgoing pass-through-context transition where both target state and transition
-     * id are supplied as {@link Identifiable}s.
-     *
-     * @param targetStateIdentifiable an identifiable providing the target state ID
-     * @param transitionIdentifiable an identifiable providing the transition id
-     * @param configurer callback that configures the transition; never {@code null}
-     *
-     * @return this StateDef instance for chaining inside the configurer body
-     *
-     * @throws TransfluxValidationException if any argument is {@code null}, the target id is
-     *         blank, or the transition id is blank
-     */
-    StateDef<T> transitionsTo(Identifiable targetStateIdentifiable, Identifiable transitionIdentifiable,
-                              Consumer<TransitionDef<T, Object>> configurer);
-
-    /**
-     * Declares an outgoing typed-context transition where both target state and transition id
-     * are supplied as {@link Identifiable}s.
-     *
-     * @param targetStateIdentifiable an identifiable providing the target state ID
-     * @param transitionIdentifiable an identifiable providing the transition id
-     * @param contextType the transition's context class
-     * @param configurer callback that configures the transition; never {@code null}
-     * @param <C> the transition context type
-     *
-     * @return this StateDef instance for chaining inside the configurer body
-     *
-     * @throws TransfluxValidationException if any argument is {@code null}, the target id is
-     *         blank, or the transition id is blank
-     */
-    <C> StateDef<T> transitionsTo(Identifiable targetStateIdentifiable, Identifiable transitionIdentifiable,
-                                  Class<C> contextType, Consumer<TransitionDef<T, C>> configurer);
 }

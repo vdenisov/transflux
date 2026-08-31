@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
 import org.transflux.core.exception.TransfluxValidationException;
@@ -285,24 +284,12 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> step(Identifiable stepIdentifiable, Action<T, C> action) {
-        requireNotNull(stepIdentifiable, "Step identifiable");
-        return step(stepIdentifiable.getId(), action);
-    }
-
-    @Override
     public TransitionDef<T, C> step(String id, Class<? extends Action<T, C>> actionClass) {
         requireConfigurerActive("step");
         StepDefImpl<T, C> def = newStepDef(id);
         ConfigurableDefImpl.runConfigurer(def, d -> d.using(actionClass));
         attachAction(def);
         return this;
-    }
-
-    @Override
-    public TransitionDef<T, C> step(Identifiable stepIdentifiable, Class<? extends Action<T, C>> actionClass) {
-        requireNotNull(stepIdentifiable, "Step identifiable");
-        return step(stepIdentifiable.getId(), actionClass);
     }
 
     @Override
@@ -316,12 +303,6 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> step(Identifiable stepIdentifiable, Consumer<StepDef<T, C>> configurer) {
-        requireNotNull(stepIdentifiable, "Step identifiable");
-        return step(stepIdentifiable.getId(), configurer);
-    }
-
-    @Override
     public TransitionDef<T, C> operation(String id, Consumer<OperationDef<T, C>> configurer) {
         requireConfigurerActive("operation");
         requireNotNull(configurer, "Operation configurer");
@@ -329,12 +310,6 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         ConfigurableDefImpl.runConfigurer(composite, configurer);
         attachAction(composite);
         return this;
-    }
-
-    @Override
-    public TransitionDef<T, C> operation(Identifiable operationIdentifiable, Consumer<OperationDef<T, C>> configurer) {
-        requireNotNull(operationIdentifiable, "Operation identifiable");
-        return operation(operationIdentifiable.getId(), configurer);
     }
 
     @Override
@@ -358,19 +333,8 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> run(Identifiable registeredAction) {
-        requireNotNull(registeredAction, "Action identifiable");
-        return run(registeredAction.getId());
-    }
-
-    @Override
     public TransitionDef<T, C> preCondition(String registeredConditionId) {
         return preConditions.ref(registeredConditionId);
-    }
-
-    @Override
-    public TransitionDef<T, C> preCondition(Identifiable registeredCondition) {
-        return preConditions.ref(registeredCondition);
     }
 
     @Override
@@ -384,18 +348,8 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, Condition<T, C> condition) {
-        return preConditions.instanceBased(conditionIdentifiable, condition);
-    }
-
-    @Override
     public TransitionDef<T, C> preCondition(String id, Class<? extends Condition<T, C>> conditionClass) {
         return preConditions.classBased(id, conditionClass);
-    }
-
-    @Override
-    public TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass) {
-        return preConditions.classBased(conditionIdentifiable, conditionClass);
     }
 
     @Override
@@ -404,18 +358,8 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate) {
-        return preConditions.predicate(conditionIdentifiable, predicate);
-    }
-
-    @Override
     public TransitionDef<T, C> preCondition(String id, Predicate<T> predicate) {
         return preConditions.predicate(id, predicate);
-    }
-
-    @Override
-    public TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, Predicate<T> predicate) {
-        return preConditions.predicate(conditionIdentifiable, predicate);
     }
 
     @Override
@@ -424,18 +368,8 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> preCondition(Identifiable conditionIdentifiable, String expression) {
-        return preConditions.expression(conditionIdentifiable, expression);
-    }
-
-    @Override
     public TransitionDef<T, C> postCondition(String registeredConditionId) {
         return postConditions.ref(registeredConditionId);
-    }
-
-    @Override
-    public TransitionDef<T, C> postCondition(Identifiable registeredCondition) {
-        return postConditions.ref(registeredCondition);
     }
 
     @Override
@@ -449,18 +383,8 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, Condition<T, C> condition) {
-        return postConditions.instanceBased(conditionIdentifiable, condition);
-    }
-
-    @Override
     public TransitionDef<T, C> postCondition(String id, Class<? extends Condition<T, C>> conditionClass) {
         return postConditions.classBased(id, conditionClass);
-    }
-
-    @Override
-    public TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass) {
-        return postConditions.classBased(conditionIdentifiable, conditionClass);
     }
 
     @Override
@@ -469,18 +393,8 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate) {
-        return postConditions.predicate(conditionIdentifiable, predicate);
-    }
-
-    @Override
     public TransitionDef<T, C> postCondition(String id, Predicate<T> predicate) {
         return postConditions.predicate(id, predicate);
-    }
-
-    @Override
-    public TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, Predicate<T> predicate) {
-        return postConditions.predicate(conditionIdentifiable, predicate);
     }
 
     @Override
@@ -489,22 +403,11 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> postCondition(Identifiable conditionIdentifiable, String expression) {
-        return postConditions.expression(conditionIdentifiable, expression);
-    }
-
-    @Override
     public TransitionDef<T, C> addManualTrigger(String id) {
         requireConfigurerActive("addManualTrigger");
         requireNotBlank(id, "Trigger ID");
         manualTriggers.add(new ManualTriggerDefImpl<>(id, this));
         return this;
-    }
-
-    @Override
-    public TransitionDef<T, C> addManualTrigger(Identifiable triggerIdentifiable) {
-        requireNotNull(triggerIdentifiable, "Trigger identifiable");
-        return addManualTrigger(triggerIdentifiable.getId());
     }
 
     @Override
@@ -519,12 +422,6 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> addManualTrigger(Identifiable triggerIdentifiable, Consumer<ManualTriggerDef<T, C>> configurer) {
-        requireNotNull(triggerIdentifiable, "Trigger identifiable");
-        return addManualTrigger(triggerIdentifiable.getId(), configurer);
-    }
-
-    @Override
     public TransitionDef<T, C> addEventTrigger(String id, String eventId) {
         requireConfigurerActive("addEventTrigger");
         requireNotBlank(id, "Trigger ID");
@@ -536,28 +433,8 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> addEventTrigger(Identifiable triggerIdentifiable, String eventId) {
-        requireNotNull(triggerIdentifiable, "Trigger identifiable");
-        return addEventTrigger(triggerIdentifiable.getId(), eventId);
-    }
-
-    @Override
-    public TransitionDef<T, C> addEventTrigger(String id, Identifiable event) {
-        requireNotNull(event, "Event identifiable");
-        return addEventTrigger(id, event.getId());
-    }
-
-    @Override
-    public TransitionDef<T, C> addEventTrigger(Identifiable triggerIdentifiable, Identifiable event) {
-        requireNotNull(triggerIdentifiable, "Trigger identifiable");
-        requireNotNull(event, "Event identifiable");
-        return addEventTrigger(triggerIdentifiable.getId(), event.getId());
-    }
-
-    @Override
-    public TransitionDef<T, C> addEventTrigger(Identifiable event) {
-        requireNotNull(event, "Event identifiable");
-        return addEventTrigger(event.getId(), event.getId());
+    public TransitionDef<T, C> addEventTrigger(String eventId) {
+        return addEventTrigger(eventId, eventId);
     }
 
     @Override
@@ -572,12 +449,6 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> addEventTrigger(Identifiable triggerIdentifiable, Consumer<EventTriggerDef<T, C>> configurer) {
-        requireNotNull(triggerIdentifiable, "Trigger identifiable");
-        return addEventTrigger(triggerIdentifiable.getId(), configurer);
-    }
-
-    @Override
     public TransitionDef<T, C> addDataTrigger(String id, Consumer<DataTriggerDef<T, C>> configurer) {
         requireConfigurerActive("addDataTrigger");
         requireNotBlank(id, "Trigger ID");
@@ -586,12 +457,6 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         ConfigurableDefImpl.runConfigurer(trigger, configurer);
         dataTriggers.add(trigger);
         return this;
-    }
-
-    @Override
-    public TransitionDef<T, C> addDataTrigger(Identifiable triggerIdentifiable, Consumer<DataTriggerDef<T, C>> configurer) {
-        requireNotNull(triggerIdentifiable, "Trigger identifiable");
-        return addDataTrigger(triggerIdentifiable.getId(), configurer);
     }
 
     @Override
@@ -604,25 +469,12 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> onStart(Identifiable listenerIdentifiable, TransitionListener<T, C> listener) {
-        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
-        return onStart(listenerIdentifiable.getId(), listener);
-    }
-
-    @Override
     public TransitionDef<T, C> onStart(String listenerId, Class<? extends TransitionListener<T, C>> listenerClass) {
         requireConfigurerActive("onStart");
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(listenerClass, "Transition listener class");
         startListeners.add(declareListener(listenerId, l -> l.using(listenerClass)));
         return this;
-    }
-
-    @Override
-    public TransitionDef<T, C> onStart(Identifiable listenerIdentifiable,
-                                       Class<? extends TransitionListener<T, C>> listenerClass) {
-        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
-        return onStart(listenerIdentifiable.getId(), listenerClass);
     }
 
     @Override
@@ -635,25 +487,12 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> onStart(Identifiable listenerIdentifiable,
-                                       Consumer<TransitionListenerDef<T, C>> configurer) {
-        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
-        return onStart(listenerIdentifiable.getId(), configurer);
-    }
-
-    @Override
     public TransitionDef<T, C> onComplete(String listenerId, TransitionListener<T, C> listener) {
         requireConfigurerActive("onComplete");
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(listener, "Transition listener");
         completeListeners.add(declareListener(listenerId, l -> l.using(listener)));
         return this;
-    }
-
-    @Override
-    public TransitionDef<T, C> onComplete(Identifiable listenerIdentifiable, TransitionListener<T, C> listener) {
-        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
-        return onComplete(listenerIdentifiable.getId(), listener);
     }
 
     @Override
@@ -666,26 +505,12 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> onComplete(Identifiable listenerIdentifiable,
-                                          Class<? extends TransitionListener<T, C>> listenerClass) {
-        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
-        return onComplete(listenerIdentifiable.getId(), listenerClass);
-    }
-
-    @Override
     public TransitionDef<T, C> onComplete(String listenerId, Consumer<TransitionListenerDef<T, C>> configurer) {
         requireConfigurerActive("onComplete");
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(configurer, "Transition listener configurer");
         completeListeners.add(declareListener(listenerId, configurer));
         return this;
-    }
-
-    @Override
-    public TransitionDef<T, C> onComplete(Identifiable listenerIdentifiable,
-                                          Consumer<TransitionListenerDef<T, C>> configurer) {
-        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
-        return onComplete(listenerIdentifiable.getId(), configurer);
     }
 
     @Override
@@ -698,12 +523,6 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> onError(Identifiable listenerIdentifiable, TransitionListener<T, C> listener) {
-        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
-        return onError(listenerIdentifiable.getId(), listener);
-    }
-
-    @Override
     public TransitionDef<T, C> onError(String listenerId, Class<? extends TransitionListener<T, C>> listenerClass) {
         requireConfigurerActive("onError");
         requireNotBlank(listenerId, "Transition listener ID");
@@ -713,26 +532,12 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> onError(Identifiable listenerIdentifiable,
-                                       Class<? extends TransitionListener<T, C>> listenerClass) {
-        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
-        return onError(listenerIdentifiable.getId(), listenerClass);
-    }
-
-    @Override
     public TransitionDef<T, C> onError(String listenerId, Consumer<TransitionListenerDef<T, C>> configurer) {
         requireConfigurerActive("onError");
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(configurer, "Transition listener configurer");
         errorListeners.add(declareListener(listenerId, configurer));
         return this;
-    }
-
-    @Override
-    public TransitionDef<T, C> onError(Identifiable listenerIdentifiable,
-                                       Consumer<TransitionListenerDef<T, C>> configurer) {
-        requireNotNull(listenerIdentifiable, "Transition listener identifiable");
-        return onError(listenerIdentifiable.getId(), configurer);
     }
 
     /**

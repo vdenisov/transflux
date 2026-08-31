@@ -20,7 +20,6 @@ package org.transflux.core.impl
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import org.transflux.core.Identifiable
 import org.transflux.core.TestContext
 import org.transflux.core.condition.Condition
 import org.transflux.core.condition.ConditionDescriptor
@@ -117,35 +116,14 @@ class ConditionDescriptorSinkSpec extends Specification {
         expectedType.isInstance(sink.descriptors()[0])
 
         where:
-        form            | call                                                                    || expectedType
-        'reference'     | { s -> s.ref('registered') }                                            || ConditionDescriptor.Reference
-        'instance'      | { s -> s.instanceBased('i', new AlwaysTrue()) }                         || ConditionDescriptor.InstanceBased
-        'class'         | { s -> s.classBased('c', AlwaysTrue) }                                  || ConditionDescriptor.ClassBased
-        'BiPredicate'   | { s -> s.predicate('bp', { e, c -> true } as BiPredicate) }             || ConditionDescriptor.PredicateBased
-        'Predicate'     | { s -> s.predicate('p', { e -> true } as Predicate) }                   || ConditionDescriptor.PredicateBased
-        'expression'    | { s -> s.expression('x', 'entity.value > 0') }                          || ConditionDescriptor.ExpressionBased
-        'auto-id expr'  | { s -> s.expression('entity.value > 0') }                               || ConditionDescriptor.ExpressionBased
-    }
-
-    @Unroll
-    def 'the Identifiable sibling of the #form form delegates through getId'() {
-        given:
-        def sink = new ConditionDescriptorSink<Entity, TestContext, String>(activeOwner(), 'self', 'preCondition')
-
-        when:
-        call.call(sink)
-
-        then:
-        sink.descriptors()[0].id() == 'from-identifiable'
-
-        where:
-        form          | call
-        'reference'   | { s -> s.ref(idOf('from-identifiable')) }
-        'instance'    | { s -> s.instanceBased(idOf('from-identifiable'), new AlwaysTrue()) }
-        'class'       | { s -> s.classBased(idOf('from-identifiable'), AlwaysTrue) }
-        'BiPredicate' | { s -> s.predicate(idOf('from-identifiable'), { e, c -> true } as BiPredicate) }
-        'Predicate'   | { s -> s.predicate(idOf('from-identifiable'), { e -> true } as Predicate) }
-        'expression'  | { s -> s.expression(idOf('from-identifiable'), 'entity.value > 0') }
+        form           | call                                                        || expectedType
+        'reference'    | { s -> s.ref('registered') }                                || ConditionDescriptor.Reference
+        'instance'     | { s -> s.instanceBased('i', new AlwaysTrue()) }             || ConditionDescriptor.InstanceBased
+        'class'        | { s -> s.classBased('c', AlwaysTrue) }                      || ConditionDescriptor.ClassBased
+        'BiPredicate'  | { s -> s.predicate('bp', { e, c -> true } as BiPredicate) } || ConditionDescriptor.PredicateBased
+        'Predicate'    | { s -> s.predicate('p', { e -> true } as Predicate) }       || ConditionDescriptor.PredicateBased
+        'expression'   | { s -> s.expression('x', 'entity.value > 0') }              || ConditionDescriptor.ExpressionBased
+        'auto-id expr' | { s -> s.expression('entity.value > 0') }                   || ConditionDescriptor.ExpressionBased
     }
 
     def 'the id-less expression form guards under the derived Expression method name'() {
@@ -175,28 +153,6 @@ class ConditionDescriptorSinkSpec extends Specification {
     }
 
     @Unroll
-    def 'the Identifiable sibling of the #form form rejects null before consulting the guard'() {
-        given:
-        def sink = new ConditionDescriptorSink<Entity, TestContext, String>(inertOwner(), 'self', 'preCondition')
-
-        when:
-        call.call(sink)
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message.contains('Condition identifiable')
-
-        where:
-        form          | call
-        'reference'   | { s -> s.ref((Identifiable) null) }
-        'instance'    | { s -> s.instanceBased((Identifiable) null, new AlwaysTrue()) }
-        'class'       | { s -> s.classBased((Identifiable) null, AlwaysTrue) }
-        'BiPredicate' | { s -> s.predicate((Identifiable) null, { en, cx -> true } as BiPredicate) }
-        'Predicate'   | { s -> s.predicate((Identifiable) null, { en -> true } as Predicate) }
-        'expression'  | { s -> s.expression((Identifiable) null, 'entity.value > 0') }
-    }
-
-    @Unroll
     def 'the #form form rejects a blank or null argument'() {
         given:
         def sink = new ConditionDescriptorSink<Entity, TestContext, String>(activeOwner(), 'self', 'preCondition')
@@ -209,15 +165,15 @@ class ConditionDescriptorSinkSpec extends Specification {
         e.message.contains(expectedLabel)
 
         where:
-        form                 | call                                                    || expectedLabel
-        'blank reference id' | { s -> s.ref('  ') }                                    || 'Registered condition ID'
-        'blank condition id' | { s -> s.instanceBased('  ', new AlwaysTrue()) }        || 'Condition ID'
-        'null condition'     | { s -> s.instanceBased('i', (Condition) null) }         || 'Condition'
-        'null class'         | { s -> s.classBased('c', (Class) null) }                || 'Condition class'
-        'null BiPredicate'   | { s -> s.predicate('bp', (BiPredicate) null) }          || 'Predicate'
-        'null Predicate'     | { s -> s.predicate('p', (Predicate) null) }             || 'Predicate'
-        'blank expression'   | { s -> s.expression('x', '  ') }                        || 'Expression'
-        'blank auto-id expr' | { s -> s.expression('  ') }                             || 'Expression'
+        form                 | call                                             || expectedLabel
+        'blank reference id' | { s -> s.ref('  ') }                             || 'Registered condition ID'
+        'blank condition id' | { s -> s.instanceBased('  ', new AlwaysTrue()) } || 'Condition ID'
+        'null condition'     | { s -> s.instanceBased('i', (Condition) null) }  || 'Condition'
+        'null class'         | { s -> s.classBased('c', (Class) null) }         || 'Condition class'
+        'null BiPredicate'   | { s -> s.predicate('bp', (BiPredicate) null) }   || 'Predicate'
+        'null Predicate'     | { s -> s.predicate('p', (Predicate) null) }      || 'Predicate'
+        'blank expression'   | { s -> s.expression('x', '  ') }                 || 'Expression'
+        'blank auto-id expr' | { s -> s.expression('  ') }                      || 'Expression'
     }
 
     private static ConfigurableDefImpl activeOwner() {
@@ -228,9 +184,6 @@ class ConditionDescriptorSinkSpec extends Specification {
         return new StubOwner()
     }
 
-    private static Identifiable idOf(String value) {
-        return { -> value } as Identifiable
-    }
 
     static class StubOwner extends ConfigurableDefImpl {
         @Override

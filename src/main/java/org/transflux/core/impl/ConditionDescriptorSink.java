@@ -19,7 +19,6 @@
 package org.transflux.core.impl;
 
 import org.slf4j.Logger;
-import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
 
@@ -38,11 +37,10 @@ import static org.transflux.core.impl.ValidationUtils.warnIfSet;
  * condition-bearing def exposes — transition pre- and post-conditions, manual-trigger
  * pre-conditions, data-trigger gates, and conditional branches.
  * <p>
- * The family is thirteen overloads wide: seven {@code (String id, ...)} primaries covering the
- * authoring forms of {@link ConditionDescriptor}, plus six {@link Identifiable} siblings that
- * delegate through {@link Identifiable#getId()}. Each owning def declares one sink per condition
- * slot and implements its public methods as one-line delegates, so validation order, argument
- * labels, and the configurer guard are written once.
+ * The family is seven {@code (String id, ...)} overloads covering the authoring forms of
+ * {@link ConditionDescriptor}. Each owning def declares one sink per condition slot and
+ * implements its public methods as one-line delegates, so validation order, argument labels,
+ * and the configurer guard are written once.
  * <p>
  * A sink also owns the descriptors it collects. A multi-descriptor slot appends in declaration
  * order; a single-descriptor slot keeps the last write and warns on replacement.
@@ -93,11 +91,6 @@ final class ConditionDescriptorSink<T, C, D> {
         return store(ConditionDescriptor.ref(registeredConditionId));
     }
 
-    D ref(Identifiable registeredCondition) {
-        requireNotNull(registeredCondition, "Condition identifiable");
-        return ref(registeredCondition.getId());
-    }
-
     /**
      * Records an id-less expression descriptor, whose id is derived from the expression and its
      * descriptor path. Guards under {@code dslMethod + "Expression"}, matching the naming rule the
@@ -120,21 +113,11 @@ final class ConditionDescriptorSink<T, C, D> {
         return store(ConditionDescriptor.instanceBased(id, condition));
     }
 
-    D instanceBased(Identifiable conditionIdentifiable, Condition<T, C> condition) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return instanceBased(conditionIdentifiable.getId(), condition);
-    }
-
     D classBased(String id, Class<? extends Condition<T, C>> conditionClass) {
         owner.requireConfigurerActive(dslMethod);
         requireNotBlank(id, "Condition ID");
         requireNotNull(conditionClass, "Condition class");
         return store(ConditionDescriptor.classBased(id, conditionClass));
-    }
-
-    D classBased(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return classBased(conditionIdentifiable.getId(), conditionClass);
     }
 
     D predicate(String id, BiPredicate<T, C> predicate) {
@@ -144,11 +127,6 @@ final class ConditionDescriptorSink<T, C, D> {
         return store(ConditionDescriptor.predicate(id, predicate));
     }
 
-    D predicate(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return predicate(conditionIdentifiable.getId(), predicate);
-    }
-
     D predicate(String id, Predicate<T> predicate) {
         owner.requireConfigurerActive(dslMethod);
         requireNotBlank(id, "Condition ID");
@@ -156,21 +134,11 @@ final class ConditionDescriptorSink<T, C, D> {
         return store(ConditionDescriptor.predicate(id, predicate));
     }
 
-    D predicate(Identifiable conditionIdentifiable, Predicate<T> predicate) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return predicate(conditionIdentifiable.getId(), predicate);
-    }
-
     D expression(String id, String expression) {
         owner.requireConfigurerActive(dslMethod);
         requireNotBlank(id, "Condition ID");
         requireNotBlank(expression, "Expression");
         return store(ConditionDescriptor.expression(id, expression));
-    }
-
-    D expression(Identifiable conditionIdentifiable, String expression) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return expression(conditionIdentifiable.getId(), expression);
     }
 
     /**

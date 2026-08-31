@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl
 
-import org.transflux.core.Identifiable
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.transition.TransitionExecution
 import org.transflux.core.transition.TransitionListener
@@ -52,40 +51,16 @@ class TransitionDefImplListenerSpec extends Specification {
         td.getStartListeners().size() + td.getCompleteListeners().size() + td.getErrorListeners().size() == 1
 
         where:
-        hook         | form         | declare                                        | listeners
-        'onStart'    | 'instance'   | { it.onStart('l1', new NoopListener()) }       | { it.getStartListeners() }
-        'onStart'    | 'class'      | { it.onStart('l1', NoopListener) }             | { it.getStartListeners() }
-        'onStart'    | 'configurer' | { it.onStart('l1', usingNoop()) }              | { it.getStartListeners() }
-        'onComplete' | 'instance'   | { it.onComplete('l1', new NoopListener()) }    | { it.getCompleteListeners() }
-        'onComplete' | 'class'      | { it.onComplete('l1', NoopListener) }          | { it.getCompleteListeners() }
-        'onComplete' | 'configurer' | { it.onComplete('l1', usingNoop()) }           | { it.getCompleteListeners() }
-        'onError'    | 'instance'   | { it.onError('l1', new NoopListener()) }       | { it.getErrorListeners() }
-        'onError'    | 'class'      | { it.onError('l1', NoopListener) }             | { it.getErrorListeners() }
-        'onError'    | 'configurer' | { it.onError('l1', usingNoop()) }              | { it.getErrorListeners() }
-    }
-
-    @Unroll
-    def 'the Identifiable overload of #hook in the #form form delegates via getId'() {
-        given:
-        def td = transition()
-
-        when:
-        declare.call(td)
-
-        then:
-        listeners.call(td)*.getId() == ['l1']
-
-        where:
-        hook         | form         | declare                                             | listeners
-        'onStart'    | 'instance'   | { it.onStart(idOf('l1'), new NoopListener()) }      | { it.getStartListeners() }
-        'onStart'    | 'class'      | { it.onStart(idOf('l1'), NoopListener) }            | { it.getStartListeners() }
-        'onStart'    | 'configurer' | { it.onStart(idOf('l1'), usingNoop()) }             | { it.getStartListeners() }
-        'onComplete' | 'instance'   | { it.onComplete(idOf('l1'), new NoopListener()) }   | { it.getCompleteListeners() }
-        'onComplete' | 'class'      | { it.onComplete(idOf('l1'), NoopListener) }         | { it.getCompleteListeners() }
-        'onComplete' | 'configurer' | { it.onComplete(idOf('l1'), usingNoop()) }          | { it.getCompleteListeners() }
-        'onError'    | 'instance'   | { it.onError(idOf('l1'), new NoopListener()) }      | { it.getErrorListeners() }
-        'onError'    | 'class'      | { it.onError(idOf('l1'), NoopListener) }            | { it.getErrorListeners() }
-        'onError'    | 'configurer' | { it.onError(idOf('l1'), usingNoop()) }             | { it.getErrorListeners() }
+        hook         | form         | declare                                     | listeners
+        'onStart'    | 'instance'   | { it.onStart('l1', new NoopListener()) }    | { it.getStartListeners() }
+        'onStart'    | 'class'      | { it.onStart('l1', NoopListener) }          | { it.getStartListeners() }
+        'onStart'    | 'configurer' | { it.onStart('l1', usingNoop()) }           | { it.getStartListeners() }
+        'onComplete' | 'instance'   | { it.onComplete('l1', new NoopListener()) } | { it.getCompleteListeners() }
+        'onComplete' | 'class'      | { it.onComplete('l1', NoopListener) }       | { it.getCompleteListeners() }
+        'onComplete' | 'configurer' | { it.onComplete('l1', usingNoop()) }        | { it.getCompleteListeners() }
+        'onError'    | 'instance'   | { it.onError('l1', new NoopListener()) }    | { it.getErrorListeners() }
+        'onError'    | 'class'      | { it.onError('l1', NoopListener) }          | { it.getErrorListeners() }
+        'onError'    | 'configurer' | { it.onError('l1', usingNoop()) }           | { it.getErrorListeners() }
     }
 
     def 'listeners are kept in declaration order'() {
@@ -142,31 +117,6 @@ class TransitionDefImplListenerSpec extends Specification {
     }
 
     @Unroll
-    def '#hook rejects a null Identifiable'() {
-        given:
-        def td = transition()
-
-        when:
-        action.call(td)
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message == 'Transition listener identifiable cannot be null'
-
-        where:
-        hook             | action
-        'onStart'        | { it.onStart((Identifiable) null, new NoopListener()) }
-        'onStart-cls'    | { it.onStart((Identifiable) null, NoopListener) }
-        'onStart-cfg'    | { it.onStart((Identifiable) null, usingNoop()) }
-        'onComplete'     | { it.onComplete((Identifiable) null, new NoopListener()) }
-        'onComplete-cls' | { it.onComplete((Identifiable) null, NoopListener) }
-        'onComplete-cfg' | { it.onComplete((Identifiable) null, usingNoop()) }
-        'onError'        | { it.onError((Identifiable) null, new NoopListener()) }
-        'onError-cls'    | { it.onError((Identifiable) null, NoopListener) }
-        'onError-cfg'    | { it.onError((Identifiable) null, usingNoop()) }
-    }
-
-    @Unroll
     def 'post-configurer #hook throws naming the transition'() {
         given:
         def td = transition()
@@ -201,9 +151,5 @@ class TransitionDefImplListenerSpec extends Specification {
 
     private static Consumer<TransitionListenerDef<Object, Object>> usingNoop() {
         return { TransitionListenerDef l -> l.using(NoopListener) } as Consumer
-    }
-
-    private static Identifiable idOf(String value) {
-        return { -> value } as Identifiable
     }
 }

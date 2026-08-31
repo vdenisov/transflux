@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl
 
-import org.transflux.core.Identifiable
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.ContextMapper
 import org.transflux.core.action.MapperDef
@@ -178,18 +177,6 @@ class StateMachineDefImplMapperRegistrationSpec extends Specification {
         def e = thrown(TransfluxValidationException)
         e.message.contains("mapper 'p-to-n'")
         e.message.contains('after its configurer has returned')
-    }
-
-    def 'mapperDef accepts an Identifiable id'() {
-        given:
-        def smd = new StateMachineDefImpl<Entity>()
-
-        when:
-        smd.mapperDef({ -> 'p-to-n' } as Identifiable, P, N,
-                      { MapperDef d -> d.using(new PNMapper()) } as Consumer)
-
-        then:
-        smd.getMapperDef('p-to-n') != null
     }
 
     def 'mapperDef without using(...) fails at build with a message naming the fix'() {

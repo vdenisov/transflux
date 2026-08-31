@@ -226,17 +226,6 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> step(String id, Action<T, ?> step);
 
     /**
-     * {@link Identifiable} overload of {@link #step(String, Action)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param stepIdentifiable an identifiable supplying the step id
-     * @param step the step instance
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> step(Identifiable stepIdentifiable, Action<T, ?> step);
-
-    /**
      * Registers a step class against this state machine under the given id, without a
      * declared context type.
      *
@@ -246,17 +235,6 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     StateMachineDef<T> step(String id, Class<? extends Action<T, ?>> stepClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #step(String, Class)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param stepIdentifiable an identifiable supplying the step id
-     * @param stepClass the step class
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> step(Identifiable stepIdentifiable, Class<? extends Action<T, ?>> stepClass);
 
     /**
      * Registers a step against this state machine via a lambda configurer, without a declared
@@ -278,17 +256,6 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> step(String id, Consumer<StepDef<T, Object>> configurer);
 
     /**
-     * {@link Identifiable} overload of {@link #step(String, Consumer)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param stepIdentifiable an identifiable supplying the step id
-     * @param configurer the configurer that wires the step def
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> step(Identifiable stepIdentifiable, Consumer<StepDef<T, Object>> configurer);
-
-    /**
      * Registers a step instance against this state machine under the given id, tagged with
      * the supplied context class. Equivalent to a {@code forContext(contextType, scope -> scope.step(...))}
      * call but expressed inline.
@@ -303,19 +270,6 @@ public interface StateMachineDef<T> {
     <C> StateMachineDef<T> step(String id, Class<C> contextType, Action<T, C> step);
 
     /**
-     * {@link Identifiable} overload of {@link #step(String, Class, Action)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param stepIdentifiable an identifiable supplying the step id
-     * @param contextType the step's declared context class
-     * @param step the step instance
-     * @param <C> the context class
-     *
-     * @return this state machine def for chaining
-     */
-    <C> StateMachineDef<T> step(Identifiable stepIdentifiable, Class<C> contextType, Action<T, C> step);
-
-    /**
      * Registers a step class against this state machine under the given id, tagged with
      * the supplied context class.
      *
@@ -327,19 +281,6 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     <C> StateMachineDef<T> step(String id, Class<C> contextType, Class<? extends Action<T, C>> stepClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #step(String, Class, Class)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param stepIdentifiable an identifiable supplying the step id
-     * @param contextType the step's declared context class
-     * @param stepClass the step class
-     * @param <C> the context class
-     *
-     * @return this state machine def for chaining
-     */
-    <C> StateMachineDef<T> step(Identifiable stepIdentifiable, Class<C> contextType, Class<? extends Action<T, C>> stepClass);
 
     /**
      * Registers a step against this state machine via a lambda configurer, tagged with the
@@ -358,19 +299,6 @@ public interface StateMachineDef<T> {
     <C> StateMachineDef<T> step(String id, Class<C> contextType, Consumer<StepDef<T, C>> configurer);
 
     /**
-     * {@link Identifiable} overload of {@link #step(String, Class, Consumer)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param stepIdentifiable an identifiable supplying the step id
-     * @param contextType the step's declared context class
-     * @param configurer the configurer that wires the step def
-     * @param <C> the context class
-     *
-     * @return this state machine def for chaining
-     */
-    <C> StateMachineDef<T> step(Identifiable stepIdentifiable, Class<C> contextType, Consumer<StepDef<T, C>> configurer);
-
-    /**
      * Registers a condition instance against this state machine under the given id, without
      * a declared context type.
      *
@@ -380,17 +308,6 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     StateMachineDef<T> condition(String id, Condition<T, ?> condition);
-
-    /**
-     * {@link Identifiable} overload of {@link #condition(String, Condition)} — delegates
-     * via {@link Identifiable#getId()}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param condition the condition instance
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> condition(Identifiable conditionIdentifiable, Condition<T, ?> condition);
 
     /**
      * Registers a condition class against this state machine under the given id, without
@@ -404,17 +321,6 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> condition(String id, Class<? extends Condition<T, ?>> conditionClass);
 
     /**
-     * {@link Identifiable} overload of {@link #condition(String, Class)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param conditionClass the condition class
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> condition(Identifiable conditionIdentifiable, Class<? extends Condition<T, ?>> conditionClass);
-
-    /**
      * Registers an {@code (entity, context)} predicate as a condition under the given id.
      *
      * @param id the condition id
@@ -423,17 +329,6 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     StateMachineDef<T> condition(String id, BiPredicate<T, ?> predicate);
-
-    /**
-     * {@link Identifiable} overload of {@link #condition(String, BiPredicate)} — delegates
-     * via {@link Identifiable#getId()}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param predicate the predicate
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> condition(Identifiable conditionIdentifiable, BiPredicate<T, ?> predicate);
 
     /**
      * Convenience overload of {@link #condition(String, BiPredicate)} accepting an entity-only
@@ -447,17 +342,6 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> condition(String id, Predicate<T> predicate);
 
     /**
-     * {@link Identifiable} overload of {@link #condition(String, Predicate)} — delegates
-     * via {@link Identifiable#getId()}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param predicate the entity predicate
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> condition(Identifiable conditionIdentifiable, Predicate<T> predicate);
-
-    /**
      * Registers a SpEL expression as a condition under the given id.
      *
      * @param id the condition id
@@ -466,17 +350,6 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     StateMachineDef<T> condition(String id, String spelExpression);
-
-    /**
-     * {@link Identifiable} overload of {@link #condition(String, String)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param spelExpression the SpEL expression source
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> condition(Identifiable conditionIdentifiable, String spelExpression);
 
     /**
      * Registers a condition instance against this state machine under the given id, tagged
@@ -492,19 +365,6 @@ public interface StateMachineDef<T> {
     <C> StateMachineDef<T> condition(String id, Class<C> contextType, Condition<T, C> condition);
 
     /**
-     * {@link Identifiable} overload of {@link #condition(String, Class, Condition)} —
-     * delegates via {@link Identifiable#getId()}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param contextType the condition's declared context class
-     * @param condition the condition instance
-     * @param <C> the context class
-     *
-     * @return this state machine def for chaining
-     */
-    <C> StateMachineDef<T> condition(Identifiable conditionIdentifiable, Class<C> contextType, Condition<T, C> condition);
-
-    /**
      * Registers a condition class against this state machine under the given id, tagged
      * with the supplied context class.
      *
@@ -516,19 +376,6 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     <C> StateMachineDef<T> condition(String id, Class<C> contextType, Class<? extends Condition<T, C>> conditionClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #condition(String, Class, Class)} — delegates
-     * via {@link Identifiable#getId()}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param contextType the condition's declared context class
-     * @param conditionClass the condition class
-     * @param <C> the context class
-     *
-     * @return this state machine def for chaining
-     */
-    <C> StateMachineDef<T> condition(Identifiable conditionIdentifiable, Class<C> contextType, Class<? extends Condition<T, C>> conditionClass);
 
     /**
      * Registers an {@code (entity, context)} predicate as a condition under the given id,
@@ -544,19 +391,6 @@ public interface StateMachineDef<T> {
     <C> StateMachineDef<T> conditionPredicate(String id, Class<C> contextType, BiPredicate<T, C> predicate);
 
     /**
-     * {@link Identifiable} overload of {@link #conditionPredicate(String, Class, BiPredicate)}
-     * — delegates via {@link Identifiable#getId()}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param contextType the condition's declared context class
-     * @param predicate the predicate
-     * @param <C> the context class
-     *
-     * @return this state machine def for chaining
-     */
-    <C> StateMachineDef<T> conditionPredicate(Identifiable conditionIdentifiable, Class<C> contextType, BiPredicate<T, C> predicate);
-
-    /**
      * Convenience overload of {@link #conditionPredicate(String, Class, BiPredicate)}
      * accepting an entity-only {@link Predicate}; the context is ignored at evaluation time.
      *
@@ -570,19 +404,6 @@ public interface StateMachineDef<T> {
     <C> StateMachineDef<T> conditionPredicate(String id, Class<C> contextType, Predicate<T> predicate);
 
     /**
-     * {@link Identifiable} overload of {@link #conditionPredicate(String, Class, Predicate)}
-     * — delegates via {@link Identifiable#getId()}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param contextType the condition's declared context class
-     * @param predicate the entity predicate
-     * @param <C> the context class
-     *
-     * @return this state machine def for chaining
-     */
-    <C> StateMachineDef<T> conditionPredicate(Identifiable conditionIdentifiable, Class<C> contextType, Predicate<T> predicate);
-
-    /**
      * Registers a SpEL expression as a condition under the given id, tagged with the
      * supplied context class.
      *
@@ -594,19 +415,6 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     <C> StateMachineDef<T> conditionExpression(String id, Class<C> contextType, String spelExpression);
-
-    /**
-     * {@link Identifiable} overload of {@link #conditionExpression(String, Class, String)} —
-     * delegates via {@link Identifiable#getId()}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param contextType the condition's declared context class
-     * @param spelExpression the SpEL expression source
-     * @param <C> the context class
-     *
-     * @return this state machine def for chaining
-     */
-    <C> StateMachineDef<T> conditionExpression(Identifiable conditionIdentifiable, Class<C> contextType, String spelExpression);
 
     /**
      * Registers a composite operation against this state machine under the given id, tagged
@@ -640,20 +448,6 @@ public interface StateMachineDef<T> {
                                        Consumer<ConditionalOperationDef<T, C>> configurer);
 
     /**
-     * {@link Identifiable} overload of
-     * {@link #operation(String, Class, Consumer)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param operationIdentifiable an identifiable supplying the operation id
-     * @param contextType the composite's declared context class
-     * @param configurer callback that declares the composite's members
-     * @param <C> the composite's context type
-     *
-     * @return this state machine def for chaining
-     */
-    <C> StateMachineDef<T> operation(Identifiable operationIdentifiable, Class<C> contextType, Consumer<OperationDef<T, C>> configurer);
-
-    /**
      * Registers a {@link ContextMapper} instance against this state machine under the given id,
      * with explicit parent and child type tokens. The registered mapper can be referenced by id
      * from any call site (composite member, imperative dispatch from inside a running transition,
@@ -681,22 +475,6 @@ public interface StateMachineDef<T> {
                                      ContextMapper<P, N> mapper);
 
     /**
-     * {@link Identifiable} overload of {@link #mapper(String, Class, Class, ContextMapper)}
-     * — delegates via {@link Identifiable#getId()}.
-     *
-     * @param mapperIdentifiable an identifiable supplying the mapper id
-     * @param parentType the parent context class
-     * @param childType the child context class
-     * @param mapper the mapper instance
-     * @param <P> the parent context type
-     * @param <N> the child context type
-     *
-     * @return this state machine def for chaining
-     */
-    <P, N> StateMachineDef<T> mapper(Identifiable mapperIdentifiable, Class<P> parentType, Class<N> childType,
-                                     ContextMapper<P, N> mapper);
-
-    /**
      * Registers a {@link ContextMapper} class against this state machine under the given id.
      * The framework instantiates it via its public no-arg constructor at build time.
      *
@@ -710,22 +488,6 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     <P, N> StateMachineDef<T> mapper(String id, Class<P> parentType, Class<N> childType,
-                                     Class<? extends ContextMapper<P, N>> mapperClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #mapper(String, Class, Class, Class)} —
-     * delegates via {@link Identifiable#getId()}.
-     *
-     * @param mapperIdentifiable an identifiable supplying the mapper id
-     * @param parentType the parent context class
-     * @param childType the child context class
-     * @param mapperClass the mapper class
-     * @param <P> the parent context type
-     * @param <N> the child context type
-     *
-     * @return this state machine def for chaining
-     */
-    <P, N> StateMachineDef<T> mapper(Identifiable mapperIdentifiable, Class<P> parentType, Class<N> childType,
                                      Class<? extends ContextMapper<P, N>> mapperClass);
 
     /**
@@ -749,22 +511,6 @@ public interface StateMachineDef<T> {
                                         Consumer<MapperDef<P, N>> configurer);
 
     /**
-     * {@link Identifiable} overload of {@link #mapperDef(String, Class, Class, Consumer)} —
-     * delegates via {@link Identifiable#getId()}.
-     *
-     * @param mapperIdentifiable an identifiable supplying the mapper id
-     * @param parentType the parent context class
-     * @param childType the child context class
-     * @param configurer the configurer that wires the mapper def
-     * @param <P> the parent context type
-     * @param <N> the child context type
-     *
-     * @return this state machine def for chaining
-     */
-    <P, N> StateMachineDef<T> mapperDef(Identifiable mapperIdentifiable, Class<P> parentType, Class<N> childType,
-                                        Consumer<MapperDef<P, N>> configurer);
-
-    /**
      * Declares a state on this state machine. The configurer is invoked synchronously against
      * a freshly-constructed {@link StateDef} carrying {@code stateId}; the def becomes inert
      * once the lambda returns.
@@ -778,19 +524,6 @@ public interface StateMachineDef<T> {
      *         is blank, or another state with the same id has already been declared
      */
     StateMachineDef<T> state(String stateId, Consumer<StateDef<T>> configurer);
-
-    /**
-     * Declares a state on this state machine using an {@link Identifiable} as the id source.
-     *
-     * @param stateIdentifiable an identifiable providing the state id; never {@code null}
-     * @param configurer callback that configures the state; never {@code null}
-     *
-     * @return this state machine def for chaining
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
-     *         or another state with the same id has already been declared
-     */
-    StateMachineDef<T> state(Identifiable stateIdentifiable, Consumer<StateDef<T>> configurer);
 
     /**
      * Attaches a listener notified whenever an entity enters <b>any</b> state of this machine.
@@ -809,20 +542,6 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> onAnyStateEntry(String listenerId, StateListener<T> listener);
 
     /**
-     * {@link Identifiable} overload of {@link #onAnyStateEntry(String, StateListener)} —
-     * delegates via {@link Identifiable#getId()}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listener the listener instance; never {@code null}
-     *
-     * @return this state machine def for chaining
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
-     *         or another state listener is already registered under the same id
-     */
-    StateMachineDef<T> onAnyStateEntry(Identifiable listenerIdentifiable, StateListener<T> listener);
-
-    /**
      * Attaches a listener class notified whenever an entity enters any state. The class is
      * instantiated through its public no-arg constructor when the state machine is built.
      *
@@ -835,17 +554,6 @@ public interface StateMachineDef<T> {
      *         or another state listener is already registered under the same id
      */
     StateMachineDef<T> onAnyStateEntry(String listenerId, Class<? extends StateListener<T>> listenerClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #onAnyStateEntry(String, Class)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> onAnyStateEntry(Identifiable listenerIdentifiable,
-                                       Class<? extends StateListener<T>> listenerClass);
 
     /**
      * Attaches a global entry listener declared through a configurer, for the cases where the
@@ -861,17 +569,6 @@ public interface StateMachineDef<T> {
      *         declares no listener
      */
     StateMachineDef<T> onAnyStateEntry(String listenerId, Consumer<StateListenerDef<T>> configurer);
-
-    /**
-     * {@link Identifiable} overload of {@link #onAnyStateEntry(String, Consumer)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param configurer callback that configures the listener; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> onAnyStateEntry(Identifiable listenerIdentifiable,
-                                       Consumer<StateListenerDef<T>> configurer);
 
     /**
      * Attaches a listener notified whenever an entity leaves <b>any</b> state of this machine.
@@ -890,20 +587,6 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> onAnyStateExit(String listenerId, StateListener<T> listener);
 
     /**
-     * {@link Identifiable} overload of {@link #onAnyStateExit(String, StateListener)} —
-     * delegates via {@link Identifiable#getId()}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listener the listener instance; never {@code null}
-     *
-     * @return this state machine def for chaining
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
-     *         or another state listener is already registered under the same id
-     */
-    StateMachineDef<T> onAnyStateExit(Identifiable listenerIdentifiable, StateListener<T> listener);
-
-    /**
      * Attaches a listener class notified whenever an entity leaves any state. The class is
      * instantiated through its public no-arg constructor when the state machine is built.
      *
@@ -916,17 +599,6 @@ public interface StateMachineDef<T> {
      *         or another state listener is already registered under the same id
      */
     StateMachineDef<T> onAnyStateExit(String listenerId, Class<? extends StateListener<T>> listenerClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #onAnyStateExit(String, Class)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> onAnyStateExit(Identifiable listenerIdentifiable,
-                                      Class<? extends StateListener<T>> listenerClass);
 
     /**
      * Attaches a global exit listener declared through a configurer, for the cases where the
@@ -942,17 +614,6 @@ public interface StateMachineDef<T> {
      *         declares no listener
      */
     StateMachineDef<T> onAnyStateExit(String listenerId, Consumer<StateListenerDef<T>> configurer);
-
-    /**
-     * {@link Identifiable} overload of {@link #onAnyStateExit(String, Consumer)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param configurer callback that configures the listener; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> onAnyStateExit(Identifiable listenerIdentifiable,
-                                      Consumer<StateListenerDef<T>> configurer);
 
     /**
      * Attaches a listener notified when <b>any</b> transition of this machine starts.
@@ -973,21 +634,6 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> onAnyTransitionStart(String listenerId, TransitionListener<T, Object> listener);
 
     /**
-     * {@link Identifiable} overload of {@link #onAnyTransitionStart(String, TransitionListener)} —
-     * delegates via {@link Identifiable#getId()}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listener the listener instance; never {@code null}
-     *
-     * @return this state machine def for chaining
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
-     *         or another listener is already registered under the same id
-     */
-    StateMachineDef<T> onAnyTransitionStart(Identifiable listenerIdentifiable,
-                                            TransitionListener<T, Object> listener);
-
-    /**
      * Attaches a listener class notified when any transition starts. The class is instantiated
      * through its public no-arg constructor when the state machine is built.
      *
@@ -1000,17 +646,6 @@ public interface StateMachineDef<T> {
      *         or another listener is already registered under the same id
      */
     StateMachineDef<T> onAnyTransitionStart(String listenerId,
-                                            Class<? extends TransitionListener<T, Object>> listenerClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #onAnyTransitionStart(String, Class)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> onAnyTransitionStart(Identifiable listenerIdentifiable,
                                             Class<? extends TransitionListener<T, Object>> listenerClass);
 
     /**
@@ -1030,17 +665,6 @@ public interface StateMachineDef<T> {
                                             Consumer<TransitionListenerDef<T, Object>> configurer);
 
     /**
-     * {@link Identifiable} overload of {@link #onAnyTransitionStart(String, Consumer)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param configurer callback that configures the listener; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> onAnyTransitionStart(Identifiable listenerIdentifiable,
-                                            Consumer<TransitionListenerDef<T, Object>> configurer);
-
-    /**
      * Attaches a listener notified when <b>any</b> transition of this machine completes
      * successfully.
      *
@@ -1055,22 +679,6 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> onAnyTransitionComplete(String listenerId, TransitionListener<T, Object> listener);
 
     /**
-     * {@link Identifiable} overload of
-     * {@link #onAnyTransitionComplete(String, TransitionListener)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listener the listener instance; never {@code null}
-     *
-     * @return this state machine def for chaining
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
-     *         or another listener is already registered under the same id
-     */
-    StateMachineDef<T> onAnyTransitionComplete(Identifiable listenerIdentifiable,
-                                               TransitionListener<T, Object> listener);
-
-    /**
      * Attaches a listener class notified when any transition completes successfully. The class is
      * instantiated through its public no-arg constructor when the state machine is built.
      *
@@ -1083,17 +691,6 @@ public interface StateMachineDef<T> {
      *         or another listener is already registered under the same id
      */
     StateMachineDef<T> onAnyTransitionComplete(String listenerId,
-                                               Class<? extends TransitionListener<T, Object>> listenerClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #onAnyTransitionComplete(String, Class)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> onAnyTransitionComplete(Identifiable listenerIdentifiable,
                                                Class<? extends TransitionListener<T, Object>> listenerClass);
 
     /**
@@ -1113,17 +710,6 @@ public interface StateMachineDef<T> {
                                                Consumer<TransitionListenerDef<T, Object>> configurer);
 
     /**
-     * {@link Identifiable} overload of {@link #onAnyTransitionComplete(String, Consumer)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param configurer callback that configures the listener; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> onAnyTransitionComplete(Identifiable listenerIdentifiable,
-                                               Consumer<TransitionListenerDef<T, Object>> configurer);
-
-    /**
      * Attaches a listener notified when <b>any</b> transition of this machine fails, once any
      * compensations it registered have run.
      *
@@ -1136,21 +722,6 @@ public interface StateMachineDef<T> {
      *         or another listener is already registered under the same id
      */
     StateMachineDef<T> onAnyTransitionError(String listenerId, TransitionListener<T, Object> listener);
-
-    /**
-     * {@link Identifiable} overload of {@link #onAnyTransitionError(String, TransitionListener)} —
-     * delegates via {@link Identifiable#getId()}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listener the listener instance; never {@code null}
-     *
-     * @return this state machine def for chaining
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
-     *         or another listener is already registered under the same id
-     */
-    StateMachineDef<T> onAnyTransitionError(Identifiable listenerIdentifiable,
-                                            TransitionListener<T, Object> listener);
 
     /**
      * Attaches a listener class notified when any transition fails. The class is instantiated
@@ -1168,17 +739,6 @@ public interface StateMachineDef<T> {
                                             Class<? extends TransitionListener<T, Object>> listenerClass);
 
     /**
-     * {@link Identifiable} overload of {@link #onAnyTransitionError(String, Class)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> onAnyTransitionError(Identifiable listenerIdentifiable,
-                                            Class<? extends TransitionListener<T, Object>> listenerClass);
-
-    /**
      * Attaches a global error listener declared through a configurer, for the cases where the
      * listener carries a name or description as well as a body.
      *
@@ -1192,17 +752,6 @@ public interface StateMachineDef<T> {
      *         no listener
      */
     StateMachineDef<T> onAnyTransitionError(String listenerId,
-                                            Consumer<TransitionListenerDef<T, Object>> configurer);
-
-    /**
-     * {@link Identifiable} overload of {@link #onAnyTransitionError(String, Consumer)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param configurer callback that configures the listener; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> onAnyTransitionError(Identifiable listenerIdentifiable,
                                             Consumer<TransitionListenerDef<T, Object>> configurer);
 
     /**
@@ -1225,18 +774,6 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> onAnyActionStart(String listenerId, ActionListener<T, Object> listener);
 
     /**
-     * {@link Identifiable} overload of {@link #onAnyActionStart(String, ActionListener)} —
-     * delegates via {@link Identifiable#getId()}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listener the listener instance; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> onAnyActionStart(Identifiable listenerIdentifiable,
-                                        ActionListener<T, Object> listener);
-
-    /**
      * Attaches a listener class notified before any action runs. The class is instantiated once,
      * through its public no-arg constructor, when the state machine is built.
      *
@@ -1246,17 +783,6 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     StateMachineDef<T> onAnyActionStart(String listenerId,
-                                        Class<? extends ActionListener<T, Object>> listenerClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #onAnyActionStart(String, Class)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> onAnyActionStart(Identifiable listenerIdentifiable,
                                         Class<? extends ActionListener<T, Object>> listenerClass);
 
     /**
@@ -1276,17 +802,6 @@ public interface StateMachineDef<T> {
                                         Consumer<ActionListenerDef<T, Object>> configurer);
 
     /**
-     * {@link Identifiable} overload of {@link #onAnyActionStart(String, Consumer)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param configurer callback that configures the listener; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> onAnyActionStart(Identifiable listenerIdentifiable,
-                                        Consumer<ActionListenerDef<T, Object>> configurer);
-
-    /**
      * Attaches a listener notified when <b>any</b> action of this machine returns normally.
      *
      * @param listenerId the listener id, unique among all listeners on this state machine
@@ -1295,17 +810,6 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     StateMachineDef<T> onAnyActionComplete(String listenerId, ActionListener<T, Object> listener);
-
-    /**
-     * {@link Identifiable} overload of {@link #onAnyActionComplete(String, ActionListener)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listener the listener instance; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> onAnyActionComplete(Identifiable listenerIdentifiable,
-                                           ActionListener<T, Object> listener);
 
     /**
      * Attaches a listener class notified when any action returns normally.
@@ -1319,17 +823,6 @@ public interface StateMachineDef<T> {
                                            Class<? extends ActionListener<T, Object>> listenerClass);
 
     /**
-     * {@link Identifiable} overload of {@link #onAnyActionComplete(String, Class)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> onAnyActionComplete(Identifiable listenerIdentifiable,
-                                           Class<? extends ActionListener<T, Object>> listenerClass);
-
-    /**
      * Attaches a global action-complete listener declared through a configurer.
      *
      * @param listenerId the listener id, unique among all listeners on this state machine
@@ -1338,17 +831,6 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     StateMachineDef<T> onAnyActionComplete(String listenerId,
-                                           Consumer<ActionListenerDef<T, Object>> configurer);
-
-    /**
-     * {@link Identifiable} overload of {@link #onAnyActionComplete(String, Consumer)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param configurer callback that configures the listener; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> onAnyActionComplete(Identifiable listenerIdentifiable,
                                            Consumer<ActionListenerDef<T, Object>> configurer);
 
     /**
@@ -1365,17 +847,6 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> onAnyActionError(String listenerId, ActionListener<T, Object> listener);
 
     /**
-     * {@link Identifiable} overload of {@link #onAnyActionError(String, ActionListener)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listener the listener instance; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> onAnyActionError(Identifiable listenerIdentifiable,
-                                        ActionListener<T, Object> listener);
-
-    /**
      * Attaches a listener class notified when any action fails.
      *
      * @param listenerId the listener id, unique among all listeners on this state machine
@@ -1387,17 +858,6 @@ public interface StateMachineDef<T> {
                                         Class<? extends ActionListener<T, Object>> listenerClass);
 
     /**
-     * {@link Identifiable} overload of {@link #onAnyActionError(String, Class)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> onAnyActionError(Identifiable listenerIdentifiable,
-                                        Class<? extends ActionListener<T, Object>> listenerClass);
-
-    /**
      * Attaches a global action-error listener declared through a configurer.
      *
      * @param listenerId the listener id, unique among all listeners on this state machine
@@ -1406,17 +866,6 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     StateMachineDef<T> onAnyActionError(String listenerId,
-                                        Consumer<ActionListenerDef<T, Object>> configurer);
-
-    /**
-     * {@link Identifiable} overload of {@link #onAnyActionError(String, Consumer)}.
-     *
-     * @param listenerIdentifiable an identifiable supplying the listener id
-     * @param configurer callback that configures the listener; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> onAnyActionError(Identifiable listenerIdentifiable,
                                         Consumer<ActionListenerDef<T, Object>> configurer);
 
     /**

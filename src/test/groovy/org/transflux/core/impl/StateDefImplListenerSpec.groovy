@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl
 
-import org.transflux.core.Identifiable
 import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.state.StateChange
@@ -105,27 +104,6 @@ class StateDefImplListenerSpec extends Specification {
         bound.description() == 'records entries'
     }
 
-    @Unroll
-    def 'the Identifiable overload of #hook in the #form form delegates via getId'() {
-        given:
-        def s = activeState()
-
-        when:
-        declare.call(s)
-
-        then:
-        listeners.call(s)*.getId() == ['l1']
-
-        where:
-        hook      | form         | declare                                          | listeners
-        'onEntry' | 'instance'   | { it.onEntry(idOf('l1'), new NoopListener()) }   | { it.getEntryListeners() }
-        'onEntry' | 'class'      | { it.onEntry(idOf('l1'), NoopListener) }         | { it.getEntryListeners() }
-        'onEntry' | 'configurer' | { it.onEntry(idOf('l1'), usingNoop()) }          | { it.getEntryListeners() }
-        'onExit'  | 'instance'   | { it.onExit(idOf('l1'), new NoopListener()) }    | { it.getExitListeners() }
-        'onExit'  | 'class'      | { it.onExit(idOf('l1'), NoopListener) }          | { it.getExitListeners() }
-        'onExit'  | 'configurer' | { it.onExit(idOf('l1'), usingNoop()) }           | { it.getExitListeners() }
-    }
-
     def 'a listener id reused on the same hook is rejected'() {
         given:
         def s = activeState()
@@ -210,24 +188,6 @@ class StateDefImplListenerSpec extends Specification {
     }
 
     @Unroll
-    def '#hook rejects a null Identifiable'() {
-        given:
-        def s = activeState()
-
-        when:
-        action.call(s)
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message == 'State listener identifiable cannot be null'
-
-        where:
-        hook      | action
-        'onEntry' | { it.onEntry((Identifiable) null, new NoopListener()) }
-        'onExit'  | { it.onExit((Identifiable) null, new NoopListener()) }
-    }
-
-    @Unroll
     def 'post-configurer #hook throws naming the state'() {
         given:
         def s = activeState()
@@ -260,9 +220,5 @@ class StateDefImplListenerSpec extends Specification {
 
     private static Consumer<StateListenerDef<Object>> usingNoop() {
         return { StateListenerDef l -> l.using(NoopListener) } as Consumer
-    }
-
-    private static Identifiable idOf(String value) {
-        return { -> value } as Identifiable
     }
 }

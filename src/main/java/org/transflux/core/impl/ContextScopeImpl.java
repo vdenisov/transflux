@@ -19,7 +19,6 @@
 package org.transflux.core.impl;
 
 import org.transflux.core.ContextScope;
-import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.action.ConditionalOperationDef;
 import org.transflux.core.action.OperationDef;
@@ -148,57 +147,4 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
     }
 
 
-    @Override
-    public ContextScope<T, C> step(Identifiable stepIdentifiable, Action<T, C> step) {
-        requireNotNull(stepIdentifiable, "Step identifiable");
-        return step(stepIdentifiable.getId(), step);
-    }
-
-    @Override
-    public ContextScope<T, C> step(Identifiable stepIdentifiable, Class<? extends Action<T, C>> stepClass) {
-        requireNotNull(stepIdentifiable, "Step identifiable");
-        return step(stepIdentifiable.getId(), stepClass);
-    }
-
-    @Override
-    public ContextScope<T, C> step(Identifiable stepIdentifiable, Consumer<StepDef<T, C>> configurer) {
-        requireNotNull(stepIdentifiable, "Step identifiable");
-        return step(stepIdentifiable.getId(), configurer);
-    }
-
-    @Override
-    public ContextScope<T, C> condition(Identifiable conditionIdentifiable, Condition<T, C> condition) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return condition(conditionIdentifiable.getId(), condition);
-    }
-
-    @Override
-    public ContextScope<T, C> condition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return condition(conditionIdentifiable.getId(), conditionClass);
-    }
-
-    @Override
-    public ContextScope<T, C> condition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return condition(conditionIdentifiable.getId(), predicate);
-    }
-
-    @Override
-    public ContextScope<T, C> condition(Identifiable conditionIdentifiable, Predicate<T> predicate) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return condition(conditionIdentifiable.getId(), predicate);
-    }
-
-    @Override
-    public ContextScope<T, C> condition(Identifiable conditionIdentifiable, String spelExpression) {
-        requireNotNull(conditionIdentifiable, "Condition identifiable");
-        return condition(conditionIdentifiable.getId(), spelExpression);
-    }
-
-    @Override
-    public ContextScope<T, C> operation(Identifiable operationIdentifiable, Consumer<OperationDef<T, C>> configurer) {
-        requireNotNull(operationIdentifiable, "Operation identifiable");
-        return operation(operationIdentifiable.getId(), configurer);
-    }
 }

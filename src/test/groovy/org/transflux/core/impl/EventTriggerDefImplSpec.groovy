@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl
 
-import org.transflux.core.Identifiable
 import org.transflux.core.StateMachine
 import org.transflux.core.StateMachineDef
 import org.transflux.core.TestContext
@@ -81,10 +80,10 @@ class EventTriggerDefImplSpec extends Specification {
         ((EventTrigger) sm.getTrigger('paid')).eventId == 'PAYMENT'
     }
 
-    def 'the single-Identifiable form uses the event id as the trigger id'() {
+    def 'the single-argument form uses the event id as the trigger id'() {
         given:
         def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', { t -> t.addEventTrigger({ -> 'PAYMENT' } as Identifiable) }) })
+            st.transitionsTo('s2', 't', { t -> t.addEventTrigger('PAYMENT') }) })
             .state('s2', {}) })
 
         when:
@@ -93,6 +92,16 @@ class EventTriggerDefImplSpec extends Specification {
         then:
         trigger.id == 'PAYMENT'
         trigger.eventId == 'PAYMENT'
+    }
+
+    def 'a blank event id is rejected by the single-argument form'() {
+        when:
+        build({ d -> d.state('s1', { st ->
+            st.transitionsTo('s2', 't', { t -> t.addEventTrigger('  ') }) })
+            .state('s2', {}) })
+
+        then:
+        thrown(TransfluxValidationException)
     }
 
     def 'an event trigger declaring no event id is rejected at build'() {

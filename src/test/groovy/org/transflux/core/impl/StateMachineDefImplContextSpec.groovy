@@ -19,7 +19,6 @@
 package org.transflux.core.impl
 
 import org.transflux.core.ContextScope
-import org.transflux.core.Identifiable
 import org.transflux.core.condition.Condition
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.OperationDef
@@ -309,64 +308,6 @@ class StateMachineDefImplContextSpec extends Specification {
         sm != null
     }
 
-    // ---- ContextScope Identifiable overloads ----
-
-    @Unroll
-    def 'ContextScope Identifiable overload accepted: #variant'() {
-        given:
-        def smd = new StateMachineDefImpl<>()
-        smd.forEntityType(Object)
-
-        when:
-        smd.forContext(Object, { scope ->
-            action.call(scope)
-        })
-
-        then:
-        notThrown(Exception)
-
-        where:
-        variant                                          | action
-        'step(Id, Step)'                                 | { s -> s.step(identifiable('s1'), new IdOverloadStep()) }
-        'step(Id, Class)'                                | { s -> s.step(identifiable('s2'), IdOverloadStep) }
-        'step(Id, Consumer)'                             | { s -> s.step(identifiable('s3'), { d -> d.using(new IdOverloadStep()) } as Consumer) }
-        'condition(Id, Condition)'                       | { s -> s.condition(identifiable('c1'), new IdOverloadCondition()) }
-        'condition(Id, Class)'                           | { s -> s.condition(identifiable('c2'), IdOverloadCondition) }
-        'condition(Id, Predicate)'                       | { s -> s.condition(identifiable('c3'), { e -> true } as Predicate) }
-        'condition(Id, String)'                          | { s -> s.condition(identifiable('c4'), 'true') }
-        'operation(Id, Consumer)'               | { s -> s.operation(identifiable('co1'), { c -> c.run('any') }) }
-        'operation(Id, Operation)'                       | { s -> s.step(identifiable('o1'), new IdOverloadOperation()) }
-        'operation(Id, Class)'                           | { s -> s.step(identifiable('o2'), IdOverloadOperation) }
-    }
-
-    @Unroll
-    def 'ContextScope Identifiable overload rejects null: #variant'() {
-        given:
-        def smd = new StateMachineDefImpl<>()
-        smd.forEntityType(Object)
-
-        when:
-        smd.forContext(Object, { scope ->
-            action.call(scope)
-        })
-
-        then:
-        thrown(TransfluxValidationException)
-
-        where:
-        variant                                          | action
-        'step(null, Step)'                               | { s -> s.step((Identifiable) null, new IdOverloadStep()) }
-        'step(null, Class)'                              | { s -> s.step((Identifiable) null, IdOverloadStep) }
-        'step(null, Consumer)'                           | { s -> s.step((Identifiable) null, { d -> } as Consumer) }
-        'condition(null, Condition)'                     | { s -> s.condition((Identifiable) null, new IdOverloadCondition()) }
-        'condition(null, Class)'                         | { s -> s.condition((Identifiable) null, IdOverloadCondition) }
-        'condition(null, Predicate)'                     | { s -> s.condition((Identifiable) null, { e -> true } as Predicate) }
-        'condition(null, String)'                        | { s -> s.condition((Identifiable) null, 'true') }
-        'operation(null, Consumer)'             | { s -> s.operation((Identifiable) null, { c -> }) }
-        'operation(null, Operation)'                     | { s -> s.step((Identifiable) null, new IdOverloadOperation()) }
-        'operation(null, Class)'                         | { s -> s.step((Identifiable) null, IdOverloadOperation) }
-    }
-
     private static StateMachineDefImpl<Entity> baseDef() {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
@@ -376,9 +317,6 @@ class StateMachineDefImplContextSpec extends Specification {
         return smd
     }
 
-    private static Identifiable identifiable(String value) {
-        return { -> value } as Identifiable
-    }
 
     static class Entity {
         String state

@@ -45,7 +45,7 @@ class TransitionDefImplLambdaConfigurerSpec extends Specification {
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
 
         when:
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', { t -> t.withName('plain') }) })
+        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', { t -> t.withName('plain') }) })
 
         then:
         def td = smd.getTransition('t1')
@@ -58,7 +58,7 @@ class TransitionDefImplLambdaConfigurerSpec extends Specification {
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
 
         when:
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', Ctx, { t -> }) })
+        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', Ctx, { t -> }) })
 
         then:
         smd.getTransition('t1').contextType == Ctx
@@ -69,7 +69,7 @@ class TransitionDefImplLambdaConfigurerSpec extends Specification {
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
 
         when:
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', { t -> t.usingContext(Ctx) }) })
+        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', { t -> t.usingContext(Ctx) }) })
 
         then:
         smd.getTransition('t1').contextType == Ctx
@@ -80,14 +80,14 @@ class TransitionDefImplLambdaConfigurerSpec extends Specification {
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
 
         when:
-        smd.state(TRIAL, { s ->
-            s.transitionsTo(ACTIVE, 't-simple', { t ->
+        smd.state(TRIAL.id, { s ->
+            s.transitionsTo(ACTIVE.id, 't-simple', { t ->
                 t.withName('n').withDescription('d')
                 t.step('op', new NoopOp())
                 t.preCondition('pre', { e -> true })
                 t.postCondition('post', { e -> true })
             })
-            s.transitionsTo(ACTIVE, 't-composite', { t -> t.operation('co', { co -> }) })
+            s.transitionsTo(ACTIVE.id, 't-composite', { t -> t.operation('co', { co -> }) })
         })
 
         then:
@@ -105,7 +105,7 @@ class TransitionDefImplLambdaConfigurerSpec extends Specification {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
         TransitionDef<Object, Object> captured = null
-        smd.state(TRIAL, { s -> s.transitionsTo(ACTIVE, 't1', { t -> captured = t }) })
+        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', { t -> captured = t }) })
 
         when:
         action.call(captured)
@@ -131,7 +131,7 @@ class TransitionDefImplLambdaConfigurerSpec extends Specification {
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
 
         when:
-        smd.state(TRIAL, { s ->
+        smd.state(TRIAL.id, { s ->
             s.transitionsTo(ACTIVE.id, 't1', (Consumer<TransitionDef<Object, Object>>) null)
         })
 

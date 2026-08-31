@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl
 
-import org.transflux.core.Identifiable
 import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.state.StateResolver
@@ -31,27 +30,10 @@ import static org.transflux.core.TestStateEnum.TRIAL
 
 class StateDefImplSpec extends Specification {
 
-    def 'transitionsTo should create TransitionDef correctly using Identifiable'() {
-        given:
-        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def s = new StateDefImpl<Object>(smd, ACTIVE)
-        s.beginConfigurer()
-
-        when:
-        s.transitionsTo(EXPIRED, "active-to-expired", {})
-
-        then:
-        smd.getTransition("active-to-expired").with {
-            id == "active-to-expired"
-                && sourceStateId == ACTIVE.id
-                && targetStateId == EXPIRED.id
-        }
-    }
-
     def 'transitionsTo should create TransitionDef correctly using string ID'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def s = new StateDefImpl<Object>(smd, ACTIVE)
+        def s = new StateDefImpl<Object>(smd, ACTIVE.id)
         s.beginConfigurer()
 
         when:
@@ -68,12 +50,12 @@ class StateDefImplSpec extends Specification {
     def 'transitionsTo should prevent duplicate transition id'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def s = new StateDefImpl<>(smd, ACTIVE)
+        def s = new StateDefImpl<>(smd, ACTIVE.id)
         s.beginConfigurer()
-        s.transitionsTo(EXPIRED, "active-to-expired", {})
+        s.transitionsTo(EXPIRED.id, "active-to-expired", {})
 
         when:
-        s.transitionsTo(TRIAL, "active-to-expired", {})
+        s.transitionsTo(TRIAL.id, "active-to-expired", {})
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -92,23 +74,7 @@ class StateDefImplSpec extends Specification {
         where:
         scenario               | smd                                                   | stateId | expectedMessage
         'null StateMachineDef' | null                                                  | 'X'     | 'State machine definition cannot be null'
-        'blank state ID'       | Transflux.defineStateMachine() as StateMachineDefImpl | '  ' | 'State ID cannot be null or blank'
-    }
-
-    @Unroll
-    def 'constructor with Identifiable should validate: #scenario'() {
-        when:
-        new StateDefImpl<Object>(smd, identifiable)
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message == expectedMessage
-
-        where:
-        scenario                     | smd                                                   | identifiable                                         | expectedMessage
-        'null StateMachineDef'       | null                                                  | ACTIVE                                               | 'State machine definition cannot be null'
-        'null identifiable'          | Transflux.defineStateMachine() as StateMachineDefImpl | null                                                 | 'Identifiable for state ID cannot be null'
-        'identifiable with blank id' | Transflux.defineStateMachine() as StateMachineDefImpl | new Identifiable() { String getId() { return ' ' } } | 'State ID cannot be null or blank'
+        'blank state ID'       | Transflux.defineStateMachine() as StateMachineDefImpl | '  '    | 'State ID cannot be null or blank'
     }
 
     def 'withName should override previous name value'() {
@@ -137,18 +103,6 @@ class StateDefImplSpec extends Specification {
         s.description == 'desc2'
     }
 
-    def 'transitionsTo should reject null Identifiable target'() {
-        given:
-        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def s = new StateDefImpl<Object>(smd, 'S')
-        s.beginConfigurer()
-        when:
-        s.transitionsTo((Identifiable) null, 't', {})
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message == 'Target state identifiable cannot be null'
-    }
-
     def 'mutator should throw after configurer returns'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
@@ -163,100 +117,6 @@ class StateDefImplSpec extends Specification {
         def e = thrown(TransfluxValidationException)
         e.message.contains("'withName'")
         e.message.contains("'S'")
-    }
-
-    def 'transitionsTo(String target, Identifiable transition, Consumer) registers the transition under the identifiable id'() {
-        given:
-        def smd = new StateMachineDefImpl<>()
-        smd.forEntityType(Object)
-        smd.state('s2', {})
-
-        when:
-        smd.state('s1', { s ->
-            s.transitionsTo('s2', identifiable('t1'), { t -> })
-        })
-
-        then:
-        smd.getTransition('t1') != null
-    }
-
-    def 'transitionsTo(String target, Identifiable transition, Class<C>, Consumer) registers a typed transition'() {
-        given:
-        def smd = new StateMachineDefImpl<>()
-        smd.forEntityType(Object)
-        smd.state('s2', {})
-
-        when:
-        smd.state('s1', { s ->
-            s.transitionsTo('s2', identifiable('t1'), String, { t -> })
-        })
-
-        then:
-        smd.getTransition('t1') != null
-        smd.getTransition('t1').contextType == String
-    }
-
-    def 'transitionsTo(Identifiable target, Identifiable transition, Consumer) registers the transition'() {
-        given:
-        def smd = new StateMachineDefImpl<>()
-        smd.forEntityType(Object)
-        smd.state('s2', {})
-
-        when:
-        smd.state('s1', { s ->
-            s.transitionsTo(identifiable('s2'), identifiable('t1'), { t -> })
-        })
-
-        then:
-        smd.getTransition('t1') != null
-        smd.getTransition('t1').targetStateId == 's2'
-    }
-
-    def 'transitionsTo(Identifiable target, Identifiable transition, Class<C>, Consumer) registers a typed transition'() {
-        given:
-        def smd = new StateMachineDefImpl<>()
-        smd.forEntityType(Object)
-        smd.state('s2', {})
-
-        when:
-        smd.state('s1', { s ->
-            s.transitionsTo(identifiable('s2'), identifiable('t1'), String, { t -> })
-        })
-
-        then:
-        smd.getTransition('t1') != null
-        smd.getTransition('t1').contextType == String
-    }
-
-    @Unroll
-    def 'transitionsTo Identifiable overloads reject null'() {
-        given:
-        def smd = new StateMachineDefImpl<>()
-        smd.forEntityType(Object)
-        smd.state('s2', {})
-        Throwable caught = null
-
-        when:
-        try {
-            smd.state('s1', { s ->
-                action.call(s)
-            })
-        } catch (Throwable t) {
-            caught = t
-        }
-
-        then:
-        caught instanceof TransfluxValidationException
-
-        where:
-        action << [
-            { s -> s.transitionsTo('s2', (Identifiable) null, { t -> }) },
-            { s -> s.transitionsTo('s2', (Identifiable) null, String, { t -> }) },
-            { s -> s.transitionsTo((Identifiable) null, identifiable('t1'), { t -> }) },
-            { s -> s.transitionsTo((Identifiable) null, identifiable('t1'), String, { t -> }) },
-            { s -> s.transitionsTo(identifiable('s2'), (Identifiable) null, { t -> }) },
-            { s -> s.transitionsTo(identifiable('s2'), (Identifiable) null, String, { t -> }) },
-        ]
     }
 
     def 'transitionsTo(target, id, configurer) defaults the transition context to Object'() {
@@ -336,9 +196,6 @@ class StateDefImplSpec extends Specification {
         thrown(TransfluxValidationException)
     }
 
-    private static Identifiable identifiable(String value) {
-        return { -> value } as Identifiable
-    }
 
     static class CtxBoundEntity {
         String state
