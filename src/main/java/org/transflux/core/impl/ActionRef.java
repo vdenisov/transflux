@@ -74,7 +74,7 @@ sealed interface ActionRef<T, C>
      * @param ownerLabel names the position that declared this reference (a container, or one
      *                   branch of a conditional), surfaced in the error message when it does
      *                   not resolve
-     * @param excludingCompositeId the id of the composite whose own scope the sibling-scope
+     * @param excludingCompositeId the id of the composite whose own scope the diagnostic
      *                             enrichment must skip
      *
      * @return the bound action; never {@code null}
@@ -137,17 +137,20 @@ sealed interface ActionRef<T, C>
     }
 
     /**
-     * Builds the "unknown id" diagnostic for a failing resolution, enriching it with
-     * sibling-scope information when an inline declaration of the same id exists in another
-     * composite under the SM.
+     * Builds the "unknown id" diagnostic for a failing resolution, enriching it with the composite
+     * that does hold the id inline when there is one.
+     * <p>
+     * The holder is named without claiming how it relates to the failing position: the scan is
+     * transitive, so it reaches a nested composite as readily as a sibling, and the two want
+     * different remedies. Naming an enclosing scope covers both.
      */
     static String unknownIdMessage(String id, StateMachineImpl<?> stateMachine,
                                    String ownerLabel, String excludingCompositeId) {
         String base = ownerLabel + " references unknown action id '" + id + "' in its scope";
-        return stateMachine.findInlineSiblingScope(id, excludingCompositeId)
-            .map(siblingId -> base + ". An inline action with this id is registered in sibling composite '"
-                + siblingId + "' — inline registrations are only visible inside their own composite's subtree."
-                + " Move to SM root if shared use is intended.")
+        return stateMachine.findInlineScopeHolding(id, excludingCompositeId)
+            .map(holderId -> base + ". An inline action with this id is registered in composite '"
+                + holderId + "', whose inline registrations are only visible inside its own subtree."
+                + " Declare it in a scope that encloses both positions if shared use is intended.")
             .orElse(base);
     }
 

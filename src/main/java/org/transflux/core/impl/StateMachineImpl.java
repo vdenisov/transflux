@@ -249,8 +249,8 @@ class StateMachineImpl<T> implements StateMachine<T> {
             .orElse(null);
     }
 
-    Optional<String> findInlineSiblingScope(String id, String excludingCompositeId) {
-        return def.findInlineSiblingScope(id, excludingCompositeId);
+    Optional<String> findInlineScopeHolding(String id, String excludingCompositeId) {
+        return def.findInlineScopeHolding(id, excludingCompositeId);
     }
 
     /**

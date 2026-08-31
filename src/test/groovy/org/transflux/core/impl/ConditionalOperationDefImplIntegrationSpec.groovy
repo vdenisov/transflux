@@ -707,7 +707,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         then: 'and the diagnostic says where the id does live'
         def e = thrown(TransfluxValidationException)
         e.message.contains("unknown action id 'buried'")
-        e.message.contains("sibling composite 'route'")
+        e.message.contains("composite 'route'")
     }
 
     def "an action dispatched from a branch member's body resolves in the conditional's scope"() {

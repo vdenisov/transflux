@@ -276,10 +276,10 @@ class OperationDefImplSpec extends Specification {
         when:
         smd.build()
 
-        then: 'the sibling-scope hint names the branch-nested container, as it does a direct one'
+        then: 'the hint names the branch-nested container, as it does a direct one'
         def e = thrown(TransfluxValidationException)
         e.message.contains("unknown action id 'buried'")
-        e.message.contains("sibling composite 'nested'")
+        e.message.contains("composite 'nested'")
     }
 
     def "composite using inline class form is reflectively instantiated through the SM registry"() {

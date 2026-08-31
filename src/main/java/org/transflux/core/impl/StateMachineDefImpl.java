@@ -373,12 +373,15 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * Walks every known composite operation def — both transition-attached top-level composites
      * and SM-level registered composites — and returns the id of the first composite whose
      * <em>local</em> scope registry contains an entry under {@code id}, excluding the composite
-     * that originated the search. Used by {@link ActionRef} resolution to enrich
-     * "unknown id" diagnostics when an id exists inline in a sibling composite's subtree.
+     * that originated the search. Used by {@link ActionRef} resolution to enrich "unknown id"
+     * diagnostics with the composite that does hold the id.
      *
-     * <p>Returns {@link Optional#empty()} when no matching sibling registration exists.
+     * <p>The walk is transitive, so the holder it names may be nested beneath the failing
+     * position rather than beside it. The caller must not assume either.
+     *
+     * <p>Returns {@link Optional#empty()} when nothing holds the id inline.
      */
-    Optional<String> findInlineSiblingScope(String id, String excludingCompositeId) {
+    Optional<String> findInlineScopeHolding(String id, String excludingCompositeId) {
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             ActionDefImpl<T, ?, ?> op = td.getActionDef();
             if (op != null) {

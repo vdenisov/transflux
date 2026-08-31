@@ -315,13 +315,39 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def e = thrown(TransfluxValidationException)
         e.message.contains("'via-inline'")
         e.message.contains('unknown action id')
-        // Sibling-scope diagnostic: message names the sibling composite hosting the inline registration.
-        e.message.contains("sibling composite 'op-provider'")
+        // The enrichment names the composite that does hold the id inline.
+        e.message.contains("composite 'op-provider'")
         e.message.contains('inline registrations are only visible inside')
-        e.message.contains('Move to SM root')
+        e.message.contains('Declare it in a scope that encloses both positions')
     }
 
-    def "unknown action id error stays simple when no sibling composite hosts the id"() {
+    def "the holder named for a nested container is not called a sibling"() {
+        given:
+        def smd = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+        smd.state(TRIAL.id, { s -> s
+            .transitionsTo(ACTIVE.id, 't', { t ->
+                // 'buried' is declared one level *below* the position that references it, so the
+                // remedy is hoisting into 'outer' - never "move to SM root".
+                t.operation('outer', { c -> c
+                    .operation('inner', { i -> i.step('buried', new StepA()) })
+                    .run('buried') })
+            }) })
+        smd.state(ACTIVE.id, {})
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("unknown action id 'buried'")
+        e.message.contains("composite 'inner'")
+        !e.message.contains('sibling')
+        !e.message.contains('SM root')
+    }
+
+    def "unknown action id error stays simple when nothing holds the id inline"() {
         given:
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
@@ -340,7 +366,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         e.message.contains("'truly-missing'")
         e.message.contains('unknown action id')
         e.message.contains("'op-consumer'")
-        !e.message.contains('sibling composite')
+        !e.message.contains('is registered in composite')
     }
 
     def "getBoundAction should return null for unknown id"() {
