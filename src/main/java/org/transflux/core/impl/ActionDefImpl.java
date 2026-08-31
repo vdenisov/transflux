@@ -69,14 +69,64 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     private final CompensationSink<T, C, SELF> compensation = new CompensationSink<>(this, self());
 
     /**
+     * The context this action was declared against, or {@code null} when its declaration site
+     * supplied none - an action declared inline takes the enclosing position's, which is not known
+     * until the scope-binding pass runs.
+     */
+    private Class<C> declaredContextType;
+
+    /**
      * @param id the action id
      * @param label the authored form, used verbatim in diagnostics ({@code "step"} /
      *              {@code "operation"}) so a message names what the author wrote rather than
      *              flattening both forms to "action"
      * @param idLabel the label used when rejecting a blank id
+     * @param declaredContextType the context declared at the declaration site, or {@code null}
+     *                            when it declared none
      */
-    protected ActionDefImpl(String id, String label, String idLabel) {
+    protected ActionDefImpl(String id, String label, String idLabel, Class<C> declaredContextType) {
         super(id, label, idLabel);
+        this.declaredContextType = declaredContextType;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public final Class<C> contextType() {
+        return declaredContextType != null ? declaredContextType : (Class<C>) Object.class;
+    }
+
+    /**
+     * Resolves the context to tag this action's own inline registrations with: its own when the
+     * declaration site named one, the enclosing position's otherwise. Both scope-owning forms tag
+     * the same way, so the rule is written once.
+     *
+     * @param inheritedContext the enclosing position's context, or {@code null} at a root
+     *
+     * @return the context to tag with; never {@code null}
+     */
+    @SuppressWarnings("unchecked")
+    final Class<C> effectiveContext(Class<?> inheritedContext) {
+        if (declaredContextType != null) {
+            return declaredContextType;
+        }
+        return (Class<C>) (inheritedContext != null ? inheritedContext : Object.class);
+    }
+
+    /**
+     * Overwrites the declared context. Exists only for {@code OperationDef.usingContext}, which
+     * cannot re-type the def and so can only ever restate what is already there.
+     *
+     * @param contextType the context to declare
+     *
+     * @return whether the value changed
+     */
+    final boolean redeclareContextType(Class<C> contextType) {
+        if (declaredContextType == contextType) {
+            return false;
+        }
+        boolean conflicting = declaredContextType != null;
+        declaredContextType = contextType;
+        return conflicting;
     }
 
     @Override
@@ -240,10 +290,13 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      * @param rootRegistry the SM root registry that scopes parent to
      * @param canonical the per-build canonical-payload table enforcing SM-wide id uniqueness
      * @param conditionRegistry the resolved SM-wide condition registry
+     * @param inheritedContext the context of the position this action is attached to, or
+     *                         {@code null} when it is registered rather than attached
      */
     abstract void bindScope(RegistryImpl<T> rootRegistry,
                             Map<String, Object> canonical,
-                            Map<String, BoundCondition<T, ?>> conditionRegistry);
+                            Map<String, BoundCondition<T, ?>> conditionRegistry,
+                            Class<?> inheritedContext);
 
     /**
      * Wires this action's lexical scope. Called once during state-machine construction, before

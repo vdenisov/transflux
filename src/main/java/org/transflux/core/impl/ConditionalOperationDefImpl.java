@@ -75,7 +75,11 @@ final class ConditionalOperationDefImpl<T, C>
     private Map<String, BoundCondition<T, C>> boundConditions;
 
     ConditionalOperationDefImpl(String id) {
-        super(id, "conditional operation", "Conditional operation ID");
+        this(id, null);
+    }
+
+    ConditionalOperationDefImpl(String id, Class<C> declaredContextType) {
+        super(id, "conditional operation", "Conditional operation ID", declaredContextType);
     }
 
     NoMatchBehavior getNoMatchBehavior() {
@@ -364,11 +368,12 @@ final class ConditionalOperationDefImpl<T, C>
     @Override
     void bindScope(RegistryImpl<T> rootRegistry,
                    Map<String, Object> canonical,
-                   Map<String, BoundCondition<T, ?>> conditionRegistry) {
+                   Map<String, BoundCondition<T, ?>> conditionRegistry,
+                   Class<?> inheritedContext) {
         @SuppressWarnings("unchecked")
         Map<String, BoundCondition<T, C>> typed =
             (Map<String, BoundCondition<T, C>>) (Map<?, ?>) conditionRegistry;
-        bindScopeUnder(rootRegistry, canonical, typed, null);
+        bindScopeUnder(rootRegistry, canonical, typed, inheritedContext);
     }
 
     /**
@@ -395,7 +400,7 @@ final class ConditionalOperationDefImpl<T, C>
         this.boundConditions = conditionRegistry;
 
         @SuppressWarnings("unchecked")
-        Class<C> tagged = (Class<C>) (inheritedContext != null ? inheritedContext : Object.class);
+        Class<C> tagged = effectiveContext(inheritedContext);
 
         RegistryImpl<T> scope = new RegistryImpl<>(parentRegistry, getId());
         setScopeRegistry(scope);

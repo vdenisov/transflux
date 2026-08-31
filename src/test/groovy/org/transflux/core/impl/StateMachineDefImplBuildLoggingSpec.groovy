@@ -21,6 +21,7 @@ package org.transflux.core.impl
 import ch.qos.logback.classic.Level
 import org.transflux.core.TestContext
 import org.transflux.core.action.Action
+import org.transflux.core.action.ConditionalOperationDef
 import org.transflux.core.action.OperationDef
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.state.StateApplier
@@ -28,6 +29,7 @@ import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.ExecutingTransition
 import spock.lang.Specification
 
+import java.util.function.BiPredicate
 import java.util.function.Predicate
 
 /**
@@ -154,8 +156,7 @@ class StateMachineDefImplBuildLoggingSpec extends Specification {
         given:
         capture = LogCapture.start('org.transflux.build.binding')
         def smd = defWith({ smb -> smb.operation('sm-op', TestContext,
-            { OperationDef<Entity, TestContext> op -> op.usingContext(TestContext)
-                                                        .step('inline-member', new NoopStep()) }) })
+            { OperationDef<Entity, TestContext> op -> op.step('inline-member', new NoopStep()) }) })
 
         when:
         smd.build()
@@ -163,6 +164,40 @@ class StateMachineDefImplBuildLoggingSpec extends Specification {
         then: 'an inline id resolves from inside its container only, so the line has to name it'
         capture.messages().contains(
             "Component bound, id=inline-member, kind=step, contextType=${TestContext.name}, scope=sm-op".toString())
+    }
+
+    def "a registered conditional's branch members report the registration's context"() {
+        given:
+        capture = LogCapture.start('org.transflux.build.binding')
+        def smd = defWith({ smb -> smb.conditional('sm-cond', TestContext,
+            { ConditionalOperationDef<Entity, TestContext> c -> c.branch('only',
+                { b -> b.condition('always', { e, ctx -> true } as BiPredicate)
+                        .step('branch-member', new NoopStep()) }) }) })
+
+        when:
+        smd.build()
+
+        then: 'a conditional has no way to restate its context, so it must inherit the registration'
+        capture.messages().contains(
+            "Component bound, id=branch-member, kind=step, contextType=${TestContext.name}, scope=sm-cond".toString())
+    }
+
+    def "an attached container's inline members report the transition's context"() {
+        given:
+        capture = LogCapture.start('org.transflux.build.binding')
+        def smd = new StateMachineDefImpl<Entity>()
+        smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
+                t.operation('attached', { op -> op.step('attached-member', new NoopStep()) }) }) })
+            .state('s2', {})
+
+        when:
+        smd.build()
+
+        then: 'an attached action declares no context of its own, so it runs against the transition'
+        capture.messages().contains(
+            "Component bound, id=attached-member, kind=step, contextType=${TestContext.name}, scope=attached".toString())
     }
 
     def 'registry population and flattening bracket the binding phase'() {

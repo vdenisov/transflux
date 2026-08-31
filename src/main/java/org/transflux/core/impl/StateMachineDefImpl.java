@@ -360,12 +360,14 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             claimInlineConditions(canonical, td);
             ActionDefImpl<T, ?, ?> op = td.getActionDef();
             if (op != null) {
-                op.bindScope(rootRegistry, canonical, conditionRegistry);
+                // An attached action declares no context of its own, so it runs against the
+                // transition's - the same seeding checkRefs uses for this position.
+                op.bindScope(rootRegistry, canonical, conditionRegistry, td.getContextType());
             }
         }
 
         for (ActionDefImpl<T, ?, ?> composite : smCompositeOperations.values()) {
-            composite.bindScope(rootRegistry, canonical, conditionRegistry);
+            composite.bindScope(rootRegistry, canonical, conditionRegistry, null);
         }
     }
 
@@ -953,7 +955,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotNull(configurer, "Composite operation configurer");
         claimSmLevelActionId(id);
 
-        OperationDefImpl<T, C> composite = new OperationDefImpl<>(id);
+        OperationDefImpl<T, C> composite = new OperationDefImpl<>(id, contextType);
         ConfigurableDefImpl.runConfigurer(composite, configurer);
         smCompositeOperations.put(id, composite);
         tagContextType(id, contextType);
@@ -978,7 +980,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotNull(configurer, "Conditional operation configurer");
         claimSmLevelActionId(id);
 
-        ConditionalOperationDefImpl<T, C> conditional = new ConditionalOperationDefImpl<>(id);
+        ConditionalOperationDefImpl<T, C> conditional = new ConditionalOperationDefImpl<>(id, contextType);
         ConfigurableDefImpl.runConfigurer(conditional, configurer);
         smCompositeOperations.put(id, conditional);
         tagContextType(id, contextType);

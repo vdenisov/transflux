@@ -46,7 +46,6 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <C> the host-supplied context type this action requires
  */
 final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> implements StepDef<T, C> {
-    private final Class<C> contextType;
     private final InstanceOrClassSource<Action<T, C>> source;
 
     /**
@@ -62,16 +61,9 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
     }
 
     StepDefImpl(String id, Class<C> contextType) {
-        super(id, "step", "Step ID");
-        requireNotNull(contextType, "Step context type");
-        this.contextType = contextType;
+        super(id, "step", "Step ID", requireNotNull(contextType, "Step context type"));
         this.source = new InstanceOrClassSource<>(Loggers.BUILD_VALIDATION, "Step source",
                                                   "StepDef '" + id + "'");
-    }
-
-    @Override
-    public Class<C> contextType() {
-        return contextType;
     }
 
     @Override
@@ -120,7 +112,8 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
     @Override
     void bindScope(RegistryImpl<T> rootRegistry,
                    Map<String, Object> canonical,
-                   Map<String, BoundCondition<T, ?>> conditionRegistry) {
+                   Map<String, BoundCondition<T, ?>> conditionRegistry,
+                   Class<?> inheritedContext) {
         // An imperative action owns no lexical scope.
     }
 

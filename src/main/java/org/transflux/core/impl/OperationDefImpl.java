@@ -54,18 +54,14 @@ final class OperationDefImpl<T, C>
     private final ActionSequenceSink<T, C, OperationDefImpl<T, C>> members =
         new ActionSequenceSink<>(this, this);
 
-    private Class<C> declaredContextType;
-
     private CompositeOperationExecutor<T, C> executor;
 
     OperationDefImpl(String id) {
-        super(id, "operation", "Operation ID");
+        this(id, null);
     }
 
-    @Override
-    @SuppressWarnings("unchecked")
-    public Class<C> contextType() {
-        return declaredContextType != null ? declaredContextType : (Class<C>) Object.class;
+    OperationDefImpl(String id, Class<C> declaredContextType) {
+        super(id, "operation", "Operation ID", declaredContextType);
     }
 
     @Override
@@ -128,14 +124,11 @@ final class OperationDefImpl<T, C>
         requireConfigurerActive("usingContext");
         requireNotNull(contextType, "Context type");
 
-        if (this.declaredContextType != null && this.declaredContextType != contextType) {
+        if (redeclareContextType(contextType)) {
             throw new TransfluxValidationException(
                 "OperationDef '" + getId() + "' usingContext already declared as "
-                    + this.declaredContextType.getName() + "; cannot redeclare as "
-                    + contextType.getName());
+                    + contextType().getName() + "; cannot redeclare as " + contextType.getName());
         }
-
-        this.declaredContextType = contextType;
 
         return this;
     }
@@ -293,11 +286,12 @@ final class OperationDefImpl<T, C>
     @Override
     void bindScope(RegistryImpl<T> rootRegistry,
                    Map<String, Object> canonical,
-                   Map<String, BoundCondition<T, ?>> conditionRegistry) {
+                   Map<String, BoundCondition<T, ?>> conditionRegistry,
+                   Class<?> inheritedContext) {
         @SuppressWarnings("unchecked")
         Map<String, BoundCondition<T, C>> typedConditions = (Map<String, BoundCondition<T, C>>) (Map<?, ?>) conditionRegistry;
 
-        bindScopeUnder(rootRegistry, canonical, typedConditions, null);
+        bindScopeUnder(rootRegistry, canonical, typedConditions, inheritedContext);
     }
 
     /**
@@ -317,13 +311,11 @@ final class OperationDefImpl<T, C>
      *                         in the binding log - so inheriting it keeps a nested member's line
      *                         honest without the def itself being rewritten
      */
-    @SuppressWarnings("unchecked")
     void bindScopeUnder(RegistryImpl<T> parentRegistry,
                         Map<String, Object> canonical,
                         Map<String, BoundCondition<T, C>> conditionRegistry,
                         Class<?> inheritedContext) {
-        Class<C> tagged = declaredContextType != null ? declaredContextType
-            : (Class<C>) (inheritedContext != null ? inheritedContext : Object.class);
+        Class<C> tagged = effectiveContext(inheritedContext);
 
         RegistryImpl<T> scope = new RegistryImpl<>(parentRegistry, getId());
         setScopeRegistry(scope);
