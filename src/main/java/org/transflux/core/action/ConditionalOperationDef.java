@@ -18,7 +18,6 @@
 
 package org.transflux.core.action;
 
-import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 
 import java.util.function.Consumer;
@@ -98,18 +97,6 @@ public interface ConditionalOperationDef<T, C> extends ActionDef<T, C> {
     ConditionalOperationDef<T, C> branch(String branchId, Consumer<BranchDef<T, C>> configurer);
 
     /**
-     * {@link Identifiable} overload of {@link #branch(String, Consumer)}.
-     *
-     * @param branchIdentifiable an identifiable supplying the branch id
-     * @param configurer callback that configures the new branch
-     *
-     * @return this conditional def for chaining
-     *
-     * @throws TransfluxValidationException if {@code branchIdentifiable} is {@code null}
-     */
-    ConditionalOperationDef<T, C> branch(Identifiable branchIdentifiable, Consumer<BranchDef<T, C>> configurer);
-
-    /**
      * Defines the default branch. The supplied configurer must append at least one step.
      * The default branch may be declared at most once.
      *
@@ -141,68 +128,33 @@ public interface ConditionalOperationDef<T, C> extends ActionDef<T, C> {
     ConditionalOperationDef<T, C> onStart(String listenerId, ActionListener<T, C> listener);
 
     @Override
-    ConditionalOperationDef<T, C> onStart(Identifiable listenerIdentifiable,
-                                          ActionListener<T, C> listener);
-
-    @Override
     ConditionalOperationDef<T, C> onStart(String listenerId,
                                           Class<? extends ActionListener<T, C>> listenerClass);
 
     @Override
-    ConditionalOperationDef<T, C> onStart(Identifiable listenerIdentifiable,
-                                          Class<? extends ActionListener<T, C>> listenerClass);
-
-    @Override
     ConditionalOperationDef<T, C> onStart(String listenerId,
-                                          Consumer<ActionListenerDef<T, C>> configurer);
-
-    @Override
-    ConditionalOperationDef<T, C> onStart(Identifiable listenerIdentifiable,
                                           Consumer<ActionListenerDef<T, C>> configurer);
 
     @Override
     ConditionalOperationDef<T, C> onComplete(String listenerId, ActionListener<T, C> listener);
 
     @Override
-    ConditionalOperationDef<T, C> onComplete(Identifiable listenerIdentifiable,
-                                             ActionListener<T, C> listener);
-
-    @Override
     ConditionalOperationDef<T, C> onComplete(String listenerId,
                                              Class<? extends ActionListener<T, C>> listenerClass);
 
     @Override
-    ConditionalOperationDef<T, C> onComplete(Identifiable listenerIdentifiable,
-                                             Class<? extends ActionListener<T, C>> listenerClass);
-
-    @Override
     ConditionalOperationDef<T, C> onComplete(String listenerId,
-                                             Consumer<ActionListenerDef<T, C>> configurer);
-
-    @Override
-    ConditionalOperationDef<T, C> onComplete(Identifiable listenerIdentifiable,
                                              Consumer<ActionListenerDef<T, C>> configurer);
 
     @Override
     ConditionalOperationDef<T, C> onError(String listenerId, ActionListener<T, C> listener);
 
     @Override
-    ConditionalOperationDef<T, C> onError(Identifiable listenerIdentifiable,
-                                          ActionListener<T, C> listener);
-
-    @Override
     ConditionalOperationDef<T, C> onError(String listenerId,
-                                          Class<? extends ActionListener<T, C>> listenerClass);
-
-    @Override
-    ConditionalOperationDef<T, C> onError(Identifiable listenerIdentifiable,
                                           Class<? extends ActionListener<T, C>> listenerClass);
 
     @Override
     ConditionalOperationDef<T, C> onError(String listenerId,
                                           Consumer<ActionListenerDef<T, C>> configurer);
 
-    @Override
-    ConditionalOperationDef<T, C> onError(Identifiable listenerIdentifiable,
-                                          Consumer<ActionListenerDef<T, C>> configurer);
 }

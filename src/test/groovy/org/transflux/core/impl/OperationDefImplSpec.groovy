@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl
 
-import org.transflux.core.Identifiable
 import org.transflux.core.StateMachine
 import org.transflux.core.TestContext
 import org.transflux.core.Transflux
@@ -323,101 +322,6 @@ class OperationDefImplSpec extends Specification {
         e.message.contains('CtorlessStep')
     }
 
-    @Unroll
-    def 'by-id member #variant accepts Identifiable refs'() {
-        given:
-        def composite = new OperationDefImpl<Object, Object>('outer')
-        composite.beginConfigurer()
-
-        when:
-        action.call(composite)
-
-        then:
-        composite.actionRefs.size() == 1
-
-        where:
-        variant                                   | action
-        'run(Identifiable)'                       | { c -> c.run(identifiable('my-action')) }
-        'run(Identifiable, Identifiable)'         | { c -> c.run(identifiable('my-action'), identifiable('my-mapper')) }
-        'run(Identifiable, String mapperId)'      | { c -> c.run(identifiable('my-action'), 'my-mapper') }
-        'run(String actionId, Identifiable)'      | { c -> c.run('my-action', identifiable('my-mapper')) }
-    }
-
-    def 'tier-1 Identifiable overloads accept any Identifiable (e.g. a held-onto *Def reference)'() {
-        given:
-        def composite = new OperationDefImpl<Object, Object>('outer')
-        composite.beginConfigurer()
-        def heldDef = new TransitionDefImpl<Object, Object>('held-id', 's1', 's2')
-
-        when:
-        composite.run(heldDef)
-
-        then:
-        composite.actionRefs.size() == 1
-        composite.actionRefs[0].id() == 'held-id'
-    }
-
-    @Unroll
-    def 'tier-1 #variant rejects null Identifiable arg'() {
-        given:
-        def composite = new OperationDefImpl<Object, Object>('outer')
-        composite.beginConfigurer()
-
-        when:
-        action.call(composite)
-
-        then:
-        thrown(TransfluxValidationException)
-
-        where:
-        variant                          | action
-        'run(null)'                      | { c -> c.run((Identifiable) null) }
-        'run(null, identifiable)'        | { c -> c.run((Identifiable) null, identifiable('m')) }
-        'run(null, mapperId)'            | { c -> c.run((Identifiable) null, 'm') }
-        'run(identifiable, null)'        | { c -> c.run(identifiable('a'), (Identifiable) null) }
-        'run(actionId, null)'            | { c -> c.run('a', (Identifiable) null) }
-    }
-
-    @Unroll
-    def 'tier-3 inline Identifiable overload accepted: #variant'() {
-        given:
-        def composite = new OperationDefImpl<Object, Object>('outer')
-        composite.beginConfigurer()
-
-        when:
-        action.call(composite)
-
-        then:
-        composite.actionRefs.size() == 1
-
-        where:
-        variant                                  | action
-        'step(Id, Action)'                       | { c -> c.step(identifiable('s1'), new IdOverloadStep()) }
-        'step(Id, Class)'                        | { c -> c.step(identifiable('s2'), IdOverloadStep) }
-        'conditional(Id, Consumer)'              | { c -> c.conditional(identifiable('cond1'), { cs -> cs.branch('b', { b -> b.condition('any'); b.run('x') }) }) }
-    }
-
-    @Unroll
-    def 'tier-3 #variant rejects null Identifiable'() {
-        given:
-        def composite = new OperationDefImpl<Object, Object>('outer')
-        composite.beginConfigurer()
-
-        when:
-        action.call(composite)
-
-        then:
-        thrown(TransfluxValidationException)
-
-        where:
-        variant                                  | action
-        'step(null, Step)'                       | { c -> c.step((Identifiable) null, new IdOverloadStep()) }
-        'step(null, Class)'                      | { c -> c.step((Identifiable) null, IdOverloadStep) }
-        'operation(null, Operation)'             | { c -> c.step((Identifiable) null, new IdOverloadOp()) }
-        'operation(null, Class)'                 | { c -> c.step((Identifiable) null, IdOverloadOp) }
-        'conditional(null, Consumer)'            | { c -> c.conditional((Identifiable) null, { cs -> }) }
-    }
-
     def 'usingContext(SMContext) accepts when the supplied class matches the SM context type'() {
         given:
         def smd = new StateMachineDefImpl<CtxAssertEntity>()
@@ -506,9 +410,6 @@ class OperationDefImplSpec extends Specification {
         entity.trail == ['child-ran', 'child-compensated']
     }
 
-    private static Identifiable identifiable(String value) {
-        return { -> value } as Identifiable
-    }
 
     private static StateMachine<NestedFailEntity> buildNestedFail(Consumer<StateMachineDefImpl<NestedFailEntity>> smdRegistrations,
                                                                   Consumer<TransitionDef<NestedFailEntity, NestedFailParentCtx>> transitionConfigurer) {

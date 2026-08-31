@@ -19,7 +19,6 @@
 package org.transflux.core.impl;
 
 import org.transflux.core.action.ActionKind;
-import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.ConditionalOperationDef;
@@ -85,26 +84,6 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
-    public OperationDefImpl<T, C> run(Identifiable registeredAction) {
-        return members.run(registeredAction);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> run(Identifiable registeredAction, Identifiable mapper) {
-        return members.run(registeredAction, mapper);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> run(Identifiable registeredAction, String mapperId) {
-        return members.run(registeredAction, mapperId);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> run(String id, Identifiable mapper) {
-        return members.run(id, mapper);
-    }
-
-    @Override
     public OperationDefImpl<T, C> fork(String id) {
         return members.fork(id);
     }
@@ -120,33 +99,8 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
-    public OperationDefImpl<T, C> fork(Identifiable registeredAction) {
-        return members.fork(registeredAction);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> fork(Identifiable registeredAction, Identifiable mapper) {
-        return members.fork(registeredAction, mapper);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> fork(Identifiable registeredAction, String mapperId) {
-        return members.fork(registeredAction, mapperId);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> fork(String id, Identifiable mapper) {
-        return members.fork(id, mapper);
-    }
-
-    @Override
     public OperationDefImpl<T, C> step(String id, Action<T, C> action) {
         return members.step(id, action);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> step(Identifiable actionIdentifiable, Action<T, C> action) {
-        return members.step(actionIdentifiable, action);
     }
 
     @Override
@@ -155,18 +109,8 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
-    public OperationDefImpl<T, C> step(Identifiable actionIdentifiable, Class<? extends Action<T, C>> actionClass) {
-        return members.step(actionIdentifiable, actionClass);
-    }
-
-    @Override
     public OperationDefImpl<T, C> step(String id, Consumer<StepDef<T, C>> configurer) {
         return members.step(id, configurer);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> step(Identifiable actionIdentifiable, Consumer<StepDef<T, C>> configurer) {
-        return members.step(actionIdentifiable, configurer);
     }
 
     @Override
@@ -175,18 +119,8 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
-    public OperationDefImpl<T, C> conditional(Identifiable conditionalIdentifiable, Consumer<ConditionalOperationDef<T, C>> configurer) {
-        return members.conditional(conditionalIdentifiable, configurer);
-    }
-
-    @Override
     public OperationDefImpl<T, C> operation(String id, Consumer<OperationDef<T, C>> configurer) {
         return members.operation(id, configurer);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> operation(Identifiable operationIdentifiable, Consumer<OperationDef<T, C>> configurer) {
-        return members.operation(operationIdentifiable, configurer);
     }
 
     @Override

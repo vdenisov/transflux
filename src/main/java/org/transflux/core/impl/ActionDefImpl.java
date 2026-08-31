@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.Identifiable;
 import org.transflux.core.action.ActionDef;
 import org.transflux.core.action.ActionListener;
 import org.transflux.core.action.ActionListenerDef;
@@ -112,19 +111,8 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     @Override
-    public SELF onStart(Identifiable listenerIdentifiable, ActionListener<T, C> listener) {
-        return listeners.instanceBased(ActionPhase.START, listenerIdentifiable, listener);
-    }
-
-    @Override
     public SELF onStart(String listenerId, Class<? extends ActionListener<T, C>> listenerClass) {
         return listeners.classBased(ActionPhase.START, listenerId, listenerClass);
-    }
-
-    @Override
-    public SELF onStart(Identifiable listenerIdentifiable,
-                        Class<? extends ActionListener<T, C>> listenerClass) {
-        return listeners.classBased(ActionPhase.START, listenerIdentifiable, listenerClass);
     }
 
     @Override
@@ -133,19 +121,8 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     @Override
-    public SELF onStart(Identifiable listenerIdentifiable,
-                        Consumer<ActionListenerDef<T, C>> configurer) {
-        return listeners.configured(ActionPhase.START, listenerIdentifiable, configurer);
-    }
-
-    @Override
     public SELF onComplete(String listenerId, ActionListener<T, C> listener) {
         return listeners.instanceBased(ActionPhase.COMPLETE, listenerId, listener);
-    }
-
-    @Override
-    public SELF onComplete(Identifiable listenerIdentifiable, ActionListener<T, C> listener) {
-        return listeners.instanceBased(ActionPhase.COMPLETE, listenerIdentifiable, listener);
     }
 
     @Override
@@ -154,20 +131,8 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     @Override
-    public SELF onComplete(Identifiable listenerIdentifiable,
-                           Class<? extends ActionListener<T, C>> listenerClass) {
-        return listeners.classBased(ActionPhase.COMPLETE, listenerIdentifiable, listenerClass);
-    }
-
-    @Override
     public SELF onComplete(String listenerId, Consumer<ActionListenerDef<T, C>> configurer) {
         return listeners.configured(ActionPhase.COMPLETE, listenerId, configurer);
-    }
-
-    @Override
-    public SELF onComplete(Identifiable listenerIdentifiable,
-                           Consumer<ActionListenerDef<T, C>> configurer) {
-        return listeners.configured(ActionPhase.COMPLETE, listenerIdentifiable, configurer);
     }
 
     @Override
@@ -176,30 +141,13 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     @Override
-    public SELF onError(Identifiable listenerIdentifiable, ActionListener<T, C> listener) {
-        return listeners.instanceBased(ActionPhase.ERROR, listenerIdentifiable, listener);
-    }
-
-    @Override
     public SELF onError(String listenerId, Class<? extends ActionListener<T, C>> listenerClass) {
         return listeners.classBased(ActionPhase.ERROR, listenerId, listenerClass);
     }
 
     @Override
-    public SELF onError(Identifiable listenerIdentifiable,
-                        Class<? extends ActionListener<T, C>> listenerClass) {
-        return listeners.classBased(ActionPhase.ERROR, listenerIdentifiable, listenerClass);
-    }
-
-    @Override
     public SELF onError(String listenerId, Consumer<ActionListenerDef<T, C>> configurer) {
         return listeners.configured(ActionPhase.ERROR, listenerId, configurer);
-    }
-
-    @Override
-    public SELF onError(Identifiable listenerIdentifiable,
-                        Consumer<ActionListenerDef<T, C>> configurer) {
-        return listeners.configured(ActionPhase.ERROR, listenerIdentifiable, configurer);
     }
 
     /**

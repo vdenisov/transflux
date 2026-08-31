@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl
 
-import org.transflux.core.Identifiable
 import org.transflux.core.action.ActionExecution
 import org.transflux.core.action.ActionListener
 import org.transflux.core.action.ActionListenerDef
@@ -56,25 +55,16 @@ class ConditionalOperationDefImplListenerSpec extends Specification {
         def_.getListeners(phase)*.getId() == ['l1']
 
         where:
-        hook         | form                      | phase                | declare
-        'onStart'    | 'instance'                | ActionPhase.START    | { it.onStart('l1', new NoopListener()) }
-        'onStart'    | 'class'                   | ActionPhase.START    | { it.onStart('l1', NoopListener) }
-        'onStart'    | 'configurer'              | ActionPhase.START    | { it.onStart('l1', usingNoop()) }
-        'onStart'    | 'Identifiable/instance'   | ActionPhase.START    | { it.onStart(idOf('l1'), new NoopListener()) }
-        'onStart'    | 'Identifiable/class'      | ActionPhase.START    | { it.onStart(idOf('l1'), NoopListener) }
-        'onStart'    | 'Identifiable/configurer' | ActionPhase.START    | { it.onStart(idOf('l1'), usingNoop()) }
-        'onComplete' | 'instance'                | ActionPhase.COMPLETE | { it.onComplete('l1', new NoopListener()) }
-        'onComplete' | 'class'                   | ActionPhase.COMPLETE | { it.onComplete('l1', NoopListener) }
-        'onComplete' | 'configurer'              | ActionPhase.COMPLETE | { it.onComplete('l1', usingNoop()) }
-        'onComplete' | 'Identifiable/instance'   | ActionPhase.COMPLETE | { it.onComplete(idOf('l1'), new NoopListener()) }
-        'onComplete' | 'Identifiable/class'      | ActionPhase.COMPLETE | { it.onComplete(idOf('l1'), NoopListener) }
-        'onComplete' | 'Identifiable/configurer' | ActionPhase.COMPLETE | { it.onComplete(idOf('l1'), usingNoop()) }
-        'onError'    | 'instance'                | ActionPhase.ERROR    | { it.onError('l1', new NoopListener()) }
-        'onError'    | 'class'                   | ActionPhase.ERROR    | { it.onError('l1', NoopListener) }
-        'onError'    | 'configurer'              | ActionPhase.ERROR    | { it.onError('l1', usingNoop()) }
-        'onError'    | 'Identifiable/instance'   | ActionPhase.ERROR    | { it.onError(idOf('l1'), new NoopListener()) }
-        'onError'    | 'Identifiable/class'      | ActionPhase.ERROR    | { it.onError(idOf('l1'), NoopListener) }
-        'onError'    | 'Identifiable/configurer' | ActionPhase.ERROR    | { it.onError(idOf('l1'), usingNoop()) }
+        hook         | form         | phase                | declare
+        'onStart'    | 'instance'   | ActionPhase.START    | { it.onStart('l1', new NoopListener()) }
+        'onStart'    | 'class'      | ActionPhase.START    | { it.onStart('l1', NoopListener) }
+        'onStart'    | 'configurer' | ActionPhase.START    | { it.onStart('l1', usingNoop()) }
+        'onComplete' | 'instance'   | ActionPhase.COMPLETE | { it.onComplete('l1', new NoopListener()) }
+        'onComplete' | 'class'      | ActionPhase.COMPLETE | { it.onComplete('l1', NoopListener) }
+        'onComplete' | 'configurer' | ActionPhase.COMPLETE | { it.onComplete('l1', usingNoop()) }
+        'onError'    | 'instance'   | ActionPhase.ERROR    | { it.onError('l1', new NoopListener()) }
+        'onError'    | 'class'      | ActionPhase.ERROR    | { it.onError('l1', NoopListener) }
+        'onError'    | 'configurer' | ActionPhase.ERROR    | { it.onError('l1', usingNoop()) }
     }
 
     def 'the listeners reach the bound action'() {
@@ -134,9 +124,5 @@ class ConditionalOperationDefImplListenerSpec extends Specification {
 
     private static Consumer<ActionListenerDef<Object, Object>> usingNoop() {
         return { ActionListenerDef l -> l.using(NoopListener) } as Consumer
-    }
-
-    private static Identifiable idOf(String value) {
-        return { -> value } as Identifiable
     }
 }

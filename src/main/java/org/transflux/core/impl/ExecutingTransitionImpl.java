@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.ActionPhase;
 import org.transflux.core.action.Compensation;
@@ -158,31 +157,6 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
     public void run(String id, ContextMapper<C, ?> inlineMapper) {
         requireNotNull(inlineMapper, "Inline mapper instance");
         runAction((BoundAction) resolveAction(id), (ContextMapper<Object, Object>) inlineMapper);
-    }
-
-    @Override
-    public void run(Identifiable registeredAction) {
-        requireNotNull(registeredAction, "Action identifiable");
-        run(registeredAction.getId());
-    }
-
-    @Override
-    public void run(Identifiable registeredAction, Identifiable mapper) {
-        requireNotNull(registeredAction, "Action identifiable");
-        requireNotNull(mapper, "Mapper identifiable");
-        run(registeredAction.getId(), mapper.getId());
-    }
-
-    @Override
-    public void run(Identifiable registeredAction, String mapperId) {
-        requireNotNull(registeredAction, "Action identifiable");
-        run(registeredAction.getId(), mapperId);
-    }
-
-    @Override
-    public void run(String id, Identifiable mapper) {
-        requireNotNull(mapper, "Mapper identifiable");
-        run(id, mapper.getId());
     }
 
     T getEntity() {

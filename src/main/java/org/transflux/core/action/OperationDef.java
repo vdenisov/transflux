@@ -18,7 +18,6 @@
 
 package org.transflux.core.action;
 
-import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.transition.Transition;
 
@@ -75,60 +74,28 @@ public interface OperationDef<T, C> extends ActionDef<T, C>,
     OperationDef<T, C> onStart(String listenerId, ActionListener<T, C> listener);
 
     @Override
-    OperationDef<T, C> onStart(Identifiable listenerIdentifiable, ActionListener<T, C> listener);
-
-    @Override
     OperationDef<T, C> onStart(String listenerId, Class<? extends ActionListener<T, C>> listenerClass);
-
-    @Override
-    OperationDef<T, C> onStart(Identifiable listenerIdentifiable,
-                               Class<? extends ActionListener<T, C>> listenerClass);
 
     @Override
     OperationDef<T, C> onStart(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
 
     @Override
-    OperationDef<T, C> onStart(Identifiable listenerIdentifiable,
-                               Consumer<ActionListenerDef<T, C>> configurer);
-
-    @Override
     OperationDef<T, C> onComplete(String listenerId, ActionListener<T, C> listener);
-
-    @Override
-    OperationDef<T, C> onComplete(Identifiable listenerIdentifiable, ActionListener<T, C> listener);
 
     @Override
     OperationDef<T, C> onComplete(String listenerId,
                                   Class<? extends ActionListener<T, C>> listenerClass);
 
     @Override
-    OperationDef<T, C> onComplete(Identifiable listenerIdentifiable,
-                                  Class<? extends ActionListener<T, C>> listenerClass);
-
-    @Override
     OperationDef<T, C> onComplete(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
-
-    @Override
-    OperationDef<T, C> onComplete(Identifiable listenerIdentifiable,
-                                  Consumer<ActionListenerDef<T, C>> configurer);
 
     @Override
     OperationDef<T, C> onError(String listenerId, ActionListener<T, C> listener);
 
     @Override
-    OperationDef<T, C> onError(Identifiable listenerIdentifiable, ActionListener<T, C> listener);
-
-    @Override
     OperationDef<T, C> onError(String listenerId, Class<? extends ActionListener<T, C>> listenerClass);
-
-    @Override
-    OperationDef<T, C> onError(Identifiable listenerIdentifiable,
-                               Class<? extends ActionListener<T, C>> listenerClass);
 
     @Override
     OperationDef<T, C> onError(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
 
-    @Override
-    OperationDef<T, C> onError(Identifiable listenerIdentifiable,
-                               Consumer<ActionListenerDef<T, C>> configurer);
 }

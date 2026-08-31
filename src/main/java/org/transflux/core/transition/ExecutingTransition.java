@@ -18,7 +18,6 @@
 
 package org.transflux.core.transition;
 
-import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.ContextMapper;
 
@@ -104,46 +103,4 @@ public interface ExecutingTransition<T, C> extends Transition {
      */
     void run(String id, ContextMapper<C, ?> inlineMapper);
 
-    /**
-     * {@link Identifiable} overload of {@link #run(String)} - delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param registeredAction an identifiable supplying the action id
-     *
-     * @throws TransfluxValidationException if {@code registeredAction} is {@code null}
-     */
-    void run(Identifiable registeredAction);
-
-    /**
-     * {@link Identifiable} overload of {@link #run(String, String)} - both action and mapper
-     * supplied as identifiables.
-     *
-     * @param registeredAction an identifiable supplying the action id
-     * @param mapper an identifiable supplying the mapper id
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}
-     */
-    void run(Identifiable registeredAction, Identifiable mapper);
-
-    /**
-     * Mixed-form overload of {@link #run(String, String)} - action identifiable + mapper id.
-     *
-     * @param registeredAction an identifiable supplying the action id
-     * @param mapperId the registered mapper id
-     *
-     * @throws TransfluxValidationException if {@code registeredAction} is {@code null} or
-     *         {@code mapperId} is {@code null}/blank
-     */
-    void run(Identifiable registeredAction, String mapperId);
-
-    /**
-     * Mixed-form overload of {@link #run(String, String)} - action id + mapper identifiable.
-     *
-     * @param id the registered action id
-     * @param mapper an identifiable supplying the mapper id
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
-     *         {@code mapper} is {@code null}
-     */
-    void run(String id, Identifiable mapper);
 }

@@ -18,7 +18,6 @@
 
 package org.transflux.dsl;
 
-import org.transflux.core.Identifiable;
 import org.transflux.core.StateMachine;
 import org.transflux.core.Transflux;
 import org.transflux.core.action.Action;
@@ -103,25 +102,6 @@ public final class JavaDslSurface {
         }
     }
 
-    /** Enum-as-id, the pattern the Identifiable overloads exist for. */
-    public enum Ids implements Identifiable {
-        RECORD("record"),
-        NOTIFY("notify"),
-        NESTED("nested"),
-        NOTIFY_FROM_ORDER("notify-from-order");
-
-        private final String id;
-
-        Ids(String id) {
-            this.id = id;
-        }
-
-        @Override
-        public String getId() {
-            return id;
-        }
-    }
-
     /**
      * Every mapper-bearing call shape on a container member, synchronous and forked.
      * <p>
@@ -137,29 +117,21 @@ public final class JavaDslSurface {
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .step("record", new RecordingAction())
-            .step(Ids.NOTIFY, NotifyCtx.class, new NotifyAction())
-            .mapper(Ids.NOTIFY_FROM_ORDER, OrderCtx.class, NotifyCtx.class,
+            .step("notify", NotifyCtx.class, new NotifyAction())
+            .mapper("notify-from-order", OrderCtx.class, NotifyCtx.class,
                     parent -> new NotifyCtx(parent.orderId))
             .state("s1", s -> s
                 .transitionsTo("s2", "t", OrderCtx.class, t -> t
                     .operation("op", c -> c
                         // pass-through: same context type on both sides
                         .run("record")
-                        .run(Ids.RECORD)
                         // mapped: every shape that can carry a mapper
                         .run("notify", "notify-from-order")
                         .run("notify", parent -> new NotifyCtx(parent.orderId))
-                        .run(Ids.NOTIFY, Ids.NOTIFY_FROM_ORDER)
-                        .run(Ids.NOTIFY, "notify-from-order")
-                        .run("notify", Ids.NOTIFY_FROM_ORDER)
 
                         .fork("record")
-                        .fork(Ids.RECORD)
                         .fork("notify", "notify-from-order")
-                        .fork("notify", parent -> new NotifyCtx(parent.orderId))
-                        .fork(Ids.NOTIFY, Ids.NOTIFY_FROM_ORDER)
-                        .fork(Ids.NOTIFY, "notify-from-order")
-                        .fork("notify", Ids.NOTIFY_FROM_ORDER))))
+                        .fork("notify", parent -> new NotifyCtx(parent.orderId)))))
             .state("s2", s -> { })
             .build();
     }
@@ -177,8 +149,8 @@ public final class JavaDslSurface {
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .step("record", new RecordingAction())
-            .step(Ids.NOTIFY, NotifyCtx.class, new NotifyAction())
-            .mapper(Ids.NOTIFY_FROM_ORDER, OrderCtx.class, NotifyCtx.class,
+            .step("notify", NotifyCtx.class, new NotifyAction())
+            .mapper("notify-from-order", OrderCtx.class, NotifyCtx.class,
                     parent -> new NotifyCtx(parent.orderId))
             .state("s1", s -> s
                 .transitionsTo("s2", "t", OrderCtx.class, t -> t
@@ -187,43 +159,30 @@ public final class JavaDslSurface {
                             .branch("taken", b -> b
                                 .condition("always", (order, ctx) -> true)
                                 .run("record")
-                                .run(Ids.RECORD)
                                 .run("notify", "notify-from-order")
                                 .run("notify", parent -> new NotifyCtx(parent.orderId))
-                                .run(Ids.NOTIFY, Ids.NOTIFY_FROM_ORDER)
-                                .run(Ids.NOTIFY, "notify-from-order")
-                                .run("notify", Ids.NOTIFY_FROM_ORDER)
                                 .step("branch-instance", (order, ctx, view) -> order.trail.add("branch-inline"))
                                 .step("branch-class", RecordingAction.class)
                                 .step("branch-configured", step -> step
                                     .using(RecordingAction.class)
                                     .withName("In a branch"))
                                 .fork("record")
-                                .fork(Ids.RECORD)
                                 .fork("notify", "notify-from-order")
                                 .fork("notify", parent -> new NotifyCtx(parent.orderId))
-                                .fork(Ids.NOTIFY, Ids.NOTIFY_FROM_ORDER)
-                                .fork(Ids.NOTIFY, "notify-from-order")
-                                .fork("notify", Ids.NOTIFY_FROM_ORDER)
                                 .conditional("nested-in-branch", inner -> inner
                                     .branch("deep", ib -> ib
                                         .condition("deep-cond", (order, ctx) -> true)
                                         .run("record"))))
                             .defaultBranch(d -> d
                                 .run("record")
-                                .run(Ids.RECORD)
                                 .run("notify", "notify-from-order")
                                 .run("notify", parent -> new NotifyCtx(parent.orderId))
-                                .run(Ids.NOTIFY, Ids.NOTIFY_FROM_ORDER)
-                                .run(Ids.NOTIFY, "notify-from-order")
-                                .run("notify", Ids.NOTIFY_FROM_ORDER)
                                 .step("default-instance", (order, ctx, view) -> order.trail.add("default-inline"))
                                 .step("default-class", RecordingAction.class)
                                 .step("default-configured", step -> step
                                     .using(RecordingAction.class)
                                     .withName("In the default branch"))
                                 .fork("record")
-                                .fork(Ids.NOTIFY, Ids.NOTIFY_FROM_ORDER)
                                 .conditional("nested-in-default", inner -> inner
                                     .branch("deep-default", ib -> ib
                                         .condition("deep-default-cond", (order, ctx) -> true)
@@ -310,8 +269,8 @@ public final class JavaDslSurface {
                         .operation("in-container", inner -> inner
                             .step("in-container-step", (order, ctx, view) -> order.trail.add("in-container"))
                             .run("record"))
-                        .operation(Ids.NESTED, inner -> inner
-                            .step("identifiable-form", (order, ctx, view) -> order.trail.add("identifiable"))
+                        .operation("nested", inner -> inner
+                            .step("nested-step", (order, ctx, view) -> order.trail.add("nested"))
                             .operation("two-deep", deepest -> deepest
                                 .step("two-deep-step", (order, ctx, view) -> order.trail.add("two-deep"))))
                         .conditional("branching", cond -> cond
@@ -339,12 +298,8 @@ public final class JavaDslSurface {
     public static StateMachine<Order> dispatchFromActionBody() {
         Action<Order, OrderCtx> dispatcher = (order, ctx, view) -> {
             view.run("record");
-            view.run(Ids.RECORD);
             view.run("notify", "notify-from-order");
             view.run("notify", parent -> new NotifyCtx(parent.orderId));
-            view.run(Ids.NOTIFY, Ids.NOTIFY_FROM_ORDER);
-            view.run(Ids.NOTIFY, "notify-from-order");
-            view.run("notify", Ids.NOTIFY_FROM_ORDER);
         };
 
         return Transflux.<Order>defineStateMachine()

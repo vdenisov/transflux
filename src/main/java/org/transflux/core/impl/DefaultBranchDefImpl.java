@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.Identifiable;
 import org.transflux.core.action.ConditionalOperationDef;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.ContextMapper;
@@ -76,11 +75,6 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
     }
 
     @Override
-    public DefaultBranchDef<T, C> run(Identifiable registeredAction) {
-        return members.run(registeredAction);
-    }
-
-    @Override
     public DefaultBranchDef<T, C> run(String id, String mapperId) {
         return members.run(id, mapperId);
     }
@@ -88,21 +82,6 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
     @Override
     public DefaultBranchDef<T, C> run(String id, ContextMapper<C, ?> inlineMapper) {
         return members.run(id, inlineMapper);
-    }
-
-    @Override
-    public DefaultBranchDef<T, C> run(Identifiable registeredAction, Identifiable mapper) {
-        return members.run(registeredAction, mapper);
-    }
-
-    @Override
-    public DefaultBranchDef<T, C> run(Identifiable registeredAction, String mapperId) {
-        return members.run(registeredAction, mapperId);
-    }
-
-    @Override
-    public DefaultBranchDef<T, C> run(String id, Identifiable mapper) {
-        return members.run(id, mapper);
     }
 
     @Override
@@ -121,34 +100,8 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
     }
 
     @Override
-    public DefaultBranchDef<T, C> fork(Identifiable registeredAction) {
-        return members.fork(registeredAction);
-    }
-
-    @Override
-    public DefaultBranchDef<T, C> fork(Identifiable registeredAction, Identifiable mapper) {
-        return members.fork(registeredAction, mapper);
-    }
-
-    @Override
-    public DefaultBranchDef<T, C> fork(Identifiable registeredAction, String mapperId) {
-        return members.fork(registeredAction, mapperId);
-    }
-
-    @Override
-    public DefaultBranchDef<T, C> fork(String id, Identifiable mapper) {
-        return members.fork(id, mapper);
-    }
-
-    @Override
     public DefaultBranchDef<T, C> conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer) {
         return members.conditional(id, configurer);
-    }
-
-    @Override
-    public DefaultBranchDef<T, C> conditional(Identifiable conditionalIdentifiable,
-                                     Consumer<ConditionalOperationDef<T, C>> configurer) {
-        return members.conditional(conditionalIdentifiable, configurer);
     }
 
     @Override
@@ -157,19 +110,8 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
     }
 
     @Override
-    public DefaultBranchDef<T, C> operation(Identifiable operationIdentifiable,
-                                     Consumer<OperationDef<T, C>> configurer) {
-        return members.operation(operationIdentifiable, configurer);
-    }
-
-    @Override
     public DefaultBranchDef<T, C> step(String id, Action<T, C> step) {
         return members.step(id, step);
-    }
-
-    @Override
-    public DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Action<T, C> step) {
-        return members.step(stepIdentifiable, step);
     }
 
     @Override
@@ -178,17 +120,8 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
     }
 
     @Override
-    public DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Class<? extends Action<T, C>> stepClass) {
-        return members.step(stepIdentifiable, stepClass);
-    }
-
-    @Override
     public DefaultBranchDef<T, C> step(String id, Consumer<StepDef<T, C>> configurer) {
         return members.step(id, configurer);
     }
 
-    @Override
-    public DefaultBranchDef<T, C> step(Identifiable stepIdentifiable, Consumer<StepDef<T, C>> configurer) {
-        return members.step(stepIdentifiable, configurer);
-    }
 }

@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.Identifiable;
 import org.transflux.core.action.ActionListenerDef;
 import org.transflux.core.action.ActionListener;
 import org.transflux.core.action.ActionPhase;
@@ -35,10 +34,9 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * Shared implementation and storage for the action-listener hook family that every action def
  * exposes.
  * <p>
- * The family is eighteen overloads wide - three hooks, each in an instance, class, and configurer
- * form, each with an {@link Identifiable} sibling. Every owning def declares one sink and
- * implements its public methods as one-line delegates, so validation order, argument labels, and
- * the configurer guard are written once.
+ * The family is nine overloads wide - three hooks, each in an instance, class, and configurer
+ * form. Every owning def declares one sink and implements its public methods as one-line
+ * delegates, so validation order, argument labels, and the configurer guard are written once.
  *
  * <p>Every authoring form shares one sink, declared on their common base {@code ActionDefImpl},
  * so the storage lives in exactly one place.
@@ -74,11 +72,6 @@ final class ActionListenerSink<T, C, D> {
         return store(phase, listenerId, l -> l.using(listener));
     }
 
-    D instanceBased(ActionPhase phase, Identifiable listenerIdentifiable, ActionListener<T, C> listener) {
-        requireNotNull(listenerIdentifiable, "Action listener identifiable");
-        return instanceBased(phase, listenerIdentifiable.getId(), listener);
-    }
-
     D classBased(ActionPhase phase, String listenerId,
                  Class<? extends ActionListener<T, C>> listenerClass) {
         owner.requireConfigurerActive(hook(phase));
@@ -87,23 +80,11 @@ final class ActionListenerSink<T, C, D> {
         return store(phase, listenerId, l -> l.using(listenerClass));
     }
 
-    D classBased(ActionPhase phase, Identifiable listenerIdentifiable,
-                 Class<? extends ActionListener<T, C>> listenerClass) {
-        requireNotNull(listenerIdentifiable, "Action listener identifiable");
-        return classBased(phase, listenerIdentifiable.getId(), listenerClass);
-    }
-
     D configured(ActionPhase phase, String listenerId, Consumer<ActionListenerDef<T, C>> configurer) {
         owner.requireConfigurerActive(hook(phase));
         requireNotBlank(listenerId, "Action listener ID");
         requireNotNull(configurer, "Action listener configurer");
         return store(phase, listenerId, configurer);
-    }
-
-    D configured(ActionPhase phase, Identifiable listenerIdentifiable,
-                 Consumer<ActionListenerDef<T, C>> configurer) {
-        requireNotNull(listenerIdentifiable, "Action listener identifiable");
-        return configured(phase, listenerIdentifiable.getId(), configurer);
     }
 
     /**

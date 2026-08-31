@@ -18,7 +18,6 @@
 
 package org.transflux.core.action;
 
-import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
 
@@ -60,18 +59,6 @@ public interface BranchDef<T, C> extends ActionSequence<T, C, BranchDef<T, C>> {
     BranchDef<T, C> condition(String registeredConditionId);
 
     /**
-     * {@link Identifiable} overload of {@link #condition(String)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param registeredCondition an identifiable supplying the condition id
-     *
-     * @return this branch def for chaining
-     *
-     * @throws TransfluxValidationException if {@code registeredCondition} is {@code null}
-     */
-    BranchDef<T, C> condition(Identifiable registeredCondition);
-
-    /**
      * Sets this branch's condition to a SpEL expression whose id is auto-derived from the
      * expression text and the branch's path within the enclosing state machine.
      *
@@ -98,20 +85,6 @@ public interface BranchDef<T, C> extends ActionSequence<T, C, BranchDef<T, C>> {
     BranchDef<T, C> condition(String id, Condition<T, C> condition);
 
     /**
-     * {@link Identifiable} overload of {@link #condition(String, Condition)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param condition the condition instance
-     *
-     * @return this branch def for chaining
-     *
-     * @throws TransfluxValidationException if {@code conditionIdentifiable} or {@code condition}
-     *         is {@code null}
-     */
-    BranchDef<T, C> condition(Identifiable conditionIdentifiable, Condition<T, C> condition);
-
-    /**
      * Sets this branch's condition to a {@link Condition} class under the supplied id; the
      * framework reflectively instantiates the class through its public no-arg constructor at
      * state-machine build time.
@@ -125,20 +98,6 @@ public interface BranchDef<T, C> extends ActionSequence<T, C, BranchDef<T, C>> {
      *         {@code conditionClass} is {@code null}
      */
     BranchDef<T, C> condition(String id, Class<? extends Condition<T, C>> conditionClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #condition(String, Class)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param conditionClass the condition class
-     *
-     * @return this branch def for chaining
-     *
-     * @throws TransfluxValidationException if {@code conditionIdentifiable} or
-     *         {@code conditionClass} is {@code null}
-     */
-    BranchDef<T, C> condition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass);
 
     /**
      * Sets this branch's condition to a {@link BiPredicate} over {@code (entity, context)},
@@ -155,16 +114,6 @@ public interface BranchDef<T, C> extends ActionSequence<T, C, BranchDef<T, C>> {
     BranchDef<T, C> condition(String id, BiPredicate<T, C> predicate);
 
     /**
-     * {@link Identifiable} overload of {@link #condition(String, BiPredicate)}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param predicate the predicate
-     *
-     * @return this branch def for chaining
-     */
-    BranchDef<T, C> condition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate);
-
-    /**
      * Convenience overload of {@link #condition(String, BiPredicate)} accepting an entity-only
      * {@link Predicate}; the context is ignored at evaluation time.
      *
@@ -179,16 +128,6 @@ public interface BranchDef<T, C> extends ActionSequence<T, C, BranchDef<T, C>> {
     BranchDef<T, C> condition(String id, Predicate<T> predicate);
 
     /**
-     * {@link Identifiable} overload of {@link #condition(String, Predicate)}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param predicate the entity predicate
-     *
-     * @return this branch def for chaining
-     */
-    BranchDef<T, C> condition(Identifiable conditionIdentifiable, Predicate<T> predicate);
-
-    /**
      * Sets this branch's condition to a SpEL expression under an explicit id.
      *
      * @param id the condition id
@@ -201,17 +140,4 @@ public interface BranchDef<T, C> extends ActionSequence<T, C, BranchDef<T, C>> {
      */
     BranchDef<T, C> condition(String id, String expression);
 
-    /**
-     * {@link Identifiable} overload of {@link #condition(String, String)} — delegates via
-     * {@link Identifiable#getId()}.
-     *
-     * @param conditionIdentifiable an identifiable supplying the condition id
-     * @param expression the SpEL expression text
-     *
-     * @return this branch def for chaining
-     *
-     * @throws TransfluxValidationException if {@code conditionIdentifiable} is {@code null} or
-     *         {@code expression} is {@code null}/blank
-     */
-    BranchDef<T, C> condition(Identifiable conditionIdentifiable, String expression);
 }

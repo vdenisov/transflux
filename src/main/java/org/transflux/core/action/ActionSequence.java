@@ -18,7 +18,6 @@
 
 package org.transflux.core.action;
 
-import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 
 import java.util.function.Consumer;
@@ -101,56 +100,6 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
     SELF run(String id, ContextMapper<C, ?> inlineMapper);
 
     /**
-     * {@link Identifiable} overload of {@link #run(String)}.
-     *
-     * @param registeredAction an identifiable supplying the action id
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code registeredAction} is {@code null}
-     */
-    SELF run(Identifiable registeredAction);
-
-    /**
-     * {@link Identifiable} overload of {@link #run(String, String)} - both action and mapper
-     * supplied as identifiables.
-     *
-     * @param registeredAction an identifiable supplying the action id
-     * @param mapper an identifiable supplying the mapper id
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}
-     */
-    SELF run(Identifiable registeredAction, Identifiable mapper);
-
-    /**
-     * Mixed-form overload of {@link #run(String, String)} - action identifiable + mapper id.
-     *
-     * @param registeredAction an identifiable supplying the action id
-     * @param mapperId the registered mapper id
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code registeredAction} is {@code null} or
-     *         {@code mapperId} is {@code null}/blank
-     */
-    SELF run(Identifiable registeredAction, String mapperId);
-
-    /**
-     * Mixed-form overload of {@link #run(String, String)} - action id + mapper identifiable.
-     *
-     * @param id the registered action id
-     * @param mapper an identifiable supplying the mapper id
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or {@code mapper}
-     *         is {@code null}
-     */
-    SELF run(String id, Identifiable mapper);
-
-    /**
      * Appends a <em>forked</em> reference to the action registered under {@code id}: the member is
      * handed to the state machine's executor and runs on another thread, while the enclosing
      * sequence carries on to its next member without waiting.
@@ -219,56 +168,6 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
     SELF fork(String id, ContextMapper<C, ?> inlineMapper);
 
     /**
-     * {@link Identifiable} overload of {@link #fork(String)}.
-     *
-     * @param registeredAction an identifiable supplying the action id
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code registeredAction} is {@code null}
-     */
-    SELF fork(Identifiable registeredAction);
-
-    /**
-     * {@link Identifiable} overload of {@link #fork(String, String)} - both action and mapper
-     * supplied as identifiables.
-     *
-     * @param registeredAction an identifiable supplying the action id
-     * @param mapper an identifiable supplying the mapper id
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}
-     */
-    SELF fork(Identifiable registeredAction, Identifiable mapper);
-
-    /**
-     * Mixed-form overload of {@link #fork(String, String)} - action identifiable + mapper id.
-     *
-     * @param registeredAction an identifiable supplying the action id
-     * @param mapperId the registered mapper id
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code registeredAction} is {@code null} or
-     *         {@code mapperId} is {@code null}/blank
-     */
-    SELF fork(Identifiable registeredAction, String mapperId);
-
-    /**
-     * Mixed-form overload of {@link #fork(String, String)} - action id + mapper identifiable.
-     *
-     * @param id the registered action id
-     * @param mapper an identifiable supplying the mapper id
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or {@code mapper}
-     *         is {@code null}
-     */
-    SELF fork(String id, Identifiable mapper);
-
-    /**
      * Declares an imperative action inline at this position, from a supplied {@link Action}
      * instance. The action is registered into the scope that owns this position - the enclosing
      * container's, or the conditional's when this is one of its branches - so it is visible from
@@ -286,18 +185,6 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
     SELF step(String id, Action<T, C> action);
 
     /**
-     * {@link Identifiable} overload of {@link #step(String, Action)}.
-     *
-     * @param actionIdentifiable an identifiable supplying the action id
-     * @param action the action to invoke
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code actionIdentifiable} is {@code null}
-     */
-    SELF step(Identifiable actionIdentifiable, Action<T, C> action);
-
-    /**
      * Declares an imperative action inline at this position, from a class the framework
      * instantiates through its public no-arg constructor at build time.
      *
@@ -310,18 +197,6 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      *         {@code null}
      */
     SELF step(String id, Class<? extends Action<T, C>> actionClass);
-
-    /**
-     * {@link Identifiable} overload of {@link #step(String, Class)}.
-     *
-     * @param actionIdentifiable an identifiable supplying the action id
-     * @param actionClass the action class
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code actionIdentifiable} is {@code null}
-     */
-    SELF step(Identifiable actionIdentifiable, Class<? extends Action<T, C>> actionClass);
 
     /**
      * Configurer form of the inline declaration, for a member that also wants a name, a
@@ -338,18 +213,6 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
     SELF step(String id, Consumer<StepDef<T, C>> configurer);
 
     /**
-     * {@link Identifiable} overload of {@link #step(String, Consumer)}.
-     *
-     * @param actionIdentifiable an identifiable supplying the action id
-     * @param configurer callback that configures the member
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code actionIdentifiable} is {@code null}
-     */
-    SELF step(Identifiable actionIdentifiable, Consumer<StepDef<T, C>> configurer);
-
-    /**
      * Declares a multi-branch conditional at this position - a declarative action whose ordering
      * rule is "first matching branch" rather than "all, in order".
      *
@@ -362,18 +225,6 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      *         {@code null}
      */
     SELF conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer);
-
-    /**
-     * {@link Identifiable} overload of {@link #conditional(String, Consumer)}.
-     *
-     * @param conditionalIdentifiable an identifiable supplying the conditional's id
-     * @param configurer callback that declares the branches
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code conditionalIdentifiable} is {@code null}
-     */
-    SELF conditional(Identifiable conditionalIdentifiable, Consumer<ConditionalOperationDef<T, C>> configurer);
 
     /**
      * Declares a nested sequence at this position - an operation, declared in place rather than
@@ -403,15 +254,4 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      */
     SELF operation(String id, Consumer<OperationDef<T, C>> configurer);
 
-    /**
-     * {@link Identifiable} overload of {@link #operation(String, Consumer)}.
-     *
-     * @param operationIdentifiable an identifiable supplying the operation's id
-     * @param configurer callback that declares the members
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code operationIdentifiable} is {@code null}
-     */
-    SELF operation(Identifiable operationIdentifiable, Consumer<OperationDef<T, C>> configurer);
 }

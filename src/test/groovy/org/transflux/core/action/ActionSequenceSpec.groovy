@@ -50,29 +50,16 @@ class ActionSequenceSpec extends Specification {
         expect: 'a widening is a deliberate edit here, not a side effect elsewhere'
         signatures(ActionSequence).toSorted() == [
             'conditional(java.lang.String,java.util.function.Consumer)',
-            'conditional(org.transflux.core.Identifiable,java.util.function.Consumer)',
             'fork(java.lang.String)',
             'fork(java.lang.String,java.lang.String)',
-            'fork(java.lang.String,org.transflux.core.Identifiable)',
             'fork(java.lang.String,org.transflux.core.action.ContextMapper)',
-            'fork(org.transflux.core.Identifiable)',
-            'fork(org.transflux.core.Identifiable,java.lang.String)',
-            'fork(org.transflux.core.Identifiable,org.transflux.core.Identifiable)',
             'operation(java.lang.String,java.util.function.Consumer)',
-            'operation(org.transflux.core.Identifiable,java.util.function.Consumer)',
             'run(java.lang.String)',
             'run(java.lang.String,java.lang.String)',
-            'run(java.lang.String,org.transflux.core.Identifiable)',
             'run(java.lang.String,org.transflux.core.action.ContextMapper)',
-            'run(org.transflux.core.Identifiable)',
-            'run(org.transflux.core.Identifiable,java.lang.String)',
-            'run(org.transflux.core.Identifiable,org.transflux.core.Identifiable)',
             'step(java.lang.String,java.lang.Class)',
             'step(java.lang.String,java.util.function.Consumer)',
             'step(java.lang.String,org.transflux.core.action.Action)',
-            'step(org.transflux.core.Identifiable,java.lang.Class)',
-            'step(org.transflux.core.Identifiable,java.util.function.Consumer)',
-            'step(org.transflux.core.Identifiable,org.transflux.core.action.Action)',
         ]
     }
 

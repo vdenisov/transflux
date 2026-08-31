@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl
 
-import org.transflux.core.Identifiable
 import org.transflux.core.action.Action
 import org.transflux.core.action.ActionExecution
 import org.transflux.core.action.ActionListener
@@ -55,25 +54,16 @@ class ActionDefImplListenerSpec extends Specification {
         otherPhases(phase).every { def_.getListeners(it).isEmpty() }
 
         where:
-        hook         | form                      | phase                | declare
-        'onStart'    | 'instance'                | ActionPhase.START    | { it.onStart('l1', new NoopListener()) }
-        'onStart'    | 'class'                   | ActionPhase.START    | { it.onStart('l1', NoopListener) }
-        'onStart'    | 'configurer'              | ActionPhase.START    | { it.onStart('l1', usingNoop()) }
-        'onStart'    | 'Identifiable/instance'   | ActionPhase.START    | { it.onStart(idOf('l1'), new NoopListener()) }
-        'onStart'    | 'Identifiable/class'      | ActionPhase.START    | { it.onStart(idOf('l1'), NoopListener) }
-        'onStart'    | 'Identifiable/configurer' | ActionPhase.START    | { it.onStart(idOf('l1'), usingNoop()) }
-        'onComplete' | 'instance'                | ActionPhase.COMPLETE | { it.onComplete('l1', new NoopListener()) }
-        'onComplete' | 'class'                   | ActionPhase.COMPLETE | { it.onComplete('l1', NoopListener) }
-        'onComplete' | 'configurer'              | ActionPhase.COMPLETE | { it.onComplete('l1', usingNoop()) }
-        'onComplete' | 'Identifiable/instance'   | ActionPhase.COMPLETE | { it.onComplete(idOf('l1'), new NoopListener()) }
-        'onComplete' | 'Identifiable/class'      | ActionPhase.COMPLETE | { it.onComplete(idOf('l1'), NoopListener) }
-        'onComplete' | 'Identifiable/configurer' | ActionPhase.COMPLETE | { it.onComplete(idOf('l1'), usingNoop()) }
-        'onError'    | 'instance'                | ActionPhase.ERROR    | { it.onError('l1', new NoopListener()) }
-        'onError'    | 'class'                   | ActionPhase.ERROR    | { it.onError('l1', NoopListener) }
-        'onError'    | 'configurer'              | ActionPhase.ERROR    | { it.onError('l1', usingNoop()) }
-        'onError'    | 'Identifiable/instance'   | ActionPhase.ERROR    | { it.onError(idOf('l1'), new NoopListener()) }
-        'onError'    | 'Identifiable/class'      | ActionPhase.ERROR    | { it.onError(idOf('l1'), NoopListener) }
-        'onError'    | 'Identifiable/configurer' | ActionPhase.ERROR    | { it.onError(idOf('l1'), usingNoop()) }
+        hook         | form         | phase                | declare
+        'onStart'    | 'instance'   | ActionPhase.START    | { it.onStart('l1', new NoopListener()) }
+        'onStart'    | 'class'      | ActionPhase.START    | { it.onStart('l1', NoopListener) }
+        'onStart'    | 'configurer' | ActionPhase.START    | { it.onStart('l1', usingNoop()) }
+        'onComplete' | 'instance'   | ActionPhase.COMPLETE | { it.onComplete('l1', new NoopListener()) }
+        'onComplete' | 'class'      | ActionPhase.COMPLETE | { it.onComplete('l1', NoopListener) }
+        'onComplete' | 'configurer' | ActionPhase.COMPLETE | { it.onComplete('l1', usingNoop()) }
+        'onError'    | 'instance'   | ActionPhase.ERROR    | { it.onError('l1', new NoopListener()) }
+        'onError'    | 'class'      | ActionPhase.ERROR    | { it.onError('l1', NoopListener) }
+        'onError'    | 'configurer' | ActionPhase.ERROR    | { it.onError('l1', usingNoop()) }
     }
 
     def 'a declarative container carries listeners the same way'() {
@@ -183,31 +173,12 @@ class ActionDefImplListenerSpec extends Specification {
         e.message == 'Action listener ID cannot be null or blank'
 
         where:
-        hook             | action
-        'onStart'        | { it.onStart('  ', new NoopListener()) }
-        'onStart-cls'    | { it.onStart('  ', NoopListener) }
-        'onStart-cfg'    | { it.onStart('  ', usingNoop()) }
-        'onComplete'     | { it.onComplete('  ', new NoopListener()) }
-        'onError'        | { it.onError('  ', new NoopListener()) }
-    }
-
-    @Unroll
-    def '#hook rejects a null Identifiable'() {
-        given:
-        def def_ = step()
-
-        when:
-        action.call(def_)
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message == 'Action listener identifiable cannot be null'
-
-        where:
-        hook             | action
-        'onStart'        | { it.onStart((Identifiable) null, new NoopListener()) }
-        'onComplete'     | { it.onComplete((Identifiable) null, NoopListener) }
-        'onError'        | { it.onError((Identifiable) null, usingNoop()) }
+        hook          | action
+        'onStart'     | { it.onStart('  ', new NoopListener()) }
+        'onStart-cls' | { it.onStart('  ', NoopListener) }
+        'onStart-cfg' | { it.onStart('  ', usingNoop()) }
+        'onComplete'  | { it.onComplete('  ', new NoopListener()) }
+        'onError'     | { it.onError('  ', new NoopListener()) }
     }
 
     def 'a null listener is rejected'() {
@@ -246,9 +217,5 @@ class ActionDefImplListenerSpec extends Specification {
 
     private static Consumer<ActionListenerDef<Object, Object>> usingNoop() {
         return { ActionListenerDef l -> l.using(NoopListener) } as Consumer
-    }
-
-    private static Identifiable idOf(String value) {
-        return { -> value } as Identifiable
     }
 }

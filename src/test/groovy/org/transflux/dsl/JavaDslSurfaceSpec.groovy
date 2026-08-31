@@ -42,13 +42,13 @@ class JavaDslSurfaceSpec extends Specification {
         when:
         def result = sm.entity(order).transitionTo('s2', new JavaDslSurface.OrderCtx())
 
-        then: 'the seven synchronous members ran, mapped ones against the mapped context'
+        then: 'the three synchronous members ran, mapped ones against the mapped context'
         result.success
         order.state == 's2'
 
-        and: 'at least the synchronous ones - the forked seven add to this as they land'
-        order.trail.count { it == 'recording' } >= 2
-        order.trail.count { it == 'notify:o-1' } >= 5
+        and: 'at least the synchronous ones - the forked three add to this as they land'
+        order.trail.count { it == 'recording' } >= 1
+        order.trail.count { it == 'notify:o-1' } >= 2
 
         cleanup:
         sm.close()
@@ -100,7 +100,7 @@ class JavaDslSurfaceSpec extends Specification {
         then: 'each nested container ran, including the one two levels down'
         result.success
         order.trail.contains('in-container')
-        order.trail.contains('identifiable')
+        order.trail.contains('nested')
         order.trail.contains('two-deep')
         order.trail.contains('in-branch')
 

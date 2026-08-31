@@ -19,7 +19,6 @@
 package org.transflux.core.impl;
 
 import org.transflux.core.action.ActionKind;
-import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.BranchDef;
 import org.transflux.core.action.ConditionalOperationDef;
@@ -98,12 +97,6 @@ final class ConditionalOperationDefImpl<T, C>
         ConfigurableDefImpl.runConfigurer(branch, configurer);
         branches.add(branch);
         return this;
-    }
-
-    @Override
-    public ConditionalOperationDef<T, C> branch(Identifiable branchIdentifiable, Consumer<BranchDef<T, C>> configurer) {
-        requireNotNull(branchIdentifiable, "Branch identifiable");
-        return branch(branchIdentifiable.getId(), configurer);
     }
 
     @Override

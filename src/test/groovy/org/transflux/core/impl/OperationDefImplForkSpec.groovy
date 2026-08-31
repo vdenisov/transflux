@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl
 
-import org.transflux.core.Identifiable
 import org.transflux.core.action.ContextMapper
 import org.transflux.core.exception.TransfluxValidationException
 import spock.lang.Specification
@@ -45,13 +44,9 @@ class OperationDefImplForkSpec extends Specification {
             .fork('b', 'm')
             .fork('c', { ctx -> ctx } as ContextMapper)
             .fork('d', new PassThroughMapper())
-            .fork(idOf('e'))
-            .fork(idOf('f'), idOf('m'))
-            .fork(idOf('g'), 'm')
-            .fork('h', idOf('m'))
 
         then:
-        def_.getActionRefs()*.id() == ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+        def_.getActionRefs()*.id() == ['a', 'b', 'c', 'd']
     }
 
     def 'forked and inline members share one ordered list'() {
@@ -99,11 +94,11 @@ class OperationDefImplForkSpec extends Specification {
         e.message.contains('fork')
 
         where:
-        form                 || call
-        'id'                 || { it.fork('a') }
-        'id, mapperId'       || { it.fork('a', 'm') }
-        'id, lambda mapper'  || { it.fork('a', { ctx -> ctx } as ContextMapper) }
-        'id, mapper'         || { it.fork('a', new PassThroughMapper()) }
+        form                || call
+        'id'                || { it.fork('a') }
+        'id, mapperId'      || { it.fork('a', 'm') }
+        'id, lambda mapper' || { it.fork('a', { ctx -> ctx } as ContextMapper) }
+        'id, mapper'        || { it.fork('a', new PassThroughMapper()) }
     }
 
     @Unroll
@@ -118,18 +113,13 @@ class OperationDefImplForkSpec extends Specification {
         thrown(TransfluxValidationException)
 
         where:
-        bad                          || call
-        'a null id'                  || { it.fork((String) null) }
-        'a blank id'                 || { it.fork('  ') }
-        'a blank mapper id'          || { it.fork('a', '  ') }
-        'a null inline mapper'       || { it.fork('a', (ContextMapper) null) }
-        'a null action identifiable' || { it.fork((Identifiable) null) }
-        'a null mapper identifiable' || { it.fork('a', (Identifiable) null) }
+        bad                    || call
+        'a null id'            || { it.fork((String) null) }
+        'a blank id'           || { it.fork('  ') }
+        'a blank mapper id'    || { it.fork('a', '  ') }
+        'a null inline mapper' || { it.fork('a', (ContextMapper) null) }
     }
 
-    private static Identifiable idOf(String value) {
-        return { -> value } as Identifiable
-    }
 
     private static OperationDefImpl<Object, Object> openOperation() {
         def def_ = new OperationDefImpl<Object, Object>('op1')

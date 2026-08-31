@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
 import org.transflux.core.action.ConditionalOperationDef;
@@ -94,11 +93,6 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     }
 
     @Override
-    public BranchDef<T, C> condition(Identifiable registeredCondition) {
-        return branchCondition.ref(registeredCondition);
-    }
-
-    @Override
     public BranchDef<T, C> conditionExpression(String expression) {
         return branchCondition.expression(expression);
     }
@@ -109,18 +103,8 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     }
 
     @Override
-    public BranchDef<T, C> condition(Identifiable conditionIdentifiable, Condition<T, C> condition) {
-        return branchCondition.instanceBased(conditionIdentifiable, condition);
-    }
-
-    @Override
     public BranchDef<T, C> condition(String id, Class<? extends Condition<T, C>> conditionClass) {
         return branchCondition.classBased(id, conditionClass);
-    }
-
-    @Override
-    public BranchDef<T, C> condition(Identifiable conditionIdentifiable, Class<? extends Condition<T, C>> conditionClass) {
-        return branchCondition.classBased(conditionIdentifiable, conditionClass);
     }
 
     @Override
@@ -129,18 +113,8 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     }
 
     @Override
-    public BranchDef<T, C> condition(Identifiable conditionIdentifiable, BiPredicate<T, C> predicate) {
-        return branchCondition.predicate(conditionIdentifiable, predicate);
-    }
-
-    @Override
     public BranchDef<T, C> condition(String id, Predicate<T> predicate) {
         return branchCondition.predicate(id, predicate);
-    }
-
-    @Override
-    public BranchDef<T, C> condition(Identifiable conditionIdentifiable, Predicate<T> predicate) {
-        return branchCondition.predicate(conditionIdentifiable, predicate);
     }
 
     @Override
@@ -149,18 +123,8 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     }
 
     @Override
-    public BranchDef<T, C> condition(Identifiable conditionIdentifiable, String expression) {
-        return branchCondition.expression(conditionIdentifiable, expression);
-    }
-
-    @Override
     public BranchDef<T, C> run(String id) {
         return members.run(id);
-    }
-
-    @Override
-    public BranchDef<T, C> run(Identifiable registeredAction) {
-        return members.run(registeredAction);
     }
 
     @Override
@@ -171,21 +135,6 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     @Override
     public BranchDef<T, C> run(String id, ContextMapper<C, ?> inlineMapper) {
         return members.run(id, inlineMapper);
-    }
-
-    @Override
-    public BranchDef<T, C> run(Identifiable registeredAction, Identifiable mapper) {
-        return members.run(registeredAction, mapper);
-    }
-
-    @Override
-    public BranchDef<T, C> run(Identifiable registeredAction, String mapperId) {
-        return members.run(registeredAction, mapperId);
-    }
-
-    @Override
-    public BranchDef<T, C> run(String id, Identifiable mapper) {
-        return members.run(id, mapper);
     }
 
     @Override
@@ -204,34 +153,8 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     }
 
     @Override
-    public BranchDef<T, C> fork(Identifiable registeredAction) {
-        return members.fork(registeredAction);
-    }
-
-    @Override
-    public BranchDef<T, C> fork(Identifiable registeredAction, Identifiable mapper) {
-        return members.fork(registeredAction, mapper);
-    }
-
-    @Override
-    public BranchDef<T, C> fork(Identifiable registeredAction, String mapperId) {
-        return members.fork(registeredAction, mapperId);
-    }
-
-    @Override
-    public BranchDef<T, C> fork(String id, Identifiable mapper) {
-        return members.fork(id, mapper);
-    }
-
-    @Override
     public BranchDef<T, C> conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer) {
         return members.conditional(id, configurer);
-    }
-
-    @Override
-    public BranchDef<T, C> conditional(Identifiable conditionalIdentifiable,
-                                     Consumer<ConditionalOperationDef<T, C>> configurer) {
-        return members.conditional(conditionalIdentifiable, configurer);
     }
 
     @Override
@@ -240,19 +163,8 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     }
 
     @Override
-    public BranchDef<T, C> operation(Identifiable operationIdentifiable,
-                                     Consumer<OperationDef<T, C>> configurer) {
-        return members.operation(operationIdentifiable, configurer);
-    }
-
-    @Override
     public BranchDef<T, C> step(String id, Action<T, C> step) {
         return members.step(id, step);
-    }
-
-    @Override
-    public BranchDef<T, C> step(Identifiable stepIdentifiable, Action<T, C> step) {
-        return members.step(stepIdentifiable, step);
     }
 
     @Override
@@ -261,17 +173,8 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     }
 
     @Override
-    public BranchDef<T, C> step(Identifiable stepIdentifiable, Class<? extends Action<T, C>> stepClass) {
-        return members.step(stepIdentifiable, stepClass);
-    }
-
-    @Override
     public BranchDef<T, C> step(String id, Consumer<StepDef<T, C>> configurer) {
         return members.step(id, configurer);
     }
 
-    @Override
-    public BranchDef<T, C> step(Identifiable stepIdentifiable, Consumer<StepDef<T, C>> configurer) {
-        return members.step(stepIdentifiable, configurer);
-    }
 }

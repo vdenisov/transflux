@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl
 
-import org.transflux.core.Identifiable
 import org.transflux.core.action.Action
 import org.transflux.core.action.ContextMapper
 import org.transflux.core.exception.TransfluxValidationException
@@ -122,26 +121,6 @@ class ActionSequenceSinkSpec extends Specification {
         'step'        | { target -> target.step('a', new NoopStep()) }
         'conditional' | { target -> target.conditional('a', { cond -> cond }) }
         'operation'   | { target -> target.operation('a', { op -> op }) }
-    }
-
-    def 'Identifiable overloads reject null before reaching the guard: #desc'() {
-        given:
-        def owner = openOwner()
-        def sink = new ActionSequenceSink<Object, Object, Object>(owner, owner)
-
-        when:
-        call(sink)
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message.contains(label)
-
-        where:
-        desc                  | label                   | call
-        'run(Identifiable)'   | 'Action identifiable'   | { target -> target.run((Identifiable) null) }
-        'fork(Identifiable)'  | 'Action identifiable'   | { target -> target.fork((Identifiable) null) }
-        'run(id, mapper)'     | 'Mapper identifiable'   | { target -> target.run('a', (Identifiable) null) }
-        'step(Identifiable)'  | 'Step identifiable'     | { target -> target.step((Identifiable) null, new NoopStep()) }
     }
 
     private static Owner openOwner() {

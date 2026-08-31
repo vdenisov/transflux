@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.Identifiable;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.ActionKind;
 import org.transflux.core.action.ConditionalOperationDef;
@@ -83,27 +82,6 @@ final class ActionSequenceSink<T, C, D> {
         return reference("run", id, inlineMapper, false);
     }
 
-    D run(Identifiable registeredAction) {
-        requireNotNull(registeredAction, "Action identifiable");
-        return run(registeredAction.getId());
-    }
-
-    D run(Identifiable registeredAction, Identifiable mapper) {
-        requireNotNull(registeredAction, "Action identifiable");
-        requireNotNull(mapper, "Mapper identifiable");
-        return run(registeredAction.getId(), mapper.getId());
-    }
-
-    D run(Identifiable registeredAction, String mapperId) {
-        requireNotNull(registeredAction, "Action identifiable");
-        return run(registeredAction.getId(), mapperId);
-    }
-
-    D run(String id, Identifiable mapper) {
-        requireNotNull(mapper, "Mapper identifiable");
-        return run(id, mapper.getId());
-    }
-
     D fork(String id) {
         return reference("fork", id, true);
     }
@@ -116,47 +94,16 @@ final class ActionSequenceSink<T, C, D> {
         return reference("fork", id, inlineMapper, true);
     }
 
-    D fork(Identifiable registeredAction) {
-        requireNotNull(registeredAction, "Action identifiable");
-        return fork(registeredAction.getId());
-    }
-
-    D fork(Identifiable registeredAction, Identifiable mapper) {
-        requireNotNull(registeredAction, "Action identifiable");
-        requireNotNull(mapper, "Mapper identifiable");
-        return fork(registeredAction.getId(), mapper.getId());
-    }
-
-    D fork(Identifiable registeredAction, String mapperId) {
-        requireNotNull(registeredAction, "Action identifiable");
-        return fork(registeredAction.getId(), mapperId);
-    }
-
-    D fork(String id, Identifiable mapper) {
-        requireNotNull(mapper, "Mapper identifiable");
-        return fork(id, mapper.getId());
-    }
-
     D step(String id, Action<T, C> action) {
         owner.requireConfigurerActive("step");
         members.add(new DeclaredMember<>(ActionRef.inline(id, action, ActionKind.STEP), false));
         return self;
     }
 
-    D step(Identifiable actionIdentifiable, Action<T, C> action) {
-        requireNotNull(actionIdentifiable, "Step identifiable");
-        return step(actionIdentifiable.getId(), action);
-    }
-
     D step(String id, Class<? extends Action<T, C>> actionClass) {
         owner.requireConfigurerActive("step");
         members.add(new DeclaredMember<>(ActionRef.inline(id, actionClass, ActionKind.STEP), false));
         return self;
-    }
-
-    D step(Identifiable actionIdentifiable, Class<? extends Action<T, C>> actionClass) {
-        requireNotNull(actionIdentifiable, "Step identifiable");
-        return step(actionIdentifiable.getId(), actionClass);
     }
 
     D step(String id, Consumer<StepDef<T, C>> configurer) {
@@ -167,11 +114,6 @@ final class ActionSequenceSink<T, C, D> {
         ConfigurableDefImpl.runConfigurer(def, configurer);
         members.add(new DeclaredMember<>(ActionRef.inline(id, def), false));
         return self;
-    }
-
-    D step(Identifiable actionIdentifiable, Consumer<StepDef<T, C>> configurer) {
-        requireNotNull(actionIdentifiable, "Step identifiable");
-        return step(actionIdentifiable.getId(), configurer);
     }
 
     D conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer) {
@@ -186,11 +128,6 @@ final class ActionSequenceSink<T, C, D> {
         return self;
     }
 
-    D conditional(Identifiable conditionalIdentifiable, Consumer<ConditionalOperationDef<T, C>> configurer) {
-        requireNotNull(conditionalIdentifiable, "Conditional identifiable");
-        return conditional(conditionalIdentifiable.getId(), configurer);
-    }
-
     D operation(String id, Consumer<OperationDef<T, C>> configurer) {
         owner.requireConfigurerActive("operation");
         requireNotBlank(id, "Operation ID");
@@ -201,11 +138,6 @@ final class ActionSequenceSink<T, C, D> {
         members.add(new DeclaredMember<>(ActionRef.operation(id, def), false));
 
         return self;
-    }
-
-    D operation(Identifiable operationIdentifiable, Consumer<OperationDef<T, C>> configurer) {
-        requireNotNull(operationIdentifiable, "Operation identifiable");
-        return operation(operationIdentifiable.getId(), configurer);
     }
 
     /**

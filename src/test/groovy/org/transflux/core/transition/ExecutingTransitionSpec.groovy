@@ -18,7 +18,6 @@
 
 package org.transflux.core.transition
 
-import org.transflux.core.Identifiable
 import org.transflux.core.StateMachine
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.impl.StateMachineDefImpl
@@ -203,78 +202,6 @@ class ExecutingTransitionSpec extends Specification {
         entity.trail == ['op:cm']
     }
 
-    def 'transition.run(Identifiable) dispatches the same as step(String)'() {
-        given:
-        def sm = build(
-            { smd -> smd.step('my-step', ParentCtx, new Action<Entity, ParentCtx>() {
-                @Override
-                void execute(Entity entity, ParentCtx context, ExecutingTransition<Entity, ParentCtx> transition) {
-                    entity.trail << ('step:' + context.input)
-                }
-            }) },
-            { t ->
-                t.step('outer', { entity, ctx, transition ->
-                    transition.run(id('my-step'))
-                } as Action<Entity, ParentCtx>)
-            })
-
-        when:
-        def result = sm.entity(new Entity('s1')).transitionTo('s2', new ParentCtx(input: 'foo'))
-
-        then:
-        result.success
-        result.entity.trail == ['step:foo']
-    }
-
-    def 'transition.run(Identifiable) dispatches the same as operation(String)'() {
-        given:
-        def sm = build(
-            { smd -> smd.step('my-op', ParentCtx, new Action<Entity, ParentCtx>() {
-                @Override
-                void execute(Entity entity, ParentCtx context, ExecutingTransition<Entity, ParentCtx> transition) {
-                    entity.trail << ('op:' + context.input)
-                }
-            }) },
-            { t ->
-                t.step('outer', { entity, ctx, transition ->
-                    transition.run(id('my-op'))
-                } as Action<Entity, ParentCtx>)
-            })
-
-        when:
-        def result = sm.entity(new Entity('s1')).transitionTo('s2', new ParentCtx(input: 'bar'))
-
-        then:
-        result.success
-        result.entity.trail == ['op:bar']
-    }
-
-    def 'all Transition Identifiable overloads fail the transition on null'() {
-        given:
-        def sm = build(
-            { smd -> },
-            { t ->
-                t.step('outer', { entity, ctx, transition ->
-                    action.call(transition)
-                } as Action<Entity, ParentCtx>)
-            })
-
-        when:
-        def result = sm.entity(new Entity('s1')).transitionTo('s2', new ParentCtx())
-
-        then:
-        !result.success
-        result.error instanceof TransfluxValidationException
-
-        where:
-        action << [
-            { Transition t -> t.run((Identifiable) null) },
-            { Transition t -> t.run((Identifiable) null, id('m')) },
-            { Transition t -> t.run((Identifiable) null, 'm') },
-            { Transition t -> t.run('a', (Identifiable) null) },
-        ]
-    }
-
     def 'transition.operation rejects unknown id'() {
         given:
         def sm = build(
@@ -295,6 +222,33 @@ class ExecutingTransitionSpec extends Specification {
         result.error.message.contains("'does-not-exist'")
     }
 
+    def 'every transition.run form fails the transition on a blank id'() {
+        given:
+        def sm = build(
+            { smd -> },
+            { t ->
+                t.step('outer', { entity, ctx, transition ->
+                    action.call(transition)
+                } as Action<Entity, ParentCtx>)
+            })
+
+        when:
+        def result = sm.entity(new Entity('s1')).transitionTo('s2', new ParentCtx())
+
+        then:
+        !result.success
+        result.error instanceof TransfluxValidationException
+
+        where:
+        action << [
+            { Transition t -> t.run((String) null) },
+            { Transition t -> t.run('  ') },
+            { Transition t -> t.run('  ', 'm') },
+            { Transition t -> t.run('a', (String) null) },
+            { Transition t -> t.run('a', (ContextMapper) null) },
+        ]
+    }
+
     private static StateMachine<Entity> build(Consumer<StateMachineDefImpl<Entity>> smdRegistrations,
                                               Consumer<TransitionDef<Entity, ParentCtx>> transitionConfigurer) {
         def smd = new StateMachineDefImpl<Entity>()
@@ -304,10 +258,6 @@ class ExecutingTransitionSpec extends Specification {
         smd.state('s1', { s -> s.transitionsTo('s2', 't', ParentCtx, transitionConfigurer) })
             .state('s2', {})
         return smd.build()
-    }
-
-    private static Identifiable id(String value) {
-        return { -> value } as Identifiable
     }
 
     static class Entity {

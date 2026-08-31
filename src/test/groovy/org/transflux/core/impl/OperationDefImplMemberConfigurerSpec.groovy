@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl
 
-import org.transflux.core.Identifiable
 import org.transflux.core.StateMachine
 import org.transflux.core.StateMachineDef
 import org.transflux.core.action.Action
@@ -73,9 +72,9 @@ class OperationDefImplMemberConfigurerSpec extends Specification {
         log == ['start', 'body']
 
         where:
-        position               | declare                                                   || expectedPath
-        'a container member'   | OperationDefImplMemberConfigurerSpec.&containerMember      || ['outer', 'outer/member']
-        'a branch member'      | OperationDefImplMemberConfigurerSpec.&branchMember         || ['outer', 'outer/pick', 'outer/pick/member']
+        position                  | declare                                                   || expectedPath
+        'a container member'      | OperationDefImplMemberConfigurerSpec.&containerMember     || ['outer', 'outer/member']
+        'a branch member'         | OperationDefImplMemberConfigurerSpec.&branchMember        || ['outer', 'outer/pick', 'outer/pick/member']
         'a default-branch member' | OperationDefImplMemberConfigurerSpec.&defaultBranchMember || ['outer', 'outer/pick', 'outer/pick/member']
     }
 
@@ -93,39 +92,6 @@ class OperationDefImplMemberConfigurerSpec extends Specification {
         def ref = def_.getActionRefs().first() as ActionRef.InlineDef
         ref.def().getName() == 'Member'
         ref.def().getDescription() == 'declared inline'
-    }
-
-    @Unroll
-    def 'the Identifiable sibling at #position delegates through getId()'() {
-        given:
-        def entity = new Entity('s1')
-        def sm = build({ d ->
-            d.state('s1', { st ->
-                st.transitionsTo('s2', 't', { t -> t.operation('outer', declare) } as Consumer)
-            } as Consumer)
-             .state('s2', {} as Consumer)
-        })
-
-        when:
-        def result = sm.entity(entity).transitionTo('s2')
-
-        then:
-        result.success
-        result.executedPath.last().leaf() == 'member'
-
-        where:
-        position             | declare
-        'a container member' | { OperationDef op ->
-                                   op.step(idOf('member'), { StepDef s -> s.using({ e, ctx, tr -> } as Action) } as Consumer)
-                               } as Consumer
-        'a branch member'    | { OperationDef op ->
-                                   op.conditional('pick', { ConditionalOperationDef c ->
-                                       c.branch('only', { BranchDef b ->
-                                           b.condition('always', { e -> true } as Predicate)
-                                            .step(idOf('member'), { StepDef s -> s.using({ e, ctx, tr -> } as Action) } as Consumer)
-                                       } as Consumer)
-                                   } as Consumer)
-                               } as Consumer
     }
 
     @Unroll
@@ -193,9 +159,6 @@ class OperationDefImplMemberConfigurerSpec extends Specification {
         } as Consumer)
     }
 
-    private static Identifiable idOf(String value) {
-        return { -> value } as Identifiable
-    }
 
     private static StateMachine<Entity> build(Consumer<StateMachineDef<Entity>> cfg) {
         def smd = new StateMachineDefImpl<Entity>()
