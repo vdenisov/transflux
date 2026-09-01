@@ -403,8 +403,8 @@ final class ActionSequenceSink<T, C, D> {
      * cannot tell.
      * <p>
      * {@code operationId} names the container whose context is at stake - the right anchor, since
-     * that is whose context the fork does or does not isolate, and whose {@code usingContext} the
-     * message advises declaring. {@code declaredIn} names the position the member was written at,
+     * that is whose context the fork does or does not isolate, and the one the message advises
+     * declaring a context on. {@code declaredIn} names the position the member was written at,
      * which is the same thing at a container position and a branch at a branch position.
      */
     private void checkForkBoundary(ActionRef<T, C> ref, Class<?> scopeContext,

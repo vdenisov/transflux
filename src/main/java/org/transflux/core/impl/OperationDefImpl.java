@@ -34,8 +34,6 @@ import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-import static org.transflux.core.Preconditions.requireNotNull;
-
 /**
  * Implementation of {@link OperationDef}.
  * <p>
@@ -117,20 +115,6 @@ final class OperationDefImpl<T, C>
     @Override
     public OperationDefImpl<T, C> operation(String id, Consumer<OperationDef<T, C>> configurer) {
         return members.operation(id, configurer);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> usingContext(Class<C> contextType) {
-        requireConfigurerActive("usingContext");
-        requireNotNull(contextType, "Context type");
-
-        if (redeclareContextType(contextType)) {
-            throw new TransfluxValidationException(
-                "OperationDef '" + getId() + "' usingContext already declared as "
-                    + contextType().getName() + "; cannot redeclare as " + contextType.getName());
-        }
-
-        return this;
     }
 
     /**

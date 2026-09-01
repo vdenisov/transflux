@@ -22,14 +22,13 @@ package org.transflux.core.action;
  * Bridges a nested operation's context type {@code N} with its enclosing parent's context
  * type {@code P}.
  * <p>
- * When a nested operation is declared with a narrower (or otherwise different) context type
- * via {@code .usingContext(Class<N>)} on its builder, the runtime crosses the parent-to-child
- * boundary by invoking {@link #mapTo(Object)} to produce the child's context, runs the nested
- * operation with that context, and — when the nested operation returns successfully — invokes
- * {@link #mapFrom(Object, Object)} so any results the child wrote into its own context can
- * flow back into the parent's. The default {@code mapFrom} is a no-op, making the
- * write-back side optional: a nested operation whose results need not propagate to the
- * parent can omit it.
+ * When a member is declared or referenced with a narrower (or otherwise different) context type
+ * than the sequence enclosing it, the runtime crosses the parent-to-child boundary by invoking
+ * {@link #mapTo(Object)} to produce the child's context, runs the member with that context, and —
+ * when the member returns successfully — invokes {@link #mapFrom(Object, Object)} so any results
+ * the child wrote into its own context can flow back into the parent's. The default
+ * {@code mapFrom} is a no-op, making the write-back side optional: a member whose results need
+ * not propagate to the parent can omit it.
  *
  * <p>Both mapper failures are attributed to the parent, since the boundary is the parent's:
  * a {@code mapTo} failure fails the parent at the nested action's position and the child never

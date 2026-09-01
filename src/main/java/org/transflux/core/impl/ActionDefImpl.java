@@ -73,7 +73,7 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      * supplied none - an action declared inline takes the enclosing position's, which is not known
      * until the scope-binding pass runs.
      */
-    private Class<C> declaredContextType;
+    private final Class<C> declaredContextType;
 
     /**
      * @param id the action id
@@ -121,23 +121,6 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
             return declaredContextType;
         }
         return (Class<C>) (inheritedContext != null ? inheritedContext : Object.class);
-    }
-
-    /**
-     * Overwrites the declared context. Exists only for {@code OperationDef.usingContext}, which
-     * cannot re-type the def and so can only ever restate what is already there.
-     *
-     * @param contextType the context to declare
-     *
-     * @return whether the value changed
-     */
-    final boolean redeclareContextType(Class<C> contextType) {
-        if (declaredContextType == contextType) {
-            return false;
-        }
-        boolean conflicting = declaredContextType != null;
-        declaredContextType = contextType;
-        return conflicting;
     }
 
     @Override

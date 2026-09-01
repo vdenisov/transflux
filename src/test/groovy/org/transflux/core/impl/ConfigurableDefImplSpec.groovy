@@ -21,6 +21,7 @@ package org.transflux.core.impl
 
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.Compensation
+import org.transflux.core.action.ContextMapper
 import org.transflux.core.action.NoMatchBehavior
 import org.transflux.core.action.Action
 import spock.lang.Specification
@@ -29,6 +30,7 @@ import spock.lang.Unroll
 class ConfigurableDefImplSpec extends Specification {
 
     static final Action<Object, Object> NOOP_OP = { e, c, t -> } as Action
+    static final ContextMapper<Object, Object> IDENTITY = { p -> p } as ContextMapper
     static final Action<Object, Object> NOOP_STEP = { e, c, t -> } as Action
     static final Compensation<Object, Object> NOOP_COMP = { e, c -> } as Compensation
 
@@ -142,7 +144,8 @@ class ConfigurableDefImplSpec extends Specification {
         'composite operation' | 'operation'          | { new OperationDefImpl<Object, Object>('op1') } | { it.run('o') }                     | "operation 'op1'"
         'composite operation' | 'fork'               | { new OperationDefImpl<Object, Object>('op1') } | { it.fork('f') }                          | "operation 'op1'"
         'composite operation' | 'conditional'        | { new OperationDefImpl<Object, Object>('op1') } | { it.conditional('cc', {}) }              | "operation 'op1'"
-        'composite operation' | 'usingContext'       | { new OperationDefImpl<Object, Object>('op1') } | { it.usingContext(Object) }               | "operation 'op1'"
+        'composite operation' | 'step(ctx)'          | { new OperationDefImpl<Object, Object>('op1') } | { it.step('s', Object, NOOP_OP) }         | "operation 'op1'"
+        'composite operation' | 'operation(ctx,map)' | { new OperationDefImpl<Object, Object>('op1') } | { it.operation('o', Object, IDENTITY, {}) } | "operation 'op1'"
         'composite operation' | 'withName'           | { new OperationDefImpl<Object, Object>('op1') } | { it.withName('n') }                      | "operation 'op1'"
         'composite operation' | 'withCompensation'   | { new OperationDefImpl<Object, Object>('op1') } | { it.withCompensation(NOOP_COMP) }        | "operation 'op1'"
         'composite operation' | 'forException'       | { new OperationDefImpl<Object, Object>('op1') } | { it.forException(RuntimeException) }     | "operation 'op1'"

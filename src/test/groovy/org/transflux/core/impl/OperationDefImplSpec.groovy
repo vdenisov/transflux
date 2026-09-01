@@ -322,44 +322,6 @@ class OperationDefImplSpec extends Specification {
         e.message.contains('CtorlessStep')
     }
 
-    def 'usingContext(SMContext) accepts when the supplied class matches the SM context type'() {
-        given:
-        def smd = new StateMachineDefImpl<CtxAssertEntity>()
-        smd.forEntityType(CtxAssertEntity)
-            .withStateResolver({ e -> e.state } as StateResolver<CtxAssertEntity>)
-            .state('s1', { s -> s.transitionsTo('s2', 't', { t ->
-                t.operation('outer', { OperationDef<CtxAssertEntity, CtxAssertCorrectCtx> c ->
-                    c.usingContext(CtxAssertCorrectCtx).step('s1', new CtxAssertNoopStep())
-                })
-            }) })
-            .state('s2', {})
-
-        when:
-        def sm = smd.build()
-
-        then:
-        sm != null
-    }
-
-    def 'usingContext is a no-op when the SM did not declare a context type'() {
-        given:
-        def smd = new StateMachineDefImpl<CtxAssertEntity>()
-        smd.forEntityType(CtxAssertEntity)
-            .withStateResolver({ e -> e.state } as StateResolver<CtxAssertEntity>)
-            .state('s1', { s -> s.transitionsTo('s2', 't', { t ->
-                t.operation('outer', { OperationDef<CtxAssertEntity, CtxAssertCorrectCtx> c ->
-                    c.usingContext(CtxAssertCorrectCtx).step('s1', new CtxAssertNoopStep())
-                })
-            }) })
-            .state('s2', {})
-
-        when:
-        def sm = smd.build()
-
-        then:
-        sm != null
-    }
-
     def 'mapTo failure surfaces as parent member failure — nested op never starts'() {
         given:
         def sm = buildNestedFail(

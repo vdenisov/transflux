@@ -43,17 +43,6 @@ import java.util.function.Consumer;
 public interface OperationDef<T, C> extends ActionDef<T, C>,
                                           ActionSequence<T, C, OperationDef<T, C>> {
 
-    /**
-     * Declares the context type this operation's members run against.
-     *
-     * @param contextType the context class
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code contextType} is {@code null}
-     */
-    OperationDef<T, C> usingContext(Class<C> contextType);
-
     @Override
     OperationDef<T, C> withName(String name);
 
