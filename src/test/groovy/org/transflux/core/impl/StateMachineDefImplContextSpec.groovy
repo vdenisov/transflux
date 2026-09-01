@@ -388,6 +388,26 @@ class StateMachineDefImplContextSpec extends Specification {
         noExceptionThrown()
     }
 
+    def 'a duplicate inline id is reported as a duplicate, not as a context mismatch'() {
+        given: 'the context pass runs before ids are claimed, so it must say nothing about a clash'
+        def smd = new StateMachineDefImpl<Entity>()
+        smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+            .state('s1', { s -> s.transitionsTo('s2', 't', {}) })
+            .state('s2', {})
+        smd.operation('a', CtxA, { OperationDef<Entity, CtxA> op -> op.step('dup', new StepA()).run('dup') })
+        smd.operation('b', CtxB, { OperationDef<Entity, CtxB> op -> op.step('dup', new StepB()) })
+
+        when:
+        smd.build()
+
+        then: "blaming 'a' for the context of 'b' would hide the fault and misname the culprit"
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("'dup'")
+        e.message.contains('already registered')
+        !e.message.contains('Context type mismatch')
+    }
+
     def 'legacy (untagged) registrations skip the context-compatibility check'() {
         given:
         def smd = new StateMachineDefImpl<Entity>()

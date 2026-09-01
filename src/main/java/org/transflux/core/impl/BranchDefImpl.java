@@ -77,9 +77,9 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
         members.collectMemberContexts(scopeContext, sink);
     }
 
-    void checkRefs(Class<?> scopeContext, String ownerLabel, String enclosingOperationId,
+    void checkRefs(Class<?> scopeContext, String ownerLabel, String contextOwner,
                    StateMachineDefImpl<T> smDef) {
-        members.checkRefs(scopeContext, ownerLabel, enclosingOperationId, smDef);
+        members.checkRefs(scopeContext, ownerLabel, contextOwner, smDef);
     }
 
     void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {

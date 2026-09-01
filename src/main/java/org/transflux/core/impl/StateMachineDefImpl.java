@@ -1513,20 +1513,28 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * every declaration has been seen. The two roots are the same ones {@link #checkRefs} walks -
      * an action attached to a transition, and one registered at state-machine level - and each
      * seeds the walk with the context that position runs against.
+     *
+     * <p>Two declarations may still claim one id here: this pass runs before ids are claimed, so a
+     * duplicate is possible and is a definition error in its own right. Recording {@code Object}
+     * for it makes the context check say nothing about that id, so the duplicate is reported as a
+     * duplicate rather than surfacing as a context mismatch blaming whichever declaration the walk
+     * happened to reach second.
      */
     private void collectInlineMemberContexts() {
         inlineMemberContextTypes.clear();
 
+        BiConsumer<String, Class<?>> sink = (id, context) -> inlineMemberContextTypes.merge(
+            id, context, (existing, incoming) -> existing == incoming ? existing : Object.class);
+
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             ActionDefImpl<T, ?, ?> op = td.getActionDef();
             if (op != null) {
-                op.collectMemberContexts(td.getContextType(), inlineMemberContextTypes::put);
+                op.collectMemberContexts(td.getContextType(), sink);
             }
         }
 
         for (Map.Entry<String, ActionDefImpl<T, ?, ?>> e : smCompositeOperations.entrySet()) {
-            e.getValue().collectMemberContexts(componentContextTypes.get(e.getKey()),
-                                               inlineMemberContextTypes::put);
+            e.getValue().collectMemberContexts(componentContextTypes.get(e.getKey()), sink);
         }
     }
 
@@ -1579,13 +1587,16 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             Class<?> transitionContext = td.getContextType();
             ActionDefImpl<T, ?, ?> op = td.getActionDef();
             if (op != null) {
-                op.checkRefs(transitionContext, attachedActionLabel(td, op), this);
+                // An attached action names no context, so the transition is what declares one.
+                op.checkRefs(transitionContext, attachedActionLabel(td, op),
+                             "transition '" + td.getId() + "'", this);
             }
             checkConditionRefs(td);
         }
         for (Map.Entry<String, ActionDefImpl<T, ?, ?>> e : smCompositeOperations.entrySet()) {
             Class<?> scopeContext = componentContextTypes.get(e.getKey());
-            e.getValue().checkRefs(scopeContext, smLevelLabel(e.getValue()), this);
+            e.getValue().checkRefs(scopeContext, smLevelLabel(e.getValue()),
+                                   smLevelLabel(e.getValue()), this);
         }
         detectCompositeCycles();
     }

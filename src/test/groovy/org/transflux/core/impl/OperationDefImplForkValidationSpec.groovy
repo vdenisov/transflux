@@ -45,6 +45,12 @@ class OperationDefImplForkValidationSpec extends Specification {
 
     static class PlainCtx {}
 
+    static class PlainAction implements Action<Entity, PlainCtx> {
+        @Override
+        void execute(Entity e, PlainCtx ctx, ExecutingTransition<Entity, PlainCtx> t) {
+        }
+    }
+
     static class ForkableCtx implements ForkableContext<ForkableCtx> {
         @Override
         ForkableCtx fork() { return new ForkableCtx() }
@@ -88,14 +94,14 @@ class OperationDefImplForkValidationSpec extends Specification {
         noExceptionThrown()
     }
 
-    def 'a forked member on a non-forkable context warns, naming the operation, action and type'() {
+    def 'a forked member on a non-forkable context warns, naming the context owner, action and type'() {
         when:
         def messages = buildCapturingValidation(PlainCtx, { smd -> }, { op -> op.fork('send') })
 
-        then:
+        then: 'an attached container declares no context, so the transition is what owns one'
         def warning = messages.find { it.contains('Forked member shares the enclosing context') }
         warning != null
-        warning.contains('operationId=op')
+        warning.contains("contextOwner=transition 't'")
         warning.contains('actionId=send')
         warning.contains(PlainCtx.name)
     }
@@ -107,7 +113,7 @@ class OperationDefImplForkValidationSpec extends Specification {
         then:
         def warning = messages.find { it.contains('forkability cannot be checked') }
         warning != null
-        warning.contains('operationId=op')
+        warning.contains("contextOwner=transition 't'")
         warning.contains('actionId=send')
     }
 
@@ -179,10 +185,10 @@ class OperationDefImplForkValidationSpec extends Specification {
             } as Consumer)
         })
 
-        then: 'operationId still names whose context is shared; declaredIn locates the position'
+        then: 'contextOwner names who declared the shared context; declaredIn locates the position'
         def warning = messages.find { it.contains('Forked member shares the enclosing context') }
         warning != null
-        warning.contains('operationId=op')
+        warning.contains("contextOwner=transition 't'")
         warning.contains("declaredIn=transition 't' > operation 'op' > conditional operation 'route'"
                              + " > branch 'critical'")
         warning.contains('actionId=send')
@@ -204,6 +210,67 @@ class OperationDefImplForkValidationSpec extends Specification {
         warning != null
         warning.contains("declaredIn=transition 't' > operation 'op' > conditional operation 'route'"
                              + " > default branch")
+    }
+
+    def "a conditional declaring its own context owns it, and the warning names the conditional"() {
+        when: "the branches run against the conditional's context, not the transition's"
+        def messages = buildCapturingValidation(ForkableCtx, { smd ->
+            smd.step('narrow', PlainCtx, new PlainAction())
+        }, { op ->
+            op.conditional('route', PlainCtx, { p -> new PlainCtx() } as ContextMapper, { cs ->
+                cs.branch('critical', { b ->
+                    b.condition('always', { e -> true } as Predicate).fork('narrow')
+                } as Consumer)
+            } as Consumer)
+        })
+
+        then: 'the transition declared a forkable context, so blaming it would be useless advice'
+        def warning = messages.find { it.contains('Forked member shares the enclosing context') }
+        warning != null
+        warning.contains("contextOwner=transition 't' > operation 'op' > conditional operation 'route'")
+        warning.contains('actionId=narrow')
+        warning.contains(PlainCtx.name)
+    }
+
+    def 'a nested container declaring its own context owns it'() {
+        when:
+        def messages = buildCapturingValidation(ForkableCtx, { smd ->
+            smd.step('narrow', PlainCtx, new PlainAction())
+        }, { op ->
+            op.operation('inner', PlainCtx, { p -> new PlainCtx() } as ContextMapper, { n ->
+                n.fork('narrow')
+            } as Consumer)
+        })
+
+        then:
+        def warning = messages.find { it.contains('Forked member shares the enclosing context') }
+        warning != null
+        warning.contains("contextOwner=transition 't' > operation 'op' > operation 'inner'")
+    }
+
+    def 'a nested container restating the enclosing context still owns it'() {
+        when: 'it named the context its members run against, so it is the nearest place to change'
+        def messages = buildCapturingValidation(PlainCtx, { smd -> }, { op ->
+            op.operation('inner', PlainCtx, { n -> n.fork('send') } as Consumer)
+        })
+
+        then: 'blaming the transition would tell the author to do what they already did on inner'
+        def warning = messages.find { it.contains('Forked member shares the enclosing context') }
+        warning != null
+        warning.contains("contextOwner=transition 't' > operation 'op' > operation 'inner'")
+    }
+
+    def 'a nested container declaring Object does not take ownership'() {
+        when: 'it runs pass-through, so its members are handed the enclosing context after all'
+        def messages = buildCapturingValidation(PlainCtx, { smd -> }, { op ->
+            op.operation('inner', Object, { n -> n.fork('send') } as Consumer)
+        })
+
+        then:
+        def warning = messages.find { it.contains('Forked member shares the enclosing context') }
+        warning != null
+        warning.contains("contextOwner=transition 't'")
+        !warning.contains("contextOwner=transition 't' > ")
     }
 
     private static void build(Class ctxType, Closure registrations, Closure members) {

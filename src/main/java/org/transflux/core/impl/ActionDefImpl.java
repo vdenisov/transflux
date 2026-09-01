@@ -257,9 +257,13 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      * @param scopeContext the call site's enclosing context type
      * @param scopeLabel a human-readable label for the call site (e.g. {@code "transition 't1'"}),
      *                   used in error messages
+     * @param contextOwner names the position {@code scopeContext} was declared on, which is not
+     *                     always the call site: a member that declares no context of its own is
+     *                     handed the enclosing one, so the position to fix is further out
      * @param smDef the state-machine def whose registries the check consults
      */
-    abstract void checkRefs(Class<?> scopeContext, String scopeLabel, StateMachineDefImpl<T> smDef);
+    abstract void checkRefs(Class<?> scopeContext, String scopeLabel, String contextOwner,
+                            StateMachineDefImpl<T> smDef);
 
     /**
      * Build-time hook: resolves every member this action declares - its own, and those inside any

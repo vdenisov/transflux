@@ -306,11 +306,12 @@ final class ActionSequenceSink<T, C, D> {
      *
      * @param scopeContext the enclosing context type; {@code null} is read as {@code Object}
      * @param scopeLabel names this sequence in a rejection message
-     * @param enclosingOperationId the id of the container whose context the members run against -
-     *                             the same one at a branch position, since a branch never re-types
+     * @param contextOwner names the position whose context the members run against, which is not
+     *                     always this sequence: a declaration that names no context of its own
+     *                     inherits the enclosing one, and so does every branch of a conditional
      * @param smDef the state-machine def whose component registrations the check consults
      */
-    void checkRefs(Class<?> scopeContext, String scopeLabel, String enclosingOperationId,
+    void checkRefs(Class<?> scopeContext, String scopeLabel, String contextOwner,
                    StateMachineDefImpl<T> smDef) {
         Class<?> effectiveScope = scopeContext != null ? scopeContext : Object.class;
 
@@ -322,20 +323,25 @@ final class ActionSequenceSink<T, C, D> {
                     byId.id(), componentCtx, smDef.getMapperRegistrations());
             } else if (ref instanceof ActionRef.Conditional<T, C> conditional) {
                 Class<?> own = memberContext(ref, conditional.def(), effectiveScope, scopeLabel);
-                conditional.def().checkRefs(own,
-                                            scopeLabel + " > " + conditional.def().defLabel(),
-                                            enclosingOperationId, smDef);
+                String label = scopeLabel + " > " + conditional.def().defLabel();
+                conditional.def().checkRefs(own, label,
+                                            ownerBeneath(ref.declaredContext(), own, contextOwner,
+                                                         label),
+                                            smDef);
             } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
                 Class<?> own = memberContext(ref, nested.def(), effectiveScope, scopeLabel);
-                nested.def().checkRefs(own,
-                                       scopeLabel + " > " + nested.def().defLabel(), smDef);
+                String label = scopeLabel + " > " + nested.def().defLabel();
+                nested.def().checkRefs(own, label,
+                                       ownerBeneath(ref.declaredContext(), own, contextOwner,
+                                                    label),
+                                       smDef);
             } else if (ref instanceof ActionRef.InlineDef<T, C> step) {
                 // A step owns no members, so the boundary is all there is to check.
                 memberContext(ref, step.def(), effectiveScope, scopeLabel);
             }
 
             if (member.forked()) {
-                checkForkBoundary(ref, effectiveScope, enclosingOperationId, scopeLabel);
+                checkForkBoundary(ref, effectiveScope, contextOwner, scopeLabel);
             }
         }
     }
@@ -398,17 +404,33 @@ final class ActionSequenceSink<T, C, D> {
     }
 
     /**
+     * Reports the position a nested declaration's members should blame for their context: itself
+     * when it named the context they actually run against, otherwise whoever the enclosing
+     * sequence was already blaming.
+     * <p>
+     * The test is {@code declared == own} rather than "did it declare anything", because the two
+     * differ for a declaration that names {@link Object} and runs pass-through: it named a context,
+     * but its members are handed the enclosing one, so the enclosing position is still what a host
+     * would have to change. Restating the enclosing type is the opposite case - the declaration is
+     * the nearest place the context is written, so it is the one to name.
+     */
+    private static String ownerBeneath(Class<?> declared, Class<?> own, String contextOwner,
+                                       String ownLabel) {
+        return declared == own ? ownLabel : contextOwner;
+    }
+
+    /**
      * Warns when a forked member would share the context it was declared against. Nothing is
      * rejected: a shared context may be exactly what the author intended, and the framework
      * cannot tell.
      * <p>
-     * {@code operationId} names the container whose context is at stake - the right anchor, since
-     * that is whose context the fork does or does not isolate, and the one the message advises
-     * declaring a context on. {@code declaredIn} names the position the member was written at,
-     * which is the same thing at a container position and a branch at a branch position.
+     * {@code contextOwner} names the position that declared the context at stake, which is what
+     * the advice is actionable against - it is not necessarily where the member was written, since
+     * a conditional's branches, and any declaration naming no context, inherit one from further
+     * out. {@code declaredIn} names the position the member was written at.
      */
     private void checkForkBoundary(ActionRef<T, C> ref, Class<?> scopeContext,
-                                   String enclosingOperationId, String declaredIn) {
+                                   String contextOwner, String declaredIn) {
         // A mapper produces the branch's own context, so there is nothing left to share.
         if (!(ref.mapperRef() instanceof MapperRef.PassThrough)
                 || scopeContext == Void.class
@@ -419,17 +441,17 @@ final class ActionSequenceSink<T, C, D> {
         if (scopeContext == Object.class) {
             Loggers.BUILD_VALIDATION.warn(
                 "Forked member may share the enclosing context; no context type is declared where"
-                    + " it runs, so forkability cannot be checked - declare one on the enclosing"
-                    + " position, implement ForkableContext, or map at the call site,"
-                    + " operationId={}, declaredIn={}, actionId={}",
-                enclosingOperationId, declaredIn, ref.id());
+                    + " it runs, so forkability cannot be checked - declare one on the position"
+                    + " that owns it, implement ForkableContext, or map at the call site,"
+                    + " contextOwner={}, declaredIn={}, actionId={}",
+                contextOwner, declaredIn, ref.id());
             return;
         }
 
         Loggers.BUILD_VALIDATION.warn(
             "Forked member shares the enclosing context; implement ForkableContext or map at the"
-                + " call site, operationId={}, declaredIn={}, actionId={}, contextType={}",
-            enclosingOperationId, declaredIn, ref.id(), scopeContext.getName());
+                + " call site, contextOwner={}, declaredIn={}, actionId={}, contextType={}",
+            contextOwner, declaredIn, ref.id(), scopeContext.getName());
     }
 
     /**

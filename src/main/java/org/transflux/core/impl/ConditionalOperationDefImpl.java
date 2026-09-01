@@ -197,21 +197,24 @@ final class ConditionalOperationDefImpl<T, C>
      * @param scopeContext the enclosing operation's context type
      * @param ownLabel this conditional's own full position label; each branch label extends it,
      *                 so a message locates the branch rather than only naming it
-     * @param enclosingOperationId the id of the operation that declared this conditional
+     * @param contextOwner names the position the branches' context was declared on - this
+     *                     conditional when it named one, otherwise whatever encloses it, since a
+     *                     branch never re-types
      * @param smDef the state-machine def whose component registrations the check consults
      */
-    void checkRefs(Class<?> scopeContext, String ownLabel, String enclosingOperationId,
+    @Override
+    void checkRefs(Class<?> scopeContext, String ownLabel, String contextOwner,
                    StateMachineDefImpl<T> smDef) {
         Class<?> effectiveScope = scopeContext != null ? scopeContext : Object.class;
 
         for (BranchDefImpl<T, C> branch : branches) {
             branch.checkRefs(effectiveScope,
                              branchLabel(ownLabel, "branch '" + branch.getBranchId() + "'"),
-                             enclosingOperationId, smDef);
+                             contextOwner, smDef);
         }
         if (defaultBranch != null) {
             defaultBranch.checkRefs(effectiveScope, branchLabel(ownLabel, "default branch"),
-                                    enclosingOperationId, smDef);
+                                    contextOwner, smDef);
         }
     }
 
@@ -418,12 +421,6 @@ final class ConditionalOperationDefImpl<T, C>
 
         collectInlineRegistrations(
             new InlineRegistrationSink<>(scope, canonical, tagged, conditionRegistry));
-    }
-
-    @Override
-    void checkRefs(Class<?> scopeContext, String scopeLabel, StateMachineDefImpl<T> smDef) {
-        // At a root position this conditional is itself the enclosing one.
-        checkRefs(scopeContext, scopeLabel, getId(), smDef);
     }
 
     @Override

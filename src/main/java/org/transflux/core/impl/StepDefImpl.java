@@ -101,7 +101,8 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
     }
 
     @Override
-    void checkRefs(Class<?> scopeContext, String scopeLabel, StateMachineDefImpl<T> smDef) {
+    void checkRefs(Class<?> scopeContext, String scopeLabel, String contextOwner,
+                   StateMachineDefImpl<T> smDef) {
         // An imperative action declares no members, so there is nothing to check.
     }
 

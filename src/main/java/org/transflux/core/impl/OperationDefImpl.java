@@ -223,8 +223,9 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
-    void checkRefs(Class<?> scopeContext, String scopeLabel, StateMachineDefImpl<T> smDef) {
-        members.checkRefs(scopeContext, scopeLabel, getId(), smDef);
+    void checkRefs(Class<?> scopeContext, String scopeLabel, String contextOwner,
+                   StateMachineDefImpl<T> smDef) {
+        members.checkRefs(scopeContext, scopeLabel, contextOwner, smDef);
     }
 
     /**
