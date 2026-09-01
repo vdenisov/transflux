@@ -54,6 +54,40 @@ class JavaDslSurfaceSpec extends Specification {
         sm.close()
     }
 
+    def 'every shape for declaring a context at the declaration site builds and runs'() {
+        given:
+        def sm = JavaDslSurface.declaredContextShapes()
+        def order = new JavaDslSurface.Order()
+        def ctx = new JavaDslSurface.OrderCtx()
+
+        when:
+        def result = sm.entity(order).transitionTo('s2', ctx)
+
+        then:
+        result.success
+
+        and: 'a pass-through declaration widens, so the member receives the enclosing context itself'
+        order.trail.count { it == 'pt:o-1' } == 1
+        order.trail.count { it == 'widened:o-1' } == 2
+        order.trail.contains('pt-op:o-1')
+        order.trail.contains('pt-cond:o-1')
+
+        and: 'a mapped declaration runs against the context its own mapper produced'
+        order.trail.count { it == 'notify:o-1' } == 3
+        order.trail.contains('mapped-op:o-1')
+        order.trail.contains('mapped-cond:o-1')
+
+        and: "mapFrom writes back once the member completes, as at a mapped by-id call site"
+        ctx.receipt == 'r-1'
+
+        and: 'a declared context changes nothing about the reported path'
+        result.executedPath*.toString().contains('op/mapped-op/mapped-op-step')
+        result.executedPath*.toString().contains('op/mapped-cond/mapped-cond-step')
+
+        cleanup:
+        sm.close()
+    }
+
     def 'a conditional registered at SM level builds and runs, in both registration forms'() {
         given:
         def sm = JavaDslSurface.registeredConditional()

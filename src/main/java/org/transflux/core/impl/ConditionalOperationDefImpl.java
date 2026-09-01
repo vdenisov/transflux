@@ -366,6 +366,17 @@ final class ConditionalOperationDefImpl<T, C>
     }
 
     @Override
+    void collectMemberContexts(Class<?> scopeContext, BiConsumer<String, Class<?>> sink) {
+        Class<?> effectiveScope = scopeContext != null ? scopeContext : Object.class;
+        for (BranchDefImpl<T, C> branch : branches) {
+            branch.collectMemberContexts(effectiveScope, sink);
+        }
+        if (defaultBranch != null) {
+            defaultBranch.collectMemberContexts(effectiveScope, sink);
+        }
+    }
+
+    @Override
     void bindScope(RegistryImpl<T> rootRegistry,
                    Map<String, Object> canonical,
                    Map<String, BoundCondition<T, ?>> conditionRegistry,

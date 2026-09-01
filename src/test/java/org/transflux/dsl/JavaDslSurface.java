@@ -22,6 +22,7 @@ import org.transflux.core.StateMachine;
 import org.transflux.core.Transflux;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.Compensation;
+import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.ForkRejectionPolicy;
 import org.transflux.core.action.ForkableContext;
 import org.transflux.core.transition.ExecutingTransition;
@@ -58,10 +59,21 @@ public final class JavaDslSurface {
         public final List<String> trail = new ArrayList<>();
     }
 
+    /** A supertype of the transition's context, so a pass-through declaration has room to widen. */
+    public interface HasOrderId {
+        String orderId();
+    }
+
     /** A context that can copy itself, so the fork boundary has something to fork. */
-    public static final class OrderCtx implements ForkableContext<OrderCtx> {
+    public static final class OrderCtx implements ForkableContext<OrderCtx>, HasOrderId {
         public String orderId = "o-1";
         public String customerId = "c-1";
+        public String receipt;
+
+        @Override
+        public String orderId() {
+            return orderId;
+        }
 
         @Override
         public OrderCtx fork() {
@@ -75,9 +87,38 @@ public final class JavaDslSurface {
     /** What a mapper produces at a boundary. */
     public static final class NotifyCtx {
         public final String orderId;
+        public String receipt;
 
         public NotifyCtx(String orderId) {
             this.orderId = orderId;
+        }
+    }
+
+    /** An action that ignores its context, so it can be declared against a widened one. */
+    public static final class IgnoresContext implements Action<Order, HasOrderId> {
+        @Override
+        public void execute(Order order, HasOrderId ctx, ExecutingTransition<Order, HasOrderId> t) {
+            order.trail.add("widened:" + ctx.orderId());
+        }
+    }
+
+    /**
+     * A mapper with a real {@code mapFrom}, so the write-back at a mapped boundary is observable.
+     * <p>
+     * It writes back only what the child produced. Every mapped member gets its own {@code mapFrom}
+     * call, so an unconditional write would have each boundary clobber the one before it.
+     */
+    public static final class NotifyFromOrder implements ContextMapper<OrderCtx, NotifyCtx> {
+        @Override
+        public NotifyCtx mapTo(OrderCtx parent) {
+            return new NotifyCtx(parent.orderId);
+        }
+
+        @Override
+        public void mapFrom(OrderCtx parent, NotifyCtx child) {
+            if (child.receipt != null) {
+                parent.receipt = child.receipt;
+            }
         }
     }
 
@@ -285,6 +326,58 @@ public final class JavaDslSurface {
                             .defaultBranch(d -> d
                                 .operation("in-default", inner -> inner
                                     .step("in-default-step", (order, ctx, view) -> order.trail.add("in-default"))))))))
+            .state("s2", s -> { })
+            .build();
+    }
+
+
+    /**
+     * Every shape for declaring a context where the action is declared: the pass-through form that
+     * widens, and the mapped form that reaches a context the enclosing one cannot widen to. Each of
+     * the three declaration verbs, in each of its authoring forms.
+     *
+     * @return the built state machine
+     */
+    public static StateMachine<Order> declaredContextShapes() {
+        return Transflux.<Order>defineStateMachine()
+            .forEntityType(Order.class)
+            .withStateResolver(o -> o.state)
+            .withStateApplier((o, s) -> o.state = s)
+            .state("s1", s -> s
+                .transitionsTo("s2", "t", OrderCtx.class, t -> t
+                    .operation("op", c -> c
+                        // pass-through: the declared context widens, so nothing maps
+                        .step("pt-instance", HasOrderId.class,
+                              (order, ctx, view) -> order.trail.add("pt:" + ctx.orderId()))
+                        .step("pt-class", HasOrderId.class, IgnoresContext.class)
+                        .step("pt-configured", HasOrderId.class,
+                              st -> st.using(IgnoresContext.class).withName("Widened"))
+                        .operation("pt-op", HasOrderId.class, inner -> inner
+                            .step("pt-op-step",
+                                  (order, ctx, view) -> order.trail.add("pt-op:" + ctx.orderId())))
+                        .conditional("pt-cond", HasOrderId.class, cond -> cond
+                            .branch("pt-taken", b -> b
+                                .condition("pt-always", (order, ctx) -> true)
+                                .step("pt-cond-step",
+                                      (order, ctx, view) -> order.trail.add("pt-cond:" + ctx.orderId()))))
+
+                        // mapped: the declared context is produced from the enclosing one
+                        .step("mapped-instance", NotifyCtx.class, new NotifyFromOrder(),
+                              new NotifyAction())
+                        .step("mapped-class", NotifyCtx.class, new NotifyFromOrder(),
+                              NotifyAction.class)
+                        .step("mapped-configured", NotifyCtx.class, new NotifyFromOrder(),
+                              st -> st.using(NotifyAction.class).withName("Mapped"))
+                        .operation("mapped-op", NotifyCtx.class, new NotifyFromOrder(), inner -> inner
+                            .step("mapped-op-step", (order, ctx, view) -> {
+                                order.trail.add("mapped-op:" + ctx.orderId);
+                                ctx.receipt = "r-1";
+                            }))
+                        .conditional("mapped-cond", NotifyCtx.class, new NotifyFromOrder(), cond -> cond
+                            .branch("mapped-taken", b -> b
+                                .condition("mapped-always", (order, ctx) -> true)
+                                .step("mapped-cond-step",
+                                      (order, ctx, view) -> order.trail.add("mapped-cond:" + ctx.orderId)))))))
             .state("s2", s -> { })
             .build();
     }

@@ -116,6 +116,22 @@ final class ActionSequenceSink<T, C, D> {
         return self;
     }
 
+    <N> D step(String id, Class<N> contextType, MapperRef mapperRef, Action<T, N> action) {
+        return typedStep(id, contextType, mapperRef, def -> def.using(action));
+    }
+
+    <N> D step(String id, Class<N> contextType, MapperRef mapperRef,
+               Class<? extends Action<T, N>> actionClass) {
+        requireNotNull(actionClass, "Step class");
+        return typedStep(id, contextType, mapperRef, def -> def.using(actionClass));
+    }
+
+    <N> D step(String id, Class<N> contextType, MapperRef mapperRef,
+               Consumer<StepDef<T, N>> configurer) {
+        requireNotNull(configurer, "Step configurer");
+        return typedStep(id, contextType, mapperRef, configurer);
+    }
+
     D conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer) {
         owner.requireConfigurerActive("conditional");
         requireNotBlank(id, "Conditional operation ID");
@@ -124,6 +140,20 @@ final class ActionSequenceSink<T, C, D> {
         ConditionalOperationDefImpl<T, C> def = new ConditionalOperationDefImpl<>(id);
         ConfigurableDefImpl.runConfigurer(def, configurer);
         members.add(new DeclaredMember<>(ActionRef.conditional(id, def), false));
+
+        return self;
+    }
+
+    <N> D conditional(String id, Class<N> contextType, MapperRef mapperRef,
+                      Consumer<ConditionalOperationDef<T, N>> configurer) {
+        owner.requireConfigurerActive("conditional");
+        requireNotBlank(id, "Conditional operation ID");
+        requireNotNull(contextType, "Conditional context type");
+        requireNotNull(configurer, "Conditional configurer");
+
+        ConditionalOperationDefImpl<T, N> def = new ConditionalOperationDefImpl<>(id, contextType);
+        ConfigurableDefImpl.runConfigurer(def, configurer);
+        members.add(new DeclaredMember<>(ActionRef.conditional(id, erase(def), mapperRef), false));
 
         return self;
     }
@@ -138,6 +168,47 @@ final class ActionSequenceSink<T, C, D> {
         members.add(new DeclaredMember<>(ActionRef.operation(id, def), false));
 
         return self;
+    }
+
+    <N> D operation(String id, Class<N> contextType, MapperRef mapperRef,
+                    Consumer<OperationDef<T, N>> configurer) {
+        owner.requireConfigurerActive("operation");
+        requireNotBlank(id, "Operation ID");
+        requireNotNull(contextType, "Operation context type");
+        requireNotNull(configurer, "Operation configurer");
+
+        OperationDefImpl<T, N> def = new OperationDefImpl<>(id, contextType);
+        ConfigurableDefImpl.runConfigurer(def, configurer);
+        members.add(new DeclaredMember<>(ActionRef.operation(id, erase(def), mapperRef), false));
+
+        return self;
+    }
+
+    private <N> D typedStep(String id, Class<N> contextType, MapperRef mapperRef,
+                            Consumer<StepDef<T, N>> configurer) {
+        owner.requireConfigurerActive("step");
+        requireNotBlank(id, "Step ID");
+        requireNotNull(contextType, "Step context type");
+
+        StepDefImpl<T, N> def = new StepDefImpl<>(id, contextType);
+        ConfigurableDefImpl.runConfigurer(def, configurer);
+        members.add(new DeclaredMember<>(ActionRef.inline(id, erase(def), mapperRef), false));
+
+        return self;
+    }
+
+    /**
+     * Retypes a def declared against its own context so it can sit in this sequence's member list.
+     * <p>
+     * The member list is typed against the enclosing {@code C}, but a member that declares a
+     * context runs against that one instead - the same situation a by-id reference to a component
+     * with a different context is already in, and resolved the same way: the
+     * {@link ResolvedContextMapping} bridges the two at dispatch, and the cast is confined to the
+     * declaration site.
+     */
+    @SuppressWarnings("unchecked")
+    private static <T, C, N, X extends ActionDefImpl<T, ?, ?>> X erase(ActionDefImpl<T, N, ?> def) {
+        return (X) def;
     }
 
     /**
@@ -193,6 +264,42 @@ final class ActionSequenceSink<T, C, D> {
     }
 
     /**
+     * Records the context each inline declaration in this sequence runs against, descending into
+     * the two forms that hold members of their own.
+     * <p>
+     * A declaration that names a context reports that one, {@code Object} included - an action
+     * written against {@code Object} ignores the context, so a reference to it passes through from
+     * any caller, which is the rule registered components already follow. One that names none
+     * reports the enclosing sequence's, which is what it will actually be handed.
+     *
+     * @param scopeContext the context this sequence's members run against; {@code null} is read as
+     *                     {@code Object}
+     * @param sink receives {@code (id, context)} for each inline declaration
+     */
+    void collectMemberContexts(Class<?> scopeContext, BiConsumer<String, Class<?>> sink) {
+        Class<?> effectiveScope = scopeContext != null ? scopeContext : Object.class;
+
+        for (DeclaredMember<T, C> member : members) {
+            ActionRef<T, C> ref = member.ref();
+            if (ref instanceof ActionRef.ById) {
+                continue;
+            }
+
+            Class<?> declared = ref.declaredContext();
+            sink.accept(ref.id(), declared != null ? declared : effectiveScope);
+
+            Class<?> beneath = declared == null || declared == Object.class
+                ? effectiveScope
+                : declared;
+            if (ref instanceof ActionRef.Conditional<T, C> conditional) {
+                conditional.def().collectMemberContexts(beneath, sink);
+            } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
+                nested.def().collectMemberContexts(beneath, sink);
+            }
+        }
+    }
+
+    /**
      * Build-time check over every member: that a by-id reference's context crossing is legal,
      * that a nested conditional's branches are checked too, and that a forked member is not
      * silently sharing a context it cannot copy.
@@ -214,13 +321,17 @@ final class ActionSequenceSink<T, C, D> {
                 byId.mapperRef().validateAgainst(effectiveScope, scopeLabel, "action",
                     byId.id(), componentCtx, smDef.getMapperRegistrations());
             } else if (ref instanceof ActionRef.Conditional<T, C> conditional) {
-                conditional.def().checkRefs(effectiveScope,
+                Class<?> own = memberContext(ref, conditional.def(), effectiveScope, scopeLabel);
+                conditional.def().checkRefs(own,
                                             scopeLabel + " > " + conditional.def().defLabel(),
                                             enclosingOperationId, smDef);
             } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
-                Class<?> nestedScope = nestedContext(nested, effectiveScope, scopeLabel);
-                nested.def().checkRefs(nestedScope,
+                Class<?> own = memberContext(ref, nested.def(), effectiveScope, scopeLabel);
+                nested.def().checkRefs(own,
                                        scopeLabel + " > " + nested.def().defLabel(), smDef);
+            } else if (ref instanceof ActionRef.InlineDef<T, C> step) {
+                // A step owns no members, so the boundary is all there is to check.
+                memberContext(ref, step.def(), effectiveScope, scopeLabel);
             }
 
             if (member.forked()) {
@@ -230,24 +341,36 @@ final class ActionSequenceSink<T, C, D> {
     }
 
     /**
-     * Resolves the context a nested container's own members are checked against. It runs
-     * pass-through, so a container that re-types must widen: its declared type has to accept the
-     * enclosing one, exactly as a by-id reference without a mapper must.
+     * Resolves the context an inline declaration runs against, rejecting a boundary it cannot
+     * cross.
+     * <p>
+     * A mapper produces the declared context outright, and javac has already checked that it maps
+     * from the enclosing one, so there is nothing left to verify. Without one the member runs
+     * pass-through, so a declared context must <em>widen</em>: it has to accept the enclosing one,
+     * exactly as a by-id reference without a mapper must.
      */
-    private Class<?> nestedContext(ActionRef.InlineOperation<T, C> nested, Class<?> effectiveScope,
-                                   String scopeLabel) {
-        Class<?> declared = nested.def().contextType();
-        if (declared == Object.class || declared == effectiveScope) {
+    private Class<?> memberContext(ActionRef<T, C> ref, ActionDefImpl<T, ?, ?> def,
+                                   Class<?> effectiveScope, String scopeLabel) {
+        Class<?> declared = def.declaredContext();
+        if (declared == null || declared == effectiveScope) {
+            return effectiveScope;
+        }
+
+        if (!(ref.mapperRef() instanceof MapperRef.PassThrough)) {
+            return declared;
+        }
+
+        if (declared == Object.class) {
             return effectiveScope;
         }
 
         if (!declared.isAssignableFrom(effectiveScope)) {
             throw new TransfluxValidationException(
                 "Context type mismatch: " + scopeLabel + " (context " + effectiveScope.getName()
-                    + ") declares " + nested.def().defLabel() + " with context "
+                    + ") declares " + def.defLabel() + " with context "
                     + declared.getName() + ", which it is not assignable to."
-                    + " An inline operation runs pass-through, so its context must accept the"
-                    + " enclosing one.");
+                    + " An inline declaration without a mapper runs pass-through, so its context"
+                    + " must accept the enclosing one.");
         }
         return declared;
     }

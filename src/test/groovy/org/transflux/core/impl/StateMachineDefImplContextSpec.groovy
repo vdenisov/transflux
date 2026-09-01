@@ -23,6 +23,8 @@ import org.transflux.core.condition.Condition
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.OperationDef
 import org.transflux.core.action.Action
+import org.transflux.core.action.ConditionalOperationDef
+import org.transflux.core.action.ContextMapper
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.ExecutingTransition
 import org.transflux.core.transition.Transition
@@ -30,6 +32,7 @@ import spock.lang.Specification
 import spock.lang.Unroll
 
 import java.util.function.Consumer
+import java.util.function.BiPredicate
 import java.util.function.Predicate
 
 class StateMachineDefImplContextSpec extends Specification {
@@ -250,15 +253,12 @@ class StateMachineDefImplContextSpec extends Specification {
         e.message.contains('s')
     }
 
-    def 'an inline container narrowing the enclosing context is rejected at build'() {
-        given: 'it runs pass-through, so it may widen but never narrow'
+    @Unroll
+    def 'an inline #form declaring a narrower context without a mapper is rejected at build'() {
+        given: 'it runs pass-through, so a declared context may widen but never narrow'
         def smd = baseDef()
         smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
-            scope.operation('outer', { OperationDef<Entity, CtxA> c ->
-                c.operation('inner', { OperationDef<Entity, CtxA> nested ->
-                    nested.usingContext(CtxB).step('s', new StepB())
-                })
-            })
+            scope.operation('outer', { OperationDef<Entity, CtxA> c -> declare.call(c) })
         })
 
         when:
@@ -267,8 +267,14 @@ class StateMachineDefImplContextSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains('Context type mismatch')
-        e.message.contains("operation 'inner'")
+        e.message.contains(label)
         e.message.contains(CtxB.name)
+
+        where:
+        form          | label                           | declare
+        'operation'   | "operation 'inner'"             | narrowOperation(null)
+        'step'        | "step 'inner'"                  | narrowStep(null)
+        'conditional' | "conditional operation 'inner'" | narrowConditional(null)
     }
 
     def 'an inline container widening to Object is accepted'() {
@@ -276,10 +282,103 @@ class StateMachineDefImplContextSpec extends Specification {
         def smd = baseDef()
         smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
             scope.operation('outer', { OperationDef<Entity, CtxA> c ->
-                c.operation('inner', { OperationDef<Entity, CtxA> nested ->
-                    nested.usingContext(Object).step('s', new StepA())
+                c.operation('inner', Object, { OperationDef<Entity, Object> nested ->
+                    nested.step('s', new StepA())
                 })
             })
+        })
+
+        when:
+        smd.build()
+
+        then:
+        noExceptionThrown()
+    }
+
+    @Unroll
+    def 'an inline #form declaring a narrower context with a mapper is accepted'() {
+        given: 'the mapper produces the declared context, so nothing has to widen'
+        def smd = baseDef()
+        smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
+            scope.operation('outer', { OperationDef<Entity, CtxA> c -> declare.call(c) })
+        })
+
+        when:
+        smd.build()
+
+        then:
+        noExceptionThrown()
+
+        where:
+        form          | declare
+        'operation'   | narrowOperation(aToB())
+        'step'        | narrowStep(aToB())
+        'conditional' | narrowConditional(aToB())
+    }
+
+    def 'a by-id reference to an inline member declaring its own context is checked against it'() {
+        given: 'an inline id reaches no registration, so nothing else could supply its context'
+        def smd = baseDef()
+        smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
+            scope.operation('outer', { OperationDef<Entity, CtxA> c -> c
+                .step('narrow', CtxB, aToB(), new StepB())
+                .run('narrow') })
+        })
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains('Context type mismatch')
+        e.message.contains("'narrow'")
+        e.message.contains(CtxB.name)
+    }
+
+    def 'a by-id reference out of a nested context to an enclosing inline member is checked too'() {
+        given: 'the member takes the outer context, and the reference is made from the inner one'
+        def smd = baseDef()
+        smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
+            scope.operation('outer', { OperationDef<Entity, CtxA> c -> c
+                .step('outer-step', new StepA())
+                .operation('inner', CtxB, aToB(), { OperationDef<Entity, CtxB> n ->
+                    n.run('outer-step')
+                }) })
+        })
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains('Context type mismatch')
+        e.message.contains("'outer-step'")
+        e.message.contains(CtxA.name)
+    }
+
+    def 'a by-id reference to an inline member with a mapper across the same boundary is accepted'() {
+        given:
+        def smd = baseDef()
+        smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
+            scope.operation('outer', { OperationDef<Entity, CtxA> c -> c
+                .step('narrow', CtxB, aToB(), new StepB())
+                .run('narrow', aToB()) })
+        })
+
+        when:
+        smd.build()
+
+        then:
+        noExceptionThrown()
+    }
+
+    def 'a by-id reference to an inline member sharing the enclosing context stays legal'() {
+        given: 'the common case - neither declares a context, so both take the scope it was opened for'
+        def smd = baseDef()
+        smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
+            scope.operation('outer', { OperationDef<Entity, CtxA> c -> c
+                .step('plain', new StepA())
+                .run('plain') })
         })
 
         when:
@@ -325,6 +424,36 @@ class StateMachineDefImplContextSpec extends Specification {
         Entity(String state) {
             this.state = state
         }
+    }
+
+    private static ContextMapper<CtxA, CtxB> aToB() {
+        return { CtxA parent -> new CtxB() } as ContextMapper
+    }
+
+    private static Closure narrowOperation(ContextMapper<CtxA, CtxB> mapper) {
+        def body = { OperationDef<Entity, CtxB> n -> n.step('s', new StepB()) }
+        return mapper == null
+            ? { c -> c.operation('inner', CtxB, body) }
+            : { c -> c.operation('inner', CtxB, mapper, body) }
+    }
+
+    private static Closure narrowStep(ContextMapper<CtxA, CtxB> mapper) {
+        return mapper == null
+            ? { c -> c.step('inner', CtxB, new StepB()) }
+            : { c -> c.step('inner', CtxB, mapper, new StepB()) }
+    }
+
+    private static Closure narrowConditional(ContextMapper<CtxA, CtxB> mapper) {
+        def body = { ConditionalOperationDef<Entity, CtxB> n ->
+            n.branch('b', { b -> b.condition('always', alwaysTrue()).step('s', new StepB()) })
+        }
+        return mapper == null
+            ? { c -> c.conditional('inner', CtxB, body) }
+            : { c -> c.conditional('inner', CtxB, mapper, body) }
+    }
+
+    private static BiPredicate<Entity, CtxB> alwaysTrue() {
+        return { Entity e, CtxB ctx -> true } as BiPredicate
     }
 
     static class CtxA { }

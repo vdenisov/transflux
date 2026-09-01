@@ -49,15 +49,25 @@ class ActionSequenceSpec extends Specification {
     def 'the declared member grammar is exactly the documented one'() {
         expect: 'a widening is a deliberate edit here, not a side effect elsewhere'
         signatures(ActionSequence).toSorted() == [
+            'conditional(java.lang.String,java.lang.Class,java.util.function.Consumer)',
+            'conditional(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,java.util.function.Consumer)',
             'conditional(java.lang.String,java.util.function.Consumer)',
             'fork(java.lang.String)',
             'fork(java.lang.String,java.lang.String)',
             'fork(java.lang.String,org.transflux.core.action.ContextMapper)',
+            'operation(java.lang.String,java.lang.Class,java.util.function.Consumer)',
+            'operation(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,java.util.function.Consumer)',
             'operation(java.lang.String,java.util.function.Consumer)',
             'run(java.lang.String)',
             'run(java.lang.String,java.lang.String)',
             'run(java.lang.String,org.transflux.core.action.ContextMapper)',
             'step(java.lang.String,java.lang.Class)',
+            'step(java.lang.String,java.lang.Class,java.lang.Class)',
+            'step(java.lang.String,java.lang.Class,java.util.function.Consumer)',
+            'step(java.lang.String,java.lang.Class,org.transflux.core.action.Action)',
+            'step(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,java.lang.Class)',
+            'step(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,java.util.function.Consumer)',
+            'step(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,org.transflux.core.action.Action)',
             'step(java.lang.String,java.util.function.Consumer)',
             'step(java.lang.String,org.transflux.core.action.Action)',
         ]

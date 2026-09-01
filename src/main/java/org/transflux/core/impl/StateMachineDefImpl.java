@@ -95,6 +95,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     private final Map<String, Class<?>> componentContextTypes = new LinkedHashMap<>();
 
+    /**
+     * The context each inline-declared action runs against, collected per build. Inline ids never
+     * reach {@link #componentContextTypes}, which only registrations write, so a by-id reference
+     * to one has nothing else to be checked against.
+     */
+    private final Map<String, Class<?>> inlineMemberContextTypes = new LinkedHashMap<>();
+
     private final Map<String, TransitionDefImpl<T, ?>> transitionsById = new LinkedHashMap<>();
 
     private ExecutorService asyncExecutor;
@@ -824,7 +831,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     Class<?> componentContextTypeOrDefault(String id) {
-        return componentContextTypes.getOrDefault(id, Object.class);
+        Class<?> registered = componentContextTypes.get(id);
+        if (registered != null) {
+            return registered;
+        }
+        return inlineMemberContextTypes.getOrDefault(id, Object.class);
     }
 
     /**
@@ -1494,6 +1505,32 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
+     * Records the context every inline-declared action runs against, over the whole definition,
+     * before any reference is checked.
+     * <p>
+     * It is a pass of its own for the same reason member binding is: a reference may name an id
+     * declared after it, or one declared in an enclosing scope, so nothing can be checked until
+     * every declaration has been seen. The two roots are the same ones {@link #checkRefs} walks -
+     * an action attached to a transition, and one registered at state-machine level - and each
+     * seeds the walk with the context that position runs against.
+     */
+    private void collectInlineMemberContexts() {
+        inlineMemberContextTypes.clear();
+
+        for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
+            ActionDefImpl<T, ?, ?> op = td.getActionDef();
+            if (op != null) {
+                op.collectMemberContexts(td.getContextType(), inlineMemberContextTypes::put);
+            }
+        }
+
+        for (Map.Entry<String, ActionDefImpl<T, ?, ?>> e : smCompositeOperations.entrySet()) {
+            e.getValue().collectMemberContexts(componentContextTypes.get(e.getKey()),
+                                               inlineMemberContextTypes::put);
+        }
+    }
+
+    /**
      * Runs {@link Component#validate()} over every registered component, once, after the registry
      * chain has been built and flattened. Validating here rather than at registration time means a
      * component's rules can rely on the whole definition being settled.
@@ -1537,6 +1574,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     private void validateContextCompatibilityAndCycles() {
         checkOwnedListenerIds();
+        collectInlineMemberContexts();
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             Class<?> transitionContext = td.getContextType();
             ActionDefImpl<T, ?, ?> op = td.getActionDef();

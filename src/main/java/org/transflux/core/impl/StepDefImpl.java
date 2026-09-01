@@ -49,15 +49,16 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
     private final InstanceOrClassSource<Action<T, C>> source;
 
     /**
-     * Declares an action with no explicit context type, which defaults to the permissive
-     * {@code Object.class} sentinel. Used by the attachment sites that do not take a context
-     * token, such as an action declared inline on a transition.
+     * Declares an action that names no context of its own, so it takes the enclosing position's.
+     * Used by the attachment sites that pass no context token, such as an action declared inline
+     * on a transition.
      *
      * @param id the action id
      */
-    @SuppressWarnings("unchecked")
     StepDefImpl(String id) {
-        this(id, (Class<C>) Object.class);
+        super(id, "step", "Step ID", null);
+        this.source = new InstanceOrClassSource<>(Loggers.BUILD_VALIDATION, "Step source",
+                                                  "StepDef '" + id + "'");
     }
 
     StepDefImpl(String id, Class<C> contextType) {
@@ -106,6 +107,11 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
 
     @Override
     void bindMembers(StateMachineImpl<T> stateMachine, String positionLabel) {
+        // An imperative action declares no members.
+    }
+
+    @Override
+    void collectMemberContexts(Class<?> scopeContext, BiConsumer<String, Class<?>> sink) {
         // An imperative action declares no members.
     }
 

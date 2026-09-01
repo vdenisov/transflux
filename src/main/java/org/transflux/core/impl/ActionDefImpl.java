@@ -96,6 +96,17 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     /**
+     * The context this action's declaration site named, or {@code null} when it named none.
+     * Distinct from {@link #contextType()}, which reports the {@code Object} sentinel in that
+     * case - the build has to tell "declared as Object" from "not declared".
+     *
+     * @return the declared context, or {@code null}
+     */
+    final Class<C> declaredContext() {
+        return declaredContextType;
+    }
+
+    /**
      * Resolves the context to tag this action's own inline registrations with: its own when the
      * declaration site named one, the enclosing position's otherwise. Both scope-owning forms tag
      * the same way, so the rule is written once.
@@ -280,6 +291,24 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      *                      position nested beneath it and surfaced when a member fails to resolve
      */
     abstract void bindMembers(StateMachineImpl<T> stateMachine, String positionLabel);
+
+    /**
+     * Records the context every action declared inline beneath this one runs against, keyed by id.
+     * <p>
+     * A by-id reference is checked against its callee's context, and for a registered component
+     * that context comes from the registration. An inline declaration has no registration, so
+     * without this pass a reference to one would be checked against the {@code Object} default and
+     * admitted whatever the contexts were - which is only safe while every action in a subtree
+     * shares one context, and stops being true as soon as a declaration can name its own.
+     *
+     * <p>It runs before {@link #checkRefs}, over the whole definition, because a member may
+     * reference an id declared after it or in an enclosing scope.
+     *
+     * @param scopeContext the context this action's own members run against; {@code null} is read
+     *                     as {@code Object}
+     * @param sink receives {@code (id, context)} for each inline declaration
+     */
+    abstract void collectMemberContexts(Class<?> scopeContext, BiConsumer<String, Class<?>> sink);
 
     /**
      * Build-time hook: allocates and populates this operation's lexical-scope registry against

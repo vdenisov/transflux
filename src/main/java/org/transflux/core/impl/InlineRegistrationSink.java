@@ -80,7 +80,8 @@ final class InlineRegistrationSink<T, C> {
         if (scope.get(id).isPresent()) {
             return;
         }
-        scope.register(new Component.Action<>(id, contextType, def.buildBoundAction()));
+        scope.register(new Component.Action<>(id, def.effectiveContext(contextType),
+                                              def.buildBoundAction()));
     }
 
     /**
@@ -109,7 +110,8 @@ final class InlineRegistrationSink<T, C> {
             return;
         }
         def.bindScopeUnder(scope, canonical, conditionRegistry, contextType);
-        scope.register(new Component.Action<>(id, contextType, def.buildBound()));
+        scope.register(new Component.Action<>(id, def.effectiveContext(contextType),
+                                              def.buildBound()));
     }
 
     /**
@@ -127,7 +129,8 @@ final class InlineRegistrationSink<T, C> {
             return;
         }
         def.bindScopeUnder(scope, canonical, conditionRegistry, contextType);
-        scope.register(new Component.Action<>(id, contextType, def.buildBound()));
+        scope.register(new Component.Action<>(id, def.effectiveContext(contextType),
+                                              def.buildBound()));
     }
 
     /**

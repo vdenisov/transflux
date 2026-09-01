@@ -40,10 +40,12 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * String) resolve} that hands back a {@link BoundAction}; the composite executor never has to ask
  * what kind of member it is holding.
  * <p>
- * By-id references carry a {@link MapperRef} capturing the call-site mapper choice (pass-through,
- * registered by id, inline function, or inline mapper instance). Inline declarations always carry
- * {@link MapperRef#passThrough()} - they declare an action against the enclosing composite's own
- * context type and therefore need no boundary mapping.
+ * References carry a {@link MapperRef} capturing the call-site mapper choice (pass-through,
+ * registered by id, or an inline mapper instance). An inline declaration that names no context of
+ * its own carries {@link MapperRef#passThrough()}: it is declared against the enclosing sequence's
+ * context type and needs no boundary mapping. One that does name a context may carry a mapper for
+ * the same reason a by-id reference may - the boundary is a property of the call site, and here the
+ * call site and the declaration site are the same place.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
@@ -62,6 +64,17 @@ sealed interface ActionRef<T, C>
      */
     default MapperRef mapperRef() {
         return MapperRef.passThrough();
+    }
+
+    /**
+     * Returns the context this member was declared against, or {@code null} when it inherits the
+     * enclosing sequence's. Only the three inline forms that carry a def can name one; a by-id
+     * reference takes its callee's, which the registry knows rather than the call site.
+     *
+     * @return the declared context, or {@code null}
+     */
+    default Class<?> declaredContext() {
+        return null;
     }
 
     /**
@@ -172,15 +185,29 @@ sealed interface ActionRef<T, C>
     }
 
     static <T, C> ActionRef<T, C> inline(String id, StepDefImpl<T, C> def) {
-        return new InlineDef<>(id, def);
+        return new InlineDef<>(id, def, MapperRef.passThrough());
+    }
+
+    static <T, C> ActionRef<T, C> inline(String id, StepDefImpl<T, C> def, MapperRef mapperRef) {
+        return new InlineDef<>(id, def, mapperRef);
     }
 
     static <T, C> ActionRef<T, C> conditional(String id, ConditionalOperationDefImpl<T, C> def) {
-        return new Conditional<>(id, def);
+        return new Conditional<>(id, def, MapperRef.passThrough());
+    }
+
+    static <T, C> ActionRef<T, C> conditional(String id, ConditionalOperationDefImpl<T, C> def,
+                                              MapperRef mapperRef) {
+        return new Conditional<>(id, def, mapperRef);
     }
 
     static <T, C> ActionRef<T, C> operation(String id, OperationDefImpl<T, C> def) {
-        return new InlineOperation<>(id, def);
+        return new InlineOperation<>(id, def, MapperRef.passThrough());
+    }
+
+    static <T, C> ActionRef<T, C> operation(String id, OperationDefImpl<T, C> def,
+                                            MapperRef mapperRef) {
+        return new InlineOperation<>(id, def, mapperRef);
     }
 
     record ById<T, C>(String id, MapperRef mapperRef) implements ActionRef<T, C> {
@@ -227,11 +254,18 @@ sealed interface ActionRef<T, C>
      * forms - has a def behind it and can therefore carry a name, a description, and listeners.
      */
     @SuppressWarnings("ClassEscapesDefinedScope")
-    record InlineDef<T, C>(String id, StepDefImpl<T, C> def) implements ActionRef<T, C> {
+    record InlineDef<T, C>(String id, StepDefImpl<T, C> def, MapperRef mapperRef)
+        implements ActionRef<T, C> {
 
         public InlineDef {
             requireNotBlank(id, "Action reference ID");
             requireNotNull(def, "Inline step def");
+            requireNotNull(mapperRef, "Mapper reference");
+        }
+
+        @Override
+        public Class<?> declaredContext() {
+            return def.declaredContext();
         }
 
         @Override
@@ -246,10 +280,18 @@ sealed interface ActionRef<T, C>
     }
 
     @SuppressWarnings("ClassEscapesDefinedScope")
-    record Conditional<T, C>(String id, ConditionalOperationDefImpl<T, C> def) implements ActionRef<T, C> {
+    record Conditional<T, C>(String id, ConditionalOperationDefImpl<T, C> def, MapperRef mapperRef)
+        implements ActionRef<T, C> {
+
         public Conditional {
             requireNotBlank(id, "Action reference ID");
             requireNotNull(def, "Conditional operation def");
+            requireNotNull(mapperRef, "Mapper reference");
+        }
+
+        @Override
+        public Class<?> declaredContext() {
+            return def.declaredContext();
         }
 
         @Override
@@ -275,11 +317,18 @@ sealed interface ActionRef<T, C>
      * children into the enclosing scope first.
      */
     @SuppressWarnings("ClassEscapesDefinedScope")
-    record InlineOperation<T, C>(String id, OperationDefImpl<T, C> def) implements ActionRef<T, C> {
+    record InlineOperation<T, C>(String id, OperationDefImpl<T, C> def, MapperRef mapperRef)
+        implements ActionRef<T, C> {
 
         public InlineOperation {
             requireNotBlank(id, "Action reference ID");
             requireNotNull(def, "Inline operation def");
+            requireNotNull(mapperRef, "Mapper reference");
+        }
+
+        @Override
+        public Class<?> declaredContext() {
+            return def.declaredContext();
         }
 
         @Override

@@ -38,13 +38,15 @@ import java.util.function.Consumer;
  * site. {@link #step(String, Action) step(id, action)} <em>declares</em> a new action at this
  * position, and there the form is being chosen here, so the verb names it.
  *
- * <p><b>Member context.</b> Inline declarations are typed against the enclosing context {@code C}
- * and always run pass-through - the enclosing context reaches the member unchanged. A by-id
- * reference may target an action with a different context type; the {@code run(...)} overloads
- * accept an optional mapper specification - a registered {@link MapperDef} by id, or an inline
- * {@link ContextMapper}, which a lambda satisfies for the read-only projection case - that
- * bridges the boundary. The build pipeline validates that pass-through references are
- * assignment-compatible and that any supplied mapper's parent and child types line up with the
+ * <p><b>Member context.</b> A context is declared where the action is declared. Every inline
+ * declaration comes in three shapes: the plain one inherits the enclosing context {@code C}; one
+ * taking a {@code Class<N>} declares its own and runs pass-through, which requires {@code N} to
+ * accept {@code C}; and one taking a {@code Class<N>} and a {@link ContextMapper} declares its own
+ * and crosses the boundary. A by-id reference reads its callee's context from the registry rather
+ * than restating it, so its mapper-bearing forms take the mapper alone - a registered
+ * {@link MapperDef} by id, or an inline {@link ContextMapper}, which a lambda satisfies for the
+ * read-only projection case. The build pipeline validates that pass-through crossings are
+ * assignment-compatible and that a registered mapper's parent and child types line up with the
  * call site.
  *
  * @param <T> the entity type the surrounding state machine manages
@@ -238,11 +240,10 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      * first and the enclosing chain after, so it can reach what encloses it while nothing can
      * reach into it.
      *
-     * <p>It is typed against the enclosing context and runs pass-through: the members declared
-     * inside it receive the same context this position does. There is no way to give it a context
-     * of its own - {@link OperationDef#usingContext(Class)} accepts only the enclosing type
-     * restated, since the configurer has already bound it. To cross a context boundary, reference
-     * a component declared against that context through {@link #run(String, ContextMapper)}.
+     * <p>This form is typed against the enclosing context and runs pass-through: the members
+     * declared inside it receive the same context this position does. To give it a context of its
+     * own, use {@link #operation(String, Class, Consumer)} or, to cross a boundary the enclosing
+     * context cannot widen to, {@link #operation(String, Class, ContextMapper, Consumer)}.
      *
      * @param id the operation's id; must be unique across the state machine
      * @param configurer callback that declares the members
@@ -254,4 +255,180 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      */
     SELF operation(String id, Consumer<OperationDef<T, C>> configurer);
 
+    /**
+     * Declares an imperative action inline against a context of its own, running pass-through.
+     * <p>
+     * Nothing maps at this boundary, so {@code contextType} must accept the enclosing context - it
+     * may widen (an action written against a supertype, or against {@link Object} because it
+     * ignores the context) but it may not narrow. To narrow, supply a mapper.
+     *
+     * @param id the action id; must be unique across the state machine
+     * @param contextType the context the action runs against
+     * @param action the action to invoke
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or either other argument is
+     *         {@code null}
+     */
+    <N> SELF step(String id, Class<N> contextType, Action<T, N> action);
+
+    /**
+     * Declares an imperative action inline against a context of its own, produced by
+     * {@code mapper} from the enclosing one. See {@link #step(String, Class, Action)} for the
+     * pass-through form.
+     * <p>
+     * The mapper's {@link ContextMapper#mapFrom(Object, Object) mapFrom} writes back once the
+     * action completes, exactly as it does at a mapped by-id call site.
+     *
+     * @param id the action id; must be unique across the state machine
+     * @param contextType the context the action runs against
+     * @param mapper produces the action's context from the enclosing one
+     * @param action the action to invoke
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or any other argument is
+     *         {@code null}
+     */
+    <N> SELF step(String id, Class<N> contextType, ContextMapper<C, N> mapper, Action<T, N> action);
+
+    /**
+     * Class form of {@link #step(String, Class, Action)}; the framework instantiates the class
+     * through its public no-arg constructor at build time.
+     *
+     * @param id the action id; must be unique across the state machine
+     * @param contextType the context the action runs against
+     * @param actionClass the action class
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or either other argument is
+     *         {@code null}
+     */
+    <N> SELF step(String id, Class<N> contextType, Class<? extends Action<T, N>> actionClass);
+
+    /**
+     * Class form of {@link #step(String, Class, ContextMapper, Action)}.
+     *
+     * @param id the action id; must be unique across the state machine
+     * @param contextType the context the action runs against
+     * @param mapper produces the action's context from the enclosing one
+     * @param actionClass the action class
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or any other argument is
+     *         {@code null}
+     */
+    <N> SELF step(String id, Class<N> contextType, ContextMapper<C, N> mapper,
+                  Class<? extends Action<T, N>> actionClass);
+
+    /**
+     * Configurer form of {@link #step(String, Class, Action)}, for a member that also wants a
+     * name, a description, or listeners. The configurer must call {@code using(...)} to supply the
+     * body.
+     *
+     * @param id the action id; must be unique across the state machine
+     * @param contextType the context the action runs against
+     * @param configurer callback that configures the member
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or either other argument is
+     *         {@code null}
+     */
+    <N> SELF step(String id, Class<N> contextType, Consumer<StepDef<T, N>> configurer);
+
+    /**
+     * Configurer form of {@link #step(String, Class, ContextMapper, Action)}.
+     *
+     * @param id the action id; must be unique across the state machine
+     * @param contextType the context the action runs against
+     * @param mapper produces the action's context from the enclosing one
+     * @param configurer callback that configures the member
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or any other argument is
+     *         {@code null}
+     */
+    <N> SELF step(String id, Class<N> contextType, ContextMapper<C, N> mapper,
+                  Consumer<StepDef<T, N>> configurer);
+
+    /**
+     * Declares a multi-branch conditional against a context of its own, running pass-through. Its
+     * branches, and everything they declare, run against {@code contextType}.
+     *
+     * @param id the conditional's id; must be unique across the state machine
+     * @param contextType the context the conditional runs against
+     * @param configurer callback that declares the branches
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or either other argument is
+     *         {@code null}
+     */
+    <N> SELF conditional(String id, Class<N> contextType,
+                         Consumer<ConditionalOperationDef<T, N>> configurer);
+
+    /**
+     * Declares a multi-branch conditional against a context of its own, produced by {@code mapper}
+     * from the enclosing one.
+     *
+     * @param id the conditional's id; must be unique across the state machine
+     * @param contextType the context the conditional runs against
+     * @param mapper produces the conditional's context from the enclosing one
+     * @param configurer callback that declares the branches
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or any other argument is
+     *         {@code null}
+     */
+    <N> SELF conditional(String id, Class<N> contextType, ContextMapper<C, N> mapper,
+                         Consumer<ConditionalOperationDef<T, N>> configurer);
+
+    /**
+     * Declares a nested sequence against a context of its own, running pass-through. Its members,
+     * and everything they declare, run against {@code contextType}.
+     *
+     * @param id the operation's id; must be unique across the state machine
+     * @param contextType the context the operation runs against
+     * @param configurer callback that declares the members
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or either other argument is
+     *         {@code null}
+     */
+    <N> SELF operation(String id, Class<N> contextType, Consumer<OperationDef<T, N>> configurer);
+
+    /**
+     * Declares a nested sequence against a context of its own, produced by {@code mapper} from the
+     * enclosing one. This is how an inline declaration reaches a context the enclosing one cannot
+     * simply widen to.
+     *
+     * @param id the operation's id; must be unique across the state machine
+     * @param contextType the context the operation runs against
+     * @param mapper produces the operation's context from the enclosing one
+     * @param configurer callback that declares the members
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or any other argument is
+     *         {@code null}
+     */
+    <N> SELF operation(String id, Class<N> contextType, ContextMapper<C, N> mapper,
+                       Consumer<OperationDef<T, N>> configurer);
 }
