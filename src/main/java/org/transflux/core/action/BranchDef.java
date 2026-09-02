@@ -85,21 +85,6 @@ public interface BranchDef<T, C> extends ActionSequence<T, C, BranchDef<T, C>> {
     BranchDef<T, C> condition(String id, Condition<T, C> condition);
 
     /**
-     * Sets this branch's condition to a {@link Condition} class under the supplied id; the
-     * framework reflectively instantiates the class through its public no-arg constructor at
-     * state-machine build time.
-     *
-     * @param id the condition id
-     * @param conditionClass the condition class
-     *
-     * @return this branch def for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
-     *         {@code conditionClass} is {@code null}
-     */
-    BranchDef<T, C> condition(String id, Class<? extends Condition<T, C>> conditionClass);
-
-    /**
      * Sets this branch's condition to a {@link BiPredicate} over {@code (entity, context)},
      * adapted into a {@link Condition} that ignores the transition view.
      *

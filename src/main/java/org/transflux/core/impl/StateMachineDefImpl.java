@@ -489,8 +489,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         Object payload;
         if (descriptor instanceof ConditionDescriptor.InstanceBased instanceBased) {
             payload = instanceBased.condition();
-        } else if (descriptor instanceof ConditionDescriptor.ClassBased classBased) {
-            payload = classBased.conditionClass();
         } else if (descriptor instanceof ConditionDescriptor.PredicateBased predicateBased) {
             payload = predicateBased.predicate();
         } else if (descriptor instanceof ConditionDescriptor.ExpressionBased expressionBased) {
@@ -514,14 +512,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotBlank(id, "Condition ID");
         requireNotNull(condition, "Condition");
         registerConditionInstance(id, condition);
-        return this;
-    }
-
-    @Override
-    public StateMachineDef<T> condition(String id, Class<? extends Condition<T, ?>> conditionClass) {
-        requireNotBlank(id, "Condition ID");
-        requireNotNull(conditionClass, "Condition class");
-        registerConditionClass(id, conditionClass);
         return this;
     }
 
@@ -558,17 +548,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public <C> StateMachineDef<T> condition(String id, Class<C> contextType, Class<? extends Condition<T, C>> conditionClass) {
-        requireNotBlank(id, "Condition ID");
-        requireNotNull(contextType, "Context type");
-        requireNotNull(conditionClass, "Condition class");
-        registerConditionClass(id, conditionClass);
-        tagContextType(id, contextType);
-        return this;
-    }
-
-    @Override
-    public <C> StateMachineDef<T> conditionPredicate(String id, Class<C> contextType, BiPredicate<T, C> predicate) {
+    public <C> StateMachineDef<T> condition(String id, Class<C> contextType, BiPredicate<T, C> predicate) {
         requireNotBlank(id, "Condition ID");
         requireNotNull(contextType, "Context type");
         requireNotNull(predicate, "Predicate");
@@ -579,14 +559,14 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     @Override
     @SuppressWarnings("unchecked")
-    public <C> StateMachineDef<T> conditionPredicate(String id, Class<C> contextType, Predicate<T> predicate) {
+    public <C> StateMachineDef<T> condition(String id, Class<C> contextType, Predicate<T> predicate) {
         requireNotNull(predicate, "Predicate");
         BiPredicate<T, C> adapted = (BiPredicate<T, C>) adaptEntityPredicate(predicate);
-        return conditionPredicate(id, contextType, adapted);
+        return condition(id, contextType, adapted);
     }
 
     @Override
-    public <C> StateMachineDef<T> conditionExpression(String id, Class<C> contextType, String spelExpression) {
+    public <C> StateMachineDef<T> condition(String id, Class<C> contextType, String spelExpression) {
         requireNotBlank(id, "Condition ID");
         requireNotNull(contextType, "Context type");
         requireNotBlank(spelExpression, "SpEL expression");
@@ -682,20 +662,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
 
         if (existing.instance != null && existing.instance == condition) {
-            return;
-        }
-
-        throw new TransfluxValidationException("Condition ID '" + id + "' is already registered");
-    }
-
-    private void registerConditionClass(String id, Class<? extends Condition<T, ?>> conditionClass) {
-        ConditionRegistration<T> existing = conditionRegistrations.get(id);
-        if (existing == null) {
-            conditionRegistrations.put(id, ConditionRegistration.ofClass(conditionClass));
-            return;
-        }
-
-        if (existing.conditionClass != null && existing.conditionClass.equals(conditionClass)) {
             return;
         }
 
@@ -926,11 +892,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     <C> void registerScopedCondition(String id, Condition<T, C> condition, Class<C> contextType) {
         registerConditionInstance(id, condition);
-        tagContextType(id, contextType);
-    }
-
-    <C> void registerScopedCondition(String id, Class<? extends Condition<T, C>> conditionClass, Class<C> contextType) {
-        registerConditionClass(id, conditionClass);
         tagContextType(id, contextType);
     }
 
@@ -1804,32 +1765,25 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
     }
 
-    private record ConditionRegistration<T>(Condition<T, ?> instance, Class<? extends Condition<T, ?>> conditionClass,
-                                            BiPredicate<T, ?> predicate, String expression) {
+    private record ConditionRegistration<T>(Condition<T, ?> instance, BiPredicate<T, ?> predicate,
+                                            String expression) {
 
         static <T> ConditionRegistration<T> ofInstance(Condition<T, ?> instance) {
-                return new ConditionRegistration<>(instance, null, null, null);
-            }
-
-            static <T> ConditionRegistration<T> ofClass(Class<? extends Condition<T, ?>> conditionClass) {
-                return new ConditionRegistration<>(null, conditionClass, null, null);
+                return new ConditionRegistration<>(instance, null, null);
             }
 
             static <T> ConditionRegistration<T> ofPredicate(BiPredicate<T, ?> predicate) {
-                return new ConditionRegistration<>(null, null, predicate, null);
+                return new ConditionRegistration<>(null, predicate, null);
             }
 
             static <T> ConditionRegistration<T> ofExpression(String expression) {
-                return new ConditionRegistration<>(null, null, null, expression);
+                return new ConditionRegistration<>(null, null, expression);
             }
 
             @SuppressWarnings({"unchecked", "rawtypes"})
             BoundCondition<T, ?> toBoundCondition(String id) {
                 if (instance != null) {
                     return BoundCondition.of(id, (Condition) instance);
-                }
-                if (conditionClass != null) {
-                    return BoundCondition.of(id, (Condition) InstanceOrClassSource.resolve(null, (Class) conditionClass, "Condition"));
                 }
                 if (predicate != null) {
                     BiPredicate<T, Object> p = (BiPredicate<T, Object>) predicate;

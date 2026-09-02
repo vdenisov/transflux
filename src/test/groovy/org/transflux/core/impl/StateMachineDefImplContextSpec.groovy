@@ -177,13 +177,13 @@ class StateMachineDefImplContextSpec extends Specification {
         smd.getComponentContextType('comp') == CtxA
     }
 
-    def 'conditionPredicate and conditionExpression with Class<C> tag componentContextTypes'() {
+    def 'the typed predicate and expression conditions tag componentContextTypes'() {
         given:
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .conditionPredicate('predCond', CtxA, { e -> true })
-            .conditionExpression('exprCond', CtxA, 'true')
+            .condition('predCond', CtxA, { e -> true })
+            .condition('exprCond', CtxA, 'true')
 
         expect:
         smd.getComponentContextType('predCond') == CtxA
@@ -431,7 +431,7 @@ class StateMachineDefImplContextSpec extends Specification {
     def "a branch condition is checked against the conditional's own context"() {
         given: 'a conditional may cross a boundary its branches then sit behind'
         def smd = baseDef()
-        smd.conditionPredicate('a-cond', CtxA, { Entity e, CtxA a -> true } as BiPredicate)
+        smd.condition('a-cond', CtxA, { Entity e, CtxA a -> true } as BiPredicate)
         smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
             scope.operation('outer', { OperationDef<Entity, CtxA> c ->
                 c.conditional('cond', CtxB, aToB(), { ConditionalOperationDef<Entity, CtxB> cs ->
@@ -453,7 +453,7 @@ class StateMachineDefImplContextSpec extends Specification {
     def "a branch condition matching the conditional's own context is accepted"() {
         given:
         def smd = baseDef()
-        smd.conditionPredicate('b-cond', CtxB, { Entity e, CtxB b -> true } as BiPredicate)
+        smd.condition('b-cond', CtxB, { Entity e, CtxB b -> true } as BiPredicate)
         smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
             scope.operation('outer', { OperationDef<Entity, CtxA> c ->
                 c.conditional('cond', CtxB, aToB(), { ConditionalOperationDef<Entity, CtxB> cs ->

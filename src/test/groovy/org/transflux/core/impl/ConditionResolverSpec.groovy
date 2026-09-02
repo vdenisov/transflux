@@ -42,16 +42,6 @@ class ConditionResolverSpec extends Specification {
         }
     }
 
-    static class CtorlessCondition implements Condition<Entity, TestContext> {
-        CtorlessCondition(String unused) {
-        }
-
-        @Override
-        boolean test(Entity entity, TestContext context, Transition transition) {
-            false
-        }
-    }
-
     def "should resolve a Reference descriptor against the registry"() {
         given:
         def bound = BoundCondition.of('a', { e, c, t -> true } as Condition)
@@ -71,26 +61,6 @@ class ConditionResolverSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains("'missing'")
-    }
-
-    def "should reflectively instantiate a ClassBased descriptor"() {
-        when:
-        def resolved = ConditionResolver.resolve(
-            ConditionDescriptor.classBased('a', TruthyCondition), [:], 'path')
-
-        then:
-        resolved.id == 'a'
-        resolved.condition instanceof TruthyCondition
-    }
-
-    def "should throw when a ClassBased descriptor has no accessible no-arg constructor"() {
-        when:
-        ConditionResolver.resolve(
-            ConditionDescriptor.classBased('a', CtorlessCondition), [:], 'path')
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message.contains('no accessible no-arg constructor')
     }
 
     def "should adapt a PredicateBased descriptor built from a Predicate into an entity-only Condition"() {

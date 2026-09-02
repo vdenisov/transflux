@@ -65,7 +65,7 @@ class StateMachineDefImplBuildLoggingSpec extends Specification {
         capture = LogCapture.start('org.transflux.build.lifecycle')
         def smd = defWith({ smb -> smb
             .step('sm-step', TestContext, new NoopStep())
-            .conditionPredicate('sm-cond', TestContext, { Entity e -> true } as Predicate) })
+            .condition('sm-cond', TestContext, { Entity e -> true } as Predicate) })
 
         when:
         smd.build()

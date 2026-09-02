@@ -26,7 +26,6 @@ import java.util.Map;
 import java.util.function.BiPredicate;
 
 import static org.transflux.core.Preconditions.requireNotNull;
-import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
 
 /**
  * Stateless resolver that turns a {@link ConditionDescriptor} into a {@link BoundCondition}
@@ -60,9 +59,8 @@ final class ConditionResolver {
      *
      * @return the bound condition
      *
-     * @throws TransfluxValidationException if a reference points at an unregistered id, if
-     *         a class-based descriptor's class cannot be instantiated through a no-arg
-     *         constructor, or if any other input is invalid
+     * @throws TransfluxValidationException if a reference points at an unregistered id, or if
+     *         any other input is invalid
      */
     static <T, C> BoundCondition<T, C> resolve(ConditionDescriptor descriptor,
                                                       Map<String, BoundCondition<T, C>> registry,
@@ -75,9 +73,6 @@ final class ConditionResolver {
             return resolveReference(ref, registry);
         }
 
-        if (descriptor instanceof ConditionDescriptor.ClassBased cb) {
-            return resolveClassBased(cb);
-        }
 
         if (descriptor instanceof ConditionDescriptor.InstanceBased ib) {
             return resolveInstanceBased(ib);
@@ -105,13 +100,6 @@ final class ConditionResolver {
         }
 
         return bound;
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <T, C> BoundCondition<T, C> resolveClassBased(ConditionDescriptor.ClassBased descriptor) {
-        Class<? extends Condition<?, ?>> conditionClass = descriptor.conditionClass();
-        Condition<T, C> instance = (Condition<T, C>) instantiateNoArg(conditionClass, "Condition");
-        return BoundCondition.of(descriptor.id(), instance);
     }
 
     @SuppressWarnings("unchecked")

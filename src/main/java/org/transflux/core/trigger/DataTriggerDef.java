@@ -136,20 +136,6 @@ public interface DataTriggerDef<T, C> extends Identifiable {
     DataTriggerDef<T, C> condition(String id, Condition<T, C> condition);
 
     /**
-     * Sets the gate to a {@link Condition} class under the given id. The class is reflectively
-     * instantiated through its public no-arg constructor when the state machine is built.
-     *
-     * @param id the condition id; never {@code null} or blank
-     * @param conditionClass the condition class; never {@code null}
-     *
-     * @return this trigger def for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
-     *         {@code conditionClass} is {@code null}
-     */
-    DataTriggerDef<T, C> condition(String id, Class<? extends Condition<T, C>> conditionClass);
-
-    /**
      * Sets the gate to a {@link BiPredicate} over {@code (entity, context)} under the given id. The
      * predicate is adapted into a {@link Condition} that ignores the transition view.
      *

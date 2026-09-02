@@ -69,9 +69,6 @@ class DataTriggerDefImplSpec extends Specification {
         'instance'        | { StateMachineDef d -> d
                                 .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addDataTrigger('dt', { dt -> dt.condition('inst', new HighPriority()) }) }) })
                                 .state('s2', {}) }
-        'class'           | { StateMachineDef d -> d
-                                .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addDataTrigger('dt', { dt -> dt.condition('cls', HighPriority) }) }) })
-                                .state('s2', {}) }
         'BiPredicate'     | { StateMachineDef d -> d
                                 .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addDataTrigger('dt', { dt -> dt.condition('bip', { e, c -> ((Entity) e).priority > 5 } as BiPredicate) }) }) })
                                 .state('s2', {}) }

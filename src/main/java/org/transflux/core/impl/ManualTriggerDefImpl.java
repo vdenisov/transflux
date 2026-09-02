@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 
-import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
@@ -66,11 +65,6 @@ final class ManualTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, ManualTrigge
     @Override
     public ManualTriggerDef<T, C> preCondition(String id, Condition<T, C> condition) {
         return preConditions.instanceBased(id, condition);
-    }
-
-    @Override
-    public ManualTriggerDef<T, C> preCondition(String id, Class<? extends Condition<T, C>> conditionClass) {
-        return preConditions.classBased(id, conditionClass);
     }
 
     @Override

@@ -286,17 +286,6 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> condition(String id, Condition<T, ?> condition);
 
     /**
-     * Registers a condition class against this state machine under the given id, without
-     * a declared context type.
-     *
-     * @param id the condition id
-     * @param conditionClass the condition class; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> condition(String id, Class<? extends Condition<T, ?>> conditionClass);
-
-    /**
      * Registers an {@code (entity, context)} predicate as a condition under the given id.
      *
      * @param id the condition id
@@ -341,19 +330,6 @@ public interface StateMachineDef<T> {
     <C> StateMachineDef<T> condition(String id, Class<C> contextType, Condition<T, C> condition);
 
     /**
-     * Registers a condition class against this state machine under the given id, tagged
-     * with the supplied context class.
-     *
-     * @param id the condition id
-     * @param contextType the condition's declared context class; never {@code null}
-     * @param conditionClass the condition class; never {@code null}
-     * @param <C> the context class
-     *
-     * @return this state machine def for chaining
-     */
-    <C> StateMachineDef<T> condition(String id, Class<C> contextType, Class<? extends Condition<T, C>> conditionClass);
-
-    /**
      * Registers an {@code (entity, context)} predicate as a condition under the given id,
      * tagged with the supplied context class.
      *
@@ -364,10 +340,10 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    <C> StateMachineDef<T> conditionPredicate(String id, Class<C> contextType, BiPredicate<T, C> predicate);
+    <C> StateMachineDef<T> condition(String id, Class<C> contextType, BiPredicate<T, C> predicate);
 
     /**
-     * Convenience overload of {@link #conditionPredicate(String, Class, BiPredicate)}
+     * Convenience overload of {@link #condition(String, Class, BiPredicate)}
      * accepting an entity-only {@link Predicate}; the context is ignored at evaluation time.
      *
      * @param id the condition id
@@ -377,7 +353,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    <C> StateMachineDef<T> conditionPredicate(String id, Class<C> contextType, Predicate<T> predicate);
+    <C> StateMachineDef<T> condition(String id, Class<C> contextType, Predicate<T> predicate);
 
     /**
      * Registers a SpEL expression as a condition under the given id, tagged with the
@@ -390,7 +366,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    <C> StateMachineDef<T> conditionExpression(String id, Class<C> contextType, String spelExpression);
+    <C> StateMachineDef<T> condition(String id, Class<C> contextType, String spelExpression);
 
     /**
      * Registers a composite operation against this state machine under the given id, tagged

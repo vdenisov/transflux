@@ -49,9 +49,6 @@ import java.util.function.Predicate;
  * already registered on the state machine:
  *
  * <pre>{@code
- * // Imperative, class form:
- * .step("activate", ActivateAction.class)
- *
  * // Imperative, instance form:
  * .step("activate", new ActivateAction())
  *
@@ -59,14 +56,14 @@ import java.util.function.Predicate;
  * .step("activate", a -> a
  *     .withName("Activate Subscription")
  *     .withDescription("Marks the subscription active and bills the first period")
- *     .using(ActivateAction.class))
+ *     .using(new ActivateAction()))
  *
  * // Declarative, an ordered list of members:
  * .operation("validate-and-pay", op -> op
  *     .withName("Validate and Charge")
  *     .run("validate-cart")
  *     .run("compute-total")
- *     .step("charge", ChargeAction.class))
+ *     .step("charge", new ChargeAction()))
  *
  * // By id, referencing something registered on the state machine:
  * .run("activate-subscription")
@@ -82,8 +79,8 @@ import java.util.function.Predicate;
  * {@code preCondition(String registeredConditionId)} / {@code postCondition(...)} forms reference
  * a condition registered on the enclosing state machine through
  * {@link org.transflux.core.StateMachineDef#condition StateMachineDef.condition(...)}; the
- * remaining overloads inline a {@link Condition} instance, class, {@link Predicate}, or SpEL
- * expression under an explicit id. {@code preConditionExpression(String)} /
+ * remaining overloads inline a {@link Condition} instance, {@link Predicate}, or SpEL expression
+ * under an explicit id. {@code preConditionExpression(String)} /
  * {@code postConditionExpression(String)} accept an inline expression with an auto-derived id.
  * Multiple calls accumulate; conditions are evaluated in declaration order, and the first
  * failure aborts the remainder of the corresponding list.
@@ -306,21 +303,6 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> preCondition(String id, Condition<T, C> condition);
 
     /**
-     * Appends a pre-condition built from a {@link Condition} class under the given id. The
-     * class is reflectively instantiated through its public no-arg constructor when the state
-     * machine is built.
-     *
-     * @param id the condition id; never {@code null} or blank
-     * @param conditionClass the condition class; never {@code null}
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
-     *         {@code conditionClass} is {@code null}
-     */
-    TransitionDef<T, C> preCondition(String id, Class<? extends Condition<T, C>> conditionClass);
-
-    /**
      * Appends a pre-condition built from a {@link BiPredicate} over {@code (entity, context)}
      * under the given id. The predicate is adapted into a {@link Condition} that ignores the
      * transition view.
@@ -398,21 +380,6 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         {@code condition} is {@code null}
      */
     TransitionDef<T, C> postCondition(String id, Condition<T, C> condition);
-
-    /**
-     * Appends a post-condition built from a {@link Condition} class under the given id. The
-     * class is reflectively instantiated through its public no-arg constructor when the state
-     * machine is built.
-     *
-     * @param id the condition id; never {@code null} or blank
-     * @param conditionClass the condition class; never {@code null}
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
-     *         {@code conditionClass} is {@code null}
-     */
-    TransitionDef<T, C> postCondition(String id, Class<? extends Condition<T, C>> conditionClass);
 
     /**
      * Appends a post-condition built from a {@link BiPredicate} over {@code (entity, context)}

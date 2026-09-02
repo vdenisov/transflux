@@ -83,15 +83,6 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
     }
 
     @Override
-    public ContextScope<T, C> condition(String id, Class<? extends Condition<T, C>> conditionClass) {
-        requireConfigurerActive("condition");
-        requireNotBlank(id, "Condition ID");
-        requireNotNull(conditionClass, "Condition class");
-        smd.registerScopedCondition(id, conditionClass, contextType);
-        return this;
-    }
-
-    @Override
     public ContextScope<T, C> condition(String id, BiPredicate<T, C> predicate) {
         requireConfigurerActive("condition");
         requireNotBlank(id, "Condition ID");

@@ -119,7 +119,6 @@ class ConditionDescriptorSinkSpec extends Specification {
         form           | call                                                        || expectedType
         'reference'    | { s -> s.ref('registered') }                                || ConditionDescriptor.Reference
         'instance'     | { s -> s.instanceBased('i', new AlwaysTrue()) }             || ConditionDescriptor.InstanceBased
-        'class'        | { s -> s.classBased('c', AlwaysTrue) }                      || ConditionDescriptor.ClassBased
         'BiPredicate'  | { s -> s.predicate('bp', { e, c -> true } as BiPredicate) } || ConditionDescriptor.PredicateBased
         'Predicate'    | { s -> s.predicate('p', { e -> true } as Predicate) }       || ConditionDescriptor.PredicateBased
         'expression'   | { s -> s.expression('x', 'entity.value > 0') }              || ConditionDescriptor.ExpressionBased
@@ -169,7 +168,6 @@ class ConditionDescriptorSinkSpec extends Specification {
         'blank reference id' | { s -> s.ref('  ') }                             || 'Registered condition ID'
         'blank condition id' | { s -> s.instanceBased('  ', new AlwaysTrue()) } || 'Condition ID'
         'null condition'     | { s -> s.instanceBased('i', (Condition) null) }  || 'Condition'
-        'null class'         | { s -> s.classBased('c', (Class) null) }         || 'Condition class'
         'null BiPredicate'   | { s -> s.predicate('bp', (BiPredicate) null) }   || 'Predicate'
         'null Predicate'     | { s -> s.predicate('p', (Predicate) null) }      || 'Predicate'
         'blank expression'   | { s -> s.expression('x', '  ') }                 || 'Expression'

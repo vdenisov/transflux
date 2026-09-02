@@ -178,7 +178,7 @@ class StateMachineImplConditionEvaluationSpec extends Specification {
             .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, { t ->
                 t.step('op', operation)
                     .preCondition('pred', { Entity e -> e.value > 0 } as Predicate)
-                    .preCondition('cls', RegistryProbeCondition)
+                    .preCondition('inst', new RegistryProbeCondition())
                     .preCondition('expr', 'value > 0')
                     .preCondition('registered')
             }) })

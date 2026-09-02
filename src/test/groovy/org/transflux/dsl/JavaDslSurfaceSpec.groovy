@@ -92,6 +92,19 @@ class JavaDslSurfaceSpec extends Specification {
         sm.close()
     }
 
+    def 'every condition registration form resolves under the one condition name'() {
+        given:
+        def sm = JavaDslSurface.typedConditions()
+        def order = new JavaDslSurface.Order()
+
+        when:
+        def result = sm.entity(order).transitionTo('s2', new JavaDslSurface.OrderCtx())
+
+        then: 'all eight pre-conditions held, so the step ran'
+        result.success
+        order.trail == ['recording']
+    }
+
     def 'a conditional registered at SM level builds and runs, in both registration forms'() {
         given:
         def sm = JavaDslSurface.registeredConditional()

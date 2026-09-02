@@ -87,16 +87,6 @@ public interface ContextScope<T, C> {
     ContextScope<T, C> condition(String id, Condition<T, C> condition);
 
     /**
-     * Registers a condition class under {@code id}, tagged with this scope's context class.
-     *
-     * @param id the condition id
-     * @param conditionClass the condition class; never {@code null}
-     *
-     * @return this scope for chaining
-     */
-    ContextScope<T, C> condition(String id, Class<? extends Condition<T, C>> conditionClass);
-
-    /**
      * Registers an {@code (entity, context)} predicate as a condition under {@code id},
      * tagged with this scope's context class.
      *

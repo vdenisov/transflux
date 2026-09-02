@@ -316,22 +316,6 @@ class ConditionalOperationDefImplSpec extends Specification {
         (descriptor as ConditionDescriptor.InstanceBased).condition().is(condition)
     }
 
-    def 'BranchDef.condition(id, Class) builds a ClassBased descriptor'() {
-        given:
-        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
-
-        when:
-        cond.branch('b1', { BranchDef<Entity, TestContext> b ->
-            b.condition('cls', AlwaysTrueCondition).step('s1', new NoopStep())
-        })
-
-        then:
-        def descriptor = cond.branches[0].descriptor
-        descriptor instanceof ConditionDescriptor.ClassBased
-        descriptor.id() == 'cls'
-        (descriptor as ConditionDescriptor.ClassBased).conditionClass() == AlwaysTrueCondition
-    }
-
     def 'BranchDef.condition(id, BiPredicate) builds a PredicateBased descriptor'() {
         given:
         def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }

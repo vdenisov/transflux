@@ -106,11 +106,14 @@ class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
         sm != null
     }
 
-    def 'the same condition class under the same id is idempotent'() {
+    def 'the same condition instance under the same id is idempotent'() {
+        given:
+        def shared = new AlwaysTrue()
+
         when:
         def sm = build({ d -> d.state('s1', { st -> st
-            .transitionsTo('s2', 't1', { t -> t.preCondition('shared', AlwaysTrue) })
-            .transitionsTo('s3', 't2', { t -> t.preCondition('shared', AlwaysTrue) }) })
+            .transitionsTo('s2', 't1', { t -> t.preCondition('shared', shared) })
+            .transitionsTo('s3', 't2', { t -> t.preCondition('shared', shared) }) })
             .state('s2', {})
             .state('s3', {}) })
 

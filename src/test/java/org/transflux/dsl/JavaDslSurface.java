@@ -231,6 +231,44 @@ public final class JavaDslSurface {
     }
 
     /**
+     * Every condition registration form under one {@code condition} name, at a context-typed
+     * registration and inside a {@code forContext} scope. The four bodies are separated by the
+     * arity of what they take - three parameters for a {@link org.transflux.core.condition.Condition},
+     * two for a {@code BiPredicate}, one for a {@code Predicate}, and none at all for an expression
+     * string - which is what lets an implicitly-typed lambda pick one of them.
+     *
+     * @return the built state machine
+     */
+    public static StateMachine<Order> typedConditions() {
+        return Transflux.<Order>defineStateMachine()
+            .forEntityType(Order.class)
+            .withStateResolver(o -> o.state)
+            .withStateApplier((o, s) -> o.state = s)
+            .condition("as-condition", OrderCtx.class, (order, ctx, view) -> true)
+            .condition("as-bipredicate", OrderCtx.class, (order, ctx) -> true)
+            .condition("as-predicate", OrderCtx.class, order -> true)
+            .condition("as-expression", OrderCtx.class, "true")
+            .forContext(OrderCtx.class, scope -> scope
+                .condition("scoped-condition", (order, ctx, view) -> true)
+                .condition("scoped-bipredicate", (order, ctx) -> true)
+                .condition("scoped-predicate", order -> true)
+                .condition("scoped-expression", "true"))
+            .state("s1", s -> s
+                .transitionsTo("s2", "t", OrderCtx.class, t -> t
+                    .preCondition("as-condition")
+                    .preCondition("as-bipredicate")
+                    .preCondition("as-predicate")
+                    .preCondition("as-expression")
+                    .preCondition("scoped-condition")
+                    .preCondition("scoped-bipredicate")
+                    .preCondition("scoped-predicate")
+                    .preCondition("scoped-expression")
+                    .step("record", new RecordingAction())))
+            .state("s2", s -> { })
+            .build();
+    }
+
+    /**
      * A conditional registered at state-machine level, in both registration forms, and reached by
      * id - which says nothing about the form it was authored in.
      *

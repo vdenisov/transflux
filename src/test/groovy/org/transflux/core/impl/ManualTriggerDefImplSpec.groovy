@@ -165,7 +165,6 @@ class ManualTriggerDefImplSpec extends Specification {
                     .preCondition('registered')
                     .preConditionExpression('true')
                     .preCondition('inst', alwaysTrue)
-                    .preCondition('cls', AlwaysTrue)
                     .preCondition('bip', biTrue)
                     .preCondition('pred', predTrue)
                     .preCondition('expr', 'true') })

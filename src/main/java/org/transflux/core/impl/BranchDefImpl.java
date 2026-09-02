@@ -112,11 +112,6 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     }
 
     @Override
-    public BranchDef<T, C> condition(String id, Class<? extends Condition<T, C>> conditionClass) {
-        return branchCondition.classBased(id, conditionClass);
-    }
-
-    @Override
     public BranchDef<T, C> condition(String id, BiPredicate<T, C> predicate) {
         return branchCondition.predicate(id, predicate);
     }

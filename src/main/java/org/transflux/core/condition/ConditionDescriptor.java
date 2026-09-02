@@ -27,19 +27,18 @@ import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
- * Discriminated representation of the five authoring forms a transition condition can take:
- * a reference to a previously registered condition, a class to be reflectively instantiated,
- * a pre-built {@link Condition} instance, a {@link BiPredicate} over {@code (entity, context)}
- * adapted to a {@link Condition}, or a SpEL expression string.
+ * Discriminated representation of the four authoring forms a transition condition can take:
+ * a reference to a previously registered condition, a pre-built {@link Condition} instance, a
+ * {@link BiPredicate} over {@code (entity, context)} adapted to a {@link Condition}, or a SpEL
+ * expression string.
  * <p>
- * Reference, class, instance, and predicate forms require an explicit non-blank id. The
+ * Reference, instance, and predicate forms require an explicit non-blank id. The
  * expression form allows an optional id; when omitted, the framework derives a stable id
  * deterministically from the expression text and the descriptor's position within the
  * enclosing state machine.
  */
 public sealed interface ConditionDescriptor
     permits ConditionDescriptor.Reference,
-            ConditionDescriptor.ClassBased,
             ConditionDescriptor.InstanceBased,
             ConditionDescriptor.PredicateBased,
             ConditionDescriptor.ExpressionBased {
@@ -63,22 +62,6 @@ public sealed interface ConditionDescriptor
      */
     static ConditionDescriptor ref(String id) {
         return new Reference(id);
-    }
-
-    /**
-     * Creates a descriptor that binds a {@link Condition} class under the given id; the class
-     * is reflectively instantiated through its public no-arg constructor during resolution.
-     *
-     * @param id the condition id; never {@code null} or blank
-     * @param conditionClass the condition class; never {@code null}
-     *
-     * @return a class-based descriptor
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
-     *         {@code conditionClass} is {@code null}
-     */
-    static ConditionDescriptor classBased(String id, Class<? extends Condition<?, ?>> conditionClass) {
-        return new ClassBased(id, conditionClass);
     }
 
     /**
@@ -178,25 +161,6 @@ public sealed interface ConditionDescriptor
          */
         public Reference {
             requireNotBlank(id, "Condition reference ID");
-        }
-    }
-
-    /**
-     * Descriptor variant binding a condition class for reflective instantiation.
-     *
-     * @param id the condition id
-     * @param conditionClass the condition class to instantiate
-     */
-    record ClassBased(String id, Class<? extends Condition<?, ?>> conditionClass) implements ConditionDescriptor {
-        /**
-         * Validates the supplied id and class.
-         *
-         * @param id the condition id
-         * @param conditionClass the condition class
-         */
-        public ClassBased {
-            requireNotBlank(id, "Condition ID");
-            requireNotNull(conditionClass, "Condition class");
         }
     }
 

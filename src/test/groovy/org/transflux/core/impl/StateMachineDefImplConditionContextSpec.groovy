@@ -41,7 +41,7 @@ class StateMachineDefImplConditionContextSpec extends Specification {
     def 'a #site referencing a condition declared for an incompatible context is rejected at build'() {
         when:
         build({ d -> d
-            .conditionPredicate('paid', OtherContext, { e, c -> true } as BiPredicate)
+            .condition('paid', OtherContext, { e, c -> true } as BiPredicate)
             .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, reference) })
             .state('s2', {}) })
 
@@ -64,7 +64,7 @@ class StateMachineDefImplConditionContextSpec extends Specification {
     def 'the rejection names the offending site so the reference can be found'() {
         when:
         build({ d -> d
-            .conditionPredicate('paid', OtherContext, { e, c -> true } as BiPredicate)
+            .condition('paid', OtherContext, { e, c -> true } as BiPredicate)
             .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
                 t.addDataTrigger('ready', { dt -> dt.condition('paid') }) }) })
             .state('s2', {}) })
@@ -77,7 +77,7 @@ class StateMachineDefImplConditionContextSpec extends Specification {
     def 'a reference to a condition registered for the same context is accepted'() {
         when:
         def sm = build({ d -> d
-            .conditionPredicate('paid', TestContext, { e, c -> true } as BiPredicate)
+            .condition('paid', TestContext, { e, c -> true } as BiPredicate)
             .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
                 t.addDataTrigger('dt', { dt -> dt.condition('paid') }) }) })
             .state('s2', {}) })
@@ -89,7 +89,7 @@ class StateMachineDefImplConditionContextSpec extends Specification {
     def 'a condition registered against a supertype context accepts a subtype call site'() {
         when:
         def sm = build({ d -> d
-            .conditionPredicate('paid', BaseContext, { e, c -> true } as BiPredicate)
+            .condition('paid', BaseContext, { e, c -> true } as BiPredicate)
             .state('s1', { st -> st.transitionsTo('s2', 't', DerivedContext, { t ->
                 t.addDataTrigger('dt', { dt -> dt.condition('paid') }) }) })
             .state('s2', {}) })
@@ -113,7 +113,7 @@ class StateMachineDefImplConditionContextSpec extends Specification {
     def 'inline condition forms are not subject to the reference check'() {
         when: 'the gate is declared inline against the transition own context'
         def sm = build({ d -> d
-            .conditionPredicate('paid', OtherContext, { e, c -> true } as BiPredicate)
+            .condition('paid', OtherContext, { e, c -> true } as BiPredicate)
             .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
                 t.addDataTrigger('dt', { dt -> dt.condition('inline', { e -> true } as Predicate) }) }) })
             .state('s2', {}) })

@@ -38,16 +38,6 @@ class ConditionDescriptorSpec extends Specification {
         d.id() == 'cond-a'
     }
 
-    def "classBased(...) should produce a ClassBased descriptor carrying id and class"() {
-        when:
-        def d = ConditionDescriptor.classBased('cond-a', SampleCondition)
-
-        then:
-        d instanceof ConditionDescriptor.ClassBased
-        d.id() == 'cond-a'
-        (d as ConditionDescriptor.ClassBased).conditionClass() == SampleCondition
-    }
-
     def "predicate(id, BiPredicate) should produce a PredicateBased descriptor carrying id and predicate"() {
         given:
         BiPredicate<Object, Object> p = { o, c -> true }
@@ -113,27 +103,6 @@ class ConditionDescriptorSpec extends Specification {
 
         where:
         id << [null, '', '  ']
-    }
-
-    @Unroll
-    def "classBased(...) should reject null or blank id (id='#id')"() {
-        when:
-        ConditionDescriptor.classBased(id, SampleCondition)
-
-        then:
-        thrown(TransfluxValidationException)
-
-        where:
-        id << [null, '', '  ']
-    }
-
-    def "classBased(...) should reject null class"() {
-        when:
-        ConditionDescriptor.classBased('cond-a', null)
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message == 'Condition class cannot be null'
     }
 
     @Unroll

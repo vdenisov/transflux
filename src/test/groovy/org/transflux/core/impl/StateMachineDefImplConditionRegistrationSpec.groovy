@@ -48,16 +48,6 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
         }
     }
 
-    static class CtorlessCondition implements Condition<TestEntity, TestContext> {
-        CtorlessCondition(String unused) {
-        }
-
-        @Override
-        boolean test(TestEntity entity, TestContext context, Transition transition) {
-            false
-        }
-    }
-
     @Unroll
     def "condition(...) should reject null or blank id (instance form, id='#id')"() {
         given:
@@ -84,18 +74,6 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message == 'Condition cannot be null'
-    }
-
-    def "condition(...) should reject null class"() {
-        given:
-        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
-
-        when:
-        smd.condition('a', (Class<? extends Condition<TestEntity, TestContext>>) null)
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message == 'Condition class cannot be null'
     }
 
     def "condition(...) should reject null predicate"() {
@@ -155,81 +133,13 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
         map['shared'].condition.is(instance)
     }
 
-    def "registering the same class twice under the same id should be a no-op"() {
-        given:
-        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
-            .condition('shared', CondA)
-            .condition('shared', CondA)
-
-        when:
-        def map = ((StateMachineDefImpl) smd).buildBoundConditions()
-
-        then:
-        map.keySet() == ['shared'] as Set
-        map['shared'].condition instanceof CondA
-    }
-
-    def "registering a different class under the same id should fail"() {
-        given:
-        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
-            .condition('shared', CondA)
-
-        when:
-        smd.condition('shared', CondB)
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message.contains('already registered')
-    }
-
-    def "registering an instance after a class under the same id should fail"() {
-        given:
-        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
-            .condition('shared', CondA)
-
-        when:
-        smd.condition('shared', new CondA())
-
-        then:
-        thrown(TransfluxValidationException)
-    }
-
-    def "class-form registration should be reflectively instantiated when buildBoundConditions runs"() {
-        given:
-        def smd = Transflux.<TestEntity> defineStateMachine()
-            .forEntityType(TestEntity)
-            .condition('a', CondA)
-
-        when:
-        def map = ((StateMachineDefImpl) smd).buildBoundConditions()
-
-        then:
-        map['a'].condition instanceof CondA
-    }
-
-    def "class-form registration with no no-arg constructor should fail at buildBoundConditions"() {
-        given:
-        def smd = Transflux.<TestEntity> defineStateMachine()
-            .forEntityType(TestEntity)
-            .condition('bad', CtorlessCondition)
-
-        when:
-        ((StateMachineDefImpl) smd).buildBoundConditions()
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message.contains('no accessible no-arg constructor')
-        e.message.contains('CtorlessCondition')
-    }
-
-    def "buildBoundConditions should expose all four registration forms"() {
+    def "buildBoundConditions should expose all three registration forms"() {
         given:
         def instance = new CondA()
         Predicate<TestEntity> pred = { e -> e.value > 5 }
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .condition('inst', instance)
-            .condition('cls', CondB)
             .condition('pred', pred)
             .condition('expr', 'value > 0')
 
@@ -237,9 +147,8 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
         def map = ((StateMachineDefImpl) smd).buildBoundConditions()
 
         then:
-        map.keySet() == ['inst', 'cls', 'pred', 'expr'] as Set
+        map.keySet() == ['inst', 'pred', 'expr'] as Set
         map['inst'].condition.is(instance)
-        map['cls'].condition instanceof CondB
 
         and: 'predicate adapter delegates to the predicate'
         def predBound = map['pred'].condition

@@ -339,11 +339,6 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> preCondition(String id, Class<? extends Condition<T, C>> conditionClass) {
-        return preConditions.classBased(id, conditionClass);
-    }
-
-    @Override
     public TransitionDef<T, C> preCondition(String id, BiPredicate<T, C> predicate) {
         return preConditions.predicate(id, predicate);
     }
@@ -371,11 +366,6 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     @Override
     public TransitionDef<T, C> postCondition(String id, Condition<T, C> condition) {
         return postConditions.instanceBased(id, condition);
-    }
-
-    @Override
-    public TransitionDef<T, C> postCondition(String id, Class<? extends Condition<T, C>> conditionClass) {
-        return postConditions.classBased(id, conditionClass);
     }
 
     @Override

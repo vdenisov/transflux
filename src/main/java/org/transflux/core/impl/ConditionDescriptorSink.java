@@ -113,13 +113,6 @@ final class ConditionDescriptorSink<T, C, D> {
         return store(ConditionDescriptor.instanceBased(id, condition));
     }
 
-    D classBased(String id, Class<? extends Condition<T, C>> conditionClass) {
-        owner.requireConfigurerActive(dslMethod);
-        requireNotBlank(id, "Condition ID");
-        requireNotNull(conditionClass, "Condition class");
-        return store(ConditionDescriptor.classBased(id, conditionClass));
-    }
-
     D predicate(String id, BiPredicate<T, C> predicate) {
         owner.requireConfigurerActive(dslMethod);
         requireNotBlank(id, "Condition ID");

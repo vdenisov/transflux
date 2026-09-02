@@ -89,22 +89,6 @@ class TransitionDefImplConditionsSpec extends Specification {
         (descriptor as ConditionDescriptor.InstanceBased).condition().is(condition)
     }
 
-    def 'preCondition with id + Class appends a ClassBased descriptor'() {
-        given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
-        td.beginConfigurer()
-
-        when:
-        td.preCondition('pre-class', AlwaysTrueCondition)
-
-        then:
-        td.preConditionDescriptors.size() == 1
-        def descriptor = td.preConditionDescriptors[0]
-        descriptor instanceof ConditionDescriptor.ClassBased
-        descriptor.id() == 'pre-class'
-        (descriptor as ConditionDescriptor.ClassBased).conditionClass() == AlwaysTrueCondition
-    }
-
     def 'preCondition with id + BiPredicate appends a PredicateBased descriptor'() {
         given:
         def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
@@ -210,22 +194,6 @@ class TransitionDefImplConditionsSpec extends Specification {
         descriptor instanceof ConditionDescriptor.InstanceBased
         descriptor.id() == 'post-instance'
         (descriptor as ConditionDescriptor.InstanceBased).condition().is(condition)
-    }
-
-    def 'postCondition with id + Class appends a ClassBased descriptor'() {
-        given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
-        td.beginConfigurer()
-
-        when:
-        td.postCondition('post-class', AlwaysTrueCondition)
-
-        then:
-        td.postConditionDescriptors.size() == 1
-        def descriptor = td.postConditionDescriptors[0]
-        descriptor instanceof ConditionDescriptor.ClassBased
-        descriptor.id() == 'post-class'
-        (descriptor as ConditionDescriptor.ClassBased).conditionClass() == AlwaysTrueCondition
     }
 
     def 'postCondition with id + BiPredicate appends a PredicateBased descriptor'() {
@@ -349,19 +317,6 @@ class TransitionDefImplConditionsSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message == 'Condition cannot be null'
-    }
-
-    def 'preCondition rejects null Class'() {
-        given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
-        td.beginConfigurer()
-
-        when:
-        td.preCondition('id', (Class<? extends Condition<Entity, TestContext>>) null)
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message == 'Condition class cannot be null'
     }
 
     def 'preCondition rejects null Predicate'() {
