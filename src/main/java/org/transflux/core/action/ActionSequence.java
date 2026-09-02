@@ -187,20 +187,6 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
     SELF step(String id, Action<T, C> action);
 
     /**
-     * Declares an imperative action inline at this position, from a class the framework
-     * instantiates through its public no-arg constructor at build time.
-     *
-     * @param id the action id; must be unique across the state machine
-     * @param actionClass the action class
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is blank or {@code actionClass} is
-     *         {@code null}
-     */
-    SELF step(String id, Class<? extends Action<T, C>> actionClass);
-
-    /**
      * Configurer form of the inline declaration, for a member that also wants a name, a
      * description, or listeners. The configurer must call {@code using(...)} to supply the body.
      *
@@ -294,39 +280,6 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      *         {@code null}
      */
     <N> SELF step(String id, Class<N> contextType, ContextMapper<C, N> mapper, Action<T, N> action);
-
-    /**
-     * Class form of {@link #step(String, Class, Action)}; the framework instantiates the class
-     * through its public no-arg constructor at build time.
-     *
-     * @param id the action id; must be unique across the state machine
-     * @param contextType the context the action runs against
-     * @param actionClass the action class
-     * @param <N> the declared context type
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is blank or either other argument is
-     *         {@code null}
-     */
-    <N> SELF step(String id, Class<N> contextType, Class<? extends Action<T, N>> actionClass);
-
-    /**
-     * Class form of {@link #step(String, Class, ContextMapper, Action)}.
-     *
-     * @param id the action id; must be unique across the state machine
-     * @param contextType the context the action runs against
-     * @param mapper produces the action's context from the enclosing one
-     * @param actionClass the action class
-     * @param <N> the declared context type
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is blank or any other argument is
-     *         {@code null}
-     */
-    <N> SELF step(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                  Class<? extends Action<T, N>> actionClass);
 
     /**
      * Configurer form of {@link #step(String, Class, Action)}, for a member that also wants a

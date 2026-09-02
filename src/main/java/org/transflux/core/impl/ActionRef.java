@@ -51,7 +51,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <C> the host-supplied context type carried through transition execution
  */
 sealed interface ActionRef<T, C>
-    permits ActionRef.ById, ActionRef.InlineInstance, ActionRef.InlineClass, ActionRef.InlineDef,
+    permits ActionRef.ById, ActionRef.InlineInstance, ActionRef.InlineDef,
             ActionRef.Conditional, ActionRef.InlineOperation {
 
     String id();
@@ -179,11 +179,6 @@ sealed interface ActionRef<T, C>
         return new InlineInstance<>(id, action, kind);
     }
 
-    static <T, C> ActionRef<T, C> inline(String id, Class<? extends Action<T, C>> actionClass,
-                                         ActionKind kind) {
-        return new InlineClass<>(id, actionClass, kind);
-    }
-
     static <T, C> ActionRef<T, C> inline(String id, StepDefImpl<T, C> def) {
         return new InlineDef<>(id, def, MapperRef.passThrough());
     }
@@ -233,25 +228,9 @@ sealed interface ActionRef<T, C>
         }
     }
 
-    @SuppressWarnings("ClassEscapesDefinedScope")
-    record InlineClass<T, C>(String id, Class<? extends Action<T, C>> actionClass, ActionKind kind)
-        implements ActionRef<T, C> {
-
-        public InlineClass {
-            requireNotBlank(id, "Action reference ID");
-            requireNotNull(actionClass, "Inline action class");
-            requireNotNull(kind, "Inline action kind");
-        }
-
-        @Override
-        public void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
-            sink.registerInlineActionClass(id, actionClass, kind);
-        }
-    }
-
     /**
-     * An inline declaration made through a configurer, which - unlike the bare instance and class
-     * forms - has a def behind it and can therefore carry a name, a description, and listeners.
+     * An inline declaration made through a configurer, which - unlike the bare instance form -
+     * has a def behind it and can therefore carry a name, a description, and listeners.
      */
     @SuppressWarnings("ClassEscapesDefinedScope")
     record InlineDef<T, C>(String id, StepDefImpl<T, C> def, MapperRef mapperRef)

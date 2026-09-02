@@ -120,14 +120,15 @@ class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
         sm != null
     }
 
-    def 'same operation id with the same class across two composites is tolerated (idempotent)'() {
+    def 'same operation id with the same instance across two composites is tolerated (idempotent)'() {
         given:
+        def twin = new NoOpOperation()
         def smd = multiTransitionDef(
             { t -> t.operation('outer1', { OperationDef<Entity, TestContext> c ->
-                c.step('twin', NoOpOperation)
+                c.step('twin', twin)
             }) },
             { t -> t.operation('outer2', { OperationDef<Entity, TestContext> c ->
-                c.step('twin', NoOpOperation)
+                c.step('twin', twin)
             }) })
 
         when:

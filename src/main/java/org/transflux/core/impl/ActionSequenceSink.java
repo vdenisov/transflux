@@ -100,12 +100,6 @@ final class ActionSequenceSink<T, C, D> {
         return self;
     }
 
-    D step(String id, Class<? extends Action<T, C>> actionClass) {
-        owner.requireConfigurerActive("step");
-        members.add(new DeclaredMember<>(ActionRef.inline(id, actionClass, ActionKind.STEP), false));
-        return self;
-    }
-
     D step(String id, Consumer<StepDef<T, C>> configurer) {
         owner.requireConfigurerActive("step");
         requireNotBlank(id, "Step ID");
@@ -118,12 +112,6 @@ final class ActionSequenceSink<T, C, D> {
 
     <N> D step(String id, Class<N> contextType, MapperRef mapperRef, Action<T, N> action) {
         return typedStep(id, contextType, mapperRef, def -> def.using(action));
-    }
-
-    <N> D step(String id, Class<N> contextType, MapperRef mapperRef,
-               Class<? extends Action<T, N>> actionClass) {
-        requireNotNull(actionClass, "Step class");
-        return typedStep(id, contextType, mapperRef, def -> def.using(actionClass));
     }
 
     <N> D step(String id, Class<N> contextType, MapperRef mapperRef,

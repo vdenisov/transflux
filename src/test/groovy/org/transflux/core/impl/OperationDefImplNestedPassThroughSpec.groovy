@@ -124,13 +124,13 @@ class OperationDefImplNestedPassThroughSpec extends Specification {
         applied == ['s2']
     }
 
-    def 'inline-class nested op is reflectively instantiated and runs'() {
+    def 'an inline nested op declared from an instance runs'() {
         given:
         def applied = []
         def sm = build(applied,
             { smd -> smd.step('inner-a', new TrailStep('a')).step('inner-b', new TrailStep('b')) },
             { t -> t.operation('outer', { OperationDef<Entity, TestContext> c ->
-                c.step('nested-op', TwoStepInlineOp)
+                c.step('nested-op', new TwoStepInlineOp())
             }) })
         def entity = new Entity('s1')
 

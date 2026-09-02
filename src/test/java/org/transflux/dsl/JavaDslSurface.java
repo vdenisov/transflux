@@ -203,9 +203,8 @@ public final class JavaDslSurface {
                                 .run("notify", "notify-from-order")
                                 .run("notify", parent -> new NotifyCtx(parent.orderId))
                                 .step("branch-instance", (order, ctx, view) -> order.trail.add("branch-inline"))
-                                .step("branch-class", RecordingAction.class)
                                 .step("branch-configured", step -> step
-                                    .using(RecordingAction.class)
+                                    .using(new RecordingAction())
                                     .withName("In a branch"))
                                 .fork("record")
                                 .fork("notify", "notify-from-order")
@@ -219,9 +218,8 @@ public final class JavaDslSurface {
                                 .run("notify", "notify-from-order")
                                 .run("notify", parent -> new NotifyCtx(parent.orderId))
                                 .step("default-instance", (order, ctx, view) -> order.trail.add("default-inline"))
-                                .step("default-class", RecordingAction.class)
                                 .step("default-configured", step -> step
-                                    .using(RecordingAction.class)
+                                    .using(new RecordingAction())
                                     .withName("In the default branch"))
                                 .fork("record")
                                 .conditional("nested-in-default", inner -> inner
@@ -349,9 +347,8 @@ public final class JavaDslSurface {
                         // pass-through: the declared context widens, so nothing maps
                         .step("pt-instance", HasOrderId.class,
                               (order, ctx, view) -> order.trail.add("pt:" + ctx.orderId()))
-                        .step("pt-class", HasOrderId.class, IgnoresContext.class)
                         .step("pt-configured", HasOrderId.class,
-                              st -> st.using(IgnoresContext.class).withName("Widened"))
+                              st -> st.using(new IgnoresContext()).withName("Widened"))
                         .operation("pt-op", HasOrderId.class, inner -> inner
                             .step("pt-op-step",
                                   (order, ctx, view) -> order.trail.add("pt-op:" + ctx.orderId())))
@@ -364,10 +361,8 @@ public final class JavaDslSurface {
                         // mapped: the declared context is produced from the enclosing one
                         .step("mapped-instance", NotifyCtx.class, new NotifyFromOrder(),
                               new NotifyAction())
-                        .step("mapped-class", NotifyCtx.class, new NotifyFromOrder(),
-                              NotifyAction.class)
                         .step("mapped-configured", NotifyCtx.class, new NotifyFromOrder(),
-                              st -> st.using(NotifyAction.class).withName("Mapped"))
+                              st -> st.using(new NotifyAction()).withName("Mapped"))
                         .operation("mapped-op", NotifyCtx.class, new NotifyFromOrder(), inner -> inner
                             .step("mapped-op-step", (order, ctx, view) -> {
                                 order.trail.add("mapped-op:" + ctx.orderId);
@@ -383,11 +378,9 @@ public final class JavaDslSurface {
                         // shape a concrete mapper instance cannot prove resolves
                         .step("lambda-instance", NotifyCtx.class,
                               parent -> new NotifyCtx(parent.orderId), new NotifyAction())
-                        .step("lambda-class", NotifyCtx.class,
-                              parent -> new NotifyCtx(parent.orderId), NotifyAction.class)
                         .step("lambda-configured", NotifyCtx.class,
                               parent -> new NotifyCtx(parent.orderId),
-                              st -> st.using(NotifyAction.class).withName("Lambda-mapped"))
+                              st -> st.using(new NotifyAction()).withName("Lambda-mapped"))
                         .operation("lambda-op", NotifyCtx.class,
                                    parent -> new NotifyCtx(parent.orderId), inner -> inner
                             .step("lambda-op-step",
@@ -445,9 +438,8 @@ public final class JavaDslSurface {
                 .transitionsTo("s2", "t", OrderCtx.class, t -> t
                     .operation("op", c -> c
                         .step("inline-instance", (order, ctx, view) -> order.trail.add("inline"))
-                        .step("inline-class", RecordingAction.class)
                         .step("inline-configured", step -> step
-                            .using(RecordingAction.class)
+                            .using(new RecordingAction())
                             .withName("Configured")
                             .withDescription("Declared through a configurer")
                             .withCompensation(new RollbackCompensation())
@@ -458,7 +450,7 @@ public final class JavaDslSurface {
                             .branch("premium", b -> b
                                 .condition("is-premium", (order, ctx) -> "o-1".equals(ctx.orderId))
                                 .run("inline-instance"))
-                            .defaultBranch(d -> d.run("inline-class"))))))
+                            .defaultBranch(d -> d.run("inline-configured"))))))
             .state("s2", s -> { })
             .build();
     }
@@ -479,7 +471,7 @@ public final class JavaDslSurface {
                     .operation("op", c -> c
                         .withCompensation((order, ctx) -> order.trail.add("-container"))
                         .step("charge", step -> step
-                            .using(RecordingAction.class)
+                            .using(new RecordingAction())
                             .withCompensation(RollbackCompensation.class)
                             .forException(IllegalStateException.class)
                                 .withCompensation((order, ctx) -> order.trail.add("-illegal"))

@@ -33,10 +33,8 @@ import static org.transflux.core.Preconditions.requireNotNull;
 /**
  * Default {@link StepDef} implementation - the imperative authoring form.
  * <p>
- * Holds either an {@link Action} instance or an {@code Action} class plus the declared context
- * type; the two source forms are mutually exclusive and last-write-wins. The build resolves the
- * held source, reflectively instantiating the class form when needed, into a {@link BoundAction}
- * paired with this def's id.
+ * Holds the {@link Action} instance plus the declared context type, last-write-wins. The build
+ * resolves the held source into a {@link BoundAction} paired with this def's id.
  *
  * <p>An imperative action binds no children at definition time, so the scope-related hooks
  * declared on {@link ActionDefImpl} are all no-ops here; only {@link OperationDefImpl} carries
@@ -72,14 +70,6 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
         requireConfigurerActive("using");
         requireNotNull(action, "Step");
         source.setInstance(action);
-        return this;
-    }
-
-    @Override
-    public StepDefImpl<T, C> using(Class<? extends Action<T, C>> actionClass) {
-        requireConfigurerActive("using");
-        requireNotNull(actionClass, "Step class");
-        source.setClass(actionClass);
         return this;
     }
 

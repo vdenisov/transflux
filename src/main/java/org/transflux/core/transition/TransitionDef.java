@@ -181,20 +181,6 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> step(String id, Action<T, C> action);
 
     /**
-     * Attaches an imperative action - a step - using an {@link Action} class. The framework
-     * instantiates it via its public no-arg constructor at state machine build time.
-     *
-     * @param id the step id; never {@code null} or blank
-     * @param actionClass the action class; never {@code null}
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
-     *         {@code actionClass} is {@code null}
-     */
-    TransitionDef<T, C> step(String id, Class<? extends Action<T, C>> actionClass);
-
-    /**
      * Attaches an imperative action - a step - built through a fluent configurer. Use this form
      * when you want to set {@code name} / {@code description} alongside the action source.
      * <p>

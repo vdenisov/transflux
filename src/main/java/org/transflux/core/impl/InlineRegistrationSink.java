@@ -24,7 +24,6 @@ import org.transflux.core.condition.ConditionDescriptor;
 
 import java.util.Map;
 
-import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
 import static org.transflux.core.impl.StateMachineDefImpl.claimCanonical;
 import static org.transflux.core.impl.StateMachineDefImpl.claimInlineCondition;
 
@@ -60,18 +59,6 @@ final class InlineRegistrationSink<T, C> {
             return;
         }
         BoundAction<T, C> bound = BoundAction.of(id, action, kind);
-        scope.register(new Component.Action<>(id, contextType, bound));
-    }
-
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    void registerInlineActionClass(String id, Class<? extends Action<T, C>> actionClass,
-                                   ActionKind kind) {
-        claimCanonical(canonical, id, actionClass, label(kind));
-        if (scope.get(id).isPresent()) {
-            return;
-        }
-        Action<T, C> resolved = (Action<T, C>) instantiateNoArg((Class) actionClass, label(kind));
-        BoundAction<T, C> bound = BoundAction.of(id, resolved, kind);
         scope.register(new Component.Action<>(id, contextType, bound));
     }
 

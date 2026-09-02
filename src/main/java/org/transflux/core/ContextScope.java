@@ -59,21 +59,6 @@ public interface ContextScope<T, C> {
     ContextScope<T, C> step(String id, Action<T, C> step);
 
     /**
-     * Registers a step class under {@code id}, tagged with this scope's context class. The
-     * framework instantiates the class via its public no-arg constructor at build time.
-     *
-     * @param id the step id
-     * @param stepClass the step class; never {@code null}
-     *
-     * @return this scope for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank,
-     *         {@code stepClass} is {@code null}, or another component is already registered
-     *         under {@code id}
-     */
-    ContextScope<T, C> step(String id, Class<? extends Action<T, C>> stepClass);
-
-    /**
      * Registers a step under {@code id} via a lambda configurer, tagged with this scope's context
      * class. Inside the configurer the caller wires the step source with {@code using(...)}, may
      * set optional {@code withName} / {@code withDescription} metadata, and may attach action

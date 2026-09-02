@@ -65,15 +65,6 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
     }
 
     @Override
-    public ContextScope<T, C> step(String id, Class<? extends Action<T, C>> stepClass) {
-        requireConfigurerActive("step");
-        requireNotBlank(id, "Step ID");
-        requireNotNull(stepClass, "Step class");
-        smd.registerScopedStep(id, stepClass, contextType);
-        return this;
-    }
-
-    @Override
     public ContextScope<T, C> step(String id, Consumer<StepDef<T, C>> configurer) {
         requireConfigurerActive("step");
         requireNotBlank(id, "Step ID");

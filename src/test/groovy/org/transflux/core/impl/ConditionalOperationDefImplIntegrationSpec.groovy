@@ -57,12 +57,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
 
     /** Records which build's instance was created and which one actually ran. */
     static class Recorder implements Action<Entity, TestContext> {
-        static final List<Recorder> CREATED = []
         static final List<Recorder> RAN = []
-
-        Recorder() {
-            CREATED << this
-        }
 
         @Override
         void execute(Entity entity, TestContext context, ExecutingTransition<Entity, TestContext> transition) {
@@ -737,8 +732,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
     }
 
     def 'a machine keeps the conditional scope it was built with when the def is built again'() {
-        given: 'a class-based inline member, so each build instantiates its own'
-        Recorder.CREATED.clear()
+        given: 'an inline member, so each build binds its own record for it'
         Recorder.RAN.clear()
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
@@ -749,7 +743,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
                 c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs -> cs
                     .branch('other', { BranchDef<Entity, TestContext> b -> b
                         .condition('no', { Entity e -> false } as Predicate)
-                        .step('leaf', Recorder) })
+                        .step('leaf', new Recorder()) })
                     .branch('taken', { BranchDef<Entity, TestContext> b -> b
                         .condition('yes', { Entity e -> true } as Predicate)
                         .step('dispatcher', { Entity e, TestContext ctx, ExecutingTransition view ->
@@ -760,16 +754,15 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         smd.state('s2', {})
 
         def first = smd.build()
-        smd.build()
+        def second = smd.build()
 
         when: 'the first machine runs after a second was built from the same def'
         def result = first.executeTransition(new Entity('s1'), 's2')
 
         then: 'it dispatched the member from its own build, not from the later one'
         result.success
-        Recorder.CREATED.size() == 2
         Recorder.RAN.size() == 1
-        Recorder.RAN[0].is(Recorder.CREATED[0])
+        !first.transitions['t'].boundAction.is(second.transitions['t'].boundAction)
     }
 
     def 'a conditional attaches straight to a transition, with no wrapping operation'() {

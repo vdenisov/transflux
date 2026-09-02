@@ -177,11 +177,6 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     }
 
     @Override
-    public BranchDef<T, C> step(String id, Class<? extends Action<T, C>> stepClass) {
-        return members.step(id, stepClass);
-    }
-
-    @Override
     public BranchDef<T, C> step(String id, Consumer<StepDef<T, C>> configurer) {
         return members.step(id, configurer);
     }
@@ -195,18 +190,6 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     public <N> BranchDef<T, C> step(String id, Class<N> contextType, ContextMapper<C, N> mapper,
                           Action<T, N> action) {
         return members.step(id, contextType, MapperRef.inline(mapper), action);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> step(String id, Class<N> contextType,
-                          Class<? extends Action<T, N>> actionClass) {
-        return members.step(id, contextType, MapperRef.passThrough(), actionClass);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> step(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                          Class<? extends Action<T, N>> actionClass) {
-        return members.step(id, contextType, MapperRef.inline(mapper), actionClass);
     }
 
     @Override

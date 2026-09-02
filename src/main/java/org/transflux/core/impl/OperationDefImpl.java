@@ -98,11 +98,6 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
-    public OperationDefImpl<T, C> step(String id, Class<? extends Action<T, C>> actionClass) {
-        return members.step(id, actionClass);
-    }
-
-    @Override
     public OperationDefImpl<T, C> step(String id, Consumer<StepDef<T, C>> configurer) {
         return members.step(id, configurer);
     }
@@ -392,18 +387,6 @@ final class OperationDefImpl<T, C>
     public <N> OperationDefImpl<T, C> step(String id, Class<N> contextType, ContextMapper<C, N> mapper,
                           Action<T, N> action) {
         return members.step(id, contextType, MapperRef.inline(mapper), action);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> step(String id, Class<N> contextType,
-                          Class<? extends Action<T, N>> actionClass) {
-        return members.step(id, contextType, MapperRef.passThrough(), actionClass);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> step(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                          Class<? extends Action<T, N>> actionClass) {
-        return members.step(id, contextType, MapperRef.inline(mapper), actionClass);
     }
 
     @Override

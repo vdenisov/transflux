@@ -154,20 +154,6 @@ class TransitionDefImplSpec extends Specification {
         transitionDef.actionDef.id == 'op1'
     }
 
-    def 'step(id, Operation class) should attach an inline step def'() {
-        given:
-        def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
-        transitionDef.beginConfigurer()
-
-        when:
-        def returned = transitionDef.step('op1', FooOperation)
-
-        then:
-        returned.is(transitionDef)
-        transitionDef.actionDef instanceof StepDefImpl
-        transitionDef.actionDef.id == 'op1'
-    }
-
     def 'step(id, Consumer) should attach a configured step def'() {
         given:
         def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
@@ -175,7 +161,7 @@ class TransitionDefImplSpec extends Specification {
 
         when:
         def returned = transitionDef.step('op1', { StepDef<Object, Object> op ->
-            op.withName('Foo').withDescription('Foo desc').using(FooOperation)
+            op.withName('Foo').withDescription('Foo desc').using(new FooOperation())
         })
 
         then:

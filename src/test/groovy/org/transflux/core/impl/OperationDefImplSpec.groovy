@@ -77,13 +77,13 @@ class OperationDefImplSpec extends Specification {
         def composite = new OperationDefImpl<TestEntity, TestContext>('op1').tap { beginConfigurer() }
             .step('a-id', new AppendStep('a'))
             .run('b-id')
-            .step('c-id', AppendStep)
+            .step('c-id', { it.using(new AppendStep('c')) } as Consumer)
 
         expect:
         composite.actionRefs.size() == 3
         composite.actionRefs[0] instanceof ActionRef.InlineInstance
         composite.actionRefs[1] instanceof ActionRef.ById
-        composite.actionRefs[2] instanceof ActionRef.InlineClass
+        composite.actionRefs[2] instanceof ActionRef.InlineDef
     }
 
     def "name and description should be optional and round-trip with covariant return"() {
@@ -282,46 +282,6 @@ class OperationDefImplSpec extends Specification {
         e.message.contains("composite 'nested'")
     }
 
-    def "composite using inline class form is reflectively instantiated through the SM registry"() {
-        given:
-        def smd = Transflux.<TestEntity> defineStateMachine()
-            .forEntityType(TestEntity)
-            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', { t ->
-            t.operation('op1', { OperationDef<TestEntity, TestContext> c -> c.step('foo-id', FooStep) })
-        }) })
-        smd.state(ACTIVE.id, {})
-
-        def sm = (StateMachineImpl<TestEntity>) smd.build()
-        def entity = new TestEntity('TRIAL')
-        def view = new ExecutingTransitionImpl<TestEntity, TestContext>(sm, sm.transitions['t1'], entity, new TestContext())
-
-        when:
-        sm.transitions['t1'].boundAction.action.execute(entity, view.context, view)
-
-        then:
-        entity.trail == ['foo']
-    }
-
-    def "build should fail-fast when inline class has no no-arg constructor"() {
-        given:
-        def smd = Transflux.<TestEntity> defineStateMachine()
-            .forEntityType(TestEntity)
-            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', { t ->
-            t.operation('op1', { OperationDef<TestEntity, TestContext> c -> c.step('bad-id', CtorlessStep) })
-        }) })
-        smd.state(ACTIVE.id, {})
-
-        when:
-        smd.build()
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message.contains('no accessible no-arg constructor')
-        e.message.contains('CtorlessStep')
-    }
-
     def 'mapTo failure surfaces as parent member failure — nested op never starts'() {
         given:
         def sm = buildNestedFail(
@@ -410,16 +370,6 @@ class OperationDefImplSpec extends Specification {
         @Override
         void execute(TestEntity entity, TestContext context, ExecutingTransition<TestEntity, TestContext> transition) {
             entity.trail << 'foo'
-        }
-    }
-
-    static class CtorlessStep implements Action<TestEntity, TestContext> {
-        @SuppressWarnings('unused')
-        CtorlessStep(String unused) {
-        }
-
-        @Override
-        void execute(TestEntity entity, TestContext context, ExecutingTransition<TestEntity, TestContext> transition) {
         }
     }
 

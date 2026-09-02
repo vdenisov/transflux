@@ -226,17 +226,6 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> step(String id, Action<T, ?> step);
 
     /**
-     * Registers a step class against this state machine under the given id, without a
-     * declared context type.
-     *
-     * @param id the step id
-     * @param stepClass the step class; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> step(String id, Class<? extends Action<T, ?>> stepClass);
-
-    /**
      * Registers a step against this state machine via a lambda configurer, without a declared
      * context type. Inside the configurer the caller wires the step source with
      * {@code using(...)}, may set optional {@code withName} / {@code withDescription} metadata,
@@ -268,19 +257,6 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     <C> StateMachineDef<T> step(String id, Class<C> contextType, Action<T, C> step);
-
-    /**
-     * Registers a step class against this state machine under the given id, tagged with
-     * the supplied context class.
-     *
-     * @param id the step id
-     * @param contextType the step's declared context class
-     * @param stepClass the step class
-     * @param <C> the context class
-     *
-     * @return this state machine def for chaining
-     */
-    <C> StateMachineDef<T> step(String id, Class<C> contextType, Class<? extends Action<T, C>> stepClass);
 
     /**
      * Registers a step against this state machine via a lambda configurer, tagged with the

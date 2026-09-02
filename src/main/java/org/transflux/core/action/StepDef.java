@@ -24,7 +24,7 @@ import java.util.function.Consumer;
 
 /**
  * Def-side anchor for an <em>imperative</em> action - one authored as a Java body, supplied as an
- * {@link Action} instance or as a class the framework instantiates.
+ * {@link Action} instance.
  * <p>
  * Pure {@code Action} executables carry no identity; identity, context type and metadata live
  * here. At build time the framework pairs the executable with this def's id so the runtime can
@@ -35,9 +35,8 @@ import java.util.function.Consumer;
  * runtime and are dispatched identically; the distinction is what the author wrote, and it
  * survives only as metadata in diagnostics.
  *
- * <p>The {@code id} is mandatory. Exactly one of {@link #using(Action)} or {@link #using(Class)}
- * must be called before the enclosing state machine is built; calling {@code using(...)} a second
- * time overrides the prior choice.
+ * <p>The {@code id} is mandatory. {@link #using(Action)} must be called before the enclosing state
+ * machine is built; calling it a second time overrides the prior choice.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type this action requires
@@ -54,18 +53,6 @@ public interface StepDef<T, C> extends ActionDef<T, C> {
      * @throws TransfluxValidationException if {@code action} is {@code null}
      */
     StepDef<T, C> using(Action<T, C> action);
-
-    /**
-     * Wires this def to an {@link Action} class. The framework instantiates it via its public
-     * no-arg constructor at build time.
-     *
-     * @param actionClass the action class; never {@code null}
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code actionClass} is {@code null}
-     */
-    StepDef<T, C> using(Class<? extends Action<T, C>> actionClass);
 
     @Override
     StepDef<T, C> withName(String name);

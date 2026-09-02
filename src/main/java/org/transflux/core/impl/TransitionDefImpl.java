@@ -284,15 +284,6 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> step(String id, Class<? extends Action<T, C>> actionClass) {
-        requireConfigurerActive("step");
-        StepDefImpl<T, C> def = newStepDef(id);
-        ConfigurableDefImpl.runConfigurer(def, d -> d.using(actionClass));
-        attachAction(def);
-        return this;
-    }
-
-    @Override
     public TransitionDef<T, C> step(String id, Consumer<StepDef<T, C>> configurer) {
         requireConfigurerActive("step");
         requireNotNull(configurer, "Step configurer");

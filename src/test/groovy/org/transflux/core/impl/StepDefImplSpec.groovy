@@ -48,15 +48,6 @@ class StepDefImplSpec extends Specification {
         }
     }
 
-    static class CtorlessStep implements Action<Object, Object> {
-        CtorlessStep(String arg) {
-        }
-
-        @Override
-        void execute(Object entity, Object context, ExecutingTransition<Object, Object> transition) {
-        }
-    }
-
     def 'constructor rejects null id'() {
         when:
         new StepDefImpl<Object, Object>(null, Object)
@@ -115,16 +106,6 @@ class StepDefImplSpec extends Specification {
         bound.action().is(step)
     }
 
-    def 'using(class) resolves via the no-arg constructor'() {
-        given:
-        def def_ = new StepDefImpl<Object, Object>('s1', Object)
-        def_.beginConfigurer()
-        def_.using(NoopStep)
-
-        expect:
-        def_.buildBoundAction().action() instanceof NoopStep
-    }
-
     def 'using(...) twice is last-write-wins'() {
         given:
         def first = new NoopStep()
@@ -137,16 +118,6 @@ class StepDefImplSpec extends Specification {
         def_.buildBoundAction().action().is(second)
     }
 
-    def 'using(class) after using(instance) overrides the instance'() {
-        given:
-        def def_ = new StepDefImpl<Object, Object>('s1', Object)
-        def_.beginConfigurer()
-        def_.using(new NoopStep()).using(NoopStep)
-
-        expect:
-        def_.buildBoundAction().action() instanceof NoopStep
-    }
-
     def 'using(instance) rejects null'() {
         given:
         def def_ = new StepDefImpl<Object, Object>('s1', Object)
@@ -154,18 +125,6 @@ class StepDefImplSpec extends Specification {
 
         when:
         def_.using((Action<Object, Object>) null)
-
-        then:
-        thrown(TransfluxValidationException)
-    }
-
-    def 'using(class) rejects null'() {
-        given:
-        def def_ = new StepDefImpl<Object, Object>('s1', Object)
-        def_.beginConfigurer()
-
-        when:
-        def_.using((Class<? extends Action<Object, Object>>) null)
 
         then:
         thrown(TransfluxValidationException)
@@ -182,21 +141,6 @@ class StepDefImplSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains("StepDef 's1'")
-    }
-
-    def 'buildBoundAction with a class lacking a no-arg constructor fails fast'() {
-        given:
-        def def_ = new StepDefImpl<Object, Object>('s1', Object)
-        def_.beginConfigurer()
-        def_.using(CtorlessStep)
-
-        when:
-        def_.buildBoundAction()
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message.contains('no accessible no-arg constructor')
-        e.message.contains('CtorlessStep')
     }
 
     def 'a def that declares no compensation binds none'() {

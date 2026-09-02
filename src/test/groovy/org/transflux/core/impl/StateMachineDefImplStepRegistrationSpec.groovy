@@ -50,15 +50,6 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         }
     }
 
-    static class CtorlessStep implements Action<TestEntity, TestContext> {
-        CtorlessStep(String unused) {
-        }
-
-        @Override
-        void execute(TestEntity entity, TestContext context, ExecutingTransition<TestEntity, TestContext> transition) {
-        }
-    }
-
     @Unroll
     def "step(...) should reject null or blank id (instance form, id='#id')"() {
         given:
@@ -85,18 +76,6 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message == 'Step cannot be null'
-    }
-
-    def "step(...) should reject null class"() {
-        given:
-        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
-
-        when:
-        smd.step('a', (Class<? extends Action<TestEntity, TestContext>>) null)
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message == 'Step class cannot be null'
     }
 
     def "registering two different instances under same id should fail"() {
@@ -126,80 +105,6 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         then:
         map.keySet() == ['shared'] as Set
         map['shared'].action.is(instance)
-    }
-
-    def "registering same class twice under same id should be a no-op"() {
-        given:
-        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
-            .step('shared', StepA)
-            .step('shared', StepA)
-
-        when:
-        def map = ((StateMachineDefImpl) smd).buildBoundActions()
-
-        then:
-        map.keySet() == ['shared'] as Set
-        map['shared'].action instanceof StepA
-    }
-
-    def "registering a different class under same id should fail"() {
-        given:
-        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
-            .step('shared', StepA)
-
-        when:
-        smd.step('shared', StepB)
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message.contains('already registered')
-    }
-
-    def "registering an instance after a class under same id should fail"() {
-        given:
-        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
-            .step('shared', StepA)
-
-        when:
-        smd.step('shared', new StepA())
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message.contains('already registered')
-    }
-
-    def "class-form registration should be reflectively instantiated at SM build time"() {
-        given:
-        def smd = Transflux.<TestEntity> defineStateMachine()
-            .forEntityType(TestEntity)
-            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-            .step('a', StepA)
-        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', {}) })
-        smd.state(ACTIVE.id, {})
-
-        when:
-        def sm = (StateMachineImpl) smd.build()
-
-        then:
-        sm.getBoundAction('a') != null
-        sm.getBoundAction('a').action instanceof StepA
-    }
-
-    def "class-form registration with no no-arg constructor should fail at SM build time"() {
-        given:
-        def smd = Transflux.<TestEntity> defineStateMachine()
-            .forEntityType(TestEntity)
-            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-            .step('bad', CtorlessStep)
-        smd.state(TRIAL.id, {})
-
-        when:
-        smd.build()
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message.contains('no accessible no-arg constructor')
-        e.message.contains('CtorlessStep')
     }
 
     def "inline instance reference inside a composite is lexically scoped to that composite and not visible at SM root"() {
@@ -269,17 +174,18 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         e.message.contains('cannot re-register')
     }
 
-    def "two composites referencing the same inline class under the same id are idempotent (each composite has its own scope entry)"() {
+    def "two composites inlining the same instance under the same id are idempotent (each composite has its own scope entry)"() {
         given:
+        def shared = new StepA()
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
         smd.state(TRIAL.id, { s -> s
             .transitionsTo(ACTIVE.id, 't1', { t ->
-                t.operation('op1', { c -> c.step('shared-class', StepA) })
+                t.operation('op1', { c -> c.step('shared-class', shared) })
             })
             .transitionsTo(ACTIVE.id, 't2', { t ->
-                t.operation('op2', { c -> c.step('shared-class', StepA) })
+                t.operation('op2', { c -> c.step('shared-class', shared) })
             }) })
         smd.state(ACTIVE.id, {})
 
@@ -287,7 +193,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def sm = (StateMachineImpl) smd.build()
 
         then:
-        // Same class across two composites is idempotent; the build succeeds.
+        // The same instance across two composites is idempotent; the build succeeds.
         // The id is composite-local — it lives in each composite's scope, not the SM root.
         sm != null
         sm.getBoundAction('shared-class') == null
@@ -401,18 +307,6 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         captured.getName() == 'N'
         captured.getDescription() == 'D'
         captured.contextType() == TestContext
-    }
-
-    def "step(id, Class, Consumer) class form resolves via the no-arg constructor"() {
-        given:
-        def smd = Transflux.<TestEntity> defineStateMachine().forEntityType(TestEntity)
-        smd.step('a', TestContext, { d -> d.using(StepA) })
-
-        when:
-        def map = ((StateMachineDefImpl) smd).buildBoundActions()
-
-        then:
-        map['a'].action instanceof StepA
     }
 
     def "step(id, Class, Consumer) and the flat step(id, Class, Step) register identically"() {

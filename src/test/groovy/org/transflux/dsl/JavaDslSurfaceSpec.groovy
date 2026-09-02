@@ -68,12 +68,12 @@ class JavaDslSurfaceSpec extends Specification {
 
         and: 'a pass-through declaration widens, so the member receives the enclosing context itself'
         order.trail.count { it == 'pt:o-1' } == 1
-        order.trail.count { it == 'widened:o-1' } == 2
+        order.trail.count { it == 'widened:o-1' } == 1
         order.trail.contains('pt-op:o-1')
         order.trail.contains('pt-cond:o-1')
 
         and: 'a mapped declaration runs against the context its own mapper produced'
-        order.trail.count { it == 'notify:o-1' } == 6
+        order.trail.count { it == 'notify:o-1' } == 4
         order.trail.contains('mapped-op:o-1')
         order.trail.contains('mapped-cond:o-1')
 

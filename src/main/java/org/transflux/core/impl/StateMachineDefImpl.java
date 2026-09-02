@@ -240,14 +240,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> step(String id, Class<? extends Action<T, ?>> stepClass) {
-        requireNotBlank(id, "Step ID");
-        requireNotNull(stepClass, "Step class");
-        registerStepClass(id, stepClass);
-        return this;
-    }
-
-    @Override
     public StateMachineDef<T> step(String id, Consumer<StepDef<T, Object>> configurer) {
         requireNotBlank(id, "Step ID");
         requireNotNull(configurer, "Step configurer");
@@ -263,16 +255,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotNull(contextType, "Context type");
         requireNotNull(step, "Step");
         registerStepInstance(id, step);
-        tagContextType(id, contextType);
-        return this;
-    }
-
-    @Override
-    public <C> StateMachineDef<T> step(String id, Class<C> contextType, Class<? extends Action<T, C>> stepClass) {
-        requireNotBlank(id, "Step ID");
-        requireNotNull(contextType, "Context type");
-        requireNotNull(stepClass, "Step class");
-        registerStepClass(id, stepClass);
         tagContextType(id, contextType);
         return this;
     }
@@ -304,21 +286,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
 
         if (existing.instance != null && existing.instance == action) {
-            return;
-        }
-
-        throw new TransfluxValidationException("Action ID '" + id + "' is already registered");
-    }
-
-    private void registerStepClass(String id, Class<? extends Action<T, ?>> actionClass) {
-        ActionRegistration<T> existing = actionRegistrations.get(id);
-        if (existing == null) {
-            checkIdNotRegisteredAsContainer(id);
-            actionRegistrations.put(id, ActionRegistration.ofClass(actionClass));
-            return;
-        }
-
-        if (existing.actionClass != null && existing.actionClass.equals(actionClass)) {
             return;
         }
 
@@ -419,10 +386,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     private static <T> Object payloadOf(ActionRegistration<T> reg) {
-        if (reg.def != null) {
-            return reg.def;
-        }
-        return reg.instance != null ? reg.instance : reg.actionClass;
+        return reg.def != null ? reg.def : reg.instance;
     }
 
     /**
@@ -445,9 +409,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     /**
      * Records the canonical payload for {@code id} in the per-build global table. Idempotent
-     * for an existing identical payload (same instance reference, or an equal {@link Class} or
-     * {@link String} value) — mirrors the idempotency rules of the SM-level
-     * {@code registerStepInstance} / {@code registerStepClass} pair and friends. A different
+     * for an existing identical payload (same instance reference, or an equal {@link String}
+     * value) — mirrors the idempotency rules of the SM-level
+     * {@code registerStepInstance} and friends. A different
      * payload under the same id raises {@link TransfluxValidationException}, enforcing SM-wide id
      * uniqueness.
      */
@@ -950,11 +914,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     <C> void registerScopedStep(String id, Action<T, C> step, Class<C> contextType) {
         registerStepInstance(id, step);
-        tagContextType(id, contextType);
-    }
-
-    <C> void registerScopedStep(String id, Class<? extends Action<T, C>> stepClass, Class<C> contextType) {
-        registerStepClass(id, stepClass);
         tagContextType(id, contextType);
     }
 
@@ -1826,19 +1785,14 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         return transitionsById;
     }
 
-    private record ActionRegistration<T>(Action<T, ?> instance, Class<? extends Action<T, ?>> actionClass,
-                                         StepDefImpl<T, ?> def) {
+    private record ActionRegistration<T>(Action<T, ?> instance, StepDefImpl<T, ?> def) {
 
         static <T> ActionRegistration<T> ofInstance(Action<T, ?> instance) {
-            return new ActionRegistration<>(instance, null, null);
-        }
-
-        static <T> ActionRegistration<T> ofClass(Class<? extends Action<T, ?>> actionClass) {
-            return new ActionRegistration<>(null, actionClass, null);
+            return new ActionRegistration<>(instance, null);
         }
 
         static <T> ActionRegistration<T> ofDef(StepDefImpl<T, ?> def) {
-            return new ActionRegistration<>(null, null, def);
+            return new ActionRegistration<>(null, def);
         }
 
         @SuppressWarnings({"unchecked", "rawtypes"})
@@ -1846,8 +1800,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             if (def != null) {
                 return def.buildBoundAction();
             }
-            Action<T, ?> resolved = InstanceOrClassSource.resolve(instance, (Class) actionClass, "Step");
-            return BoundAction.of(id, (Action) resolved, ActionKind.STEP);
+            return BoundAction.of(id, (Action) instance, ActionKind.STEP);
         }
     }
 
