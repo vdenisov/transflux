@@ -1483,19 +1483,22 @@ StateMachine<Subscription> stateMachine = Transflux.defineStateMachine()
 
 #### 4.2.1 StateMachine Definition
 
-Every DSL method that takes a `String id` accepts an `Identifiable` sibling that delegates via `.getId()`. The idiomatic Java pattern is to tag state and transition ids with an enum so refactor-rename catches every reference site at compile time:
+Every DSL method takes a `String` id. Ids referenced from more than one call site are worth naming once, which a constant holder does without the framework needing to know about it:
 
 ```java
-enum SubState implements Identifiable {
-    TRIAL, ACTIVE, SUSPENDED, CANCELLED, EXPIRED;
-
-    @Override public String getId() { return name(); }
+final class SubState {
+    static final String TRIAL = "trial";
+    static final String ACTIVE = "active";
+    static final String SUSPENDED = "suspended";
+    static final String CANCELLED = "cancelled";
+    static final String EXPIRED = "expired";
 }
 
-enum SubTransition implements Identifiable {
-    TRIAL_TO_ACTIVE, ACTIVE_TO_SUSPENDED, ACTIVE_TO_EXPIRED, SUSPENDED_TO_CANCELLED;
-
-    @Override public String getId() { return name(); }
+final class SubTransition {
+    static final String TRIAL_TO_ACTIVE = "trial-to-active";
+    static final String ACTIVE_TO_SUSPENDED = "active-to-suspended";
+    static final String ACTIVE_TO_EXPIRED = "active-to-expired";
+    static final String SUSPENDED_TO_CANCELLED = "suspended-to-cancelled";
 }
 
 StateMachine<Subscription> subscriptionStateMachine = Transflux.defineStateMachine()
@@ -1515,7 +1518,7 @@ StateMachine<Subscription> subscriptionStateMachine = Transflux.defineStateMachi
     //   .withStateApplier((entity, newState) -> entity.setStatus(newState))
     //   .withStateApplier("entity.status")                   // SpEL property path
 
-    // Define states — both Identifiable and String forms accepted everywhere.
+    // Define states.
     .state(SubState.TRIAL, s -> s
         .withDescription("Initial trial state")
         .transitionsTo(SubState.ACTIVE, SubTransition.TRIAL_TO_ACTIVE, t -> {}))
@@ -1534,19 +1537,21 @@ StateMachine<Subscription> subscriptionStateMachine = Transflux.defineStateMachi
 
     .build();
 
-// Host-side firing also accepts the Identifiable forms.
+// Host-side firing takes the same ids.
 TransitionResult<Subscription> result = subscriptionStateMachine
     .entity(subscription)
     .transitionTo(SubState.ACTIVE, SubTransition.TRIAL_TO_ACTIVE, context);
 ```
 
-The plain-String forms remain valid and equivalent — pick the enum form when the same id is referenced from multiple call sites; pick the String form for one-off ids that have no other reference.
+Constants are a host convenience and nothing more — the framework sees strings either way. Use them where an id is referenced repeatedly; write the literal for one-off ids that have no other reference.
 
-**Idiomatic enum-state resolver/applier pairing.** When the entity stores its state as an enum implementing `Identifiable` (e.g. `SubState` above is also the entity's state field type), the canonical two-lambda pairing converts to/from the enum's `name()` directly:
+**Idiomatic enum-state resolver/applier pairing.** A host whose entity stores its state as an enum, and whose state ids are that enum's constant names, converts to and from `name()` directly:
 
 ```java
+enum SubscriptionStatus { TRIAL, ACTIVE, SUSPENDED, CANCELLED, EXPIRED }
+
 .withStateResolver(s -> s.getStatus().name())
-.withStateApplier((s, newState) -> s.setStatus(SubState.valueOf(newState)))
+.withStateApplier((s, newState) -> s.setStatus(SubscriptionStatus.valueOf(newState)))
 ```
 
 Two lines, honest about where the bidirectional binding lives. The framework intentionally ships no sugar around this — the host owns how state is stored, and the explicit `.name()` / `.valueOf(...)` pair surfaces that decision at the SM definition rather than hiding it behind a typed shortcut.
@@ -1619,9 +1624,8 @@ inside the configurer.
             .using(TransitionErrorListener.class))))
 ```
 
-Every id-bearing form also has an `Identifiable` sibling, so enum constants can be passed wherever a
-`String` id is accepted. Note that the class-based condition forms take an id as well as the class —
-the id is the condition's identity in diagnostics and for later reference.
+Note that the class-based condition forms take an id as well as the class — the id is the
+condition's identity in diagnostics and for later reference.
 
 ### 4.4 Action Definitions
 
@@ -1670,7 +1674,6 @@ public class ActivateSubscriptionAction
 ```java
 trialActiveTransition.operation("complex-subscription-activation", c -> c
     .withDescription("Complex subscription activation with several members")
-    .usingContext(ComplexSubscriptionContext.class)
 
     // Reference an action registered elsewhere...
     .run("prepare-billing-actor")
@@ -1927,9 +1930,11 @@ When a forked member needs a distinctly-shaped context — e.g., a notification 
 
 When neither `ForkableContext` nor a context mapper is declared, the branch receives the same context reference as the enclosing path. This is a legitimate design choice for members that only read from context — common cases include post-action notifications, audit logging, and any work fired off after the last synchronous member, where the context is effectively read-only by then.
 
-To prevent silent sharing, the framework emits a definition-time **warning** (not an error), **per forked member** rather than per container — a container may mix a mapped member with an unmapped one, and only the unmapped one is sharing. The warning names the operation and the action. It is not emitted when the member declares a mapper, when the declared context type is `Void`, or when that type implements `ForkableContext`.
+To prevent silent sharing, the framework emits a definition-time **warning** (not an error), **per forked member** rather than per container — a container may mix a mapped member with an unmapped one, and only the unmapped one is sharing. It is not emitted when the member declares a mapper, when the declared context type is `Void`, or when that type implements `ForkableContext`.
 
-Where the container's declared context type is `Object` — which is what a transition that never called `usingContext(...)` has — the framework cannot establish anything about the runtime object, and says so: the warning fires with a distinct message reporting that forkability could not be checked, and naming the three ways out (declare the context type, implement `ForkableContext`, or map at the call site). Hosts that intend to share — explicitly — suppress either message through standard logging configuration.
+The warning names the action, the position the member was written at, and — separately — **the position that declared the context being shared**, which is not always the same place. A member that declares no context of its own is handed the enclosing one, and so is every branch of a conditional, so the position a host has to change may be several levels out: an action attached to a transition takes the transition's context, and the fix is `transitionsTo(target, id, Class<C>, ...)`. Naming the position that holds the member instead would point at somewhere with no context to declare.
+
+Where that context type is `Object` — which is what a transition declared without one has — the framework cannot establish anything about the runtime object, and says so: the warning fires with a distinct message reporting that forkability could not be checked, and naming the three ways out (declare a context on the position that owns it, implement `ForkableContext`, or map at the call site). Hosts that intend to share — explicitly — suppress either message through standard logging configuration.
 
 ##### 4.5.3.4 Memory-Model Guarantees
 
@@ -2213,7 +2218,7 @@ stateMachineDef
     .onAnyActionError("audit-any-action-error", ActionAuditListener.class);
 ```
 
-Every id-bearing form has an `Identifiable` sibling, and each hook accepts a listener instance, a
+Each hook accepts a listener instance, a
 listener class, or a configurer (`Consumer<StateListenerDef<T>>` /
 `Consumer<TransitionListenerDef<T, C>>` / `Consumer<ActionListenerDef<T, C>>`) for the cases that
 also want a name or description. Listener ids are unique across the state machine, and all three
