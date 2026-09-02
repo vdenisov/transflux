@@ -45,6 +45,7 @@ import org.transflux.core.transition.TransitionListenerDef;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
@@ -96,11 +97,17 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private final Map<String, Class<?>> componentContextTypes = new LinkedHashMap<>();
 
     /**
-     * The context each inline-declared action runs against, collected per build. Inline ids never
-     * reach {@link #componentContextTypes}, which only registrations write, so a by-id reference
-     * to one has nothing else to be checked against.
+     * The context each inline-declared action runs against, keyed by the scope that declares it
+     * and then by id, collected per build. Inline ids never reach {@link #componentContextTypes},
+     * which only registrations write, so a by-id reference to one has nothing else to be checked
+     * against.
+     * <p>
+     * Keyed by scope because that is what inline visibility is: an id is answerable only from a
+     * position that can resolve it, and resolution walks a scope chain. A flat map would have to
+     * answer for an id the referencing position cannot see, and answering on context there
+     * produces advice - "supply a mapper" - that cannot make the reference resolve.
      */
-    private final Map<String, Class<?>> inlineMemberContextTypes = new LinkedHashMap<>();
+    private final Map<String, Map<String, Class<?>>> inlineMemberContexts = new LinkedHashMap<>();
 
     private final Map<String, TransitionDefImpl<T, ?>> transitionsById = new LinkedHashMap<>();
 
@@ -830,12 +837,32 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         return componentContextTypes.get(id);
     }
 
-    Class<?> componentContextTypeOrDefault(String id) {
+    /**
+     * Reports the context a by-id reference's callee runs against, as seen from a position whose
+     * enclosing scopes are {@code visibleScopes}.
+     * <p>
+     * The scopes are walked innermost first, so the entry found is the one the reference will
+     * actually resolve to - the same order {@code Registry} follows through its parent chain.
+     *
+     * @param id the referenced id
+     * @param visibleScopes the ids of the scopes the referencing position can resolve through,
+     *                      innermost first
+     *
+     * @return the callee's context, or {@code Object} when nothing here can answer - an untyped
+     *         registration, or an inline declaration the referencing position cannot see
+     */
+    Class<?> componentContextTypeOrDefault(String id, Collection<String> visibleScopes) {
         Class<?> registered = componentContextTypes.get(id);
         if (registered != null) {
             return registered;
         }
-        return inlineMemberContextTypes.getOrDefault(id, Object.class);
+        for (String scope : visibleScopes) {
+            Class<?> declared = inlineMemberContexts.getOrDefault(scope, Map.of()).get(id);
+            if (declared != null) {
+                return declared;
+            }
+        }
+        return Object.class;
     }
 
     /**
@@ -1514,17 +1541,17 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * an action attached to a transition, and one registered at state-machine level - and each
      * seeds the walk with the context that position runs against.
      *
-     * <p>Two declarations may still claim one id here: this pass runs before ids are claimed, so a
-     * duplicate is possible and is a definition error in its own right. Recording {@code Object}
-     * for it makes the context check say nothing about that id, so the duplicate is reported as a
-     * duplicate rather than surfacing as a context mismatch blaming whichever declaration the walk
-     * happened to reach second.
+     * <p>Two declarations in one scope may still claim one id here: this pass runs before ids are
+     * claimed, so a duplicate is possible and is a definition error in its own right. The first
+     * wins, which leaves the duplicate to be reported as a duplicate rather than surfacing as a
+     * context mismatch blaming whichever declaration the walk happened to reach second.
      */
     private void collectInlineMemberContexts() {
-        inlineMemberContextTypes.clear();
+        inlineMemberContexts.clear();
 
-        BiConsumer<String, Class<?>> sink = (id, context) -> inlineMemberContextTypes.merge(
-            id, context, (existing, incoming) -> existing == incoming ? existing : Object.class);
+        InlineContextSink sink = (id, context, scope) -> inlineMemberContexts
+            .computeIfAbsent(scope, k -> new LinkedHashMap<>())
+            .putIfAbsent(id, context);
 
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             ActionDefImpl<T, ?, ?> op = td.getActionDef();
@@ -1589,14 +1616,14 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             if (op != null) {
                 // An attached action names no context, so the transition is what declares one.
                 op.checkRefs(transitionContext, attachedActionLabel(td, op),
-                             "transition '" + td.getId() + "'", this);
+                             "transition '" + td.getId() + "'", List.of(), this);
             }
             checkConditionRefs(td);
         }
         for (Map.Entry<String, ActionDefImpl<T, ?, ?>> e : smCompositeOperations.entrySet()) {
             Class<?> scopeContext = componentContextTypes.get(e.getKey());
             e.getValue().checkRefs(scopeContext, smLevelLabel(e.getValue()),
-                                   smLevelLabel(e.getValue()), this);
+                                   smLevelLabel(e.getValue()), List.of(), this);
         }
         detectCompositeCycles();
     }
@@ -1640,9 +1667,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * referencing site's context. Only the reference form is checkable — the inline forms are typed
      * against the referencing def's own context by the compiler, and expressions are dynamic.
      * Conditions registered through the untyped overloads carry no declared type and are skipped.
+     * <p>
+     * A conditional's branch calls this too, which is not merely for symmetry: a conditional may
+     * declare a context of its own, so a branch's gate can sit on the far side of a boundary its
+     * own conditional crossed, and a condition takes no mapper to get back.
      */
-    private void checkConditionRef(ConditionDescriptor descriptor, Class<?> scopeContext,
-                                   String scopeLabel, String kind) {
+    void checkConditionRef(ConditionDescriptor descriptor, Class<?> scopeContext,
+                           String scopeLabel, String kind) {
         if (!(descriptor instanceof ConditionDescriptor.Reference ref)) {
             return;
         }

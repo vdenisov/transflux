@@ -204,17 +204,18 @@ final class ConditionalOperationDefImpl<T, C>
      */
     @Override
     void checkRefs(Class<?> scopeContext, String ownLabel, String contextOwner,
-                   StateMachineDefImpl<T> smDef) {
+                   List<String> visibleScopes, StateMachineDefImpl<T> smDef) {
         Class<?> effectiveScope = scopeContext != null ? scopeContext : Object.class;
+        List<String> inside = inside(visibleScopes, getId());
 
         for (BranchDefImpl<T, C> branch : branches) {
             branch.checkRefs(effectiveScope,
                              branchLabel(ownLabel, "branch '" + branch.getBranchId() + "'"),
-                             contextOwner, smDef);
+                             contextOwner, inside, smDef);
         }
         if (defaultBranch != null) {
             defaultBranch.checkRefs(effectiveScope, branchLabel(ownLabel, "default branch"),
-                                    contextOwner, smDef);
+                                    contextOwner, inside, smDef);
         }
     }
 
@@ -339,8 +340,10 @@ final class ConditionalOperationDefImpl<T, C>
             // Each nested form binds against its own scope. Recursing after the member is built
             // names the outer position first when a resolution fails.
             if (ref instanceof ActionRef.Conditional<T, C> nested) {
+                // The nested conditional owns the scope its own branches bind against, so it is
+                // what a failure inside them has to name - not whatever encloses this one.
                 nested.def().bindBranchMembers(
-                    stateMachine, ownerLabel + " > " + nested.def().defLabel(), enclosingOperationId);
+                    stateMachine, ownerLabel + " > " + nested.def().defLabel(), nested.id());
             } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
                 // A container declared in a branch does own a scope, and binds against its own.
                 nested.def().bindMembers(stateMachine, ownerLabel + " > " + nested.def().defLabel());
@@ -369,13 +372,15 @@ final class ConditionalOperationDefImpl<T, C>
     }
 
     @Override
-    void collectMemberContexts(Class<?> scopeContext, BiConsumer<String, Class<?>> sink) {
+    void collectMemberContexts(Class<?> scopeContext, InlineContextSink sink) {
         Class<?> effectiveScope = scopeContext != null ? scopeContext : Object.class;
+        // A conditional owns one scope and every branch registers into it, so the branches all
+        // report the same declaring scope - which is what lets one branch reach another's ids.
         for (BranchDefImpl<T, C> branch : branches) {
-            branch.collectMemberContexts(effectiveScope, sink);
+            branch.collectMemberContexts(effectiveScope, getId(), sink);
         }
         if (defaultBranch != null) {
-            defaultBranch.collectMemberContexts(effectiveScope, sink);
+            defaultBranch.collectMemberContexts(effectiveScope, getId(), sink);
         }
     }
 

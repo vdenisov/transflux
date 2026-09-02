@@ -270,13 +270,18 @@ final class ActionSequenceSink<T, C, D> {
      * A declaration that names a context reports that one, {@code Object} included - an action
      * written against {@code Object} ignores the context, so a reference to it passes through from
      * any caller, which is the rule registered components already follow. One that names none
-     * reports the enclosing sequence's, which is what it will actually be handed.
+     * reports the enclosing sequence's, which is what it will actually be handed. What it hands
+     * <em>down</em> is a different question, and {@link ActionDefImpl#subtreeContext} answers it -
+     * the same method the reference check uses, so the two cannot disagree.
      *
      * @param scopeContext the context this sequence's members run against; {@code null} is read as
      *                     {@code Object}
-     * @param sink receives {@code (id, context)} for each inline declaration
+     * @param declaringScope the id of the scope these declarations register into - the enclosing
+     *                       container's, or the conditional's when this is one of its branches
+     * @param sink receives each inline declaration, with the scope that holds it
      */
-    void collectMemberContexts(Class<?> scopeContext, BiConsumer<String, Class<?>> sink) {
+    void collectMemberContexts(Class<?> scopeContext, String declaringScope,
+                               InlineContextSink sink) {
         Class<?> effectiveScope = scopeContext != null ? scopeContext : Object.class;
 
         for (DeclaredMember<T, C> member : members) {
@@ -286,15 +291,15 @@ final class ActionSequenceSink<T, C, D> {
             }
 
             Class<?> declared = ref.declaredContext();
-            sink.accept(ref.id(), declared != null ? declared : effectiveScope);
+            sink.accept(ref.id(), declared != null ? declared : effectiveScope, declaringScope);
 
-            Class<?> beneath = declared == null || declared == Object.class
-                ? effectiveScope
-                : declared;
+            boolean mapped = !(ref.mapperRef() instanceof MapperRef.PassThrough);
             if (ref instanceof ActionRef.Conditional<T, C> conditional) {
-                conditional.def().collectMemberContexts(beneath, sink);
+                conditional.def().collectMemberContexts(
+                    conditional.def().subtreeContext(effectiveScope, mapped), sink);
             } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
-                nested.def().collectMemberContexts(beneath, sink);
+                nested.def().collectMemberContexts(
+                    nested.def().subtreeContext(effectiveScope, mapped), sink);
             }
         }
     }
@@ -309,16 +314,19 @@ final class ActionSequenceSink<T, C, D> {
      * @param contextOwner names the position whose context the members run against, which is not
      *                     always this sequence: a declaration that names no context of its own
      *                     inherits the enclosing one, and so does every branch of a conditional
+     * @param visibleScopes the ids of the scopes a reference from here resolves through, innermost
+     *                      first
      * @param smDef the state-machine def whose component registrations the check consults
      */
     void checkRefs(Class<?> scopeContext, String scopeLabel, String contextOwner,
-                   StateMachineDefImpl<T> smDef) {
+                   List<String> visibleScopes, StateMachineDefImpl<T> smDef) {
         Class<?> effectiveScope = scopeContext != null ? scopeContext : Object.class;
 
         for (DeclaredMember<T, C> member : members) {
             ActionRef<T, C> ref = member.ref();
             if (ref instanceof ActionRef.ById<T, ?> byId) {
-                Class<?> componentCtx = smDef.componentContextTypeOrDefault(byId.id());
+                Class<?> componentCtx = smDef.componentContextTypeOrDefault(byId.id(),
+                                                                             visibleScopes);
                 byId.mapperRef().validateAgainst(effectiveScope, scopeLabel, "action",
                     byId.id(), componentCtx, smDef.getMapperRegistrations());
             } else if (ref instanceof ActionRef.Conditional<T, C> conditional) {
@@ -327,14 +335,14 @@ final class ActionSequenceSink<T, C, D> {
                 conditional.def().checkRefs(own, label,
                                             ownerBeneath(ref.declaredContext(), own, contextOwner,
                                                          label),
-                                            smDef);
+                                            visibleScopes, smDef);
             } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
                 Class<?> own = memberContext(ref, nested.def(), effectiveScope, scopeLabel);
                 String label = scopeLabel + " > " + nested.def().defLabel();
                 nested.def().checkRefs(own, label,
                                        ownerBeneath(ref.declaredContext(), own, contextOwner,
                                                     label),
-                                       smDef);
+                                       visibleScopes, smDef);
             } else if (ref instanceof ActionRef.InlineDef<T, C> step) {
                 // A step owns no members, so the boundary is all there is to check.
                 memberContext(ref, step.def(), effectiveScope, scopeLabel);
@@ -350,35 +358,21 @@ final class ActionSequenceSink<T, C, D> {
      * Resolves the context an inline declaration runs against, rejecting a boundary it cannot
      * cross.
      * <p>
-     * A mapper produces the declared context outright, and javac has already checked that it maps
-     * from the enclosing one, so there is nothing left to verify. Without one the member runs
-     * pass-through, so a declared context must <em>widen</em>: it has to accept the enclosing one,
-     * exactly as a by-id reference without a mapper must.
+     * The answer comes from {@link ActionDefImpl#subtreeContext}, which every pass asking that
+     * question shares; this method adds only the rejection.
      */
     private Class<?> memberContext(ActionRef<T, C> ref, ActionDefImpl<T, ?, ?> def,
                                    Class<?> effectiveScope, String scopeLabel) {
-        Class<?> declared = def.declaredContext();
-        if (declared == null || declared == effectiveScope) {
-            return effectiveScope;
-        }
-
-        if (!(ref.mapperRef() instanceof MapperRef.PassThrough)) {
-            return declared;
-        }
-
-        if (declared == Object.class) {
-            return effectiveScope;
-        }
-
-        if (!declared.isAssignableFrom(effectiveScope)) {
+        boolean mapped = !(ref.mapperRef() instanceof MapperRef.PassThrough);
+        if (!def.boundaryIsLegal(effectiveScope, mapped)) {
             throw new TransfluxValidationException(
                 "Context type mismatch: " + scopeLabel + " (context " + effectiveScope.getName()
                     + ") declares " + def.defLabel() + " with context "
-                    + declared.getName() + ", which it is not assignable to."
+                    + def.declaredContext().getName() + ", which it is not assignable to."
                     + " An inline declaration without a mapper runs pass-through, so its context"
                     + " must accept the enclosing one.");
         }
-        return declared;
+        return def.subtreeContext(effectiveScope, mapped);
     }
 
     private D reference(String verb, String id, boolean forked) {

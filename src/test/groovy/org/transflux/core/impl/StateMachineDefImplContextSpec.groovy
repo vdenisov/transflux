@@ -388,6 +388,106 @@ class StateMachineDefImplContextSpec extends Specification {
         noExceptionThrown()
     }
 
+    def 'a mapped inline container declaring Object runs its members against Object'() {
+        given: 'the mapper produces the declared context, so nothing has to widen to reach it'
+        def smd = baseDef()
+        smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
+            scope.operation('outer', { OperationDef<Entity, CtxA> c ->
+                c.operation('inner', Object, { CtxA a -> new Object() } as ContextMapper,
+                            { OperationDef<Entity, Object> n ->
+                                n.step('s', new AnyCtxStep()).run('s')
+                            })
+            })
+        })
+
+        when:
+        smd.build()
+
+        then: "the member's context is what 'inner' named, not what encloses it"
+        noExceptionThrown()
+    }
+
+    def 'a by-id reference to an inline id in an unreachable nested scope reports visibility'() {
+        given: 'no mapper can make it resolve, so answering on context would be wrong advice'
+        def smd = baseDef()
+        smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
+            scope.operation('outer', { OperationDef<Entity, CtxA> c -> c
+                .operation('inner', CtxB, aToB(), { OperationDef<Entity, CtxB> n ->
+                    n.step('buried', new StepB())
+                })
+                .run('buried') })
+        })
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("unknown action id 'buried'")
+        e.message.contains("composite 'inner'")
+        !e.message.contains('Context type mismatch')
+    }
+
+    def "a branch condition is checked against the conditional's own context"() {
+        given: 'a conditional may cross a boundary its branches then sit behind'
+        def smd = baseDef()
+        smd.conditionPredicate('a-cond', CtxA, { Entity e, CtxA a -> true } as BiPredicate)
+        smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
+            scope.operation('outer', { OperationDef<Entity, CtxA> c ->
+                c.conditional('cond', CtxB, aToB(), { ConditionalOperationDef<Entity, CtxB> cs ->
+                    cs.branch('b', { b -> b.condition('a-cond').step('s', new StepB()) })
+                })
+            })
+        })
+
+        when:
+        smd.build()
+
+        then: 'a condition takes no mapper, so there is no way to bridge it'
+        def e = thrown(TransfluxValidationException)
+        e.message.contains('Context type mismatch')
+        e.message.contains("branch condition 'a-cond'")
+        e.message.contains(CtxA.name)
+    }
+
+    def "a branch condition matching the conditional's own context is accepted"() {
+        given:
+        def smd = baseDef()
+        smd.conditionPredicate('b-cond', CtxB, { Entity e, CtxB b -> true } as BiPredicate)
+        smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
+            scope.operation('outer', { OperationDef<Entity, CtxA> c ->
+                c.conditional('cond', CtxB, aToB(), { ConditionalOperationDef<Entity, CtxB> cs ->
+                    cs.branch('b', { b -> b.condition('b-cond').step('s', new StepB()) })
+                })
+            })
+        })
+
+        when:
+        smd.build()
+
+        then:
+        noExceptionThrown()
+    }
+
+    def 'an id declared in two scopes is answered from the one the reference resolves through'() {
+        given: 'the same step declared in two containers, referenced across a boundary inside one'
+        def shared = new StepA()
+        def smd = baseDef()
+        smd.operation('holder', CtxA, { OperationDef<Entity, CtxA> op -> op
+            .step('shared-step', shared)
+            .operation('inner', CtxB, aToB(), { OperationDef<Entity, CtxB> n -> n.run('shared-step') }) })
+        smd.operation('other', CtxB, { OperationDef<Entity, CtxB> op -> op.step('shared-step', shared) })
+
+        when:
+        smd.build()
+
+        then: "the entry consulted is holder's, not a flattened one the other declaration muddied"
+        def e = thrown(TransfluxValidationException)
+        e.message.contains('Context type mismatch')
+        e.message.contains("'shared-step'")
+        e.message.contains(CtxA.name)
+    }
+
     def 'a duplicate inline id is reported as a duplicate, not as a context mismatch'() {
         given: 'the context pass runs before ids are claimed, so it must say nothing about a clash'
         def smd = new StateMachineDefImpl<Entity>()
@@ -474,6 +574,12 @@ class StateMachineDefImplContextSpec extends Specification {
 
     private static BiPredicate<Entity, CtxB> alwaysTrue() {
         return { Entity e, CtxB ctx -> true } as BiPredicate
+    }
+
+    static class AnyCtxStep implements Action<Entity, Object> {
+        @Override
+        void execute(Entity entity, Object context, ExecutingTransition<Entity, Object> transition) {
+        }
     }
 
     static class CtxA { }

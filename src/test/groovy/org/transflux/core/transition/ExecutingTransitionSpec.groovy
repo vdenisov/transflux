@@ -222,6 +222,30 @@ class ExecutingTransitionSpec extends Specification {
         result.error.message.contains("'does-not-exist'")
     }
 
+    def 'a pass-through view.run to a differently-typed inline declaration is refused'() {
+        given: 'the build cannot see what a Java body dispatches, so the refusal is at run time'
+        def sm = build(
+            { smd -> },
+            { t ->
+                t.operation('op', { c -> c
+                    .step('mapped', ChildCtx, { ParentCtx p -> new ChildCtx(input: p.input) } as ContextMapper,
+                          new ChildStep())
+                    .step('caller', { entity, ctx, transition ->
+                        transition.run('mapped')
+                    } as Action<Entity, ParentCtx>) })
+            })
+
+        when:
+        def result = sm.entity(new Entity('s1')).transitionTo('s2', new ParentCtx(input: 'x'))
+
+        then: 'refused with both types named, rather than a ClassCastException inside host code'
+        !result.success
+        result.error instanceof TransfluxValidationException
+        result.error.message.contains("action 'mapped'")
+        result.error.message.contains(ChildCtx.name)
+        result.error.message.contains(ParentCtx.name)
+    }
+
     def 'every transition.run form fails the transition on a blank id'() {
         given:
         def sm = build(

@@ -102,7 +102,7 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
 
     @Override
     void checkRefs(Class<?> scopeContext, String scopeLabel, String contextOwner,
-                   StateMachineDefImpl<T> smDef) {
+                   List<String> visibleScopes, StateMachineDefImpl<T> smDef) {
         // An imperative action declares no members, so there is nothing to check.
     }
 
@@ -112,7 +112,7 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
     }
 
     @Override
-    void collectMemberContexts(Class<?> scopeContext, BiConsumer<String, Class<?>> sink) {
+    void collectMemberContexts(Class<?> scopeContext, InlineContextSink sink) {
         // An imperative action declares no members.
     }
 

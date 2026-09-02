@@ -142,21 +142,21 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public void run(String id) {
-        runAction((BoundAction) resolveAction(id), null);
+        runAction((BoundAction) resolveAction(id, true), null);
     }
 
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public void run(String id, String mapperId) {
         requireNotBlank(mapperId, "Mapper reference ID");
-        runAction((BoundAction) resolveAction(id), resolveRegisteredMapper(mapperId));
+        runAction((BoundAction) resolveAction(id, false), resolveRegisteredMapper(mapperId));
     }
 
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public void run(String id, ContextMapper<C, ?> inlineMapper) {
         requireNotNull(inlineMapper, "Inline mapper instance");
-        runAction((BoundAction) resolveAction(id), (ContextMapper<Object, Object>) inlineMapper);
+        runAction((BoundAction) resolveAction(id, false), (ContextMapper<Object, Object>) inlineMapper);
     }
 
     T getEntity() {
@@ -434,7 +434,20 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
         return branchContext == parent ? "shared" : "forked";
     }
 
-    private BoundAction<T, ?> resolveAction(String id) {
+    /**
+     * Resolves an id dispatched from inside an action body, and — for a pass-through dispatch —
+     * refuses one that would hand the callee a context it was not written against.
+     * <p>
+     * This is the one dispatch surface the build cannot check: what a Java body chooses to run is
+     * not visible in the definition. It was harmless while every action in a scope necessarily
+     * shared one context; a declaration that names its own ends that, so a sibling body naming it
+     * would otherwise reach a {@code ClassCastException} inside host code with nothing to say
+     * about why. Refusing here fails the transition with the two types named instead.
+     *
+     * @param id the id to resolve
+     * @param passThrough whether the callee will be handed this action's own context
+     */
+    private BoundAction<T, ?> resolveAction(String id, boolean passThrough) {
         requireNotBlank(id, "Action ID");
 
         Registry<T> scope = activeScope();
@@ -448,6 +461,10 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
                     + ", not an action");
         }
 
+        if (passThrough) {
+            requireContextAccepted(id, action.contextType());
+        }
+
         // Which scope claimed the id, not merely that it resolved: the id an action dispatches may
         // be its container's own inline one or an SM-level one it inherits, and that is the
         // distinction a lexical-visibility surprise turns on. The active scope would answer the
@@ -458,6 +475,23 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
                                            scope.declaringScope(id).orElse(null));
         }
         return action.bound();
+    }
+
+    /**
+     * Refuses a pass-through dispatch whose callee was declared against a context this one cannot
+     * supply. {@code Object} accepts anything and a {@code null} context tells us nothing, so both
+     * pass.
+     */
+    private void requireContextAccepted(String id, Class<?> calleeContext) {
+        Object active = getContext();
+        if (calleeContext == null || calleeContext == Object.class || active == null
+                || calleeContext.isInstance(active)) {
+            return;
+        }
+        throw new TransfluxValidationException(
+            "Context type mismatch: action '" + id + "' is declared for context "
+                + calleeContext.getName() + " and cannot be run pass-through from a "
+                + active.getClass().getName() + " context; supply a mapper at this call site");
     }
 
     /**

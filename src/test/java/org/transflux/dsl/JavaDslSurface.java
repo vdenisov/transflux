@@ -377,7 +377,27 @@ public final class JavaDslSurface {
                             .branch("mapped-taken", b -> b
                                 .condition("mapped-always", (order, ctx) -> true)
                                 .step("mapped-cond-step",
-                                      (order, ctx, view) -> order.trail.add("mapped-cond:" + ctx.orderId)))))))
+                                      (order, ctx, view) -> order.trail.add("mapped-cond:" + ctx.orderId))))
+
+                        // the same five, with an implicitly-typed lambda in the mapper slot: the
+                        // shape a concrete mapper instance cannot prove resolves
+                        .step("lambda-instance", NotifyCtx.class,
+                              parent -> new NotifyCtx(parent.orderId), new NotifyAction())
+                        .step("lambda-class", NotifyCtx.class,
+                              parent -> new NotifyCtx(parent.orderId), NotifyAction.class)
+                        .step("lambda-configured", NotifyCtx.class,
+                              parent -> new NotifyCtx(parent.orderId),
+                              st -> st.using(NotifyAction.class).withName("Lambda-mapped"))
+                        .operation("lambda-op", NotifyCtx.class,
+                                   parent -> new NotifyCtx(parent.orderId), inner -> inner
+                            .step("lambda-op-step",
+                                  (order, ctx, view) -> order.trail.add("lambda-op:" + ctx.orderId)))
+                        .conditional("lambda-cond", NotifyCtx.class,
+                                     parent -> new NotifyCtx(parent.orderId), cond -> cond
+                            .branch("lambda-taken", b -> b
+                                .condition("lambda-always", (order, ctx) -> true)
+                                .step("lambda-cond-step",
+                                      (order, ctx, view) -> order.trail.add("lambda-cond:" + ctx.orderId)))))))
             .state("s2", s -> { })
             .build();
     }

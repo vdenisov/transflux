@@ -39,7 +39,7 @@ import java.util.function.Consumer;
  * <p>
  * Holds the composite's member references in declaration order. Building is two passes:
  * {@link #buildBound()} produces the {@link BoundAction} that goes into the enclosing scope, and
- * {@link #bindMembers(StateMachineImpl)} resolves the members afterwards. They cannot be one pass
+ * {@link #bindMembers(StateMachineImpl, String)} resolves the members afterwards. They cannot be one pass
  * - a sibling member may reference this container by id, and such a reference captures the bound
  * action by value, so it must already be in the scope its own members resolve against.
  *
@@ -186,7 +186,7 @@ final class OperationDefImpl<T, C>
     /**
      * Produces the {@link BoundAction} carrying this container's executor, listeners and
      * compensation table. The members it will iterate are installed by
-     * {@link #bindMembers(StateMachineImpl)}; until then the executor holds none.
+     * {@link #bindMembers(StateMachineImpl, String)}; until then the executor holds none.
      *
      * @return the bound operation
      *
@@ -224,8 +224,9 @@ final class OperationDefImpl<T, C>
 
     @Override
     void checkRefs(Class<?> scopeContext, String scopeLabel, String contextOwner,
-                   StateMachineDefImpl<T> smDef) {
-        members.checkRefs(scopeContext, scopeLabel, contextOwner, smDef);
+                   List<String> visibleScopes, StateMachineDefImpl<T> smDef) {
+        members.checkRefs(scopeContext, scopeLabel, contextOwner, inside(visibleScopes, getId()),
+                          smDef);
     }
 
     /**
@@ -269,8 +270,8 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
-    void collectMemberContexts(Class<?> scopeContext, BiConsumer<String, Class<?>> sink) {
-        members.collectMemberContexts(scopeContext, sink);
+    void collectMemberContexts(Class<?> scopeContext, InlineContextSink sink) {
+        members.collectMemberContexts(scopeContext, getId(), sink);
     }
 
     @Override

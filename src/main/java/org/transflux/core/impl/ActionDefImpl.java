@@ -25,6 +25,7 @@ import org.transflux.core.action.ActionPhase;
 import org.transflux.core.action.Compensation;
 import org.transflux.core.action.CompensationRouteDef;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -107,9 +108,27 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     /**
-     * Resolves the context to tag this action's own inline registrations with: its own when the
-     * declaration site named one, the enclosing position's otherwise. Both scope-owning forms tag
-     * the same way, so the rule is written once.
+     * Extends a visible-scope chain with the scope this action owns, innermost first. A reference
+     * made inside it resolves through its own scope before walking out, which is the order
+     * {@code Registry} follows at runtime.
+     *
+     * @param enclosing the chain as seen by the enclosing position
+     * @param ownScopeId the id of the scope this action owns
+     *
+     * @return a new chain; the argument is left alone, since siblings share it
+     */
+    static List<String> inside(List<String> enclosing, String ownScopeId) {
+        List<String> chain = new ArrayList<>(enclosing.size() + 1);
+        chain.add(ownScopeId);
+        chain.addAll(enclosing);
+        return chain;
+    }
+
+    /**
+     * Resolves what this action <em>is</em>, for the purpose of naming it: its declared context
+     * when the declaration site supplied one, the enclosing position's otherwise. This is the
+     * identity a diagnostic reports, not necessarily what its members run against - see
+     * {@link #subtreeContext}.
      *
      * @param inheritedContext the enclosing position's context, or {@code null} at a root
      *
@@ -121,6 +140,61 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
             return declaredContextType;
         }
         return (Class<C>) (inheritedContext != null ? inheritedContext : Object.class);
+    }
+
+    /**
+     * Resolves the context this action's members actually run against. Every pass that has to
+     * answer that question calls this one - the reference check, the pass that records member
+     * contexts for by-id references, and the registry tagging that hands a context down a nesting
+     * level - because three expressions agreeing by coincidence is how a legal definition gets
+     * rejected in one of them.
+     * <p>
+     * Three rules, in order. A declaration that names no context, or restates the enclosing one,
+     * runs against the enclosing one. A <em>mapped</em> declaration runs against what it named,
+     * whatever that is - the mapper produces it, so nothing has to be assignable. An unmapped
+     * declaration naming {@link Object} runs pass-through against the enclosing context: it
+     * accepts anything, so it changes nothing about what its members are handed. Anything else
+     * runs against what it named, and {@code validateBoundary} is what rejects the cases where it
+     * could not legally reach it.
+     *
+     * @param inheritedContext the enclosing position's context; {@code null} is read as
+     *                         {@code Object}
+     * @param mapped whether the call site that declared this action supplied a mapper
+     *
+     * @return the context this action's members run against; never {@code null}
+     */
+    final Class<?> subtreeContext(Class<?> inheritedContext, boolean mapped) {
+        Class<?> enclosing = inheritedContext != null ? inheritedContext : Object.class;
+        if (declaredContextType == null || declaredContextType == enclosing) {
+            return enclosing;
+        }
+        if (mapped) {
+            return declaredContextType;
+        }
+        if (declaredContextType == Object.class) {
+            return enclosing;
+        }
+        return declaredContextType;
+    }
+
+    /**
+     * Reports whether an unmapped declaration could legally reach the context it named. Only a
+     * pass-through declaration can fail: it is handed the enclosing context verbatim, so what it
+     * named has to accept that - it may widen, never narrow.
+     *
+     * @param inheritedContext the enclosing position's context; {@code null} is read as
+     *                         {@code Object}
+     * @param mapped whether the call site supplied a mapper
+     *
+     * @return whether the boundary is legal
+     */
+    final boolean boundaryIsLegal(Class<?> inheritedContext, boolean mapped) {
+        Class<?> enclosing = inheritedContext != null ? inheritedContext : Object.class;
+        if (mapped || declaredContextType == null || declaredContextType == enclosing
+                || declaredContextType == Object.class) {
+            return true;
+        }
+        return declaredContextType.isAssignableFrom(enclosing);
     }
 
     @Override
@@ -260,10 +334,12 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      * @param contextOwner names the position {@code scopeContext} was declared on, which is not
      *                     always the call site: a member that declares no context of its own is
      *                     handed the enclosing one, so the position to fix is further out
+     * @param visibleScopes the ids of the scopes a reference from here resolves through, innermost
+     *                      first - an inline id outside them is not this position's to judge
      * @param smDef the state-machine def whose registries the check consults
      */
     abstract void checkRefs(Class<?> scopeContext, String scopeLabel, String contextOwner,
-                            StateMachineDefImpl<T> smDef);
+                            List<String> visibleScopes, StateMachineDefImpl<T> smDef);
 
     /**
      * Build-time hook: resolves every member this action declares - its own, and those inside any
@@ -293,9 +369,9 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      *
      * @param scopeContext the context this action's own members run against; {@code null} is read
      *                     as {@code Object}
-     * @param sink receives {@code (id, context)} for each inline declaration
+     * @param sink receives each inline declaration, with the scope that holds it
      */
-    abstract void collectMemberContexts(Class<?> scopeContext, BiConsumer<String, Class<?>> sink);
+    abstract void collectMemberContexts(Class<?> scopeContext, InlineContextSink sink);
 
     /**
      * Build-time hook: allocates and populates this operation's lexical-scope registry against

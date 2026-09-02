@@ -73,13 +73,18 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
         members.visitAllMembers(visitor);
     }
 
-    void collectMemberContexts(Class<?> scopeContext, java.util.function.BiConsumer<String, Class<?>> sink) {
-        members.collectMemberContexts(scopeContext, sink);
+    void collectMemberContexts(Class<?> scopeContext, String declaringScope,
+                               InlineContextSink sink) {
+        members.collectMemberContexts(scopeContext, declaringScope, sink);
     }
 
     void checkRefs(Class<?> scopeContext, String ownerLabel, String contextOwner,
-                   StateMachineDefImpl<T> smDef) {
-        members.checkRefs(scopeContext, ownerLabel, contextOwner, smDef);
+                   List<String> visibleScopes, StateMachineDefImpl<T> smDef) {
+        // The gate runs against the branch's context, which is the conditional's - and a
+        // conditional may have declared one of its own, so this is a real boundary.
+        smDef.checkConditionRef(branchCondition.descriptor(), scopeContext, ownerLabel,
+                                "branch condition");
+        members.checkRefs(scopeContext, ownerLabel, contextOwner, visibleScopes, smDef);
     }
 
     void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {

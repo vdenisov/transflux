@@ -56,13 +56,14 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
         members.visitAllMembers(visitor);
     }
 
-    void collectMemberContexts(Class<?> scopeContext, java.util.function.BiConsumer<String, Class<?>> sink) {
-        members.collectMemberContexts(scopeContext, sink);
+    void collectMemberContexts(Class<?> scopeContext, String declaringScope,
+                               InlineContextSink sink) {
+        members.collectMemberContexts(scopeContext, declaringScope, sink);
     }
 
     void checkRefs(Class<?> scopeContext, String ownerLabel, String contextOwner,
-                   StateMachineDefImpl<T> smDef) {
-        members.checkRefs(scopeContext, ownerLabel, contextOwner, smDef);
+                   List<String> visibleScopes, StateMachineDefImpl<T> smDef) {
+        members.checkRefs(scopeContext, ownerLabel, contextOwner, visibleScopes, smDef);
     }
 
     void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {

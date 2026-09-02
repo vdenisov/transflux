@@ -73,9 +73,13 @@ class JavaDslSurfaceSpec extends Specification {
         order.trail.contains('pt-cond:o-1')
 
         and: 'a mapped declaration runs against the context its own mapper produced'
-        order.trail.count { it == 'notify:o-1' } == 3
+        order.trail.count { it == 'notify:o-1' } == 6
         order.trail.contains('mapped-op:o-1')
         order.trail.contains('mapped-cond:o-1')
+
+        and: 'an implicitly-typed lambda in the mapper slot resolves to the same overloads'
+        order.trail.contains('lambda-op:o-1')
+        order.trail.contains('lambda-cond:o-1')
 
         and: "mapFrom writes back once the member completes, as at a mapped by-id call site"
         ctx.receipt == 'r-1'
