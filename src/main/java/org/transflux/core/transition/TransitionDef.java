@@ -87,7 +87,7 @@ import java.util.function.Predicate;
  *
  * <p><b>Attaching listeners.</b> {@code onStart(...)} / {@code onComplete(...)} /
  * {@code onError(...)} attach observers of this transition's execution, each accepting a
- * {@link TransitionListener} instance, a listener class, or a configurer that also sets metadata.
+ * {@link TransitionListener} instance or a configurer that also sets metadata.
  * Complete and error partition the outcomes: exactly one of them follows every start
  * notification, and neither occurs without one. Listeners observe only — an exception thrown by
  * one is logged and swallowed, and never affects the {@link TransitionResult}.
@@ -539,20 +539,6 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> onStart(String listenerId, TransitionListener<T, C> listener);
 
     /**
-     * Attaches a listener class notified when this transition starts. The class is instantiated
-     * through its public no-arg constructor when the state machine is built.
-     *
-     * @param listenerId the listener id, unique among all listeners on this state machine
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
-     *         or another listener is already registered under the same id
-     */
-    TransitionDef<T, C> onStart(String listenerId, Class<? extends TransitionListener<T, C>> listenerClass);
-
-    /**
      * Attaches a start listener declared through a configurer, for the cases where the listener
      * carries a name or description as well as a body.
      *
@@ -585,20 +571,6 @@ public interface TransitionDef<T, C> extends Identifiable {
     TransitionDef<T, C> onComplete(String listenerId, TransitionListener<T, C> listener);
 
     /**
-     * Attaches a listener class notified when this transition completes successfully. The class is
-     * instantiated through its public no-arg constructor when the state machine is built.
-     *
-     * @param listenerId the listener id, unique among all listeners on this state machine
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
-     *         or another listener is already registered under the same id
-     */
-    TransitionDef<T, C> onComplete(String listenerId, Class<? extends TransitionListener<T, C>> listenerClass);
-
-    /**
      * Attaches a completion listener declared through a configurer, for the cases where the
      * listener carries a name or description as well as a body.
      *
@@ -629,20 +601,6 @@ public interface TransitionDef<T, C> extends Identifiable {
      *         or another listener is already registered under the same id
      */
     TransitionDef<T, C> onError(String listenerId, TransitionListener<T, C> listener);
-
-    /**
-     * Attaches a listener class notified when this transition fails. The class is instantiated
-     * through its public no-arg constructor when the state machine is built.
-     *
-     * @param listenerId the listener id, unique among all listeners on this state machine
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
-     *         or another listener is already registered under the same id
-     */
-    TransitionDef<T, C> onError(String listenerId, Class<? extends TransitionListener<T, C>> listenerClass);
 
     /**
      * Attaches an error listener declared through a configurer, for the cases where the listener

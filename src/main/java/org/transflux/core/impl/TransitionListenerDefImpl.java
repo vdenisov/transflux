@@ -27,9 +27,8 @@ import static org.transflux.core.Preconditions.requireNotNull;
 /**
  * Default {@link TransitionListenerDef} implementation.
  * <p>
- * Holds either a {@link TransitionListener} instance or a listener class; the two source forms are
- * mutually exclusive and last-write-wins. {@link #buildBoundListener()} reflectively instantiates
- * the class form when needed and produces a {@link BoundTransitionListener} paired with this def's
+ * Holds the {@link TransitionListener} instance, last-write-wins. {@link #buildBoundListener()}
+ * produces a {@link BoundTransitionListener} paired with this def's
  * id and metadata.
  *
  * @param <T> the entity type the surrounding state machine manages
@@ -38,11 +37,11 @@ import static org.transflux.core.Preconditions.requireNotNull;
 final class TransitionListenerDefImpl<T, C> extends IdentifiedDefImpl<TransitionListenerDefImpl<T, C>>
         implements TransitionListenerDef<T, C> {
 
-    private final InstanceOrClassSource<TransitionListener<T, C>> source;
+    private final InstanceSource<TransitionListener<T, C>> source;
 
     TransitionListenerDefImpl(String id) {
         super(id, "transition listener", "Transition listener ID");
-        this.source = new InstanceOrClassSource<>(Loggers.BUILD_VALIDATION, "Transition listener source",
+        this.source = new InstanceSource<>(Loggers.BUILD_VALIDATION, "Transition listener source",
                                                   "TransitionListenerDef '" + id + "'");
     }
 
@@ -51,14 +50,6 @@ final class TransitionListenerDefImpl<T, C> extends IdentifiedDefImpl<Transition
         requireConfigurerActive("using");
         requireNotNull(listener, "Transition listener");
         source.setInstance(listener);
-        return this;
-    }
-
-    @Override
-    public TransitionListenerDefImpl<T, C> using(Class<? extends TransitionListener<T, C>> listenerClass) {
-        requireConfigurerActive("using");
-        requireNotNull(listenerClass, "Transition listener class");
-        source.setClass(listenerClass);
         return this;
     }
 

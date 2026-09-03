@@ -552,28 +552,12 @@ class StateMachineImplCompensationSpec extends Specification {
         applied.isEmpty()
     }
 
-    def 'declared compensation runs: class form, instantiated at build'() {
-        given:
-        def applied = []
-        def sm = build(applied, { t -> t.step('charge', { StepDef<Entity, TestContext> s -> s
-            .using(new ThrowingStep('boom'))
-            .withCompensation(TrailCompensation) }) })
-        def entity = new Entity('s1')
-
-        when:
-        def result = sm.executeTransition(entity, 's2')
-
-        then:
-        result.compensatedPath*.toString() == ['charge']
-        entity.trail == ['-declared']
-    }
-
     def "declared compensation wins over the action's own getCompensation"() {
         given: 'ThrowingWithCompStep would append -b; the declaration replaces it rather than adding to it'
         def applied = []
         def sm = build(applied, { t -> t.step('charge', { StepDef<Entity, TestContext> s -> s
             .using(new ThrowingWithCompStep('b'))
-            .withCompensation(TrailCompensation) }) })
+            .withCompensation(new TrailCompensation()) }) })
         def entity = new Entity('s1')
 
         when:
@@ -697,7 +681,7 @@ class StateMachineImplCompensationSpec extends Specification {
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
             .step('charge', ChildCtx, { StepDef<Entity, ChildCtx> s -> s
                 .using(new PlainChildCtxThrowingStep())
-                .withCompensation(ChildCtxCompensation) })
+                .withCompensation(new ChildCtxCompensation()) })
             .mapper('child-from-parent', TestContext, ChildCtx, new DerivingChildCtxMapper())
             .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, { t ->
                 t.operation('op', { OperationDef<Entity, TestContext> c ->
@@ -728,7 +712,7 @@ class StateMachineImplCompensationSpec extends Specification {
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
             .step('charge', ChildCtx, { StepDef<Entity, ChildCtx> s -> s
                 .using(new PlainChildCtxThrowingStep())
-                .withCompensation(ChildCtxCompensation) })
+                .withCompensation(new ChildCtxCompensation()) })
             .mapper('child-from-parent', TestContext, ChildCtx, new DerivingChildCtxMapper())
             .operation('inner', ChildCtx, { OperationDef<Entity, ChildCtx> op ->
                 op.conditional('route', { ConditionalOperationDef<Entity, ChildCtx> cs ->

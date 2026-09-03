@@ -56,13 +56,10 @@ class ActionDefImplListenerSpec extends Specification {
         where:
         hook         | form         | phase                | declare
         'onStart'    | 'instance'   | ActionPhase.START    | { it.onStart('l1', new NoopListener()) }
-        'onStart'    | 'class'      | ActionPhase.START    | { it.onStart('l1', NoopListener) }
         'onStart'    | 'configurer' | ActionPhase.START    | { it.onStart('l1', usingNoop()) }
         'onComplete' | 'instance'   | ActionPhase.COMPLETE | { it.onComplete('l1', new NoopListener()) }
-        'onComplete' | 'class'      | ActionPhase.COMPLETE | { it.onComplete('l1', NoopListener) }
         'onComplete' | 'configurer' | ActionPhase.COMPLETE | { it.onComplete('l1', usingNoop()) }
         'onError'    | 'instance'   | ActionPhase.ERROR    | { it.onError('l1', new NoopListener()) }
-        'onError'    | 'class'      | ActionPhase.ERROR    | { it.onError('l1', NoopListener) }
         'onError'    | 'configurer' | ActionPhase.ERROR    | { it.onError('l1', usingNoop()) }
     }
 
@@ -130,7 +127,7 @@ class ActionDefImplListenerSpec extends Specification {
 
         when:
         def_.onError('l1', { ActionListenerDef l ->
-            l.withName('Audit').withDescription('captures the failure').using(NoopListener)
+            l.withName('Audit').withDescription('captures the failure').using(new NoopListener())
         } as Consumer)
 
         then:
@@ -175,7 +172,6 @@ class ActionDefImplListenerSpec extends Specification {
         where:
         hook          | action
         'onStart'     | { it.onStart('  ', new NoopListener()) }
-        'onStart-cls' | { it.onStart('  ', NoopListener) }
         'onStart-cfg' | { it.onStart('  ', usingNoop()) }
         'onComplete'  | { it.onComplete('  ', new NoopListener()) }
         'onError'     | { it.onError('  ', new NoopListener()) }
@@ -216,6 +212,6 @@ class ActionDefImplListenerSpec extends Specification {
     }
 
     private static Consumer<ActionListenerDef<Object, Object>> usingNoop() {
-        return { ActionListenerDef l -> l.using(NoopListener) } as Consumer
+        return { ActionListenerDef l -> l.using(new NoopListener()) } as Consumer
     }
 }

@@ -72,14 +72,6 @@ final class ActionListenerSink<T, C, D> {
         return store(phase, listenerId, l -> l.using(listener));
     }
 
-    D classBased(ActionPhase phase, String listenerId,
-                 Class<? extends ActionListener<T, C>> listenerClass) {
-        owner.requireConfigurerActive(hook(phase));
-        requireNotBlank(listenerId, "Action listener ID");
-        requireNotNull(listenerClass, "Action listener class");
-        return store(phase, listenerId, l -> l.using(listenerClass));
-    }
-
     D configured(ActionPhase phase, String listenerId, Consumer<ActionListenerDef<T, C>> configurer) {
         owner.requireConfigurerActive(hook(phase));
         requireNotBlank(listenerId, "Action listener ID");

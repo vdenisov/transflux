@@ -91,11 +91,11 @@ class OperationDefImplNestedMappingSpec extends Specification {
         ctx.activationResult == 'activated-sub-42'
     }
 
-    def 'registered ContextMapper class bridges parent and child context via by-id mapper ref'() {
+    def 'a registered ContextMapper bridges parent and child context via by-id mapper ref'() {
         given:
         def sm = build(
             { smd -> smd.step('charge', ChildCtx, new ChildOp())
-                .mapper('parent-to-child', ParentCtx, ChildCtx, ParentChildMapper) },
+                .mapper('parent-to-child', ParentCtx, ChildCtx, new ParentChildMapper()) },
             { t -> t.operation('outer', { OperationDef<Entity, ParentCtx> c ->
                 c.run('charge', 'parent-to-child')
             }) })

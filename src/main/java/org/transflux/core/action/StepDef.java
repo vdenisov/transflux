@@ -64,17 +64,11 @@ public interface StepDef<T, C> extends ActionDef<T, C> {
     StepDef<T, C> withCompensation(Compensation<T, C> compensation);
 
     @Override
-    StepDef<T, C> withCompensation(Class<? extends Compensation<T, C>> compensationClass);
-
-    @Override
     <X extends Throwable> CompensationRouteDef<T, C, X, ? extends StepDef<T, C>> forException(
         Class<X> exceptionType);
 
     @Override
     StepDef<T, C> onStart(String listenerId, ActionListener<T, C> listener);
-
-    @Override
-    StepDef<T, C> onStart(String listenerId, Class<? extends ActionListener<T, C>> listenerClass);
 
     @Override
     StepDef<T, C> onStart(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
@@ -83,16 +77,10 @@ public interface StepDef<T, C> extends ActionDef<T, C> {
     StepDef<T, C> onComplete(String listenerId, ActionListener<T, C> listener);
 
     @Override
-    StepDef<T, C> onComplete(String listenerId, Class<? extends ActionListener<T, C>> listenerClass);
-
-    @Override
     StepDef<T, C> onComplete(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
 
     @Override
     StepDef<T, C> onError(String listenerId, ActionListener<T, C> listener);
-
-    @Override
-    StepDef<T, C> onError(String listenerId, Class<? extends ActionListener<T, C>> listenerClass);
 
     @Override
     StepDef<T, C> onError(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);

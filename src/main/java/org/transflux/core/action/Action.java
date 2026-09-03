@@ -41,8 +41,8 @@ import org.transflux.core.transition.ExecutingTransition;
  *
  * <p><b>Do not assume an invocation has an instance to itself.</b> Nothing promises that each call
  * site, or each invocation, is given its own object. A registration may be an instance the host
- * built and handed over, or a class the framework instantiates; either way one object normally
- * serves every call site that reaches it, and a host-supplied one may be shared more widely still.
+ * built and handed over; one object normally serves every call site that reaches it, and the
+ * host may be sharing it more widely still.
  *
  * <p>Invocations can also overlap in time. A host driving two transitions at once is enough for
  * that on its own, and a definition that forks (see {@link OperationDef#fork(String)}) produces it

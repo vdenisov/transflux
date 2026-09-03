@@ -52,7 +52,6 @@ class StateDefImplListenerSpec extends Specification {
         where:
         form         | declare
         'instance'   | { it.onEntry('l1', new NoopListener()) }
-        'class'      | { it.onEntry('l1', NoopListener) }
         'configurer' | { it.onEntry('l1', usingNoop()) }
     }
 
@@ -72,7 +71,6 @@ class StateDefImplListenerSpec extends Specification {
         where:
         form         | declare
         'instance'   | { it.onExit('l1', new NoopListener()) }
-        'class'      | { it.onExit('l1', NoopListener) }
         'configurer' | { it.onExit('l1', usingNoop()) }
     }
 
@@ -95,7 +93,7 @@ class StateDefImplListenerSpec extends Specification {
 
         when:
         s.onEntry('l1', { StateListenerDef l ->
-            l.withName('Audit').withDescription('records entries').using(NoopListener)
+            l.withName('Audit').withDescription('records entries').using(new NoopListener())
         } as Consumer)
 
         then:
@@ -180,10 +178,8 @@ class StateDefImplListenerSpec extends Specification {
         where:
         hook          | action
         'onEntry'     | { it.onEntry('  ', new NoopListener()) }
-        'onEntry'     | { it.onEntry('  ', NoopListener) }
         'onEntry-cfg' | { it.onEntry('  ', usingNoop()) }
         'onExit'      | { it.onExit('  ', new NoopListener()) }
-        'onExit'      | { it.onExit('  ', NoopListener) }
         'onExit-cfg'  | { it.onExit('  ', usingNoop()) }
     }
 
@@ -204,10 +200,8 @@ class StateDefImplListenerSpec extends Specification {
         where:
         hook          | action
         'onEntry'     | { it.onEntry('l1', new NoopListener()) }
-        'onEntry-cls' | { it.onEntry('l1', NoopListener) }
         'onEntry-cfg' | { it.onEntry('l1', usingNoop()) }
         'onExit'      | { it.onExit('l1', new NoopListener()) }
-        'onExit-cls'  | { it.onExit('l1', NoopListener) }
         'onExit-cfg'  | { it.onExit('l1', usingNoop()) }
     }
 
@@ -219,6 +213,6 @@ class StateDefImplListenerSpec extends Specification {
     }
 
     private static Consumer<StateListenerDef<Object>> usingNoop() {
-        return { StateListenerDef l -> l.using(NoopListener) } as Consumer
+        return { StateListenerDef l -> l.using(new NoopListener()) } as Consumer
     }
 }

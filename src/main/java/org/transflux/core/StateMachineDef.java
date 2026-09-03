@@ -427,22 +427,6 @@ public interface StateMachineDef<T> {
                                      ContextMapper<P, N> mapper);
 
     /**
-     * Registers a {@link ContextMapper} class against this state machine under the given id.
-     * The framework instantiates it via its public no-arg constructor at build time.
-     *
-     * @param id the mapper id
-     * @param parentType the parent context class
-     * @param childType the child context class
-     * @param mapperClass the mapper class; never {@code null}
-     * @param <P> the parent context type
-     * @param <N> the child context type
-     *
-     * @return this state machine def for chaining
-     */
-    <P, N> StateMachineDef<T> mapper(String id, Class<P> parentType, Class<N> childType,
-                                     Class<? extends ContextMapper<P, N>> mapperClass);
-
-    /**
      * Registers a mapper under {@code id} through a lambda configurer, for the cases that also
      * want a name or description. Inside the configurer the caller wires the source with
      * {@code using(...)}; once it returns the def is inert and any further mutation throws.
@@ -494,20 +478,6 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> onAnyStateEntry(String listenerId, StateListener<T> listener);
 
     /**
-     * Attaches a listener class notified whenever an entity enters any state. The class is
-     * instantiated through its public no-arg constructor when the state machine is built.
-     *
-     * @param listenerId the listener id, unique among all state listeners on this state machine
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this state machine def for chaining
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
-     *         or another state listener is already registered under the same id
-     */
-    StateMachineDef<T> onAnyStateEntry(String listenerId, Class<? extends StateListener<T>> listenerClass);
-
-    /**
      * Attaches a global entry listener declared through a configurer, for the cases where the
      * listener carries a name or description as well as a body.
      *
@@ -537,20 +507,6 @@ public interface StateMachineDef<T> {
      *         or another state listener is already registered under the same id
      */
     StateMachineDef<T> onAnyStateExit(String listenerId, StateListener<T> listener);
-
-    /**
-     * Attaches a listener class notified whenever an entity leaves any state. The class is
-     * instantiated through its public no-arg constructor when the state machine is built.
-     *
-     * @param listenerId the listener id, unique among all state listeners on this state machine
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this state machine def for chaining
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
-     *         or another state listener is already registered under the same id
-     */
-    StateMachineDef<T> onAnyStateExit(String listenerId, Class<? extends StateListener<T>> listenerClass);
 
     /**
      * Attaches a global exit listener declared through a configurer, for the cases where the
@@ -586,21 +542,6 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> onAnyTransitionStart(String listenerId, TransitionListener<T, Object> listener);
 
     /**
-     * Attaches a listener class notified when any transition starts. The class is instantiated
-     * through its public no-arg constructor when the state machine is built.
-     *
-     * @param listenerId the listener id, unique among all listeners on this state machine
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this state machine def for chaining
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
-     *         or another listener is already registered under the same id
-     */
-    StateMachineDef<T> onAnyTransitionStart(String listenerId,
-                                            Class<? extends TransitionListener<T, Object>> listenerClass);
-
-    /**
      * Attaches a global start listener declared through a configurer, for the cases where the
      * listener carries a name or description as well as a body.
      *
@@ -631,21 +572,6 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> onAnyTransitionComplete(String listenerId, TransitionListener<T, Object> listener);
 
     /**
-     * Attaches a listener class notified when any transition completes successfully. The class is
-     * instantiated through its public no-arg constructor when the state machine is built.
-     *
-     * @param listenerId the listener id, unique among all listeners on this state machine
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this state machine def for chaining
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
-     *         or another listener is already registered under the same id
-     */
-    StateMachineDef<T> onAnyTransitionComplete(String listenerId,
-                                               Class<? extends TransitionListener<T, Object>> listenerClass);
-
-    /**
      * Attaches a global completion listener declared through a configurer, for the cases where the
      * listener carries a name or description as well as a body.
      *
@@ -674,21 +600,6 @@ public interface StateMachineDef<T> {
      *         or another listener is already registered under the same id
      */
     StateMachineDef<T> onAnyTransitionError(String listenerId, TransitionListener<T, Object> listener);
-
-    /**
-     * Attaches a listener class notified when any transition fails. The class is instantiated
-     * through its public no-arg constructor when the state machine is built.
-     *
-     * @param listenerId the listener id, unique among all listeners on this state machine
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this state machine def for chaining
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
-     *         or another listener is already registered under the same id
-     */
-    StateMachineDef<T> onAnyTransitionError(String listenerId,
-                                            Class<? extends TransitionListener<T, Object>> listenerClass);
 
     /**
      * Attaches a global error listener declared through a configurer, for the cases where the
@@ -726,18 +637,6 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> onAnyActionStart(String listenerId, ActionListener<T, Object> listener);
 
     /**
-     * Attaches a listener class notified before any action runs. The class is instantiated once,
-     * through its public no-arg constructor, when the state machine is built.
-     *
-     * @param listenerId the listener id, unique among all listeners on this state machine
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> onAnyActionStart(String listenerId,
-                                        Class<? extends ActionListener<T, Object>> listenerClass);
-
-    /**
      * Attaches a global action-start listener declared through a configurer, for the cases where
      * the listener carries a name or description as well as a body.
      *
@@ -764,17 +663,6 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> onAnyActionComplete(String listenerId, ActionListener<T, Object> listener);
 
     /**
-     * Attaches a listener class notified when any action returns normally.
-     *
-     * @param listenerId the listener id, unique among all listeners on this state machine
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> onAnyActionComplete(String listenerId,
-                                           Class<? extends ActionListener<T, Object>> listenerClass);
-
-    /**
      * Attaches a global action-complete listener declared through a configurer.
      *
      * @param listenerId the listener id, unique among all listeners on this state machine
@@ -797,17 +685,6 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     StateMachineDef<T> onAnyActionError(String listenerId, ActionListener<T, Object> listener);
-
-    /**
-     * Attaches a listener class notified when any action fails.
-     *
-     * @param listenerId the listener id, unique among all listeners on this state machine
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this state machine def for chaining
-     */
-    StateMachineDef<T> onAnyActionError(String listenerId,
-                                        Class<? extends ActionListener<T, Object>> listenerClass);
 
     /**
      * Attaches a global action-error listener declared through a configurer.

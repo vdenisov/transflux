@@ -408,12 +408,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
-     * Records the canonical payload for {@code id} in the per-build global table. Idempotent
-     * for an existing identical payload (same instance reference, or an equal {@link String}
-     * value) — mirrors the idempotency rules of the SM-level
-     * {@code registerStepInstance} and friends. A different
-     * payload under the same id raises {@link TransfluxValidationException}, enforcing SM-wide id
-     * uniqueness.
+     * Records the canonical payload for {@code id} in the per-build global table. Idempotent for
+     * an existing identical payload — the same instance reference, or an equal {@link String}
+     * expression — mirroring the idempotency rule of the SM-level {@code registerStepInstance} and
+     * friends. A different payload under the same id raises {@link TransfluxValidationException},
+     * enforcing SM-wide id uniqueness.
      */
     static void claimCanonical(Map<String, Object> canonical, String id, Object payload, String kind) {
         Object existing = canonical.get(id);
@@ -424,10 +423,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
 
         if (existing == payload) {
-            return;
-        }
-
-        if (existing instanceof Class<?> && payload instanceof Class<?> && existing.equals(payload)) {
             return;
         }
 
@@ -501,9 +496,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     private static String payloadClassName(Object payload) {
-        if (payload instanceof Class<?> cls) {
-            return cls.getName();
-        }
         return payload.getClass().getName();
     }
 
@@ -598,19 +590,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotNull(childType, "Mapper child type");
         requireNotNull(mapper, "Context mapper");
         registerMapper(configuredMapper(id, parentType, childType, d -> d.using(mapper)));
-        return this;
-    }
-
-    @Override
-    public <P, N> StateMachineDef<T> mapper(String id,
-                                            Class<P> parentType,
-                                            Class<N> childType,
-                                            Class<? extends ContextMapper<P, N>> mapperClass) {
-        requireNotBlank(id, "Mapper ID");
-        requireNotNull(parentType, "Mapper parent type");
-        requireNotNull(childType, "Mapper child type");
-        requireNotNull(mapperClass, "Context mapper class");
-        registerMapper(configuredMapper(id, parentType, childType, d -> d.using(mapperClass)));
         return this;
     }
 
@@ -987,13 +966,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyStateEntry(String listenerId, Class<? extends StateListener<T>> listenerClass) {
-        requireNotBlank(listenerId, "State listener ID");
-        requireNotNull(listenerClass, "State listener class");
-        return onAnyStateEntry(listenerId, l -> l.using(listenerClass));
-    }
-
-    @Override
     public StateMachineDef<T> onAnyStateEntry(String listenerId, Consumer<StateListenerDef<T>> configurer) {
         globalEntryListeners.add(declareStateListener(listenerId, configurer));
         return this;
@@ -1004,13 +976,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotBlank(listenerId, "State listener ID");
         requireNotNull(listener, "State listener");
         return onAnyStateExit(listenerId, l -> l.using(listener));
-    }
-
-    @Override
-    public StateMachineDef<T> onAnyStateExit(String listenerId, Class<? extends StateListener<T>> listenerClass) {
-        requireNotBlank(listenerId, "State listener ID");
-        requireNotNull(listenerClass, "State listener class");
-        return onAnyStateExit(listenerId, l -> l.using(listenerClass));
     }
 
     @Override
@@ -1046,14 +1011,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     @Override
     public StateMachineDef<T> onAnyTransitionStart(String listenerId,
-                                                   Class<? extends TransitionListener<T, Object>> listenerClass) {
-        requireNotBlank(listenerId, "Transition listener ID");
-        requireNotNull(listenerClass, "Transition listener class");
-        return onAnyTransitionStart(listenerId, l -> l.using(listenerClass));
-    }
-
-    @Override
-    public StateMachineDef<T> onAnyTransitionStart(String listenerId,
                                                    Consumer<TransitionListenerDef<T, Object>> configurer) {
         globalStartListeners.add(declareTransitionListener(listenerId, configurer));
         return this;
@@ -1064,14 +1021,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(listener, "Transition listener");
         return onAnyTransitionComplete(listenerId, l -> l.using(listener));
-    }
-
-    @Override
-    public StateMachineDef<T> onAnyTransitionComplete(String listenerId,
-                                                      Class<? extends TransitionListener<T, Object>> listenerClass) {
-        requireNotBlank(listenerId, "Transition listener ID");
-        requireNotNull(listenerClass, "Transition listener class");
-        return onAnyTransitionComplete(listenerId, l -> l.using(listenerClass));
     }
 
     @Override
@@ -1090,14 +1039,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     @Override
     public StateMachineDef<T> onAnyTransitionError(String listenerId,
-                                                   Class<? extends TransitionListener<T, Object>> listenerClass) {
-        requireNotBlank(listenerId, "Transition listener ID");
-        requireNotNull(listenerClass, "Transition listener class");
-        return onAnyTransitionError(listenerId, l -> l.using(listenerClass));
-    }
-
-    @Override
-    public StateMachineDef<T> onAnyTransitionError(String listenerId,
                                                    Consumer<TransitionListenerDef<T, Object>> configurer) {
         globalErrorListeners.add(declareTransitionListener(listenerId, configurer));
         return this;
@@ -1108,14 +1049,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotBlank(listenerId, "Action listener ID");
         requireNotNull(listener, "Action listener");
         return onAnyActionStart(listenerId, l -> l.using(listener));
-    }
-
-    @Override
-    public StateMachineDef<T> onAnyActionStart(String listenerId,
-                                               Class<? extends ActionListener<T, Object>> listenerClass) {
-        requireNotBlank(listenerId, "Action listener ID");
-        requireNotNull(listenerClass, "Action listener class");
-        return onAnyActionStart(listenerId, l -> l.using(listenerClass));
     }
 
     @Override
@@ -1134,14 +1067,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     @Override
     public StateMachineDef<T> onAnyActionComplete(String listenerId,
-                                                  Class<? extends ActionListener<T, Object>> listenerClass) {
-        requireNotBlank(listenerId, "Action listener ID");
-        requireNotNull(listenerClass, "Action listener class");
-        return onAnyActionComplete(listenerId, l -> l.using(listenerClass));
-    }
-
-    @Override
-    public StateMachineDef<T> onAnyActionComplete(String listenerId,
                                                   Consumer<ActionListenerDef<T, Object>> configurer) {
         globalActionCompleteListeners.add(declareActionListener(listenerId, configurer));
         return this;
@@ -1152,14 +1077,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotBlank(listenerId, "Action listener ID");
         requireNotNull(listener, "Action listener");
         return onAnyActionError(listenerId, l -> l.using(listener));
-    }
-
-    @Override
-    public StateMachineDef<T> onAnyActionError(String listenerId,
-                                               Class<? extends ActionListener<T, Object>> listenerClass) {
-        requireNotBlank(listenerId, "Action listener ID");
-        requireNotNull(listenerClass, "Action listener class");
-        return onAnyActionError(listenerId, l -> l.using(listenerClass));
     }
 
     @Override

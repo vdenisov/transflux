@@ -92,16 +92,4 @@ public interface TransitionListenerDef<T, C> extends Identifiable {
      */
     TransitionListenerDef<T, C> using(TransitionListener<T, C> listener);
 
-    /**
-     * Attaches a listener class, instantiated through its public no-arg constructor when the state
-     * machine is built. Mutually exclusive with {@link #using(TransitionListener)}; re-declaring
-     * replaces the previous declaration.
-     *
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this listener def for chaining
-     *
-     * @throws TransfluxValidationException if {@code listenerClass} is {@code null}
-     */
-    TransitionListenerDef<T, C> using(Class<? extends TransitionListener<T, C>> listenerClass);
 }

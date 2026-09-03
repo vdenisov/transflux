@@ -45,7 +45,7 @@ final class CompensationSink<T, C, D> {
     private final ConfigurableDefImpl owner;
     private final D self;
 
-    private final InstanceOrClassSource<Compensation<T, C>> fallback;
+    private final InstanceSource<Compensation<T, C>> fallback;
     private final List<CompensationRouteDefImpl<T, C, ?, D>> routes = new ArrayList<>();
 
     /**
@@ -57,7 +57,7 @@ final class CompensationSink<T, C, D> {
     CompensationSink(ConfigurableDefImpl owner, D self) {
         this.owner = owner;
         this.self = self;
-        this.fallback = new InstanceOrClassSource<>(Loggers.BUILD_VALIDATION, "Compensation source",
+        this.fallback = new InstanceSource<>(Loggers.BUILD_VALIDATION, "Compensation source",
                                                     owner.defLabel());
     }
 
@@ -65,13 +65,6 @@ final class CompensationSink<T, C, D> {
         owner.requireConfigurerActive("withCompensation");
         requireNotNull(compensation, "Compensation");
         fallback.setInstance(compensation);
-        return self;
-    }
-
-    D withCompensationClass(Class<? extends Compensation<T, C>> compensationClass) {
-        owner.requireConfigurerActive("withCompensation");
-        requireNotNull(compensationClass, "Compensation class");
-        fallback.setClass(compensationClass);
         return self;
     }
 

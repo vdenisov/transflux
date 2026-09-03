@@ -61,23 +61,6 @@ class StateMachineDefImplMapperRegistrationSpec extends Specification {
         ((MapperDefImpl) smd.getMapperDef('p-to-n')).buildMapper().is(mapper)
     }
 
-    def 'mapper(id, P, N, class) registers a class-form mapper and instantiates it on demand'() {
-        given:
-        def smd = new StateMachineDefImpl<Entity>()
-
-        when:
-        smd.mapper('p-to-n', P, N, PNMapper)
-
-        then:
-        smd.getMapperDef('p-to-n') != null
-
-        when:
-        def built = ((MapperDefImpl) smd.getMapperDef('p-to-n')).buildMapper()
-
-        then:
-        built instanceof PNMapper
-    }
-
     def 'a lambda registers the read-only form, leaving mapFrom the default no-op'() {
         given:
         def smd = new StateMachineDefImpl<Entity>()
@@ -112,7 +95,7 @@ class StateMachineDefImplMapperRegistrationSpec extends Specification {
         smd.mapper('p-to-n', P, N, new PNMapper())
 
         when:
-        smd.mapper('p-to-n', P, N, PNMapper)
+        smd.mapper('p-to-n', P, N, new PNMapper())
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -122,14 +105,6 @@ class StateMachineDefImplMapperRegistrationSpec extends Specification {
     def 'null mapper instance is rejected'() {
         when:
         new StateMachineDefImpl<Entity>().mapper('x', P, N, (ContextMapper<P, N>) null)
-
-        then:
-        thrown(TransfluxValidationException)
-    }
-
-    def 'null mapper class is rejected'() {
-        when:
-        new StateMachineDefImpl<Entity>().mapper('x', P, N, (Class<? extends ContextMapper<P, N>>) null)
 
         then:
         thrown(TransfluxValidationException)

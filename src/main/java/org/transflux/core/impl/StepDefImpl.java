@@ -44,7 +44,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <C> the host-supplied context type this action requires
  */
 final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> implements StepDef<T, C> {
-    private final InstanceOrClassSource<Action<T, C>> source;
+    private final InstanceSource<Action<T, C>> source;
 
     /**
      * Declares an action that names no context of its own, so it takes the enclosing position's.
@@ -55,13 +55,13 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
      */
     StepDefImpl(String id) {
         super(id, "step", "Step ID", null);
-        this.source = new InstanceOrClassSource<>(Loggers.BUILD_VALIDATION, "Step source",
+        this.source = new InstanceSource<>(Loggers.BUILD_VALIDATION, "Step source",
                                                   "StepDef '" + id + "'");
     }
 
     StepDefImpl(String id, Class<C> contextType) {
         super(id, "step", "Step ID", requireNotNull(contextType, "Step context type"));
-        this.source = new InstanceOrClassSource<>(Loggers.BUILD_VALIDATION, "Step source",
+        this.source = new InstanceSource<>(Loggers.BUILD_VALIDATION, "Step source",
                                                   "StepDef '" + id + "'");
     }
 

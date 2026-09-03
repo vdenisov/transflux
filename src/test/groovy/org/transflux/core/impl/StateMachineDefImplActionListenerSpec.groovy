@@ -52,7 +52,6 @@ class StateMachineDefImplActionListenerSpec extends Specification {
         where:
         form         | declare
         'instance'   | { it.onAnyActionStart('l1', new NoopListener()) }
-        'class'      | { it.onAnyActionStart('l1', NoopListener) }
         'configurer' | { it.onAnyActionStart('l1', usingNoop()) }
     }
 
@@ -72,7 +71,6 @@ class StateMachineDefImplActionListenerSpec extends Specification {
         where:
         form         | declare
         'instance'   | { it.onAnyActionComplete('l1', new NoopListener()) }
-        'class'      | { it.onAnyActionComplete('l1', NoopListener) }
         'configurer' | { it.onAnyActionComplete('l1', usingNoop()) }
     }
 
@@ -92,7 +90,6 @@ class StateMachineDefImplActionListenerSpec extends Specification {
         where:
         form         | declare
         'instance'   | { it.onAnyActionError('l1', new NoopListener()) }
-        'class'      | { it.onAnyActionError('l1', NoopListener) }
         'configurer' | { it.onAnyActionError('l1', usingNoop()) }
     }
 
@@ -116,7 +113,7 @@ class StateMachineDefImplActionListenerSpec extends Specification {
 
         when:
         smd.onAnyActionComplete('l1', { ActionListenerDef l ->
-            l.withName('Audit').withDescription('records every action').using(NoopListener)
+            l.withName('Audit').withDescription('records every action').using(new NoopListener())
         } as Consumer)
 
         then:
@@ -184,13 +181,10 @@ class StateMachineDefImplActionListenerSpec extends Specification {
         where:
         hook                      | action
         'onAnyActionStart'        | { it.onAnyActionStart('  ', new NoopListener()) }
-        'onAnyActionStart-cls'    | { it.onAnyActionStart('  ', NoopListener) }
         'onAnyActionStart-cfg'    | { it.onAnyActionStart('  ', usingNoop()) }
         'onAnyActionComplete'     | { it.onAnyActionComplete('  ', new NoopListener()) }
-        'onAnyActionComplete-cls' | { it.onAnyActionComplete('  ', NoopListener) }
         'onAnyActionComplete-cfg' | { it.onAnyActionComplete('  ', usingNoop()) }
         'onAnyActionError'        | { it.onAnyActionError('  ', new NoopListener()) }
-        'onAnyActionError-cls'    | { it.onAnyActionError('  ', NoopListener) }
         'onAnyActionError-cfg'    | { it.onAnyActionError('  ', usingNoop()) }
     }
 
@@ -207,6 +201,6 @@ class StateMachineDefImplActionListenerSpec extends Specification {
     }
 
     private static Consumer<ActionListenerDef<Object, Object>> usingNoop() {
-        return { ActionListenerDef l -> l.using(NoopListener) } as Consumer
+        return { ActionListenerDef l -> l.using(new NoopListener()) } as Consumer
     }
 }

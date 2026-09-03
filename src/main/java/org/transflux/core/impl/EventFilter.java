@@ -22,7 +22,7 @@ package org.transflux.core.impl;
  * Internal resolved form of an event trigger's payload filter.
  * <p>
  * Carries all three bindings an event filter may consult — the event payload, the entity, and the
- * host-supplied context. The expression form uses every binding; the predicate and class forms
+ * host-supplied context. The expression form uses every binding; the predicate form
  * ignore the context. A trigger with no declared filter resolves to an always-true filter.
  *
  * @param <T> the entity type the surrounding state machine manages

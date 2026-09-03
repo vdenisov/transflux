@@ -32,15 +32,6 @@ class TransitionListenerDefImplSpec extends Specification {
         }
     }
 
-    static class CtorlessListener implements TransitionListener<Object, Object> {
-        CtorlessListener(String arg) {
-        }
-
-        @Override
-        void onTransition(Object entity, Object context, TransitionExecution<Object> execution) {
-        }
-    }
-
     def 'constructor rejects null id'() {
         when:
         new TransitionListenerDefImpl<Object, Object>(null)
@@ -89,16 +80,6 @@ class TransitionListenerDefImplSpec extends Specification {
         def_.buildBoundListener().listener().is(listener)
     }
 
-    def 'using(class) resolves via the no-arg constructor'() {
-        given:
-        def def_ = new TransitionListenerDefImpl<Object, Object>('l1')
-        def_.beginConfigurer()
-        def_.using(NoopListener)
-
-        expect:
-        def_.buildBoundListener().listener() instanceof NoopListener
-    }
-
     def 'using(...) twice is last-write-wins'() {
         given:
         def first = new NoopListener()
@@ -124,21 +105,6 @@ class TransitionListenerDefImplSpec extends Specification {
         e.message.contains("Transition listener 'l1'")
         e.message.contains('declares no listener')
         e.message.contains('using(...)')
-    }
-
-    def 'buildBoundListener with a class lacking a no-arg constructor fails fast'() {
-        given:
-        def def_ = new TransitionListenerDefImpl<Object, Object>('l1')
-        def_.beginConfigurer()
-        def_.using(CtorlessListener)
-
-        when:
-        def_.buildBoundListener()
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message.contains('no accessible no-arg constructor')
-        e.message.contains('CtorlessListener')
     }
 
     @Unroll

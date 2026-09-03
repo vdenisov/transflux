@@ -510,12 +510,12 @@ public final class JavaDslSurface {
                         .withCompensation((order, ctx) -> order.trail.add("-container"))
                         .step("charge", step -> step
                             .using(new RecordingAction())
-                            .withCompensation(RollbackCompensation.class)
+                            .withCompensation(new RollbackCompensation())
                             .forException(IllegalStateException.class)
                                 .withCompensation((order, ctx) -> order.trail.add("-illegal"))
                             .forException(RuntimeException.class)
                                 .matching(e -> e.getMessage() != null)
-                                .withCompensation(RollbackCompensation.class)))))
+                                .withCompensation(new RollbackCompensation())))))
             .state("s2", s -> { })
             .build();
     }

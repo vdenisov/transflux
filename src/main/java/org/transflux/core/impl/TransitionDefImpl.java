@@ -450,15 +450,6 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> onStart(String listenerId, Class<? extends TransitionListener<T, C>> listenerClass) {
-        requireConfigurerActive("onStart");
-        requireNotBlank(listenerId, "Transition listener ID");
-        requireNotNull(listenerClass, "Transition listener class");
-        startListeners.add(declareListener(listenerId, l -> l.using(listenerClass)));
-        return this;
-    }
-
-    @Override
     public TransitionDef<T, C> onStart(String listenerId, Consumer<TransitionListenerDef<T, C>> configurer) {
         requireConfigurerActive("onStart");
         requireNotBlank(listenerId, "Transition listener ID");
@@ -477,15 +468,6 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> onComplete(String listenerId, Class<? extends TransitionListener<T, C>> listenerClass) {
-        requireConfigurerActive("onComplete");
-        requireNotBlank(listenerId, "Transition listener ID");
-        requireNotNull(listenerClass, "Transition listener class");
-        completeListeners.add(declareListener(listenerId, l -> l.using(listenerClass)));
-        return this;
-    }
-
-    @Override
     public TransitionDef<T, C> onComplete(String listenerId, Consumer<TransitionListenerDef<T, C>> configurer) {
         requireConfigurerActive("onComplete");
         requireNotBlank(listenerId, "Transition listener ID");
@@ -500,15 +482,6 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(listener, "Transition listener");
         errorListeners.add(declareListener(listenerId, l -> l.using(listener)));
-        return this;
-    }
-
-    @Override
-    public TransitionDef<T, C> onError(String listenerId, Class<? extends TransitionListener<T, C>> listenerClass) {
-        requireConfigurerActive("onError");
-        requireNotBlank(listenerId, "Transition listener ID");
-        requireNotNull(listenerClass, "Transition listener class");
-        errorListeners.add(declareListener(listenerId, l -> l.using(listenerClass)));
         return this;
     }
 

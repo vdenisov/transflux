@@ -27,7 +27,7 @@ import java.util.function.Consumer;
  * that pure {@link Action} executables do not.
  * <p>
  * Two concrete sub-types exist, one per authoring form: {@link StepDef} declares an imperative
- * action (a Java body, supplied as an instance or a class), and {@link OperationDef} declares a
+ * action (a Java body, supplied as an instance), and {@link OperationDef} declares a
  * declarative one (an ordered list of members, whose executable the framework synthesizes).
  * {@link ConditionalOperationDef} is a declarative variant whose ordering rule is "first matching
  * branch" rather than "all, in order".
@@ -132,20 +132,6 @@ public interface ActionDef<T, C> extends Identifiable {
     ActionDef<T, C> withCompensation(Compensation<T, C> compensation);
 
     /**
-     * Class form of {@link #withCompensation(Compensation)}. The class is instantiated through its
-     * public no-arg constructor when the state machine is built, so a class the framework cannot
-     * instantiate fails the build rather than the first rollback.
-     *
-     * @param compensationClass the compensation class; never {@code null}
-     *
-     * @return this def for chaining
-     *
-     * @throws org.transflux.core.exception.TransfluxValidationException if
-     *         {@code compensationClass} is {@code null}, or if the configurer has already returned
-     */
-    ActionDef<T, C> withCompensation(Class<? extends Compensation<T, C>> compensationClass);
-
-    /**
      * Opens a compensation route: a rollback that applies to one kind of failure rather than to
      * every one. The returned {@link CompensationRouteDef} takes an optional guard and the
      * compensation itself, and hands this def back so the chain continues.
@@ -212,17 +198,6 @@ public interface ActionDef<T, C> extends Identifiable {
     ActionDef<T, C> onStart(String listenerId, ActionListener<T, C> listener);
 
     /**
-     * Class form of {@link #onStart(String, ActionListener)}. The class is instantiated once,
-     * through its public no-arg constructor, when the state machine is built.
-     *
-     * @param listenerId the listener id
-     * @param listenerClass the listener class
-     *
-     * @return this def for chaining
-     */
-    ActionDef<T, C> onStart(String listenerId, Class<? extends ActionListener<T, C>> listenerClass);
-
-    /**
      * Configurer form of {@link #onStart(String, ActionListener)}, for a listener that also wants a
      * name or description.
      *
@@ -249,17 +224,6 @@ public interface ActionDef<T, C> extends Identifiable {
     ActionDef<T, C> onComplete(String listenerId, ActionListener<T, C> listener);
 
     /**
-     * Class form of {@link #onComplete(String, ActionListener)}.
-     *
-     * @param listenerId the listener id
-     * @param listenerClass the listener class
-     *
-     * @return this def for chaining
-     */
-    ActionDef<T, C> onComplete(String listenerId,
-                               Class<? extends ActionListener<T, C>> listenerClass);
-
-    /**
      * Configurer form of {@link #onComplete(String, ActionListener)}.
      *
      * @param listenerId the listener id
@@ -282,16 +246,6 @@ public interface ActionDef<T, C> extends Identifiable {
      * @return this def for chaining
      */
     ActionDef<T, C> onError(String listenerId, ActionListener<T, C> listener);
-
-    /**
-     * Class form of {@link #onError(String, ActionListener)}.
-     *
-     * @param listenerId the listener id
-     * @param listenerClass the listener class
-     *
-     * @return this def for chaining
-     */
-    ActionDef<T, C> onError(String listenerId, Class<? extends ActionListener<T, C>> listenerClass);
 
     /**
      * Configurer form of {@link #onError(String, ActionListener)}.

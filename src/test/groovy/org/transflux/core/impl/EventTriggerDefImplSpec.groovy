@@ -146,7 +146,6 @@ class EventTriggerDefImplSpec extends Specification {
         firstForm     | declareFirst
         'BiPredicate' | { et -> et.filter({ payload, entity -> payload == 'reject' } as BiPredicate) }
         'Predicate'   | { et -> et.filter({ payload -> payload == 'reject' } as Predicate) }
-        'class'       | { et -> et.filter(RejectingFilter) }
         'expression'  | { et -> et.filterExpression("#event == 'reject'") }
     }
 

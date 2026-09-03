@@ -53,17 +53,11 @@ public interface OperationDef<T, C> extends ActionDef<T, C>,
     OperationDef<T, C> withCompensation(Compensation<T, C> compensation);
 
     @Override
-    OperationDef<T, C> withCompensation(Class<? extends Compensation<T, C>> compensationClass);
-
-    @Override
     <X extends Throwable> CompensationRouteDef<T, C, X, ? extends OperationDef<T, C>> forException(
         Class<X> exceptionType);
 
     @Override
     OperationDef<T, C> onStart(String listenerId, ActionListener<T, C> listener);
-
-    @Override
-    OperationDef<T, C> onStart(String listenerId, Class<? extends ActionListener<T, C>> listenerClass);
 
     @Override
     OperationDef<T, C> onStart(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
@@ -72,17 +66,10 @@ public interface OperationDef<T, C> extends ActionDef<T, C>,
     OperationDef<T, C> onComplete(String listenerId, ActionListener<T, C> listener);
 
     @Override
-    OperationDef<T, C> onComplete(String listenerId,
-                                  Class<? extends ActionListener<T, C>> listenerClass);
-
-    @Override
     OperationDef<T, C> onComplete(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
 
     @Override
     OperationDef<T, C> onError(String listenerId, ActionListener<T, C> listener);
-
-    @Override
-    OperationDef<T, C> onError(String listenerId, Class<? extends ActionListener<T, C>> listenerClass);
 
     @Override
     OperationDef<T, C> onError(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);

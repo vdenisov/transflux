@@ -87,18 +87,4 @@ public interface CompensationRouteDef<T, C, X extends Throwable, D> {
      */
     D withCompensation(Compensation<T, C> compensation);
 
-    /**
-     * Class form of {@link #withCompensation(Compensation)}. The class is instantiated through its
-     * public no-arg constructor when the state machine is built, so a class the framework cannot
-     * instantiate fails the build rather than the first rollback that reaches this route.
-     *
-     * @param compensationClass the compensation class; never {@code null}
-     *
-     * @return the action def this route was opened on, for chaining
-     *
-     * @throws org.transflux.core.exception.TransfluxValidationException if
-     *         {@code compensationClass} is {@code null}, or if the owning def's configurer has
-     *         already returned
-     */
-    D withCompensation(Class<? extends Compensation<T, C>> compensationClass);
 }

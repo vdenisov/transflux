@@ -32,15 +32,6 @@ class ActionListenerDefImplSpec extends Specification {
         }
     }
 
-    static class CtorlessListener implements ActionListener<Object, Object> {
-        CtorlessListener(String arg) {
-        }
-
-        @Override
-        void onAction(Object entity, Object context, ActionExecution execution) {
-        }
-    }
-
     def 'constructor rejects null id'() {
         when:
         new ActionListenerDefImpl<Object, Object>(null)
@@ -89,16 +80,6 @@ class ActionListenerDefImplSpec extends Specification {
         def_.buildBoundListener().listener().is(listener)
     }
 
-    def 'using(class) resolves via the no-arg constructor'() {
-        given:
-        def def_ = new ActionListenerDefImpl<Object, Object>('l1')
-        def_.beginConfigurer()
-        def_.using(NoopListener)
-
-        expect:
-        def_.buildBoundListener().listener() instanceof NoopListener
-    }
-
     def 'using(...) twice is last-write-wins'() {
         given:
         def first = new NoopListener()
@@ -124,21 +105,6 @@ class ActionListenerDefImplSpec extends Specification {
         e.message.contains("Action listener 'l1'")
         e.message.contains('declares no listener')
         e.message.contains('using(...)')
-    }
-
-    def 'buildBoundListener with a class lacking a no-arg constructor fails fast'() {
-        given:
-        def def_ = new ActionListenerDefImpl<Object, Object>('l1')
-        def_.beginConfigurer()
-        def_.using(CtorlessListener)
-
-        when:
-        def_.buildBoundListener()
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message.contains('no accessible no-arg constructor')
-        e.message.contains('CtorlessListener')
     }
 
     @Unroll

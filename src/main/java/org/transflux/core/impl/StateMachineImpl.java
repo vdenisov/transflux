@@ -527,8 +527,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
     /**
      * Resolves every declared state's entry and exit listeners into notification order. The
-     * globals are bound once and shared across states, so a class-form global listener yields one
-     * instance rather than one per state.
+     * globals are bound once and shared across states rather than rebound per state.
      */
     private void buildStateListenerIndexes(StateMachineDefImpl<T> def) {
         List<BoundStateListener<T>> globalEntry = bindStateListeners(def.getGlobalEntryListeners());
@@ -672,8 +671,8 @@ class StateMachineImpl<T> implements StateMachine<T> {
     }
 
     /**
-     * Resolves the state machine's global action listeners once, so a class-form listener yields a
-     * single instance shared by every action rather than one per action.
+     * Resolves the state machine's global action listeners once, so every action shares one bound
+     * record rather than rebinding them per action.
      */
     private BoundActionListeners<T, Object> bindGlobalActionListeners(StateMachineDefImpl<T> def) {
         return new BoundActionListeners<>(
@@ -709,8 +708,8 @@ class StateMachineImpl<T> implements StateMachine<T> {
     }
 
     /**
-     * Resolves the state machine's global transition listeners once, so a class-form listener
-     * yields one instance shared by every transition rather than one instance per transition.
+     * Resolves the state machine's global transition listeners once, so every transition shares
+     * one bound record rather than rebinding them per transition.
      */
     private BoundTransitionListeners<T, Object> bindGlobalTransitionListeners(StateMachineDefImpl<T> def) {
         return new BoundTransitionListeners<>(

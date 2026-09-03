@@ -57,13 +57,10 @@ class ConditionalOperationDefImplListenerSpec extends Specification {
         where:
         hook         | form         | phase                | declare
         'onStart'    | 'instance'   | ActionPhase.START    | { it.onStart('l1', new NoopListener()) }
-        'onStart'    | 'class'      | ActionPhase.START    | { it.onStart('l1', NoopListener) }
         'onStart'    | 'configurer' | ActionPhase.START    | { it.onStart('l1', usingNoop()) }
         'onComplete' | 'instance'   | ActionPhase.COMPLETE | { it.onComplete('l1', new NoopListener()) }
-        'onComplete' | 'class'      | ActionPhase.COMPLETE | { it.onComplete('l1', NoopListener) }
         'onComplete' | 'configurer' | ActionPhase.COMPLETE | { it.onComplete('l1', usingNoop()) }
         'onError'    | 'instance'   | ActionPhase.ERROR    | { it.onError('l1', new NoopListener()) }
-        'onError'    | 'class'      | ActionPhase.ERROR    | { it.onError('l1', NoopListener) }
         'onError'    | 'configurer' | ActionPhase.ERROR    | { it.onError('l1', usingNoop()) }
     }
 
@@ -123,6 +120,6 @@ class ConditionalOperationDefImplListenerSpec extends Specification {
     }
 
     private static Consumer<ActionListenerDef<Object, Object>> usingNoop() {
-        return { ActionListenerDef l -> l.using(NoopListener) } as Consumer
+        return { ActionListenerDef l -> l.using(new NoopListener()) } as Consumer
     }
 }

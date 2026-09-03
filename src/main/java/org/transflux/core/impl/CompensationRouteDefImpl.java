@@ -45,7 +45,7 @@ final class CompensationRouteDefImpl<T, C, X extends Throwable, D>
     private final ConfigurableDefImpl owner;
     private final D self;
     private final Class<X> exceptionType;
-    private final InstanceOrClassSource<Compensation<T, C>> compensation;
+    private final InstanceSource<Compensation<T, C>> compensation;
 
     private Predicate<X> guard;
 
@@ -53,7 +53,7 @@ final class CompensationRouteDefImpl<T, C, X extends Throwable, D>
         this.owner = owner;
         this.self = self;
         this.exceptionType = exceptionType;
-        this.compensation = new InstanceOrClassSource<>(Loggers.BUILD_VALIDATION,
+        this.compensation = new InstanceSource<>(Loggers.BUILD_VALIDATION,
                                                         "Compensation source", label());
     }
 
@@ -72,14 +72,6 @@ final class CompensationRouteDefImpl<T, C, X extends Throwable, D>
         owner.requireConfigurerActive("withCompensation");
         requireNotNull(compensation, "Compensation");
         this.compensation.setInstance(compensation);
-        return self;
-    }
-
-    @Override
-    public D withCompensation(Class<? extends Compensation<T, C>> compensationClass) {
-        owner.requireConfigurerActive("withCompensation");
-        requireNotNull(compensationClass, "Compensation class");
-        this.compensation.setClass(compensationClass);
         return self;
     }
 

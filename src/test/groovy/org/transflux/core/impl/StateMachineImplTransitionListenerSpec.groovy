@@ -164,23 +164,6 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         log == ['start', 'complete']
     }
 
-    def 'a class-form global listener is instantiated once, not once per transition'() {
-        given:
-        CountingListener.instances = 0
-
-        when:
-        build({ d -> d
-            .state('s1', { st -> st
-                .transitionsTo('s2', 't1', {})
-                .transitionsTo('s3', 't2', {}) })
-            .state('s2', {})
-            .state('s3', {})
-            .onAnyTransitionStart('counted', CountingListener) })
-
-        then:
-        CountingListener.instances == 1
-    }
-
     def 'the transition hooks interleave with the state hooks in execution-flow order'() {
         given:
         def log = []

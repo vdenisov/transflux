@@ -516,31 +516,6 @@ class StateMachineImplActionListenerSpec extends Specification {
                 'transition-complete', 'state-entry']
     }
 
-    def 'a global class-form listener is instantiated once, not once per action'() {
-        given:
-        CountingListener.instances = 0
-        def entity = new Entity('s1')
-        def sm = build({ d ->
-            d.onAnyActionStart('counter', CountingListener)
-             .state('s1', { st ->
-                 st.transitionsTo('s2', 't', { t ->
-                     t.operation('outer', { OperationDef op ->
-                         op.step('one', { e, ctx, tr -> } as Action)
-                           .step('two', { e, ctx, tr -> } as Action)
-                     } as Consumer)
-                 } as Consumer)
-             } as Consumer)
-             .state('s2', {} as Consumer)
-        })
-
-        when:
-        def result = sm.entity(entity).transitionTo('s2')
-
-        then:
-        result.success
-        CountingListener.instances == 1
-    }
-
     def "an action listener id colliding with a state listener id is rejected at build"() {
         given:
         def smd = new StateMachineDefImpl<Entity>()

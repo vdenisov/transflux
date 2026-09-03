@@ -53,13 +53,10 @@ class TransitionDefImplListenerSpec extends Specification {
         where:
         hook         | form         | declare                                     | listeners
         'onStart'    | 'instance'   | { it.onStart('l1', new NoopListener()) }    | { it.getStartListeners() }
-        'onStart'    | 'class'      | { it.onStart('l1', NoopListener) }          | { it.getStartListeners() }
         'onStart'    | 'configurer' | { it.onStart('l1', usingNoop()) }           | { it.getStartListeners() }
         'onComplete' | 'instance'   | { it.onComplete('l1', new NoopListener()) } | { it.getCompleteListeners() }
-        'onComplete' | 'class'      | { it.onComplete('l1', NoopListener) }       | { it.getCompleteListeners() }
         'onComplete' | 'configurer' | { it.onComplete('l1', usingNoop()) }        | { it.getCompleteListeners() }
         'onError'    | 'instance'   | { it.onError('l1', new NoopListener()) }    | { it.getErrorListeners() }
-        'onError'    | 'class'      | { it.onError('l1', NoopListener) }          | { it.getErrorListeners() }
         'onError'    | 'configurer' | { it.onError('l1', usingNoop()) }           | { it.getErrorListeners() }
     }
 
@@ -82,7 +79,7 @@ class TransitionDefImplListenerSpec extends Specification {
 
         when:
         td.onComplete('l1', { TransitionListenerDef l ->
-            l.withName('Audit').withDescription('records completions').using(NoopListener)
+            l.withName('Audit').withDescription('records completions').using(new NoopListener())
         } as Consumer)
 
         then:
@@ -106,13 +103,10 @@ class TransitionDefImplListenerSpec extends Specification {
         where:
         hook             | action
         'onStart'        | { it.onStart('  ', new NoopListener()) }
-        'onStart-cls'    | { it.onStart('  ', NoopListener) }
         'onStart-cfg'    | { it.onStart('  ', usingNoop()) }
         'onComplete'     | { it.onComplete('  ', new NoopListener()) }
-        'onComplete-cls' | { it.onComplete('  ', NoopListener) }
         'onComplete-cfg' | { it.onComplete('  ', usingNoop()) }
         'onError'        | { it.onError('  ', new NoopListener()) }
-        'onError-cls'    | { it.onError('  ', NoopListener) }
         'onError-cfg'    | { it.onError('  ', usingNoop()) }
     }
 
@@ -133,13 +127,10 @@ class TransitionDefImplListenerSpec extends Specification {
         where:
         hook             | action
         'onStart'        | { it.onStart('l1', new NoopListener()) }
-        'onStart-cls'    | { it.onStart('l1', NoopListener) }
         'onStart-cfg'    | { it.onStart('l1', usingNoop()) }
         'onComplete'     | { it.onComplete('l1', new NoopListener()) }
-        'onComplete-cls' | { it.onComplete('l1', NoopListener) }
         'onComplete-cfg' | { it.onComplete('l1', usingNoop()) }
         'onError'        | { it.onError('l1', new NoopListener()) }
-        'onError-cls'    | { it.onError('l1', NoopListener) }
         'onError-cfg'    | { it.onError('l1', usingNoop()) }
     }
 
@@ -150,6 +141,6 @@ class TransitionDefImplListenerSpec extends Specification {
     }
 
     private static Consumer<TransitionListenerDef<Object, Object>> usingNoop() {
-        return { TransitionListenerDef l -> l.using(NoopListener) } as Consumer
+        return { TransitionListenerDef l -> l.using(new NoopListener()) } as Consumer
     }
 }

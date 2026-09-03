@@ -454,7 +454,7 @@ class StateMachineImplExceptionRoutingSpec extends Specification {
         def sm = buildWithRegistration(
             { smd -> smd.step('child', ChildCtx, { StepDef<Entity, ChildCtx> s ->
                 s.using(new ChildCtxThrowingStep())
-                 .forException(TimeoutException).withCompensation(ChildCtxCompensation)
+                 .forException(TimeoutException).withCompensation(new ChildCtxCompensation())
             }) },
             { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
                 c.run('child', new ChildCtxMapper())

@@ -105,20 +105,6 @@ public interface StateDef<T> extends Identifiable {
     StateDef<T> onEntry(String listenerId, StateListener<T> listener);
 
     /**
-     * Attaches a listener class notified when an entity enters this state. The class is
-     * instantiated through its public no-arg constructor when the state machine is built.
-     *
-     * @param listenerId the listener id, unique among all state listeners on this state machine
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this StateDef instance for chaining inside the configurer body
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
-     *         or another state listener is already registered under the same id
-     */
-    StateDef<T> onEntry(String listenerId, Class<? extends StateListener<T>> listenerClass);
-
-    /**
      * Attaches an entry listener declared through a configurer, for the cases where the listener
      * carries a name or description as well as a body.
      *
@@ -150,20 +136,6 @@ public interface StateDef<T> extends Identifiable {
      *         or another state listener is already registered under the same id
      */
     StateDef<T> onExit(String listenerId, StateListener<T> listener);
-
-    /**
-     * Attaches a listener class notified when an entity leaves this state. The class is
-     * instantiated through its public no-arg constructor when the state machine is built.
-     *
-     * @param listenerId the listener id, unique among all state listeners on this state machine
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this StateDef instance for chaining inside the configurer body
-     *
-     * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
-     *         or another state listener is already registered under the same id
-     */
-    StateDef<T> onExit(String listenerId, Class<? extends StateListener<T>> listenerClass);
 
     /**
      * Attaches an exit listener declared through a configurer, for the cases where the listener

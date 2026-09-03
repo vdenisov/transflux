@@ -91,16 +91,4 @@ public interface StateListenerDef<T> extends Identifiable {
      */
     StateListenerDef<T> using(StateListener<T> listener);
 
-    /**
-     * Attaches a listener class, instantiated through its public no-arg constructor when the state
-     * machine is built. Mutually exclusive with {@link #using(StateListener)}; re-declaring
-     * replaces the previous declaration.
-     *
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this listener def for chaining
-     *
-     * @throws TransfluxValidationException if {@code listenerClass} is {@code null}
-     */
-    StateListenerDef<T> using(Class<? extends StateListener<T>> listenerClass);
 }

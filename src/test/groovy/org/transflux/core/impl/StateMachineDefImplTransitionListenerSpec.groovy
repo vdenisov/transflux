@@ -61,13 +61,10 @@ class StateMachineDefImplTransitionListenerSpec extends Specification {
         where:
         hook                      | form         | declare                                                  | listeners
         'onAnyTransitionStart'    | 'instance'   | { it.onAnyTransitionStart('l1', new NoopListener()) }    | { it.getGlobalStartListeners() }
-        'onAnyTransitionStart'    | 'class'      | { it.onAnyTransitionStart('l1', NoopListener) }          | { it.getGlobalStartListeners() }
         'onAnyTransitionStart'    | 'configurer' | { it.onAnyTransitionStart('l1', usingNoop()) }           | { it.getGlobalStartListeners() }
         'onAnyTransitionComplete' | 'instance'   | { it.onAnyTransitionComplete('l1', new NoopListener()) } | { it.getGlobalCompleteListeners() }
-        'onAnyTransitionComplete' | 'class'      | { it.onAnyTransitionComplete('l1', NoopListener) }       | { it.getGlobalCompleteListeners() }
         'onAnyTransitionComplete' | 'configurer' | { it.onAnyTransitionComplete('l1', usingNoop()) }        | { it.getGlobalCompleteListeners() }
         'onAnyTransitionError'    | 'instance'   | { it.onAnyTransitionError('l1', new NoopListener()) }    | { it.getGlobalErrorListeners() }
-        'onAnyTransitionError'    | 'class'      | { it.onAnyTransitionError('l1', NoopListener) }          | { it.getGlobalErrorListeners() }
         'onAnyTransitionError'    | 'configurer' | { it.onAnyTransitionError('l1', usingNoop()) }           | { it.getGlobalErrorListeners() }
     }
 
@@ -91,7 +88,7 @@ class StateMachineDefImplTransitionListenerSpec extends Specification {
 
         when:
         smd.onAnyTransitionError('l1', { TransitionListenerDef l ->
-            l.withName('Audit').withDescription('records every failure').using(NoopListener)
+            l.withName('Audit').withDescription('records every failure').using(new NoopListener())
         } as Consumer)
 
         then:
@@ -159,13 +156,10 @@ class StateMachineDefImplTransitionListenerSpec extends Specification {
         where:
         hook                          | action
         'onAnyTransitionStart'        | { it.onAnyTransitionStart('  ', new NoopListener()) }
-        'onAnyTransitionStart-cls'    | { it.onAnyTransitionStart('  ', NoopListener) }
         'onAnyTransitionStart-cfg'    | { it.onAnyTransitionStart('  ', usingNoop()) }
         'onAnyTransitionComplete'     | { it.onAnyTransitionComplete('  ', new NoopListener()) }
-        'onAnyTransitionComplete-cls' | { it.onAnyTransitionComplete('  ', NoopListener) }
         'onAnyTransitionComplete-cfg' | { it.onAnyTransitionComplete('  ', usingNoop()) }
         'onAnyTransitionError'        | { it.onAnyTransitionError('  ', new NoopListener()) }
-        'onAnyTransitionError-cls'    | { it.onAnyTransitionError('  ', NoopListener) }
         'onAnyTransitionError-cfg'    | { it.onAnyTransitionError('  ', usingNoop()) }
     }
 
@@ -182,6 +176,6 @@ class StateMachineDefImplTransitionListenerSpec extends Specification {
     }
 
     private static Consumer<TransitionListenerDef<Object, Object>> usingNoop() {
-        return { TransitionListenerDef l -> l.using(NoopListener) } as Consumer
+        return { TransitionListenerDef l -> l.using(new NoopListener()) } as Consumer
     }
 }

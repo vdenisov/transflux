@@ -27,9 +27,8 @@ import static org.transflux.core.Preconditions.requireNotNull;
 /**
  * Default {@link StateListenerDef} implementation.
  * <p>
- * Holds either a {@link StateListener} instance or a listener class; the two source forms are
- * mutually exclusive and last-write-wins. {@link #buildBoundListener()} reflectively instantiates
- * the class form when needed and produces a {@link BoundStateListener} paired with this def's id
+ * Holds the {@link StateListener} instance, last-write-wins. {@link #buildBoundListener()}
+ * produces a {@link BoundStateListener} paired with this def's id
  * and metadata.
  *
  * @param <T> the entity type the surrounding state machine manages
@@ -37,11 +36,11 @@ import static org.transflux.core.Preconditions.requireNotNull;
 final class StateListenerDefImpl<T> extends IdentifiedDefImpl<StateListenerDefImpl<T>>
         implements StateListenerDef<T> {
 
-    private final InstanceOrClassSource<StateListener<T>> source;
+    private final InstanceSource<StateListener<T>> source;
 
     StateListenerDefImpl(String id) {
         super(id, "state listener", "State listener ID");
-        this.source = new InstanceOrClassSource<>(Loggers.BUILD_VALIDATION, "State listener source",
+        this.source = new InstanceSource<>(Loggers.BUILD_VALIDATION, "State listener source",
                                                   "StateListenerDef '" + id + "'");
     }
 
@@ -50,14 +49,6 @@ final class StateListenerDefImpl<T> extends IdentifiedDefImpl<StateListenerDefIm
         requireConfigurerActive("using");
         requireNotNull(listener, "State listener");
         source.setInstance(listener);
-        return this;
-    }
-
-    @Override
-    public StateListenerDefImpl<T> using(Class<? extends StateListener<T>> listenerClass) {
-        requireConfigurerActive("using");
-        requireNotNull(listenerClass, "State listener class");
-        source.setClass(listenerClass);
         return this;
     }
 

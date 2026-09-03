@@ -134,19 +134,6 @@ public interface EventTriggerDef<T, C> extends Identifiable {
     EventTriggerDef<T, C> filter(Predicate<Object> filter);
 
     /**
-     * Sets a filter built from a {@link BiPredicate} class over {@code (eventData, entity)}. The
-     * class is reflectively instantiated through its public no-arg constructor when the state
-     * machine is built.
-     *
-     * @param filterClass the filter class; never {@code null}
-     *
-     * @return this trigger def for chaining
-     *
-     * @throws TransfluxValidationException if {@code filterClass} is {@code null}
-     */
-    EventTriggerDef<T, C> filter(Class<? extends BiPredicate<Object, T>> filterClass);
-
-    /**
      * Sets a filter expressed as SpEL. The entity is the expression root, the event payload is
      * bound as {@code #event}, and the host-supplied context (if any) is bound as {@code #context}.
      * The expression must evaluate to a boolean.

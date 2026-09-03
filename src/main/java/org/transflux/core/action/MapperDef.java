@@ -33,11 +33,9 @@ import org.transflux.core.exception.TransfluxValidationException;
  * mapper's {@code P} aligns with each call site's parent context and the mapper's {@code N}
  * matches the called step or operation's required context.
  *
- * <p>Two source forms are supported and mutually exclusive: a pre-constructed
- * {@link ContextMapper} instance and a {@code ContextMapper} class instantiated reflectively at
- * build time. A lambda supplied to the instance form is the read-only case, since
+ * <p>The source is a {@link ContextMapper} instance. A lambda is the read-only case, since
  * {@link ContextMapper#mapFrom(Object, Object) mapFrom} defaults to a no-op; overriding
- * {@code mapFrom} needs the class form or an anonymous instance.
+ * {@code mapFrom} needs a named class or an anonymous instance.
  *
  * @param <P> the enclosing parent's context type at the call site
  * @param <N> the called step or operation's required context type
@@ -94,18 +92,6 @@ public interface MapperDef<P, N> extends Identifiable {
      * @throws TransfluxValidationException if {@code mapper} is {@code null}
      */
     MapperDef<P, N> using(ContextMapper<P, N> mapper);
-
-    /**
-     * Wires this def to a {@link ContextMapper} class. The framework instantiates it via its
-     * public no-arg constructor at build time.
-     *
-     * @param mapperClass the mapper class; never {@code null}
-     *
-     * @return this def for chaining
-     *
-     * @throws TransfluxValidationException if {@code mapperClass} is {@code null}
-     */
-    MapperDef<P, N> using(Class<? extends ContextMapper<P, N>> mapperClass);
 
     /**
      * Sets the human-readable name of this mapper.

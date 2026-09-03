@@ -53,17 +53,6 @@ class CompensationRouteDefImplSpec extends Specification {
         returned.is(def_)
     }
 
-    def 'a route closes back onto the def from the class form too'() {
-        given:
-        def def_ = openStep()
-
-        when:
-        def returned = def_.forException(IllegalStateException).withCompensation(NoopCompensation)
-
-        then:
-        returned.is(def_)
-    }
-
     def 'matching returns the route so the guard and the compensation chain'() {
         given:
         def def_ = openStep()
@@ -101,16 +90,6 @@ class CompensationRouteDefImplSpec extends Specification {
 
         expect:
         route.buildBound().matches(new IllegalStateException(), ActionPath.of('s1')) == true
-    }
-
-    def 'the class form is instantiated through its no-arg constructor'() {
-        given:
-        def def_ = openStep()
-        def route = (CompensationRouteDefImpl) def_.forException(IllegalStateException)
-        route.withCompensation(NoopCompensation)
-
-        expect:
-        route.buildBound().compensation() instanceof NoopCompensation
     }
 
     def 'a route reports whether it was closed and whether it carries a guard'() {
@@ -183,7 +162,6 @@ class CompensationRouteDefImplSpec extends Specification {
         method                    | call
         'matching'                | { it.matching((Predicate) null) }
         'withCompensation(inst)'  | { it.withCompensation((Compensation) null) }
-        'withCompensation(class)' | { it.withCompensation((Class) null) }
     }
 
     def 'forException rejects a null exception type'() {
@@ -215,7 +193,6 @@ class CompensationRouteDefImplSpec extends Specification {
         method                    | call
         'matching'                | { it.matching({ true } as Predicate) }
         'withCompensation(inst)'  | { it.withCompensation(new NoopCompensation()) }
-        'withCompensation(class)' | { it.withCompensation(NoopCompensation) }
     }
 
     private static StepDefImpl<Object, Object> openStep() {

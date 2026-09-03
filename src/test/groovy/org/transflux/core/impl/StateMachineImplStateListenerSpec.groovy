@@ -152,21 +152,6 @@ class StateMachineImplStateListenerSpec extends Specification {
         log == ['any-exit', 'any-entry']
     }
 
-    def 'a class-form global listener is instantiated once, not once per state'() {
-        given:
-        CountingListener.instances = 0
-
-        when:
-        build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', {}) })
-            .state('s2', {})
-            .state('s3', {})
-            .onAnyStateEntry('counted', CountingListener) })
-
-        then:
-        CountingListener.instances == 1
-    }
-
     def 'a transition rejected by a pre-condition notifies neither hook'() {
         given:
         def log = []
@@ -423,17 +408,6 @@ class StateMachineImplStateListenerSpec extends Specification {
         def e = thrown(org.transflux.core.exception.TransfluxValidationException)
         e.message.contains("'dup'")
         e.message.contains('already registered')
-    }
-
-    def 'a listener class without a no-arg constructor is rejected at build'() {
-        when:
-        build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', {}) })
-            .state('s2', { st -> st.onEntry('bad', CtorlessListener) }) })
-
-        then:
-        def e = thrown(org.transflux.core.exception.TransfluxValidationException)
-        e.message.contains('no accessible no-arg constructor')
     }
 
     static class CtorlessListener implements StateListener<Entity> {

@@ -92,16 +92,4 @@ public interface ActionListenerDef<T, C> extends Identifiable {
      */
     ActionListenerDef<T, C> using(ActionListener<T, C> listener);
 
-    /**
-     * Attaches a listener class, instantiated through its public no-arg constructor when the state
-     * machine is built. Mutually exclusive with {@link #using(ActionListener)}; re-declaring
-     * replaces the previous declaration.
-     *
-     * @param listenerClass the listener class; never {@code null}
-     *
-     * @return this listener def for chaining
-     *
-     * @throws TransfluxValidationException if {@code listenerClass} is {@code null}
-     */
-    ActionListenerDef<T, C> using(Class<? extends ActionListener<T, C>> listenerClass);
 }

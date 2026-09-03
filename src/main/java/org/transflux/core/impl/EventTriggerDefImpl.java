@@ -27,7 +27,6 @@ import java.util.function.Supplier;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
-import static org.transflux.core.impl.ReflectionUtils.instantiateNoArg;
 import static org.transflux.core.impl.ValidationUtils.warnIfSet;
 
 /**
@@ -76,18 +75,6 @@ final class EventTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, EventTriggerD
     }
 
     @Override
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    public EventTriggerDef<T, C> filter(Class<? extends BiPredicate<Object, T>> filterClass) {
-        requireConfigurerActive("filter");
-        requireNotNull(filterClass, "Filter class");
-        return setFilter(() -> {
-            BiPredicate<Object, T> predicate =
-                (BiPredicate<Object, T>) instantiateNoArg((Class) filterClass, "Filter");
-            return (eventData, entity, context) -> predicate.test(eventData, entity);
-        });
-    }
-
-    @Override
     public EventTriggerDef<T, C> filterExpression(String expression) {
         requireConfigurerActive("filterExpression");
         requireNotBlank(expression, "Expression");
@@ -113,7 +100,7 @@ final class EventTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, EventTriggerD
 
     /**
      * Realizes the declared filter. A trigger with no declared filter fires on every published
-     * event of its id; a class-form filter is instantiated here rather than at declaration time.
+     * event of its id.
      *
      * @return the resolved filter, never {@code null}
      */

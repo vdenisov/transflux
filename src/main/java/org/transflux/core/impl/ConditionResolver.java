@@ -32,8 +32,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * suitable for execution.
  * <p>
  * Reference descriptors are looked up against the state machine's condition registry;
- * class-based descriptors are reflectively instantiated through their public no-arg
- * constructor; instance-based descriptors return the wrapped {@code Condition} as-is;
+ * instance-based descriptors return the wrapped {@code Condition} as-is;
  * predicate-based descriptors are adapted into {@code Condition} instances that pass the
  * entity and context through to the underlying predicate (ignoring the transition view);
  * expression-based descriptors are bound to the shared
@@ -72,7 +71,6 @@ final class ConditionResolver {
         if (descriptor instanceof ConditionDescriptor.Reference ref) {
             return resolveReference(ref, registry);
         }
-
 
         if (descriptor instanceof ConditionDescriptor.InstanceBased ib) {
             return resolveInstanceBased(ib);

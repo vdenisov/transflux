@@ -51,7 +51,6 @@ class StateMachineDefImplStateListenerSpec extends Specification {
         where:
         form         | declare
         'instance'   | { it.onAnyStateEntry('l1', new NoopListener()) }
-        'class'      | { it.onAnyStateEntry('l1', NoopListener) }
         'configurer' | { it.onAnyStateEntry('l1', usingNoop()) }
     }
 
@@ -71,7 +70,6 @@ class StateMachineDefImplStateListenerSpec extends Specification {
         where:
         form         | declare
         'instance'   | { it.onAnyStateExit('l1', new NoopListener()) }
-        'class'      | { it.onAnyStateExit('l1', NoopListener) }
         'configurer' | { it.onAnyStateExit('l1', usingNoop()) }
     }
 
@@ -95,7 +93,7 @@ class StateMachineDefImplStateListenerSpec extends Specification {
 
         when:
         smd.onAnyStateExit('l1', { StateListenerDef l ->
-            l.withName('Audit').withDescription('records every exit').using(NoopListener)
+            l.withName('Audit').withDescription('records every exit').using(new NoopListener())
         } as Consumer)
 
         then:
@@ -150,10 +148,8 @@ class StateMachineDefImplStateListenerSpec extends Specification {
         where:
         hook                  | action
         'onAnyStateEntry'     | { it.onAnyStateEntry('  ', new NoopListener()) }
-        'onAnyStateEntry-cls' | { it.onAnyStateEntry('  ', NoopListener) }
         'onAnyStateEntry-cfg' | { it.onAnyStateEntry('  ', usingNoop()) }
         'onAnyStateExit'      | { it.onAnyStateExit('  ', new NoopListener()) }
-        'onAnyStateExit-cls'  | { it.onAnyStateExit('  ', NoopListener) }
         'onAnyStateExit-cfg'  | { it.onAnyStateExit('  ', usingNoop()) }
     }
 
@@ -170,6 +166,6 @@ class StateMachineDefImplStateListenerSpec extends Specification {
     }
 
     private static Consumer<StateListenerDef<Object>> usingNoop() {
-        return { StateListenerDef l -> l.using(NoopListener) } as Consumer
+        return { StateListenerDef l -> l.using(new NoopListener()) } as Consumer
     }
 }

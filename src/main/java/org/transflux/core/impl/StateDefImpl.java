@@ -59,15 +59,6 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
     }
 
     @Override
-    public StateDefImpl<T> onEntry(String listenerId, Class<? extends StateListener<T>> listenerClass) {
-        requireConfigurerActive("onEntry");
-        requireNotBlank(listenerId, "State listener ID");
-        requireNotNull(listenerClass, "State listener class");
-        entryListeners.add(declareListener(listenerId, l -> l.using(listenerClass)));
-        return this;
-    }
-
-    @Override
     public StateDefImpl<T> onEntry(String listenerId, Consumer<StateListenerDef<T>> configurer) {
         requireConfigurerActive("onEntry");
         requireNotBlank(listenerId, "State listener ID");
@@ -82,15 +73,6 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
         requireNotBlank(listenerId, "State listener ID");
         requireNotNull(listener, "State listener");
         exitListeners.add(declareListener(listenerId, l -> l.using(listener)));
-        return this;
-    }
-
-    @Override
-    public StateDefImpl<T> onExit(String listenerId, Class<? extends StateListener<T>> listenerClass) {
-        requireConfigurerActive("onExit");
-        requireNotBlank(listenerId, "State listener ID");
-        requireNotNull(listenerClass, "State listener class");
-        exitListeners.add(declareListener(listenerId, l -> l.using(listenerClass)));
         return this;
     }
 

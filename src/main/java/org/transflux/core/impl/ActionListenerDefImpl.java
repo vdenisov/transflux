@@ -27,9 +27,8 @@ import static org.transflux.core.Preconditions.requireNotNull;
 /**
  * Default {@link ActionListenerDef} implementation.
  * <p>
- * Holds either an {@link ActionListener} instance or a listener class; the two source forms are
- * mutually exclusive and last-write-wins. {@link #buildBoundListener()} reflectively instantiates
- * the class form when needed and produces a {@link BoundActionListener} paired with this def's id
+ * Holds the {@link ActionListener} instance, last-write-wins. {@link #buildBoundListener()}
+ * produces a {@link BoundActionListener} paired with this def's id
  * and metadata.
  *
  * @param <T> the entity type the surrounding state machine manages
@@ -38,11 +37,11 @@ import static org.transflux.core.Preconditions.requireNotNull;
 final class ActionListenerDefImpl<T, C> extends IdentifiedDefImpl<ActionListenerDefImpl<T, C>>
         implements ActionListenerDef<T, C> {
 
-    private final InstanceOrClassSource<ActionListener<T, C>> source;
+    private final InstanceSource<ActionListener<T, C>> source;
 
     ActionListenerDefImpl(String id) {
         super(id, "action listener", "Action listener ID");
-        this.source = new InstanceOrClassSource<>(Loggers.BUILD_VALIDATION, "Action listener source",
+        this.source = new InstanceSource<>(Loggers.BUILD_VALIDATION, "Action listener source",
                                                   "ActionListenerDef '" + id + "'");
     }
 
@@ -51,14 +50,6 @@ final class ActionListenerDefImpl<T, C> extends IdentifiedDefImpl<ActionListener
         requireConfigurerActive("using");
         requireNotNull(listener, "Action listener");
         source.setInstance(listener);
-        return this;
-    }
-
-    @Override
-    public ActionListenerDefImpl<T, C> using(Class<? extends ActionListener<T, C>> listenerClass) {
-        requireConfigurerActive("using");
-        requireNotNull(listenerClass, "Action listener class");
-        source.setClass(listenerClass);
         return this;
     }
 

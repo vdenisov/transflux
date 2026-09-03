@@ -40,7 +40,7 @@ final class MapperDefImpl<P, N> extends IdentifiedDefImpl<MapperDefImpl<P, N>>
     private final Class<P> parentType;
     private final Class<N> childType;
 
-    private final InstanceOrClassSource<ContextMapper<P, N>> source;
+    private final InstanceSource<ContextMapper<P, N>> source;
 
     MapperDefImpl(String id, Class<P> parentType, Class<N> childType) {
         super(id, "mapper", "Mapper ID");
@@ -48,7 +48,7 @@ final class MapperDefImpl<P, N> extends IdentifiedDefImpl<MapperDefImpl<P, N>>
         requireNotNull(childType, "Mapper child type");
         this.parentType = parentType;
         this.childType = childType;
-        this.source = new InstanceOrClassSource<>(Loggers.BUILD_VALIDATION, "Mapper source",
+        this.source = new InstanceSource<>(Loggers.BUILD_VALIDATION, "Mapper source",
                                                   "MapperDef '" + id + "'");
     }
 
@@ -71,17 +71,8 @@ final class MapperDefImpl<P, N> extends IdentifiedDefImpl<MapperDefImpl<P, N>>
         return this;
     }
 
-    @Override
-    public MapperDefImpl<P, N> using(Class<? extends ContextMapper<P, N>> mapperClass) {
-        requireConfigurerActive("using");
-        requireNotNull(mapperClass, "Context mapper class");
-        source.setClass(mapperClass);
-        return this;
-    }
-
     /**
-     * Resolves this def into a runtime {@link ContextMapper}, instantiating the class form
-     * reflectively.
+     * Resolves this def into a runtime {@link ContextMapper}, returning the declared instance.
      *
      * @return the resolved mapper
      *

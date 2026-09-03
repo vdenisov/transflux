@@ -103,19 +103,6 @@ class StateMachineImplEventDispatchSpec extends Specification {
         sm.entity(new Entity('s1')).processEvent('PAYMENT', new Payload('paid')).fired()
     }
 
-    def 'a predicate-class filter resolves and gates'() {
-        given:
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', { t -> t.addEventTrigger('paid', { et -> et
-                .onEvent('PAYMENT')
-                .filter(KindIsPaid) }) }) })
-            .state('s2', {}) })
-
-        expect:
-        !sm.entity(new Entity('s1')).processEvent('PAYMENT', new Payload('pending')).fired()
-        sm.entity(new Entity('s1')).processEvent('PAYMENT', new Payload('paid')).fired()
-    }
-
     def 'an expression filter binds the entity as root, the payload as #event, and the context as #context'() {
         given:
         def sm = build({ d -> d.state('s1', { st ->

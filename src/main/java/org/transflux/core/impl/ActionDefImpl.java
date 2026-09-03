@@ -203,19 +203,14 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     @Override
-    public SELF withCompensation(Class<? extends Compensation<T, C>> compensationClass) {
-        return this.compensation.withCompensationClass(compensationClass);
-    }
-
-    @Override
     public <X extends Throwable> CompensationRouteDef<T, C, X, SELF> forException(
             Class<X> exceptionType) {
         return compensation.forException(exceptionType);
     }
 
     /**
-     * Resolves the compensation table declared on this def, instantiating any class forms that were
-     * supplied.
+     * Resolves the compensation table declared on this def: the fallback and every route, each
+     * paired with the failure type it answers for.
      *
      * @return the declared table, or {@code null} when the def declared nothing
      */
@@ -229,11 +224,6 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     @Override
-    public SELF onStart(String listenerId, Class<? extends ActionListener<T, C>> listenerClass) {
-        return listeners.classBased(ActionPhase.START, listenerId, listenerClass);
-    }
-
-    @Override
     public SELF onStart(String listenerId, Consumer<ActionListenerDef<T, C>> configurer) {
         return listeners.configured(ActionPhase.START, listenerId, configurer);
     }
@@ -244,11 +234,6 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     @Override
-    public SELF onComplete(String listenerId, Class<? extends ActionListener<T, C>> listenerClass) {
-        return listeners.classBased(ActionPhase.COMPLETE, listenerId, listenerClass);
-    }
-
-    @Override
     public SELF onComplete(String listenerId, Consumer<ActionListenerDef<T, C>> configurer) {
         return listeners.configured(ActionPhase.COMPLETE, listenerId, configurer);
     }
@@ -256,11 +241,6 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     @Override
     public SELF onError(String listenerId, ActionListener<T, C> listener) {
         return listeners.instanceBased(ActionPhase.ERROR, listenerId, listener);
-    }
-
-    @Override
-    public SELF onError(String listenerId, Class<? extends ActionListener<T, C>> listenerClass) {
-        return listeners.classBased(ActionPhase.ERROR, listenerId, listenerClass);
     }
 
     @Override

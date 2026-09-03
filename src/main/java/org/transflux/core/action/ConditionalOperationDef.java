@@ -75,10 +75,6 @@ public interface ConditionalOperationDef<T, C> extends ActionDef<T, C> {
     ConditionalOperationDef<T, C> withCompensation(Compensation<T, C> compensation);
 
     @Override
-    ConditionalOperationDef<T, C> withCompensation(
-        Class<? extends Compensation<T, C>> compensationClass);
-
-    @Override
     <X extends Throwable> CompensationRouteDef<T, C, X, ? extends ConditionalOperationDef<T, C>>
         forException(Class<X> exceptionType);
 
@@ -129,10 +125,6 @@ public interface ConditionalOperationDef<T, C> extends ActionDef<T, C> {
 
     @Override
     ConditionalOperationDef<T, C> onStart(String listenerId,
-                                          Class<? extends ActionListener<T, C>> listenerClass);
-
-    @Override
-    ConditionalOperationDef<T, C> onStart(String listenerId,
                                           Consumer<ActionListenerDef<T, C>> configurer);
 
     @Override
@@ -140,18 +132,10 @@ public interface ConditionalOperationDef<T, C> extends ActionDef<T, C> {
 
     @Override
     ConditionalOperationDef<T, C> onComplete(String listenerId,
-                                             Class<? extends ActionListener<T, C>> listenerClass);
-
-    @Override
-    ConditionalOperationDef<T, C> onComplete(String listenerId,
                                              Consumer<ActionListenerDef<T, C>> configurer);
 
     @Override
     ConditionalOperationDef<T, C> onError(String listenerId, ActionListener<T, C> listener);
-
-    @Override
-    ConditionalOperationDef<T, C> onError(String listenerId,
-                                          Class<? extends ActionListener<T, C>> listenerClass);
 
     @Override
     ConditionalOperationDef<T, C> onError(String listenerId,
