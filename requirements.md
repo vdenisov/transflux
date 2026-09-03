@@ -54,7 +54,7 @@ A `StateMachine<T>` handle (see §2.7) is safe for concurrent use across threads
 
 Concurrent transitions on the **same entity** are the host's responsibility to serialize; the framework does not lock or queue per-entity work. Hosts that need single-writer semantics must enforce them externally (database row locks, application-level mutexes, single-threaded executors, etc.).
 
-**Components are shared, so host-implemented contracts must tolerate concurrent invocation.** An `Action`, `Condition`, `ContextMapper`, `Compensation` or listener reaches the runtime either as an instance the host supplied or as a class the framework instantiates, and in both cases one object normally serves every call site that reaches it — a host-supplied instance may be shared more widely than the framework can see. The framework makes no promise that a given invocation gets an object to itself, and hosts should not build on the current instantiation strategy.
+**Components are shared, so host-implemented contracts must tolerate concurrent invocation.** An `Action`, `Condition`, `ContextMapper`, `Compensation` or listener reaches the runtime as an instance — supplied directly in the Java DSL, or produced by the factory from a YAML `class:` reference — and one object normally serves every call site that reaches it; a host-supplied instance may be shared more widely than the framework can see. The framework makes no promise that a given invocation gets an object to itself.
 
 Invocations can overlap in time for two independent reasons: a host driving two transitions concurrently (which this section already permits), and a forked member (§4.5.3), which runs on another thread while the transition that spawned it carries on. Implementations must therefore be stateless, or thread-safe about whatever state they keep.
 
@@ -171,7 +171,7 @@ The split is the enforcement mechanism for a rule that runs through the rest of 
 The unit of work executed during state transitions. `Action<T, C>` is a **pure functional contract** with a single `execute(entity, context, transition)` method plus an optional `getCompensation(entity, context)`; it is identity-free at runtime, and the definition side carries the id, name, and description. The third parameter is the `ExecutingTransition<T, C>` of §2.2.4 — an action's body is the only place the framework hands out the dispatching type.
 
 **Two authoring forms, mutually exclusive:**
-- **`StepDef`** — *imperative*: a Java body, supplied as an `Action<T, C>` instance or as a class the framework instantiates. It binds no children, though it may dispatch other actions by id while it runs.
+- **`StepDef`** — *imperative*: a Java body, supplied as an `Action<T, C>` instance. It binds no children, though it may dispatch other actions by id while it runs.
 - **`OperationDef`** — *declarative*: an ordered list of members, where declaration order **is** execution order. There is no Java body; at build time the framework synthesizes the `Action<T, C>` that walks the members. `ConditionalOperationDef` is a variant whose ordering rule is "first matching branch" rather than "all, in order".
 
 **Vocabulary:** a *step* is an imperative action, an *operation* is a declarative one. The distinction is what the author wrote, not what the runtime does — both forms execute through one path (§2.4) and are dispatched identically. The authored form travels with the action as an `ActionKind` and surfaces in diagnostics so a message can name the thing the way its author wrote it.
@@ -225,7 +225,7 @@ Provides validation and gating mechanisms for transitions. `Condition<T, C>` is 
 - **PreCondition** — validates transition eligibility before execution.
 - **PostCondition** — validates successful transition completion. If a post-condition is not met, the transition is rolled back and registered compensation actions are executed.
 
-A condition's authoring shape — reference, instance, class, predicate, or expression — is defined uniformly by the **Condition Descriptor** grammar (see §3.6.1 and §4.7).
+A condition's authoring shape — reference, instance, predicate, or expression — is defined uniformly by the **Condition Descriptor** grammar (see §3.6.1 and §4.7). YAML adds a fifth, `class:`, which the factory resolves into the instance form; the Java DSL takes the instance directly and so has no class shape of its own.
 
 #### 2.2.10 Listener System
 
@@ -266,7 +266,7 @@ Manages error recovery and rollback operations.
 - **Exception-specific routing** — an action may declare a different rollback for each kind of failure it expects, and the framework selects among them once the failure is known.
 - The compensation is captured **before** the action runs and pushed onto the rollback stack at that point, so an action that throws partway through producing side effects still has its rollback registered (§2.4 step 5). What is pushed is the action's whole routing table, since which entry of it applies depends on a failure that has not happened yet.
 
-There are three authoring channels. An imperative action can return its compensation dynamically from `getCompensation(entity, context)`, which sees the same entity and context references `execute` will run against. Any action's *definition* can declare one statically through `withCompensation(...)`, in an instance or a class form — the only channel open to a declarative container, which has no Java object to hang the dynamic hook on. And any action's definition can declare **routes** through `forException(...)`, each answering for one kind of failure, optionally narrowed by a guard over the failure itself.
+There are three authoring channels. An imperative action can return its compensation dynamically from `getCompensation(entity, context)`, which sees the same entity and context references `execute` will run against. Any action's *definition* can declare one statically through `withCompensation(...)` — the only channel open to a declarative container, which has no Java object to hang the dynamic hook on. And any action's definition can declare **routes** through `forException(...)`, each answering for one kind of failure, optionally narrowed by a guard over the failure itself.
 
 **Exactly one compensation runs for one action**, and it is the first of those three that answers for the failure at hand: a matching route, then the declared fallback, then the dynamic hook. Two consequences follow from that order. A declared fallback suppresses the dynamic hook entirely, because it answers every failure anyway and consulting both would put the same qualified path on `compensatedPath` twice; routes alone do *not* suppress it, because a route that misses has said nothing about this failure and does not get to veto on the action's behalf. And when nothing answers at all, the action is simply not rolled back and does not appear on `compensatedPath` — that list reports what actually ran, not what was eligible to.
 
@@ -282,15 +282,15 @@ The host wires two paired components into the state machine.
 
 **`StateResolver<T>`** determines the current state of an entity. Because state can be a *computed* property (e.g., a contract may report "created" until its start date, then "started"), the resolver is a function — not necessarily a simple field accessor. Resolution approaches:
 
-- **Dedicated class** implementing `StateResolver<T>`.
-- **Lambda function** (Java API only).
-- **SpEL expression** evaluating against the entity.
+- **Lambda function**, which is the idiomatic form: `e -> e.getStatus().name()`.
+- **Dedicated class** implementing `StateResolver<T>`, supplied as an instance.
 
 **`StateApplier<T>`** finalizes a successful transition by writing the new state to the entity. The applier is invoked **once**, after all post-conditions have passed (see §2.1.1). Application approaches mirror the resolver:
 
-- **Dedicated class** implementing `StateApplier<T>`.
-- **Lambda function** (Java API only).
-- **SpEL property path** — the framework writes through the path (e.g., `"entity.status"` ⇒ `entity.setStatus(newState)`).
+- **Lambda function**: `(e, s) -> e.setStatus(MyState.valueOf(s))`.
+- **Dedicated class** implementing `StateApplier<T>`, supplied as an instance.
+
+Both are host-supplied bridges and the framework ships no sugar around either — no class-name form and no SpEL property path. Where the entity's state is an enum, the two lambdas above are the canonical pairing, and they are honest about where the bidirectional binding lives.
 
 **Key Characteristics:**
 - The resolver/applier pair is a property of the state machine itself, not of individual transitions or triggers.
@@ -1410,7 +1410,7 @@ public class SubscriptionComponentRegistry implements ComponentRegistry {
     @RegisterAction("analytics-update")
     public Action analyticsUpdateAction() {
         return step("analytics-update")
-            .using(UpdateAnalyticsAction.class)
+            .using(new UpdateAnalyticsAction())
             .build();
     }
 }
@@ -1507,16 +1507,14 @@ StateMachine<Subscription> subscriptionStateMachine = Transflux.defineStateMachi
     .withVersion("1.0.0")
 
     // State resolver — read the current state
-    .withStateResolver(SubscriptionStateResolver.class)
-    // Alternatives:
-    //   .withStateResolver(entity -> entity.getStatus())     // lambda
-    //   .withStateResolver("entity.status")                  // SpEL
+    .withStateResolver(entity -> entity.getStatus().name())
+    // Alternative: an instance of a dedicated StateResolver<Subscription>
+    //   .withStateResolver(new SubscriptionStateResolver())
 
     // State applier — finalize the transition by writing the new state
-    .withStateApplier(SubscriptionStateApplier.class)
-    // Alternatives:
-    //   .withStateApplier((entity, newState) -> entity.setStatus(newState))
-    //   .withStateApplier("entity.status")                   // SpEL property path
+    .withStateApplier((entity, newState) -> entity.setStatus(Status.valueOf(newState)))
+    // Alternative: an instance of a dedicated StateApplier<Subscription>
+    //   .withStateApplier(new SubscriptionStateApplier())
 
     // Define states.
     .state(SubState.TRIAL, s -> s
@@ -1567,13 +1565,13 @@ StateMachine<Subscription> stateMachine = Transflux.defineStateMachine()
         .withDescription("Active subscription state")
 
         // State entry/exit listeners. Every listener carries an id (§2.2.1); the body is
-        // supplied as an instance, as a class, or through a configurer that also sets metadata.
-        .onEntry("audit-activated", SubscriptionActivatedListener.class)
+        // supplied as an instance, or through a configurer that also sets metadata.
+        .onEntry("audit-activated", new SubscriptionActivatedListener())
         .onEntry("notify-activated", (subscription, context, change) ->
             notifier.send(subscription, "subscription-activated"))
         .onExit("audit-deactivated", l -> l
             .withDescription("Records departures from the active state")
-            .using(SubscriptionDeactivatedListener.class))
+            .using(new SubscriptionDeactivatedListener()))
 
         .transitionsTo("suspended", "active-to-suspended", t -> {})
         .transitionsTo("expired", "active-to-expired", t -> {}))
@@ -1599,12 +1597,12 @@ inside the configurer.
         .withDescription("Activate trial subscription")
 
         // Operation
-        .step("activate", ActivateSubscriptionAction.class)
+        .step("activate", new ActivateSubscriptionAction())
 
         // Pre/post conditions
-        .preCondition("payment-method-valid", PaymentMethodValidCondition.class)
+        .preCondition("payment-method-valid", new PaymentMethodValidCondition())
         .preCondition("billing-ready", this::billingReady)
-        .postCondition("features-activated", SubscriptionFeaturesActivatedCondition.class)
+        .postCondition("features-activated", new SubscriptionFeaturesActivatedCondition())
 
         // Triggers
         .addManualTrigger("manual-activate")
@@ -1613,18 +1611,18 @@ inside the configurer.
             .onEvent("PAYMENT_CONFIRMED")
             .filterExpression("#event.validation == 'CONFIRMED'"))
         .addDataTrigger("ready-for-activation", dt -> dt
-            .condition("subscription-activated", SubscriptionActivatedCondition.class))
+            .condition("subscription-activated", new SubscriptionActivatedCondition()))
 
         // Listeners. Complete and error partition the outcomes — exactly one of the two
         // follows every start notification.
-        .onStart("audit-start", TransitionStartListener.class)
-        .onComplete("audit-complete", TransitionCompleteListener.class)
+        .onStart("audit-start", new TransitionStartListener())
+        .onComplete("audit-complete", new TransitionCompleteListener())
         .onError("audit-failure", el -> el
             .withDescription("Records activation failures and what was rolled back")
-            .using(TransitionErrorListener.class))))
+            .using(new TransitionErrorListener()))))
 ```
 
-Note that the class-based condition forms take an id as well as the class — the id is the
+Note that every inline condition form takes an id as well as the body — the id is the
 condition's identity in diagnostics and for later reference.
 
 ### 4.4 Action Definitions
@@ -1664,7 +1662,7 @@ public class ActivateSubscriptionAction
 // time — there is no post-hoc "grab the transition and set its action" step.
 .state("trial", s -> s
     .transitionsTo("active", "trial-active", SubscriptionContext.class, t -> t
-        .step("activate-subscription", ActivateSubscriptionAction.class)))
+        .step("activate-subscription", new ActivateSubscriptionAction())))
 ```
 
 > Any action attaches to a transition, in either form, so there is no wrapper to author when the unit of work is a single Java body. Asynchronous dispatch is a property of a *member position* inside a declarative container rather than of an action, so it is spelled `fork(...)` there (§4.4.2) and has no equivalent at a transition's own attachment point — a transition with nothing to wait for is a transition with nothing to do.
@@ -1679,37 +1677,38 @@ trialActiveTransition.operation("complex-subscription-activation", c -> c
     .run("prepare-billing-actor")
 
     // ...or declare one inline, here
-    .step("validate-payment-method", ValidatePaymentMethodAction.class)
+    .step("validate-payment-method", new ValidatePaymentMethodAction())
 
-    // Multi-branch conditional
+    // Multi-branch conditional. Every branch condition carries an id of its own, which is
+    // what names it in diagnostics; only the expression form may have one derived for it.
     .conditional("subscription-tier-routing", cs -> cs
         .branch("premium-tier", b -> b
-            .condition(PremiumTierPredicate.class)
-            .step("premium-tier-processing", PremiumTierAction.class)
+            .condition("is-premium", new PremiumTierPredicate())
+            .step("premium-tier-processing", new PremiumTierAction())
             .run("vip-notification"))
 
         .branch("standard-tier", b -> b
-            .condition(s -> "STANDARD".equals(s.getTier()) && s.getPriority() >= 5)
-            .step("standard-tier-processing", StandardTierAction.class))
+            .condition("is-standard", s -> "STANDARD".equals(s.getTier()) && s.getPriority() >= 5)
+            .step("standard-tier-processing", new StandardTierAction()))
 
         .branch("enterprise-customer", b -> b
-            .condition(EnterpriseCustomerPredicate.class)
-            .step("enterprise-processing", EnterpriseProcessingAction.class)
+            .condition("is-enterprise", new EnterpriseCustomerPredicate())
+            .step("enterprise-processing", new EnterpriseProcessingAction())
             .run("account-manager-notification"))
 
         .defaultBranch(d -> d
-            .step("basic-processing", BasicProcessingAction.class)
+            .step("basic-processing", new BasicProcessingAction())
             .run("standard-notification")))
 
-    .step("finalize", FinalizeSubscriptionActivationAction.class)
+    .step("finalize", new FinalizeSubscriptionActivationAction())
 
     // Error handling: a route for the one failure worth treating specially, and an
     // unconditional fallback for everything else. The fallback is a property of the
     // action, so where it sits in the chain does not matter.
     .forException(RecoverableException.class)
         .matching(e -> e.getCode() == RECOVERABLE_ERROR)
-        .withCompensation(RecoverableCompensation.class)
-    .withCompensation(GeneralCompensation.class)
+        .withCompensation(new RecoverableCompensation())
+    .withCompensation(new GeneralCompensation())
 
     // Forked members: submitted where they are written, and not waited for. Everything
     // after them starts immediately.
@@ -1717,7 +1716,7 @@ trialActiveTransition.operation("complex-subscription-activation", c -> c
     .fork("external-integrations", "notification-from-activation"));
 ```
 
-> **Fork semantics.** `fork(...)` takes the same seven call shapes as `run(...)` and puts the member at the position it is written: the work starts when execution reaches that point, and the members after it do not wait. That subsumes both anchors an earlier design proposed — "kick off at a join point" is a fork declared after the conditional, and "kick off once the previous member succeeded" is a fork declared after it, since a member that throws never reaches the next one. What a forked member does with its context is §4.5.3; what happens to its outcome is §4.5.3.6.
+> **Fork semantics.** `fork(...)` takes the same three call shapes as `run(...)` and puts the member at the position it is written: the work starts when execution reaches that point, and the members after it do not wait. That subsumes both anchors an earlier design proposed — "kick off at a join point" is a fork declared after the conditional, and "kick off once the previous member succeeded" is a fork declared after it, since a member that throws never reaches the next one. What a forked member does with its context is §4.5.3; what happens to its outcome is §4.5.3.6.
 
 #### 4.4.3 Multi-Branch Conditional Operations
 
@@ -1733,7 +1732,7 @@ The host is responsible for populating context before execution and reading resu
 // The transition declares its context type and operation inside its configurer
 .state("trial", s -> s
     .transitionsTo("active", "trial-active", SubscriptionContext.class, t -> t
-        .step("activate-subscription", ActivateSubscriptionAction.class)))
+        .step("activate-subscription", new ActivateSubscriptionAction())))
 
 // Application usage
 public void activateSubscription(Subscription entity) {
@@ -1775,7 +1774,7 @@ Every by-id reference takes the same `(actionId, [mapperSpec])` grammar, whether
 
 The last two rows are one overload, not two. A read-only projection is a `ContextMapper` that leaves `mapFrom` alone, so a lambda supplies it directly; there is deliberately no separate `Function<C, ?>` overload, because the two carry the same descriptor and a lambda written at the call site would match both. The same reasoning already removed the `Function` form from mapper *registration*.
 
-Inline *declaration* forms (`.step("id", Action<T, C>)`, its class variant, and `.conditional("id", configurer)`) define a new member typed against the container's own `C` and always run pass-through — by definition the member shares the container's context type, so no boundary mapping is needed.
+An inline *declaration* that names no context of its own (`.step("id", Action<T, C>)`, `.conditional("id", configurer)`) defines a member typed against the container's `C` and runs pass-through, needing no boundary mapping. One that declares a context of its own takes the same mapper grammar the by-id forms do.
 
 The `ContextMapper<P, N>` interface:
 
@@ -1786,7 +1785,7 @@ public interface ContextMapper<P, N> {
 }
 ```
 
-`mapFrom` defaults to a no-op so "read-only" mappers are a one-method override or, equivalently, a plain `Function<P, N>` at the call site.
+`mapFrom` defaults to a no-op, so a "read-only" mapper is just a lambda supplying `mapTo` — the shape a `Function<P, N>` would have had, which is why no `Function` overload exists to compete with it.
 
 ##### 4.5.2.2 Mapper Registry
 
@@ -1794,14 +1793,13 @@ public interface ContextMapper<P, N> {
 
 ```java
 sm.mapper("payment-from-order", OrderCtx.class, PaymentCtx.class, new OrderToPaymentMapper());
-sm.mapper("payment-from-order", OrderCtx.class, PaymentCtx.class, OrderToPaymentMapper.class);
 sm.mapper("payment-from-order", OrderCtx.class, PaymentCtx.class,
     order -> new PaymentCtx(order.total(), order.currency()));   // read-only: mapFrom stays no-op
 sm.mapperDef("payment-from-order", OrderCtx.class, PaymentCtx.class, m ->   // + name / description
     m.withName("Payment from order").using(new OrderToPaymentMapper()));
 ```
 
-There are two source forms — an instance and a class — plus a lambda-configurer registration for the cases that also want a name or a description. `ContextMapper` has a single abstract method, so a lambda *is* the instance form: it supplies `mapTo` and leaves `mapFrom` the default no-op, which is exactly the read-only case. There is no separate `Function<P, N>` registration overload; one would be indistinguishable from the instance form at the call site while meaning the same thing.
+There is one source form — an instance — plus a lambda-configurer registration for the cases that also want a name or a description. `ContextMapper` has a single abstract method, so a lambda *is* the instance form: it supplies `mapTo` and leaves `mapFrom` the default no-op, which is exactly the read-only case. There is no separate `Function<P, N>` registration overload; one would be indistinguishable from the instance form at the call site while meaning the same thing.
 
 The mandatory `Class<P>` / `Class<N>` tokens let the build pipeline verify that the mapper's parent type is assignable from the caller's context and the mapper's child type matches the called member's required context. Inline `Function` and inline `ContextMapper` at the call site cannot be reliably introspected at build time (generic erasure); their alignment is checked at first dispatch.
 
@@ -2009,20 +2007,20 @@ public class ValidatePrerequisitesAction
 
 ```java
 operation("complex-operation", c -> c
-    // A compensation declared on the def; the instance form takes a lambda
+    // A compensation declared on the def; a lambda is a compensation too
     .step("validate-prerequisites", s -> s
-        .using(ValidatePrerequisitesAction.class)
-        .withCompensation(ValidationCompensation.class))
+        .using(new ValidatePrerequisitesAction())
+        .withCompensation(new ValidationCompensation()))
 
     // The same, plus rollbacks for the failures worth telling apart
     .step("charge-card", s -> s
-        .using(ChargeCardAction.class)
-        .withCompensation(RefundCompensation.class)
+        .using(new ChargeCardAction())
+        .withCompensation(new RefundCompensation())
         .forException(GatewayTimeoutException.class)
-            .withCompensation(ReconcileLaterCompensation.class)
+            .withCompensation(new ReconcileLaterCompensation())
         .forException(CardDeclinedException.class)
             .matching(CardDeclinedException::isPermanent)
-            .withCompensation(BlacklistCardCompensation.class)));
+            .withCompensation(new BlacklistCardCompensation())));
 ```
 
 Which reads: normally refund, on a gateway timeout reconcile later instead, and on a permanent decline blacklist the card. Each `forException(...)` opens a route that has to be closed with `withCompensation(...)`; opening one and dropping the result fails the build rather than quietly declaring nothing. Routes are tried in declaration order and only one of them runs, per §2.2.11.
@@ -2075,22 +2073,22 @@ trialActiveTransition
 
 // Predicate-based (lighter than full Condition<T>)
 trialActiveTransition
-    .addPreCondition(PaymentMethodValidPredicate.class);
+    .addPreCondition(new PaymentMethodValidPredicate());
 
 // Expression-based — SpEL string
 trialActiveTransition
     .addPreCondition("entity.paymentMethodId != null");
 ```
 
-The four authoring forms above (reference, full `Condition<T>`, `BiPredicate<T, C>` — or its convenience `Predicate<T>` overload, SpEL expression) map exactly to the four YAML-expressible forms of the Condition Descriptor (§3.6.1). The Java DSL additionally accepts a fifth `InstanceBased` form — `.addPreCondition("id", existingConditionInstance)` — for attaching a pre-built `Condition<T, C>` instance under an explicit id without routing through the `StateMachineDef.condition(...)` registry.
+The authoring forms above (reference, full `Condition<T>` instance, `BiPredicate<T, C>` — or its convenience `Predicate<T>` overload — and SpEL expression) are the Java-reachable arms of the Condition Descriptor (§3.6.1). YAML reaches one the Java DSL does not: `class:`, which the factory resolves into the instance form before registration, so the two DSLs describe the same descriptor grammar with the class name serving as YAML's way of naming an object it cannot hold.
 
-**Typed condition-registration names on `StateMachineDef`.** Typed-context (i.e. `Class<C>`-tagged) registrations of the lighter condition forms on `StateMachineDef` use distinguishing names — `conditionPredicate(id, Class<C>, BiPredicate|Predicate)` and `conditionExpression(id, Class<C>, String)` — because Java erasure makes them indistinguishable from `condition(id, Class<? extends Condition<T,C>>)` at the call site. Untyped forms keep the single `condition(...)` name; instance and class typed forms stay as `condition(id, Class<C>, ...)`. The asymmetry is a forced consequence of erasure, not a design preference. Inside `forContext(...)` blocks the typed context is carried implicitly by the scope, so `ContextScope` registrations use the single `condition(...)` name across all four lighter forms — there is no `conditionPredicate` / `conditionExpression` on `ContextScope`.
+**One `condition(...)` name everywhere.** Every registration form — instance, `BiPredicate`, `Predicate`, expression — is spelled `condition(...)` on both `StateMachineDef` and `ContextScope`, typed and untyped alike. The forms are told apart by how many parameters they take, which is what lets an implicitly-typed lambda select one: `Condition` takes three, `BiPredicate` two, `Predicate` one, and an expression is a `String`. The typed family briefly carried the distinguishing names `conditionPredicate` / `conditionExpression`, on the stated grounds that erasure made them indistinguishable from a class-taking `condition(...)`; that reasoning was wrong — the two differed in arity and could never both be applicable — and the class form has since gone in any case. The single-argument `conditionExpression(String)` / `preConditionExpression(String)` on `TransitionDef`, `BranchDef` and the triggers do keep their own names, because there `condition(String)` is genuinely taken by the reference-by-id form.
 
 #### 4.7.2 Advanced Condition Configuration
 
 ```java
 trialActiveTransition
-    .addPreCondition(CheckoutFulfilledCondition.class)
+    .addPreCondition(new CheckoutFulfilledCondition())
     
     // Condition with custom error message and error code
     .addPreCondition("business-hours", this::isBusinessHours, condition -> condition
@@ -2181,9 +2179,9 @@ public class ChargeAuditListener
 ```java
 // Transition listeners — attached inside the transition's configurer (see §4.3)
 .transitionsTo("active", "trial-to-active", ActivationContext.class, t -> t
-    .onStart("activation-start", ActivationStartListener.class)
-    .onComplete("activation-complete", ActivationCompleteListener.class)
-    .onError("activation-failure", ActivationFailureListener.class))
+    .onStart("activation-start", new ActivationStartListener())
+    .onComplete("activation-complete", new ActivationCompleteListener())
+    .onError("activation-failure", new ActivationFailureListener()))
 
 // State entry/exit listeners (attached to the state — see §4.2.2)
 
@@ -2191,41 +2189,41 @@ public class ChargeAuditListener
 // after that transition's own listeners, and take an Object context because they span
 // transitions with differing context types.
 stateMachineDef
-    .onAnyTransitionStart("audit-any-start", TransitionAuditListener.class)
-    .onAnyTransitionComplete("audit-any-complete", TransitionAuditListener.class)
-    .onAnyTransitionError("audit-any-error", TransitionAuditListener.class);
+    .onAnyTransitionStart("audit-any-start", new TransitionAuditListener())
+    .onAnyTransitionComplete("audit-any-complete", new TransitionAuditListener())
+    .onAnyTransitionError("audit-any-error", new TransitionAuditListener());
 
 // Global state listeners — registered on the definition, alongside the states themselves.
 // They fire for every state, after that state's own listeners.
 stateMachineDef
-    .onAnyStateEntry("audit-any-entry", StateAuditListener.class)
-    .onAnyStateExit("audit-any-exit", StateAuditListener.class);
+    .onAnyStateEntry("audit-any-entry", new StateAuditListener())
+    .onAnyStateExit("audit-any-exit", new StateAuditListener());
 
 // Action listeners — attached to the action's own definition, wherever that definition is
 // written: an SM-level registration, a transition's attachment, or an inline member. The
 // listener then fires at every invocation of that action, from every call site.
 stateMachineDef
     .step("charge-card", BillingContext.class, s -> s
-        .using(ChargeCardAction.class)
-        .onError("charge-audit", ChargeAuditListener.class));
+        .using(new ChargeCardAction())
+        .onError("charge-audit", new ChargeAuditListener()));
 
 // Global action listeners — they fire for every action at every nesting depth, after that
 // action's own listeners, and take an Object context because they span actions declared
 // against differing context types.
 stateMachineDef
-    .onAnyActionStart("audit-any-action-start", ActionAuditListener.class)
-    .onAnyActionComplete("audit-any-action-complete", ActionAuditListener.class)
-    .onAnyActionError("audit-any-action-error", ActionAuditListener.class);
+    .onAnyActionStart("audit-any-action-start", new ActionAuditListener())
+    .onAnyActionComplete("audit-any-action-complete", new ActionAuditListener())
+    .onAnyActionError("audit-any-action-error", new ActionAuditListener());
 ```
 
-Each hook accepts a listener instance, a
-listener class, or a configurer (`Consumer<StateListenerDef<T>>` /
+Each hook accepts a listener instance or a
+configurer (`Consumer<StateListenerDef<T>>` /
 `Consumer<TransitionListenerDef<T, C>>` / `Consumer<ActionListenerDef<T, C>>`) for the cases that
 also want a name or description. Listener ids are unique across the state machine, and all three
 categories share one namespace.
 
 Note the asymmetry the action category forces on the shorthand registrations: an action declared
-through `step(id, Action)` or `step(id, Class)` has no def behind it to hold an attachment, so a
+through `step(id, Action)` has no def behind it to hold an attachment, so a
 listener needs the configurer form. That holds at every position — the state-machine registry, a
 transition, a container member, and a conditional branch member — and is the same
 shorthand-versus-configurer split the rest of the DSL already makes for names and descriptions.
@@ -2427,7 +2425,7 @@ The 1.0 release is the **smallest useful core** of Transflux: a programmatic and
 In-scope capabilities:
 
 - **Core abstractions** — `StateMachine`, `State`, `Transition`, `Action` (imperative "step" and declarative "operation" forms), `Context`, `Condition` (Pre/Post), `Trigger` (Manual, Event, host-driven Data), `Listener` (state entry/exit, transition start/complete/error, action start/complete/error), `Compensation`.
-- **State resolver + applier** — class, lambda (Java only), and SpEL forms.
+- **State resolver + applier** — host-supplied instances; a lambda is the idiomatic form.
 - **Both DSLs at parity** — programmatic builder and YAML DSL cover the same surface area, including listener types and condition descriptor forms.
 - **Component library + registry** — reusable component definitions with imports (YAML) and a Java-side `ComponentRegistry`.
 - **Condition descriptor grammar** — class, predicate, expression, reference.
