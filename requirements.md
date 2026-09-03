@@ -118,7 +118,7 @@ states:
     name: "Active Subscription State"
 ```
 
-There is one narrow exception: **inline expression-based condition descriptors** are not required to specify an `id`. If the `id` is missing on a `ConditionDescriptor.ExpressionBased`, the descriptor is automatically assigned a unique identifier derived from the expression contents plus the path from the root of the state machine definition to the descriptor. All other descriptor forms — `Reference`, `InstanceBased`, `ClassBased`, `PredicateBased`, and explicit-id `ExpressionBased` — must declare an `id` explicitly.
+There is one narrow exception: **inline expression-based condition descriptors** are not required to specify an `id`. If the `id` is missing on a `ConditionDescriptor.ExpressionBased`, the descriptor is automatically assigned a unique identifier derived from the expression contents plus the path from the root of the state machine definition to the descriptor. All other descriptor forms — `Reference`, `InstanceBased`, `PredicateBased`, explicit-id `ExpressionBased`, and YAML's `class:` — must declare an `id` explicitly.
 
 #### 2.2.2 StateMachine
 
@@ -1129,7 +1129,7 @@ log.info("Activated subscription {} at {} with result {}",
 
 #### 3.6.1 Condition Descriptor
 
-Conditions appear in many places: pre/post conditions, conditional branch selectors, data-trigger gates, event-trigger filters. They share a single grammar — the **Condition Descriptor** — with five authoring forms. Four are expressible in both DSLs; the fifth (`InstanceBased`) attaches a pre-built `Condition<T, C>` instance and is Java-only — it has no YAML serialization because a live Java object cannot be expressed in YAML without a class-name handle (use the `class:` form for that).
+Conditions appear in many places: pre/post conditions, conditional branch selectors, data-trigger gates, event-trigger filters. They share a single grammar — the **Condition Descriptor** — with five authoring forms, three of which both DSLs express. The other two are each one DSL's way of naming a condition object: `InstanceBased` attaches a pre-built `Condition<T, C>` and is Java-only, since a live object has no YAML serialization; `ClassBased` names a class and is YAML-only, since the Java DSL holds the object already and the factory (§6.2) is what turns a class name into one.
 
 ```yaml
 # 1. Reference to a pre-defined condition (string shorthand)
@@ -1165,7 +1165,7 @@ preConditions:
 
 **Form comparison:**
 - A **`Condition<T, C>` instance** (form 5, Java DSL only) is the right choice when the host already has a configured `Condition` (DI-wired, holds runtime state) and wants to attach it to a single site without re-routing through the `StateMachineDef.condition(id, ...)` registry.
-- A **`Condition<T, C>`** implementation class (form 2) is the full-featured *class-shaped* form: it can hold injected dependencies, return rich failure metadata (error codes, messages), and is the appropriate choice for reusable, framework-aware conditions instantiated by the framework or DI container.
+- A **`Condition<T, C>` class name** (form 2, YAML only) is how a document points at that same full-featured shape — one that holds injected dependencies and returns rich failure metadata. The factory resolves it to an instance before registration, so it reaches the runtime as form 5 does.
 - A **`BiPredicate<T, C>`** (form 3) is the minimal shape — a simple boolean test over `(entity, context)`. Useful for stateless conditions where rich metadata is unnecessary. The Java DSL accepts a `Predicate<T>` convenience overload for entity-only tests.
 - An **expression** (form 4) is for one-off inline logic that doesn't justify a Java class.
 - A **reference** (form 1) shares a single definition across many transitions.
@@ -1801,7 +1801,7 @@ sm.mapperDef("payment-from-order", OrderCtx.class, PaymentCtx.class, m ->   // +
 
 There is one source form — an instance — plus a lambda-configurer registration for the cases that also want a name or a description. `ContextMapper` has a single abstract method, so a lambda *is* the instance form: it supplies `mapTo` and leaves `mapFrom` the default no-op, which is exactly the read-only case. There is no separate `Function<P, N>` registration overload; one would be indistinguishable from the instance form at the call site while meaning the same thing.
 
-The mandatory `Class<P>` / `Class<N>` tokens let the build pipeline verify that the mapper's parent type is assignable from the caller's context and the mapper's child type matches the called member's required context. Inline `Function` and inline `ContextMapper` at the call site cannot be reliably introspected at build time (generic erasure); their alignment is checked at first dispatch.
+The mandatory `Class<P>` / `Class<N>` tokens let the build pipeline verify that the mapper's parent type is assignable from the caller's context and the mapper's child type matches the called member's required context. An inline `ContextMapper` at the call site cannot be reliably introspected at build time (generic erasure); its alignment is checked at first dispatch.
 
 ##### 4.5.2.3 Worked Example — One Child, N Callers
 
@@ -1874,7 +1874,7 @@ A nested operation's failure surfaces as if it were a member failure of the encl
 - **`mapTo` failure** (parent → child) is a **parent failure**. The child never starts, no child member ids are recorded for this position, and no compensation is captured for it.
 - **`mapFrom` failure** (child → parent) is also a **parent failure** — the boundary belongs to the parent — and the parent's error-handling kicks in as if the parent itself raised the writeback failure. The child's own completion stands: it ran, it is on the executed path, and any listener attached to it saw a completion rather than an error. Its **compensation still runs**, though, and for the ordinary reason: a compensation is captured before its action executes (§2.4 step 5) and the enclosing transition drains the whole stack on any failure, whatever had completed by then. "The child succeeded" and "the child is compensated" are not in tension — that is what rollback means.
 
-The same attribution applies to class-based mappers, instance-based mappers, inline `Function`, and inline `ContextMapper` at the call site.
+The same attribution applies to a registered mapper and to an inline `ContextMapper` at the call site alike.
 
 Compensations registered by a *synchronously-executed* nested operation are pushed onto the **enclosing parent's** LIFO compensation stack as the child runs. When the parent unwinds, child compensations interleave correctly with sibling steps — there is one stack per synchronous execution path, not one per nesting level.
 
@@ -2428,7 +2428,7 @@ In-scope capabilities:
 - **State resolver + applier** — host-supplied instances; a lambda is the idiomatic form.
 - **Both DSLs at parity** — programmatic builder and YAML DSL cover the same surface area, including listener types and condition descriptor forms.
 - **Component library + registry** — reusable component definitions with imports (YAML) and a Java-side `ComponentRegistry`.
-- **Condition descriptor grammar** — class, predicate, expression, reference.
+- **Condition descriptor grammar** — instance, predicate, expression, reference, plus YAML's `class:`.
 - **Multi-branch conditional operations** — sequential branch evaluation with default fallback.
 - **Compensation engine** — LIFO stack, unified `Compensation<T, C>` interface, exception-specific compensation strategies.
 - **Optional Spring integration** — auto-configuration, `@EnableTransflux`, Spring-bean component discovery.

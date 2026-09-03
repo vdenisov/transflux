@@ -49,7 +49,7 @@ final class MapperDefImpl<P, N> extends IdentifiedDefImpl<MapperDefImpl<P, N>>
         this.parentType = parentType;
         this.childType = childType;
         this.source = new InstanceSource<>(Loggers.BUILD_VALIDATION, "Mapper source",
-                                                  "MapperDef '" + id + "'");
+                                           "MapperDef '" + id + "'");
     }
 
 

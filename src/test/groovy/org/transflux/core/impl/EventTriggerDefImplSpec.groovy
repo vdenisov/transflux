@@ -43,12 +43,6 @@ class EventTriggerDefImplSpec extends Specification {
         }
     }
 
-    static class RejectingFilter implements BiPredicate<Object, Entity> {
-        @Override
-        boolean test(Object eventData, Entity entity) {
-            return eventData == 'reject'
-        }
-    }
 
     def 'a configured event trigger surfaces its id, metadata, event id and transition in the catalog'() {
         given:

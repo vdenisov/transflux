@@ -54,7 +54,7 @@ final class CompensationRouteDefImpl<T, C, X extends Throwable, D>
         this.self = self;
         this.exceptionType = exceptionType;
         this.compensation = new InstanceSource<>(Loggers.BUILD_VALIDATION,
-                                                        "Compensation source", label());
+                                                 "Compensation source", label());
     }
 
     @Override

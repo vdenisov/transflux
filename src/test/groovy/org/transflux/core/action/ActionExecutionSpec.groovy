@@ -26,8 +26,6 @@ import spock.lang.Unroll
 
 class ActionExecutionSpec extends Specification {
 
-    static class Entity {
-    }
 
     def 'the record carries the phase, the path, the kind, and the transition'() {
         given:

@@ -732,7 +732,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
     }
 
     def 'a machine keeps the conditional scope it was built with when the def is built again'() {
-        given: 'an inline member, so each build binds its own record for it'
+        given: 'a conditional whose branch member is reached by id from a sibling branch'
         Recorder.RAN.clear()
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
@@ -762,7 +762,27 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         then: 'it dispatched the member from its own build, not from the later one'
         result.success
         Recorder.RAN.size() == 1
-        !first.transitions['t'].boundAction.is(second.transitions['t'].boundAction)
+
+        and: 'each build produced its own conditional, holding its own scope'
+        def firstRoute = conditionalOf(first)
+        def secondRoute = conditionalOf(second)
+        !firstRoute.is(secondRoute)
+        !firstRoute.scopeRegistry.is(secondRoute.scopeRegistry)
+
+        and: "the leaf the first machine dispatched is the one in its own scope, not the later build's"
+        def firstLeaf = firstRoute.scopeRegistry.resolve('leaf').get().bound()
+        def secondLeaf = secondRoute.scopeRegistry.resolve('leaf').get().bound()
+        !firstLeaf.is(secondLeaf)
+        firstRoute.resolvedBranches*.members().flatten()*.action().any { it.is(firstLeaf) }
+        firstRoute.resolvedBranches*.members().flatten()*.action().every { !it.is(secondLeaf) }
+    }
+
+    /**
+     * Digs the conditional's executor out of a built machine: the transition's action is the
+     * container, whose first member is the conditional this spec declares.
+     */
+    private static conditionalOf(machine) {
+        machine.transitions['t'].boundAction.action().members[0].action().action()
     }
 
     def 'a conditional attaches straight to a transition, with no wrapping operation'() {

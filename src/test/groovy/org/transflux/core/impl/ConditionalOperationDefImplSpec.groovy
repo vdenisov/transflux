@@ -43,12 +43,6 @@ class ConditionalOperationDefImplSpec extends Specification {
         int value
     }
 
-    static class AlwaysTrueCondition implements Condition<Entity, TestContext> {
-        @Override
-        boolean test(Entity entity, TestContext context, Transition transition) {
-            true
-        }
-    }
 
     static class NoopStep implements Action<Entity, TestContext> {
         @Override

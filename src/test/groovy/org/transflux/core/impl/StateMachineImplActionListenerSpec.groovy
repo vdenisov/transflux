@@ -81,17 +81,6 @@ class StateMachineImplActionListenerSpec extends Specification {
         }
     }
 
-    static class CountingListener implements ActionListener<Entity, Object> {
-        static int instances = 0
-
-        CountingListener() {
-            instances++
-        }
-
-        @Override
-        void onAction(Entity entity, Object context, ActionExecution execution) {
-        }
-    }
 
     def 'the start hook runs before the body and the complete hook after it'() {
         given:

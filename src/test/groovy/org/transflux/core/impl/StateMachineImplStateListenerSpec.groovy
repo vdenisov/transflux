@@ -44,17 +44,6 @@ class StateMachineImplStateListenerSpec extends Specification {
         }
     }
 
-    static class CountingListener implements StateListener<Entity> {
-        static int instances = 0
-
-        CountingListener() {
-            instances++
-        }
-
-        @Override
-        void onState(Entity entity, Object context, StateChange<Entity> change) {
-        }
-    }
 
     def 'a successful transition notifies the source exit hook and the target entry hook'() {
         given:
@@ -410,14 +399,6 @@ class StateMachineImplStateListenerSpec extends Specification {
         e.message.contains('already registered')
     }
 
-    static class CtorlessListener implements StateListener<Entity> {
-        CtorlessListener(String arg) {
-        }
-
-        @Override
-        void onState(Entity entity, Object context, StateChange<Entity> change) {
-        }
-    }
 
     private static StateListener<Entity> recorder(List log, String label) {
         return { e, ctx, ch -> log << label } as StateListener

@@ -290,23 +290,7 @@ class StateMachineDefImplSpec extends Specification {
     }
 
 
-    static class IdOverloadStep implements Action<Object, Object> {
-        @Override
-        void execute(Object e, Object c, ExecutingTransition<Object, Object> t) {}
-    }
 
-    static class IdOverloadCondition implements Condition<Object, Object> {
-        @Override
-        boolean test(Object e, Object c, Transition t) { true }
-    }
 
-    static class IdOverloadOperation implements Action<Object, Object> {
-        @Override
-        void execute(Object e, Object c, ExecutingTransition<Object, Object> t) {}
-    }
 
-    static class IdOverloadMapper implements ContextMapper<Object, Object> {
-        @Override
-        Object mapTo(Object p) { p }
-    }
 }

@@ -28,8 +28,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * Default {@link ActionListenerDef} implementation.
  * <p>
  * Holds the {@link ActionListener} instance, last-write-wins. {@link #buildBoundListener()}
- * produces a {@link BoundActionListener} paired with this def's id
- * and metadata.
+ * produces a {@link BoundActionListener} paired with this def's id and metadata.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the context type the observed action runs against
@@ -42,7 +41,7 @@ final class ActionListenerDefImpl<T, C> extends IdentifiedDefImpl<ActionListener
     ActionListenerDefImpl(String id) {
         super(id, "action listener", "Action listener ID");
         this.source = new InstanceSource<>(Loggers.BUILD_VALIDATION, "Action listener source",
-                                                  "ActionListenerDef '" + id + "'");
+                                           "ActionListenerDef '" + id + "'");
     }
 
     @Override

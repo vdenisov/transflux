@@ -49,12 +49,6 @@ class StateMachineImplEventDispatchSpec extends Specification {
         }
     }
 
-    static class KindIsPaid implements BiPredicate<Object, Entity> {
-        @Override
-        boolean test(Object eventData, Entity entity) {
-            return ((Payload) eventData).kind == 'paid'
-        }
-    }
 
     def 'processEvent fires the trigger whose event id matches'() {
         given:

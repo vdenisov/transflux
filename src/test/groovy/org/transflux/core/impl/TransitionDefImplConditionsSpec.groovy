@@ -34,12 +34,6 @@ class TransitionDefImplConditionsSpec extends Specification {
         int value
     }
 
-    static class AlwaysTrueCondition implements Condition<Entity, TestContext> {
-        @Override
-        boolean test(Entity entity, TestContext context, Transition transition) {
-            true
-        }
-    }
 
     def 'preCondition with single-arg id appends a Reference descriptor'() {
         given:

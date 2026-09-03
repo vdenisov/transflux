@@ -373,28 +373,11 @@ class OperationDefImplSpec extends Specification {
         }
     }
 
-    static class IdOverloadStep implements Action<Object, Object> {
-        @Override
-        void execute(Object e, Object c, ExecutingTransition<Object, Object> t) {}
-    }
 
-    static class IdOverloadOp implements Action<Object, Object> {
-        @Override
-        void execute(Object e, Object c, ExecutingTransition<Object, Object> t) {}
-    }
 
-    static class CtxAssertEntity {
-        String state
-
-        CtxAssertEntity(String state) { this.state = state }
-    }
 
     static class CtxAssertCorrectCtx { }
 
-    static class CtxAssertNoopStep implements Action<CtxAssertEntity, CtxAssertCorrectCtx> {
-        @Override
-        void execute(CtxAssertEntity entity, CtxAssertCorrectCtx context, ExecutingTransition<CtxAssertEntity, CtxAssertCorrectCtx> transition) { }
-    }
 
     static class NestedFailEntity {
         String state

@@ -41,12 +41,6 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
         }
     }
 
-    static class CondB implements Condition<TestEntity, TestContext> {
-        @Override
-        boolean test(TestEntity entity, TestContext context, Transition transition) {
-            false
-        }
-    }
 
     @Unroll
     def "condition(...) should reject null or blank id (instance form, id='#id')"() {

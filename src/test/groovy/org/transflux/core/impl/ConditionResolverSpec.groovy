@@ -35,12 +35,6 @@ class ConditionResolverSpec extends Specification {
         int value
     }
 
-    static class TruthyCondition implements Condition<Entity, TestContext> {
-        @Override
-        boolean test(Entity entity, TestContext context, Transition transition) {
-            true
-        }
-    }
 
     def "should resolve a Reference descriptor against the registry"() {
         given:

@@ -28,8 +28,8 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * Default {@link TransitionListenerDef} implementation.
  * <p>
  * Holds the {@link TransitionListener} instance, last-write-wins. {@link #buildBoundListener()}
- * produces a {@link BoundTransitionListener} paired with this def's
- * id and metadata.
+ * produces a {@link BoundTransitionListener} paired with this def's id and
+ * metadata.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
@@ -42,7 +42,7 @@ final class TransitionListenerDefImpl<T, C> extends IdentifiedDefImpl<Transition
     TransitionListenerDefImpl(String id) {
         super(id, "transition listener", "Transition listener ID");
         this.source = new InstanceSource<>(Loggers.BUILD_VALIDATION, "Transition listener source",
-                                                  "TransitionListenerDef '" + id + "'");
+                                           "TransitionListenerDef '" + id + "'");
     }
 
     @Override

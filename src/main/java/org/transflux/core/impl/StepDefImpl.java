@@ -56,13 +56,13 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
     StepDefImpl(String id) {
         super(id, "step", "Step ID", null);
         this.source = new InstanceSource<>(Loggers.BUILD_VALIDATION, "Step source",
-                                                  "StepDef '" + id + "'");
+                                           "StepDef '" + id + "'");
     }
 
     StepDefImpl(String id, Class<C> contextType) {
         super(id, "step", "Step ID", requireNotNull(contextType, "Step context type"));
         this.source = new InstanceSource<>(Loggers.BUILD_VALIDATION, "Step source",
-                                                  "StepDef '" + id + "'");
+                                           "StepDef '" + id + "'");
     }
 
     @Override

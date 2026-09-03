@@ -121,8 +121,8 @@ final class InlineRegistrationSink<T, C> {
     }
 
     /**
-     * The label used when claiming an id and when reporting an instantiation failure. It names the
-     * form the member was declared in, so the diagnostic matches the DSL the user wrote.
+     * The label used when claiming an id. It names the form the member was declared in, so the
+     * diagnostic matches the DSL the user wrote.
      */
     private static String label(ActionKind kind) {
         return kind == ActionKind.STEP ? "Step" : "Operation";

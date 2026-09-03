@@ -28,8 +28,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * Default {@link StateListenerDef} implementation.
  * <p>
  * Holds the {@link StateListener} instance, last-write-wins. {@link #buildBoundListener()}
- * produces a {@link BoundStateListener} paired with this def's id
- * and metadata.
+ * produces a {@link BoundStateListener} paired with this def's id and metadata.
  *
  * @param <T> the entity type the surrounding state machine manages
  */
@@ -41,7 +40,7 @@ final class StateListenerDefImpl<T> extends IdentifiedDefImpl<StateListenerDefIm
     StateListenerDefImpl(String id) {
         super(id, "state listener", "State listener ID");
         this.source = new InstanceSource<>(Loggers.BUILD_VALIDATION, "State listener source",
-                                                  "StateListenerDef '" + id + "'");
+                                           "StateListenerDef '" + id + "'");
     }
 
     @Override

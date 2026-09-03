@@ -45,17 +45,6 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         }
     }
 
-    static class CountingListener implements TransitionListener<Entity, Object> {
-        static int instances = 0
-
-        CountingListener() {
-            instances++
-        }
-
-        @Override
-        void onTransition(Entity entity, Object context, TransitionExecution<Entity> execution) {
-        }
-    }
 
     def 'a successful transition notifies start then complete, and never error'() {
         given:
