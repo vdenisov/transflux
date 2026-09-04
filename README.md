@@ -30,7 +30,7 @@ The project is in active design and the public API is unstable. **No releases ar
 - `org.transflux.core.condition` — `Condition` and `ConditionDescriptor`.
 - `org.transflux.core.exception` — `TransfluxException` and its subclasses.
 - `org.transflux.core.trigger` — `Trigger` (runtime catalog view) and its kinds `ManualTrigger` / `EventTrigger` / `DataTrigger`, with the def-side builders `ManualTriggerDef` / `EventTriggerDef` / `DataTriggerDef`. Manual triggers fire via `entity(e).fire(...)`; event and data triggers fire via the host-driven `entity(e).processEvent(...)` / `processDataChange(...)`.
-- `org.transflux.core.impl` — framework-internal implementations: every `*Impl`, the `Registry` / `Component` lookup machinery, the bound-record / action-ref / mapper-ref infrastructure, the SpEL evaluation utilities (`ConditionResolver`, `SpelConditionEvaluator`, `ExpressionIdDerivation`), the runtime-internal `ExecutingTransitionImpl` and `TransitionImpl`, the `Loggers` holder declaring the logger tree, and the shared utilities (`ValidationUtils`, `ThrowingUtils`, `ReflectionUtils`). User code should not depend on this package directly.
+- `org.transflux.core.impl` — framework-internal implementations: every `*Impl`, the `Registry` / `Component` lookup machinery, the bound-record / action-ref / mapper-ref infrastructure, the SpEL evaluation utilities (`ConditionResolver`, `SpelConditionEvaluator`, `ExpressionIdDerivation`), the runtime-internal `ExecutingTransitionImpl` and `TransitionImpl`, the `Loggers` holder declaring the logger tree, and the shared utilities (`ValidationUtils`, `ThrowingUtils`). User code should not depend on this package directly.
 
 ## Logging
 

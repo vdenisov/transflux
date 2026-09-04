@@ -407,6 +407,57 @@ class StateMachineDefImplContextSpec extends Specification {
         noExceptionThrown()
     }
 
+    def "a member of a container declaring Object is recorded against Object, not the enclosing context"() {
+        given: 'the container runs pass-through, but javac typed its members from OperationDef<T, Object>'
+        def smd = baseDef()
+        smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
+            scope.operation('outer', { OperationDef<Entity, CtxA> c ->
+                c.operation('mid', Object, { OperationDef<Entity, Object> mid -> mid
+                    .step('leaf', new AnyCtxStep())
+                    .operation('deep', CtxB, aToB(), { OperationDef<Entity, CtxB> d ->
+                        d.run('leaf')
+                    }) })
+            })
+        })
+
+        when:
+        smd.build()
+
+        then: "CtxA is written nowhere near 'leaf', so it cannot be what a reference to it is checked against"
+        noExceptionThrown()
+    }
+
+    def "the declarative and imperative dispatches into a container declaring Object agree"() {
+        given: 'view.run consults the registry tag, so the recorded context has to be the same one'
+        def seen = []
+        def leaf = { Entity e, Object ctx, ExecutingTransition<Entity, Object> tr ->
+            seen << ctx.class.simpleName
+        } as Action
+        def smd = new StateMachineDefImpl<Entity>()
+        smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+            .state('s1', { st -> st.transitionsTo('s2', 't', CtxA, { t ->
+                t.operation('outer', { OperationDef<Entity, CtxA> c ->
+                    c.operation('mid', Object, { OperationDef<Entity, Object> mid -> mid
+                        .step('leaf', leaf)
+                        .operation('deep', CtxB, aToB(), { OperationDef<Entity, CtxB> d -> d
+                            .run('leaf')
+                            .step('dispatch', { Entity e, CtxB ctx,
+                                                ExecutingTransition<Entity, CtxB> tr ->
+                                tr.run('leaf')
+                            } as Action) }) })
+                })
+            }) })
+            .state('s2', {})
+
+        when:
+        def result = smd.build().entity(new Entity('s1')).transitionTo('s2', new CtxA())
+
+        then: "in line it is handed what mid passed through, and both dispatches out of deep agree"
+        result.success
+        seen == ['CtxA', 'CtxB', 'CtxB']
+    }
+
     def 'a by-id reference to an inline id in an unreachable nested scope reports visibility'() {
         given: 'no mapper can make it resolve, so answering on context would be wrong advice'
         def smd = baseDef()

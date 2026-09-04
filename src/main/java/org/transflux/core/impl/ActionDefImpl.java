@@ -125,10 +125,16 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     /**
-     * Resolves what this action <em>is</em>, for the purpose of naming it: its declared context
-     * when the declaration site supplied one, the enclosing position's otherwise. This is the
-     * identity a diagnostic reports, not necessarily what its members run against - see
-     * {@link #subtreeContext}.
+     * Resolves the context <em>type</em> this declaration named: its own when the declaration site
+     * supplied one, {@link Object} included, the enclosing position's otherwise. This is the type
+     * javac typed the members from, and every pass that has to agree with javac asks this one - the
+     * registry tag, and the pass that records what a by-id reference to an inline id is checked
+     * against.
+     * <p>
+     * What the members are <em>handed</em> at runtime is a different question, and
+     * {@link #handedDownContext} answers it. The two differ for exactly one shape - an unmapped
+     * declaration naming {@code Object} - and a pass asking one of them while reading the other's
+     * answer is how a legal definition gets rejected against a type nobody wrote.
      *
      * @param inheritedContext the enclosing position's context, or {@code null} at a root
      *
@@ -143,27 +149,26 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     /**
-     * Resolves the context this action's members actually run against. Every pass that has to
-     * answer that question calls this one - the reference check, the pass that records member
-     * contexts for by-id references, and the registry tagging that hands a context down a nesting
-     * level - because three expressions agreeing by coincidence is how a legal definition gets
-     * rejected in one of them.
+     * Resolves the context <em>object</em> this declaration's members are handed at runtime. The
+     * passes reasoning about the live object ask this one: whether a pass-through boundary is legal
+     * ({@link #boundaryIsLegal}), what a by-id reference made from inside can be handed, and what a
+     * forked member would share. {@link #effectiveContext} answers the type question instead.
      * <p>
      * Three rules, in order. A declaration that names no context, or restates the enclosing one,
      * runs against the enclosing one. A <em>mapped</em> declaration runs against what it named,
      * whatever that is - the mapper produces it, so nothing has to be assignable. An unmapped
-     * declaration naming {@link Object} runs pass-through against the enclosing context: it
-     * accepts anything, so it changes nothing about what its members are handed. Anything else
-     * runs against what it named, and {@code validateBoundary} is what rejects the cases where it
-     * could not legally reach it.
+     * declaration naming {@link Object} is handed the enclosing object unchanged: it accepts
+     * anything, so pass-through changes nothing about what arrives. Anything else runs against what
+     * it named, and {@link #boundaryIsLegal} is what rejects the cases where it could not legally
+     * reach it.
      *
      * @param inheritedContext the enclosing position's context; {@code null} is read as
      *                         {@code Object}
      * @param mapped whether the call site that declared this action supplied a mapper
      *
-     * @return the context this action's members run against; never {@code null}
+     * @return the context this action's members are handed; never {@code null}
      */
-    final Class<?> subtreeContext(Class<?> inheritedContext, boolean mapped) {
+    final Class<?> handedDownContext(Class<?> inheritedContext, boolean mapped) {
         Class<?> enclosing = inheritedContext != null ? inheritedContext : Object.class;
         if (declaredContextType == null || declaredContextType == enclosing) {
             return enclosing;
@@ -336,7 +341,8 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     abstract void bindMembers(StateMachineImpl<T> stateMachine, String positionLabel);
 
     /**
-     * Records the context every action declared inline beneath this one runs against, keyed by id.
+     * Records the context type every action declared inline beneath this one is written against,
+     * keyed by declaring scope and id.
      * <p>
      * A by-id reference is checked against its callee's context, and for a registered component
      * that context comes from the registration. An inline declaration has no registration, so
@@ -347,7 +353,8 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      * <p>It runs before {@link #checkRefs}, over the whole definition, because a member may
      * reference an id declared after it or in an enclosing scope.
      *
-     * @param scopeContext the context this action's own members run against; {@code null} is read
+     * @param scopeContext the context type this action's own members are written against - its
+     *                     {@link #effectiveContext}, not what they are handed; {@code null} is read
      *                     as {@code Object}
      * @param sink receives each inline declaration, with the scope that holds it
      */

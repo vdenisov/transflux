@@ -253,8 +253,11 @@ final class OperationDefImpl<T, C>
             // Recursing after the member is built names the outer position first when a
             // resolution fails.
             if (ref instanceof ActionRef.Conditional<T, C> conditional) {
+                // The conditional owns the scope its branches bind against, so it is what a failure
+                // inside them has to name - not the container that happens to hold it.
                 conditional.def().bindBranchMembers(
-                    stateMachine, positionLabel + " > " + conditional.def().defLabel(), getId());
+                    stateMachine, positionLabel + " > " + conditional.def().defLabel(),
+                    conditional.id());
             } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
                 nested.def().bindMembers(stateMachine,
                                          positionLabel + " > " + nested.def().defLabel());

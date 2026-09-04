@@ -252,18 +252,24 @@ final class ActionSequenceSink<T, C, D> {
     }
 
     /**
-     * Records the context each inline declaration in this sequence runs against, descending into
-     * the two forms that hold members of their own.
+     * Records the context type each inline declaration in this sequence is written against,
+     * descending into the two forms that hold members of their own.
      * <p>
-     * A declaration that names a context reports that one, {@code Object} included - an action
-     * written against {@code Object} ignores the context, so a reference to it passes through from
-     * any caller, which is the rule registered components already follow. One that names none
-     * reports the enclosing sequence's, which is what it will actually be handed. What it hands
-     * <em>down</em> is a different question, and {@link ActionDefImpl#subtreeContext} answers it -
-     * the same method the reference check uses, so the two cannot disagree.
+     * What is recorded is the context <em>type</em> the declaration named - the type javac typed
+     * its body from, and the one the registry tags it with, so a by-id reference and the imperative
+     * {@code view.run(id)} answer alike. A declaration that names a context reports that one,
+     * {@code Object} included: an action written against {@code Object} ignores the context, so a
+     * reference to it passes through from any caller, which is the rule registered components
+     * already follow. One that names none reports the enclosing sequence's.
+     * <p>
+     * The descent therefore runs on {@link ActionDefImpl#effectiveContext}, the same chain
+     * {@code bindScopeUnder} tags with, and not on {@link ActionDefImpl#handedDownContext}: an
+     * unmapped declaration naming {@code Object} is handed the enclosing object, but its members
+     * are still written against {@code Object}, and recording them against a type that appears
+     * nowhere in the definition is what rejects a legal reference into that subtree.
      *
-     * @param scopeContext the context this sequence's members run against; {@code null} is read as
-     *                     {@code Object}
+     * @param scopeContext the context type this sequence's members are written against;
+     *                     {@code null} is read as {@code Object}
      * @param declaringScope the id of the scope these declarations register into - the enclosing
      *                       container's, or the conditional's when this is one of its branches
      * @param sink receives each inline declaration, with the scope that holds it
@@ -281,13 +287,12 @@ final class ActionSequenceSink<T, C, D> {
             Class<?> declared = ref.declaredContext();
             sink.accept(ref.id(), declared != null ? declared : effectiveScope, declaringScope);
 
-            boolean mapped = !(ref.mapperRef() instanceof MapperRef.PassThrough);
             if (ref instanceof ActionRef.Conditional<T, C> conditional) {
                 conditional.def().collectMemberContexts(
-                    conditional.def().subtreeContext(effectiveScope, mapped), sink);
+                    conditional.def().effectiveContext(effectiveScope), sink);
             } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
                 nested.def().collectMemberContexts(
-                    nested.def().subtreeContext(effectiveScope, mapped), sink);
+                    nested.def().effectiveContext(effectiveScope), sink);
             }
         }
     }
@@ -343,11 +348,12 @@ final class ActionSequenceSink<T, C, D> {
     }
 
     /**
-     * Resolves the context an inline declaration runs against, rejecting a boundary it cannot
-     * cross.
+     * Resolves the context an inline declaration is handed, rejecting a boundary it cannot cross.
      * <p>
-     * The answer comes from {@link ActionDefImpl#subtreeContext}, which every pass asking that
-     * question shares; this method adds only the rejection.
+     * The answer comes from {@link ActionDefImpl#handedDownContext}; this method adds only the
+     * rejection. It is the live object that matters here - what the declaration's own members are
+     * handed in turn, what a by-id reference from inside them can be given, and what a forked
+     * member would share.
      */
     private Class<?> memberContext(ActionRef<T, C> ref, ActionDefImpl<T, ?, ?> def,
                                    Class<?> effectiveScope, String scopeLabel) {
@@ -360,7 +366,7 @@ final class ActionSequenceSink<T, C, D> {
                     + " An inline declaration without a mapper runs pass-through, so its context"
                     + " must accept the enclosing one.");
         }
-        return def.subtreeContext(effectiveScope, mapped);
+        return def.handedDownContext(effectiveScope, mapped);
     }
 
     private D reference(String verb, String id, boolean forked) {
@@ -395,10 +401,16 @@ final class ActionSequenceSink<T, C, D> {
      * but its members are handed the enclosing one, so the enclosing position is still what a host
      * would have to change. Restating the enclosing type is the opposite case - the declaration is
      * the nearest place the context is written, so it is the one to name.
+     * <p>
+     * {@code Object} never takes ownership even when it is what the enclosing position runs against,
+     * which is the default a transition declaring no context gets. Naming {@code Object} says
+     * nothing about what flows, so there is no context written at that position to point a host at:
+     * the advice would be to declare one where declaring one unmapped is a build error, since a real
+     * type cannot accept {@code Object}. The position to change is further out either way.
      */
     private static String ownerBeneath(Class<?> declared, Class<?> own, String contextOwner,
                                        String ownLabel) {
-        return declared == own ? ownLabel : contextOwner;
+        return declared == own && own != Object.class ? ownLabel : contextOwner;
     }
 
     /**

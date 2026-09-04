@@ -266,11 +266,26 @@ class OperationDefImplForkValidationSpec extends Specification {
             op.operation('inner', Object, { n -> n.fork('send') } as Consumer)
         })
 
-        then:
+        then: 'the type reported is the one that flows in, not the Object the declaration named'
         def warning = messages.find { it.contains('Forked member shares the enclosing context') }
         warning != null
         warning.contains("contextOwner=transition 't'")
         !warning.contains("contextOwner=transition 't' > ")
+        warning.contains("contextType=" + PlainCtx.name)
+    }
+
+    def 'a nested container declaring Object under an Object transition does not take ownership either'() {
+        when: 'Object is what the transition already runs against, so restating it names nothing'
+        def messages = buildCapturingValidation(Object, { smd -> }, { op ->
+            op.operation('inner', Object, { n -> n.fork('send') } as Consumer)
+        })
+
+        then: "declaring a real context on inner unmapped is a build error, so blaming it is dead advice"
+        def warning = messages.find { it.contains('forkability cannot be checked') }
+        warning != null
+        warning.contains("contextOwner=transition 't'")
+        !warning.contains("contextOwner=transition 't' > ")
+        warning.contains("declaredIn=transition 't' > operation 'op' > operation 'inner'")
     }
 
     private static void build(Class ctxType, Closure registrations, Closure members) {
