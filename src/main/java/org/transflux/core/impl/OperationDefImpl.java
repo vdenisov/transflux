@@ -132,22 +132,44 @@ final class OperationDefImpl<T, C>
 
     @Override
     public OperationDefImpl<T, C> step(String id, Action<T, C> action) {
-        return members.step(id, action);
+        return members.step(id, action, false);
     }
 
     @Override
     public OperationDefImpl<T, C> step(String id, Consumer<StepDef<T, C>> configurer) {
-        return members.step(id, configurer);
+        return members.step(id, configurer, false);
     }
 
     @Override
     public OperationDefImpl<T, C> conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer) {
-        return members.conditional(id, configurer);
+        return members.conditional(id, configurer, false);
     }
 
     @Override
     public OperationDefImpl<T, C> operation(String id, Consumer<OperationDef<T, C>> configurer) {
-        return members.operation(id, configurer);
+        return members.operation(id, configurer, false);
+    }
+
+    @Override
+    public OperationDefImpl<T, C> forkStep(String id, Action<T, C> action) {
+        return members.step(id, action, true);
+    }
+
+    @Override
+    public OperationDefImpl<T, C> forkStep(String id, Consumer<StepDef<T, C>> configurer) {
+        return members.step(id, configurer, true);
+    }
+
+    @Override
+    public OperationDefImpl<T, C> forkConditional(String id,
+                                                  Consumer<ConditionalOperationDef<T, C>> configurer) {
+        return members.conditional(id, configurer, true);
+    }
+
+    @Override
+    public OperationDefImpl<T, C> forkOperation(String id,
+                                                Consumer<OperationDef<T, C>> configurer) {
+        return members.operation(id, configurer, true);
     }
 
     /**
@@ -157,6 +179,16 @@ final class OperationDefImpl<T, C>
      */
     List<ActionRef<T, C>> getActionRefs() {
         return members.members().stream().map(ActionSequenceSink.DeclaredMember::ref).toList();
+    }
+
+    /**
+     * Returns this container's members in declaration order, each with the flag saying whether the
+     * position hands it to the executor.
+     *
+     * @return an unmodifiable view of the member list
+     */
+    List<ActionSequenceSink.DeclaredMember<T, C>> getMembers() {
+        return members.members();
     }
 
     /**
@@ -421,47 +453,98 @@ final class OperationDefImpl<T, C>
 
     @Override
     public <N> OperationDefImpl<T, C> step(String id, Class<N> contextType, Action<T, N> action) {
-        return members.step(id, contextType, MapperRef.passThrough(), action);
+        return members.step(id, contextType, MapperRef.passThrough(), action, false);
     }
 
     @Override
     public <N> OperationDefImpl<T, C> step(String id, Class<N> contextType, ContextMapper<C, N> mapper,
                           Action<T, N> action) {
-        return members.step(id, contextType, MapperRef.inline(mapper), action);
+        return members.step(id, contextType, MapperRef.inline(mapper), action, false);
     }
 
     @Override
     public <N> OperationDefImpl<T, C> step(String id, Class<N> contextType, Consumer<StepDef<T, N>> configurer) {
-        return members.step(id, contextType, MapperRef.passThrough(), configurer);
+        return members.step(id, contextType, MapperRef.passThrough(), configurer, false);
     }
 
     @Override
     public <N> OperationDefImpl<T, C> step(String id, Class<N> contextType, ContextMapper<C, N> mapper,
                           Consumer<StepDef<T, N>> configurer) {
-        return members.step(id, contextType, MapperRef.inline(mapper), configurer);
+        return members.step(id, contextType, MapperRef.inline(mapper), configurer, false);
     }
 
     @Override
     public <N> OperationDefImpl<T, C> conditional(String id, Class<N> contextType,
                                  Consumer<ConditionalOperationDef<T, N>> configurer) {
-        return members.conditional(id, contextType, MapperRef.passThrough(), configurer);
+        return members.conditional(id, contextType, MapperRef.passThrough(), configurer, false);
     }
 
     @Override
     public <N> OperationDefImpl<T, C> conditional(String id, Class<N> contextType, ContextMapper<C, N> mapper,
                                  Consumer<ConditionalOperationDef<T, N>> configurer) {
-        return members.conditional(id, contextType, MapperRef.inline(mapper), configurer);
+        return members.conditional(id, contextType, MapperRef.inline(mapper), configurer, false);
     }
 
     @Override
     public <N> OperationDefImpl<T, C> operation(String id, Class<N> contextType,
                                Consumer<OperationDef<T, N>> configurer) {
-        return members.operation(id, contextType, MapperRef.passThrough(), configurer);
+        return members.operation(id, contextType, MapperRef.passThrough(), configurer, false);
     }
 
     @Override
     public <N> OperationDefImpl<T, C> operation(String id, Class<N> contextType, ContextMapper<C, N> mapper,
                                Consumer<OperationDef<T, N>> configurer) {
-        return members.operation(id, contextType, MapperRef.inline(mapper), configurer);
+        return members.operation(id, contextType, MapperRef.inline(mapper), configurer, false);
+    }
+
+    @Override
+    public <N> OperationDefImpl<T, C> forkStep(String id, Class<N> contextType,
+                                               Action<T, N> action) {
+        return members.step(id, contextType, MapperRef.passThrough(), action, true);
+    }
+
+    @Override
+    public <N> OperationDefImpl<T, C> forkStep(String id, Class<N> contextType,
+                                               ContextMapper<C, N> mapper, Action<T, N> action) {
+        return members.step(id, contextType, MapperRef.inline(mapper), action, true);
+    }
+
+    @Override
+    public <N> OperationDefImpl<T, C> forkStep(String id, Class<N> contextType,
+                                               Consumer<StepDef<T, N>> configurer) {
+        return members.step(id, contextType, MapperRef.passThrough(), configurer, true);
+    }
+
+    @Override
+    public <N> OperationDefImpl<T, C> forkStep(String id, Class<N> contextType,
+                                               ContextMapper<C, N> mapper,
+                                               Consumer<StepDef<T, N>> configurer) {
+        return members.step(id, contextType, MapperRef.inline(mapper), configurer, true);
+    }
+
+    @Override
+    public <N> OperationDefImpl<T, C> forkConditional(String id, Class<N> contextType,
+                                                      Consumer<ConditionalOperationDef<T, N>> configurer) {
+        return members.conditional(id, contextType, MapperRef.passThrough(), configurer, true);
+    }
+
+    @Override
+    public <N> OperationDefImpl<T, C> forkConditional(String id, Class<N> contextType,
+                                                      ContextMapper<C, N> mapper,
+                                                      Consumer<ConditionalOperationDef<T, N>> configurer) {
+        return members.conditional(id, contextType, MapperRef.inline(mapper), configurer, true);
+    }
+
+    @Override
+    public <N> OperationDefImpl<T, C> forkOperation(String id, Class<N> contextType,
+                                                    Consumer<OperationDef<T, N>> configurer) {
+        return members.operation(id, contextType, MapperRef.passThrough(), configurer, true);
+    }
+
+    @Override
+    public <N> OperationDefImpl<T, C> forkOperation(String id, Class<N> contextType,
+                                                    ContextMapper<C, N> mapper,
+                                                    Consumer<OperationDef<T, N>> configurer) {
+        return members.operation(id, contextType, MapperRef.inline(mapper), configurer, true);
     }
 }

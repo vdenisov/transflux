@@ -243,6 +243,68 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
     SELF operation(String id, Consumer<OperationDef<T, C>> configurer);
 
     /**
+     * Forked form of {@link #step(String, Action)} - see {@link #fork(String)} for what forking
+     * changes.
+     * <p>
+     * The action is registered into the enclosing scope exactly as a synchronous inline
+     * declaration is, so a sibling may also {@code run} it in line. Forking is a property of this
+     * position, not of the action declared at it.
+     *
+     * @param id the action id; must be unique across the state machine
+     * @param action the action to invoke
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or {@code action} is
+     *         {@code null}
+     */
+    SELF forkStep(String id, Action<T, C> action);
+
+    /**
+     * Configurer form of {@link #forkStep(String, Action)}, for a member that also wants a name, a
+     * description, or listeners. The configurer must call {@code using(...)} to supply the body.
+     *
+     * @param id the action id; must be unique across the state machine
+     * @param configurer callback that configures the member
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or {@code configurer} is
+     *         {@code null}
+     */
+    SELF forkStep(String id, Consumer<StepDef<T, C>> configurer);
+
+    /**
+     * Forked form of {@link #conditional(String, Consumer)} - see {@link #fork(String)} for what
+     * forking changes. The branch selection runs on the branch too, against the context acquired
+     * at submission.
+     *
+     * @param id the conditional's id; must be unique across the state machine
+     * @param configurer callback that declares the branches
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or {@code configurer} is
+     *         {@code null}
+     */
+    SELF forkConditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer);
+
+    /**
+     * Forked form of {@link #operation(String, Consumer)} - see {@link #fork(String)} for what
+     * forking changes. The whole nested sequence runs on the branch, its members in order, and the
+     * branch owns their rollback: nothing here unwinds the sequence that declared it.
+     *
+     * @param id the operation's id; must be unique across the state machine
+     * @param configurer callback that declares the members
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or {@code configurer} is
+     *         {@code null}
+     */
+    SELF forkOperation(String id, Consumer<OperationDef<T, C>> configurer);
+
+    /**
      * Declares an imperative action inline against a context of its own, running pass-through.
      * <p>
      * Nothing maps at this boundary, so {@code contextType} must accept the enclosing context - it
@@ -385,4 +447,154 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      */
     <N> SELF operation(String id, Class<N> contextType, ContextMapper<C, N> mapper,
                        Consumer<OperationDef<T, N>> configurer);
+
+    /**
+     * Forked form of {@link #step(String, Class, Action)} - see {@link #fork(String)} for what
+     * forking changes.
+     * <p>
+     * Nothing maps at this boundary, so the branch is handed the enclosing context object, and
+     * naming a type here says nothing about whether it is shared - what decides that is whether
+     * the enclosing context implements {@link ForkableContext}.
+     *
+     * @param id the action id; must be unique across the state machine
+     * @param contextType the context the action runs against
+     * @param action the action to invoke
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or either other argument is
+     *         {@code null}
+     */
+    <N> SELF forkStep(String id, Class<N> contextType, Action<T, N> action);
+
+    /**
+     * Forked form of {@link #step(String, Class, ContextMapper, Action)} - see
+     * {@link #fork(String)} for what forking changes. The mapper produces the branch's context on
+     * the submitting thread, so {@link ForkableContext} is not consulted, and its
+     * {@link ContextMapper#mapFrom(Object, Object) mapFrom} is not applied: there is no moment at
+     * which a forked member could write back.
+     *
+     * @param id the action id; must be unique across the state machine
+     * @param contextType the context the action runs against
+     * @param mapper produces the action's context from the enclosing one
+     * @param action the action to invoke
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or any other argument is
+     *         {@code null}
+     */
+    <N> SELF forkStep(String id, Class<N> contextType, ContextMapper<C, N> mapper,
+                      Action<T, N> action);
+
+    /**
+     * Configurer form of {@link #forkStep(String, Class, Action)}, for a member that also wants a
+     * name, a description, or listeners. The configurer must call {@code using(...)} to supply the
+     * body.
+     *
+     * @param id the action id; must be unique across the state machine
+     * @param contextType the context the action runs against
+     * @param configurer callback that configures the member
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or either other argument is
+     *         {@code null}
+     */
+    <N> SELF forkStep(String id, Class<N> contextType, Consumer<StepDef<T, N>> configurer);
+
+    /**
+     * Configurer form of {@link #forkStep(String, Class, ContextMapper, Action)}.
+     *
+     * @param id the action id; must be unique across the state machine
+     * @param contextType the context the action runs against
+     * @param mapper produces the action's context from the enclosing one
+     * @param configurer callback that configures the member
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or any other argument is
+     *         {@code null}
+     */
+    <N> SELF forkStep(String id, Class<N> contextType, ContextMapper<C, N> mapper,
+                      Consumer<StepDef<T, N>> configurer);
+
+    /**
+     * Forked form of {@link #conditional(String, Class, Consumer)} - see {@link #fork(String)} for
+     * what forking changes. It runs pass-through, so the branch is handed the enclosing context
+     * object; see {@link #forkStep(String, Class, Action)} for what that means for sharing.
+     *
+     * @param id the conditional's id; must be unique across the state machine
+     * @param contextType the context the conditional runs against
+     * @param configurer callback that declares the branches
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or either other argument is
+     *         {@code null}
+     */
+    <N> SELF forkConditional(String id, Class<N> contextType,
+                             Consumer<ConditionalOperationDef<T, N>> configurer);
+
+    /**
+     * Forked form of {@link #conditional(String, Class, ContextMapper, Consumer)} - the mapper
+     * produces the branch's context, and does not write back. See
+     * {@link #forkStep(String, Class, ContextMapper, Action)}.
+     *
+     * @param id the conditional's id; must be unique across the state machine
+     * @param contextType the context the conditional runs against
+     * @param mapper produces the conditional's context from the enclosing one
+     * @param configurer callback that declares the branches
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or any other argument is
+     *         {@code null}
+     */
+    <N> SELF forkConditional(String id, Class<N> contextType, ContextMapper<C, N> mapper,
+                             Consumer<ConditionalOperationDef<T, N>> configurer);
+
+    /**
+     * Forked form of {@link #operation(String, Class, Consumer)} - see {@link #fork(String)} for
+     * what forking changes. It runs pass-through, so the branch is handed the enclosing context
+     * object; see {@link #forkStep(String, Class, Action)} for what that means for sharing.
+     *
+     * @param id the operation's id; must be unique across the state machine
+     * @param contextType the context the operation runs against
+     * @param configurer callback that declares the members
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or either other argument is
+     *         {@code null}
+     */
+    <N> SELF forkOperation(String id, Class<N> contextType,
+                           Consumer<OperationDef<T, N>> configurer);
+
+    /**
+     * Forked form of {@link #operation(String, Class, ContextMapper, Consumer)} - the mapper
+     * produces the branch's context, and does not write back. This is how a forked group reaches a
+     * context of its own, which is the fullest isolation a branch can be given. See
+     * {@link #forkStep(String, Class, ContextMapper, Action)}.
+     *
+     * @param id the operation's id; must be unique across the state machine
+     * @param contextType the context the operation runs against
+     * @param mapper produces the operation's context from the enclosing one
+     * @param configurer callback that declares the members
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or any other argument is
+     *         {@code null}
+     */
+    <N> SELF forkOperation(String id, Class<N> contextType, ContextMapper<C, N> mapper,
+                           Consumer<OperationDef<T, N>> configurer);
 }

@@ -332,6 +332,80 @@ class StateMachineImplForkSpec extends Specification {
         sm?.close()
     }
 
+    def 'an inline forked step runs on another thread and stays off both paths'() {
+        given: 'a one-off notification, declared where it runs rather than registered elsewhere'
+        def done = new CountDownLatch(1)
+        def branchThread = new ConcurrentLinkedQueue<String>()
+        sm = build({ smd -> }, { op ->
+            op.step('commit', { e, c, t -> } as Action)
+                .forkStep('notify', { e, c, t ->
+                    branchThread.add(Thread.currentThread().name)
+                    done.countDown()
+                } as Action)
+        })
+
+        when:
+        def result = sm.executeTransition(new Entity('s1'), 's2')
+        done.await(WAIT_SECONDS, TimeUnit.SECONDS)
+
+        then:
+        result.success
+        branchThread.first() != Thread.currentThread().name
+        result.executedPath*.toString() == ['op', 'op/commit']
+        result.compensatedPath.isEmpty()
+    }
+
+    def 'an inline forked operation runs its whole member list, in order, on the branch'() {
+        given:
+        def done = new CountDownLatch(2)
+        def order = new ConcurrentLinkedQueue<String>()
+        sm = build({ smd -> }, { op ->
+            op.forkOperation('group', { OperationDef<Entity, Object> inner ->
+                inner.step('first', { e, c, t -> order.add('first'); done.countDown() } as Action)
+                    .step('second', { e, c, t -> order.add('second'); done.countDown() } as Action)
+            } as Consumer)
+        })
+
+        when:
+        def result = sm.executeTransition(new Entity('s1'), 's2')
+        done.await(WAIT_SECONDS, TimeUnit.SECONDS)
+
+        then: 'the group left the transition whole, and kept its declaration order once there'
+        result.success
+        result.executedPath*.toString() == ['op']
+        order.toList() == ['first', 'second']
+    }
+
+    def 'an inline forked conditional selects a branch on the branch'() {
+        given:
+        def done = new CountDownLatch(1)
+        def taken = new ConcurrentLinkedQueue<String>()
+        sm = build({ smd -> }, { op ->
+            op.forkConditional('route', { cs ->
+                cs.branch('critical', { b ->
+                    b.condition('always', { e -> true } as Predicate)
+                        .step('escalate', { e, c, t ->
+                            taken.add('critical')
+                            done.countDown()
+                        } as Action)
+                } as Consumer)
+                    .branch('routine', { b ->
+                        b.condition('never', { e -> false } as Predicate)
+                            .step('ignore', { e, c, t -> taken.add('routine') } as Action)
+                    } as Consumer)
+            } as Consumer)
+        })
+
+        when:
+        def result = sm.executeTransition(new Entity('s1'), 's2')
+        done.await(WAIT_SECONDS, TimeUnit.SECONDS)
+
+        then:
+        result.success
+        result.executedPath*.toString() == ['op']
+        taken.toList() == ['critical']
+    }
+
     private StateMachine<Entity> buildOnTransition(Closure registrations, Closure members) {
         def smd = new StateMachineDefImpl<Entity>()
         StateMachineDef<Entity> builder = smd.forEntityType(Entity)

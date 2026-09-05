@@ -169,7 +169,7 @@ class TransitionDefImplSpec extends Specification {
         memberIds(transitionDef) == ['op1']
 
         and: 'the configurer reached the member def, not the body'
-        def def0 = transitionDef.actionDef.members.members()[0].ref().def()
+        def def0 = transitionDef.actionDef.getMembers()[0].ref().def()
         def0.name == 'Foo'
         def0.description == 'Foo desc'
     }
@@ -199,7 +199,7 @@ class TransitionDefImplSpec extends Specification {
         then:
         returned.is(transitionDef)
         memberIds(transitionDef) == ['op1']
-        transitionDef.actionDef.members.members()[0].ref() instanceof ActionRef.InlineOperation
+        transitionDef.actionDef.getMembers()[0].ref() instanceof ActionRef.InlineOperation
     }
 
     def 'operation(id, Consumer) should reject null configurer'() {
@@ -269,7 +269,7 @@ class TransitionDefImplSpec extends Specification {
 
         then:
         memberIds(td) == ['my-registered-op']
-        td.actionDef.members.members()[0].ref() instanceof ActionRef.ById
+        td.actionDef.getMembers()[0].ref() instanceof ActionRef.ById
     }
 
     def 'run(null) and run(blank) are rejected'() {
@@ -312,7 +312,7 @@ class TransitionDefImplSpec extends Specification {
 
         then:
         memberIds(td) == ['first', 'second', 'third']
-        td.actionDef.members.members()*.forked() == [false, false, true]
+        td.actionDef.getMembers()*.forked() == [false, false, true]
     }
 
     def 'a member declared after the configurer returns is rejected, naming the transition'() {
@@ -377,6 +377,6 @@ class TransitionDefImplSpec extends Specification {
 
 
     private static List<String> memberIds(TransitionDefImpl<?, ?> td) {
-        return td.actionDef.members.members()*.ref()*.id()
+        return td.actionDef.getMembers()*.ref()*.id()
     }
 }

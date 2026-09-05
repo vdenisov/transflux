@@ -324,6 +324,31 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
+    public TransitionDef<T, C> forkStep(String id, Action<T, C> action) {
+        body.forkStep(id, action);
+        return this;
+    }
+
+    @Override
+    public TransitionDef<T, C> forkStep(String id, Consumer<StepDef<T, C>> configurer) {
+        body.forkStep(id, configurer);
+        return this;
+    }
+
+    @Override
+    public TransitionDef<T, C> forkConditional(String id,
+                                               Consumer<ConditionalOperationDef<T, C>> configurer) {
+        body.forkConditional(id, configurer);
+        return this;
+    }
+
+    @Override
+    public TransitionDef<T, C> forkOperation(String id, Consumer<OperationDef<T, C>> configurer) {
+        body.forkOperation(id, configurer);
+        return this;
+    }
+
+    @Override
     public <N> TransitionDef<T, C> step(String id, Class<N> contextType, Action<T, N> action) {
         body.step(id, contextType, action);
         return this;
@@ -377,6 +402,64 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
                                              ContextMapper<C, N> mapper,
                                              Consumer<OperationDef<T, N>> configurer) {
         body.operation(id, contextType, mapper, configurer);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> forkStep(String id, Class<N> contextType, Action<T, N> action) {
+        body.forkStep(id, contextType, action);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> forkStep(String id, Class<N> contextType,
+                                            ContextMapper<C, N> mapper, Action<T, N> action) {
+        body.forkStep(id, contextType, mapper, action);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> forkStep(String id, Class<N> contextType,
+                                            Consumer<StepDef<T, N>> configurer) {
+        body.forkStep(id, contextType, configurer);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> forkStep(String id, Class<N> contextType,
+                                            ContextMapper<C, N> mapper,
+                                            Consumer<StepDef<T, N>> configurer) {
+        body.forkStep(id, contextType, mapper, configurer);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> forkConditional(String id, Class<N> contextType,
+                                                   Consumer<ConditionalOperationDef<T, N>> configurer) {
+        body.forkConditional(id, contextType, configurer);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> forkConditional(String id, Class<N> contextType,
+                                                   ContextMapper<C, N> mapper,
+                                                   Consumer<ConditionalOperationDef<T, N>> configurer) {
+        body.forkConditional(id, contextType, mapper, configurer);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> forkOperation(String id, Class<N> contextType,
+                                                 Consumer<OperationDef<T, N>> configurer) {
+        body.forkOperation(id, contextType, configurer);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> forkOperation(String id, Class<N> contextType,
+                                                 ContextMapper<C, N> mapper,
+                                                 Consumer<OperationDef<T, N>> configurer) {
+        body.forkOperation(id, contextType, mapper, configurer);
         return this;
     }
 

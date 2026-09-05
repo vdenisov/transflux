@@ -18,21 +18,33 @@
 
 package org.transflux.core.impl
 
+import org.transflux.core.action.Action
 import org.transflux.core.action.ContextMapper
 import org.transflux.core.exception.TransfluxValidationException
+import org.transflux.core.transition.ExecutingTransition
 import spock.lang.Specification
 import spock.lang.Unroll
 
+import java.util.function.Consumer
+import java.util.function.Predicate
+
 
 /**
- * The {@code fork} half of a container's reference grammar: the same eight call shapes {@code run}
- * offers, recorded at the same positions.
+ * The asynchronous half of a container's member grammar: {@code fork} mirroring the reference
+ * shapes {@code run} offers, and {@code forkStep} / {@code forkOperation} / {@code forkConditional}
+ * mirroring the declaring ones, each recorded at the same position its synchronous twin is.
  */
 class OperationDefImplForkSpec extends Specification {
 
     static class PassThroughMapper implements ContextMapper<Object, Object> {
         @Override
         Object mapTo(Object parent) { return parent }
+    }
+
+    static class NoopAction implements Action<Object, Object> {
+        @Override
+        void execute(Object entity, Object context, ExecutingTransition<Object, Object> view) {
+        }
     }
 
     def 'every fork overload records a member, in declaration order'() {
@@ -120,6 +132,73 @@ class OperationDefImplForkSpec extends Specification {
         'a null inline mapper' || { it.fork('a', (ContextMapper) null) }
     }
 
+
+    @Unroll
+    def 'forked declaration #form records a forked member'() {
+        given:
+        def def_ = openOperation()
+
+        when:
+        call.call(def_)
+
+        then: 'one member, and the flag the verb asked for'
+        def_.getMembers()*.ref()*.id() == ['a']
+        def_.getMembers()*.forked() == [true]
+
+        where:
+        form                              || call
+        'forkStep(id, action)'            || { it.forkStep('a', new NoopAction()) }
+        'forkStep(id, cfg)'               || { it.forkStep('a', { st -> st.using(new NoopAction()) } as Consumer) }
+        'forkStep(id, ctx, action)'       || { it.forkStep('a', String, new NoopAction()) }
+        'forkStep(id, ctx, map, action)'  || { it.forkStep('a', String, new PassThroughMapper(), new NoopAction()) }
+        'forkStep(id, ctx, cfg)'          || { it.forkStep('a', String, { st -> st.using(new NoopAction()) } as Consumer) }
+        'forkStep(id, ctx, map, cfg)'     || { it.forkStep('a', String, new PassThroughMapper(), { st -> st.using(new NoopAction()) } as Consumer) }
+        'forkOperation(id, cfg)'          || { it.forkOperation('a', { op -> op } as Consumer) }
+        'forkOperation(id, ctx, cfg)'     || { it.forkOperation('a', String, { op -> op } as Consumer) }
+        'forkOperation(id, ctx, map, cfg)'|| { it.forkOperation('a', String, new PassThroughMapper(), { op -> op } as Consumer) }
+        'forkConditional(id, cfg)'        || { it.forkConditional('a', branches) }
+        'forkConditional(id, ctx, cfg)'   || { it.forkConditional('a', String, branches) }
+        'forkConditional(id, ctx, map, cfg)' || { it.forkConditional('a', String, new PassThroughMapper(), branches) }
+    }
+
+    def 'a forked declaration sits in one ordered list beside its synchronous siblings'() {
+        given:
+        def def_ = openOperation()
+
+        when:
+        def_.step('first', new NoopAction())
+            .forkStep('second', new NoopAction())
+            .run('third')
+
+        then:
+        def_.getMembers()*.ref()*.id() == ['first', 'second', 'third']
+        def_.getMembers()*.forked() == [false, true, false]
+    }
+
+    @Unroll
+    def '#verb held past its configurer is rejected, naming the verb and the operation'() {
+        given: 'a def whose configurer has returned'
+        def def_ = new OperationDefImpl<Object, Object>('op1')
+
+        when:
+        call.call(def_)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("operation 'op1'")
+        e.message.contains(verb)
+
+        where:
+        verb              || call
+        'forkStep'        || { it.forkStep('a', new NoopAction()) }
+        'forkOperation'   || { it.forkOperation('a', { op -> op } as Consumer) }
+        'forkConditional' || { it.forkConditional('a', branches) }
+    }
+
+    /** A conditional configurer with one always-taken branch, so every shape has a body to build. */
+    private static Consumer branches = { cs ->
+        cs.branch('taken', { b -> b.condition('always', { e -> true } as Predicate) } as Consumer)
+    } as Consumer
 
     private static OperationDefImpl<Object, Object> openOperation() {
         def def_ = new OperationDefImpl<Object, Object>('op1')

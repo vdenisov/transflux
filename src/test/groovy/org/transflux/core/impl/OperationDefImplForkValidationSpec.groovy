@@ -156,6 +156,31 @@ class OperationDefImplForkValidationSpec extends Specification {
         messages.find { it.contains('Forked member shares') }.contains('actionId=other')
     }
 
+    def 'an inline forked declaration warns exactly as a forked reference does'() {
+        when: 'the member is declared here rather than named, but shares the same context'
+        def messages = buildCapturingValidation(PlainCtx, { smd -> }, { op ->
+            op.forkStep('inline-send', new NoopAction())
+        })
+
+        then: 'the check keys on the fork flag, not on how the member was authored'
+        def warning = messages.find { it.contains('Forked member shares the enclosing context') }
+        warning != null
+        warning.contains("contextOwner=transition 't'")
+        warning.contains("declaredIn=transition 't' > operation 'op'")
+        warning.contains('actionId=inline-send')
+        warning.contains("contextType=${PlainCtx.name}")
+    }
+
+    def 'an inline forked declaration with a mapper warns about nothing'() {
+        when:
+        def messages = buildCapturingValidation(PlainCtx, { smd -> }, { op ->
+            op.forkStep('inline-send', Object, new MapToOnly(), new NoopAction())
+        })
+
+        then: 'the mapper produces the branch context, so there is nothing left to share'
+        messages.every { !it.contains('Forked member') }
+    }
+
     def 'a synchronous member never warns'() {
         when:
         def messages = buildCapturingValidation(PlainCtx, { smd -> }, { op -> op.run('send') })

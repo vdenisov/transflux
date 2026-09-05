@@ -273,7 +273,29 @@ class JavaDslSurfaceSpec extends Specification {
 
         and: 'the forked members still run, landing after the transition returned'
         waitFor { order.trail.count { it == 'notify:o-1' } == 4 }
-        waitFor { order.trail.count { it == 'recording' } == 5 }
+        waitFor { order.trail.count { it == 'recording' } == 7 }
+        waitFor { order.trail.contains('t-forked') }
+
+        cleanup:
+        sm.close()
+    }
+
+    def 'every inline forked declaration builds, and each one leaves the transition'() {
+        given:
+        def sm = JavaDslSurface.forkedDeclarationShapes()
+        def order = new JavaDslSurface.Order()
+
+        when:
+        def result = sm.entity(order).transitionTo('s2', new JavaDslSurface.OrderCtx())
+
+        then: 'only the container that holds them is on the path; twelve members are not'
+        result.success
+        result.executedPath*.toString() == ['op']
+
+        and: 'one of each context shape lands on a branch'
+        waitFor { order.trail.contains('f-instance') }
+        waitFor { order.trail.contains('f-pt:o-1') }
+        waitFor { order.trail.contains('f-mapped:o-1') }
 
         cleanup:
         sm.close()

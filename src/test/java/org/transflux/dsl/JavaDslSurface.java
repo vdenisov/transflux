@@ -27,8 +27,8 @@ import org.transflux.core.action.ForkRejectionPolicy;
 import org.transflux.core.action.ForkableContext;
 import org.transflux.core.transition.ExecutingTransition;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Every DSL call shape a host would write, written the way a host writes it: in Java, from outside
@@ -53,10 +53,13 @@ public final class JavaDslSurface {
         // fixture holder — no instances
     }
 
-    /** The entity every fixture below transitions. */
+    /**
+     * The entity every fixture below transitions. The trail is concurrent because forked members
+     * write to it from the pool while the synchronous path is still writing from this thread.
+     */
     public static final class Order {
         public String state = "s1";
-        public final List<String> trail = new ArrayList<>();
+        public final List<String> trail = new CopyOnWriteArrayList<>();
     }
 
     /** A supertype of the transition's context, so a pass-through declaration has room to widen. */
@@ -209,6 +212,14 @@ public final class JavaDslSurface {
                                 .fork("record")
                                 .fork("notify", "notify-from-order")
                                 .fork("notify", parent -> new NotifyCtx(parent.orderId))
+                                .forkStep("branch-forked",
+                                          (order, ctx, view) -> order.trail.add("branch-forked"))
+                                .forkOperation("branch-forked-group", g -> g
+                                    .step("branch-forked-member", new RecordingAction()))
+                                .forkConditional("branch-forked-route", fc -> fc
+                                    .branch("branch-forked-taken", fb -> fb
+                                        .condition("branch-forked-always", (order, ctx) -> true)
+                                        .run("record")))
                                 .conditional("nested-in-branch", inner -> inner
                                     .branch("deep", ib -> ib
                                         .condition("deep-cond", (order, ctx) -> true)
@@ -222,6 +233,14 @@ public final class JavaDslSurface {
                                     .using(new RecordingAction())
                                     .withName("In the default branch"))
                                 .fork("record")
+                                .forkStep("default-forked",
+                                          (order, ctx, view) -> order.trail.add("default-forked"))
+                                .forkOperation("default-forked-group", g -> g
+                                    .step("default-forked-member", new RecordingAction()))
+                                .forkConditional("default-forked-route", dfc -> dfc
+                                    .branch("default-forked-taken", fb -> fb
+                                        .condition("default-forked-always", (order, ctx) -> true)
+                                        .run("record")))
                                 .conditional("nested-in-default", inner -> inner
                                     .branch("deep-default", ib -> ib
                                         .condition("deep-default-cond", (order, ctx) -> true)
@@ -587,7 +606,76 @@ public final class JavaDslSurface {
                     // and fork, beside a synchronous member rather than inside a wrapper
                     .fork("record")
                     .fork("notify", "notify-from-order")
-                    .fork("notify", parent -> new NotifyCtx(parent.orderId))))
+                    .fork("notify", parent -> new NotifyCtx(parent.orderId))
+                    .forkStep("t-forked", (order, ctx, view) -> order.trail.add("t-forked"))
+                    .forkOperation("t-forked-group", g -> g
+                        .step("t-forked-member", new RecordingAction()))
+                    .forkConditional("t-forked-route", cond -> cond
+                        .branch("t-forked-taken", b -> b
+                            .condition("t-forked-always", (order, ctx) -> true)
+                            .run("record")))))
+            .state("s2", s -> { })
+            .build();
+    }
+
+    /**
+     * Every inline forked declaration, in each of its three context shapes. They mirror
+     * {@link #declaredContextShapes()} verb for verb; what they add is that a declaration and a
+     * fork can be written as one thing, which needed a registered component and a reference before.
+     * <p>
+     * The lambda-mapper block is the load-bearing one again: {@code ContextMapper} and
+     * {@code Consumer} are indistinguishable to javac at an implicitly-typed lambda, which is why
+     * these are named verbs rather than {@code fork} overloads.
+     *
+     * @return the built state machine, which owns a pool and must be closed
+     */
+    public static StateMachine<Order> forkedDeclarationShapes() {
+        return Transflux.<Order>defineStateMachine()
+            .forEntityType(Order.class)
+            .withStateResolver(o -> o.state)
+            .withStateApplier((o, s) -> o.state = s)
+            .step("record", new RecordingAction())
+            .state("s1", s -> s
+                .transitionsTo("s2", "t", OrderCtx.class, t -> t
+                    .operation("op", c -> c
+                        // inheriting the enclosing context
+                        .forkStep("f-instance", (order, ctx, view) -> order.trail.add("f-instance"))
+                        .forkStep("f-configured", st -> st
+                            .using(new RecordingAction())
+                            .withName("Forked"))
+                        .forkOperation("f-group", g -> g.run("record"))
+                        .forkConditional("f-route", cond -> cond
+                            .branch("f-taken", b -> b
+                                .condition("f-always", (order, ctx) -> true)
+                                .run("record")))
+
+                        // declaring a context of their own, pass-through
+                        .forkStep("f-pt-instance", HasOrderId.class,
+                                  (order, ctx, view) -> order.trail.add("f-pt:" + ctx.orderId()))
+                        .forkStep("f-pt-configured", HasOrderId.class,
+                                  st -> st.using(new IgnoresContext()).withName("Widened fork"))
+                        .forkOperation("f-pt-group", HasOrderId.class, g -> g
+                            .step("f-pt-member",
+                                  (order, ctx, view) -> order.trail.add("f-pt-member")))
+                        .forkConditional("f-pt-route", HasOrderId.class, cond -> cond
+                            .branch("f-pt-taken", b -> b
+                                .condition("f-pt-always", (order, ctx) -> true)
+                                .step("f-pt-branch-member", new IgnoresContext())))
+
+                        // declaring a context of their own, produced by a mapper written inline
+                        .forkStep("f-mapped-instance", NotifyCtx.class,
+                                  parent -> new NotifyCtx(parent.orderId), new NotifyAction())
+                        .forkStep("f-mapped-configured", NotifyCtx.class, new NotifyFromOrder(),
+                                  st -> st.using(new NotifyAction()).withName("Mapped fork"))
+                        .forkOperation("f-mapped-group", NotifyCtx.class,
+                                       parent -> new NotifyCtx(parent.orderId), g -> g
+                            .step("f-mapped-member",
+                                  (order, ctx, view) -> order.trail.add("f-mapped:" + ctx.orderId)))
+                        .forkConditional("f-mapped-route", NotifyCtx.class,
+                                         parent -> new NotifyCtx(parent.orderId), cond -> cond
+                            .branch("f-mapped-taken", b -> b
+                                .condition("f-mapped-always", (order, ctx) -> true)
+                                .step("f-mapped-branch-member", new NotifyAction()))))))
             .state("s2", s -> { })
             .build();
     }

@@ -257,6 +257,28 @@ class StateMachineImplAsyncExecutorSpec extends Specification {
         sm.close()
     }
 
+    def 'a definition whose only fork is an inline declaration still builds a pool'() {
+        given: 'nothing is registered to reference, so the walk has to see the declaration itself'
+        def done = new CountDownLatch(1)
+        capture = LogCapture.start('org.transflux.execution.async')
+        def sm = build({ smd -> },
+                       { op ->
+                           op.forkStep('notify', { e, c, t -> done.countDown() } as Action)
+                       }, { smd -> })
+
+        when:
+        def result = sm.executeTransition(new Entity('s1'), 's2')
+        done.await(WAIT_SECONDS, TimeUnit.SECONDS)
+
+        then:
+        result.success
+        done.count == 0
+        capture.messages().any { it.contains('Async pool created') }
+
+        cleanup:
+        sm.close()
+    }
+
     def 'a definition that forks only from a transition-attached conditional still builds a pool'() {
         given: 'the fork walk reaches an attached conditional, which is not an operation'
         def done = new CountDownLatch(1)

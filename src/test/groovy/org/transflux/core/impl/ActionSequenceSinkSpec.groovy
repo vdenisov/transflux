@@ -52,12 +52,13 @@ class ActionSequenceSinkSpec extends Specification {
         when:
         sink.run('a')
         sink.fork('b')
-        sink.step('c', new NoopStep())
-        sink.conditional('d', { cond -> cond })
-        sink.operation('e', { op -> op })
+        sink.step('c', new NoopStep(), false)
+        sink.conditional('d', { cond -> cond }, false)
+        sink.operation('e', { op -> op }, false)
+        sink.step('f', new NoopStep(), true)
 
         then:
-        sink.members()*.ref()*.id() == ['a', 'b', 'c', 'd', 'e']
+        sink.members()*.ref()*.id() == ['a', 'b', 'c', 'd', 'e', 'f']
     }
 
     def 'only a fork-declared member carries the flag'() {
@@ -65,12 +66,15 @@ class ActionSequenceSinkSpec extends Specification {
         def owner = openOwner()
         def sink = new ActionSequenceSink<Object, Object, Object>(owner, owner)
 
-        when:
+        when: 'a reference and a declaration of each disposition'
         sink.run('a')
         sink.fork('b')
+        sink.step('c', new NoopStep(), false)
+        sink.step('d', new NoopStep(), true)
+        sink.operation('e', { op -> op }, true)
 
-        then:
-        sink.members()*.forked() == [false, true]
+        then: 'the flag belongs to the call site, whichever verb wrote the member'
+        sink.members()*.forked() == [false, true, false, true, true]
     }
 
     def 'the member view is unmodifiable'() {
@@ -115,12 +119,15 @@ class ActionSequenceSinkSpec extends Specification {
         e.message.contains("owner 'o1'")
 
         where:
-        verb          | call
-        'run'         | { target -> target.run('a') }
-        'fork'        | { target -> target.fork('a') }
-        'step'        | { target -> target.step('a', new NoopStep()) }
-        'conditional' | { target -> target.conditional('a', { cond -> cond }) }
-        'operation'   | { target -> target.operation('a', { op -> op }) }
+        verb              | call
+        'run'             | { target -> target.run('a') }
+        'fork'            | { target -> target.fork('a') }
+        'step'            | { target -> target.step('a', new NoopStep(), false) }
+        'conditional'     | { target -> target.conditional('a', { cond -> cond }, false) }
+        'operation'       | { target -> target.operation('a', { op -> op }, false) }
+        'forkStep'        | { target -> target.step('a', new NoopStep(), true) }
+        'forkConditional' | { target -> target.conditional('a', { cond -> cond }, true) }
+        'forkOperation'   | { target -> target.operation('a', { op -> op }, true) }
     }
 
     private static Owner openOwner() {

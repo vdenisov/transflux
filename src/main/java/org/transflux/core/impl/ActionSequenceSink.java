@@ -94,95 +94,110 @@ final class ActionSequenceSink<T, C, D> {
         return reference("fork", id, inlineMapper, true);
     }
 
-    D step(String id, Action<T, C> action) {
-        owner.requireConfigurerActive("step");
-        members.add(new DeclaredMember<>(ActionRef.inline(id, action, ActionKind.STEP), false));
+    D step(String id, Action<T, C> action, boolean forked) {
+        owner.requireConfigurerActive(verb("step", forked));
+        members.add(new DeclaredMember<>(ActionRef.inline(id, action, ActionKind.STEP), forked));
         return self;
     }
 
-    D step(String id, Consumer<StepDef<T, C>> configurer) {
-        owner.requireConfigurerActive("step");
+    D step(String id, Consumer<StepDef<T, C>> configurer, boolean forked) {
+        owner.requireConfigurerActive(verb("step", forked));
         requireNotBlank(id, "Step ID");
         requireNotNull(configurer, "Step configurer");
         StepDefImpl<T, C> def = new StepDefImpl<>(id);
         ConfigurableDefImpl.runConfigurer(def, configurer);
-        members.add(new DeclaredMember<>(ActionRef.inline(id, def), false));
+        members.add(new DeclaredMember<>(ActionRef.inline(id, def), forked));
         return self;
     }
 
-    <N> D step(String id, Class<N> contextType, MapperRef mapperRef, Action<T, N> action) {
-        return typedStep(id, contextType, mapperRef, def -> def.using(action));
+    <N> D step(String id, Class<N> contextType, MapperRef mapperRef, Action<T, N> action,
+               boolean forked) {
+        return typedStep(id, contextType, mapperRef, def -> def.using(action), forked);
     }
 
     <N> D step(String id, Class<N> contextType, MapperRef mapperRef,
-               Consumer<StepDef<T, N>> configurer) {
+               Consumer<StepDef<T, N>> configurer, boolean forked) {
         requireNotNull(configurer, "Step configurer");
-        return typedStep(id, contextType, mapperRef, configurer);
+        return typedStep(id, contextType, mapperRef, configurer, forked);
     }
 
-    D conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer) {
-        owner.requireConfigurerActive("conditional");
+    D conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer,
+                  boolean forked) {
+        owner.requireConfigurerActive(verb("conditional", forked));
         requireNotBlank(id, "Conditional operation ID");
         requireNotNull(configurer, "Conditional configurer");
 
         ConditionalOperationDefImpl<T, C> def = new ConditionalOperationDefImpl<>(id);
         ConfigurableDefImpl.runConfigurer(def, configurer);
-        members.add(new DeclaredMember<>(ActionRef.conditional(id, def), false));
+        members.add(new DeclaredMember<>(ActionRef.conditional(id, def), forked));
 
         return self;
     }
 
     <N> D conditional(String id, Class<N> contextType, MapperRef mapperRef,
-                      Consumer<ConditionalOperationDef<T, N>> configurer) {
-        owner.requireConfigurerActive("conditional");
+                      Consumer<ConditionalOperationDef<T, N>> configurer, boolean forked) {
+        owner.requireConfigurerActive(verb("conditional", forked));
         requireNotBlank(id, "Conditional operation ID");
         requireNotNull(contextType, "Conditional context type");
         requireNotNull(configurer, "Conditional configurer");
 
         ConditionalOperationDefImpl<T, N> def = new ConditionalOperationDefImpl<>(id, contextType);
         ConfigurableDefImpl.runConfigurer(def, configurer);
-        members.add(new DeclaredMember<>(ActionRef.conditional(id, erase(def), mapperRef), false));
+        members.add(new DeclaredMember<>(ActionRef.conditional(id, erase(def), mapperRef),
+                                         forked));
 
         return self;
     }
 
-    D operation(String id, Consumer<OperationDef<T, C>> configurer) {
-        owner.requireConfigurerActive("operation");
+    D operation(String id, Consumer<OperationDef<T, C>> configurer, boolean forked) {
+        owner.requireConfigurerActive(verb("operation", forked));
         requireNotBlank(id, "Operation ID");
         requireNotNull(configurer, "Operation configurer");
 
         OperationDefImpl<T, C> def = new OperationDefImpl<>(id);
         ConfigurableDefImpl.runConfigurer(def, configurer);
-        members.add(new DeclaredMember<>(ActionRef.operation(id, def), false));
+        members.add(new DeclaredMember<>(ActionRef.operation(id, def), forked));
 
         return self;
     }
 
     <N> D operation(String id, Class<N> contextType, MapperRef mapperRef,
-                    Consumer<OperationDef<T, N>> configurer) {
-        owner.requireConfigurerActive("operation");
+                    Consumer<OperationDef<T, N>> configurer, boolean forked) {
+        owner.requireConfigurerActive(verb("operation", forked));
         requireNotBlank(id, "Operation ID");
         requireNotNull(contextType, "Operation context type");
         requireNotNull(configurer, "Operation configurer");
 
         OperationDefImpl<T, N> def = new OperationDefImpl<>(id, contextType);
         ConfigurableDefImpl.runConfigurer(def, configurer);
-        members.add(new DeclaredMember<>(ActionRef.operation(id, erase(def), mapperRef), false));
+        members.add(new DeclaredMember<>(ActionRef.operation(id, erase(def), mapperRef),
+                                         forked));
 
         return self;
     }
 
     private <N> D typedStep(String id, Class<N> contextType, MapperRef mapperRef,
-                            Consumer<StepDef<T, N>> configurer) {
-        owner.requireConfigurerActive("step");
+                            Consumer<StepDef<T, N>> configurer, boolean forked) {
+        owner.requireConfigurerActive(verb("step", forked));
         requireNotBlank(id, "Step ID");
         requireNotNull(contextType, "Step context type");
 
         StepDefImpl<T, N> def = new StepDefImpl<>(id, contextType);
         ConfigurableDefImpl.runConfigurer(def, configurer);
-        members.add(new DeclaredMember<>(ActionRef.inline(id, erase(def), mapperRef), false));
+        members.add(new DeclaredMember<>(ActionRef.inline(id, erase(def), mapperRef), forked));
 
         return self;
+    }
+
+    /**
+     * Names the verb a declaration was written with, so the configurer guard rejects the call the
+     * host actually made rather than its synchronous twin. The two spellings of one authoring form
+     * differ in nothing but the flag.
+     */
+    private static String verb(String form, boolean forked) {
+        return forked
+            ? "fork" + Character.toUpperCase(form.charAt(0)) + form.substring(1)
+            : form;
     }
 
     /**
@@ -449,8 +464,8 @@ final class ActionSequenceSink<T, C, D> {
     }
 
     /**
-     * A member as declared: the reference itself, and whether the declaring verb was
-     * {@code fork}.
+     * A member as declared: the reference itself, and whether the declaring verb was an
+     * asynchronous one.
      * <p>
      * The flag rides beside the reference rather than inside it because forking is a property of
      * the call site, exactly as the call-site mapper is - the same registered action is forked at

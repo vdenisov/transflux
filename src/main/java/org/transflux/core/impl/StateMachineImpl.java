@@ -261,11 +261,13 @@ class StateMachineImpl<T> implements StateMachine<T> {
      * a path with, nothing to capture a compensation for, and no listener to notify. The executor
      * pushes the body's scope and dispatches each member, and every member takes the one execution
      * path from there.
+     * <p>
+     * The entity and context come off the view rather than from the caller: the cast is raw, so
+     * javac cannot check them, and the view is where every member reads them from anyway.
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private static <T, C> void runBody(ExecutingTransitionImpl<T, C> view, BoundAction<T, C> body,
-                                       T entity, C context) {
-        ((Action) body.action()).execute(entity, context, view);
+    private static <T, C> void runBody(ExecutingTransitionImpl<T, C> view, BoundAction<T, C> body) {
+        ((Action) body.action()).execute(view.getEntity(), view.getContext(), view);
     }
 
     StateApplier<T> getStateApplier() {
@@ -865,7 +867,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
             BoundAction<T, C> body = transition.boundAction();
             if (body != null) {
-                runBody(view, body, entity, context);
+                runBody(view, body);
             }
 
             // Thrown rather than returned so a violation unwinds through the catch below, which

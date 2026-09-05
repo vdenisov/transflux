@@ -24,9 +24,9 @@ import spock.lang.Specification
 import java.lang.reflect.ParameterizedType
 
 /**
- * The member grammar is public contract: three positions hold an ordered action list, and a host
+ * The member grammar is public contract: four positions hold an ordered action list, and a host
  * writing one should not have to remember which subset that position happens to admit. Nothing
- * else notices when the three drift apart, so the shape is pinned here.
+ * else notices when they drift apart, so the shape is pinned here.
  */
 class ActionSequenceSpec extends Specification {
 
@@ -61,6 +61,18 @@ class ActionSequenceSpec extends Specification {
             'fork(java.lang.String)',
             'fork(java.lang.String,java.lang.String)',
             'fork(java.lang.String,org.transflux.core.action.ContextMapper)',
+            'forkConditional(java.lang.String,java.lang.Class,java.util.function.Consumer)',
+            'forkConditional(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,java.util.function.Consumer)',
+            'forkConditional(java.lang.String,java.util.function.Consumer)',
+            'forkOperation(java.lang.String,java.lang.Class,java.util.function.Consumer)',
+            'forkOperation(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,java.util.function.Consumer)',
+            'forkOperation(java.lang.String,java.util.function.Consumer)',
+            'forkStep(java.lang.String,java.lang.Class,java.util.function.Consumer)',
+            'forkStep(java.lang.String,java.lang.Class,org.transflux.core.action.Action)',
+            'forkStep(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,java.util.function.Consumer)',
+            'forkStep(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,org.transflux.core.action.Action)',
+            'forkStep(java.lang.String,java.util.function.Consumer)',
+            'forkStep(java.lang.String,org.transflux.core.action.Action)',
             'operation(java.lang.String,java.lang.Class,java.util.function.Consumer)',
             'operation(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,java.util.function.Consumer)',
             'operation(java.lang.String,java.util.function.Consumer)',
@@ -85,9 +97,10 @@ class ActionSequenceSpec extends Specification {
     }
 
     def '#type declares no member form of its own'() {
-        expect: 'the grammar lives in exactly one place, so the three cannot drift'
+        expect: 'the grammar lives in exactly one place, so the four cannot drift'
         type.declaredMethods*.name.toSet()
-            .intersect(['run', 'fork', 'step', 'conditional', 'operation'].toSet()).isEmpty()
+            .intersect(['run', 'fork', 'step', 'conditional', 'operation',
+                        'forkStep', 'forkConditional', 'forkOperation'].toSet()).isEmpty()
 
         where:
         type << SEQUENCES
