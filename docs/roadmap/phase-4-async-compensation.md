@@ -1,4 +1,4 @@
-> Part of the [Transflux roadmap](../../todo.md). In progress — §4.1, §4.2, §4.3 (with §4.3.1 and §4.4's per-branch stacks) and §4.7.1 have landed; the rest is forward-looking. Paused for [Phase 4b](phase-4b-action-sequence-grammar.md), which the remaining items build on.
+> Part of the [Transflux roadmap](../../todo.md). In progress — §4.1, §4.2, §4.3 (with §4.3.1 and §4.4's per-branch stacks) and §4.7.1 have landed; the rest is forward-looking. Resumed: [Phase 4b](../history/phase-4b-action-sequence-grammar.md), which the remaining items build on, has shipped.
 
 ## Phase 4: Async Operations & Error Handling (v0.4.0)
 *Target: The compensation engine, async anchoring, and exception-specific recovery.*
@@ -46,7 +46,7 @@
 
 #### 4.3.2 Deferred from the fork work
 
-- [ ] **Inline forked declarations, reserved as `forkStep(...)`** - moved to [Phase 4b §4b.6](phase-4b-action-sequence-grammar.md), as `forkStep` / `forkOperation` / `forkConditional` on the shared `ActionSequence` grammar. The two constraints found here still hold there: it cannot be an overload of `fork` (the erasure note in §4.3), and forking an inline *operation* needs the inline `operation(...)` member form first, which Phase 4b §4b.3 adds.
+- [x] **Inline forked declarations, reserved as `forkStep(...)`** - shipped in [Phase 4b §4b.6](../history/phase-4b-action-sequence-grammar.md) as `forkStep` / `forkOperation` / `forkConditional` on the shared `ActionSequence` grammar. Both constraints found here held: it is not an overload of `fork` (the erasure note in §4.3), and it needed the inline `operation(...)` member form Phase 4b §4b.3 added.
 - [ ] **A per-fork rejection-policy override.** `withForkRejectionPolicy(...)` is machine-wide, which is the right grain for a stance about saturation but not for a machine that forks both an audit write and a metrics ping. The arithmetic to know before adding it: the policy is a trailing parameter on all seven `fork` overloads, so it is fourteen, and every later addition to the fork grammar doubles again. Additive whenever the evidence turns up. Worth remembering that at one pool per state machine the optional work is already competing for the critical work's queue slots, so the fix for genuinely mixed criticality is a separate executor rather than a policy.
 
 ### 4.4 Async Compensation

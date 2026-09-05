@@ -186,6 +186,12 @@ The unit of work executed during state transitions. `Action<T, C>` is a **pure f
 
 `Action.execute` returns `void`; results flow through the context (see §2.1.5).
 
+##### 2.2.5.1 The Member Grammar
+
+Four things hold an ordered list of actions: a declarative container, a conditional's branch, its default branch, and a transition's body. Every one admits the same ways of filling a position — reference an action by id, optionally through a call-site mapper (§4.5.2), or declare one in place as a step, an operation or a conditional. In Java that invariant is one self-typed interface, `ActionSequence<T, C, SELF>`, which the four def types extend, so each member form is declared exactly once and a chain keeps the concrete type it started on; it is also the type a generic caller walking a member list is written against. Every verb has a forked twin, because whether the enclosing sequence waits for a member is a property of the position rather than of the action named there (§4.4.2).
+
+What differs between the four is what the enclosing thing *is*, not what a member may be. A container is also an action, so it carries an id, a context type, compensation and listeners. A transition carries its states, conditions, triggers and the state commit, and is not an action at all. **A branch is not an operation**: it has a condition, belongs to its conditional, is not independently referenceable, and is not an action — so it shares the member grammar without sharing the contract, which is why a branch has no compensation of its own and no id in the action namespace.
+
 #### 2.2.6 Action Invocation
 
 An action is invoked in one of two ways: as a declared member of an ordered list — a transition's body, a declarative container, or a conditional's branch — or dynamically through `transition.run("id")` from inside another action's body. Both flow through the same internal path, so id recording, timing, nesting, and compensation registration are uniform regardless of who initiated the invocation.
@@ -244,7 +250,7 @@ The three categories differ in what they can tell the host. A state listener ans
 
 **Registration and ordering.** A listener attaches either to a single owner — a state, through `onEntry` / `onExit`; a transition or an action, through `onStart` / `onComplete` / `onError` — or to every owner of that kind, through the `onAnyStateEntry` / `onAnyStateExit` / `onAnyTransitionStart` / `onAnyTransitionComplete` / `onAnyTransitionError` / `onAnyActionStart` / `onAnyActionComplete` / `onAnyActionError` registrations on the state-machine definition. At each hook the owner's own listeners run first, in declaration order, followed by the global ones, also in declaration order. Every listener carries a required id per §2.2.1; listener ids form a single namespace, shared by all three categories and unique across the state machine.
 
-**An action listener attaches to the action, not to the call site.** It is declared on the action's own definition and fires at every invocation of that action — as a transition's attachment, as a container member, as a conditional branch member, and when another action's body dispatches it by id. Which observers an action has is a property of the action, exactly as its compensation is; a by-id reference therefore carries no listener attachment of its own, and needs none. The consequence to expect is that a transition's root action notifies at almost the same moment as the transition's own start hook. It still fires: a listener walking the execution tree wants the root node too.
+**An action listener attaches to the action, not to the call site.** It is declared on the action's own definition and fires at every invocation of that action — as a member of a transition's body, as a container member, as a conditional branch member, and when another action's body dispatches it by id. Which observers an action has is a property of the action, exactly as its compensation is; a by-id reference therefore carries no listener attachment of its own, and needs none. A transition's body is not itself an action (§2.2.5.1), so nothing notifies for it: the first action notification of a transition is its first member's, and there is no root node above that to observe.
 
 **Complete and error partition the outcomes.** Exactly one of them follows every start notification, and neither occurs without one. This holds for transitions and for actions alike. Two consequences follow. A transition rejected by a pre-condition notifies nothing at all — it never reached the start hook, which §2.4 places after the pre-conditions, and the host already learns of the rejection from the returned `TransitionResult`. And a completion listener never has to check whether the transition actually worked, because a failure reaches the error hook instead. For actions the error hook fires at *every* enclosing level as the failure propagates outwards, each reporting the same throwable: a container whose member threw did fail, and the whole subtree failed with it.
 
@@ -990,7 +996,23 @@ operations:
               
       - step: finalize
         class: com.example.actions.FinalizeActivationStep
-        
+
+      # Forked members: submitted at this position, and not waited for
+      - run: async-notifications
+        fork: true
+
+      - run: external-integrations
+        fork: true
+        mapper: notification-from-activation
+
+      # The flag rides on a declaring entry too, so a one-off group can be
+      # declared where it is forked rather than registered and referenced
+      - operation: reconciliation-sweep
+        fork: true
+        actions:
+          - run: refresh-projections
+          - run: emit-audit-record
+
     # Unconditional rollback for this operation — the fallback when no route below answers
     compensation: com.example.compensations.GeneralCompensation
 
@@ -1002,21 +1024,15 @@ operations:
 
       - exception: com.example.exceptions.GatewayTimeoutException
         compensation: com.example.compensations.ReconcileLaterCompensation
-
-      # Forked members: submitted at this position, and not waited for
-      - run: async-notifications
-        async: true
-
-      - run: external-integrations
-        async: true
-        mapper: notification-from-activation
 ```
 
 > **Error handling is the routing table of §2.2.11.** Each `errorHandling:` entry is one route: `exception:` is the failure type it answers for, the optional `condition:` is its guard over that failure, and `compensation:` is what it runs. Entries are tried in declaration order and the first match wins, so the list is ordered the way a Java `catch` chain is. The unconditional fallback is the owner's own `compensation:` key, exactly as in the Java DSL — there is deliberately no separate "for every exception" entry spelling, since an entry on `java.lang.Exception` and the `compensation:` key would then be two ways to say the same thing with an ordering question between them. The block is accepted on any action, not only on an operation.
 
-> **Parity gap — inline nested operations.** The `- operation: notify-flow` entry above declares a whole child container at a member position. YAML makes inline definitions first-class everywhere a component is accepted (§3.1.2), so the grammar admits it; the Java DSL does **not** yet — a container there references another container by id and declares only steps and conditionals inline. Closing the gap is additive and is tracked in Phase 5 alongside the rest of the YAML work. Until it closes, this is the one shape §3 describes that §4 cannot express.
+> **Forking is a per-member flag, not a block.** `fork: true` on a member entry means the member is submitted where it appears in the `actions:` list and the members after it do not wait for it. There is deliberately no `fork:` block with an `enabled` key and an anchor — a position in an ordered list already says when work starts, and the two anchor forms an earlier design proposed ("when execution reaches x", "when x completes successfully") are just the positions before and after `x`. A forked member accepts the same `mapper:` key any other reference does; what it may not accept is a mapper that writes back (§4.5.3.2).
 
-> **Forking is a per-member flag, not a block.** `async: true` on a member entry maps to the Java DSL's `fork(...)` (§4.4.2): the member is submitted where it appears in the `actions:` list and the members after it do not wait for it. This is the same shape §3.1.1 already uses for a listener's `config: { async: true }`, and it is why there is no `async:` block with `enabled` and an anchor — a position in an ordered list already says when work starts, and the two anchor forms an earlier design proposed ("when execution reaches x", "when x completes successfully") are just the positions before and after `x`. A forked member accepts the same `mapper:` key any other reference does; what it may not accept is a mapper that writes back (§4.5.3.2).
+> **`fork` names the act; `async` names the machinery.** The key is `fork:` and not `async:` because what the flag says is that *this member* is forked — it becomes a branch with its own context and its own rollback stack (§4.5.3). Where branches run is a separate question with its own answer: `config.async:` (§3.8) configures the executor, matching `withAsyncPool(...)` and `withAsyncExecutor(...)` on the Java side, where `ForkableContext` and `ForkRejectionPolicy` sit on the fork side of the same line. A listener's `config: { async: true }` (§3.1.1) keeps `async` on purpose: an observer that does not block is not a forked member — it has no context of its own, no rollback stack, and appears on no path.
+
+> **The flag is orthogonal to the verb, which is why YAML needs one of it and Java needs eight.** `fork: true` sits beside `run:`, `step:`, `operation:` or `conditional:` alike, so every member form is forkable with no second spelling. Java cannot do that: `fork` and its declaring siblings must be distinct method names, because a mapper and a configurer are indistinguishable to javac at an implicitly-typed lambda. The four verbs `run` / `step` / `operation` / `conditional` therefore each have a twin — `fork` / `forkStep` / `forkOperation` / `forkConditional` (§4.4.2) — and a mapper is passed positionally rather than under a key. The models are the same; only the spelling differs, and the mapper resolves this direction because a YAML document cannot hold a lambda.
 
 #### 3.4.3 Multi-Branch Conditional Operations
 
@@ -1679,13 +1695,28 @@ trialActiveTransition.operation("complex-subscription-activation", c -> c
     // ...or declare one inline, here
     .step("validate-payment-method", new ValidatePaymentMethodAction())
 
+    // ...or declare a whole nested sequence in place, when a group belongs to one call
+    // site. It is an operation like any other: it can carry its own compensation, and it
+    // unwinds as a unit. Its inline ids are visible only inside its own subtree.
+    .operation("provisioning", inner -> inner
+        .run("allocate-quota")
+        .step("open-tenant", new OpenTenantAction()))
+
     // Multi-branch conditional. Every branch condition carries an id of its own, which is
     // what names it in diagnostics; only the expression form may have one derived for it.
     .conditional("subscription-tier-routing", cs -> cs
         .branch("premium-tier", b -> b
             .condition("is-premium", new PremiumTierPredicate())
             .step("premium-tier-processing", new PremiumTierAction())
-            .run("vip-notification"))
+            .run("vip-notification")
+
+            // A branch is a sequence, so it holds everything a container's member list
+            // does — a conditional included, which is how routing nests
+            .conditional("premium-region-routing", inner -> inner
+                .branch("eu", ib -> ib
+                    .condition("is-eu", r -> "EU".equals(r.getRegion()))
+                    .run("eu-provisioning"))
+                .defaultBranch(d -> d.run("global-provisioning"))))
 
         .branch("standard-tier", b -> b
             .condition("is-standard", s -> "STANDARD".equals(s.getTier()) && s.getPriority() >= 5)
@@ -1713,14 +1744,26 @@ trialActiveTransition.operation("complex-subscription-activation", c -> c
     // Forked members: submitted where they are written, and not waited for. Everything
     // after them starts immediately.
     .fork("async-notifications")
-    .fork("external-integrations", "notification-from-activation"));
+    .fork("external-integrations", "notification-from-activation")
+
+    // A forked member can be declared in place too, in any of the three authoring forms
+    .forkStep("emit-activation-metric", (sub, ctx, view) -> metrics.record(sub.getId()))
+    .forkOperation("reconciliation-sweep", sweep -> sweep
+        .run("refresh-projections")
+        .run("emit-audit-record")));
 ```
 
-> **Fork semantics.** `fork(...)` takes the same three call shapes as `run(...)` and puts the member at the position it is written: the work starts when execution reaches that point, and the members after it do not wait. That subsumes both anchors an earlier design proposed — "kick off at a join point" is a fork declared after the conditional, and "kick off once the previous member succeeded" is a fork declared after it, since a member that throws never reaches the next one. What a forked member does with its context is §4.5.3; what happens to its outcome is §4.5.3.6.
+> **Fork semantics.** Forking puts the member at the position it is written: the work starts when execution reaches that point, and the members after it do not wait. That subsumes both anchors an earlier design proposed — "kick off at a join point" is a fork declared after the conditional, and "kick off once the previous member succeeded" is a fork declared after it, since a member that throws never reaches the next one. What a forked member does with its context is §4.5.3; what happens to its outcome is §4.5.3.6.
+
+> **One verb per authored form, forked and not.** A **reference** is `run(...)` or `fork(...)`, in three call shapes each — bare, through a registered mapper id, or through an inline `ContextMapper`. A **declaration** brings a new action into existence at that position and names the form it is being given: `step` / `operation` / `conditional`, and `forkStep` / `forkOperation` / `forkConditional`. Each declaring verb comes in three context shapes (§4.5.2.3). The asynchronous half cannot be a flag or an overload of `fork`, because a `ContextMapper` and a `Consumer<...Def>` are both applicable to an implicitly-typed lambda — the same erasure wall that keeps the three declaring verbs from collapsing into one. The whole family is declared once, on `ActionSequence<T, C, SELF>` (§2.2.5.1), so every position that holds a member list carries all of it; a `run(...)` issued from *inside* an action's body is not a member declaration and carries the three reference shapes alone.
 
 #### 4.4.3 Multi-Branch Conditional Operations
 
 Branches are evaluated in declaration order; the first branch whose condition matches is executed. If no branch matches and a `defaultBranch()` is defined, it runs; otherwise the conditional operation's behavior is controlled by `.onNoMatch(NoMatchBehavior)` — `WARN` (default; log + complete without dispatching inner actions), `SILENT` (complete without logging, suiting the guard pattern), or `ERROR` (fail the transition). See §3.4.3 for full semantics — the Java API mirrors them exactly.
+
+**A conditional is an action, so it occupies every position an action can.** It is a member of any sequence — a container's list, a transition's body, and a branch or default branch of another conditional — and it registers at state-machine level under `conditional(id, Class<C>, cfg)`, or inside a `forContext(...)` block, sharing one id namespace with steps, operations and conditions. A registered conditional is reached by `run(...)` like any other action, since a reference says nothing about the form of what it names.
+
+**A conditional owns the scope its branches bind against.** Anything a branch declares inline is visible from every branch of that conditional — so a step several of them need is declared once — and from nowhere outside it. The conditional's own bound action goes into the enclosing scope, so naming it by id works from either side.
 
 ### 4.5 Context Usage in Transitions
 
@@ -2200,7 +2243,7 @@ stateMachineDef
     .onAnyStateExit("audit-any-exit", new StateAuditListener());
 
 // Action listeners — attached to the action's own definition, wherever that definition is
-// written: an SM-level registration, a transition's attachment, or an inline member. The
+// written: an SM-level registration, a member of a transition's body, or an inline member
 // listener then fires at every invocation of that action, from every call site.
 stateMachineDef
     .step("charge-card", BillingContext.class, s -> s

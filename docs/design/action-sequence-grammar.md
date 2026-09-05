@@ -1,6 +1,6 @@
 # One grammar for declaring a sequence of actions
 
-Status: accepted, scheduled as [Phase 4b](../roadmap/phase-4b-action-sequence-grammar.md). Nothing here is implemented yet, and none of it changes behaviour that exists today.
+> Design note for [Phase 4b](../history/phase-4b-action-sequence-grammar.md). Written before the refactor; reconciled into `requirements.md` when it landed. Two things the phase settled differently from the text below: a transition's body became a sequence rather than staying a single action position, which reversed the "no `fork` at a transition's attachment slot" scope-out; and the `Identifiable` overload family was removed, so the surface is smaller than the counts here suggest.
 
 ## Decision
 
@@ -106,7 +106,7 @@ One thing is not optional: a test that reflects over the three types and asserts
 
 ## Sequencing
 
-Tracked as checkboxes in the [Phase 4b roadmap](../roadmap/phase-4b-action-sequence-grammar.md); the dependency shape is:
+Tracked as checkboxes in the [Phase 4b record](../history/phase-4b-action-sequence-grammar.md); the dependency shape is:
 
 | # | Work | Size | Depends on |
 |---|---|---|---|
