@@ -55,11 +55,49 @@ final class OperationDefImpl<T, C>
     private CompositeOperationExecutor<T, C> executor;
 
     OperationDefImpl(String id) {
-        this(id, null);
+        this(id, "operation", null);
     }
 
     OperationDefImpl(String id, Class<C> declaredContextType) {
-        super(id, "operation", "Operation ID", declaredContextType);
+        this(id, "operation", declaredContextType);
+    }
+
+    private OperationDefImpl(String id, String kind, Class<C> declaredContextType) {
+        super(id, kind, "Operation ID", declaredContextType);
+    }
+
+    /**
+     * Creates the member list a transition runs as its body. It is an ordinary container in every
+     * respect the build cares about - one scope, one executor, the same member grammar - and
+     * differs only in what it calls itself: the transition's id under the kind {@code transition},
+     * so every diagnostic reads {@code transition 't'} rather than naming a container the author
+     * never wrote.
+     *
+     * <p>The body claims no id of its own: it is registered in no registry and never enters the
+     * canonical table, exactly as the attached action it replaces did not, so nothing can name it
+     * and it can lie on no cycle. Its id is not therefore unique - a transition and an action may
+     * share a name, and then both key the inline-context table under it, which can make a
+     * diagnostic name the wrong declaration. The build fails either way, since the reference does
+     * not resolve.
+     *
+     * @param transitionId the enclosing transition's id
+     * @param <T> the entity type the surrounding state machine manages
+     * @param <C> the transition's context type
+     *
+     * @return the body
+     */
+    static <T, C> OperationDefImpl<T, C> transitionBody(String transitionId) {
+        return new OperationDefImpl<>(transitionId, "transition", null);
+    }
+
+    /**
+     * Reports whether anything was declared here. A transition whose body is empty has no action
+     * at all, which is a legal definition, so the body has to be able to say so.
+     *
+     * @return whether at least one member is declared
+     */
+    boolean hasMembers() {
+        return !members.members().isEmpty();
     }
 
     @Override

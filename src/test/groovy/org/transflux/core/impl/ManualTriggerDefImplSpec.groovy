@@ -131,21 +131,20 @@ class ManualTriggerDefImplSpec extends Specification {
         captured == TestContext
     }
 
-    def 'contextType follows a usingContext declared after the trigger'() {
+    def 'contextType is read back through the transition rather than snapshotted'() {
         given:
         ManualTriggerDef<Entity, ?> captured = null
         def smd = new StateMachineDefImpl<Entity>()
 
-        when: 'the trigger is declared before the transition re-types its context'
+        when: 'the trigger is declared inside a transition that pre-bound its context'
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
-                .addManualTrigger('mt', { mt -> captured = mt })
-                .usingContext(TestContext) }) })
+            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t -> t
+                .addManualTrigger('mt', { mt -> captured = mt }) }) })
             .state('s2', {})
         smd.build()
 
-        then: 'the trigger reports the type the transition ended up with, not the one it started with'
+        then: 'the trigger reads the type back through the transition rather than copying it'
         captured.contextType() == TestContext
     }
 

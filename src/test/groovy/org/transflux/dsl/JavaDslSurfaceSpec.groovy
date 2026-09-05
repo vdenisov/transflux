@@ -246,6 +246,39 @@ class JavaDslSurfaceSpec extends Specification {
         sm.close()
     }
 
+    def "every member form resolves and runs at a transition position"() {
+        given:
+        def sm = JavaDslSurface.transitionSequenceShapes()
+        def order = new JavaDslSurface.Order()
+
+        when:
+        def result = sm.entity(order).transitionTo('s2', new JavaDslSurface.OrderCtx())
+
+        then: 'the synchronous members ran in the order written'
+        result.success
+        order.state == 's2'
+        order.trail.indexOf('inline:o-1') < order.trail.indexOf('widened:o-1')
+        order.trail.contains('mapped:o-1')
+
+        and: 'each member is a root of the executed path; only a container adds a level'
+        def paths = result.executedPath*.toString()
+        paths.first() == 'record'
+        paths.contains('group')
+        paths.contains('group/grouped')
+        paths.contains('route/branch-member')
+
+        and: 'the two synchronous notify references are on the path; the forked ones never are'
+        paths.count { it == 'notify' } == 2
+        paths.count { it == 'record' } == 1
+
+        and: 'the forked members still run, landing after the transition returned'
+        waitFor { order.trail.count { it == 'notify:o-1' } == 4 }
+        waitFor { order.trail.count { it == 'recording' } == 5 }
+
+        cleanup:
+        sm.close()
+    }
+
     private static boolean waitFor(Closure<Boolean> condition) {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
         while (System.nanoTime() < deadline) {

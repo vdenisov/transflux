@@ -25,9 +25,9 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * belongs to.
  * <p>
  * Both the transition id and the context type are read back through that transition rather than
- * copied at construction, so a trigger declared before its transition calls {@code usingContext}
- * still reports the type the transition ends up with. Declaration order inside the configurer
- * therefore does not matter, which is the same freedom the rest of the DSL gives.
+ * copied at construction, so a trigger reports whatever the transition carries rather than a stale
+ * snapshot. Declaration order inside the configurer therefore does not matter, which is the same
+ * freedom the rest of the DSL gives.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution

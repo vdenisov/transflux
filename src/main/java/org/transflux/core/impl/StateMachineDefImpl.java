@@ -341,8 +341,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             claimInlineConditions(canonical, td);
             ActionDefImpl<T, ?, ?> op = td.getActionDef();
             if (op != null) {
-                // An attached action declares no context of its own, so it runs against the
-                // transition's - the same seeding checkRefs uses for this position.
+                // The body declares no context of its own, so it runs against the transition's -
+                // the same seeding checkRefs uses for this position.
                 op.bindScope(rootRegistry, canonical, conditionRegistry, td.getContextType());
             }
         }
@@ -430,10 +430,21 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             return;
         }
 
+        String existingName = payloadClassName(existing);
+        String incomingName = payloadClassName(payload);
+
+        // Two declarations of the same type under one id is the common shape, and naming that type
+        // on both sides of "cannot re-register with" reads as a framework fault rather than as the
+        // duplicate id it is. Say "a different X" there instead, and advise either way.
+        String clash = existingName.equals(incomingName)
+            ? "is already registered with a different " + existingName
+            : "is already registered with payload '" + existingName
+                + "'; cannot re-register with '" + incomingName + "'";
+
         throw new TransfluxValidationException(
-            kind + " id '" + id + "' is already registered with payload '"
-                + payloadClassName(existing) + "'; cannot re-register with '"
-                + payloadClassName(payload) + "'.");
+            kind + " id '" + id + "' " + clash + ". Ids are unique across the state machine"
+                + " wherever they are declared, so give one of them another id, or declare it once"
+                + " and reference it by id.");
     }
 
     /**
@@ -830,8 +841,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * Reports whether anything in this definition forks, which is what decides whether the state
      * machine builds a pool at all.
      * <p>
-     * The roots are exactly two - a container registered at SM level, or one attached to a
-     * transition - since every other container is declared inside one of them. Each root is then
+     * The roots are exactly two - a container registered at SM level, or a transition's body -
+     * since every other container is declared inside one of them. Each root is then
      * walked in full: {@link OperationDefImpl#declaresFork()} descends through any conditional's
      * branches and any container declared in place, since a member forks through the same path
      * wherever it sits.
@@ -1333,12 +1344,12 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
-     * Names an action attached to a transition as a position in the definition tree. The
-     * transition is the root and the action is nested beneath it, so the label names both - an
-     * SM-level container, being a root itself, needs no such composition.
+     * Names a transition's body as a position in the definition tree. The body labels itself as
+     * the transition, so this is its own label and not a composition - it is a root, exactly as an
+     * SM-level container is.
      */
-    private static String attachedActionLabel(TransitionDefImpl<?, ?> td, ActionDefImpl<?, ?, ?> op) {
-        return "transition '" + td.getId() + "' > " + op.defLabel();
+    private static String bodyLabel(ActionDefImpl<?, ?, ?> body) {
+        return body.defLabel();
     }
 
     /**
@@ -1359,7 +1370,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             ActionDefImpl<T, ?, ?> op = td.getActionDef();
             if (op != null) {
-                op.bindMembers(stateMachine, attachedActionLabel(td, op));
+                op.bindMembers(stateMachine, bodyLabel(op));
             }
         }
 
@@ -1451,9 +1462,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             Class<?> transitionContext = td.getContextType();
             ActionDefImpl<T, ?, ?> op = td.getActionDef();
             if (op != null) {
-                // An attached action names no context, so the transition is what declares one.
-                op.checkRefs(transitionContext, attachedActionLabel(td, op),
-                             "transition '" + td.getId() + "'", List.of(), this);
+                // The body names no context of its own, so the transition is what declares one.
+                op.checkRefs(transitionContext, bodyLabel(op), bodyLabel(op), List.of(), this);
             }
             checkConditionRefs(td);
         }
@@ -1547,12 +1557,12 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * one of its own descendants - can name it, and a self-reference resolves and then recurses
      * without bound at execution. Rooting only at state-machine level left that edge invisible.
      * <p>
-     * <b>Only an id that resolves becomes a node.</b> A container attached to a transition is
-     * registered in no registry, so nothing can name it and it can never lie on a cycle; entering
-     * it as a node would let its id shadow a state-machine-level container's and answer for edges
-     * that are not that container's, which both rejects sound definitions and hides real cycles.
-     * Its descendants are registered in its scope, so they are nodes and are rooted like any
-     * other - a cycle buried under a transition-attached container is still found.
+     * <b>Only an id that resolves becomes a node.</b> A transition's body is registered in no
+     * registry, so nothing can name it and it can never lie on a cycle; entering it as a node
+     * would let the transition's id answer for edges that are not any action's, which both rejects
+     * sound definitions and hides real cycles. Everything the body declares <em>is</em> registered,
+     * in the body's own scope, so a container or conditional declared straight on a transition is
+     * a node like any other and a cycle closed through one is found.
      * <p>
      * Registered containers go in first, and the rest through {@code putIfAbsent}: this pass runs
      * before ids are claimed, so a nested id colliding with a state-machine-level one is still

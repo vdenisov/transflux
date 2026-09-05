@@ -21,10 +21,7 @@ package org.transflux.core.transition;
 import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.action.ConditionalOperationDef;
-import org.transflux.core.action.OperationDef;
-import org.transflux.core.action.Action;
-import org.transflux.core.action.StepDef;
+import org.transflux.core.action.ActionSequence;
 import org.transflux.core.trigger.DataTriggerDef;
 import org.transflux.core.trigger.EventTriggerDef;
 import org.transflux.core.trigger.ManualTriggerDef;
@@ -43,36 +40,35 @@ import java.util.function.Predicate;
  * <p>TransitionDef instances are created internally by the framework when transitions are
  * registered through the fluent API and should not be instantiated directly by client code.
  *
- * <p><b>Attaching an action.</b> A transition carries at most one action, in either authoring
- * form: a <i>step</i> (a Java body doing the work itself) or an <i>operation</i> (an ordered
- * list of members). Both attach the same way, and either may also be named by id if it is
- * already registered on the state machine:
+ * <p><b>The body.</b> A transition holds an ordered list of actions and runs them in order - the
+ * same member grammar a declarative container and a conditional's branch carry, declared once on
+ * {@link ActionSequence} and inherited here. Declaration order is execution order, and a member
+ * may be a reference, a forked reference, or an action declared in place:
  *
  * <pre>{@code
- * // Imperative, instance form:
- * .step("activate", new ActivateAction())
- *
- * // Imperative, with name/description set inside the configurer:
- * .step("activate", a -> a
- *     .withName("Activate Subscription")
- *     .withDescription("Marks the subscription active and bills the first period")
- *     .using(new ActivateAction()))
- *
- * // Declarative, an ordered list of members:
- * .operation("validate-and-pay", op -> op
- *     .withName("Validate and Charge")
- *     .run("validate-cart")
- *     .run("compute-total")
- *     .step("charge", new ChargeAction()))
- *
- * // By id, referencing something registered on the state machine:
- * .run("activate-subscription")
+ * .state("pending", s -> s.transitionsTo("active", "activate", ActivationCtx.class, t -> t
+ *     .run("validate-payment-method")
+ *     .step("activate", new ActivateAction())
+ *     .operation("bill", op -> op
+ *         .run("compute-total")
+ *         .step("charge", new ChargeAction()))
+ *     .fork("send-receipt")))
  * }</pre>
  *
- * Each method returns {@code TransitionDef<T, C>} so chained calls stay scoped to the
- * transition. The configurer forms grant temporary write access to the underlying operation
- * def; the def is not exposed to the caller after the lambda returns, which keeps the
- * operation immutable from the moment it is attached.
+ * <p>{@code fork(...)} is legal here for the same reason it is legal in any sequence: the members
+ * after it do not wait for it. What a transition carries beyond the list is everything
+ * <em>around</em> it - source and target states, pre- and post-conditions, triggers, the state
+ * commit, and its own listeners.
+ *
+ * <p>The transition is not itself an action. It has no id in the action namespace, no compensation
+ * of its own and no action listeners; a member's qualified path starts at the member. Rolling back
+ * the body as a unit is a matter of declaring it as one - wrap the members in
+ * {@code operation(...)} and put the compensation there.
+ *
+ * <p>Each method returns {@code TransitionDef<T, C>} so chained calls stay scoped to the
+ * transition. The configurer forms grant temporary write access to the underlying def; it is not
+ * exposed to the caller after the lambda returns, which keeps the member immutable from the moment
+ * it is declared.
  *
  * <p><b>Attaching conditions.</b> Pre- and post-conditions are attached through the
  * {@code preCondition(...)} / {@code postCondition(...)} overloads. The single-argument
@@ -96,7 +92,8 @@ import java.util.function.Predicate;
  * @param <C> the host-supplied context type carried through transition execution
  */
 @SuppressWarnings("GrazieInspection")
-public interface TransitionDef<T, C> extends Identifiable {
+public interface TransitionDef<T, C>
+    extends Identifiable, ActionSequence<T, C, TransitionDef<T, C>> {
 
     /**
      * Returns the unique identifier of this transition.
@@ -121,30 +118,13 @@ public interface TransitionDef<T, C> extends Identifiable {
     String getTargetStateId();
 
     /**
-     * Returns the context class declared for this transition. Defaults to {@code Object.class}
-     * (accepts any non-{@code null} firing context, and also accepts {@code null}) until
-     * {@link #usingContext(Class)} re-types the def.
+     * Returns the context class declared for this transition at
+     * {@code transitionsTo(target, id, Class, configurer)}. Defaults to {@code Object.class}
+     * (accepts any non-{@code null} firing context, and also accepts {@code null}).
      *
      * @return the declared context class; never {@code null}
      */
     Class<C> getContextType();
-
-    /**
-     * Re-types this transition def to carry the supplied context class. Calling this method
-     * captures the context type and returns the same underlying def re-generified so that
-     * subsequent member declarations (operations, conditions) type-check against {@code C2}.
-     * When omitted, a transition defaults to {@code TransitionDef<T, Object>}, accepting any
-     * non-{@code null} firing context (and {@code null}); re-type with {@code usingContext(Void.class)}
-     * to reject any non-{@code null} firing context.
-     *
-     * @param contextType the context class; never {@code null}
-     * @param <C2> the new context type
-     *
-     * @return this def, re-typed with the new context type
-     *
-     * @throws TransfluxValidationException if {@code contextType} is {@code null}
-     */
-    <C2> TransitionDef<T, C2> usingContext(Class<C2> contextType);
 
     /**
      * Sets the human-readable name of this transition.
@@ -163,104 +143,6 @@ public interface TransitionDef<T, C> extends Identifiable {
      * @return this transition def for chaining
      */
     TransitionDef<T, C> withDescription(String description);
-
-    /**
-     * Attaches an imperative action - a step - using a pre-constructed {@link Action} instance.
-     *
-     * @param id the step id; never {@code null} or blank
-     * @param action the action instance; never {@code null}
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
-     *         {@code action} is {@code null}
-     */
-    TransitionDef<T, C> step(String id, Action<T, C> action);
-
-    /**
-     * Attaches an imperative action - a step - built through a fluent configurer. Use this form
-     * when you want to set {@code name} / {@code description} alongside the action source.
-     * <p>
-     * The configurer is invoked synchronously against a freshly-constructed
-     * {@link StepDef} carrying the supplied {@code id}; it must call
-     * {@code .using(...)} before returning. The def is not exposed to the caller after the
-     * lambda returns.
-     *
-     * @param id the step id; never {@code null} or blank
-     * @param configurer the fluent configurer; never {@code null}
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank,
-     *         {@code configurer} is {@code null}, or the configurer leaves the def without
-     *         an action source
-     */
-    TransitionDef<T, C> step(String id, Consumer<StepDef<T, C>> configurer);
-
-    /**
-     * Attaches a declarative action - an operation - built through a fluent configurer. The
-     * operation must declare at least one member.
-     * <p>
-     * The configurer is invoked synchronously against a freshly-constructed
-     * {@link OperationDef} carrying the supplied {@code id}; it must append at least
-     * one member before returning. The def is not exposed to the caller after the lambda returns.
-     *
-     * @param id the operation id; never {@code null} or blank
-     * @param configurer the fluent configurer; never {@code null}
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank,
-     *         {@code configurer} is {@code null}, or the configurer leaves the operation
-     *         without any members
-     */
-    TransitionDef<T, C> operation(String id, Consumer<OperationDef<T, C>> configurer);
-
-    /**
-     * Attaches a multi-branch conditional - the declarative action whose ordering rule is "first
-     * matching branch" rather than "all, in order". The conditional must declare at least one
-     * branch, and each branch a condition and at least one member.
-     * <p>
-     * It attaches directly, without a wrapping operation: the slot holds one action, and a
-     * conditional is one. So the executed path reads {@code <id>/<branch member>} rather than
-     * carrying a synthetic level, and the conditional's own compensation and listeners are the
-     * transition's root action's.
-     * <p>
-     * With no matching branch and no default, what happens is the conditional's
-     * {@link org.transflux.core.action.NoMatchBehavior}; under
-     * {@link org.transflux.core.action.NoMatchBehavior#ERROR} the transition fails and the
-     * compensations accumulated so far are drained.
-     *
-     * @param id the conditional's id; never {@code null} or blank
-     * @param configurer the fluent configurer; never {@code null}
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null}/blank,
-     *         {@code configurer} is {@code null}, or the configurer leaves the conditional
-     *         without any branches
-     */
-    TransitionDef<T, C> conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer);
-
-    /**
-     * Attaches an action already registered on the enclosing state machine, whichever form it
-     * was authored in. Its id appears verbatim in {@link TransitionResult#getExecutedPath()}
-     * when the transition fires; no wrapper is synthesized.
-     *
-     * <p>The registered action's declared context type must be assignable from this
-     * transition's context type - the same pass-through compatibility rule that applies to
-     * by-id references inside an operation. {@code Object.class}-typed registrations are always
-     * reachable.
-     *
-     * @param id the registered action id; never {@code null} or blank
-     *
-     * @return this transition def for chaining
-     *
-     * @throws TransfluxValidationException if {@code id} is {@code null} or blank, or if at
-     *         build time no action is registered under this id, or the registered action's
-     *         context type is incompatible with this transition's
-     */
-    TransitionDef<T, C> run(String id);
 
     /**
      * Appends a pre-condition that references a condition already registered on the enclosing

@@ -578,6 +578,61 @@ class StateMachineDefImplContextSpec extends Specification {
         sm != null
     }
 
+    def "a by-id member on a transition is context-checked like any other sequence member"() {
+        given: 'the transition used to run its own attach-time check; now it is an ordinary member'
+        def smd = new StateMachineDefImpl<Entity>()
+        smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+            .step('narrow', CtxB, new StepB())
+        smd.state('s1', { s -> s.transitionsTo('s2', 't', CtxA, { t -> t.run('narrow') }) })
+        smd.state('s2', {})
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains('Context type mismatch')
+        e.message.contains("transition 't'")
+        e.message.contains("'narrow'")
+        e.message.contains('without a mapper')
+    }
+
+    def "a mapper at a transition's call site bridges the boundary the slot could not"() {
+        given: 'a transition attachment took no mapper at all, so this shape had no spelling'
+        def smd = new StateMachineDefImpl<Entity>()
+        smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+            .step('narrow', CtxB, new StepB())
+        smd.state('s1', { s -> s.transitionsTo('s2', 't', CtxA, { t -> t.run('narrow', aToB()) }) })
+        smd.state('s2', {})
+
+        when:
+        smd.build()
+
+        then:
+        noExceptionThrown()
+    }
+
+    def "a member declared on a transition against its own context runs pass-through"() {
+        given: 'the declaration verbs carry their context shapes here too'
+        def smd = new StateMachineDefImpl<Entity>()
+        smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+        smd.state('s1', { s -> s.transitionsTo('s2', 't', CtxA, { t -> t
+            .step('widened', Object, new AnyCtxStep())
+            .operation('mapped', CtxB, aToB(), { OperationDef<Entity, CtxB> n ->
+                n.step('inner', new StepB())
+            }) }) })
+        smd.state('s2', {})
+
+        when:
+        smd.build()
+
+        then:
+        noExceptionThrown()
+    }
+
     private static StateMachineDefImpl<Entity> baseDef() {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)

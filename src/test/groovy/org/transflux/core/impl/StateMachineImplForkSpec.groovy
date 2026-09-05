@@ -286,6 +286,66 @@ class StateMachineImplForkSpec extends Specification {
         paths.any { it == 'op/route/notify' }
     }
 
+    def 'a transition may fork a member directly, with no wrapping operation'() {
+        given: "the slot held one action, so this needed a container that existed only to hold it"
+        def done = new CountDownLatch(1)
+        def branchThread = new ConcurrentLinkedQueue<String>()
+        def sm = buildOnTransition({ smd ->
+            smd.step('notify', { e, c, t ->
+                branchThread.add(Thread.currentThread().name)
+                done.countDown()
+            } as Action)
+        }, { t -> t.step('commit', { e, c, tr -> } as Action).fork('notify') })
+
+        when:
+        def result = sm.executeTransition(new Entity('s1'), 's2')
+        done.await(WAIT_SECONDS, TimeUnit.SECONDS)
+
+        then: 'the transition committed without waiting, and the branch is on neither path'
+        result.success
+        branchThread.size() == 1
+        branchThread.first() != Thread.currentThread().name
+        result.executedPath*.toString() == ['commit']
+        result.compensatedPath.isEmpty()
+    }
+
+    def 'a definition whose only fork sits on a transition still gets an executor'() {
+        given: "definitionForks walks the transition's body, which is where the member now lives"
+        def done = new CountDownLatch(1)
+        def smd = new StateMachineDefImpl<Entity>()
+        smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+            .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
+            .step('notify', { e, c, t -> done.countDown() } as Action)
+        smd.state('s1', { s -> s.transitionsTo('s2', 't', { t -> t.fork('notify') }) })
+        smd.state('s2', {})
+
+        when: 'no executor is supplied, so the framework must have built a pool of its own'
+        def sm = smd.build()
+        def result = sm.executeTransition(new Entity('s1'), 's2')
+
+        then:
+        result.success
+        done.await(WAIT_SECONDS, TimeUnit.SECONDS)
+
+        cleanup:
+        sm?.close()
+    }
+
+    private StateMachine<Entity> buildOnTransition(Closure registrations, Closure members) {
+        def smd = new StateMachineDefImpl<Entity>()
+        StateMachineDef<Entity> builder = smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+            .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
+            .withAsyncExecutor(executor)
+        registrations.call(builder)
+        builder.state('s1', { s ->
+            s.transitionsTo('s2', 't', { t -> members.call(t) } as Consumer)
+        } as Consumer)
+        builder.state('s2', {} as Consumer)
+        return smd.build()
+    }
+
     private StateMachine<Entity> build(Closure registrations, Closure members) {
         def smd = new StateMachineDefImpl<Entity>()
         StateMachineDef<Entity> builder = smd.forEntityType(Entity)

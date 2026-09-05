@@ -18,6 +18,7 @@
 
 package org.transflux.core.action
 
+import org.transflux.core.transition.TransitionDef
 import spock.lang.Specification
 
 import java.lang.reflect.ParameterizedType
@@ -29,8 +30,13 @@ import java.lang.reflect.ParameterizedType
  */
 class ActionSequenceSpec extends Specification {
 
-    /** The three positions that hold an ordered list of actions. */
-    private static final List<Class<?>> SEQUENCES = [OperationDef, BranchDef, DefaultBranchDef]
+    /**
+     * The four positions that hold an ordered list of actions. A transition is one of them: its
+     * body is a member list, and what it carries beyond the list - states, conditions, triggers,
+     * the commit - is around the list rather than in it.
+     */
+    private static final List<Class<?>> SEQUENCES =
+        [OperationDef, BranchDef, DefaultBranchDef, TransitionDef]
 
     def '#type binds ActionSequence to itself, so a chain keeps its concrete type'() {
         when: 'the ActionSequence among the type\'s generic interfaces'

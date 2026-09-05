@@ -53,8 +53,7 @@ import java.util.function.Predicate;
  * a declarative DSL for building complex state machines in a readable and maintainable way.
  *
  * <p>The state machine is not parameterized by a single context type. Each transition declares
- * its own context type — either by {@code transitionsTo(target, id, Class<C>, configurer)} or
- * by calling {@link TransitionDef#usingContext(Class)} inside the transition configurer body.
+ * its own context type, through {@code transitionsTo(target, id, Class<C>, configurer)}.
  * SM-level reusable components (steps, conditions, operations) are registered with an optional
  * explicit {@link Class} context tag via the typed overloads below, or grouped under a
  * {@link #forContext(Class, Consumer) forContext} scope.

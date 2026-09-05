@@ -312,42 +312,17 @@ class StateMachineDefImplNestedCycleDetectionSpec extends Specification {
         e.message.contains('inner')
     }
 
-    def "a transition-attached container's id does not answer for a same-named SM-level one"() {
-        given: 'nothing can name a transition-attached container, so it is on no cycle'
+    def 'a cycle closed by an operation declared on a transition is rejected'() {
+        given: "its id resolves in the transition's scope, so a self-reference is a real edge"
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-        smd.forContext(Ctx, { ContextScope<Entity, Ctx> scope ->
-            scope.step('leaf', { Entity e, Ctx c, t -> } as Action)
-            scope.operation('a', { OperationDef<Entity, Ctx> c -> c.run('leaf') })
-        })
         smd.state('s1', { s -> s.transitionsTo('s2', 't', Ctx, { t ->
             t.operation('a', { OperationDef<Entity, Ctx> c -> c.run('a') })
         }) })
         smd.state('s2', {})
 
-        when: 'the inner run(a) reaches the acyclic SM-level container, not the attached one'
-        smd.build()
-
-        then:
-        noExceptionThrown()
-    }
-
-    def "a transition-attached container's id does not hide a same-named SM-level cycle"() {
-        given: 'the mirror case: the real container self-refs and must still be caught'
-        def smd = new StateMachineDefImpl<Entity>()
-        smd.forEntityType(Entity)
-            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-        smd.forContext(Ctx, { ContextScope<Entity, Ctx> scope ->
-            scope.step('leaf', { Entity e, Ctx c, t -> } as Action)
-            scope.operation('a', { OperationDef<Entity, Ctx> c -> c.run('a') })
-        })
-        smd.state('s1', { s -> s.transitionsTo('s2', 't', Ctx, { t ->
-            t.operation('a', { OperationDef<Entity, Ctx> c -> c.run('leaf') })
-        }) })
-        smd.state('s2', {})
-
-        when:
+        when: 'nothing could name a transition-attached container, so this used to build and recurse'
         smd.build()
 
         then:

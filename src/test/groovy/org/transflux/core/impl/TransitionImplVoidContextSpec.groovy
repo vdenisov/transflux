@@ -66,7 +66,7 @@ class TransitionImplVoidContextSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1', { s -> s.transitionsTo('s2', 't', { t -> t.usingContext(ctx) }) })
+            .state('s1', { s -> s.transitionsTo('s2', 't', ctx, { t -> }) })
             .state('s2', {})
         return smd
     }

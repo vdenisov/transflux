@@ -64,12 +64,12 @@ class TransitionDefImplLambdaConfigurerSpec extends Specification {
         smd.getTransition('t1').contextType == Ctx
     }
 
-    def 'usingContext inside the configurer re-types the transition'() {
+    def 'the transitionsTo overload taking a context class types the transition'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
 
         when:
-        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', { t -> t.usingContext(Ctx) }) })
+        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', Ctx, { t -> }) })
 
         then:
         smd.getTransition('t1').contextType == Ctx
@@ -119,7 +119,6 @@ class TransitionDefImplLambdaConfigurerSpec extends Specification {
         operation            || action
         'withName'           || { TransitionDef t -> t.withName('x') }
         'withDescription'    || { TransitionDef t -> t.withDescription('x') }
-        'usingContext'       || { TransitionDef t -> t.usingContext(Ctx) }
         'step'               || { TransitionDef t -> t.step('op', new NoopOp()) }
         'operation'          || { TransitionDef t -> t.operation('co', { c -> }) }
         'preCondition'       || { TransitionDef t -> t.preCondition('p', { ent -> true }) }

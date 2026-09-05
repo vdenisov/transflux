@@ -22,6 +22,7 @@ import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.ConditionalOperationDef;
+import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.StepDef;
@@ -63,9 +64,14 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     private final String sourceStateId;
     private final String targetStateId;
 
-    private ActionDefImpl<T, C, ?> actionDef;
-    private String registeredActionRefId;
-    private Class<C> contextType;
+    /**
+     * The ordered member list this transition runs. Every member form is delegated to it, and it
+     * answers every build hook the enclosing passes drive, so a transition's body is a container
+     * in all but name - the name being the point, since it reports itself as the transition.
+     */
+    private final OperationDefImpl<T, C> body;
+
+    private final Class<C> contextType;
 
     private final ConditionDescriptorSink<T, C, TransitionDef<T, C>> preConditions =
         new ConditionDescriptorSink<>(this, this, "preCondition");
@@ -104,6 +110,25 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         this.sourceStateId = sourceStateId;
         this.targetStateId = targetStateId;
         this.contextType = contextType;
+        this.body = OperationDefImpl.transitionBody(id);
+    }
+
+    /**
+     * Opens the body's configurer alongside this def's, because the member grammar's guard is the
+     * body's: {@code t.step(...)} reaches {@code ActionSequenceSink}, which asks the def that owns
+     * the sink whether its configurer is running. Flipping both keeps one rule - a def is inert
+     * once its lambda returns - covering the transition and the members declared on it alike.
+     */
+    @Override
+    void beginConfigurer() {
+        super.beginConfigurer();
+        body.beginConfigurer();
+    }
+
+    @Override
+    void endConfigurer() {
+        body.endConfigurer();
+        super.endConfigurer();
     }
 
     @Override
@@ -111,19 +136,6 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         return contextType;
     }
 
-    @Override
-    @SuppressWarnings("unchecked")
-    public <C2> TransitionDef<T, C2> usingContext(Class<C2> contextType) {
-        requireConfigurerActive("usingContext");
-        requireNotNull(contextType, "Transition context type");
-        if (this.contextType != null && this.contextType != Object.class && this.contextType != contextType) {
-            Loggers.BUILD_VALIDATION.warn(
-                "Transition context type overwritten, transitionId={}, current={}, incoming={}",
-                getId(), this.contextType.getName(), contextType.getName());
-        }
-        this.contextType = (Class<C>) contextType;
-        return (TransitionDef<T, C2>) this;
-    }
 
     /**
      * Returns the identifier of the source state for this transition.
@@ -146,50 +158,27 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     /**
-     * Package-private hook used by {@link BoundTransition} to materialize the runtime
-     * {@link BoundAction}, or {@code null} when this transition has no action attached.
+     * Package-private hook used by {@link BoundTransition} to materialize the runtime executable
+     * for this transition's body, or {@code null} when nothing was declared on it.
      *
-     * @param stateMachine the enclosing state machine; consulted to resolve an attachment made
-     *                     by id. A declarative container resolves its own members later, in
-     *                     {@link ActionDefImpl#bindMembers}
-     *
-     * @return the bound action, or {@code null}
+     * @return the bound body, or {@code null}
      */
-    @SuppressWarnings({"unchecked"})
-    BoundAction<T, C> buildBoundAction(StateMachineImpl<T> stateMachine) {
-        if (registeredActionRefId != null) {
-            Component<T> component = stateMachine.getComponentRegistry()
-                .resolve(registeredActionRefId).orElse(null);
-            if (component == null) {
-                throw new TransfluxValidationException(
-                    "Transition '" + getId() + "' references unknown action id '"
-                        + registeredActionRefId + "'");
-            }
-            if (!(component instanceof Component.Action<T, ?> opComp)) {
-                throw new TransfluxValidationException(
-                    "Transition '" + getId() + "' references id '" + registeredActionRefId
-                        + "' which is registered as a "
-                        + component.getClass().getSimpleName().toLowerCase()
-                        + ", not an action");
-            }
-            Class<?> opCtx = stateMachine.getDef().getComponentContextType(registeredActionRefId);
-            Class<?> txCtx = this.contextType != null ? this.contextType : Object.class;
-            if (opCtx != null && opCtx != Object.class && !opCtx.isAssignableFrom(txCtx)) {
-                throw new TransfluxValidationException(
-                    "Transition '" + getId() + "' (context " + txCtx.getName()
-                        + ") cannot attach SM-level action '" + registeredActionRefId
-                        + "' (context " + opCtx.getName() + "): context types are not assignable");
-            }
-            return (BoundAction<T, C>) opComp.bound();
-        }
-        if (actionDef == null) {
-            return null;
-        }
-        return actionDef.buildBound();
+    BoundAction<T, C> buildBoundAction() {
+        return body.hasMembers() ? body.buildBound() : null;
     }
 
+    /**
+     * Returns the body as the def the build passes walk, or {@code null} when it holds no members.
+     * <p>
+     * Reporting {@code null} for an empty body is what lets every one of those passes keep the
+     * shape it had when a transition carried at most one action: each skips a transition that
+     * declared none, and a body with nothing in it is that case. The members are settled by the
+     * time any of them runs, since all of them run after the configurer has returned.
+     *
+     * @return the body, or {@code null}
+     */
     ActionDefImpl<T, C, ?> getActionDef() {
-        return actionDef;
+        return body.hasMembers() ? body : null;
     }
 
     /**
@@ -275,51 +264,119 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
+    public TransitionDef<T, C> run(String id) {
+        body.run(id);
+        return this;
+    }
+
+    @Override
+    public TransitionDef<T, C> run(String id, String mapperId) {
+        body.run(id, mapperId);
+        return this;
+    }
+
+    @Override
+    public TransitionDef<T, C> run(String id, ContextMapper<C, ?> inlineMapper) {
+        body.run(id, inlineMapper);
+        return this;
+    }
+
+    @Override
+    public TransitionDef<T, C> fork(String id) {
+        body.fork(id);
+        return this;
+    }
+
+    @Override
+    public TransitionDef<T, C> fork(String id, String mapperId) {
+        body.fork(id, mapperId);
+        return this;
+    }
+
+    @Override
+    public TransitionDef<T, C> fork(String id, ContextMapper<C, ?> inlineMapper) {
+        body.fork(id, inlineMapper);
+        return this;
+    }
+
+    @Override
     public TransitionDef<T, C> step(String id, Action<T, C> action) {
-        requireConfigurerActive("step");
-        StepDefImpl<T, C> def = newStepDef(id);
-        ConfigurableDefImpl.runConfigurer(def, d -> d.using(action));
-        attachAction(def);
+        body.step(id, action);
         return this;
     }
 
     @Override
     public TransitionDef<T, C> step(String id, Consumer<StepDef<T, C>> configurer) {
-        requireConfigurerActive("step");
-        requireNotNull(configurer, "Step configurer");
-        StepDefImpl<T, C> def = newStepDef(id);
-        ConfigurableDefImpl.runConfigurer(def, configurer);
-        attachAction(def);
-        return this;
-    }
-
-    @Override
-    public TransitionDef<T, C> operation(String id, Consumer<OperationDef<T, C>> configurer) {
-        requireConfigurerActive("operation");
-        requireNotNull(configurer, "Operation configurer");
-        OperationDefImpl<T, C> composite = new OperationDefImpl<>(id);
-        ConfigurableDefImpl.runConfigurer(composite, configurer);
-        attachAction(composite);
+        body.step(id, configurer);
         return this;
     }
 
     @Override
     public TransitionDef<T, C> conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer) {
-        requireConfigurerActive("conditional");
-        requireNotNull(configurer, "Conditional configurer");
-        ConditionalOperationDefImpl<T, C> conditional = new ConditionalOperationDefImpl<>(id);
-        ConfigurableDefImpl.runConfigurer(conditional, configurer);
-        attachAction(conditional);
+        body.conditional(id, configurer);
         return this;
     }
 
     @Override
-    public TransitionDef<T, C> run(String id) {
-        requireConfigurerActive("run");
-        requireNotBlank(id, "Action reference ID");
-        warnIfActionSet();
-        this.actionDef = null;
-        this.registeredActionRefId = id;
+    public TransitionDef<T, C> operation(String id, Consumer<OperationDef<T, C>> configurer) {
+        body.operation(id, configurer);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> step(String id, Class<N> contextType, Action<T, N> action) {
+        body.step(id, contextType, action);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> step(String id, Class<N> contextType, ContextMapper<C, N> mapper,
+                                        Action<T, N> action) {
+        body.step(id, contextType, mapper, action);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> step(String id, Class<N> contextType,
+                                        Consumer<StepDef<T, N>> configurer) {
+        body.step(id, contextType, configurer);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> step(String id, Class<N> contextType, ContextMapper<C, N> mapper,
+                                        Consumer<StepDef<T, N>> configurer) {
+        body.step(id, contextType, mapper, configurer);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> conditional(String id, Class<N> contextType,
+                                               Consumer<ConditionalOperationDef<T, N>> configurer) {
+        body.conditional(id, contextType, configurer);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> conditional(String id, Class<N> contextType,
+                                               ContextMapper<C, N> mapper,
+                                               Consumer<ConditionalOperationDef<T, N>> configurer) {
+        body.conditional(id, contextType, mapper, configurer);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> operation(String id, Class<N> contextType,
+                                             Consumer<OperationDef<T, N>> configurer) {
+        body.operation(id, contextType, configurer);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> operation(String id, Class<N> contextType,
+                                             ContextMapper<C, N> mapper,
+                                             Consumer<OperationDef<T, N>> configurer) {
+        body.operation(id, contextType, mapper, configurer);
         return this;
     }
 
@@ -531,22 +588,6 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         TransitionListenerDefImpl<T, C> listenerDef = new TransitionListenerDefImpl<>(listenerId);
         ConfigurableDefImpl.runConfigurer(listenerDef, configurer);
         return listenerDef;
-    }
-
-    private StepDefImpl<T, C> newStepDef(String stepId) {
-        return new StepDefImpl<>(stepId);
-    }
-
-    private void attachAction(ActionDefImpl<T, C, ?> def) {
-        warnIfActionSet();
-        this.registeredActionRefId = null;
-        this.actionDef = def;
-    }
-
-    private void warnIfActionSet() {
-        if (this.actionDef != null || this.registeredActionRefId != null) {
-            Loggers.BUILD_VALIDATION.warn("Transition action overwritten, transitionId={}", getId());
-        }
     }
 
     private List<BoundCondition<T, C>> buildBoundConditionList(List<ConditionDescriptor> descriptors,

@@ -472,13 +472,13 @@ class StateMachineImplSpec extends Specification {
         def ctx = new TestContext()
         def view = new ExecutingTransitionImpl<TestEntity, TestContext>(sm, sm.transitions['trial-to-active'], entity, ctx)
 
-        when:
+        when: "the body is what a transition runs, so driving it reproduces the real dispatch"
         sm.transitions['trial-to-active'].boundAction.action.execute(entity, ctx, view)
 
         then:
         ctx.tag == 'e1:stamped'
         ctx.counter == 1
-        view.executedPath*.toString() == ['stamp']
+        view.executedPath*.toString() == ['flow', 'flow/stamp']
     }
 
     def "TransitionResult toString should provide readable output"() {
@@ -643,6 +643,46 @@ class StateMachineImplSpec extends Specification {
         wrappedResult.success
         directResult.executedPath*.toString() == ['charge']
         wrappedResult.executedPath*.toString() == ['wrapper', 'wrapper/charge']
+    }
+
+    def "a transition runs every member it declares, in the order written"() {
+        given: 'the slot held one action; the body holds a list, so a second declaration appends'
+        def trail = []
+        def sm = smWith({ t -> t
+            .step('first', { e, c, v -> trail << 'first' } as Action)
+            .step('second', { e, c, v -> trail << 'second' } as Action) })
+
+        when:
+        def result = sm.entity(new TestEntity('e1', 'TRIAL')).transitionTo('ACTIVE', new TestContext())
+
+        then:
+        result.success
+        trail == ['first', 'second']
+        result.executedPath*.toString() == ['first', 'second']
+    }
+
+    def "a transition's members interleave the declaration forms as written"() {
+        given: 'a reference, an inline body and a container, all at the same position'
+        def trail = []
+        def smd = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .step('registered', TestContext, { e, c, v -> trail << 'registered' } as Action)
+        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 'trial-to-active', TestContext, { t -> t
+            .step('inline', { e, c, v -> trail << 'inline' } as Action)
+            .run('registered')
+            .operation('group', { c -> c.step('nested', { e, ctx, v -> trail << 'nested' } as Action) }) }) })
+        smd.state(ACTIVE.id, {})
+
+        when:
+        def result = smd.build().entity(new TestEntity('e1', 'TRIAL')).transitionTo('ACTIVE', new TestContext())
+
+        then:
+        result.success
+        trail == ['inline', 'registered', 'nested']
+
+        and: 'each member is a root, so only a container adds a level'
+        result.executedPath*.toString() == ['inline', 'registered', 'group', 'group/nested']
     }
 
     private static StateMachine<TestEntity> smWith(Consumer<TransitionDef<TestEntity, TestContext>> configurer) {
@@ -833,11 +873,12 @@ class StateMachineImplSpec extends Specification {
         when:
         smd.build()
 
-        then:
+        then: "a member of a transition's body is checked exactly as one of a container's is"
         def e = thrown(TransfluxValidationException)
+        e.message.contains('Context type mismatch')
         e.message.contains("'trial-to-active'")
         e.message.contains("'narrow-op'")
-        e.message.toLowerCase().contains('not assignable')
+        e.message.contains('without a mapper')
     }
 
     def "transitionTo without an attached operation should still apply state and return empty executedPath"() {

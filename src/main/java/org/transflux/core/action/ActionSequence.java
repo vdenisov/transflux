@@ -25,11 +25,12 @@ import java.util.function.Consumer;
 /**
  * An ordered list of action positions, and the grammar for filling one.
  * <p>
- * Three things in the DSL hold such a list - a declarative container, a conditional's branch, and
- * its default branch - and every one of them admits the same ways of naming an action. What
- * differs between them is what the enclosing thing <em>is</em>, not what a member may be: a
- * container is also an action, so it carries an id, a context type, compensation and listeners; a
- * branch belongs to its conditional and carries a condition instead.
+ * Four things in the DSL hold such a list - a declarative container, a conditional's branch, its
+ * default branch, and a transition's body - and every one of them admits the same ways of naming an
+ * action. What differs between them is what the enclosing thing <em>is</em>, not what a member may
+ * be: a container is also an action, so it carries an id, a context type, compensation and
+ * listeners; a branch belongs to its conditional and carries a condition instead; a transition
+ * carries its states, conditions, triggers and the state commit, and is not an action at all.
  *
  * <p><b>Members come in two shapes, and the verb says which.</b> {@link #run(String) run(id)}
  * <em>references</em> an action visible in the enclosing lexical scope - registered on the state

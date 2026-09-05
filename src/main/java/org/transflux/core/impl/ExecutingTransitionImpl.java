@@ -212,9 +212,9 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
 
     /**
      * Runs a bound action. This is the single execution path: every action reaches the runtime
-     * through here, whether it was authored imperatively or declaratively, dispatched as a
-     * container member, referenced from inside another action's body, or attached to the
-     * transition itself.
+     * through here, whether it was authored imperatively or declaratively, dispatched as a member
+     * of a container, a branch or a transition's body, or referenced from inside another action's
+     * body.
      * <p>
      * The order is fixed and uniform:
      * <ol>
@@ -531,9 +531,8 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
 
     /**
      * Returns the registry that {@code run(...)} resolution should consult. When the scope
-     * stack is empty - an imperative action attached straight to a transition calling
-     * {@code view.run("id")}, for instance - this falls back to the state machine's root
-     * registry.
+     * stack is empty - which a transition's body makes rare, since it pushes its own scope before
+     * dispatching anything - this falls back to the state machine's root registry.
      *
      * @return the active scope; never {@code null}
      */

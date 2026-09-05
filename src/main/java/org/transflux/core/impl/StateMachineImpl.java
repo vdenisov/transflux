@@ -254,12 +254,18 @@ class StateMachineImpl<T> implements StateMachine<T> {
     }
 
     /**
-     * Runs the transition's own action through the same path every other action takes, so the
-     * root of the execution tree obeys the ordering and compensation rules its children do.
+     * Runs a transition's body - its members, in order.
+     * <p>
+     * Invoked directly rather than through {@link ExecutingTransitionImpl#runAction}, because the
+     * body is not an action: it has no id in the action namespace, so there is nothing to qualify
+     * a path with, nothing to capture a compensation for, and no listener to notify. The executor
+     * pushes the body's scope and dispatches each member, and every member takes the one execution
+     * path from there.
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private static <T, C> void runRootAction(ExecutingTransitionImpl<T, C> view, BoundAction<T, C> bound) {
-        view.runAction((BoundAction) bound, null);
+    private static <T, C> void runBody(ExecutingTransitionImpl<T, C> view, BoundAction<T, C> body,
+                                       T entity, C context) {
+        ((Action) body.action()).execute(entity, context, view);
     }
 
     StateApplier<T> getStateApplier() {
@@ -704,7 +710,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
             concatListeners(bindTransitionListeners(td.getCompleteListeners()), (List) globals.onComplete()),
             concatListeners(bindTransitionListeners(td.getErrorListeners()), (List) globals.onError()));
 
-        return BoundTransition.from(td, this, (Map) conditionRegistry, listeners);
+        return BoundTransition.from(td, (Map) conditionRegistry, listeners);
     }
 
     /**
@@ -857,9 +863,9 @@ class StateMachineImpl<T> implements StateMachine<T> {
             notifyTransitionListeners(transition, TransitionPhase.START, entity, context, firingTrigger, null);
             notifyStateExit(transition, entity, context);
 
-            BoundAction<T, C> boundAction = transition.boundAction();
-            if (boundAction != null) {
-                runRootAction(view, boundAction);
+            BoundAction<T, C> body = transition.boundAction();
+            if (body != null) {
+                runBody(view, body, entity, context);
             }
 
             // Thrown rather than returned so a violation unwinds through the catch below, which

@@ -168,10 +168,88 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def e = thrown(TransfluxValidationException)
         e.message.contains("'clash'")
         e.message.contains('already registered')
-        // Enriched message: names the kind plus both payload class names.
+        // Both payloads are StepA, so naming the class on each side of "cannot re-register with"
+        // would say nothing; the message reports a different instance of it instead.
         e.message.startsWith('Step id')
-        e.message.contains(StepA.class.name)
-        e.message.contains('cannot re-register')
+        e.message.contains('a different ' + StepA.class.name)
+        !e.message.contains('cannot re-register')
+        e.message.contains('unique across the state machine')
+    }
+
+    def "two transitions declaring the same step id should fail"() {
+        given: "a transition's members are claimed like any others - an attached step claimed none"
+        def smd = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+        smd.state(TRIAL.id, { s -> s
+            .transitionsTo(ACTIVE.id, 't1', { t -> t.step('clash', new StepA()) })
+            .transitionsTo(ACTIVE.id, 't2', { t -> t.step('clash', new StepA()) }) })
+        smd.state(ACTIVE.id, {})
+
+        when:
+        smd.build()
+
+        then: 'ids are unique state-machine-wide, and a transition is no exception'
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("'clash'")
+        e.message.contains('already registered')
+    }
+
+    def "a step declared on a transition may not reuse a state-machine-level id"() {
+        given:
+        def smd = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .step('clash', new StepA())
+        smd.state(TRIAL.id, { s -> s
+            .transitionsTo(ACTIVE.id, 't1', { t -> t.step('clash', new StepA()) }) })
+        smd.state(ACTIVE.id, {})
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("'clash'")
+        e.message.contains('already registered')
+    }
+
+    def "an operation declared on a transition may not reuse a state-machine-level id"() {
+        given: "the two used to coexist - a transition's action was the one registered nowhere"
+        def smd = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .step('leaf', new StepA())
+        smd.operation('a', Object, { c -> c.run('leaf') })
+        smd.state(TRIAL.id, { s -> s
+            .transitionsTo(ACTIVE.id, 't1', { t -> t.operation('a', { c -> c.run('leaf') }) }) })
+        smd.state(ACTIVE.id, {})
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("'a'")
+        e.message.contains('already registered')
+    }
+
+    def "the same step instance declared on two transitions is idempotent"() {
+        given: 'the same payload under one id is one declaration seen twice, not a clash'
+        def shared = new StepA()
+        def smd = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+        smd.state(TRIAL.id, { s -> s
+            .transitionsTo(ACTIVE.id, 't1', { t -> t.step('shared', shared) })
+            .transitionsTo(ACTIVE.id, 't2', { t -> t.step('shared', shared) }) })
+        smd.state(ACTIVE.id, {})
+
+        when:
+        smd.build()
+
+        then:
+        noExceptionThrown()
     }
 
     def "two composites inlining the same instance under the same id are idempotent (each composite has its own scope entry)"() {

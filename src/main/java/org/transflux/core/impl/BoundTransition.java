@@ -43,8 +43,8 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param targetStateId the target state id; never {@code null} or blank
  * @param contextType the declared firing-context type; never {@code null}
  *                    ({@code Object.class} when untyped, {@code Void.class} when null-only)
- * @param boundAction the resolved operation to run; may be {@code null} for transitions
- *                       without an operation
+ * @param boundAction the resolved executable for the transition's body; {@code null} when the
+ *                    transition declares no members
  * @param boundPreConditions the resolved pre-conditions, in declaration order
  * @param boundPostConditions the resolved post-conditions, in declaration order
  * @param boundListeners the resolved listeners for each hook, already in notification order
@@ -78,8 +78,6 @@ record BoundTransition<T, C>(String id,
      * constructor with the def's resolved bindings.
      *
      * @param def the transition definition to resolve
-     * @param stateMachine the enclosing state machine; needed by composite operations to
-     *                     resolve step references
      * @param conditionRegistry the resolved state-machine condition registry
      * @param listeners the transition's listeners merged with the state machine's global ones,
      *                  already in notification order
@@ -89,7 +87,6 @@ record BoundTransition<T, C>(String id,
      * @return the resolved bound transition
      */
     static <T, C> BoundTransition<T, C> from(TransitionDefImpl<T, C> def,
-                                             StateMachineImpl<T> stateMachine,
                                              java.util.Map<String, BoundCondition<T, C>> conditionRegistry,
                                              BoundTransitionListeners<T, C> listeners) {
         requireNotNull(def, "Transition definition");
@@ -99,7 +96,7 @@ record BoundTransition<T, C>(String id,
             def.getSourceStateId(),
             def.getTargetStateId(),
             def.getContextType(),
-            def.buildBoundAction(stateMachine),
+            def.buildBoundAction(),
             def.buildBoundPreConditions(conditionRegistry),
             def.buildBoundPostConditions(conditionRegistry),
             listeners);

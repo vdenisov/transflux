@@ -34,8 +34,8 @@ import java.util.Collection;
  * error handling, and compensations during state changes.
  *
  * <p>The state machine itself is not parameterized by a context type. Each transition declares
- * its own context type (via {@code transitionsTo(target, id, Class<C>)} or
- * {@code TransitionDef.usingContext(Class<C>)}); the host supplies the firing-time context
+ * its own context type via {@code transitionsTo(target, id, Class<C>)}; the host supplies the
+ * firing-time context
  * to {@link EntityBinding#transitionTo(String, Object)} and the framework verifies the type
  * at the dispatch boundary.
  *

@@ -543,4 +543,52 @@ public final class JavaDslSurface {
             .state("s2", s -> { })
             .build();
     }
+    /**
+     * The member grammar at a transition position. A transition's body is a sequence like any
+     * other, so every form has to resolve here too - several members in a row, a call-site mapper,
+     * {@code fork} beside a synchronous member, and the context-declaring shapes. None of this was
+     * expressible while the transition held a single action.
+     *
+     * @return the built state machine, which owns a pool and must be closed
+     */
+    public static StateMachine<Order> transitionSequenceShapes() {
+        return Transflux.<Order>defineStateMachine()
+            .forEntityType(Order.class)
+            .withStateResolver(o -> o.state)
+            .withStateApplier((o, s) -> o.state = s)
+            .step("record", new RecordingAction())
+            .step("notify", NotifyCtx.class, new NotifyAction())
+            .mapper("notify-from-order", OrderCtx.class, NotifyCtx.class,
+                    parent -> new NotifyCtx(parent.orderId))
+            .state("s1", s -> s
+                .transitionsTo("s2", "t", OrderCtx.class, t -> t
+                    // several members in a row, which the single-action slot could not hold
+                    .run("record")
+                    .run("notify", "notify-from-order")
+                    .run("notify", parent -> new NotifyCtx(parent.orderId))
+
+                    // declarations, inheriting the transition's context
+                    .step("inline", (order, ctx, view) -> order.trail.add("inline:" + ctx.orderId))
+                    .step("configured", st -> st.using(new RecordingAction()).withName("Configured"))
+                    .operation("group", c -> c.step("grouped", new RecordingAction()))
+                    .conditional("route", cond -> cond
+                        .branch("taken", b -> b
+                            .condition("always", (order, ctx) -> true)
+                            .step("branch-member", new RecordingAction())))
+
+                    // declarations naming a context of their own, pass-through and mapped
+                    .step("widened", HasOrderId.class,
+                          (order, ctx, view) -> order.trail.add("widened:" + ctx.orderId()))
+                    .operation("mapped-group", NotifyCtx.class,
+                               parent -> new NotifyCtx(parent.orderId), inner -> inner
+                        .step("mapped-member", (order, ctx, view) ->
+                            order.trail.add("mapped:" + ctx.orderId)))
+
+                    // and fork, beside a synchronous member rather than inside a wrapper
+                    .fork("record")
+                    .fork("notify", "notify-from-order")
+                    .fork("notify", parent -> new NotifyCtx(parent.orderId))))
+            .state("s2", s -> { })
+            .build();
+    }
 }

@@ -140,7 +140,7 @@ class TransitionDefImplSpec extends Specification {
         'getTargetStateId' | 't1'           | 'source'          | 'target-state-id' | 'target-state-id'
     }
 
-    def 'step(id, Operation instance) should attach an inline step def'() {
+    def 'step(id, Action instance) declares a member on the body'() {
         given:
         def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
         transitionDef.beginConfigurer()
@@ -150,11 +150,11 @@ class TransitionDefImplSpec extends Specification {
 
         then:
         returned.is(transitionDef)
-        transitionDef.actionDef instanceof StepDefImpl
-        transitionDef.actionDef.id == 'op1'
+        transitionDef.actionDef instanceof OperationDefImpl
+        memberIds(transitionDef) == ['op1']
     }
 
-    def 'step(id, Consumer) should attach a configured step def'() {
+    def 'step(id, Consumer) declares a configured member on the body'() {
         given:
         def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
         transitionDef.beginConfigurer()
@@ -166,10 +166,12 @@ class TransitionDefImplSpec extends Specification {
 
         then:
         returned.is(transitionDef)
-        transitionDef.actionDef instanceof StepDefImpl
-        transitionDef.actionDef.id == 'op1'
-        transitionDef.actionDef.name == 'Foo'
-        transitionDef.actionDef.description == 'Foo desc'
+        memberIds(transitionDef) == ['op1']
+
+        and: 'the configurer reached the member def, not the body'
+        def def0 = transitionDef.actionDef.members.members()[0].ref().def()
+        def0.name == 'Foo'
+        def0.description == 'Foo desc'
     }
 
     def 'step(id, Consumer) should reject null configurer'() {
@@ -184,7 +186,7 @@ class TransitionDefImplSpec extends Specification {
         thrown(TransfluxValidationException)
     }
 
-    def 'operation(id, Consumer) should attach an operation def'() {
+    def 'operation(id, Consumer) declares a container member on the body'() {
         given:
         def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
         transitionDef.beginConfigurer()
@@ -196,9 +198,8 @@ class TransitionDefImplSpec extends Specification {
 
         then:
         returned.is(transitionDef)
-        transitionDef.actionDef instanceof OperationDefImpl
-        transitionDef.actionDef.id == 'op1'
-        ((OperationDefImpl<Object, Object>) transitionDef.actionDef).actionRefs.size() == 1
+        memberIds(transitionDef) == ['op1']
+        transitionDef.actionDef.members.members()[0].ref() instanceof ActionRef.InlineOperation
     }
 
     def 'operation(id, Consumer) should reject null configurer'() {
@@ -224,7 +225,7 @@ class TransitionDefImplSpec extends Specification {
         result == "TransitionDefImpl{id='t1', sourceStateId='source', targetStateId='target'}"
     }
 
-    def 'TransitionDef defaults to Object context when usingContext is not called'() {
+    def 'TransitionDef defaults to Object context when none is declared'() {
         given:
         def td = new TransitionDefImpl<UsingCtxEntity, Object>('t1', 's1', 's2')
 
@@ -232,25 +233,12 @@ class TransitionDefImplSpec extends Specification {
         td.getContextType() == Object
     }
 
-    def "usingContext narrows the transition's context type and re-types the builder"() {
-        given:
-        def td = new TransitionDefImpl<UsingCtxEntity, Void>('t1', 's1', 's2', Void)
-        td.beginConfigurer()
-
-        when:
-        TransitionDef<UsingCtxEntity, UsingCtx> retyped = td.usingContext(UsingCtx)
-
-        then:
-        retyped.getContextType() == UsingCtx
-        td.getContextType() == UsingCtx
-    }
-
     def "transition's contextType is reachable from the bound transition record"() {
         given:
         def smd = new StateMachineDefImpl<UsingCtxEntity>()
         smd.forEntityType(UsingCtxEntity)
             .withStateResolver({ e -> e.state } as StateResolver<UsingCtxEntity>)
-            .state('s1', { s -> s.transitionsTo('s2', 't1', { t -> t.usingContext(UsingCtx) }) })
+            .state('s1', { s -> s.transitionsTo('s2', 't1', UsingCtx, { t -> }) })
             .state('s2', {})
         def sm = (StateMachineImpl) smd.build()
 
@@ -262,7 +250,16 @@ class TransitionDefImplSpec extends Specification {
         transition.contextType() == UsingCtx
     }
 
-    def 'operation(String) stores the registered op id and clears any prior actionDef'() {
+    def 'a transition declaring nothing has no body to run'() {
+        given: 'an empty body reads as absent, which is what every build pass skips on'
+        def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
+
+        expect:
+        td.getActionDef() == null
+        td.buildBoundAction() == null
+    }
+
+    def 'run(id) declares a by-id member on the body'() {
         given:
         def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
         td.beginConfigurer()
@@ -271,11 +268,11 @@ class TransitionDefImplSpec extends Specification {
         td.run('my-registered-op')
 
         then:
-        td.registeredActionRefId == 'my-registered-op'
-        td.actionDef == null
+        memberIds(td) == ['my-registered-op']
+        td.actionDef.members.members()[0].ref() instanceof ActionRef.ById
     }
 
-    def 'operation(null) and operation(blank) are rejected'() {
+    def 'run(null) and run(blank) are rejected'() {
         given:
         def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
         td.beginConfigurer()
@@ -290,8 +287,8 @@ class TransitionDefImplSpec extends Specification {
         id << [null, '', '  ']
     }
 
-    def 'operation(...) followed by step(...) overrides with a warning'() {
-        given:
+    def 'a second declaration appends rather than replacing the first'() {
+        given: 'a transition holds an ordered list, so both members run, in the order written'
         def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
         td.beginConfigurer()
 
@@ -300,12 +297,10 @@ class TransitionDefImplSpec extends Specification {
         td.step('second', new IdOverloadOp())
 
         then:
-        td.registeredActionRefId == null
-        td.actionDef != null
-        td.actionDef.id == 'second'
+        memberIds(td) == ['first', 'second']
     }
 
-    def 'step(...) followed by operation(...) overrides with a warning'() {
+    def 'declaration order is preserved whichever forms are mixed'() {
         given:
         def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
         td.beginConfigurer()
@@ -313,14 +308,15 @@ class TransitionDefImplSpec extends Specification {
         when:
         td.step('first', new IdOverloadOp())
         td.run('second')
+        td.fork('third')
 
         then:
-        td.actionDef == null
-        td.registeredActionRefId == 'second'
+        memberIds(td) == ['first', 'second', 'third']
+        td.actionDef.members.members()*.forked() == [false, false, true]
     }
 
-    def 'operation(...) is rejected after the configurer returns (scope guard)'() {
-        given:
+    def 'a member declared after the configurer returns is rejected, naming the transition'() {
+        given: "the body's guard follows the transition's, so one rule covers both"
         def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
         td.beginConfigurer()
         td.endConfigurer()
@@ -331,6 +327,7 @@ class TransitionDefImplSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains("'t1'")
+        e.message.contains('transition')
     }
 
     @Unroll
@@ -378,4 +375,8 @@ class TransitionDefImplSpec extends Specification {
         void execute(Object e, Object c, ExecutingTransition<Object, Object> t) {}
     }
 
+
+    private static List<String> memberIds(TransitionDefImpl<?, ?> td) {
+        return td.actionDef.members.members()*.ref()*.id()
+    }
 }

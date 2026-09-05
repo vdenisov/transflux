@@ -176,7 +176,7 @@ The unit of work executed during state transitions. `Action<T, C>` is a **pure f
 
 **Vocabulary:** a *step* is an imperative action, an *operation* is a declarative one. The distinction is what the author wrote, not what the runtime does — both forms execute through one path (§2.4) and are dispatched identically. The authored form travels with the action as an `ActionKind` and surfaces in diagnostics so a message can name the thing the way its author wrote it.
 
-**Any action attaches to a transition**, in either form, and a transition carries at most one. There is no elevation mechanism and no need for a single-member wrapper.
+**A transition's body is an ordered list of actions**, in either form and in any mix — the same member grammar a declarative container and a conditional's branch carry (§2.2.5.1). There is no elevation mechanism and no need for a single-member wrapper, and no wrapper either when a transition does several things: the members sit directly on it, in the order written. What the transition carries beyond that list — states, conditions, triggers, the commit — is around the list rather than in it, so the transition is not itself an action: it holds no id in the action namespace, no compensation of its own and no action listeners. Rolling the body back as a unit is a matter of declaring it as one.
 
 **Features:**
 - Type safety (entity, context) with generics.
@@ -188,7 +188,7 @@ The unit of work executed during state transitions. `Action<T, C>` is a **pure f
 
 #### 2.2.6 Action Invocation
 
-An action is invoked in one of three ways: as the action attached to a transition, as a declared member of a declarative container, or dynamically through `transition.run("id")` from inside another action's body. All three flow through the same internal path, so id recording, timing, nesting, and compensation registration are uniform regardless of who initiated the invocation.
+An action is invoked in one of two ways: as a declared member of an ordered list — a transition's body, a declarative container, or a conditional's branch — or dynamically through `transition.run("id")` from inside another action's body. Both flow through the same internal path, so id recording, timing, nesting, and compensation registration are uniform regardless of who initiated the invocation.
 
 A dispatch site names a callee and nothing more. Which form the callee was authored in is a property of *its* registration rather than of the call, which is why there is a single `run(...)` verb at every reference position instead of one per form. The `step(...)` and `operation(...)` verbs appear only where an action is being *declared*, because there the form is being chosen at that site.
 
@@ -1587,8 +1587,8 @@ ordering rules.
 ### 4.3 Transition Configuration
 
 A transition is declared inside its source state's configurer, and configured inside its own. The
-context type may be pre-bound in `transitionsTo(...)` as shown, or set with `usingContext(...)`
-inside the configurer.
+context type is pre-bound in `transitionsTo(...)` as shown; omitting it defaults the transition to
+`Object`, which accepts any firing context.
 
 ```java
 .state("trial", s -> s
@@ -1665,7 +1665,7 @@ public class ActivateSubscriptionAction
         .step("activate-subscription", new ActivateSubscriptionAction())))
 ```
 
-> Any action attaches to a transition, in either form, so there is no wrapper to author when the unit of work is a single Java body. Asynchronous dispatch is a property of a *member position* inside a declarative container rather than of an action, so it is spelled `fork(...)` there (§4.4.2) and has no equivalent at a transition's own attachment point — a transition with nothing to wait for is a transition with nothing to do.
+> Any action may be declared directly on a transition, in either form, so there is no wrapper to author when the unit of work is a single Java body — nor when it is several, since a transition's body is an ordered list. Asynchronous dispatch is a property of a *member position*, so `fork(...)` is available wherever a member is declared (§4.4.2), a transition's body included: the members after a forked one do not wait for it, and the transition commits without it.
 
 #### 4.4.2 Declarative Actions (Operations)
 

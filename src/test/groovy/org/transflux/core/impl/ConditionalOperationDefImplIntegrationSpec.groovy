@@ -778,11 +778,13 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
     }
 
     /**
-     * Digs the conditional's executor out of a built machine: the transition's action is the
-     * container, whose first member is the conditional this spec declares.
+     * Digs the conditional's executor out of a built machine: the transition's body holds the
+     * container as its only member, and the container holds the conditional this spec declares.
      */
     private static conditionalOf(machine) {
-        machine.transitions['t'].boundAction.action().members[0].action().action()
+        def body = machine.transitions['t'].boundAction.action()
+        def container = body.members[0].action().action()
+        container.members[0].action().action()
     }
 
     def 'a conditional attaches straight to a transition, with no wrapping operation'() {
