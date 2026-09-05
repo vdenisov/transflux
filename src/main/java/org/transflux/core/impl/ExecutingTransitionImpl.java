@@ -142,21 +142,25 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public void run(String id) {
-        runAction((BoundAction) resolveAction(id, true), null);
+        runAction((BoundAction) resolveAction(id, true).bound(), null);
     }
 
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public void run(String id, String mapperId) {
         requireNotBlank(mapperId, "Mapper reference ID");
-        runAction((BoundAction) resolveAction(id, false), resolveRegisteredMapper(mapperId));
+        Component.Action<T, ?> callee = resolveAction(id, false);
+        runAction((BoundAction) callee.bound(), resolveRegisteredMapper(mapperId),
+                  callee.contextType());
     }
 
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public void run(String id, ContextMapper<C, ?> inlineMapper) {
         requireNotNull(inlineMapper, "Inline mapper instance");
-        runAction((BoundAction) resolveAction(id, false), (ContextMapper<Object, Object>) inlineMapper);
+        Component.Action<T, ?> callee = resolveAction(id, false);
+        runAction((BoundAction) callee.bound(), (ContextMapper<Object, Object>) inlineMapper,
+                  callee.contextType());
     }
 
     T getEntity() {
@@ -251,10 +255,33 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
      * @param bound the bound action to run; never {@code null}
      * @param mapper the mapper to apply at the boundary, or {@code null} for pass-through
      */
-    @SuppressWarnings({"unchecked", "rawtypes"})
     void runAction(BoundAction<T, Object> bound, ContextMapper<Object, Object> mapper) {
+        runAction(bound, mapper, null);
+    }
+
+    /**
+     * Runs an action, checking that a supplied mapper produced a context the callee can accept.
+     * <p>
+     * Only a caller holding the callee's registration knows what that is, which is why the type
+     * is a parameter rather than something {@link BoundAction} carries: a member of a sequence
+     * reaches this method through a bound record alone and passes {@code null}, so the check is
+     * confined to the imperative {@code run(id, mapper)} surface for now.
+     *
+     * @param bound the bound action to run; never {@code null}
+     * @param mapper the mapper to apply at the boundary, or {@code null} for pass-through
+     * @param calleeContext the context the callee was registered against, or {@code null} to skip
+     *                      the check
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void runAction(BoundAction<T, Object> bound, ContextMapper<Object, Object> mapper,
+                   Class<?> calleeContext) {
         Object active = getContext();
         Object child = mapper == null ? null : mapper.mapTo(active);
+        // Before anything is recorded or captured, so a rejection is attributed the way a throwing
+        // mapTo already is: the child never started.
+        if (mapper != null) {
+            requireMappedContextAccepted(bound.id(), calleeContext, child);
+        }
         Object effective = mapper == null ? active : child;
 
         ActionPath path = qualifyActionPath(bound.id());
@@ -447,7 +474,7 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
      * @param id the id to resolve
      * @param passThrough whether the callee will be handed this action's own context
      */
-    private BoundAction<T, ?> resolveAction(String id, boolean passThrough) {
+    private Component.Action<T, ?> resolveAction(String id, boolean passThrough) {
         requireNotBlank(id, "Action ID");
 
         Registry<T> scope = activeScope();
@@ -474,7 +501,7 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
             Loggers.EXECUTION_ACTION.trace("Action id resolved, id={}, scope={}", id,
                                            scope.declaringScope(id).orElse(null));
         }
-        return action.bound();
+        return action;
     }
 
     /**
@@ -492,6 +519,26 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
             "Context type mismatch: action '" + id + "' is declared for context "
                 + calleeContext.getName() + " and cannot be run pass-through from a "
                 + active.getClass().getName() + " context; supply a mapper at this call site");
+    }
+
+    /**
+     * Refuses a mapped dispatch whose mapper produced something the callee cannot run against.
+     * <p>
+     * The mapper's own child type cannot be checked at build time - it is erased on an inline
+     * lambda, and the call site is inside a Java body the definition cannot see - so this is the
+     * first moment the two are comparable. Without it the mismatch surfaces as a bare
+     * {@code ClassCastException} thrown from the callee's bridge method, naming neither the action
+     * nor the boundary it crossed.
+     */
+    private void requireMappedContextAccepted(String id, Class<?> calleeContext, Object child) {
+        if (calleeContext == null || calleeContext == Object.class || child == null
+                || calleeContext.isInstance(child)) {
+            return;
+        }
+        throw new TransfluxValidationException(
+            "Context type mismatch: action '" + id + "' is declared for context "
+                + calleeContext.getName() + ", but the mapper supplied at this call site produced a "
+                + child.getClass().getName());
     }
 
     /**

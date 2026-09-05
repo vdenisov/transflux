@@ -246,6 +246,73 @@ class ExecutingTransitionSpec extends Specification {
         result.error.message.contains(ParentCtx.name)
     }
 
+    def 'a mapped view.run whose mapper produces the wrong context is refused'() {
+        given: 'neither erasure nor the definition can see this pairing, so run time is the first chance'
+        def sm = build(
+            { smd -> },
+            { t ->
+                t.operation('op', { c -> c
+                    .step('typed', ChildCtx, { ParentCtx p -> new ChildCtx(input: p.input) } as ContextMapper,
+                          new ChildStep())
+                    .step('caller', { entity, ctx, transition ->
+                        transition.run('typed', { ParentCtx p -> p.input } as ContextMapper)
+                    } as Action<Entity, ParentCtx>) })
+            })
+
+        when: 'the mapper returns a String where the callee wants a ChildCtx'
+        def result = sm.entity(new Entity('s1')).transitionTo('s2', new ParentCtx(input: 'x'))
+
+        then: 'named, rather than a ClassCastException out of the callee bridge method'
+        !result.success
+        result.error instanceof TransfluxValidationException
+        result.error.message.contains("action 'typed'")
+        result.error.message.contains(ChildCtx.name)
+        result.error.message.contains(String.name)
+    }
+
+    def 'a mapped view.run to a registered mapper of the wrong child type is refused'() {
+        given:
+        def sm = build(
+            { smd -> smd.mapper('wrong', ParentCtx, ParentCtx, { ParentCtx p -> p } as ContextMapper) },
+            { t ->
+                t.operation('op', { c -> c
+                    .step('typed', ChildCtx, { ParentCtx p -> new ChildCtx(input: p.input) } as ContextMapper,
+                          new ChildStep())
+                    .step('caller', { entity, ctx, transition ->
+                        transition.run('typed', 'wrong')
+                    } as Action<Entity, ParentCtx>) })
+            })
+
+        when:
+        def result = sm.entity(new Entity('s1')).transitionTo('s2', new ParentCtx(input: 'x'))
+
+        then:
+        !result.success
+        result.error instanceof TransfluxValidationException
+        result.error.message.contains("action 'typed'")
+        result.error.message.contains(ChildCtx.name)
+    }
+
+    def 'a mapped view.run producing an acceptable context still runs'() {
+        given: 'the check must not reject the case it exists to distinguish from'
+        def sm = build(
+            { smd -> },
+            { t ->
+                t.operation('op', { c -> c
+                    .step('typed', ChildCtx, { ParentCtx p -> new ChildCtx(input: p.input) } as ContextMapper,
+                          new ChildStep())
+                    .step('caller', { entity, ctx, transition ->
+                        transition.run('typed', { ParentCtx p -> new ChildCtx(input: p.input) } as ContextMapper)
+                    } as Action<Entity, ParentCtx>) })
+            })
+
+        when:
+        def result = sm.entity(new Entity('s1')).transitionTo('s2', new ParentCtx(input: 'x'))
+
+        then:
+        result.success
+    }
+
     def 'every transition.run form fails the transition on a blank id'() {
         given:
         def sm = build(

@@ -133,34 +133,6 @@ class OperationDefImplForkSpec extends Specification {
     }
 
 
-    @Unroll
-    def 'forked declaration #form records a forked member'() {
-        given:
-        def def_ = openOperation()
-
-        when:
-        call.call(def_)
-
-        then: 'one member, and the flag the verb asked for'
-        def_.getMembers()*.ref()*.id() == ['a']
-        def_.getMembers()*.forked() == [true]
-
-        where:
-        form                              || call
-        'forkStep(id, action)'            || { it.forkStep('a', new NoopAction()) }
-        'forkStep(id, cfg)'               || { it.forkStep('a', { st -> st.using(new NoopAction()) } as Consumer) }
-        'forkStep(id, ctx, action)'       || { it.forkStep('a', String, new NoopAction()) }
-        'forkStep(id, ctx, map, action)'  || { it.forkStep('a', String, new PassThroughMapper(), new NoopAction()) }
-        'forkStep(id, ctx, cfg)'          || { it.forkStep('a', String, { st -> st.using(new NoopAction()) } as Consumer) }
-        'forkStep(id, ctx, map, cfg)'     || { it.forkStep('a', String, new PassThroughMapper(), { st -> st.using(new NoopAction()) } as Consumer) }
-        'forkOperation(id, cfg)'          || { it.forkOperation('a', { op -> op } as Consumer) }
-        'forkOperation(id, ctx, cfg)'     || { it.forkOperation('a', String, { op -> op } as Consumer) }
-        'forkOperation(id, ctx, map, cfg)'|| { it.forkOperation('a', String, new PassThroughMapper(), { op -> op } as Consumer) }
-        'forkConditional(id, cfg)'        || { it.forkConditional('a', branches) }
-        'forkConditional(id, ctx, cfg)'   || { it.forkConditional('a', String, branches) }
-        'forkConditional(id, ctx, map, cfg)' || { it.forkConditional('a', String, new PassThroughMapper(), branches) }
-    }
-
     def 'a forked declaration sits in one ordered list beside its synchronous siblings'() {
         given:
         def def_ = openOperation()

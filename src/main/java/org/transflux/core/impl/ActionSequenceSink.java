@@ -96,6 +96,8 @@ final class ActionSequenceSink<T, C, D> {
 
     D step(String id, Action<T, C> action, boolean forked) {
         owner.requireConfigurerActive(verb("step", forked));
+        requireNotBlank(id, "Step ID");
+        requireNotNull(action, "Step action");
         members.add(new DeclaredMember<>(ActionRef.inline(id, action, ActionKind.STEP), forked));
         return self;
     }
