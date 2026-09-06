@@ -18,6 +18,7 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.action.AsyncRejectionPolicy;
 import org.transflux.core.action.ConditionalOperationDef;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.ContextMapper;
@@ -26,7 +27,6 @@ import org.transflux.core.action.Action;
 import org.transflux.core.action.StepDef;
 
 import java.util.List;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 
@@ -70,8 +70,8 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
         members.collectInlineRegistrations(sink);
     }
 
-    void collectListenerIds(BiConsumer<String, String> sink) {
-        members.collectListenerIds(sink);
+    void visitDefs(Consumer<ActionDefImpl<?, ?, ?>> visitor) {
+        members.visitDefs(visitor);
     }
 
     @Override
@@ -102,6 +102,21 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
     @Override
     public DefaultBranchDef<T, C> fork(String id, ContextMapper<C, ?> inlineMapper) {
         return members.fork(id, inlineMapper);
+    }
+
+    @Override
+    public DefaultBranchDef<T, C> fork(String id, AsyncRejectionPolicy policy) {
+        return members.fork(id, policy);
+    }
+
+    @Override
+    public DefaultBranchDef<T, C> fork(String id, String mapperId, AsyncRejectionPolicy policy) {
+        return members.fork(id, mapperId, policy);
+    }
+
+    @Override
+    public DefaultBranchDef<T, C> fork(String id, ContextMapper<C, ?> inlineMapper, AsyncRejectionPolicy policy) {
+        return members.fork(id, inlineMapper, policy);
     }
 
     @Override

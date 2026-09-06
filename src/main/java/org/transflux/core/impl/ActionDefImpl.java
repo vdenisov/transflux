@@ -18,10 +18,12 @@
 
 package org.transflux.core.impl;
 
+import java.util.function.Predicate;
 import org.transflux.core.action.ActionDef;
 import org.transflux.core.action.ActionListener;
 import org.transflux.core.action.ActionListenerDef;
 import org.transflux.core.action.ActionPhase;
+import org.transflux.core.action.AsyncRejectionPolicy;
 import org.transflux.core.action.Compensation;
 import org.transflux.core.action.CompensationRouteDef;
 
@@ -31,6 +33,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+
+import static org.transflux.core.Preconditions.requireNotNull;
+import static org.transflux.core.impl.ValidationUtils.warnIfSet;
 
 /**
  * Sealed base for concrete {@link ActionDef} implementations.
@@ -68,6 +73,12 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     private final ActionListenerSink<T, C, SELF> listeners = new ActionListenerSink<>(this, self());
 
     private final CompensationSink<T, C, SELF> compensation = new CompensationSink<>(this, self());
+
+    /**
+     * What a fork of this action does when the executor cannot take it. {@code null} until
+     * declared, which is what lets the state machine's own default apply instead.
+     */
+    private AsyncRejectionPolicy asyncRejectionPolicy;
 
     /**
      * The context this action was declared against, or {@code null} when its declaration site
@@ -208,6 +219,27 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     @Override
+    public SELF withAsyncRejectionPolicy(AsyncRejectionPolicy policy) {
+        requireConfigurerActive("withAsyncRejectionPolicy");
+        requireNotNull(policy, "Async rejection policy");
+        warnIfSet(this.asyncRejectionPolicy != null, "Async rejection policy", defLabel(),
+                  Loggers.BUILD_VALIDATION);
+
+        this.asyncRejectionPolicy = policy;
+        return self();
+    }
+
+    /**
+     * Returns the policy declared for forks of this action.
+     *
+     * @return the policy, or {@code null} when this def declared none and the state machine's own
+     *         applies
+     */
+    final AsyncRejectionPolicy getAsyncRejectionPolicy() {
+        return asyncRejectionPolicy;
+    }
+
+    @Override
     public <X extends Throwable> CompensationRouteDef<T, C, X, SELF> forException(
             Class<X> exceptionType) {
         return compensation.forException(exceptionType);
@@ -275,15 +307,18 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     /**
-     * Build-time hook: reports every listener id declared on this action and, for the declarative
-     * form, on the actions nested beneath it. The sink receives the listener id and a label naming
-     * where it was declared, so a collision in the state-machine-wide listener namespace can point
-     * at the offender.
+     * Build-time hook: visits this action and, for the declarative forms, every action declared
+     * beneath it - a container's members, a conditional's branch members, at any depth. Inline
+     * declarations are reached; by-id references are not, since the def they name is visited where
+     * it was declared.
+     * <p>
+     * One walk serves every per-def build check, so a check added later cannot reach a position the
+     * others miss.
      *
-     * @param sink receives {@code (listenerId, ownerLabel)} for each declared listener
+     * @param visitor receives each def in the subtree, this one included
      */
-    void collectListenerIds(BiConsumer<String, String> sink) {
-        emitOwnListenerIds(sink);
+    void visitDefs(Consumer<ActionDefImpl<?, ?, ?>> visitor) {
+        visitor.accept(this);
     }
 
     /**
@@ -475,7 +510,20 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      *
      * @return whether a forked member is declared anywhere beneath this action
      */
-    abstract boolean declaresFork();
+    final boolean declaresFork() {
+        return anyMember(ActionSequenceSink.DeclaredMember::forked);
+    }
+
+    /**
+     * Reports whether any member declared beneath this action - at any depth, a conditional's
+     * branches included - satisfies the test. The one walk behind every "does this definition
+     * anywhere declare ..." question, so a new question cannot reach a position the others miss.
+     *
+     * @param test the property to look for
+     *
+     * @return {@code true} if some member has it
+     */
+    abstract boolean anyMember(Predicate<ActionSequenceSink.DeclaredMember<?, ?>> test);
 
     /**
      * Returns the ids this action reaches by reference - its outgoing edges for cycle detection.

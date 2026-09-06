@@ -20,6 +20,7 @@ package org.transflux.core.impl
 
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.Action
+import org.transflux.core.action.AsyncRejectionPolicy
 import org.transflux.core.action.Compensation
 import org.transflux.core.transition.ExecutingTransition
 import spock.lang.Specification
@@ -166,6 +167,38 @@ class StepDefImplSpec extends Specification {
         def_.buildBoundAction().compensationRouter()?.fallback().is(second)
     }
 
+    def 'withAsyncRejectionPolicy rides onto the bound action'() {
+        given:
+        def def_ = new StepDefImpl<Object, Object>('s1', Object)
+        def_.beginConfigurer()
+        def_.using(new NoopStep()).withAsyncRejectionPolicy(AsyncRejectionPolicy.CALLER_RUNS)
+
+        expect:
+        def_.buildBoundAction().asyncRejectionPolicy() == AsyncRejectionPolicy.CALLER_RUNS
+    }
+
+    def 'an undeclared policy leaves the bound action deferring to the state machine'() {
+        given:
+        def def_ = new StepDefImpl<Object, Object>('s1', Object)
+        def_.beginConfigurer()
+        def_.using(new NoopStep())
+
+        expect:
+        def_.buildBoundAction().asyncRejectionPolicy() == null
+    }
+
+    def 'withAsyncRejectionPolicy rejects null'() {
+        given:
+        def def_ = new StepDefImpl<Object, Object>('s1', Object)
+        def_.beginConfigurer()
+
+        when:
+        def_.withAsyncRejectionPolicy(null)
+
+        then:
+        thrown(TransfluxValidationException)
+    }
+
     def 'withCompensation(instance) rejects null'() {
         given:
         def def_ = new StepDefImpl<Object, Object>('s1', Object)
@@ -199,5 +232,6 @@ class StepDefImplSpec extends Specification {
         'using'             | { it.using(new NoopStep()) }
         'withName'          | { it.withName('n') }
         'withCompensation'  | { it.withCompensation(new NoopCompensation()) }
+        'withAsyncRejectionPolicy' | { it.withAsyncRejectionPolicy(AsyncRejectionPolicy.DROP) }
     }
 }

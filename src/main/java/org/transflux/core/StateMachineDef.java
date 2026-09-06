@@ -22,7 +22,7 @@ import org.transflux.core.action.Action;
 import org.transflux.core.action.ActionListener;
 import org.transflux.core.action.ActionListenerDef;
 import org.transflux.core.action.ContextMapper;
-import org.transflux.core.action.ForkRejectionPolicy;
+import org.transflux.core.action.AsyncRejectionPolicy;
 import org.transflux.core.action.MapperDef;
 import org.transflux.core.action.ConditionalOperationDef;
 import org.transflux.core.action.OperationDef;
@@ -148,6 +148,11 @@ public interface StateMachineDef<T> {
      * <p>This and {@link #withAsyncPool(int, int)} configure the same thing, so the later call
      * replaces the earlier one and logs a warning.
      *
+     * <p>{@link AsyncRejectionPolicy#BLOCK} is not available against a host executor and fails the
+     * build: waiting for capacity needs the rejection handler the framework installs on a pool it
+     * builds itself, and a host's executor is not ours to reconfigure. A host that wants that
+     * back-pressure installs its own blocking handler on its own pool.
+     *
      * @param executor the executor to submit forked members to; never {@code null}
      *
      * @return this state machine def for chaining
@@ -196,17 +201,20 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> withAsyncPool(int threads, int queueCapacity, ThreadFactory threadFactory);
 
     /**
-     * Decides what happens when the executor refuses a forked member - a full queue, or a pool
-     * that has already been closed. Defaults to {@link ForkRejectionPolicy#DROP}.
+     * Decides what happens when the executor cannot take async work - a full queue, or a pool that
+     * has already been closed. Defaults to {@link AsyncRejectionPolicy#DROP}.
+     * <p>
+     * This is the fallback for work that does not state its own. An individual action declares one
+     * with {@code ActionDef.withAsyncRejectionPolicy(...)}, which is the right grain when a machine
+     * forks both a metrics ping and an audit write.
      *
-     * @param policy the policy to apply at every fork site in this state machine; never
-     *               {@code null}
+     * @param policy the policy for async work that declares none of its own; never {@code null}
      *
      * @return this state machine def for chaining
      *
      * @throws TransfluxValidationException if {@code policy} is {@code null}
      */
-    StateMachineDef<T> withForkRejectionPolicy(ForkRejectionPolicy policy);
+    StateMachineDef<T> withAsyncRejectionPolicy(AsyncRejectionPolicy policy);
 
     /**
      * Registers a step instance against this state machine under the given id, without a

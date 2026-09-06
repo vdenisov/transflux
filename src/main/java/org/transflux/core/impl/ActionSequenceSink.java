@@ -20,6 +20,7 @@ package org.transflux.core.impl;
 
 import org.transflux.core.action.Action;
 import org.transflux.core.action.ActionKind;
+import org.transflux.core.action.AsyncRejectionPolicy;
 import org.transflux.core.action.ConditionalOperationDef;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.ForkableContext;
@@ -30,7 +31,6 @@ import org.transflux.core.exception.TransfluxValidationException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
@@ -71,27 +71,42 @@ final class ActionSequenceSink<T, C, D> {
     }
 
     D run(String id) {
-        return reference("run", id, false);
+        return reference("run", id, false, null);
     }
 
     D run(String id, String mapperId) {
-        return reference("run", id, mapperId, false);
+        return reference("run", id, mapperId, false, null);
     }
 
     D run(String id, ContextMapper<C, ?> inlineMapper) {
-        return reference("run", id, inlineMapper, false);
+        return reference("run", id, inlineMapper, false, null);
     }
 
     D fork(String id) {
-        return reference("fork", id, true);
+        return reference("fork", id, true, null);
     }
 
     D fork(String id, String mapperId) {
-        return reference("fork", id, mapperId, true);
+        return reference("fork", id, mapperId, true, null);
     }
 
     D fork(String id, ContextMapper<C, ?> inlineMapper) {
-        return reference("fork", id, inlineMapper, true);
+        return reference("fork", id, inlineMapper, true, null);
+    }
+
+    D fork(String id, AsyncRejectionPolicy policy) {
+        requireNotNull(policy, "Async rejection policy");
+        return reference("fork", id, true, policy);
+    }
+
+    D fork(String id, String mapperId, AsyncRejectionPolicy policy) {
+        requireNotNull(policy, "Async rejection policy");
+        return reference("fork", id, mapperId, true, policy);
+    }
+
+    D fork(String id, ContextMapper<C, ?> inlineMapper, AsyncRejectionPolicy policy) {
+        requireNotNull(policy, "Async rejection policy");
+        return reference("fork", id, inlineMapper, true, policy);
     }
 
     D step(String id, Action<T, C> action, boolean forked) {
@@ -258,13 +273,13 @@ final class ActionSequenceSink<T, C, D> {
     }
 
     /**
-     * Reports the listener ids declared on any def carried by a member of this sequence.
+     * Visits the def carried by every member of this sequence, and everything declared beneath it.
      *
-     * @param sink receives {@code (listenerId, ownerLabel)} for each declared listener
+     * @param visitor receives each def declared in this sequence
      */
-    void collectListenerIds(BiConsumer<String, String> sink) {
+    void visitDefs(Consumer<ActionDefImpl<?, ?, ?>> visitor) {
         for (DeclaredMember<T, C> member : members) {
-            member.ref().collectListenerIds(sink);
+            member.ref().visitDefs(visitor);
         }
     }
 
@@ -386,25 +401,29 @@ final class ActionSequenceSink<T, C, D> {
         return def.handedDownContext(effectiveScope, mapped);
     }
 
-    private D reference(String verb, String id, boolean forked) {
+    private D reference(String verb, String id, boolean forked, AsyncRejectionPolicy policy) {
         owner.requireConfigurerActive(verb);
-        members.add(new DeclaredMember<>(ActionRef.byId(id), forked));
+        members.add(new DeclaredMember<>(ActionRef.byId(id), forked, policy));
         return self;
     }
 
-    private D reference(String verb, String id, String mapperId, boolean forked) {
+    private D reference(String verb, String id, String mapperId, boolean forked,
+                        AsyncRejectionPolicy policy) {
         owner.requireConfigurerActive(verb);
         requireNotBlank(id, "Action reference ID");
         requireNotBlank(mapperId, "Mapper reference ID");
-        members.add(new DeclaredMember<>(ActionRef.byId(id, MapperRef.byId(mapperId)), forked));
+        members.add(new DeclaredMember<>(ActionRef.byId(id, MapperRef.byId(mapperId)), forked,
+                                         policy));
         return self;
     }
 
-    private D reference(String verb, String id, ContextMapper<C, ?> inlineMapper, boolean forked) {
+    private D reference(String verb, String id, ContextMapper<C, ?> inlineMapper, boolean forked,
+                        AsyncRejectionPolicy policy) {
         owner.requireConfigurerActive(verb);
         requireNotBlank(id, "Action reference ID");
         requireNotNull(inlineMapper, "Inline mapper instance");
-        members.add(new DeclaredMember<>(ActionRef.byId(id, MapperRef.inline(inlineMapper)), forked));
+        members.add(new DeclaredMember<>(ActionRef.byId(id, MapperRef.inline(inlineMapper)), forked,
+                                         policy));
         return self;
     }
 
@@ -475,9 +494,16 @@ final class ActionSequenceSink<T, C, D> {
      *
      * @param ref the member reference
      * @param forked whether this position hands the member to the executor
+     * @param policy what a refused hand-over does, when this position said so; {@code null} when it
+     *               did not, leaving the referenced def and then the state machine to answer. Only
+     *               a by-id fork can carry one - an inline declaration is its own def
      * @param <T> the entity type the surrounding state machine manages
      * @param <C> the host-supplied context type carried through transition execution
      */
-    record DeclaredMember<T, C>(ActionRef<T, C> ref, boolean forked) {
+    record DeclaredMember<T, C>(ActionRef<T, C> ref, boolean forked, AsyncRejectionPolicy policy) {
+
+        DeclaredMember(ActionRef<T, C> ref, boolean forked) {
+            this(ref, forked, null);
+        }
     }
 }

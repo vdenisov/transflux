@@ -23,7 +23,6 @@ import org.transflux.core.action.ActionKind;
 import org.transflux.core.exception.TransfluxValidationException;
 
 import java.util.Optional;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
@@ -127,14 +126,14 @@ sealed interface ActionRef<T, C>
     }
 
     /**
-     * Reports the listener ids declared on any def this reference carries, so the build can check
-     * them against the state-machine-wide listener namespace. Only the configurer-declared variants
-     * have a def to report; the rest no-op.
+     * Visits the def this reference carries, and everything declared beneath it, so the build can
+     * run its per-def checks over the whole tree. Only the configurer-declared variants have a def;
+     * the rest no-op.
      *
-     * @param sink receives {@code (listenerId, ownerLabel)} for each declared listener
+     * @param visitor receives each def this reference brought into existence
      */
-    default void collectListenerIds(BiConsumer<String, String> sink) {
-        // only the configurer-declared variants carry a def that can hold listeners
+    default void visitDefs(Consumer<ActionDefImpl<?, ?, ?>> visitor) {
+        // only the configurer-declared variants brought a def into existence
     }
 
     /**
@@ -253,8 +252,8 @@ sealed interface ActionRef<T, C>
         }
 
         @Override
-        public void collectListenerIds(BiConsumer<String, String> sink) {
-            def.collectListenerIds(sink);
+        public void visitDefs(Consumer<ActionDefImpl<?, ?, ?>> visitor) {
+            def.visitDefs(visitor);
         }
     }
 
@@ -279,8 +278,8 @@ sealed interface ActionRef<T, C>
         }
 
         @Override
-        public void collectListenerIds(BiConsumer<String, String> sink) {
-            def.collectListenerIds(sink);
+        public void visitDefs(Consumer<ActionDefImpl<?, ?, ?>> visitor) {
+            def.visitDefs(visitor);
         }
 
         @Override
@@ -316,8 +315,8 @@ sealed interface ActionRef<T, C>
         }
 
         @Override
-        public void collectListenerIds(BiConsumer<String, String> sink) {
-            def.collectListenerIds(sink);
+        public void visitDefs(Consumer<ActionDefImpl<?, ?, ?>> visitor) {
+            def.visitDefs(visitor);
         }
 
         @Override

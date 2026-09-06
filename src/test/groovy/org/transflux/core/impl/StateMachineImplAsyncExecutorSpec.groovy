@@ -22,7 +22,7 @@ import ch.qos.logback.classic.Level
 import org.transflux.core.StateMachine
 import org.transflux.core.StateMachineDef
 import org.transflux.core.action.Action
-import org.transflux.core.action.ForkRejectionPolicy
+import org.transflux.core.action.AsyncRejectionPolicy
 import org.transflux.core.action.OperationDef
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.state.StateApplier
@@ -162,7 +162,7 @@ class StateMachineImplAsyncExecutorSpec extends Specification {
         ExecutorService hostPool = Executors.newSingleThreadExecutor()
         hostPool.shutdown()
         def sm = buildForking(done, { smd ->
-            smd.withAsyncExecutor(hostPool).withForkRejectionPolicy(ForkRejectionPolicy.FAIL)
+            smd.withAsyncExecutor(hostPool).withAsyncRejectionPolicy(AsyncRejectionPolicy.FAIL)
         })
 
         when:

@@ -18,6 +18,7 @@
 
 package org.transflux.core.impl;
 
+import java.util.function.Predicate;
 import org.transflux.core.action.ActionKind;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.BranchDef;
@@ -126,20 +127,19 @@ final class ConditionalOperationDefImpl<T, C>
     }
 
     /**
-     * Build-time hook: reports every listener id declared on this conditional and on the actions
-     * declared inside its branches.
+     * Build-time hook: visits this conditional and every action declared inside its branches.
      *
-     * @param sink receives {@code (listenerId, ownerLabel)} for each declared listener
+     * @param visitor receives each def in the subtree, this one included
      */
     @Override
-    void collectListenerIds(BiConsumer<String, String> sink) {
-        emitOwnListenerIds(sink);
+    void visitDefs(Consumer<ActionDefImpl<?, ?, ?>> visitor) {
+        super.visitDefs(visitor);
 
         for (BranchDefImpl<T, C> branch : branches) {
-            branch.collectListenerIds(sink);
+            branch.visitDefs(visitor);
         }
         if (defaultBranch != null) {
-            defaultBranch.collectListenerIds(sink);
+            defaultBranch.visitDefs(visitor);
         }
     }
 
@@ -321,7 +321,7 @@ final class ConditionalOperationDefImpl<T, C>
         // being built, so an earlier machine's conditional keeps the members it was built with.
         this.executor = new ConditionalBranchExecutor(conditions, ownScope());
         return BoundAction.of(getId(), executor, ActionKind.OPERATION, buildBoundListeners(),
-                              buildCompensationRouter());
+                              buildCompensationRouter(), getAsyncRejectionPolicy());
     }
 
     private List<CompositeMember<T, C>> bindMembers(List<ActionSequenceSink.DeclaredMember<T, C>> declared,
@@ -332,10 +332,10 @@ final class ConditionalOperationDefImpl<T, C>
         List<CompositeMember<T, C>> bound = new ArrayList<>(declared.size());
         for (ActionSequenceSink.DeclaredMember<T, C> member : declared) {
             ActionRef<T, C> ref = member.ref();
-            bound.add(new CompositeMember<>(
+            bound.add(CompositeMember.of(
                 ref.resolve(stateMachine, scope, ownerLabel, enclosingOperationId),
                 ref.mapperRef().resolve(stateMachine, enclosingOperationId),
-                member.forked()));
+                member));
 
             // Each nested form binds against its own scope. Recursing after the member is built
             // names the outer position first when a resolution fails.
@@ -456,10 +456,10 @@ final class ConditionalOperationDefImpl<T, C>
     }
 
     @Override
-    boolean declaresFork() {
-        boolean[] forks = {false};
-        visitBranchMembers(member -> forks[0] |= member.forked());
-        return forks[0];
+    boolean anyMember(Predicate<ActionSequenceSink.DeclaredMember<?, ?>> test) {
+        boolean[] hit = {false};
+        visitBranchMembers(member -> hit[0] |= test.test(member));
+        return hit[0];
     }
 
     @Override

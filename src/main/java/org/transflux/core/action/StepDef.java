@@ -64,6 +64,9 @@ public interface StepDef<T, C> extends ActionDef<T, C> {
     StepDef<T, C> withCompensation(Compensation<T, C> compensation);
 
     @Override
+    StepDef<T, C> withAsyncRejectionPolicy(AsyncRejectionPolicy policy);
+
+    @Override
     <X extends Throwable> CompensationRouteDef<T, C, X, ? extends StepDef<T, C>> forException(
         Class<X> exceptionType);
 

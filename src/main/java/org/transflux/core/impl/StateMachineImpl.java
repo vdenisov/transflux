@@ -23,7 +23,7 @@ import org.transflux.core.exception.TransfluxReentrancyException;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.ActionExecution;
 import org.transflux.core.action.ActionPhase;
-import org.transflux.core.action.ForkRejectionPolicy;
+import org.transflux.core.action.AsyncRejectionPolicy;
 import org.transflux.core.action.Compensation;
 import org.transflux.core.action.Action;
 import org.transflux.core.state.State;
@@ -126,15 +126,20 @@ class StateMachineImpl<T> implements StateMachine<T> {
      */
     private final ExecutorService asyncExecutor;
     private final boolean ownsAsyncExecutor;
-    private final ForkRejectionPolicy forkRejectionPolicy;
+    private final AsyncRejectionPolicy asyncRejectionPolicy;
+
+
     private final AtomicBoolean closed = new AtomicBoolean();
+
+    /** Guards the one WARN that says this machine started running async work on its callers. */
+    private final AtomicBoolean inlineRunReported = new AtomicBoolean();
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     StateMachineImpl(StateMachineDefImpl<T> def) {
         this.def = def;
         this.stateResolver = def.getStateResolver();
         this.stateApplier = def.getStateApplier();
-        this.forkRejectionPolicy = def.getForkRejectionPolicy();
+        this.asyncRejectionPolicy = def.getAsyncRejectionPolicy();
 
         ExecutorService supplied = def.getAsyncExecutor();
         if (supplied != null) {
@@ -144,7 +149,10 @@ class StateMachineImpl<T> implements StateMachine<T> {
                                          supplied.getClass().getName());
         } else if (def.definitionForks()) {
             AsyncPoolSpec spec = def.getAsyncPoolSpec();
-            this.asyncExecutor = spec.newPool();
+            // A fair queue only earns its lock where something actually waits on it.
+            boolean blocks = def.declaresBlockingRejection();
+            this.asyncExecutor = spec.newPool(new AsyncRejectionHandler(this::insideOwnAsyncBranch),
+                                              blocks);
             this.ownsAsyncExecutor = true;
             Loggers.EXECUTION_ASYNC.info("Async pool created, threads={}, queueCapacity={}",
                                          spec.threads(), spec.queueCapacity());
@@ -276,35 +284,130 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
     /**
      * Hands one branch to the executor, and answers for a refusal.
-     * <p>
-     * A refused submission is an operational condition rather than a broken definition - the queue
-     * filled up, or the state machine has been closed - so what happens next is the host's
-     * declared {@link ForkRejectionPolicy} rather than a rule of the framework's.
      *
      * @param task the branch to run
      * @param path the forked member's qualified path, for diagnostics
+     * @param declared the policy the forked action declared, or {@code null} to take this state
+     *                 machine's default
      *
      * @throws java.util.concurrent.RejectedExecutionException under
-     *         {@link ForkRejectionPolicy#FAIL}, failing the transition that was forking
+     *         {@link AsyncRejectionPolicy#FAIL}, and under {@link AsyncRejectionPolicy#BLOCK} when
+     *         waiting cannot help, failing the transition that was forking
      */
-    void submitBranch(Runnable task, ActionPath path) {
+    void submitBranch(Runnable task, ActionPath path, AsyncRejectionPolicy declared) {
+        String lost = submitAsync(task, policyFor(declared), path);
+        if (lost != null) {
+            // A branch that never starts is invisible everywhere else: no listener fires, and the
+            // transition's result is unchanged by design, so this line is the only trace of it.
+            Loggers.EXECUTION_ASYNC.warn("Async branch not started, path={}, errorType={}",
+                                         path, lost);
+        }
+    }
+
+    /**
+     * Resolves the policy in force for one piece of async work: what it declared, or this state
+     * machine's default when it declared nothing.
+     *
+     * @param declared the declared policy, or {@code null}
+     *
+     * @return the policy to apply; never {@code null}
+     */
+    AsyncRejectionPolicy policyFor(AsyncRejectionPolicy declared) {
+        return declared != null ? declared : asyncRejectionPolicy;
+    }
+
+    /**
+     * Gets one piece of async work running, and answers for an executor that cannot take it.
+     * <p>
+     * A refusal is an operational condition rather than a broken definition - the queue filled up,
+     * or the state machine has been closed - so what happens next is the declared
+     * {@link AsyncRejectionPolicy} rather than a rule of the framework's. Losing the work is the
+     * only outcome this method reports rather than acts on, because what to say about it differs
+     * by caller.
+     *
+     * @param task the work to run
+     * @param policy what to do when the executor cannot take it; never {@code null}
+     * @param subject what the work is, for diagnostics - an action path, or a listener id
+     *
+     * @return {@code null} when the work was handed over or run inline; otherwise the type of the
+     *         refusal, for the caller to report as it sees fit
+     *
+     * @throws java.util.concurrent.RejectedExecutionException under
+     *         {@link AsyncRejectionPolicy#FAIL}, and under {@link AsyncRejectionPolicy#BLOCK} when
+     *         no wait could free a slot
+     */
+    String submitAsync(Runnable task, AsyncRejectionPolicy policy, Object subject) {
         if (asyncExecutor == null) {
             throw new TransfluxValidationException(
-                "No async executor is configured, yet a forked member was reached at '" + path
-                    + "'; this state machine was built believing its definition never forks");
+                "No async executor is configured, yet async work was reached at '" + subject
+                    + "'; this state machine was built believing it had none");
         }
 
         try {
-            asyncExecutor.execute(task);
+            asyncExecutor.execute(new AsyncWork(task, policy, subject));
         } catch (RejectedExecutionException e) {
-            if (forkRejectionPolicy == ForkRejectionPolicy.FAIL) {
-                throw e;
-            }
-            // A branch that never starts is invisible everywhere else: no listener fires, and the
-            // transition's result is unchanged by design.
-            Loggers.EXECUTION_ASYNC.warn("Async branch not started, path={}, errorType={}",
-                                         path, e.getClass().getName());
+            return refuse(task, policy, subject, e);
         }
+        return null;
+    }
+
+    /**
+     * Applies the policy to work the executor would not take.
+     * <p>
+     * {@link AsyncRejectionPolicy#BLOCK} reaches this only when waiting was impossible rather than
+     * merely slow: the executor is the host's and has no handler of ours (rejected at build time),
+     * it is shutting down, or the caller is a worker of the very pool it is submitting to. The last
+     * of those is answered by running the work inline, which always completes; the others fail,
+     * because the whole point of the policy was that this work is not to be lost.
+     *
+     * @param rejection the refusal, for its type in the failure the caller may see
+     *
+     * @return the refusal's type when the work is lost; {@code null} when it ran inline
+     */
+    private String refuse(Runnable task, AsyncRejectionPolicy policy, Object subject,
+                          RejectedExecutionException rejection) {
+        // Exhaustive over the enum with no default, so a policy added later fails the build here
+        // rather than silently falling through to losing the work.
+        return switch (policy) {
+            case DROP -> rejection.getClass().getName();
+            case CALLER_RUNS -> runInline(task, subject, "executor refused the submission");
+            case BLOCK -> {
+                if (insideOwnAsyncBranch()) {
+                    yield runInline(task, subject, "waiting would deadlock the pool");
+                }
+                throw rejection;
+            }
+            case FAIL -> throw rejection;
+        };
+    }
+
+    /**
+     * Runs the work on the calling thread. Only the thread changes: the task is the one the
+     * executor would have run, so a branch keeps its own stack, its own drain and its own failure
+     * handling, and the caller is held under the ban on driving this state machine while it runs.
+     */
+    private String runInline(Runnable task, Object subject, String reason) {
+        // Running inline is the policy working, not an anomaly, so it is DEBUG per occurrence and
+        // WARN once - a saturated pool would otherwise emit a line per submission for as long as it
+        // stayed saturated, which is exactly when a host least wants its log budget spent.
+        if (inlineRunReported.compareAndSet(false, true)) {
+            Loggers.EXECUTION_ASYNC.warn(
+                "Async work running inline rather than on the executor, subject={}, reason={}",
+                subject, reason);
+        } else if (Loggers.EXECUTION_ASYNC.isDebugEnabled()) {
+            Loggers.EXECUTION_ASYNC.debug("Async work running inline, subject={}, reason={}",
+                                          subject, reason);
+        }
+
+        task.run();
+        return null;
+    }
+
+    /**
+     * Reports whether the calling thread is already running a branch this state machine spawned.
+     */
+    private boolean insideOwnAsyncBranch() {
+        return ASYNC_BRANCH.get().contains(this);
     }
 
     /**
@@ -343,7 +446,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
     private void rejectIfInsideAsyncBranch() {
         // No entity in the message, because the ban is not entity-scoped and there is nothing to
         // name - which also keeps the host's data out of the stack trace.
-        if (ASYNC_BRANCH.get().contains(this)) {
+        if (insideOwnAsyncBranch()) {
             throw new TransfluxReentrancyException(
                 "Dispatch into this state machine rejected: the calling thread is running an async"
                     + " branch it spawned, and a forked member may not drive the machine that"

@@ -18,6 +18,7 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.action.AsyncRejectionPolicy;
 import org.transflux.core.action.ContextMapper;
 
 /**
@@ -28,10 +29,34 @@ import org.transflux.core.action.ContextMapper;
  * @param action the bound action this position invokes
  * @param mapping the resolved call-site mapping; pass-through when the position declared no mapper
  * @param forked whether this position hands the member to the executor instead of waiting for it
+ * @param policy what a refused hand-over does, resolved once at bind time: the position's own
+ *               declaration, else the action's def's, else {@code null} for the state machine's
+ *               default. Meaningful only when {@code forked}
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-record CompositeMember<T, C>(BoundAction<T, C> action, ResolvedContextMapping mapping, boolean forked) {
+record CompositeMember<T, C>(BoundAction<T, C> action, ResolvedContextMapping mapping, boolean forked,
+                             AsyncRejectionPolicy policy) {
+
+    /**
+     * Binds a declared member, folding the two declarative sources of its rejection policy - the
+     * position first, then the def - so dispatch reads one field.
+     *
+     * @param action the resolved action
+     * @param mapping the resolved call-site mapping
+     * @param member the declaration this member was bound from
+     * @param <T> the entity type
+     * @param <C> the context type
+     *
+     * @return the bound member
+     */
+    static <T, C> CompositeMember<T, C> of(BoundAction<T, C> action, ResolvedContextMapping mapping,
+                                           ActionSequenceSink.DeclaredMember<T, C> member) {
+        AsyncRejectionPolicy policy = member.policy() != null
+            ? member.policy()
+            : action.asyncRejectionPolicy();
+        return new CompositeMember<>(action, mapping, member.forked(), policy);
+    }
 
     /**
      * Invokes this member against the supplied execution view.
@@ -59,7 +84,7 @@ record CompositeMember<T, C>(BoundAction<T, C> action, ResolvedContextMapping ma
             // Returns as soon as the branch is handed over, so the members after it start
             // without waiting - the position in this list is when the work begins, not when
             // it ends.
-            view.submitBranch((BoundAction) action, mapping);
+            view.submitBranch((BoundAction) action, mapping, policy);
             return;
         }
 

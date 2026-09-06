@@ -80,7 +80,10 @@ public interface StateMachine<T> extends AutoCloseable {
      * than being interrupted mid-flight.
      *
      * <p>Closing more than once is harmless. Forking after a close is refused like any other
-     * refused submission, which means the state machine keeps running transitions.
+     * refused submission, so what happens is the declared
+     * {@link org.transflux.core.action.AsyncRejectionPolicy}: the work is lost, or the transition
+     * fails, or it runs on the calling thread. Either way the state machine keeps running
+     * transitions.
      *
      * <p><b>JVM exit is a different matter, and this method does not govern it.</b> A pool the
      * framework builds uses daemon threads, so a host that never calls this and simply lets the

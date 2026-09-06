@@ -18,6 +18,7 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.action.AsyncRejectionPolicy;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
 import org.transflux.core.exception.TransfluxValidationException;
@@ -296,6 +297,25 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     @Override
     public TransitionDef<T, C> fork(String id, ContextMapper<C, ?> inlineMapper) {
         body.fork(id, inlineMapper);
+        return this;
+    }
+
+    @Override
+    public TransitionDef<T, C> fork(String id, AsyncRejectionPolicy policy) {
+        body.fork(id, policy);
+        return this;
+    }
+
+    @Override
+    public TransitionDef<T, C> fork(String id, String mapperId, AsyncRejectionPolicy policy) {
+        body.fork(id, mapperId, policy);
+        return this;
+    }
+
+    @Override
+    public TransitionDef<T, C> fork(String id, ContextMapper<C, ?> inlineMapper,
+                                    AsyncRejectionPolicy policy) {
+        body.fork(id, inlineMapper, policy);
         return this;
     }
 

@@ -171,6 +171,56 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
     SELF fork(String id, ContextMapper<C, ?> inlineMapper);
 
     /**
+     * {@link #fork(String)} with the answer for an executor that cannot take this submission
+     * declared here, at the position, rather than taken from the action's def or the state
+     * machine's default.
+     * <p>
+     * A by-id fork is the one place a policy is a property of the call site: the same registered
+     * action may be forked from a flow that can lose it and from one that cannot, and only the flow
+     * knows which. What is declared here wins over whatever the action's own def declares, which in
+     * turn wins over the state machine's default. A declaration made inline - {@code forkStep},
+     * {@code forkOperation}, {@code forkConditional} - is its own call site and declares the policy
+     * on the def it declares.
+     *
+     * @param id the registered action id
+     * @param policy what to do when the executor cannot take this submission; never {@code null}
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank or {@code policy} is {@code null}
+     */
+    SELF fork(String id, AsyncRejectionPolicy policy);
+
+    /**
+     * {@link #fork(String, String)} with the rejection policy declared at the position; see
+     * {@link #fork(String, AsyncRejectionPolicy)} for what that means.
+     *
+     * @param id the registered action id
+     * @param mapperId the registered mapper id
+     * @param policy what to do when the executor cannot take this submission; never {@code null}
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if either id is blank or {@code policy} is {@code null}
+     */
+    SELF fork(String id, String mapperId, AsyncRejectionPolicy policy);
+
+    /**
+     * {@link #fork(String, ContextMapper)} with the rejection policy declared at the position; see
+     * {@link #fork(String, AsyncRejectionPolicy)} for what that means.
+     *
+     * @param id the registered action id
+     * @param inlineMapper the mapper to apply at the boundary
+     * @param policy what to do when the executor cannot take this submission; never {@code null}
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if {@code id} is blank, or either of the others is
+     *         {@code null}
+     */
+    SELF fork(String id, ContextMapper<C, ?> inlineMapper, AsyncRejectionPolicy policy);
+
+    /**
      * Declares an imperative action inline at this position, from a supplied {@link Action}
      * instance. The action is registered into the scope that owns this position - the enclosing
      * container's, or the conditional's when this is one of its branches - so it is visible from

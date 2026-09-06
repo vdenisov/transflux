@@ -18,6 +18,7 @@
 
 package org.transflux.core.impl;
 
+import java.util.function.Predicate;
 import org.transflux.core.action.ActionKind;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.Action;
@@ -82,7 +83,7 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
      */
     BoundAction<T, C> buildBoundAction() {
         return BoundAction.of(getId(), source.resolve("Step"), ActionKind.STEP, buildBoundListeners(),
-                              buildCompensationRouter());
+                              buildCompensationRouter(), getAsyncRejectionPolicy());
     }
 
     @Override
@@ -120,7 +121,7 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
     }
 
     @Override
-    boolean declaresFork() {
+    boolean anyMember(Predicate<ActionSequenceSink.DeclaredMember<?, ?>> test) {
         return false;
     }
 

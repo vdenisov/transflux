@@ -21,6 +21,7 @@ package org.transflux.core.impl;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.ActionKind;
 
+import org.transflux.core.action.AsyncRejectionPolicy;
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
 
@@ -38,12 +39,15 @@ import static org.transflux.core.Preconditions.requireNotNull;
  *                           when the def declared nothing. What the action's own
  *                           {@link Action#getCompensation(Object, Object)} returns is folded in as
  *                           the fallback at push time, unless the def declared one of its own
+ * @param asyncRejectionPolicy what a fork of this action does when the executor cannot take it,
+ *                             or {@code null} to take the state machine's own default
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
 record BoundAction<T, C>(String id, Action<T, C> action, ActionKind kind,
                          BoundActionListeners<T, C> listeners,
-                         BoundCompensationRouter<T, C> compensationRouter) {
+                         BoundCompensationRouter<T, C> compensationRouter,
+                         AsyncRejectionPolicy asyncRejectionPolicy) {
 
     BoundAction {
         requireNotBlank(id, "Bound action ID");
@@ -65,7 +69,7 @@ record BoundAction<T, C>(String id, Action<T, C> action, ActionKind kind,
      * @return a fresh bound action with no listeners and no declared compensation
      */
     static <T, C> BoundAction<T, C> of(String id, Action<T, C> action, ActionKind kind) {
-        return new BoundAction<>(id, action, kind, BoundActionListeners.none(), null);
+        return new BoundAction<>(id, action, kind, BoundActionListeners.none(), null, null);
     }
 
     /**
@@ -76,6 +80,7 @@ record BoundAction<T, C>(String id, Action<T, C> action, ActionKind kind,
      * @param kind the authoring form
      * @param listeners the action's own listeners
      * @param compensationRouter the compensation table declared on the def, or {@code null}
+     * @param asyncRejectionPolicy the policy declared on the def, or {@code null}
      * @param <T> the entity type
      * @param <C> the context type
      *
@@ -83,7 +88,9 @@ record BoundAction<T, C>(String id, Action<T, C> action, ActionKind kind,
      */
     static <T, C> BoundAction<T, C> of(String id, Action<T, C> action, ActionKind kind,
                                        BoundActionListeners<T, C> listeners,
-                                       BoundCompensationRouter<T, C> compensationRouter) {
-        return new BoundAction<>(id, action, kind, listeners, compensationRouter);
+                                       BoundCompensationRouter<T, C> compensationRouter,
+                                       AsyncRejectionPolicy asyncRejectionPolicy) {
+        return new BoundAction<>(id, action, kind, listeners, compensationRouter,
+                                 asyncRejectionPolicy);
     }
 }

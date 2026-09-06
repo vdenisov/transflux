@@ -23,7 +23,7 @@ import org.transflux.core.Transflux;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.Compensation;
 import org.transflux.core.action.ContextMapper;
-import org.transflux.core.action.ForkRejectionPolicy;
+import org.transflux.core.action.AsyncRejectionPolicy;
 import org.transflux.core.action.ForkableContext;
 import org.transflux.core.transition.ExecutingTransition;
 
@@ -554,14 +554,29 @@ public final class JavaDslSurface {
                 thread.setDaemon(true);
                 return thread;
             })
-            .withForkRejectionPolicy(ForkRejectionPolicy.FAIL)
+            .withAsyncRejectionPolicy(AsyncRejectionPolicy.FAIL)
             .step("record", new RecordingAction())
+            // the policy declared where the work is, rather than where it is forked from
+            .step("notify-async", OrderCtx.class, step -> step
+                .using(new RecordingAction())
+                .withAsyncRejectionPolicy(AsyncRejectionPolicy.DROP))
+            .step("notify", NotifyCtx.class, new NotifyAction())
+            .mapper("notify-from-order", OrderCtx.class, NotifyCtx.class,
+                    parent -> new NotifyCtx(parent.orderId))
             .state("s1", s -> s
                 .transitionsTo("s2", "t", OrderCtx.class, t -> t
-                    .operation("op", c -> c.fork("record"))))
+                    .operation("op", c -> c
+                        .fork("record")
+                        .fork("notify-async")
+                        // the policy declared where the work is forked, in each by-id shape
+                        .fork("record", AsyncRejectionPolicy.CALLER_RUNS)
+                        .fork("notify", "notify-from-order", AsyncRejectionPolicy.DROP)
+                        .fork("notify", parent -> new NotifyCtx(parent.orderId),
+                              AsyncRejectionPolicy.DROP))))
             .state("s2", s -> { })
             .build();
     }
+
     /**
      * The member grammar at a transition position. A transition's body is a sequence like any
      * other, so every form has to resolve here too - several members in a row, a call-site mapper,

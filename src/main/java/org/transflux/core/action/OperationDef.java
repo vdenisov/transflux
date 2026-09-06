@@ -18,7 +18,6 @@
 
 package org.transflux.core.action;
 
-import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.transition.Transition;
 
 import java.util.function.Consumer;
@@ -51,6 +50,9 @@ public interface OperationDef<T, C> extends ActionDef<T, C>,
 
     @Override
     OperationDef<T, C> withCompensation(Compensation<T, C> compensation);
+
+    @Override
+    OperationDef<T, C> withAsyncRejectionPolicy(AsyncRejectionPolicy policy);
 
     @Override
     <X extends Throwable> CompensationRouteDef<T, C, X, ? extends OperationDef<T, C>> forException(

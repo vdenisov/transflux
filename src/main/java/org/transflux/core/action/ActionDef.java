@@ -132,6 +132,34 @@ public interface ActionDef<T, C> extends Identifiable {
     ActionDef<T, C> withCompensation(Compensation<T, C> compensation);
 
     /**
+     * Declares what happens when this action is forked and the executor cannot take it - a full
+     * queue, or a pool that has already been closed.
+     * <p>
+     * Criticality is a property of the work rather than of the position it is forked from: a
+     * metrics ping may be lost wherever it runs, an audit write may not. So the declaration lives
+     * here, and every {@code fork(...)} of this action honours it, whichever sequence the fork sits
+     * in. An action that declares nothing takes the state machine's own
+     * {@code withAsyncRejectionPolicy(...)}, which defaults to {@link AsyncRejectionPolicy#DROP}.
+     *
+     * <p>Read only when this action is reached through one of the {@code fork} verbs. A
+     * synchronous member never consults it, and neither does a member declared with a bare
+     * {@link Action} instance, which has no def to declare it on. A by-id fork may say otherwise
+     * at its own position - {@code fork(id, policy)} - and then the position wins: the same
+     * action can be forked from a flow that may lose it and from one that may not, and only the
+     * flow knows which. This declaration is what applies when the position says nothing.
+     *
+     * <p>Calling this a second time replaces the prior declaration and logs a warning.
+     *
+     * @param policy the policy for forks of this action; never {@code null}
+     *
+     * @return this def for chaining
+     *
+     * @throws org.transflux.core.exception.TransfluxValidationException if {@code policy} is
+     *         {@code null}, or if the configurer has already returned
+     */
+    ActionDef<T, C> withAsyncRejectionPolicy(AsyncRejectionPolicy policy);
+
+    /**
      * Opens a compensation route: a rollback that applies to one kind of failure rather than to
      * every one. The returned {@link CompensationRouteDef} takes an optional guard and the
      * compensation itself, and hands this def back so the chain continues.

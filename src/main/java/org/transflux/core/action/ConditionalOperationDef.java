@@ -75,6 +75,9 @@ public interface ConditionalOperationDef<T, C> extends ActionDef<T, C> {
     ConditionalOperationDef<T, C> withCompensation(Compensation<T, C> compensation);
 
     @Override
+    ConditionalOperationDef<T, C> withAsyncRejectionPolicy(AsyncRejectionPolicy policy);
+
+    @Override
     <X extends Throwable> CompensationRouteDef<T, C, X, ? extends ConditionalOperationDef<T, C>>
         forException(Class<X> exceptionType);
 

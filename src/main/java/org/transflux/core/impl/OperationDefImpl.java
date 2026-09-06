@@ -18,7 +18,9 @@
 
 package org.transflux.core.impl;
 
+import java.util.function.Predicate;
 import org.transflux.core.action.ActionKind;
+import org.transflux.core.action.AsyncRejectionPolicy;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.ConditionalOperationDef;
@@ -131,6 +133,21 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
+    public OperationDefImpl<T, C> fork(String id, AsyncRejectionPolicy policy) {
+        return members.fork(id, policy);
+    }
+
+    @Override
+    public OperationDefImpl<T, C> fork(String id, String mapperId, AsyncRejectionPolicy policy) {
+        return members.fork(id, mapperId, policy);
+    }
+
+    @Override
+    public OperationDefImpl<T, C> fork(String id, ContextMapper<C, ?> inlineMapper, AsyncRejectionPolicy policy) {
+        return members.fork(id, inlineMapper, policy);
+    }
+
+    @Override
     public OperationDefImpl<T, C> step(String id, Action<T, C> action) {
         return members.step(id, action, false);
     }
@@ -199,10 +216,10 @@ final class OperationDefImpl<T, C>
      * @return whether a forked member was declared anywhere in this container's subtree
      */
     @Override
-    boolean declaresFork() {
-        boolean[] forks = {false};
-        members.visitAllMembers(member -> forks[0] |= member.forked());
-        return forks[0];
+    boolean anyMember(Predicate<ActionSequenceSink.DeclaredMember<?, ?>> test) {
+        boolean[] hit = {false};
+        members.visitAllMembers(member -> hit[0] |= test.test(member));
+        return hit[0];
     }
 
     /**
@@ -278,13 +295,13 @@ final class OperationDefImpl<T, C>
         this.executor = new CompositeOperationExecutor<T, C>(ownScope());
 
         return BoundAction.of(getId(), executor, ActionKind.OPERATION, buildBoundListeners(),
-                              buildCompensationRouter());
+                              buildCompensationRouter(), getAsyncRejectionPolicy());
     }
 
     @Override
-    void collectListenerIds(BiConsumer<String, String> sink) {
-        emitOwnListenerIds(sink);
-        members.collectListenerIds(sink);
+    void visitDefs(Consumer<ActionDefImpl<?, ?, ?>> visitor) {
+        super.visitDefs(visitor);
+        members.visitDefs(visitor);
     }
 
     @Override
@@ -318,7 +335,7 @@ final class OperationDefImpl<T, C>
             BoundAction<T, C> action = ref.resolve(stateMachine, ownScope(), positionLabel,
                                                   getId());
             ResolvedContextMapping mapping = ref.mapperRef().resolve(stateMachine, getId());
-            bound.add(new CompositeMember<>(action, mapping, member.forked()));
+            bound.add(CompositeMember.of(action, mapping, member));
 
             // Recursing after the member is built names the outer position first when a
             // resolution fails.

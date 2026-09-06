@@ -21,6 +21,7 @@ package org.transflux.core.impl;
 import org.transflux.core.exception.TransfluxValidationException;
 
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -55,18 +56,27 @@ record AsyncPoolSpec(int threads, int queueCapacity, ThreadFactory threadFactory
      * Builds the pool.
      * <p>
      * Core threads time out, so a state machine that forks rarely holds no threads between bursts
-     * while one that forks constantly still gets the full width. The rejection handler stays the
-     * default abort policy: a caller-runs handler would run a branch on the thread that is midway
-     * through the transition which spawned it, which is the one thread it must never occupy.
+     * while one that forks constantly still gets the full width.
+     * <p>
+     * The queue is what bounds admission, and the supplied handler is what lets a caller wait for a
+     * slot in it. The framework deliberately keeps no bound of its own alongside: a second copy of a
+     * number the executor already knows exactly is a copy that can disagree with it, and the
+     * direction it disagreed in would be branches refused while the queue had room.
+     *
+     * @param rejectionHandler what to do when the queue is full; the framework's own, which answers
+     *                         only the waiting policy and declines the rest to the caller
+     * @param fairQueue whether waiting submitters are served in arrival order, which costs a fair
+     *                  lock on every hand-off and is worth it only where something actually waits
      *
      * @return a new pool; the caller owns it and is responsible for shutting it down
      */
-    ExecutorService newPool() {
+    ExecutorService newPool(RejectedExecutionHandler rejectionHandler, boolean fairQueue) {
         ThreadFactory factory = threadFactory != null ? threadFactory : defaultThreadFactory();
-        ThreadPoolExecutor pool = new ThreadPoolExecutor(threads, threads,
-                                                         60L, TimeUnit.SECONDS,
-                                                         new ArrayBlockingQueue<>(queueCapacity),
-                                                         factory);
+        ThreadPoolExecutor pool =
+            new ThreadPoolExecutor(threads, threads,
+                                   60L, TimeUnit.SECONDS,
+                                   new ArrayBlockingQueue<>(queueCapacity, fairQueue),
+                                   factory, rejectionHandler);
         pool.allowCoreThreadTimeOut(true);
         return pool;
     }

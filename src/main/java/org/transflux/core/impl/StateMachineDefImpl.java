@@ -26,7 +26,7 @@ import org.transflux.core.action.ActionKind;
 import org.transflux.core.action.ActionListener;
 import org.transflux.core.action.ActionListenerDef;
 import org.transflux.core.action.ContextMapper;
-import org.transflux.core.action.ForkRejectionPolicy;
+import org.transflux.core.action.AsyncRejectionPolicy;
 import org.transflux.core.action.MapperDef;
 import org.transflux.core.action.ConditionalOperationDef;
 import org.transflux.core.action.OperationDef;
@@ -115,7 +115,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     private AsyncPoolSpec asyncPoolSpec;
 
-    private ForkRejectionPolicy forkRejectionPolicy;
+    private AsyncRejectionPolicy asyncRejectionPolicy;
+
 
     /**
      * State listeners attached to every state rather than to one. Kept in declaration order; the
@@ -222,12 +223,12 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> withForkRejectionPolicy(ForkRejectionPolicy policy) {
-        requireNotNull(policy, "Fork rejection policy");
-        ValidationUtils.warnIfSet(this.forkRejectionPolicy != null, "Fork rejection policy",
+    public StateMachineDef<T> withAsyncRejectionPolicy(AsyncRejectionPolicy policy) {
+        requireNotNull(policy, "Async rejection policy");
+        ValidationUtils.warnIfSet(this.asyncRejectionPolicy != null, "Async rejection policy",
                                   "StateMachineDef", Loggers.BUILD_VALIDATION);
 
-        this.forkRejectionPolicy = policy;
+        this.asyncRejectionPolicy = policy;
         return this;
     }
 
@@ -829,12 +830,29 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
+     * Reports whether anything in this definition asks to wait for capacity, which decides whether
+     * the pool is built with a fair queue.
+     *
+     * @return {@code true} if the machine default or any action declares
+     *         {@link AsyncRejectionPolicy#BLOCK}
+     */
+    boolean declaresBlockingRejection() {
+        if (getAsyncRejectionPolicy() == AsyncRejectionPolicy.BLOCK) {
+            return true;
+        }
+
+        boolean[] blocks = {false};
+        visitActionDefs(def -> blocks[0] |= def.getAsyncRejectionPolicy() == AsyncRejectionPolicy.BLOCK);
+        return blocks[0] || anyMember(member -> member.policy() == AsyncRejectionPolicy.BLOCK);
+    }
+
+    /**
      * Returns what to do when a submission is refused.
      *
      * @return the policy; never {@code null}
      */
-    ForkRejectionPolicy getForkRejectionPolicy() {
-        return forkRejectionPolicy != null ? forkRejectionPolicy : ForkRejectionPolicy.DROP;
+    AsyncRejectionPolicy getAsyncRejectionPolicy() {
+        return asyncRejectionPolicy != null ? asyncRejectionPolicy : AsyncRejectionPolicy.DROP;
     }
 
     /**
@@ -850,14 +868,23 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @return whether any container declares a forked member
      */
     boolean definitionForks() {
+        return anyMember(ActionSequenceSink.DeclaredMember::forked);
+    }
+
+    /**
+     * Reports whether any declared member in this definition satisfies the test. The roots are
+     * exactly two - an SM-level container, or a transition's body - since every other sequence is
+     * declared inside one of them; each root walks its own subtree.
+     */
+    private boolean anyMember(Predicate<ActionSequenceSink.DeclaredMember<?, ?>> test) {
         for (ActionDefImpl<T, ?, ?> composite : smCompositeOperations.values()) {
-            if (composite.declaresFork()) {
+            if (composite.anyMember(test)) {
                 return true;
             }
         }
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             ActionDefImpl<T, ?, ?> op = td.getActionDef();
-            if (op != null && op.declaresFork()) {
+            if (op != null && op.anyMember(test)) {
                 return true;
             }
         }
@@ -1189,20 +1216,83 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             }
         };
 
+        visitActionDefs(def -> def.emitOwnListenerIds(actionListenerIds));
+    }
+
+    /**
+     * Visits every action def in this definition: registered steps and containers, transition
+     * bodies, and every action declared inline beneath any of them, at any depth.
+     * <p>
+     * The three roots are what a def is reachable through - a registration, an SM-level container,
+     * or a transition's body - and the recursion beneath each is the def's own. Registered steps
+     * are a root of their own because a step declares no members and so is reachable nowhere else.
+     * A bare {@link org.transflux.core.action.Action} instance has no def and is correctly outside
+     * this walk.
+     *
+     * @param visitor receives each def exactly once
+     */
+    private void visitActionDefs(Consumer<ActionDefImpl<?, ?, ?>> visitor) {
         for (ActionRegistration<T> registration : actionRegistrations.values()) {
             if (registration.def() != null) {
-                registration.def().collectListenerIds(actionListenerIds);
+                registration.def().visitDefs(visitor);
             }
         }
         for (ActionDefImpl<T, ?, ?> composite : smCompositeOperations.values()) {
-            composite.collectListenerIds(actionListenerIds);
+            composite.visitDefs(visitor);
         }
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             ActionDefImpl<T, ?, ?> actionDef = td.getActionDef();
             if (actionDef != null) {
-                actionDef.collectListenerIds(actionListenerIds);
+                actionDef.visitDefs(visitor);
             }
         }
+    }
+
+    /**
+     * Rejects {@link AsyncRejectionPolicy#BLOCK} where nothing can be waited on.
+     * <p>
+     * Waiting for capacity happens inside the rejection handler the framework installs on a pool
+     * it builds itself, which is the only place a refusal can still be turned into an enqueue. A
+     * host-supplied executor is not the framework's to reconfigure, so against one the declaration
+     * is a contradiction rather than a preference, and it is reported at build rather than
+     * degrading silently at the first saturated queue.
+     * <p>
+     * A def declaring it is rejected whether or not it is ever forked. What the declaration says
+     * about this state machine is wrong either way, and proving a def is never forked would cost a
+     * second walk to answer a question the author already got wrong.
+     * <p>
+     * This covers every declarative position - the machine default, every def, every by-id fork.
+     * A policy chosen from inside a Java body at runtime is not visible here and is refused at the
+     * submission instead.
+     */
+    private void checkBlockingIsPossible() {
+        if (asyncExecutor == null) {
+            return;
+        }
+
+        if (asyncRejectionPolicy == AsyncRejectionPolicy.BLOCK) {
+            throw new TransfluxValidationException(blockUnavailable("StateMachineDef"));
+        }
+        visitActionDefs(def -> {
+            if (def.getAsyncRejectionPolicy() == AsyncRejectionPolicy.BLOCK) {
+                throw new TransfluxValidationException(blockUnavailable(def.defLabel()));
+            }
+        });
+        anyMember(member -> {
+            if (member.policy() == AsyncRejectionPolicy.BLOCK) {
+                throw new TransfluxValidationException(
+                    blockUnavailable("a fork of action '" + member.ref().id() + "'"));
+            }
+            return false;
+        });
+    }
+
+    private static String blockUnavailable(String ownerLabel) {
+        return "Async rejection policy BLOCK is declared on " + ownerLabel
+            + ", but this state machine runs on a host-supplied executor; waiting for capacity needs"
+            + " the rejection handler the framework installs on a pool it builds itself, so either"
+            + " drop withAsyncExecutor(...) and size the pool with withAsyncPool(...), or choose"
+            + " another policy";
     }
 
     /**
@@ -1457,6 +1547,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     private void validateContextCompatibilityAndCycles() {
         checkOwnedListenerIds();
+        checkBlockingIsPossible();
         collectInlineMemberContexts();
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             Class<?> transitionContext = td.getContextType();

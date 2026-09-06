@@ -18,6 +18,7 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.action.AsyncRejectionPolicy;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.ActionPhase;
 import org.transflux.core.action.Compensation;
@@ -374,19 +375,21 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
      * <p>Producing the context can fail, and when it does the failure is this transition's: the
      * host's {@code mapTo} or {@code fork} threw at a position this transition was executing, and
      * no branch exists yet to attribute it to. A refused <em>submission</em> is a different thing
-     * and answers to the state machine's fork-rejection policy instead.
+     * and answers to the state machine's async-rejection policy instead.
      *
      * @param action the member to run on the branch
      * @param mapping the call site's context mapping
      */
-    void submitBranch(BoundAction<T, Object> action, ResolvedContextMapping mapping) {
+    void submitBranch(BoundAction<T, Object> action, ResolvedContextMapping mapping,
+                      AsyncRejectionPolicy policy) {
         Object active = getContext();
         Object branchContext = acquireBranchContext(active, mapping, action.id());
 
         ActionPath path = qualifyActionPath(action.id());
         ExecutingTransitionImpl<T, Object> branch = branchView(branchContext);
 
-        stateMachine.submitBranch(new AsyncBranchTask<>(stateMachine, branch, action, path), path);
+        stateMachine.submitBranch(new AsyncBranchTask<>(stateMachine, branch, action, path), path,
+                                  policy);
 
         // After the submit, not before: a refused branch reports itself, and a line claiming it was
         // submitted would then be followed by one saying it never started.
