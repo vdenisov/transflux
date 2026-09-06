@@ -529,10 +529,27 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
      * first moment the two are comparable. Without it the mismatch surfaces as a bare
      * {@code ClassCastException} thrown from the callee's bridge method, naming neither the action
      * nor the boundary it crossed.
+     * <p>
+     * A {@code null} child is refused here, where the pass-through check lets a {@code null} caller
+     * context through. The two nulls are not the same thing: there, the caller genuinely has no
+     * context and the callee is the sort that does not need one; here, host code at this very call
+     * site was asked to produce a context for a callee that declared it needs one, and returned
+     * nothing. That is the same broken-host-code case {@code ForkableContext.fork()} already
+     * refuses, and letting it past turns a nameable boundary failure into a
+     * {@code NullPointerException} somewhere inside the callee.
      */
     private void requireMappedContextAccepted(String id, Class<?> calleeContext, Object child) {
-        if (calleeContext == null || calleeContext == Object.class || child == null
-                || calleeContext.isInstance(child)) {
+        if (calleeContext == null || calleeContext == Object.class) {
+            return;
+        }
+        if (child == null) {
+            throw new TransfluxValidationException(
+                "Context type mismatch: action '" + id + "' is declared for context "
+                    + calleeContext.getName() + ", but the mapper supplied at this call site"
+                    + " produced null; a component that declares a context cannot be run without"
+                    + " one");
+        }
+        if (calleeContext.isInstance(child)) {
             return;
         }
         throw new TransfluxValidationException(

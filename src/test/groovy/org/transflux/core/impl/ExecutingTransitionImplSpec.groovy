@@ -22,6 +22,7 @@ import org.transflux.core.TestContext
 import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.Action
+import org.transflux.core.action.ContextMapper
 import org.transflux.core.action.Compensation
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.ActionPath
@@ -151,6 +152,28 @@ class ExecutingTransitionImplSpec extends Specification {
 
         where:
         id << [null, '', '  ']
+    }
+
+    def "a mapper that produces null is refused when the callee declares a context"() {
+        given: 'a callee that says it needs a TestContext'
+        def smd = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .step('needs-context', TestContext, new TaggingStep('foo'))
+        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', {}) })
+        smd.state(ACTIVE.id, {})
+
+        def sm = (StateMachineImpl) smd.build()
+        def view = new ExecutingTransitionImpl<TestEntity, TestContext>(
+            sm, sm.transitions['t1'], new TestEntity(state: 'TRIAL'), new TestContext())
+
+        when: 'host code at the call site produces nothing for it'
+        view.run('needs-context', { parent -> null } as ContextMapper)
+
+        then: 'the boundary is named here rather than surfacing as an NPE inside the callee'
+        def e = thrown(TransfluxValidationException)
+        e.message.contains('needs-context')
+        e.message.contains('produced null')
     }
 
     private static viewHostStateMachine() {
