@@ -183,6 +183,26 @@ class JavaDslSurfaceSpec extends Specification {
         sm.close()
     }
 
+    def 'the fork shapes dispatched from inside an action body build and run'() {
+        given:
+        def sm = JavaDslSurface.forkFromActionBody()
+        def order = new JavaDslSurface.Order()
+
+        when:
+        def result = sm.entity(order).transitionTo('s2', new JavaDslSurface.OrderCtx())
+
+        then: 'the transition does not wait for any of them, and every branch still runs'
+        result.success
+        waitFor { order.trail.count { it == 'recording' } == 2 }
+        waitFor { order.trail.count { it == 'notify:o-1' } == 4 }
+
+        and: 'a branch reaches neither reported path'
+        result.executedPath*.toString() == ['dispatch']
+
+        cleanup:
+        sm.close()
+    }
+
     def 'the declaration shapes build and run'() {
         given:
         def sm = JavaDslSurface.declarationShapes()

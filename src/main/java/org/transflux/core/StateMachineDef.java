@@ -145,7 +145,7 @@ public interface StateMachineDef<T> {
      * The executor stays the host's: {@link StateMachine#close()} leaves it running, because a
      * pool shared with the rest of an application is not the state machine's to shut down.
      *
-     * <p>This and {@link #withAsyncPool(int, int)} configure the same thing, so the later call
+     * <p>This and the {@code withAsyncPool} forms configure the same thing, so the later call
      * replaces the earlier one and logs a warning.
      *
      * <p>{@link AsyncRejectionPolicy#BLOCK} is not available against a host executor and fails the
@@ -162,12 +162,27 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> withAsyncExecutor(ExecutorService executor);
 
     /**
-     * Sizes the pool this state machine builds for forked members, replacing the default of ten
-     * threads and a queue of a hundred.
+     * Asks for a pool at the default sizing, which is what a definition whose only forks are
+     * written inside action bodies needs: the build cannot see those, and a definition without a
+     * declared fork builds no pool otherwise.
      * <p>
-     * A pool is built only if the definition actually forks, and only when no executor was
-     * supplied. Its threads are daemons, and it is shut down by {@link StateMachine#close()} -
-     * see the overload below to change the first of those.
+     * The default currently scales with {@link Runtime#availableProcessors()}: twice the
+     * processors with a floor of four threads, and ten queue slots per thread. Those numbers are
+     * the current choice rather than a contract, and the sizes a pool was actually built with are
+     * logged when it is created. A host that depends on specific numbers declares them through
+     * {@link #withAsyncPool(int, int)}.
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> withAsyncPool();
+
+    /**
+     * Sizes the pool this state machine builds for forked members, replacing the default sizing
+     * described on {@link #withAsyncPool()}.
+     * <p>
+     * Declaring a pool builds one even if nothing in the definition declares a fork, and only when
+     * no executor was supplied. Its threads are daemons, and it is shut down by
+     * {@link StateMachine#close()} - see the overload below to change the first of those.
      *
      * @param threads the number of worker threads; must be positive
      * @param queueCapacity how many submissions may wait for a thread; must be positive

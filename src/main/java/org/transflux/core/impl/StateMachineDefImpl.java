@@ -212,6 +212,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
+    public StateMachineDef<T> withAsyncPool() {
+        return applyPoolSpec(AsyncPoolSpec.defaults());
+    }
+
+    @Override
     public StateMachineDef<T> withAsyncPool(int threads, int queueCapacity) {
         return applyPoolSpec(new AsyncPoolSpec(threads, queueCapacity, null));
     }
@@ -826,12 +831,30 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @return the pool spec; never {@code null}
      */
     AsyncPoolSpec getAsyncPoolSpec() {
-        return asyncPoolSpec != null ? asyncPoolSpec : AsyncPoolSpec.DEFAULT;
+        return asyncPoolSpec != null ? asyncPoolSpec : AsyncPoolSpec.defaults();
+    }
+
+    /**
+     * Reports whether the host asked for a pool of its own sizing, which is the second reason to
+     * build one.
+     * <p>
+     * {@link #definitionForks()} only sees members a sequence declared, so a state machine whose
+     * only forks are written inside action bodies would otherwise build no executor at all.
+     * Declaring a pool is how such a definition says it forks.
+     *
+     * @return whether any {@code withAsyncPool} form was called
+     */
+    boolean declaresAsyncPool() {
+        return asyncPoolSpec != null;
     }
 
     /**
      * Reports whether anything in this definition asks to wait for capacity, which decides whether
      * the pool is built with a fair queue.
+     * <p>
+     * Like every other definition-time walk this sees declared positions only, so a {@code BLOCK}
+     * chosen inside an action body waits on an unfair queue. That costs ordering under contention,
+     * never correctness.
      *
      * @return {@code true} if the machine default or any action declares
      *         {@link AsyncRejectionPolicy#BLOCK}
@@ -1287,7 +1310,16 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         });
     }
 
-    private static String blockUnavailable(String ownerLabel) {
+    /**
+     * The message a {@code BLOCK} declaration gets when nothing can honour it. Shared with the
+     * runtime refusal, which answers for the one declaration site the build cannot see - a policy
+     * chosen inside an action body.
+     *
+     * @param ownerLabel what declared the policy
+     *
+     * @return the rejection message
+     */
+    static String blockUnavailable(String ownerLabel) {
         return "Async rejection policy BLOCK is declared on " + ownerLabel
             + ", but this state machine runs on a host-supplied executor; waiting for capacity needs"
             + " the rejection handler the framework installs on a pool it builds itself, so either"

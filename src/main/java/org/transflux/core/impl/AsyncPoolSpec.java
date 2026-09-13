@@ -38,8 +38,28 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 record AsyncPoolSpec(int threads, int queueCapacity, ThreadFactory threadFactory) {
 
-    /** What a host gets without saying anything: enough for notification-shaped work. */
-    static final AsyncPoolSpec DEFAULT = new AsyncPoolSpec(10, 100, null);
+    /**
+     * The pool a host gets without sizing one, scaled to the processors this JVM may use.
+     *
+     * @return the current default spec
+     */
+    static AsyncPoolSpec defaults() {
+        return defaultsFor(Runtime.getRuntime().availableProcessors());
+    }
+
+    /**
+     * The default sizing for a given processor count: twice the processors with a floor of four,
+     * and ten queue slots per thread.
+     *
+     * @param processors the processor count to size for
+     *
+     * @return the default spec for that count
+     */
+    static AsyncPoolSpec defaultsFor(int processors) {
+        // Forked work is mostly waiting on I/O, so one thread per core would starve a small container.
+        int threads = Math.max(4, 2 * processors);
+        return new AsyncPoolSpec(threads, 10 * threads, null);
+    }
 
     AsyncPoolSpec {
         if (threads <= 0) {

@@ -160,6 +160,7 @@ public final class JavaDslSurface {
             .forEntityType(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
+            .withAsyncPool(2, 8)
             .step("record", new RecordingAction())
             .step("notify", NotifyCtx.class, new NotifyAction())
             .mapper("notify-from-order", OrderCtx.class, NotifyCtx.class,
@@ -535,6 +536,40 @@ public final class JavaDslSurface {
                             .forException(RuntimeException.class)
                                 .matching(e -> e.getMessage() != null)
                                 .withCompensation(new RollbackCompensation())))))
+            .state("s2", s -> { })
+            .build();
+    }
+
+    /**
+     * The forked half of the same grammar, dispatched from inside an action's body. Six shapes:
+     * three call shapes, each with and without a policy of its own. The pool is asked for
+     * explicitly because a fork written here is invisible to the build.
+     *
+     * @return the built state machine, which owns a pool and must be closed
+     */
+    public static StateMachine<Order> forkFromActionBody() {
+        Action<Order, OrderCtx> dispatcher = (order, ctx, view) -> {
+            view.fork("record");
+            view.fork("record", AsyncRejectionPolicy.CALLER_RUNS);
+            view.fork("notify", "notify-from-order");
+            view.fork("notify", "notify-from-order", AsyncRejectionPolicy.DROP);
+            view.fork("notify", parent -> new NotifyCtx(parent.orderId));
+            view.fork("notify", parent -> new NotifyCtx(parent.orderId),
+                      AsyncRejectionPolicy.DROP);
+        };
+
+        return Transflux.<Order>defineStateMachine()
+            .forEntityType(Order.class)
+            .withStateResolver(o -> o.state)
+            .withStateApplier((o, s) -> o.state = s)
+            .withAsyncPool()
+            .step("record", new RecordingAction())
+            .step("notify", NotifyCtx.class, new NotifyAction())
+            .mapper("notify-from-order", OrderCtx.class, NotifyCtx.class,
+                    parent -> new NotifyCtx(parent.orderId))
+            .state("s1", s -> s
+                .transitionsTo("s2", "t", OrderCtx.class, t -> t
+                    .step("dispatch", dispatcher)))
             .state("s2", s -> { })
             .build();
     }

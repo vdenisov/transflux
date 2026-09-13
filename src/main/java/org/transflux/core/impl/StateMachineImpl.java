@@ -121,8 +121,8 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
     /**
      * Where forked members run, and whether shutting it down is this state machine's business.
-     * Both are {@code null} / {@code false} for a definition that never forks, which is every
-     * definition that predates the capability.
+     * Both are {@code null} / {@code false} for a definition that neither forks nor asks for a
+     * pool of its own.
      */
     private final ExecutorService asyncExecutor;
     private final boolean ownsAsyncExecutor;
@@ -147,7 +147,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
             this.ownsAsyncExecutor = false;
             Loggers.EXECUTION_ASYNC.info("Async executor supplied by host, executorType={}",
                                          supplied.getClass().getName());
-        } else if (def.definitionForks()) {
+        } else if (def.definitionForks() || def.declaresAsyncPool()) {
             AsyncPoolSpec spec = def.getAsyncPoolSpec();
             // A fair queue only earns its lock where something actually waits on it.
             boolean blocks = def.declaresBlockingRejection();
@@ -332,16 +332,14 @@ class StateMachineImpl<T> implements StateMachine<T> {
      * @return {@code null} when the work was handed over or run inline; otherwise the type of the
      *         refusal, for the caller to report as it sees fit
      *
+     * @throws TransfluxValidationException when this state machine has no executor, or when
+     *         {@link AsyncRejectionPolicy#BLOCK} is asked for against a host-supplied one
      * @throws java.util.concurrent.RejectedExecutionException under
      *         {@link AsyncRejectionPolicy#FAIL}, and under {@link AsyncRejectionPolicy#BLOCK} when
      *         no wait could free a slot
      */
     String submitAsync(Runnable task, AsyncRejectionPolicy policy, Object subject) {
-        if (asyncExecutor == null) {
-            throw new TransfluxValidationException(
-                "No async executor is configured, yet async work was reached at '" + subject
-                    + "'; this state machine was built believing it had none");
-        }
+        requireAsyncAccepted(policy, subject);
 
         try {
             asyncExecutor.execute(new AsyncWork(task, policy, subject));
@@ -349,6 +347,35 @@ class StateMachineImpl<T> implements StateMachine<T> {
             return refuse(task, policy, subject, e);
         }
         return null;
+    }
+
+    /**
+     * Refuses async work this state machine could never run as asked, before anything is spent
+     * preparing it.
+     *
+     * @param policy the resolved rejection policy; never {@code null}
+     * @param subject what the work is, for the message
+     *
+     * @throws TransfluxValidationException when this state machine has no executor, or when
+     *         {@link AsyncRejectionPolicy#BLOCK} is asked for against a host-supplied one
+     */
+    void requireAsyncAccepted(AsyncRejectionPolicy policy, Object subject) {
+        if (asyncExecutor == null) {
+            throw new TransfluxValidationException(
+                "No async executor is configured, yet async work was reached at '" + subject
+                    + "'; a fork written inside an action body is invisible to the build, so a"
+                    + " definition whose only forks are imperative has to ask for an executor with"
+                    + " withAsyncPool() or withAsyncExecutor(...)");
+        }
+
+        // The build rejects BLOCK against a host executor wherever it can see the declaration, but
+        // it cannot see one chosen inside a Java body. Refusing at every submission rather than
+        // only at a rejection keeps the two answers the same: a policy that could never be honoured
+        // fails the first time it is used, not the first time the queue happens to be full.
+        if (policy == AsyncRejectionPolicy.BLOCK && !ownsAsyncExecutor) {
+            throw new TransfluxValidationException(
+                StateMachineDefImpl.blockUnavailable("the fork of '" + subject + "'"));
+        }
     }
 
     /**

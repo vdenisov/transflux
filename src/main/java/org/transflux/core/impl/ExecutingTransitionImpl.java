@@ -164,6 +164,76 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
                   callee.contextType());
     }
 
+    @Override
+    public void fork(String id) {
+        forkAction(resolveAction(id, true), ResolvedContextMapping.passThrough(), null);
+    }
+
+    @Override
+    public void fork(String id, AsyncRejectionPolicy policy) {
+        requireNotNull(policy, "Async rejection policy");
+        forkAction(resolveAction(id, true), ResolvedContextMapping.passThrough(), policy);
+    }
+
+    @Override
+    public void fork(String id, String mapperId) {
+        forkThroughRegisteredMapper(id, mapperId, null);
+    }
+
+    @Override
+    public void fork(String id, String mapperId, AsyncRejectionPolicy policy) {
+        requireNotNull(policy, "Async rejection policy");
+        forkThroughRegisteredMapper(id, mapperId, policy);
+    }
+
+    @Override
+    public void fork(String id, ContextMapper<C, ?> inlineMapper) {
+        forkThroughInlineMapper(id, inlineMapper, null);
+    }
+
+    @Override
+    public void fork(String id, ContextMapper<C, ?> inlineMapper, AsyncRejectionPolicy policy) {
+        requireNotNull(policy, "Async rejection policy");
+        forkThroughInlineMapper(id, inlineMapper, policy);
+    }
+
+    private void forkThroughRegisteredMapper(String id, String mapperId,
+                                             AsyncRejectionPolicy policy) {
+        requireNotBlank(mapperId, "Mapper reference ID");
+        forkAction(resolveAction(id, false),
+                   ResolvedContextMapping.mapped(resolveRegisteredMapper(mapperId)), policy);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void forkThroughInlineMapper(String id, ContextMapper<C, ?> inlineMapper,
+                                         AsyncRejectionPolicy policy) {
+        requireNotNull(inlineMapper, "Inline mapper instance");
+        forkAction(resolveAction(id, false),
+                   ResolvedContextMapping.mapped((ContextMapper<Object, Object>) inlineMapper),
+                   policy);
+    }
+
+    /**
+     * Submits one branch on behalf of a dispatch written in an action's body.
+     * <p>
+     * The two-argument {@code policy} fold a declared member gets at build time happens here
+     * instead, because an imperative call site has no def to fold it onto: this call site wins,
+     * then the action's own declaration, and the state machine's default is applied further down
+     * in {@link StateMachineImpl#submitBranch}.
+     *
+     * @param callee the resolved callee, carrying the context type it was declared for
+     * @param mapping this call site's context mapping
+     * @param policy the policy declared at this call site, or {@code null} to inherit
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void forkAction(Component.Action<T, ?> callee, ResolvedContextMapping mapping,
+                            AsyncRejectionPolicy policy) {
+        BoundAction<T, Object> bound = (BoundAction) callee.bound();
+        submitBranch(bound, mapping,
+                     policy != null ? policy : bound.asyncRejectionPolicy(),
+                     callee.contextType());
+    }
+
     T getEntity() {
         return entity;
     }
@@ -379,13 +449,38 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
      *
      * @param action the member to run on the branch
      * @param mapping the call site's context mapping
+     * @param policy what a refused submission does, or {@code null} for the machine's default
      */
     void submitBranch(BoundAction<T, Object> action, ResolvedContextMapping mapping,
                       AsyncRejectionPolicy policy) {
+        submitBranch(action, mapping, policy, null);
+    }
+
+    /**
+     * The same submission, told what context type the callee declared.
+     * <p>
+     * A declared member passes {@code null} here and is checked at build time instead; a dispatch
+     * from inside an action body has the callee's own registration in hand and nothing that could
+     * have checked it earlier, so it is checked here — the same asymmetry {@link #runAction} draws
+     * between its two forms. Unchecked, a mapper that produces the wrong type surfaces as a
+     * {@code ClassCastException} on a worker thread, where it is swallowed into a branch warning
+     * and never reaches the caller at all.
+     *
+     * @param calleeContext the context type the callee was declared for, or {@code null} to skip
+     *                      the check
+     */
+    void submitBranch(BoundAction<T, Object> action, ResolvedContextMapping mapping,
+                      AsyncRejectionPolicy policy, Class<?> calleeContext) {
+        ActionPath path = qualifyActionPath(action.id());
+        // Before the context is produced: host mapping or copying is wasted on a fork that is refused anyway.
+        stateMachine.requireAsyncAccepted(stateMachine.policyFor(policy), path);
+
         Object active = getContext();
         Object branchContext = acquireBranchContext(active, mapping, action.id());
+        if (calleeContext != null && !mapping.isPassThrough()) {
+            requireMappedContextAccepted(action.id(), calleeContext, branchContext);
+        }
 
-        ActionPath path = qualifyActionPath(action.id());
         ExecutingTransitionImpl<T, Object> branch = branchView(branchContext);
 
         stateMachine.submitBranch(new AsyncBranchTask<>(stateMachine, branch, action, path), path,

@@ -74,6 +74,36 @@ class StateMachineImplAsyncExecutorSpec extends Specification {
         capture.messages().isEmpty()
     }
 
+    def 'declaring a pool builds one, though no declared member forks'() {
+        given: 'the second reason to build a pool - a fork inside a Java body, which no walk sees'
+        capture = LogCapture.start('org.transflux.execution.async')
+        def sm = build({ smd -> smd.step('plain', { e, c, t -> } as Action) },
+                       { op -> op.run('plain') }, { smd -> smd.withAsyncPool(2, 8) })
+
+        when:
+        sm.close()
+
+        then:
+        capture.messagesAtOrAbove(Level.INFO).any { it.contains('Async pool created') }
+    }
+
+    def 'withAsyncPool() builds a pool at the default sizing'() {
+        given:
+        def expected = AsyncPoolSpec.defaults()
+        capture = LogCapture.start('org.transflux.execution.async')
+        def sm = build({ smd -> smd.step('plain', { e, c, t -> } as Action) },
+                       { op -> op.run('plain') }, { smd -> smd.withAsyncPool() })
+
+        when:
+        sm.close()
+
+        then:
+        capture.messagesAtOrAbove(Level.INFO).any {
+            it.contains('Async pool created') && it.contains("threads=${expected.threads()}")
+                && it.contains("queueCapacity=${expected.queueCapacity()}")
+        }
+    }
+
     def 'a framework pool is announced once at build, and a forking transition announces nothing'() {
         given:
         def done = new CountDownLatch(1)
