@@ -18,7 +18,7 @@
 
 package org.transflux.core.action;
 
-import org.transflux.core.Identifiable;
+import org.transflux.core.ListenerDef;
 import org.transflux.core.exception.TransfluxValidationException;
 
 /**
@@ -33,63 +33,19 @@ import org.transflux.core.exception.TransfluxValidationException;
  * {@code onComplete(...)} / {@code onError(...)} and their state-machine-wide siblings. The
  * configurer grants temporary write access; once it returns the def is inert and any further
  * mutation throws {@link TransfluxValidationException}. The shorter overloads that take a listener
- * instance or class directly are equivalent to a configurer whose only call is {@link #using}.
+ * instance directly are equivalent to a configurer whose only call is {@link #using}.
+ *
+ * <p><b>Async volume.</b> An action listener is the high-volume hook: it is notified twice per
+ * action invocation, at every nesting depth, where a transition and its two states notify at most
+ * four times per transition. A global listener declared {@link #withAsync() async} therefore submits
+ * twice for every action a transition runs, and a body dispatching an action a thousand times in a
+ * loop submits two thousand notifications from one transition - enough to fill the default queue,
+ * and under the default policy to lose the overflow. Keep such a listener synchronous, or give one
+ * that must not lose notifications {@code CALLER_RUNS} or {@code BLOCK}.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the context type the observed action runs against
  */
-public interface ActionListenerDef<T, C> extends Identifiable {
-
-    /**
-     * Returns this listener's identifier.
-     *
-     * @return the listener id; never {@code null} or blank
-     */
-    @Override
-    String getId();
-
-    /**
-     * Returns this listener's optional human-readable name.
-     *
-     * @return the name, or {@code null} if none was set
-     */
-    String getName();
-
-    /**
-     * Returns this listener's optional description.
-     *
-     * @return the description, or {@code null} if none was set
-     */
-    String getDescription();
-
-    /**
-     * Sets the human-readable name for this listener.
-     *
-     * @param name the human-readable name
-     *
-     * @return this listener def for chaining
-     */
-    ActionListenerDef<T, C> withName(String name);
-
-    /**
-     * Sets the description for this listener.
-     *
-     * @param description the description
-     *
-     * @return this listener def for chaining
-     */
-    ActionListenerDef<T, C> withDescription(String description);
-
-    /**
-     * Attaches a pre-built listener instance. Mutually exclusive with {@link #using(Class)};
-     * re-declaring replaces the previous declaration.
-     *
-     * @param listener the listener instance; never {@code null}
-     *
-     * @return this listener def for chaining
-     *
-     * @throws TransfluxValidationException if {@code listener} is {@code null}
-     */
-    ActionListenerDef<T, C> using(ActionListener<T, C> listener);
-
+public interface ActionListenerDef<T, C>
+    extends ListenerDef<ActionListener<T, C>, ActionListenerDef<T, C>> {
 }

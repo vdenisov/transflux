@@ -33,7 +33,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the context type the observed action runs against
  */
-final class ActionListenerDefImpl<T, C> extends IdentifiedDefImpl<ActionListenerDefImpl<T, C>>
+final class ActionListenerDefImpl<T, C> extends ListenerDefImpl<ActionListenerDefImpl<T, C>>
         implements ActionListenerDef<T, C> {
 
     private final InstanceSource<ActionListener<T, C>> source;
@@ -65,7 +65,7 @@ final class ActionListenerDefImpl<T, C> extends IdentifiedDefImpl<ActionListener
             throw new TransfluxValidationException(
                 "Action listener '" + getId() + "' declares no listener; call using(...) in its configurer");
         }
-        return new BoundActionListener<>(getId(), getName(), getDescription(),
+        return new BoundActionListener<>(getId(), getName(), getDescription(), getAsync(),
                                          source.resolve("Action listener"));
     }
 }

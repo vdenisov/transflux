@@ -26,6 +26,7 @@ import org.transflux.core.action.ActionKind;
 import org.transflux.core.action.ActionListener;
 import org.transflux.core.action.ActionListenerDef;
 import org.transflux.core.action.ContextMapper;
+import org.transflux.core.action.ActionPhase;
 import org.transflux.core.action.AsyncRejectionPolicy;
 import org.transflux.core.action.MapperDef;
 import org.transflux.core.action.ConditionalOperationDef;
@@ -866,6 +867,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
         boolean[] blocks = {false};
         visitActionDefs(def -> blocks[0] |= def.getAsyncRejectionPolicy() == AsyncRejectionPolicy.BLOCK);
+        visitListenerDefs(listener -> blocks[0] |= listener.getAsync() == AsyncRejectionPolicy.BLOCK);
         return blocks[0] || anyMember(member -> member.policy() == AsyncRejectionPolicy.BLOCK);
     }
 
@@ -892,6 +894,18 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      */
     boolean definitionForks() {
         return anyMember(ActionSequenceSink.DeclaredMember::forked);
+    }
+
+    /**
+     * Reports whether any listener in this definition runs async, which is the third reason to
+     * build a pool.
+     *
+     * @return whether any listener declared {@code withAsync}
+     */
+    boolean declaresAsyncListener() {
+        boolean[] async = {false};
+        visitListenerDefs(listener -> async[0] |= listener.getAsync() != null);
+        return async[0];
     }
 
     /**
@@ -1243,6 +1257,36 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
+     * Visits every listener def in this definition, of all three categories, owned and global.
+     *
+     * @param visitor what to apply to each
+     */
+    private void visitListenerDefs(Consumer<ListenerDefImpl<?>> visitor) {
+        globalEntryListeners.forEach(visitor);
+        globalExitListeners.forEach(visitor);
+        globalStartListeners.forEach(visitor);
+        globalCompleteListeners.forEach(visitor);
+        globalErrorListeners.forEach(visitor);
+        globalActionStartListeners.forEach(visitor);
+        globalActionCompleteListeners.forEach(visitor);
+        globalActionErrorListeners.forEach(visitor);
+        for (StateDefImpl<T> sd : states.values()) {
+            sd.getEntryListeners().forEach(visitor);
+            sd.getExitListeners().forEach(visitor);
+        }
+        for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
+            td.getStartListeners().forEach(visitor);
+            td.getCompleteListeners().forEach(visitor);
+            td.getErrorListeners().forEach(visitor);
+        }
+        visitActionDefs(def -> {
+            for (ActionPhase phase : ActionPhase.values()) {
+                def.getListeners(phase).forEach(visitor);
+            }
+        });
+    }
+
+    /**
      * Visits every action def in this definition: registered steps and containers, transition
      * bodies, and every action declared inline beneath any of them, at any depth.
      * <p>
@@ -1299,6 +1343,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         visitActionDefs(def -> {
             if (def.getAsyncRejectionPolicy() == AsyncRejectionPolicy.BLOCK) {
                 throw new TransfluxValidationException(blockUnavailable(def.defLabel()));
+            }
+        });
+        visitListenerDefs(listener -> {
+            if (listener.getAsync() == AsyncRejectionPolicy.BLOCK) {
+                throw new TransfluxValidationException(blockUnavailable(listener.defLabel()));
             }
         });
         anyMember(member -> {

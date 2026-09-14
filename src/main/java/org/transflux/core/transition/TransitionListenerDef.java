@@ -18,7 +18,7 @@
 
 package org.transflux.core.transition;
 
-import org.transflux.core.Identifiable;
+import org.transflux.core.ListenerDef;
 import org.transflux.core.exception.TransfluxValidationException;
 
 /**
@@ -33,63 +33,11 @@ import org.transflux.core.exception.TransfluxValidationException;
  * {@code onComplete(...)} / {@code onError(...)} and their state-machine-wide siblings. The
  * configurer grants temporary write access; once it returns the def is inert and any further
  * mutation throws {@link TransfluxValidationException}. The shorter overloads that take a listener
- * instance or class directly are equivalent to a configurer whose only call is {@link #using}.
+ * instance directly are equivalent to a configurer whose only call is {@link #using}.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-public interface TransitionListenerDef<T, C> extends Identifiable {
-
-    /**
-     * Returns this listener's identifier.
-     *
-     * @return the listener id; never {@code null} or blank
-     */
-    @Override
-    String getId();
-
-    /**
-     * Returns this listener's optional human-readable name.
-     *
-     * @return the name, or {@code null} if none was set
-     */
-    String getName();
-
-    /**
-     * Returns this listener's optional description.
-     *
-     * @return the description, or {@code null} if none was set
-     */
-    String getDescription();
-
-    /**
-     * Sets the human-readable name for this listener.
-     *
-     * @param name the human-readable name
-     *
-     * @return this listener def for chaining
-     */
-    TransitionListenerDef<T, C> withName(String name);
-
-    /**
-     * Sets the description for this listener.
-     *
-     * @param description the description
-     *
-     * @return this listener def for chaining
-     */
-    TransitionListenerDef<T, C> withDescription(String description);
-
-    /**
-     * Attaches a pre-built listener instance. Mutually exclusive with {@link #using(Class)};
-     * re-declaring replaces the previous declaration.
-     *
-     * @param listener the listener instance; never {@code null}
-     *
-     * @return this listener def for chaining
-     *
-     * @throws TransfluxValidationException if {@code listener} is {@code null}
-     */
-    TransitionListenerDef<T, C> using(TransitionListener<T, C> listener);
-
+public interface TransitionListenerDef<T, C>
+    extends ListenerDef<TransitionListener<T, C>, TransitionListenerDef<T, C>> {
 }

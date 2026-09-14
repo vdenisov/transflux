@@ -25,6 +25,7 @@ import org.transflux.core.action.ActionExecution;
 import org.transflux.core.action.ActionPhase;
 import org.transflux.core.action.AsyncRejectionPolicy;
 import org.transflux.core.action.Compensation;
+import org.transflux.core.action.ForkableContext;
 import org.transflux.core.action.Action;
 import org.transflux.core.state.State;
 import org.transflux.core.state.StateApplier;
@@ -54,6 +55,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
@@ -121,8 +123,8 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
     /**
      * Where forked members run, and whether shutting it down is this state machine's business.
-     * Both are {@code null} / {@code false} for a definition that neither forks nor asks for a
-     * pool of its own.
+     * Both are {@code null} / {@code false} for a definition that neither forks, declares an async
+     * listener, nor asks for a pool of its own.
      */
     private final ExecutorService asyncExecutor;
     private final boolean ownsAsyncExecutor;
@@ -147,7 +149,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
             this.ownsAsyncExecutor = false;
             Loggers.EXECUTION_ASYNC.info("Async executor supplied by host, executorType={}",
                                          supplied.getClass().getName());
-        } else if (def.definitionForks() || def.declaresAsyncPool()) {
+        } else if (def.definitionForks() || def.declaresAsyncPool() || def.declaresAsyncListener()) {
             AsyncPoolSpec spec = def.getAsyncPoolSpec();
             // A fair queue only earns its lock where something actually waits on it.
             boolean blocks = def.declaresBlockingRejection();
@@ -720,15 +722,17 @@ class StateMachineImpl<T> implements StateMachine<T> {
             new StateChange<>(phase, states.get(stateId), TransitionImpl.of(transition));
 
         for (BoundStateListener<T> listener : listeners) {
-            try {
-                listener.listener().onState(entity, context, change);
-            } catch (Exception e) {
-                // The class name, never the message: a host's own exception can carry anything at
-                // all, including the entity the listener was handed.
-                Loggers.EXECUTION_LISTENER.warn(
-                    "State listener threw, listenerId={}, phase={}, stateId={}, errorType={}",
-                    listener.id(), phase, stateId, e.getClass().getName());
-            }
+            deliver(listener.id(), listener.async(), context, ctx -> {
+                try {
+                    listener.listener().onState(entity, ctx, change);
+                } catch (Exception e) {
+                    // The class name, never the message: a host's own exception can carry anything
+                    // at all, including the entity the listener was handed.
+                    Loggers.EXECUTION_LISTENER.warn(
+                        "State listener threw, listenerId={}, phase={}, stateId={}, errorType={}",
+                        listener.id(), phase, stateId, e.getClass().getName());
+                }
+            });
         }
     }
 
@@ -750,13 +754,15 @@ class StateMachineImpl<T> implements StateMachine<T> {
             phase, TransitionImpl.of(transition), firedBy, result);
 
         for (BoundTransitionListener<T, C> listener : listeners) {
-            try {
-                listener.listener().onTransition(entity, context, execution);
-            } catch (Exception e) {
-                Loggers.EXECUTION_LISTENER.warn(
-                    "Transition listener threw, listenerId={}, phase={}, transitionId={}, errorType={}",
-                    listener.id(), phase, transition.id(), e.getClass().getName());
-            }
+            deliver(listener.id(), listener.async(), context, ctx -> {
+                try {
+                    listener.listener().onTransition(entity, ctx, execution);
+                } catch (Exception e) {
+                    Loggers.EXECUTION_LISTENER.warn(
+                        "Transition listener threw, listenerId={}, phase={}, transitionId={}, errorType={}",
+                        listener.id(), phase, transition.id(), e.getClass().getName());
+                }
+            });
         }
     }
 
@@ -799,13 +805,84 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
     private <C> void notifyActionListener(BoundActionListener<T, C> listener, T entity, C context,
                                           ActionExecution execution) {
-        try {
-            listener.listener().onAction(entity, context, execution);
-        } catch (Exception e) {
-            Loggers.EXECUTION_LISTENER.warn(
-                "Action listener threw, listenerId={}, phase={}, actionPath={}, errorType={}",
-                listener.id(), execution.phase(), execution.path(), e.getClass().getName());
+        deliver(listener.id(), listener.async(), context, ctx -> {
+            try {
+                listener.listener().onAction(entity, ctx, execution);
+            } catch (Exception e) {
+                Loggers.EXECUTION_LISTENER.warn(
+                    "Action listener threw, listenerId={}, phase={}, actionPath={}, errorType={}",
+                    listener.id(), execution.phase(), execution.path(), e.getClass().getName());
+            }
+        });
+    }
+
+    /**
+     * Notifies one listener, in line or on the executor as it declared.
+     * <p>
+     * An async notification is fire-and-forget like a forked branch, and runs under the same mark:
+     * it may not drive this state machine, and a {@code BLOCK} submission from it runs inline
+     * rather than parking a worker. Nothing about it can fail the transition - a context that will
+     * not fork, or an executor that will not take the work, loses this one notification with a
+     * warning.
+     *
+     * @param listenerId the listener's id, for diagnostics
+     * @param async the listener's policy, or {@code null} to notify in line
+     * @param context the context the listener would receive in line
+     * @param notification the invocation, carrying its own catch-and-warn
+     * @param <C> the context type
+     */
+    private <C> void deliver(String listenerId, AsyncRejectionPolicy async, C context,
+                             Consumer<C> notification) {
+        if (async == null) {
+            notification.accept(context);
+            return;
         }
+
+        C listenerContext;
+        try {
+            listenerContext = forkForListener(context, listenerId);
+        } catch (Exception e) {
+            Loggers.EXECUTION_LISTENER.warn("Async listener not notified, listenerId={}, errorType={}",
+                                            listenerId, e.getClass().getName());
+            return;
+        }
+
+        Runnable task = () -> {
+            enterAsyncBranch();
+            try {
+                notification.accept(listenerContext);
+            } finally {
+                exitAsyncBranch();
+            }
+        };
+
+        String lost;
+        try {
+            lost = submitAsync(task, async, "listener '" + listenerId + "'");
+        } catch (RejectedExecutionException e) {
+            // BLOCK against a closed executor: a listener has no transition to fail, so it is lost.
+            lost = e.getClass().getName();
+        }
+        if (lost != null) {
+            // Per occurrence, unthrottled: a spike of these is how an undersized pool shows up.
+            Loggers.EXECUTION_ASYNC.warn("Async listener not started, listenerId={}, errorType={}",
+                                         listenerId, lost);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <C> C forkForListener(C context, String listenerId) {
+        if (!(context instanceof ForkableContext<?> forkable)) {
+            return context;
+        }
+
+        Object forked = forkable.fork();
+        if (forked == null) {
+            throw new TransfluxValidationException(
+                "ForkableContext returned null while notifying async listener '" + listenerId
+                    + "'; fork() must produce a context");
+        }
+        return (C) forked;
     }
 
     /**

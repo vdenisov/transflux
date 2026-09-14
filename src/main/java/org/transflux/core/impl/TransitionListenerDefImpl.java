@@ -34,7 +34,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-final class TransitionListenerDefImpl<T, C> extends IdentifiedDefImpl<TransitionListenerDefImpl<T, C>>
+final class TransitionListenerDefImpl<T, C> extends ListenerDefImpl<TransitionListenerDefImpl<T, C>>
         implements TransitionListenerDef<T, C> {
 
     private final InstanceSource<TransitionListener<T, C>> source;
@@ -67,7 +67,7 @@ final class TransitionListenerDefImpl<T, C> extends IdentifiedDefImpl<Transition
                 "Transition listener '" + getId()
                     + "' declares no listener; call using(...) in its configurer");
         }
-        return new BoundTransitionListener<>(getId(), getName(), getDescription(),
+        return new BoundTransitionListener<>(getId(), getName(), getDescription(), getAsync(),
                                              source.resolve("Transition listener"));
     }
 }

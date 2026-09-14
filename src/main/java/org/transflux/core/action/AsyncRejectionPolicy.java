@@ -28,12 +28,14 @@ package org.transflux.core.action;
  * that forks a registered action ({@code fork(id, policy)}), for work that does not know how this
  * flow treats it; the action's own def ({@code ActionDef.withAsyncRejectionPolicy(...)}), for work
  * that does know; and the state machine ({@code StateMachineDef.withAsyncRejectionPolicy(...)}) for
- * everything unsaid. A listener declares it on its own def, since it has no position.
+ * everything unsaid. A listener has no position and declares it on its own def, through
+ * {@code withAsync(policy)}, where {@link #FAIL} is refused.
  *
- * <p>This covers only a refused submission. Host code that fails while producing the branch's
- * context - a throwing {@link ContextMapper#mapTo(Object) mapTo} or
+ * <p>This covers only a refused submission. Host code that fails while producing a forked
+ * branch's context - a throwing {@link ContextMapper#mapTo(Object) mapTo} or
  * {@link ForkableContext#fork() fork} - always fails the transition, whatever this says: that is
- * a broken definition rather than a saturated system.
+ * a broken definition rather than a saturated system. An async listener is the exception, since it
+ * can fail nothing: it loses that notification instead.
  */
 public enum AsyncRejectionPolicy {
 
@@ -60,11 +62,12 @@ public enum AsyncRejectionPolicy {
      * applied to the caller instead of to the work.
      * <p>
      * There is no timeout, deliberately: the wait is bounded by the work already queued ahead.
-     * Two cases cannot wait and do something else instead. A closed executor never frees a slot,
-     * so the submission is refused and the rejection is raised like {@link #FAIL}; and a thread
-     * already running a branch of this state machine runs the work inline like
-     * {@link #CALLER_RUNS} rather than parking, because a pool worker waiting on its own pool can
-     * be waiting for a slot only it could free.
+     * Two cases cannot wait and do something else instead. A thread already running a branch of
+     * this state machine runs the work inline like {@link #CALLER_RUNS} rather than parking, because
+     * a pool worker waiting on its own pool can be waiting for a slot only it could free. Otherwise a
+     * closed executor never frees a slot, so the submission is refused and the rejection is raised
+     * like {@link #FAIL}. The branch case is checked first, so a branch still finishing after
+     * {@code close()} runs its work inline rather than failing.
      *
      * <p>Requires the pool the framework builds for itself. The wait happens inside that pool's
      * rejection handler, which is the only place a refusal can still be turned into an enqueue; a

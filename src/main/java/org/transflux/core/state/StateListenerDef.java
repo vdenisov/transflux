@@ -18,7 +18,7 @@
 
 package org.transflux.core.state;
 
-import org.transflux.core.Identifiable;
+import org.transflux.core.ListenerDef;
 import org.transflux.core.exception.TransfluxValidationException;
 
 /**
@@ -32,63 +32,10 @@ import org.transflux.core.exception.TransfluxValidationException;
  * <p>This def is reached through the configurer overloads of {@code StateDef.onEntry(...)} /
  * {@code StateDef.onExit(...)} and their state-machine-wide siblings. The configurer grants
  * temporary write access; once it returns the def is inert and any further mutation throws
- * {@link TransfluxValidationException}. The shorter overloads that take a listener instance or
- * class directly are equivalent to a configurer whose only call is {@link #using}.
+ * {@link TransfluxValidationException}. The shorter overloads that take a listener instance
+ * directly are equivalent to a configurer whose only call is {@link #using}.
  *
  * @param <T> the entity type the surrounding state machine manages
  */
-public interface StateListenerDef<T> extends Identifiable {
-
-    /**
-     * Returns this listener's identifier.
-     *
-     * @return the listener id; never {@code null} or blank
-     */
-    @Override
-    String getId();
-
-    /**
-     * Returns this listener's optional human-readable name.
-     *
-     * @return the name, or {@code null} if none was set
-     */
-    String getName();
-
-    /**
-     * Returns this listener's optional description.
-     *
-     * @return the description, or {@code null} if none was set
-     */
-    String getDescription();
-
-    /**
-     * Sets the human-readable name for this listener.
-     *
-     * @param name the human-readable name
-     *
-     * @return this listener def for chaining
-     */
-    StateListenerDef<T> withName(String name);
-
-    /**
-     * Sets the description for this listener.
-     *
-     * @param description the description
-     *
-     * @return this listener def for chaining
-     */
-    StateListenerDef<T> withDescription(String description);
-
-    /**
-     * Attaches a pre-built listener instance. Mutually exclusive with {@link #using(Class)};
-     * re-declaring replaces the previous declaration.
-     *
-     * @param listener the listener instance; never {@code null}
-     *
-     * @return this listener def for chaining
-     *
-     * @throws TransfluxValidationException if {@code listener} is {@code null}
-     */
-    StateListenerDef<T> using(StateListener<T> listener);
-
+public interface StateListenerDef<T> extends ListenerDef<StateListener<T>, StateListenerDef<T>> {
 }

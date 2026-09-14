@@ -32,7 +32,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  *
  * @param <T> the entity type the surrounding state machine manages
  */
-final class StateListenerDefImpl<T> extends IdentifiedDefImpl<StateListenerDefImpl<T>>
+final class StateListenerDefImpl<T> extends ListenerDefImpl<StateListenerDefImpl<T>>
         implements StateListenerDef<T> {
 
     private final InstanceSource<StateListener<T>> source;
@@ -64,7 +64,7 @@ final class StateListenerDefImpl<T> extends IdentifiedDefImpl<StateListenerDefIm
             throw new TransfluxValidationException(
                 "State listener '" + getId() + "' declares no listener; call using(...) in its configurer");
         }
-        return new BoundStateListener<>(getId(), getName(), getDescription(),
+        return new BoundStateListener<>(getId(), getName(), getDescription(), getAsync(),
                                         source.resolve("State listener"));
     }
 }

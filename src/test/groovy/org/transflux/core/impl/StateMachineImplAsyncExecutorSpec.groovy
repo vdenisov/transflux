@@ -26,6 +26,7 @@ import org.transflux.core.action.AsyncRejectionPolicy
 import org.transflux.core.action.OperationDef
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.state.StateApplier
+import org.transflux.core.state.StateListener
 import org.transflux.core.state.StateResolver
 import spock.lang.Specification
 
@@ -85,6 +86,38 @@ class StateMachineImplAsyncExecutorSpec extends Specification {
 
         then:
         capture.messagesAtOrAbove(Level.INFO).any { it.contains('Async pool created') }
+    }
+
+    def 'an async listener builds a pool, though nothing forks'() {
+        given:
+        capture = LogCapture.start('org.transflux.execution.async')
+        def sm = build({ smd -> smd.step('plain', { e, c, t -> } as Action) },
+                       { op -> op.run('plain') },
+                       { smd ->
+                           smd.onAnyStateEntry('audit', { l ->
+                               l.using({ e, c, change -> } as StateListener).withAsync()
+                           } as Consumer)
+                       })
+
+        when:
+        sm.close()
+
+        then:
+        capture.messagesAtOrAbove(Level.INFO).any { it.contains('Async pool created') }
+    }
+
+    def 'a synchronous listener builds no pool'() {
+        given:
+        capture = LogCapture.start('org.transflux.execution.async')
+        def sm = build({ smd -> smd.step('plain', { e, c, t -> } as Action) },
+                       { op -> op.run('plain') },
+                       { smd -> smd.onAnyStateEntry('audit', { e, c, change -> } as StateListener) })
+
+        when:
+        sm.close()
+
+        then:
+        capture.messages().isEmpty()
     }
 
     def 'withAsyncPool() builds a pool at the default sizing'() {

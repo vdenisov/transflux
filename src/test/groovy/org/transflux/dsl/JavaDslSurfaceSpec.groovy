@@ -183,6 +183,22 @@ class JavaDslSurfaceSpec extends Specification {
         sm.close()
     }
 
+    def 'the async listener shapes build and run'() {
+        given:
+        def sm = JavaDslSurface.asyncListenerShapes()
+        def order = new JavaDslSurface.Order()
+
+        when:
+        def result = sm.entity(order).transitionTo('s2', new JavaDslSurface.OrderCtx())
+
+        then:
+        result.success
+        waitFor { order.trail.containsAll(['state-async', 'transition-async', 'action-async']) }
+
+        cleanup:
+        sm.close()
+    }
+
     def 'the fork shapes dispatched from inside an action body build and run'() {
         given:
         def sm = JavaDslSurface.forkFromActionBody()

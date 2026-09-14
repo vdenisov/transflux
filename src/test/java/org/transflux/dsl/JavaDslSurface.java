@@ -541,6 +541,37 @@ public final class JavaDslSurface {
     }
 
     /**
+     * The async listener declaration in both shapes, on each of the three listener categories.
+     *
+     * @return the built state machine, which owns a pool and must be closed
+     */
+    public static StateMachine<Order> asyncListenerShapes() {
+        return Transflux.<Order>defineStateMachine()
+            .forEntityType(Order.class)
+            .withStateResolver(o -> o.state)
+            .withStateApplier((o, s) -> o.state = s)
+            .onAnyStateEntry("state-async", l -> l
+                .using((order, ctx, change) -> order.trail.add("state-async"))
+                .withAsync())
+            .onAnyTransitionComplete("transition-async", l -> l
+                .using((order, ctx, execution) -> order.trail.add("transition-async"))
+                .withAsync(AsyncRejectionPolicy.CALLER_RUNS))
+            .step("record", OrderCtx.class, step -> step
+                .using(new RecordingAction())
+                .onComplete("action-async", l -> l
+                    .using((order, ctx, execution) -> order.trail.add("action-async"))
+                    .withAsync(AsyncRejectionPolicy.BLOCK)))
+            .state("s1", s -> s
+                .transitionsTo("s2", "t", OrderCtx.class, t -> t
+                    .run("record")))
+            .state("s2", s -> s
+                .onExit("state-exit-async", l -> l
+                    .using((order, ctx, change) -> order.trail.add("state-exit-async"))
+                    .withAsync(AsyncRejectionPolicy.DROP)))
+            .build();
+    }
+
+    /**
      * The forked half of the same grammar, dispatched from inside an action's body. Six shapes:
      * three call shapes, each with and without a policy of its own. The pool is asked for
      * explicitly because a fork written here is invisible to the build.

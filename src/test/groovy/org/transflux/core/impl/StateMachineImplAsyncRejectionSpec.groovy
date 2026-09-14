@@ -30,6 +30,7 @@ import org.transflux.core.exception.TransfluxReentrancyException
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
+import org.transflux.core.transition.TransitionListener
 import spock.lang.Specification
 
 import java.util.concurrent.ArrayBlockingQueue
@@ -199,6 +200,29 @@ class StateMachineImplAsyncRejectionSpec extends Specification {
         def ex = thrown(TransfluxValidationException)
         ex.message.contains('BLOCK')
         ex.message.contains('withAsyncPool')
+
+        cleanup:
+        hostPool.shutdownNow()
+    }
+
+    def 'BLOCK declared on an async listener fails the build against a host-supplied executor'() {
+        given:
+        ExecutorService hostPool = Executors.newSingleThreadExecutor()
+
+        when:
+        build({ smd ->
+            smd.withAsyncExecutor(hostPool)
+               .step('plain', { entity, ctx, tr -> } as Action)
+               .onAnyTransitionComplete('audit', { l ->
+                   l.using({ e, c, x -> } as TransitionListener)
+                    .withAsync(AsyncRejectionPolicy.BLOCK)
+               } as Consumer)
+        }, { op -> op.run('plain') })
+
+        then:
+        def ex = thrown(TransfluxValidationException)
+        ex.message.contains('BLOCK')
+        ex.message.contains("transition listener 'audit'")
 
         cleanup:
         hostPool.shutdownNow()

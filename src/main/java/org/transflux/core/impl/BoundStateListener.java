@@ -18,6 +18,7 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.action.AsyncRejectionPolicy;
 import org.transflux.core.state.StateListener;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
@@ -30,10 +31,12 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param id the framework-owned listener id; never {@code null} or blank
  * @param name the optional human-readable name; may be {@code null}
  * @param description the optional description; may be {@code null}
+ * @param async the policy the listener runs async with, or {@code null} when it runs synchronously
  * @param listener the bound {@link StateListener} executable; never {@code null}
  * @param <T> the entity type the surrounding state machine manages
  */
-record BoundStateListener<T>(String id, String name, String description, StateListener<T> listener) {
+record BoundStateListener<T>(String id, String name, String description, AsyncRejectionPolicy async,
+                             StateListener<T> listener) {
 
     BoundStateListener {
         requireNotBlank(id, "Bound state listener ID");
