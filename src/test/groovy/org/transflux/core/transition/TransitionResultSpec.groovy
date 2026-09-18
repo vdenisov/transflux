@@ -163,7 +163,7 @@ class TransitionResultSpec extends Specification {
         s.contains("S -> T")
     }
 
-    def "toString of failed result should mention error message"() {
+    def "toString of failed result names the error type, never its message"() {
         when:
         def result = TransitionResult.failure("entity", "S", "T", "tx",
                 new RuntimeException("boom"))
@@ -171,6 +171,7 @@ class TransitionResultSpec extends Specification {
         then:
         def s = result.toString()
         s.contains("success=false")
-        s.contains("boom")
+        s.contains(RuntimeException.name)
+        !s.contains("boom")
     }
 }

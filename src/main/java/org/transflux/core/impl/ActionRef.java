@@ -78,7 +78,8 @@ sealed interface ActionRef<T, C>
 
     /**
      * Resolves this reference against the enclosing composite's lexical-scope {@link Registry}
-     * and returns the matching {@link BoundAction}.
+     * and returns the matching action component - the bound action, tagged with the context type
+     * it was declared against.
      *
      * @param stateMachine the enclosing state machine, retained for error reporting
      * @param scopeRegistry the enclosing composite's scope registry; resolution walks the
@@ -89,14 +90,13 @@ sealed interface ActionRef<T, C>
      * @param excludingCompositeId the id of the composite whose own scope the diagnostic
      *                             enrichment must skip
      *
-     * @return the bound action; never {@code null}
+     * @return the resolved component; never {@code null}
      *
      * @throws TransfluxValidationException if no entry is registered under {@link #id()} in
      *         the scope chain, or the matched entry is not an action
      */
-    @SuppressWarnings("unchecked")
-    default BoundAction<T, C> resolve(StateMachineImpl<T> stateMachine, Registry<T> scopeRegistry,
-                                      String ownerLabel, String excludingCompositeId) {
+    default Component.Action<T, ?> resolve(StateMachineImpl<T> stateMachine, Registry<T> scopeRegistry,
+                                           String ownerLabel, String excludingCompositeId) {
         Optional<Component<T>> resolved = scopeRegistry.resolve(id());
         if (resolved.isEmpty()) {
             throw new TransfluxValidationException(
@@ -111,7 +111,7 @@ sealed interface ActionRef<T, C>
                     + ", not an action");
         }
 
-        return (BoundAction<T, C>) action.bound();
+        return action;
     }
 
     /**

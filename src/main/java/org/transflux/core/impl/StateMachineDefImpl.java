@@ -1042,15 +1042,20 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     @Override
     public StateMachineDef<T> withExecutionLogging(ExecutionLogging<? super T> logging) {
         requireNotNull(logging, "Execution logging");
-        return onAnyStateEntry("transflux-log-state-entry", logging.<T>stateListener())
-            .onAnyStateExit("transflux-log-state-exit", logging.<T>stateListener())
-            .onAnyTransitionStart("transflux-log-transition-start", logging.<T, Object>transitionListener())
-            .onAnyTransitionComplete("transflux-log-transition-complete",
+        return onAnyStateEntry(ExecutionLogging.STATE_ENTRY_LISTENER_ID, logging.<T>stateListener())
+            .onAnyStateExit(ExecutionLogging.STATE_EXIT_LISTENER_ID, logging.<T>stateListener())
+            .onAnyTransitionStart(ExecutionLogging.TRANSITION_START_LISTENER_ID,
+                                  logging.<T, Object>transitionListener())
+            .onAnyTransitionComplete(ExecutionLogging.TRANSITION_COMPLETE_LISTENER_ID,
                                      logging.<T, Object>transitionListener())
-            .onAnyTransitionError("transflux-log-transition-error", logging.<T, Object>transitionListener())
-            .onAnyActionStart("transflux-log-action-start", logging.<T, Object>actionListener())
-            .onAnyActionComplete("transflux-log-action-complete", logging.<T, Object>actionListener())
-            .onAnyActionError("transflux-log-action-error", logging.<T, Object>actionListener());
+            .onAnyTransitionError(ExecutionLogging.TRANSITION_ERROR_LISTENER_ID,
+                                  logging.<T, Object>transitionListener())
+            .onAnyActionStart(ExecutionLogging.ACTION_START_LISTENER_ID,
+                              logging.<T, Object>actionListener())
+            .onAnyActionComplete(ExecutionLogging.ACTION_COMPLETE_LISTENER_ID,
+                                 logging.<T, Object>actionListener())
+            .onAnyActionError(ExecutionLogging.ACTION_ERROR_LISTENER_ID,
+                              logging.<T, Object>actionListener());
     }
 
     @Override
@@ -1375,7 +1380,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      *
      * @param visitor receives each def exactly once
      */
-    private void visitActionDefs(Consumer<ActionDefImpl<?, ?, ?>> visitor) {
+    void visitActionDefs(Consumer<ActionDefImpl<?, ?, ?>> visitor) {
         for (ActionRegistration<T> registration : actionRegistrations.values()) {
             if (registration.def() != null) {
                 registration.def().visitDefs(visitor);

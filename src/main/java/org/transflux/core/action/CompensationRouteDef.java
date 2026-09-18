@@ -27,13 +27,13 @@ import java.util.function.Predicate;
  *
  * <pre>{@code
  * .step("charge-card", s -> s
- *     .using(ChargeCardAction.class)
- *     .withCompensation(RefundCompensation.class)
+ *     .using(new ChargeCardAction())
+ *     .withCompensation(new RefundCompensation())
  *     .forException(GatewayTimeoutException.class)
- *         .withCompensation(ReconcileLaterCompensation.class)
+ *         .withCompensation(new ReconcileLaterCompensation())
  *     .forException(CardDeclinedException.class)
  *         .matching(e -> e.isPermanent())
- *         .withCompensation(BlacklistCardCompensation.class))
+ *         .withCompensation(new BlacklistCardCompensation()))
  * }</pre>
  *
  * <p>"Normally refund; on a gateway timeout reconcile later instead; on a permanent decline,

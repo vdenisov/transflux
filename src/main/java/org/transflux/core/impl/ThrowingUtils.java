@@ -49,6 +49,33 @@ final class ThrowingUtils {
     }
 
     /**
+     * Reports whether a failure means the JVM itself can no longer be trusted - out of memory, an
+     * internal error - as opposed to an {@code Error} raised on a healthy one, such as an
+     * {@code AssertionError} or a {@code LinkageError}. Rollback is abandoned for the former and
+     * runs for everything else.
+     *
+     * @param failure the failure to classify
+     *
+     * @return {@code true} if rollback handlers must not be driven after it
+     */
+    static boolean isFatal(Throwable failure) {
+        return failure instanceof VirtualMachineError;
+    }
+
+    /**
+     * Rethrows a failure the framework must not swallow. Every seam that catches and warns - an
+     * observer, a compensation mid-drain, a route guard - calls this first, so a healthy-JVM
+     * {@code Error} is contained exactly as an exception is while a fatal one still propagates.
+     *
+     * @param failure the failure just caught
+     */
+    static void rethrowIfFatal(Throwable failure) {
+        if (failure instanceof VirtualMachineError fatal) {
+            throw fatal;
+        }
+    }
+
+    /**
      * A {@link java.util.function.Supplier}-shaped lambda type that may throw any exception.
      *
      * @param <T> the supplied value type
@@ -68,8 +95,9 @@ final class ThrowingUtils {
 
     /**
      * Invokes {@code supplier} and returns its result; any thrown {@link Exception} is wrapped
-     * in a {@link TransfluxValidationException} whose message starts with {@code errorMessage}
-     * and whose cause is the original exception.
+     * in a {@link TransfluxValidationException} whose message is {@code errorMessage} plus the
+     * failure's type, and whose cause is the original exception. The original's message is left on
+     * the cause and kept out of this one: it is host text and may carry anything.
      *
      * @param supplier the lambda to invoke
      * @param errorMessage the prefix of the wrapping exception's message
@@ -83,14 +111,14 @@ final class ThrowingUtils {
         try {
             return supplier.get();
         } catch (Exception e) {
-            throw new TransfluxValidationException(errorMessage + ": " + e.getMessage(), e);
+            throw new TransfluxValidationException(errorMessage + ": " + e.getClass().getName(), e);
         }
     }
 
     /**
      * Invokes {@code runnable}; any thrown {@link Exception} is wrapped in a
-     * {@link TransfluxValidationException} whose message starts with {@code errorMessage} and
-     * whose cause is the original exception.
+     * {@link TransfluxValidationException} whose message is {@code errorMessage} plus the
+     * failure's type, and whose cause is the original exception.
      *
      * @param runnable the lambda to invoke
      * @param errorMessage the prefix of the wrapping exception's message
@@ -101,7 +129,7 @@ final class ThrowingUtils {
         try {
             runnable.run();
         } catch (Exception e) {
-            throw new TransfluxValidationException(errorMessage + ": " + e.getMessage(), e);
+            throw new TransfluxValidationException(errorMessage + ": " + e.getClass().getName(), e);
         }
     }
 }

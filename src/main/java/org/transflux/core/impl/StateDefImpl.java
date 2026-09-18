@@ -94,6 +94,12 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
     }
 
     @Override
+    public StateDefImpl<T> disableGlobalListeners(String... listenerIds) {
+        disabledGlobals.disable(listenerIds);
+        return this;
+    }
+
+    @Override
     public StateDefImpl<T> disableAllGlobalListeners() {
         disabledGlobals.disableAll();
         return this;

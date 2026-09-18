@@ -493,7 +493,8 @@ class StateMachineImplSpec extends Specification {
         successResult.toString().contains("success=true")
         successResult.toString().contains("TRIAL -> ACTIVE")
         failureResult.toString().contains("success=false")
-        failureResult.toString().contains("test error")
+        failureResult.toString().contains(RuntimeException.name)
+        !failureResult.toString().contains("test error")
     }
 
     def "TransitionResult should provide convenient query methods"() {

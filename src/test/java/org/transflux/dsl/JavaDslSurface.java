@@ -592,14 +592,17 @@ public final class JavaDslSurface {
                               (order, ctx, execution) -> order.trail.add("any-action-start"))
             .step("record", OrderCtx.class, step -> step
                 .using(new RecordingAction())
-                .disableGlobalListener("any-action-start"))
+                .disableGlobalListener("any-action-start")
+                .disableGlobalListeners("any-action-start", "any-action-start"))
             .operation("wrap", OrderCtx.class, op -> op
                 .disableAllGlobalListeners()
                 .run("record"))
             .state("s1", s -> s
                 .disableGlobalListener("any-exit")
+                .disableGlobalListeners("any-exit", "any-entry")
                 .transitionsTo("s2", "t", OrderCtx.class, t -> t
                     .disableGlobalListener("any-start")
+                    .disableGlobalListeners("any-start")
                     .run("wrap")))
             .state("s2", s -> s.disableAllGlobalListeners())
             .build();

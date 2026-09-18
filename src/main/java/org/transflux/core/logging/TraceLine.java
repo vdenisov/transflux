@@ -39,6 +39,19 @@ final class TraceLine {
     }
 
     /**
+     * Reports whether a line would be written. The listeners ask before calling {@link #write}, so
+     * a disabled trace costs neither the varargs array nor the values read off the payload.
+     *
+     * @param logger where the line would go
+     * @param options the options carrying the level
+     *
+     * @return whether the options' level is enabled on the logger
+     */
+    static boolean enabled(Logger logger, ExecutionLogging<?> options) {
+        return logger.isEnabledForLevel(options.level());
+    }
+
+    /**
      * Writes one line if the options' level is enabled, appending the entity label, the duration
      * and the context in that order when the options ask for them.
      *
@@ -53,7 +66,7 @@ final class TraceLine {
      */
     static <T> void write(Logger logger, ExecutionLogging<T> options, String message, T entity,
                           Duration duration, Object context, Object... pairs) {
-        if (!logger.isEnabledForLevel(options.level())) {
+        if (!enabled(logger, options)) {
             return;
         }
 

@@ -20,6 +20,7 @@ package org.transflux.core.impl
 
 import org.transflux.core.StateMachine
 import org.transflux.core.TestContext
+import org.transflux.core.exception.TransfluxConditionException
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.BranchDef
 import org.transflux.core.action.Compensation
@@ -374,7 +375,7 @@ class StateMachineImplCompensationSpec extends Specification {
 
         then:
         !result.success
-        result.error instanceof TransfluxValidationException
+        result.error instanceof TransfluxConditionException
         result.error.message == "Post-condition 'always-false' failed for transition 't'"
         result.executedPath*.toString() == ['op', 'op/s1', 'op/s2']
         result.compensatedPath*.toString() == ['op/s2', 'op/s1']

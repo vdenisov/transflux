@@ -124,6 +124,7 @@ class TransitionDefImplLambdaConfigurerSpec extends Specification {
         'preCondition'       || { TransitionDef t -> t.preCondition('p', { ent -> true }) }
         'postCondition'      || { TransitionDef t -> t.postCondition('p', { ent -> true }) }
         'disableGlobalListener'     || { TransitionDef t -> t.disableGlobalListener('g') }
+        'disableGlobalListeners'    || { TransitionDef t -> t.disableGlobalListeners('g', 'h') }
         'disableAllGlobalListeners' || { TransitionDef t -> t.disableAllGlobalListeners() }
     }
 

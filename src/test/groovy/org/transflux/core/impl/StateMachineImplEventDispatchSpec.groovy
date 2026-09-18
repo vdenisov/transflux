@@ -249,7 +249,8 @@ class StateMachineImplEventDispatchSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains("Event trigger 'go' filter failed")
-        e.message.contains('payload was not a PaymentEvent')
+        e.message.contains(boom.class.name)
+        !e.message.contains('payload was not a PaymentEvent')
         e.cause === boom
     }
 

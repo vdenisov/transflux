@@ -20,6 +20,7 @@ package org.transflux.core.impl
 
 import org.transflux.core.StateMachine
 import org.transflux.core.TestContext
+import org.transflux.core.exception.TransfluxNoMatchException
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.BranchDef
 import org.transflux.core.action.Compensation
@@ -318,7 +319,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
 
         then:
         !result.success
-        result.error instanceof TransfluxValidationException
+        result.error instanceof TransfluxNoMatchException
         result.error.message == "Conditional operation 'route' had no matching branch and no default"
         applied.isEmpty()
     }

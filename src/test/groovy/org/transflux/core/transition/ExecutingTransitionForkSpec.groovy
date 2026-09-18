@@ -27,6 +27,7 @@ import org.transflux.core.action.ContextMapper
 import org.transflux.core.action.ForkableContext
 import org.transflux.core.action.OperationDef
 import org.transflux.core.action.StepDef
+import org.transflux.core.exception.TransfluxContextException
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.impl.StateMachineDefImpl
 import org.transflux.core.state.StateApplier
@@ -412,7 +413,7 @@ class ExecutingTransitionForkSpec extends Specification {
 
         then: 'the transition fails here rather than the branch failing on a worker'
         !result.success
-        result.error instanceof TransfluxValidationException
+        result.error instanceof TransfluxContextException
         result.error.message.contains('child')
         result.error.message.contains(ChildCtx.name)
     }
@@ -432,7 +433,7 @@ class ExecutingTransitionForkSpec extends Specification {
 
         then:
         !result.success
-        result.error instanceof TransfluxValidationException
+        result.error instanceof TransfluxContextException
         result.error.message.contains('produced null')
     }
 

@@ -24,6 +24,7 @@ import org.transflux.core.action.Action
 import org.transflux.core.action.ActionListener
 import org.transflux.core.action.OperationDef
 import org.transflux.core.action.StepDef
+import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateListener
 import org.transflux.core.state.StateResolver
@@ -116,6 +117,53 @@ class StateMachineImplGlobalListenerDisableSpec extends Specification {
 
         then:
         log.isEmpty()
+    }
+
+    def 'the plural form suppresses each id it names, in every category'() {
+        given:
+        def log = []
+        def sm = build({ d -> d
+            .onAnyStateEntry('g-entry-1', stateRecorder(log, 'entry-1'))
+            .onAnyStateEntry('g-entry-2', stateRecorder(log, 'entry-2'))
+            .onAnyStateEntry('g-entry-3', stateRecorder(log, 'entry-3'))
+            .onAnyTransitionStart('g-start-1', transitionRecorder(log, 'start-1'))
+            .onAnyTransitionComplete('g-complete-1', transitionRecorder(log, 'complete-1'))
+            .onAnyActionStart('g-action-1', actionRecorder(log, 'action-1'))
+            .onAnyActionComplete('g-action-2', actionRecorder(log, 'action-2'))
+            .onAnyActionError('g-action-3', actionRecorder(log, 'action-3'))
+            .step('charge', { StepDef s -> s
+                .using(noop())
+                .disableGlobalListeners('g-action-1', 'g-action-2', 'g-action-3') } as Consumer)
+            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
+                .disableGlobalListeners('g-start-1', 'g-complete-1')
+                .run('charge') }) })
+            .state('s2', { st -> st.disableGlobalListeners('g-entry-1', 'g-entry-3') }) })
+
+        when:
+        sm.entity(new Entity('s1')).transitionTo('s2')
+
+        then:
+        log == ['entry-2']
+    }
+
+    def 'the plural form naming no listener is refused'() {
+        when:
+        build({ d -> d
+            .state('s1', { st -> st.disableGlobalListeners() }) })
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains('disableAllGlobalListeners')
+    }
+
+    def 'a blank id in the plural form is refused'() {
+        when:
+        build({ d -> d
+            .onAnyStateEntry('g-entry', stateRecorder([], 'g'))
+            .state('s1', { st -> st.disableGlobalListeners('g-entry', ' ') }) })
+
+        then:
+        thrown(TransfluxValidationException)
     }
 
     def 'a transition suppresses one global transition listener, leaving a sibling transition alone'() {

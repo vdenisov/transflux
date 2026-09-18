@@ -18,6 +18,7 @@
 
 package org.transflux.core.transition;
 
+import org.transflux.core.exception.TransfluxContextException;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.AsyncRejectionPolicy;
 import org.transflux.core.action.ContextMapper;
@@ -45,7 +46,9 @@ import org.transflux.core.action.ContextMapper;
  * a registered {@code mapper} by id, or an inline {@link ContextMapper}, which a lambda satisfies
  * for the read-only projection case - that bridges the active context to whatever the referenced
  * action requires. Pass-through forms (mapper-less) require the called action's
- * context type to be assignable from the active context.
+ * context type to be assignable from the active context. Either way, a dispatch that cannot hand
+ * the callee a context it accepts - an incompatible pass-through, a mapper producing {@code null}
+ * or the wrong type - throws {@link org.transflux.core.exception.TransfluxContextException}.
  *
  * <p><b>Example usage from inside an action:</b>
  * <pre>{@code
@@ -94,8 +97,9 @@ public interface ExecutingTransition<T, C> extends Transition {
      * @param id the registered action id
      *
      * @throws TransfluxValidationException when no action is registered under {@code id} in the
-     *         active scope, or when the action's context type is not assignable from the active
-     *         context
+     *         active scope
+     * @throws TransfluxContextException when the action's context type is not assignable from the
+     *         active context
      */
     void run(String id);
 
@@ -108,6 +112,8 @@ public interface ExecutingTransition<T, C> extends Transition {
      *
      * @throws TransfluxValidationException when {@code mapperId} is blank, when no action is
      *         registered under {@code id}, or when no mapper is registered under {@code mapperId}
+     * @throws TransfluxContextException when the mapper produces {@code null}, or a context the
+     *         action's declared type does not accept
      */
     void run(String id, String mapperId);
 
@@ -121,6 +127,8 @@ public interface ExecutingTransition<T, C> extends Transition {
      *
      * @throws TransfluxValidationException when {@code inlineMapper} is {@code null} or no
      *         action is registered under {@code id}
+     * @throws TransfluxContextException when the mapper produces {@code null}, or a context the
+     *         action's declared type does not accept
      */
     void run(String id, ContextMapper<C, ?> inlineMapper);
 
@@ -133,8 +141,9 @@ public interface ExecutingTransition<T, C> extends Transition {
      * @param id the registered action id
      *
      * @throws TransfluxValidationException when no action is registered under {@code id} in the
-     *         active scope, when the action's context type is not assignable from the active
-     *         context, or when this state machine has no executor to fork onto
+     *         active scope, or when this state machine has no executor to fork onto
+     * @throws TransfluxContextException when the action's context type is not assignable from the
+     *         active context, or when the context's own {@code fork()} returns {@code null}
      */
     void fork(String id);
 
@@ -150,6 +159,8 @@ public interface ExecutingTransition<T, C> extends Transition {
      *         {@code policy} is {@code null}, when this state machine has no executor to fork
      *         onto, or when {@code policy} is {@link AsyncRejectionPolicy#BLOCK} and the executor
      *         was supplied by the host
+     * @throws TransfluxContextException when the action's context type is not assignable from the
+     *         active context, or when the context's own {@code fork()} returns {@code null}
      */
     void fork(String id, AsyncRejectionPolicy policy);
 
@@ -163,9 +174,10 @@ public interface ExecutingTransition<T, C> extends Transition {
      * @param mapperId the registered mapper id
      *
      * @throws TransfluxValidationException when {@code mapperId} is blank, when no action is
-     *         registered under {@code id}, when no mapper is registered under {@code mapperId},
-     *         when the mapper produces a context the action's declared type does not accept, or
+     *         registered under {@code id}, when no mapper is registered under {@code mapperId}, or
      *         when this state machine has no executor to fork onto
+     * @throws TransfluxContextException when the mapper produces {@code null}, or a context the
+     *         action's declared type does not accept
      */
     void fork(String id, String mapperId);
 
@@ -179,6 +191,8 @@ public interface ExecutingTransition<T, C> extends Transition {
      *
      * @throws TransfluxValidationException on the conditions {@link #fork(String, String)} and
      *         {@link #fork(String, AsyncRejectionPolicy)} each carry
+     * @throws TransfluxContextException on the context conditions {@link #fork(String, String)}
+     *         carries
      */
     void fork(String id, String mapperId, AsyncRejectionPolicy policy);
 
@@ -190,9 +204,10 @@ public interface ExecutingTransition<T, C> extends Transition {
      * @param inlineMapper the mapper to apply at the boundary
      *
      * @throws TransfluxValidationException when {@code inlineMapper} is {@code null}, when no
-     *         action is registered under {@code id}, when the mapper produces a context the
-     *         action's declared type does not accept, or when this state machine has no executor
+     *         action is registered under {@code id}, or when this state machine has no executor
      *         to fork onto
+     * @throws TransfluxContextException when the mapper produces {@code null}, or a context the
+     *         action's declared type does not accept
      */
     void fork(String id, ContextMapper<C, ?> inlineMapper);
 
@@ -206,6 +221,8 @@ public interface ExecutingTransition<T, C> extends Transition {
      *
      * @throws TransfluxValidationException on the conditions {@link #fork(String, ContextMapper)}
      *         and {@link #fork(String, AsyncRejectionPolicy)} each carry
+     * @throws TransfluxContextException on the context conditions
+     *         {@link #fork(String, ContextMapper)} carries
      */
     void fork(String id, ContextMapper<C, ?> inlineMapper, AsyncRejectionPolicy policy);
 

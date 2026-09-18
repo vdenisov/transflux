@@ -58,6 +58,15 @@ final class AsyncBranchTask<T> implements Runnable {
             Loggers.EXECUTION_ASYNC.warn("Async branch failed, path={}, errorType={}",
                                          path, e.getClass().getName());
             CompensationDrain.forBranch(view, view.getEntity(), e, path);
+        } catch (Error e) {
+            // Rolled back like any other failure unless the JVM itself is suspect, then rethrown:
+            // the failure of the work itself is never the framework's to swallow.
+            if (!ThrowingUtils.isFatal(e)) {
+                Loggers.EXECUTION_ASYNC.warn("Async branch failed, path={}, errorType={}",
+                                             path, e.getClass().getName());
+                CompensationDrain.forBranch(view, view.getEntity(), e, path);
+            }
+            throw e;
         } finally {
             stateMachine.exitAsyncBranch();
         }

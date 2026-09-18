@@ -93,6 +93,7 @@ class StateDefImplLambdaConfigurerSpec extends Specification {
         'withDescription' || { StateDef s -> s.withDescription('x') }
         'transitionsTo'   || { StateDef s -> s.transitionsTo(ACTIVE.id, 't1', {}) }
         'disableGlobalListener'     || { StateDef s -> s.disableGlobalListener('g') }
+        'disableGlobalListeners'    || { StateDef s -> s.disableGlobalListeners('g', 'h') }
         'disableAllGlobalListeners' || { StateDef s -> s.disableAllGlobalListeners() }
     }
 

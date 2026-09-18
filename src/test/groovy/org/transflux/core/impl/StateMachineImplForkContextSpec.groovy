@@ -25,6 +25,7 @@ import org.transflux.core.action.Compensation
 import org.transflux.core.action.ContextMapper
 import org.transflux.core.action.ForkableContext
 import org.transflux.core.action.OperationDef
+import org.transflux.core.exception.TransfluxContextException
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
 import spock.lang.Specification
@@ -78,6 +79,11 @@ class StateMachineImplForkContextSpec extends Specification {
     static class ToChild implements ContextMapper<Object, Object> {
         @Override
         Object mapTo(Object parent) { return new ChildCtx('mapped') }
+    }
+
+    static class NullMapper implements ContextMapper<Object, Object> {
+        @Override
+        Object mapTo(Object parent) { return null }
     }
 
     static class ThrowingMapper implements ContextMapper<Object, Object> {
@@ -201,6 +207,23 @@ class StateMachineImplForkContextSpec extends Specification {
         then:
         !result.success
         result.error instanceof IllegalStateException
+    }
+
+    def 'a mapTo that produces null is refused when the forked member declares a context'() {
+        given:
+        def ran = new AtomicInteger()
+        sm = build(PlainCtx, { smd ->
+            smd.step('one', ChildCtx, { e, c, t -> ran.incrementAndGet() } as Action)
+        }, { op -> op.fork('one', new NullMapper()) })
+
+        when:
+        def result = sm.entity(new Entity('s1')).transitionTo('s2', new PlainCtx('parent'))
+
+        then: 'it fails the transition at submission rather than running the branch without a context'
+        !result.success
+        result.error instanceof TransfluxContextException
+        result.error.message.contains('produced null')
+        ran.get() == 0
     }
 
     def 'a compensation inside a branch receives the branch context'() {

@@ -19,6 +19,7 @@
 package org.transflux.core.transition
 
 import org.transflux.core.StateMachine
+import org.transflux.core.exception.TransfluxContextException
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.impl.StateMachineDefImpl
 import org.transflux.core.action.ContextMapper
@@ -240,7 +241,7 @@ class ExecutingTransitionSpec extends Specification {
 
         then: 'refused with both types named, rather than a ClassCastException inside host code'
         !result.success
-        result.error instanceof TransfluxValidationException
+        result.error instanceof TransfluxContextException
         result.error.message.contains("action 'mapped'")
         result.error.message.contains(ChildCtx.name)
         result.error.message.contains(ParentCtx.name)
@@ -264,7 +265,7 @@ class ExecutingTransitionSpec extends Specification {
 
         then: 'named, rather than a ClassCastException out of the callee bridge method'
         !result.success
-        result.error instanceof TransfluxValidationException
+        result.error instanceof TransfluxContextException
         result.error.message.contains("action 'typed'")
         result.error.message.contains(ChildCtx.name)
         result.error.message.contains(String.name)
@@ -288,7 +289,7 @@ class ExecutingTransitionSpec extends Specification {
 
         then:
         !result.success
-        result.error instanceof TransfluxValidationException
+        result.error instanceof TransfluxContextException
         result.error.message.contains("action 'typed'")
         result.error.message.contains(ChildCtx.name)
     }

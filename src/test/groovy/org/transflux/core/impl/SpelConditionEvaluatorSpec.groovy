@@ -75,6 +75,9 @@ class SpelConditionEvaluatorSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.startsWith("Invalid SpEL expression 'value >'")
+
+        and: "the parser's own complaint is kept - it is the only thing that says where"
+        e.message.contains(e.cause.message)
     }
 
     def "should throw TransfluxValidationException when evaluation fails"() {
@@ -87,6 +90,9 @@ class SpelConditionEvaluatorSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.startsWith("Failed to evaluate SpEL expression")
+
+        and: "evaluation ran against the entity, so its message stays on the cause"
+        e.message.endsWith(e.cause.class.name)
     }
 
     def "should throw TransfluxValidationException when result is not boolean"() {

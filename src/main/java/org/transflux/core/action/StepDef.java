@@ -92,6 +92,9 @@ public interface StepDef<T, C> extends ActionDef<T, C> {
     StepDef<T, C> disableGlobalListener(String listenerId);
 
     @Override
+    StepDef<T, C> disableGlobalListeners(String... listenerIds);
+
+    @Override
     StepDef<T, C> disableAllGlobalListeners();
 
 }

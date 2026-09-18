@@ -40,6 +40,9 @@ final class LoggingTransitionListener<T, C> implements TransitionListener<T, C> 
     @Override
     @SuppressWarnings("unchecked")
     public void onTransition(T entity, C context, TransitionExecution<T> execution) {
+        if (!TraceLine.enabled(TraceLine.TRANSITION, options)) {
+            return;
+        }
         ExecutionLogging<T> typed = (ExecutionLogging<T>) options;
         String transitionId = execution.transition().getId();
         TransitionResult<T> result = execution.result();

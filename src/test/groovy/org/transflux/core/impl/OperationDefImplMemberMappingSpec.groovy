@@ -19,6 +19,7 @@
 package org.transflux.core.impl
 
 import org.transflux.core.StateMachine
+import org.transflux.core.exception.TransfluxContextException
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.OperationDef
 import org.transflux.core.action.ContextMapper
@@ -171,6 +172,42 @@ class OperationDefImplMemberMappingSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains('wrong-parent')
+    }
+
+    def 'a call-site mapper producing null is refused when the member declares a context'() {
+        given:
+        ContextMapper<OrderCtx, PaymentCtx> toNothing = { OrderCtx o -> null }
+        def sm = build(
+            { smd -> smd.step('charge', PaymentCtx, new ChargeStep()) },
+            { t -> t.run('charge', toNothing) })
+        def entity = new Entity('s1')
+
+        when:
+        def result = sm.entity(entity).transitionTo('s2', new OrderCtx(orderId: 'ord-4'))
+
+        then: 'the boundary is named, and the member never started'
+        !result.success
+        result.error instanceof TransfluxContextException
+        result.error.subjectId == 'charge'
+        result.error.message.contains('produced null')
+        result.executedPath.isEmpty()
+        entity.trail.isEmpty()
+    }
+
+    def 'a call-site mapper may produce null for a member declared against Object'() {
+        given:
+        def seen = []
+        ContextMapper<OrderCtx, Object> toNothing = { OrderCtx o -> null }
+        def sm = build(
+            { smd -> smd.step('ignores-context', { e, c, tr -> seen << c } as Action) },
+            { t -> t.run('ignores-context', toNothing) })
+
+        when:
+        def result = sm.entity(new Entity('s1')).transitionTo('s2', new OrderCtx(orderId: 'ord-5'))
+
+        then:
+        result.success
+        seen == [null]
     }
 
     private static StateMachine<Entity> build(Consumer<StateMachineDefImpl<Entity>> smdRegistrations,

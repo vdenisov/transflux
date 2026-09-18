@@ -165,9 +165,9 @@ public interface ActionDef<T, C> extends Identifiable {
      * compensation itself, and hands this def back so the chain continues.
      *
      * <pre>{@code
-     * .withCompensation(RefundCompensation.class)
+     * .withCompensation(new RefundCompensation())
      * .forException(GatewayTimeoutException.class)
-     *     .withCompensation(ReconcileLaterCompensation.class)
+     *     .withCompensation(new ReconcileLaterCompensation())
      * }</pre>
      *
      * <p>Routes are tried in the order they are declared and the first whose exception type
@@ -191,13 +191,20 @@ public interface ActionDef<T, C> extends Identifiable {
      * same throwable every action on the rollback stack is matched against - not necessarily one
      * this action threw.
      *
-     * @param exceptionType the failure type this route answers for; never {@code null}
+     * <p>A {@link java.lang.Error} is a failure like any other here - it rolls the transition back
+     * and is then rethrown to the caller - with one exception: after a
+     * {@link java.lang.VirtualMachineError} nothing is rolled back at all, so a route declared for
+     * one could never match and is rejected.
+     *
+     * @param exceptionType the failure type this route answers for; never {@code null}, and not a
+     *                      {@code VirtualMachineError}
      * @param <X> the failure type, threaded into the route's guard
      *
      * @return the new route, to be closed with {@code withCompensation(...)}
      *
      * @throws org.transflux.core.exception.TransfluxValidationException if {@code exceptionType} is
-     *         {@code null}, or if the configurer has already returned
+     *         {@code null} or a {@code VirtualMachineError}, or if the configurer has already
+     *         returned
      */
     <X extends Throwable> CompensationRouteDef<T, C, X, ? extends ActionDef<T, C>> forException(
         Class<X> exceptionType);
@@ -314,6 +321,23 @@ public interface ActionDef<T, C> extends Identifiable {
      *         {@code null} or blank, or if the configurer has already returned
      */
     ActionDef<T, C> disableGlobalListener(String listenerId);
+
+    /**
+     * Suppresses several state-machine-wide action listeners for this action at once - exactly
+     * {@link #disableGlobalListener(String)} applied to each id, under the same rules.
+     * <p>
+     * At least one id is required: a call naming none suppresses nothing, and is far likelier to
+     * be a mistyped {@link #disableAllGlobalListeners()} than an intention.
+     *
+     * @param listenerIds the ids of the global action listeners to suppress; never empty, and no
+     *                    element {@code null} or blank
+     *
+     * @return this def for chaining
+     *
+     * @throws org.transflux.core.exception.TransfluxValidationException if no id is given, if any is {@code null} or blank, or if
+     *         the configurer has already returned
+     */
+    ActionDef<T, C> disableGlobalListeners(String... listenerIds);
 
     /**
      * Suppresses every state-machine-wide action listener for this action. It wins over

@@ -159,15 +159,13 @@ sealed interface MapperRef
 
         @Override
         public ResolvedContextMapping resolve(StateMachineImpl<?> stateMachine, String enclosingId) {
-            MapperDef<?, ?> mapperDef = stateMachine.getDef().getMapperDef(mapperId);
-            if (mapperDef == null) {
+            ContextMapper<Object, Object> mapper = stateMachine.getMapper(mapperId);
+            if (mapper == null) {
                 throw new TransfluxValidationException(
                     "OperationDef '" + enclosingId + "' references unknown mapper id '"
                         + mapperId + "'");
             }
-            @SuppressWarnings("unchecked")
-            MapperDefImpl<Object, Object> impl = (MapperDefImpl<Object, Object>) mapperDef;
-            return ResolvedContextMapping.mapped(impl.buildMapper());
+            return ResolvedContextMapping.mapped(mapper);
         }
 
         @Override

@@ -38,6 +38,9 @@ final class LoggingActionListener<T, C> implements ActionListener<T, C> {
     @Override
     @SuppressWarnings("unchecked")
     public void onAction(T entity, C context, ActionExecution execution) {
+        if (!TraceLine.enabled(TraceLine.ACTION, options)) {
+            return;
+        }
         ExecutionLogging<T> typed = (ExecutionLogging<T>) options;
         switch (execution.phase()) {
             case START -> TraceLine.write(TraceLine.ACTION, typed, "Action started", entity, null,

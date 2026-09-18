@@ -20,6 +20,7 @@ package org.transflux.core.impl;
 
 import java.util.function.Predicate;
 import org.transflux.core.action.ActionKind;
+import org.transflux.core.exception.TransfluxNoMatchException;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.BranchDef;
 import org.transflux.core.action.ConditionalOperationDef;
@@ -67,7 +68,7 @@ final class ConditionalOperationDefImpl<T, C>
     private final List<BranchDefImpl<T, C>> branches = new ArrayList<>();
     private DefaultBranchDefImpl<T, C> defaultBranch;
     private NoMatchBehavior noMatchBehavior = NoMatchBehavior.WARN;
-    private ConditionalBranchExecutor executor;
+    private ConditionalBranchExecutor<T, C> executor;
 
     /**
      * Captured by {@link #bindScope} so {@link #buildBound()} can resolve the branch conditions.
@@ -319,7 +320,7 @@ final class ConditionalOperationDefImpl<T, C>
 
         // A fresh executor per build: the members a later pass installs belong to the machine
         // being built, so an earlier machine's conditional keeps the members it was built with.
-        this.executor = new ConditionalBranchExecutor(conditions, ownScope());
+        this.executor = new ConditionalBranchExecutor<>(getId(), noMatchBehavior, conditions, ownScope());
         return BoundAction.of(getId(), executor, ActionKind.OPERATION, buildBoundListeners(),
                               buildCompensationRouter(), getAsyncRejectionPolicy(),
                               getDisabledGlobals());
@@ -478,20 +479,26 @@ final class ConditionalOperationDefImpl<T, C>
      * Both are in place before any execution — the machine is not handed to a host until its
      * constructor returns.
      */
-    private final class ConditionalBranchExecutor implements Action<T, C> {
+    private static final class ConditionalBranchExecutor<T, C> implements Action<T, C> {
         private final List<BoundCondition<T, C>> conditions;
 
         /**
-         * Captured at construction, not read from the def at dispatch: the def's field is
-         * overwritten by the next build, and an earlier machine must keep the scope it was built
-         * with. The sibling container executor captures for the same reason.
+         * Everything below is captured at construction, not read from the def at dispatch - the
+         * class is static so that it cannot be: the def's scope field is overwritten by the next
+         * build, and an earlier machine must keep what it was built with. The sibling container
+         * executor captures for the same reason.
          */
+        private final String conditionalId;
+        private final NoMatchBehavior noMatchBehavior;
         private final Registry<T> scopeRegistry;
 
         private List<ResolvedBranch<T, C>> resolvedBranches;
         private List<CompositeMember<T, C>> defaultMembers;
 
-        ConditionalBranchExecutor(List<BoundCondition<T, C>> conditions, Registry<T> scopeRegistry) {
+        ConditionalBranchExecutor(String conditionalId, NoMatchBehavior noMatchBehavior,
+                                  List<BoundCondition<T, C>> conditions, Registry<T> scopeRegistry) {
+            this.conditionalId = conditionalId;
+            this.noMatchBehavior = noMatchBehavior;
             this.conditions = conditions;
             this.scopeRegistry = scopeRegistry;
         }
@@ -525,10 +532,9 @@ final class ConditionalOperationDefImpl<T, C>
             }
 
             switch (noMatchBehavior) {
-                case ERROR -> throw new TransfluxValidationException(
-                    "Conditional operation '" + getId() + "' had no matching branch and no default");
+                case ERROR -> throw new TransfluxNoMatchException(conditionalId);
                 case WARN -> Loggers.EXECUTION_CONDITION.warn(
-                    "Conditional matched no branch and has no default, conditionalId={}", getId());
+                    "Conditional matched no branch and has no default, conditionalId={}", conditionalId);
                 case SILENT -> { /* skip silently */ }
             }
         }

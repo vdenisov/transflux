@@ -37,7 +37,7 @@ class ThrowingUtilsSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message == 'Reading config: disk gone'
+        e.message == 'Reading config: java.io.IOException'
         e.cause instanceof IOException
     }
 
@@ -47,7 +47,7 @@ class ThrowingUtilsSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message == 'Doing the thing: nope'
+        e.message == 'Doing the thing: java.lang.IllegalStateException'
         e.cause instanceof IllegalStateException
     }
 
@@ -68,7 +68,7 @@ class ThrowingUtilsSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message == 'Writing config: disk gone'
+        e.message == 'Writing config: java.io.IOException'
         e.cause instanceof IOException
     }
 }

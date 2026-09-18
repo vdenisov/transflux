@@ -497,11 +497,9 @@ public interface StateMachineDef<T> {
      * Writes an execution trace for every state, transition and action of this state machine by
      * attaching the three shipped logging listeners globally and synchronously.
      * <p>
-     * They register under fixed ids, one per hook: {@code transflux-log-state-entry},
-     * {@code transflux-log-state-exit}, {@code transflux-log-transition-start},
-     * {@code transflux-log-transition-complete}, {@code transflux-log-transition-error},
-     * {@code transflux-log-action-start}, {@code transflux-log-action-complete} and
-     * {@code transflux-log-action-error}. Declaring this twice therefore fails on the ids.
+     * They register under fixed ids, one per hook - the {@code *_LISTENER_ID} constants on
+     * {@link ExecutionLogging}, which are what an owner's {@code disableGlobalListener(...)} names
+     * to opt out. Declaring this twice therefore fails on the ids.
      *
      * @param logging how the trace is written; never {@code null}
      *

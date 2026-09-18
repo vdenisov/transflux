@@ -19,12 +19,12 @@
 package org.transflux.core.impl;
 
 import org.transflux.core.action.AsyncRejectionPolicy;
+import org.transflux.core.exception.TransfluxContextException;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.ActionPhase;
 import org.transflux.core.action.Compensation;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.ForkableContext;
-import org.transflux.core.action.MapperDef;
 import org.transflux.core.action.Action;
 import org.transflux.core.transition.ActionPath;
 import org.transflux.core.transition.ExecutingTransition;
@@ -64,6 +64,9 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
 
     private final T entity;
     private final C context;
+
+    // An ArrayDeque refuses null, and null is a legitimate mapped context for an Object-typed callee.
+    private static final Object NULL_CONTEXT = new Object();
 
     private final Deque<Object> contextOverrideStack = new ArrayDeque<>();
 
@@ -241,7 +244,11 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
 
     @SuppressWarnings("unchecked")
     C getContext() {
-        return contextOverrideStack.isEmpty() ? context : (C) contextOverrideStack.peek();
+        if (contextOverrideStack.isEmpty()) {
+            return context;
+        }
+        Object active = contextOverrideStack.peek();
+        return active == NULL_CONTEXT ? null : (C) active;
     }
 
     /**
@@ -334,10 +341,10 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
     /**
      * Runs an action, checking that a supplied mapper produced a context the callee can accept.
      * <p>
-     * Only a caller holding the callee's registration knows what that is, which is why the type
-     * is a parameter rather than something {@link BoundAction} carries: a member of a sequence
-     * reaches this method through a bound record alone and passes {@code null}, so the check is
-     * confined to the imperative {@code run(id, mapper)} surface for now.
+     * The type is a parameter rather than something {@link BoundAction} carries because it belongs
+     * to the registration, not to the action: a declared member resolves it at bind time, and a
+     * dispatch from an action's body at the call. A branch passes {@code null}, having been checked
+     * at submission.
      *
      * @param bound the bound action to run; never {@code null}
      * @param mapper the mapper to apply at the boundary, or {@code null} for pass-through
@@ -378,7 +385,7 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
             if (mapper == null) {
                 ((Action) bound.action()).execute(entity, active, this);
             } else {
-                contextOverrideStack.push(child);
+                contextOverrideStack.push(child == null ? NULL_CONTEXT : child);
                 try {
                     ((Action) bound.action()).execute(entity, child, this);
                 } finally {
@@ -388,7 +395,12 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
             stateMachine.notifyActionListeners(bound, ActionPhase.COMPLETE, entity, effective, path,
                                                readOnly, null, elapsedSince(startedNanos));
             Loggers.EXECUTION_ACTION.trace("Action completed, path={}", path);
-        } catch (Exception e) {
+        } catch (Exception | Error e) {
+            // Every start is closed by a terminal notification - unless the JVM itself is suspect,
+            // when nothing more is run on the failure's way out.
+            if (ThrowingUtils.isFatal(e)) {
+                throw e;
+            }
             stateMachine.notifyActionListeners(bound, ActionPhase.ERROR, entity, effective, path,
                                                readOnly, e, elapsedSince(startedNanos));
             if (Loggers.EXECUTION_ACTION.isTraceEnabled()) {
@@ -451,25 +463,13 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
      * no branch exists yet to attribute it to. A refused <em>submission</em> is a different thing
      * and answers to the state machine's async-rejection policy instead.
      *
+     * <p>What a mapper produced is checked here, against the context type the callee declared.
+     * Unchecked, a mapper that produces the wrong type surfaces as a {@code ClassCastException} on
+     * a worker thread, where it is swallowed into a branch warning and never reaches the caller.
+     *
      * @param action the member to run on the branch
      * @param mapping the call site's context mapping
      * @param policy what a refused submission does, or {@code null} for the machine's default
-     */
-    void submitBranch(BoundAction<T, Object> action, ResolvedContextMapping mapping,
-                      AsyncRejectionPolicy policy) {
-        submitBranch(action, mapping, policy, null);
-    }
-
-    /**
-     * The same submission, told what context type the callee declared.
-     * <p>
-     * A declared member passes {@code null} here and is checked at build time instead; a dispatch
-     * from inside an action body has the callee's own registration in hand and nothing that could
-     * have checked it earlier, so it is checked here — the same asymmetry {@link #runAction} draws
-     * between its two forms. Unchecked, a mapper that produces the wrong type surfaces as a
-     * {@code ClassCastException} on a worker thread, where it is swallowed into a branch warning
-     * and never reaches the caller at all.
-     *
      * @param calleeContext the context type the callee was declared for, or {@code null} to skip
      *                      the check
      */
@@ -508,7 +508,7 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
      *
      * @return the branch's context
      *
-     * @throws TransfluxValidationException if {@code fork()} returns {@code null}
+     * @throws TransfluxContextException if {@code fork()} returns {@code null}
      */
     private Object acquireBranchContext(Object parent, ResolvedContextMapping mapping,
                                         String actionId) {
@@ -519,7 +519,7 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
         if (parent instanceof ForkableContext<?> forkable) {
             Object forked = forkable.fork();
             if (forked == null) {
-                throw new TransfluxValidationException(
+                throw new TransfluxContextException(actionId,
                     "ForkableContext returned null while forking action '" + actionId
                         + "' in transition '" + getId() + "'; fork() must produce a context");
             }
@@ -617,7 +617,7 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
                 || calleeContext.isInstance(active)) {
             return;
         }
-        throw new TransfluxValidationException(
+        throw new TransfluxContextException(id,
             "Context type mismatch: action '" + id + "' is declared for context "
                 + calleeContext.getName() + " and cannot be run pass-through from a "
                 + active.getClass().getName() + " context; supply a mapper at this call site");
@@ -645,7 +645,7 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
             return;
         }
         if (child == null) {
-            throw new TransfluxValidationException(
+            throw new TransfluxContextException(id,
                 "Context type mismatch: action '" + id + "' is declared for context "
                     + calleeContext.getName() + ", but the mapper supplied at this call site"
                     + " produced null; a component that declares a context cannot be run without"
@@ -654,7 +654,7 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
         if (calleeContext.isInstance(child)) {
             return;
         }
-        throw new TransfluxValidationException(
+        throw new TransfluxContextException(id,
             "Context type mismatch: action '" + id + "' is declared for context "
                 + calleeContext.getName() + ", but the mapper supplied at this call site produced a "
                 + child.getClass().getName());
@@ -711,15 +711,12 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
     }
 
     private ContextMapper<Object, Object> resolveRegisteredMapper(String mapperId) {
-        StateMachineDefImpl<T> def = stateMachine.getDef();
-        MapperDef<?, ?> mapperDef = def.getMapperDef(mapperId);
-        if (mapperDef == null) {
+        ContextMapper<Object, Object> mapper = stateMachine.getMapper(mapperId);
+        if (mapper == null) {
             throw new TransfluxValidationException(
                 "No mapper registered with id '" + mapperId + "'");
         }
-        @SuppressWarnings("unchecked")
-        MapperDefImpl<Object, Object> impl = (MapperDefImpl<Object, Object>) mapperDef;
-        return impl.buildMapper();
+        return mapper;
     }
 
     private ActionPath qualifyActionPath(String localStepId) {

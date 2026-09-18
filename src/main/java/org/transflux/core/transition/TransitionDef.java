@@ -527,6 +527,23 @@ public interface TransitionDef<T, C>
     TransitionDef<T, C> disableGlobalListener(String listenerId);
 
     /**
+     * Suppresses several state-machine-wide transition listeners for this transition at once - exactly
+     * {@link #disableGlobalListener(String)} applied to each id, under the same rules.
+     * <p>
+     * At least one id is required: a call naming none suppresses nothing, and is far likelier to
+     * be a mistyped {@link #disableAllGlobalListeners()} than an intention.
+     *
+     * @param listenerIds the ids of the global transition listeners to suppress; never empty, and no
+     *                    element {@code null} or blank
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if no id is given, if any is {@code null} or blank, or if
+     *         the configurer has already returned
+     */
+    TransitionDef<T, C> disableGlobalListeners(String... listenerIds);
+
+    /**
      * Suppresses every state-machine-wide transition listener for this transition. It wins over
      * {@link #disableGlobalListener(String)} whichever order the two are declared in, and this
      * transition's own listeners still receive everything.

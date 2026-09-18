@@ -27,8 +27,9 @@ package org.transflux.core.action;
  *   <li>{@link #SILENT} — skip the conditional operation without logging. Suits the guard pattern
  *       where a no-match is a normal, expected outcome (the conditional models
  *       {@code if (cond) { ... }} with no {@code else}).</li>
- *   <li>{@link #ERROR} — raise an error from the conditional operation's execution. The enclosing
- *       transition fails and any compensations accumulated so far are drained.</li>
+ *   <li>{@link #ERROR} — raise a {@code TransfluxNoMatchException} from the conditional
+ *       operation. The enclosing transition fails and any compensations accumulated so far are
+ *       drained.</li>
  * </ul>
  * The default is {@link #WARN} — a no-match is more often a misconfigured branch than a
  * deliberate guard, so the library surfaces it by default; deliberate guard patterns opt in

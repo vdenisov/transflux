@@ -127,6 +127,37 @@ class CompensationSinkSpec extends Specification {
         warning.contains(RuntimeException.name)
     }
 
+    def 'an unguarded Throwable route leaving the fallback unreachable warns'() {
+        given:
+        def def_ = openStep()
+        def_.withCompensation(new NoopCompensation())
+            .forException(Throwable).withCompensation(new NoopCompensation())
+
+        when:
+        def messages = buildCapturingValidation(def_)
+
+        then:
+        messages.any { it.contains('Compensation fallback is unreachable') }
+    }
+
+    def 'a fallback behind a #route route does not warn: that route can still miss'() {
+        given:
+        def def_ = openStep()
+        def_.withCompensation(new NoopCompensation())
+        declare(def_)
+
+        when:
+        def messages = buildCapturingValidation(def_)
+
+        then:
+        messages.every { !it.contains('Compensation fallback is unreachable') }
+
+        where:
+        route                || declare
+        'unguarded Exception' || { d -> d.forException(Exception).withCompensation(new NoopCompensation()) }
+        'guarded Throwable'   || { d -> d.forException(Throwable).matching({ false } as Predicate).withCompensation(new NoopCompensation()) }
+    }
+
     def 'a guarded broader route does not warn: the guard may reject exactly this case'() {
         given:
         def def_ = openStep()

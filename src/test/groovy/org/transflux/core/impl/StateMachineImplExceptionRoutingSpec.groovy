@@ -26,7 +26,7 @@ import org.transflux.core.action.ContextMapper
 import org.transflux.core.action.OperationDef
 import org.transflux.core.action.StepDef
 import org.transflux.core.condition.Condition
-import org.transflux.core.exception.TransfluxValidationException
+import org.transflux.core.exception.TransfluxConditionException
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.ExecutingTransition
@@ -431,12 +431,14 @@ class StateMachineImplExceptionRoutingSpec extends Specification {
         entity.trail == ['quiet', 'ran', '-s1-timeout']
     }
 
-    def 'a post-condition violation routes as the validation exception it throws'() {
+    def 'a post-condition violation routes as the condition exception it throws'() {
         given:
         def sm = build({ t ->
             t.step('s1', { StepDef<Entity, TestContext> s ->
                 s.using(new QuietStep())
-                 .forException(TransfluxValidationException).withCompensation(mark('-post'))
+                 .forException(TransfluxConditionException)
+                     .matching({ it.role == TransfluxConditionException.Role.POST_CONDITION && it.conditionId == 'never' })
+                     .withCompensation(mark('-post'))
             })
              .postCondition('never', { e, c, tr -> false } as Condition)
         })

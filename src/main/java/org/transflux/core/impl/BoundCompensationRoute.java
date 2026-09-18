@@ -53,10 +53,8 @@ record BoundCompensationRoute<T, C>(Class<? extends Throwable> exceptionType,
      *
      * <p>A guard that throws an {@code Exception} is treated as a non-match rather than propagated:
      * this runs inside a rollback that is already unwinding a failure, and letting a second one out
-     * would lose the first. An {@code Error} is deliberately not caught, here or anywhere else in
-     * the drain - it says the JVM is in an unstable state, and driving the remaining rollback
-     * handlers through network calls and remote deletes in that state is worse than abandoning the
-     * rollback. Same posture as a compensation that throws mid-drain.
+     * would lose the first. Only a fatal {@code Error} escapes. Same posture as a compensation that
+     * throws mid-drain.
      *
      * @param error the failure that ended the transition; never {@code null}
      * @param path the qualified path of the action being rolled back, for diagnostics
@@ -72,7 +70,8 @@ record BoundCompensationRoute<T, C>(Class<? extends Throwable> exceptionType,
         }
         try {
             return guard.test(error);
-        } catch (Exception ge) {
+        } catch (Exception | Error ge) {
+            ThrowingUtils.rethrowIfFatal(ge);
             // guardErrorType, not errorType: everything else under this logger uses errorType for
             // the transition's failure, and the two must stay tellable apart in a grep.
             Loggers.EXECUTION_COMPENSATION.warn(

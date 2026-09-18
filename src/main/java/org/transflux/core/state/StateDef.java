@@ -215,6 +215,23 @@ public interface StateDef<T> extends Identifiable {
     StateDef<T> disableGlobalListener(String listenerId);
 
     /**
+     * Suppresses several state-machine-wide state listeners for this state at once - exactly
+     * {@link #disableGlobalListener(String)} applied to each id, under the same rules.
+     * <p>
+     * At least one id is required: a call naming none suppresses nothing, and is far likelier to
+     * be a mistyped {@link #disableAllGlobalListeners()} than an intention.
+     *
+     * @param listenerIds the ids of the global state listeners to suppress; never empty, and no
+     *                    element {@code null} or blank
+     *
+     * @return this StateDef instance for chaining inside the configurer body
+     *
+     * @throws TransfluxValidationException if no id is given, if any is {@code null} or blank, or if
+     *         the configurer has already returned
+     */
+    StateDef<T> disableGlobalListeners(String... listenerIds);
+
+    /**
      * Suppresses every state-machine-wide state listener for this state. It wins over
      * {@link #disableGlobalListener(String)} whichever order the two are declared in, and this
      * state's own listeners still receive everything.

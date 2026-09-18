@@ -80,6 +80,9 @@ public interface OperationDef<T, C> extends ActionDef<T, C>,
     OperationDef<T, C> disableGlobalListener(String listenerId);
 
     @Override
+    OperationDef<T, C> disableGlobalListeners(String... listenerIds);
+
+    @Override
     OperationDef<T, C> disableAllGlobalListeners();
 
 }

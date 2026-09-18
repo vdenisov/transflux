@@ -21,6 +21,7 @@ package org.transflux.core.impl
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.ContextMapper
 import org.transflux.core.action.MapperDef
+import org.transflux.core.state.StateResolver
 import spock.lang.Specification
 
 import java.util.function.Consumer
@@ -44,6 +45,23 @@ class StateMachineDefImplMapperRegistrationSpec extends Specification {
             n.value = p.value
             return n
         }
+    }
+
+    def 'a built machine keeps the mappers it was built with'() {
+        given:
+        def smd = new StateMachineDefImpl<Entity>()
+        smd.forEntityType(Entity)
+            .withStateResolver({ e -> 's1' } as StateResolver<Entity>)
+            .mapper('early', P, N, new PNMapper())
+        smd.state('s1', {})
+        def sm = (StateMachineImpl<Entity>) smd.build()
+
+        when: 'the def goes on registering after the build'
+        smd.mapper('late', P, N, new PNMapper())
+
+        then:
+        sm.getMapper('early') != null
+        sm.getMapper('late') == null
     }
 
     def 'mapper(id, P, N, instance) registers a mapper retrievable by id'() {

@@ -71,6 +71,13 @@ final class CompensationSink<T, C, D> {
     <X extends Throwable> CompensationRouteDef<T, C, X, D> forException(Class<X> exceptionType) {
         owner.requireConfigurerActive("forException");
         requireNotNull(exceptionType, "Compensation route exception type");
+        // Nothing is rolled back after one of these, so the route could never match.
+        if (VirtualMachineError.class.isAssignableFrom(exceptionType)) {
+            throw new TransfluxValidationException(
+                "Compensation route on " + owner.defLabel() + " is declared for "
+                    + exceptionType.getName() + ", which can never match: no rollback runs after a"
+                    + " VirtualMachineError");
+        }
 
         CompensationRouteDefImpl<T, C, X, D> route =
             new CompensationRouteDefImpl<>(owner, self, exceptionType);
@@ -106,10 +113,31 @@ final class CompensationSink<T, C, D> {
             bound.add(route.buildBound());
         }
 
+        warnIfFallbackUnreachable(declaredFallback);
+
         Loggers.BUILD_BINDING.debug("Compensation routes bound, owner={}, routes={}",
                                     owner.defLabel(), bound.size());
 
         return new BoundCompensationRouter<>(bound, declaredFallback);
+    }
+
+    /**
+     * Warns when an unguarded route on {@code Throwable} answers every failure, leaving the
+     * declared fallback nothing to answer. Only that type is provable: a route on
+     * {@code Exception} still misses an {@code Error}.
+     */
+    private void warnIfFallbackUnreachable(Compensation<T, C> declaredFallback) {
+        if (declaredFallback == null) {
+            return;
+        }
+        for (CompensationRouteDefImpl<T, C, ?, D> route : routes) {
+            if (!route.hasGuard() && route.getExceptionType() == Throwable.class) {
+                Loggers.BUILD_VALIDATION.warn(
+                    "Compensation fallback is unreachable, owner={}, shadowedBy={}",
+                    owner.defLabel(), Throwable.class.getName());
+                return;
+            }
+        }
     }
 
     /**

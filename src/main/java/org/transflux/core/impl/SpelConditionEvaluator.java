@@ -119,12 +119,28 @@ final class SpelConditionEvaluator {
         return evaluateBoolean(expression, evalContext);
     }
 
+    /**
+     * Parses one expression, keeping the parser's own complaint in the message.
+     * <p>
+     * This is the one place the framework repeats a failure's message rather than its type, and it
+     * is safe for the reason the redaction exists: parsing reads the expression the definition
+     * author wrote - already quoted here - and no entity or context, so the parser has no host data
+     * to leak. It is also the only diagnostic there is, since "the expression is invalid" without
+     * saying where is not something an author can act on.
+     */
+    private Expression parse(String expression) {
+        try {
+            return parser.parseExpression(expression);
+        } catch (RuntimeException e) {
+            throw new TransfluxValidationException(
+                "Invalid SpEL expression '" + expression + "': " + e.getMessage(), e);
+        }
+    }
+
     private boolean evaluateBoolean(String expression, StandardEvaluationContext evalContext) {
         Expression parsed = cache.get(expression);
         if (parsed == null) {
-            Expression freshlyParsed = ThrowingUtils.sneakyGet(() -> parser.parseExpression(expression),
-                                                               "Invalid SpEL expression '" + expression + "'");
-            cache.putIfAbsent(expression, freshlyParsed);
+            cache.putIfAbsent(expression, parse(expression));
             parsed = cache.get(expression);
         }
 

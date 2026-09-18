@@ -51,7 +51,7 @@ final class CompensationDrain {
      * @return the paths that actually rolled back, in the order they did
      */
     static <T, C> List<ActionPath> forTransition(ExecutingTransitionImpl<T, C> view, T entity,
-                                                 Exception failure, String transitionId) {
+                                                 Throwable failure, String transitionId) {
         List<BoundCompensation<T, C>> drained = view.drainCompensationsLifo();
         if (!drained.isEmpty()) {
             // Candidates rather than a count: an action whose routes all miss the failure is on
@@ -79,7 +79,7 @@ final class CompensationDrain {
      * @return the paths that actually rolled back, in the order they did
      */
     static <T, C> List<ActionPath> forBranch(ExecutingTransitionImpl<T, C> view, T entity,
-                                             Exception failure, ActionPath branchPath) {
+                                             Throwable failure, ActionPath branchPath) {
         List<BoundCompensation<T, C>> drained = view.drainCompensationsLifo();
         if (!drained.isEmpty()) {
             Loggers.EXECUTION_COMPENSATION.info(
@@ -90,7 +90,7 @@ final class CompensationDrain {
     }
 
     private static <T, C> List<ActionPath> run(List<BoundCompensation<T, C>> drained, T entity,
-                                               Exception failure) {
+                                               Throwable failure) {
         List<ActionPath> compensatedPath = new ArrayList<>(drained.size());
 
         for (BoundCompensation<T, C> bc : drained) {
@@ -103,10 +103,10 @@ final class CompensationDrain {
             compensatedPath.add(bc.path());
             try {
                 selected.compensate(entity, bc.context());
-                // Exception and not Throwable, throughout the drain: an Error says the JVM is
-                // in an unstable state, and driving the remaining handlers through network
-                // calls and remote deletes there is worse than abandoning the rollback.
-            } catch (Exception ce) {
+                // A handler that fails must not cost the entries beneath it their rollback, so
+                // anything short of a fatal Error is a warning and the drain goes on.
+            } catch (Exception | Error ce) {
+                ThrowingUtils.rethrowIfFatal(ce);
                 Loggers.EXECUTION_COMPENSATION.warn(
                     "Compensation threw, actionPath={}, errorType={}",
                     bc.path(), ce.getClass().getName());

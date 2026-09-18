@@ -333,8 +333,8 @@ final class OperationDefImpl<T, C>
         List<CompositeMember<T, C>> bound = new ArrayList<>(members.members().size());
         for (ActionSequenceSink.DeclaredMember<T, C> member : members.members()) {
             ActionRef<T, C> ref = member.ref();
-            BoundAction<T, C> action = ref.resolve(stateMachine, ownScope(), positionLabel,
-                                                  getId());
+            Component.Action<T, ?> action = ref.resolve(stateMachine, ownScope(), positionLabel,
+                                                       getId());
             ResolvedContextMapping mapping = ref.mapperRef().resolve(stateMachine, getId());
             bound.add(CompositeMember.of(action, mapping, member));
 

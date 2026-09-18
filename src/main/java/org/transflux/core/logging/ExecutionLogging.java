@@ -39,6 +39,19 @@ import static org.transflux.core.Preconditions.requireNotNull;
  */
 public final class ExecutionLogging<T> {
 
+    /**
+     * The ids {@code StateMachineDef.withExecutionLogging(...)} registers its listeners under, one
+     * per hook - what an owner's {@code disableGlobalListener(...)} names to opt out of the trace.
+     */
+    public static final String STATE_ENTRY_LISTENER_ID = "transflux-log-state-entry";
+    public static final String STATE_EXIT_LISTENER_ID = "transflux-log-state-exit";
+    public static final String TRANSITION_START_LISTENER_ID = "transflux-log-transition-start";
+    public static final String TRANSITION_COMPLETE_LISTENER_ID = "transflux-log-transition-complete";
+    public static final String TRANSITION_ERROR_LISTENER_ID = "transflux-log-transition-error";
+    public static final String ACTION_START_LISTENER_ID = "transflux-log-action-start";
+    public static final String ACTION_COMPLETE_LISTENER_ID = "transflux-log-action-complete";
+    public static final String ACTION_ERROR_LISTENER_ID = "transflux-log-action-error";
+
     private final Level level;
     private final boolean context;
     private final boolean timings;

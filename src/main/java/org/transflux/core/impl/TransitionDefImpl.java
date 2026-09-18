@@ -690,6 +690,12 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
+    public TransitionDefImpl<T, C> disableGlobalListeners(String... listenerIds) {
+        disabledGlobals.disable(listenerIds);
+        return this;
+    }
+
+    @Override
     public TransitionDefImpl<T, C> disableAllGlobalListeners() {
         disabledGlobals.disableAll();
         return this;

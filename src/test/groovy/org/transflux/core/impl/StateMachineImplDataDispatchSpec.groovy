@@ -170,7 +170,8 @@ class StateMachineImplDataDispatchSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains("Data trigger 'hot' gate condition failed")
-        e.message.contains('entity had no priority')
+        e.message.contains(boom.class.name)
+        !e.message.contains('entity had no priority')
         e.cause === boom
     }
 

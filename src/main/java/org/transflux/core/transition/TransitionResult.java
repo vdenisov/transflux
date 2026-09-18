@@ -336,7 +336,8 @@ public class TransitionResult<T> {
             return String.format("TransitionResult{success=false, transition=%s, %s -> %s, steps=%d, compensated=%d, error=%s}",
                                transitionId, sourceStateId, targetStateId,
                                executedPath.size(), compensatedPath.size(),
-                               error != null ? error.getMessage() : "unknown");
+                               // The type, never the message: a host's exception can carry anything.
+                               error != null ? error.getClass().getName() : "unknown");
         }
     }
 }

@@ -32,17 +32,19 @@ import org.transflux.core.action.ContextMapper;
  * @param policy what a refused hand-over does, resolved once at bind time: the position's own
  *               declaration, else the action's def's, else {@code null} for the state machine's
  *               default. Meaningful only when {@code forked}
+ * @param calleeContext the context type the action was declared against, which a mapped call
+ *                      site's result is checked against at dispatch
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
 record CompositeMember<T, C>(BoundAction<T, C> action, ResolvedContextMapping mapping, boolean forked,
-                             AsyncRejectionPolicy policy) {
+                             AsyncRejectionPolicy policy, Class<?> calleeContext) {
 
     /**
      * Binds a declared member, folding the two declarative sources of its rejection policy - the
      * position first, then the def - so dispatch reads one field.
      *
-     * @param action the resolved action
+     * @param callee the resolved action, tagged with the context type it was declared against
      * @param mapping the resolved call-site mapping
      * @param member the declaration this member was bound from
      * @param <T> the entity type
@@ -50,12 +52,14 @@ record CompositeMember<T, C>(BoundAction<T, C> action, ResolvedContextMapping ma
      *
      * @return the bound member
      */
-    static <T, C> CompositeMember<T, C> of(BoundAction<T, C> action, ResolvedContextMapping mapping,
+    @SuppressWarnings("unchecked")
+    static <T, C> CompositeMember<T, C> of(Component.Action<T, ?> callee, ResolvedContextMapping mapping,
                                            ActionSequenceSink.DeclaredMember<T, C> member) {
+        BoundAction<T, C> action = (BoundAction<T, C>) callee.bound();
         AsyncRejectionPolicy policy = member.policy() != null
             ? member.policy()
             : action.asyncRejectionPolicy();
-        return new CompositeMember<>(action, mapping, member.forked(), policy);
+        return new CompositeMember<>(action, mapping, member.forked(), policy, callee.contextType());
     }
 
     /**
@@ -84,11 +88,11 @@ record CompositeMember<T, C>(BoundAction<T, C> action, ResolvedContextMapping ma
             // Returns as soon as the branch is handed over, so the members after it start
             // without waiting - the position in this list is when the work begins, not when
             // it ends.
-            view.submitBranch((BoundAction) action, mapping, policy);
+            view.submitBranch((BoundAction) action, mapping, policy, calleeContext);
             return;
         }
 
         ContextMapper<Object, Object> mapper = mapping.isPassThrough() ? null : mapping.mapper();
-        view.runAction((BoundAction) action, mapper);
+        view.runAction((BoundAction) action, mapper, calleeContext);
     }
 }

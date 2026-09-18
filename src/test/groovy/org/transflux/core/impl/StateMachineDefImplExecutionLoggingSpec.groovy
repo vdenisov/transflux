@@ -113,6 +113,18 @@ class StateMachineDefImplExecutionLoggingSpec extends Specification {
         id << ['transflux-log-state-entry', 'transflux-log-state-exit']
     }
 
+    def 'the ids are published as constants, which a disable can name'() {
+        expect: 'the values are contract - a host may have written them as literals'
+        ExecutionLogging.STATE_ENTRY_LISTENER_ID == 'transflux-log-state-entry'
+        ExecutionLogging.STATE_EXIT_LISTENER_ID == 'transflux-log-state-exit'
+        ExecutionLogging.TRANSITION_START_LISTENER_ID == 'transflux-log-transition-start'
+        ExecutionLogging.TRANSITION_COMPLETE_LISTENER_ID == 'transflux-log-transition-complete'
+        ExecutionLogging.TRANSITION_ERROR_LISTENER_ID == 'transflux-log-transition-error'
+        ExecutionLogging.ACTION_START_LISTENER_ID == 'transflux-log-action-start'
+        ExecutionLogging.ACTION_COMPLETE_LISTENER_ID == 'transflux-log-action-complete'
+        ExecutionLogging.ACTION_ERROR_LISTENER_ID == 'transflux-log-action-error'
+    }
+
     def 'null options are refused'() {
         when:
         definition().withExecutionLogging(null)

@@ -294,6 +294,12 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     @Override
+    public SELF disableGlobalListeners(String... listenerIds) {
+        disabledGlobals.disable(listenerIds);
+        return self();
+    }
+
+    @Override
     public SELF disableAllGlobalListeners() {
         disabledGlobals.disableAll();
         return self();

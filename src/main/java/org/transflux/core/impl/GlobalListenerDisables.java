@@ -18,6 +18,9 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.exception.TransfluxValidationException;
+
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -25,6 +28,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Shared storage and filtering for the two disable forms every listener owner exposes - a state, a
@@ -75,9 +79,33 @@ final class GlobalListenerDisables {
         ids.add(listenerId);
     }
 
+    void disable(String... listenerIds) {
+        owner.requireConfigurerActive("disableGlobalListeners");
+        requireNotNull(listenerIds, "Listener IDs");
+        if (listenerIds.length == 0) {
+            throw new TransfluxValidationException(
+                "disableGlobalListeners on " + owner.defLabel() + " names no listener; to suppress"
+                    + " every global listener declare disableAllGlobalListeners()");
+        }
+        // Validated before any is recorded, so a rejected call leaves the list as it was.
+        for (String listenerId : listenerIds) {
+            requireNotBlank(listenerId, "Listener ID");
+        }
+        ids.addAll(Arrays.asList(listenerIds));
+    }
+
     void disableAll() {
         owner.requireConfigurerActive("disableAllGlobalListeners");
         all = true;
+    }
+
+    /**
+     * Reports whether this declaration leaves the global listeners exactly as they are.
+     *
+     * @return {@code true} when neither form was declared
+     */
+    boolean disablesNothing() {
+        return !all && ids.isEmpty();
     }
 
     /**

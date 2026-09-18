@@ -20,6 +20,7 @@ package org.transflux.core.impl
 
 import org.transflux.core.TestContext
 import org.transflux.core.Transflux
+import org.transflux.core.exception.TransfluxContextException
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.Action
 import org.transflux.core.action.ContextMapper
@@ -171,7 +172,8 @@ class ExecutingTransitionImplSpec extends Specification {
         view.run('needs-context', { parent -> null } as ContextMapper)
 
         then: 'the boundary is named here rather than surfacing as an NPE inside the callee'
-        def e = thrown(TransfluxValidationException)
+        def e = thrown(TransfluxContextException)
+        e.subjectId == 'needs-context'
         e.message.contains('needs-context')
         e.message.contains('produced null')
     }

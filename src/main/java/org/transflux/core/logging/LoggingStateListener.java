@@ -38,6 +38,9 @@ final class LoggingStateListener<T> implements StateListener<T> {
     @Override
     @SuppressWarnings("unchecked")
     public void onState(T entity, Object context, StateChange<T> change) {
+        if (!TraceLine.enabled(TraceLine.STATE, options)) {
+            return;
+        }
         TraceLine.write(TraceLine.STATE, (ExecutionLogging<T>) options,
                         change.phase() == StatePhase.ENTRY ? "State entered" : "State exited",
                         entity, null, context,
