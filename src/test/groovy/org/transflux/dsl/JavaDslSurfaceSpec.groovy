@@ -370,6 +370,69 @@ class JavaDslSurfaceSpec extends Specification {
         sm.close()
     }
 
+    def 'every host entry point runs from Java, and its result reads back'() {
+        when:
+        def outcomes = JavaDslSurface.hostEntryPoints()
+
+        then: 'every condition form passed, so every targeted call succeeded against the same transition'
+        def succeeded = 'true:s1>s2:t:1:0:true:true:true'
+        outcomes.findAll { it.endsWith(succeeded) }*.takeBefore(':') ==
+            ['transitionTo', 'transitionTo-id', 'transitionTo-ctx', 'transitionTo-id-ctx',
+             'executeTransition', 'executeTransition-id', 'fire', 'fire-ctx',
+             'processEvent', 'processDataChange']
+
+        and: 'the scanning entry points name the trigger that fired, or report that none did'
+        outcomes.contains("processEvent:true:on-paid:$succeeded".toString())
+        outcomes.contains('processEvent-ctx:false:null:false')
+        outcomes.contains("processDataChange:when-registered:$succeeded".toString())
+        outcomes.contains('processDataChange-ctx:true')
+    }
+
+    def 'every listener hook fires in both forms, and the transition may opt out of the globals'() {
+        given:
+        def sm = JavaDslSurface.listenerHookShapes()
+        def order = new JavaDslSurface.Order()
+
+        when:
+        def result = sm.entity(order).transitionTo('s2', new JavaDslSurface.OrderCtx())
+
+        then:
+        result.success
+        order.trail.containsAll(['s-exit', 't-complete', 'START:t:direct:-', 'COMPLETE:t:direct:true',
+                                 'g-action-start', 'g-action-complete', 'g-action-complete-cfg',
+                                 'START:record:STEP:record:t:true:true',
+                                 'COMPLETE:record:STEP:record:t:true:false',
+                                 'EXIT:s1:t', 'ENTRY:s2:t'])
+
+        and: 'the transition disabled its own category of globals, and nothing failed'
+        !order.trail.any { it.startsWith('any:') }
+        !order.trail.any { it.contains('error') }
+
+        cleanup:
+        sm.close()
+    }
+
+    def 'the registration shapes build and run'() {
+        given:
+        def sm = JavaDslSurface.registrationShapes()
+        def order = new JavaDslSurface.Order()
+
+        when:
+        def result = sm.entity(order).transitionTo('s2', new JavaDslSurface.OrderCtx())
+
+        then: 'three mapper registrations carried three members across, and the first branch won'
+        result.success
+        order.trail == ['self-compensating', 'notify:o-1', 'notify:o-1', 'notify:o-1', 'labelled']
+
+        cleanup:
+        sm.close()
+    }
+
+    def 'a refusal carries the ids a host would otherwise parse out of a message'() {
+        expect:
+        JavaDslSurface.refusalIds() == 'never:PRE_CONDITION:t'
+    }
+
     private static boolean waitFor(Closure<Boolean> condition) {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
         while (System.nanoTime() < deadline) {

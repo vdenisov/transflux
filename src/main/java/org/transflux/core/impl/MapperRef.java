@@ -216,10 +216,8 @@ sealed interface MapperRef
                                     String memberId, Class<?> componentContext,
                                     Map<String, MapperDefImpl<?, ?>> mapperRegistry) {
             // Generic-parameter erasure prevents build-time introspection of the supplied
-            // mapper's parent / child types. The imperative run(id, mapper) surface compares what
-            // mapTo produced against the callee's registration at dispatch; a member of a sequence
-            // reaches the runtime through a bound record that does not carry that type, so a
-            // mismatch there still surfaces as a ClassCastException from the callee.
+            // mapper's parent / child types, so what mapTo produced is checked against the callee's
+            // declared context at each dispatch instead.
         }
     }
 }

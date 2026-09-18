@@ -22,15 +22,32 @@ import org.slf4j.event.Level;
 import org.transflux.core.StateMachine;
 import org.transflux.core.Transflux;
 import org.transflux.core.action.Action;
+import org.transflux.core.action.ActionExecution;
+import org.transflux.core.action.ActionListener;
 import org.transflux.core.action.Compensation;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.AsyncRejectionPolicy;
 import org.transflux.core.action.ForkableContext;
+import org.transflux.core.action.NoMatchBehavior;
+import org.transflux.core.condition.Condition;
+import org.transflux.core.exception.TransfluxConditionException;
+import org.transflux.core.exception.TransfluxContextException;
+import org.transflux.core.exception.TransfluxNoMatchException;
 import org.transflux.core.logging.ExecutionLogging;
+import org.transflux.core.state.StateChange;
+import org.transflux.core.state.StateListener;
 import org.transflux.core.transition.ExecutingTransition;
+import org.transflux.core.transition.ProcessResult;
+import org.transflux.core.transition.Transition;
+import org.transflux.core.transition.TransitionExecution;
+import org.transflux.core.transition.TransitionListener;
+import org.transflux.core.transition.TransitionResult;
+import org.transflux.core.trigger.Trigger;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Predicate;
 
 /**
  * Every DSL call shape a host would write, written the way a host writes it: in Java, from outside
@@ -90,6 +107,10 @@ public final class JavaDslSurface {
             copy.orderId = orderId;
             copy.customerId = customerId;
             return copy;
+        }
+
+        public NotifyCtx asNotify() {
+            return new NotifyCtx(orderId);
         }
     }
 
@@ -827,5 +848,330 @@ public final class JavaDslSurface {
                                 .step("f-mapped-branch-member", new NotifyAction()))))))
             .state("s2", s -> { })
             .build();
+    }
+
+    /** An action that answers for its own rollback, the dynamic compensation channel. */
+    public static final class SelfCompensatingAction implements Action<Order, OrderCtx> {
+        @Override
+        public void execute(Order order, OrderCtx ctx, ExecutingTransition<Order, OrderCtx> t) {
+            order.trail.add("self-compensating");
+        }
+
+        @Override
+        public Compensation<Order, OrderCtx> getCompensation(Order order, OrderCtx ctx) {
+            return (o, c) -> o.trail.add("-self-compensated");
+        }
+    }
+
+    /** A full condition, the three-argument contract a lambda of lower arity cannot be mistaken for. */
+    public static final class OrderIsOpen implements Condition<Order, Object> {
+        @Override
+        public boolean test(Order order, Object ctx, Transition transition) {
+            return "s1".equals(order.state) && "t".equals(transition.getId());
+        }
+    }
+
+    /** A predicate class, the instance form of the one-argument lambda. */
+    public static final class OrderHasLabel implements Predicate<Order> {
+        @Override
+        public boolean test(Order order) {
+            return order.label() != null;
+        }
+    }
+
+    /** A state listener written as a class, reading every component of its payload. */
+    public static final class StateAudit implements StateListener<Order> {
+        @Override
+        public void onState(Order order, Object ctx, StateChange<Order> change) {
+            order.trail.add(change.phase() + ":" + change.state().getId()
+                                + ":" + change.transition().getId());
+        }
+    }
+
+    /** A transition listener typed to the transition's context, reading the origin off the payload. */
+    public static final class TransitionAudit implements TransitionListener<Order, OrderCtx> {
+        @Override
+        public void onTransition(Order order, OrderCtx ctx, TransitionExecution<Order> execution) {
+            Trigger firedBy = execution.firedBy();
+            order.trail.add(execution.phase() + ":" + execution.transition().getId()
+                                + ":" + (firedBy == null ? "direct" : firedBy.getId())
+                                + ":" + (execution.result() == null ? "-" : execution.result().isSuccess()));
+        }
+    }
+
+    /** The global counterpart: a registration spanning transitions takes an {@code Object} context. */
+    public static final class AnyTransitionAudit implements TransitionListener<Order, Object> {
+        @Override
+        public void onTransition(Order order, Object ctx, TransitionExecution<Order> execution) {
+            order.trail.add("any:" + execution.phase());
+        }
+    }
+
+    /** An action listener written as a class, reading every component of its payload. */
+    public static final class ActionAudit implements ActionListener<Order, OrderCtx> {
+        @Override
+        public void onAction(Order order, OrderCtx ctx, ActionExecution execution) {
+            order.trail.add(execution.phase() + ":" + execution.path() + ":" + execution.kind()
+                                + ":" + execution.actionId() + ":" + execution.transition().getId()
+                                + ":" + (execution.error() == null) + ":" + (execution.duration() == null));
+        }
+    }
+
+    /**
+     * Every condition attachment form on a transition and every trigger declaration form, on the
+     * pass-through {@code transitionsTo} that declares no context. The condition family is the
+     * resolution-sensitive one: instance, two-argument lambda, one-argument lambda, method
+     * reference and expression all live under one name.
+     *
+     * @return the built state machine
+     */
+    public static StateMachine<Order> conditionAndTriggerShapes() {
+        return Transflux.<Order>defineStateMachine()
+            .forEntityType(Order.class)
+            .withName("Orders")
+            .withVersion("1.0.0")
+            .withStateResolver(o -> o.state)
+            .withStateApplier((o, s) -> o.state = s)
+            .condition("registered-open", o -> "s1".equals(o.state))
+            .state("s1", s -> s
+                .withName("Open")
+                .withDescription("An order nobody has paid for")
+                .transitionsTo("s2", "t", t -> t
+                    .withName("Pay")
+                    .withDescription("Takes payment")
+                    .preCondition("registered-open")
+                    .preCondition("pre-instance", new OrderIsOpen())
+                    .preCondition("pre-bi", (order, ctx) -> order.label() != null)
+                    .preCondition("pre-lambda", order -> order.label() != null)
+                    .preCondition("pre-class", new OrderHasLabel())
+                    .preCondition("pre-method-ref", JavaDslSurface::isOpen)
+                    .preCondition("pre-expression", "state == 's1'")
+                    .preConditionExpression("state == 's1'")
+                    .postCondition("registered-open")
+                    .postCondition("post-instance", new OrderIsOpen())
+                    .postCondition("post-bi", (order, ctx) -> true)
+                    .postCondition("post-lambda", order -> true)
+                    .postCondition("post-expression", "state == 's1'")
+                    .postConditionExpression("#transition.id == 't'")
+
+                    .addManualTrigger("pay-now")
+                    .addManualTrigger("pay-checked", mt -> mt
+                        .withDescription("A manual trigger with pre-conditions of its own")
+                        .preCondition("registered-open")
+                        .preCondition("mt-lambda", order -> true)
+                        .preConditionExpression("state == 's1'"))
+                    .addEventTrigger("on-paid", "PAID")
+                    .addEventTrigger("SETTLED")
+                    .addEventTrigger("on-refund-expr", et -> et
+                        .onEvent("REFUND")
+                        .filterExpression("#event == 'full'"))
+                    .addEventTrigger("on-refund-payload", et -> et
+                        .onEvent("REFUND")
+                        .filter(event -> "partial".equals(event)))
+                    .addEventTrigger("on-refund-entity", et -> et
+                        .onEvent("REFUND")
+                        .filter((event, order) -> order.label().equals(event)))
+                    .addDataTrigger("when-flagged", dt -> dt
+                        .condition("flagged", order -> order.trail.contains("flag")))
+                    .addDataTrigger("when-registered", dt -> dt.condition("registered-open"))
+                    .addDataTrigger("when-expression", dt -> dt.conditionExpression("state == 's1'"))
+
+                    .step("pay", (order, ctx, view) -> order.trail.add("pay"))))
+            .state("s2", s -> { })
+            .build();
+    }
+
+    /**
+     * Every listener hook, per owner and global, in both the instance and the configurer form. The
+     * instance form takes a three-argument lambda and the configurer a one-argument one, which is
+     * what keeps the two apart.
+     *
+     * @return the built state machine
+     */
+    public static StateMachine<Order> listenerHookShapes() {
+        return Transflux.<Order>defineStateMachine()
+            .forEntityType(Order.class)
+            .withStateResolver(o -> o.state)
+            .withStateApplier((o, s) -> o.state = s)
+            .onAnyStateEntry("g-entry", new StateAudit())
+            .onAnyStateExit("g-exit", l -> l.using(new StateAudit()))
+            .onAnyTransitionStart("g-start", l -> l.using(new AnyTransitionAudit()))
+            .onAnyTransitionComplete("g-complete", new AnyTransitionAudit())
+            .onAnyTransitionError("g-error", new AnyTransitionAudit())
+            .onAnyTransitionError("g-error-cfg", l -> l
+                .using((order, ctx, execution) -> order.trail.add("g-error-cfg")))
+            .onAnyActionStart("g-action-start", l -> l
+                .using((order, ctx, execution) -> order.trail.add("g-action-start")))
+            .onAnyActionComplete("g-action-complete",
+                                 (order, ctx, execution) -> order.trail.add("g-action-complete"))
+            .onAnyActionComplete("g-action-complete-cfg", l -> l
+                .using((order, ctx, execution) -> order.trail.add("g-action-complete-cfg")))
+            .onAnyActionError("g-action-error",
+                              (order, ctx, execution) -> order.trail.add("g-action-error"))
+            .onAnyActionError("g-action-error-cfg", l -> l
+                .using((order, ctx, execution) -> order.trail.add("g-action-error-cfg")))
+            .step("record", OrderCtx.class, step -> step
+                .using(new RecordingAction())
+                .onStart("a-start", new ActionAudit())
+                .onStart("a-start-cfg", l -> l.using(new ActionAudit()))
+                .onComplete("a-complete", new ActionAudit())
+                .onError("a-error", (order, ctx, execution) -> order.trail.add("a-error"))
+                .onError("a-error-cfg", l -> l
+                    .withDescription("Audits a failed charge")
+                    .using(new ActionAudit())))
+            .state("s1", s -> s
+                .onEntry("s-entry", new StateAudit())
+                .onEntry("s-entry-lambda", (order, ctx, change) -> order.trail.add("s-entry-lambda"))
+                .onEntry("s-entry-cfg", l -> l.withName("Entry audit").using(new StateAudit()))
+                .onExit("s-exit", (order, ctx, change) -> order.trail.add("s-exit"))
+                .transitionsTo("s2", "t", OrderCtx.class, t -> t
+                    .onStart("t-start", new TransitionAudit())
+                    .onStart("t-start-cfg", l -> l.using(new TransitionAudit()))
+                    .onComplete("t-complete", (order, ctx, execution) -> order.trail.add("t-complete"))
+                    .onComplete("t-complete-cfg", l -> l.using(new TransitionAudit()))
+                    .onError("t-error", new TransitionAudit())
+                    .onError("t-error-cfg", l -> l
+                        .withDescription("Audits a failed transition")
+                        .using(new TransitionAudit()))
+                    .disableAllGlobalListeners()
+                    .run("record")))
+            .state("s2", s -> { })
+            .build();
+    }
+
+    /**
+     * Registration shapes the other fixtures leave out: a mapper from an instance, from a method
+     * reference and through {@code mapperDef}; an action that supplies its own compensation; a route
+     * guard written as a method reference, on a container whose chain carries on afterwards; a
+     * conditional's no-match behaviour; and a branch condition in its one-argument and class forms.
+     *
+     * @return the built state machine
+     */
+    public static StateMachine<Order> registrationShapes() {
+        return Transflux.<Order>defineStateMachine()
+            .forEntityType(Order.class)
+            .withStateResolver(o -> o.state)
+            .withStateApplier((o, s) -> o.state = s)
+            .step("notify", NotifyCtx.class, new NotifyAction())
+            .mapper("notify-instance", OrderCtx.class, NotifyCtx.class, new NotifyFromOrder())
+            .mapper("notify-method-ref", OrderCtx.class, NotifyCtx.class, OrderCtx::asNotify)
+            .mapperDef("notify-def", OrderCtx.class, NotifyCtx.class, m -> m
+                .withName("Notification from order")
+                .using(new NotifyFromOrder()))
+            .state("s1", s -> s
+                .transitionsTo("s2", "t", OrderCtx.class, t -> t
+                    .step("self-compensating", new SelfCompensatingAction())
+                    .operation("guarded", op -> op
+                        .withDescription("A container with routes and a fallback")
+                        .forException(IllegalStateException.class)
+                            .matching(JavaDslSurface::hasMessage)
+                            .withCompensation((order, ctx) -> order.trail.add("-illegal"))
+                        .withCompensation((order, ctx) -> order.trail.add("-guarded"))
+                        .run("notify", "notify-instance")
+                        .run("notify", "notify-method-ref")
+                        .run("notify", "notify-def"))
+                    .conditional("route", cond -> cond
+                        .onNoMatch(NoMatchBehavior.SILENT)
+                        .branch("labelled", b -> b
+                            .condition("is-labelled", new OrderHasLabel())
+                            .step("labelled-member", (order, ctx, view) -> order.trail.add("labelled")))
+                        .branch("open", b -> b
+                            .condition("is-open", order -> "s1".equals(order.state))
+                            .step("open-member", (order, ctx, view) -> order.trail.add("open"))))))
+            .state("s2", s -> { })
+            .build();
+    }
+
+    /**
+     * The host-side entry points and the accessors on what they return, against
+     * {@link #conditionAndTriggerShapes()}. Every transition there leaves {@code s1}, so the entity
+     * is put back between calls.
+     *
+     * @return one line per call, for the spec to assert on
+     */
+    public static List<String> hostEntryPoints() {
+        List<String> outcomes = new ArrayList<>();
+        try (StateMachine<Order> sm = conditionAndTriggerShapes()) {
+            Order order = new Order();
+            Object ctx = new OrderCtx();
+
+            outcomes.add("transitionTo:" + reset(order, sm.entity(order).transitionTo("s2")));
+            outcomes.add("transitionTo-id:" + reset(order, sm.entity(order).transitionTo("s2", "t")));
+            outcomes.add("transitionTo-ctx:" + reset(order, sm.entity(order).transitionTo("s2", ctx)));
+            outcomes.add("transitionTo-id-ctx:"
+                             + reset(order, sm.entity(order).transitionTo("s2", "t", ctx)));
+            outcomes.add("executeTransition:" + reset(order, sm.executeTransition(order, "s2")));
+            outcomes.add("executeTransition-id:" + reset(order, sm.executeTransition(order, "s2", "t")));
+            outcomes.add("fire:" + reset(order, sm.entity(order).fire("pay-now")));
+            outcomes.add("fire-ctx:" + reset(order, sm.entity(order).fire("pay-checked", ctx)));
+
+            ProcessResult<Order> paid = sm.entity(order).processEvent("PAID", "payload");
+            outcomes.add("processEvent:" + paid.fired() + ":" + paid.firedTriggerId()
+                             + ":" + reset(order, paid.result().orElseThrow()));
+            ProcessResult<Order> unknown = sm.entity(order).processEvent("UNKNOWN", null, ctx);
+            outcomes.add("processEvent-ctx:" + unknown.fired() + ":" + unknown.firedTriggerId()
+                             + ":" + unknown.result().isPresent());
+            ProcessResult<Order> changed = sm.entity(order).processDataChange();
+            outcomes.add("processDataChange:" + changed.firedTriggerId()
+                             + ":" + reset(order, changed.result().orElseThrow()));
+            outcomes.add("processDataChange-ctx:"
+                             + sm.entity(order).processDataChange(ctx).fired());
+        }
+        return outcomes;
+    }
+
+    /**
+     * A transition a pre-condition rejects, described through {@link #describeRefusal(Throwable)}.
+     *
+     * @return the ids read off the reported error
+     */
+    public static String refusalIds() {
+        try (StateMachine<Order> sm = Transflux.<Order>defineStateMachine()
+            .forEntityType(Order.class)
+            .withStateResolver(o -> o.state)
+            .state("s1", s -> s
+                .transitionsTo("s2", "t", t -> t.preCondition("never", order -> false)))
+            .state("s2", s -> { })
+            .build()) {
+            return describeRefusal(sm.entity(new Order()).transitionTo("s2").getError());
+        }
+    }
+
+    /**
+     * The ids a host reads off a framework refusal instead of parsing its message.
+     *
+     * @param error a transition's reported error
+     *
+     * @return the ids it carries, or its class name when it is not a framework refusal
+     */
+    public static String describeRefusal(Throwable error) {
+        if (error instanceof TransfluxConditionException condition) {
+            return condition.getConditionId() + ":" + condition.getRole() + ":" + condition.getTransitionId();
+        }
+        if (error instanceof TransfluxNoMatchException noMatch) {
+            return noMatch.getConditionalId();
+        }
+        if (error instanceof TransfluxContextException context) {
+            return context.getSubjectId();
+        }
+        return error.getClass().getName();
+    }
+
+    private static boolean isOpen(Order order) {
+        return "s1".equals(order.state);
+    }
+
+    private static boolean hasMessage(IllegalStateException e) {
+        return e.getMessage() != null;
+    }
+
+    private static String reset(Order order, TransitionResult<Order> result) {
+        String summary = result.isSuccess() + ":" + result.getSourceStateId()
+            + ">" + result.getTargetStateId() + ":" + result.getTransitionId()
+            + ":" + result.getExecutedPath().size() + ":" + result.getCompensatedPath().size()
+            + ":" + (result.getError() == null) + ":" + (result.getEntity() == order)
+            + ":" + (result.getDuration() != null);
+        order.state = "s1";
+        return summary;
     }
 }
