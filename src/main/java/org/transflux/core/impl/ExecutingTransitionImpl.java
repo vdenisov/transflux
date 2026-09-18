@@ -30,6 +30,7 @@ import org.transflux.core.transition.ActionPath;
 import org.transflux.core.transition.ExecutingTransition;
 import org.transflux.core.transition.Transition;
 
+import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -360,6 +361,7 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
                          (C) effective);
         recordExecutedPath(path);
         enterOperation(bound.id());
+        long startedNanos = System.nanoTime();
         try {
             // The mapping decision, not the mapped value: the child context is the host's and may
             // carry anything. Its type is what a reader needs to see the boundary was crossed.
@@ -370,7 +372,9 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
                                                    : "mapped:" + describeType(child));
             }
             stateMachine.notifyActionListeners(bound, ActionPhase.START, entity, effective, path,
-                                               readOnly, null);
+                                               readOnly, null, null);
+            // Restarted after START so the duration is the body's, not its listeners'.
+            startedNanos = System.nanoTime();
             if (mapper == null) {
                 ((Action) bound.action()).execute(entity, active, this);
             } else {
@@ -382,11 +386,11 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
                 }
             }
             stateMachine.notifyActionListeners(bound, ActionPhase.COMPLETE, entity, effective, path,
-                                               readOnly, null);
+                                               readOnly, null, elapsedSince(startedNanos));
             Loggers.EXECUTION_ACTION.trace("Action completed, path={}", path);
         } catch (Exception e) {
             stateMachine.notifyActionListeners(bound, ActionPhase.ERROR, entity, effective, path,
-                                               readOnly, e);
+                                               readOnly, e, elapsedSince(startedNanos));
             if (Loggers.EXECUTION_ACTION.isTraceEnabled()) {
                 Loggers.EXECUTION_ACTION.trace("Action failed, path={}, errorType={}", path,
                                                e.getClass().getName());
@@ -654,6 +658,10 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
             "Context type mismatch: action '" + id + "' is declared for context "
                 + calleeContext.getName() + ", but the mapper supplied at this call site produced a "
                 + child.getClass().getName());
+    }
+
+    private static Duration elapsedSince(long startedNanos) {
+        return Duration.ofNanos(System.nanoTime() - startedNanos);
     }
 
     /**

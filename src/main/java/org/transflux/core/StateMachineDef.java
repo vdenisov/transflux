@@ -29,6 +29,7 @@ import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.StepDef;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.logging.ExecutionLogging;
 import org.transflux.core.state.StateApplier;
 import org.transflux.core.state.StateDef;
 import org.transflux.core.state.StateListener;
@@ -482,6 +483,34 @@ public interface StateMachineDef<T> {
      *         is blank, or another state with the same id has already been declared
      */
     StateMachineDef<T> state(String stateId, Consumer<StateDef<T>> configurer);
+
+    /**
+     * {@link #withExecutionLogging(ExecutionLogging)} with {@link ExecutionLogging#defaults()}.
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if any of the listener ids is already taken
+     */
+    StateMachineDef<T> withExecutionLogging();
+
+    /**
+     * Writes an execution trace for every state, transition and action of this state machine by
+     * attaching the three shipped logging listeners globally and synchronously.
+     * <p>
+     * They register under fixed ids, one per hook: {@code transflux-log-state-entry},
+     * {@code transflux-log-state-exit}, {@code transflux-log-transition-start},
+     * {@code transflux-log-transition-complete}, {@code transflux-log-transition-error},
+     * {@code transflux-log-action-start}, {@code transflux-log-action-complete} and
+     * {@code transflux-log-action-error}. Declaring this twice therefore fails on the ids.
+     *
+     * @param logging how the trace is written; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if {@code logging} is {@code null}, or any of the
+     *         listener ids is already taken
+     */
+    StateMachineDef<T> withExecutionLogging(ExecutionLogging<? super T> logging);
 
     /**
      * Attaches a listener notified whenever an entity enters <b>any</b> state of this machine.

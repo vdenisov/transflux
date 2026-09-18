@@ -183,6 +183,22 @@ class JavaDslSurfaceSpec extends Specification {
         sm.close()
     }
 
+    def 'the execution logging shapes build and run'() {
+        given:
+        def sm = JavaDslSurface.executionLoggingShapes()
+        def order = new JavaDslSurface.Order()
+
+        when:
+        def result = sm.entity(order).transitionTo('s2', new JavaDslSurface.OrderCtx())
+
+        then:
+        result.success
+        order.trail.contains('recording')
+
+        cleanup:
+        sm.close()
+    }
+
     def 'the async listener shapes build and run'() {
         given:
         def sm = JavaDslSurface.asyncListenerShapes()

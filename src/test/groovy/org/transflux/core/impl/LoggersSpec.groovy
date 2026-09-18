@@ -29,9 +29,9 @@ import java.lang.reflect.Modifier
  */
 class LoggersSpec extends Specification {
 
-    /** Every declared leaf, read off the holder so a new constant cannot skip these rules. */
+    /** Every declared leaf, read off both holders so a new constant cannot skip these rules. */
     private static List<String> leafNames() {
-        return Loggers.declaredFields
+        return (Loggers.declaredFields + Class.forName('org.transflux.core.logging.TraceLine').declaredFields)
             .findAll { Modifier.isStatic(it.modifiers) && org.slf4j.Logger.isAssignableFrom(it.type) }
             .collect { it.setAccessible(true); ((org.slf4j.Logger) it.get(null)).name }
     }
@@ -74,6 +74,9 @@ class LoggersSpec extends Specification {
             'org.transflux.execution.condition',
             'org.transflux.execution.listener',
             'org.transflux.execution.transition',
+            'org.transflux.trace.action',
+            'org.transflux.trace.state',
+            'org.transflux.trace.transition',
             'org.transflux.trigger'
         ]
     }
@@ -87,15 +90,17 @@ class LoggersSpec extends Specification {
         Loggers.declaredConstructors.length == 1
     }
 
-    def 'the framework declares no logger outside the holder'() {
+    def 'the framework declares no logger outside the two holders'() {
         given: 'a class-derived logger would name a class a host cannot rely on across refactors'
+        def holders = ['core/impl/Loggers.java', 'core/logging/TraceLine.java']
         def sources = []
         new File('src/main/java/org/transflux').traverse(
             type: FileType.FILES, nameFilter: ~/.*\.java/) { sources << it }
 
         when:
         def offenders = sources.findAll { file ->
-            file.name != 'Loggers.java' && file.text.contains('LoggerFactory.getLogger')
+            def path = file.path.replace(File.separator, '/')
+            !holders.any { path.endsWith(it) } && file.text.contains('LoggerFactory.getLogger')
         }
 
         then: 'the sweep found something to sweep, so an empty result means clean rather than broken'

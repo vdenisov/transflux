@@ -18,6 +18,7 @@
 
 package org.transflux.dsl;
 
+import org.slf4j.event.Level;
 import org.transflux.core.StateMachine;
 import org.transflux.core.Transflux;
 import org.transflux.core.action.Action;
@@ -25,6 +26,7 @@ import org.transflux.core.action.Compensation;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.AsyncRejectionPolicy;
 import org.transflux.core.action.ForkableContext;
+import org.transflux.core.logging.ExecutionLogging;
 import org.transflux.core.transition.ExecutingTransition;
 
 import java.util.List;
@@ -60,6 +62,10 @@ public final class JavaDslSurface {
     public static final class Order {
         public String state = "s1";
         public final List<String> trail = new CopyOnWriteArrayList<>();
+
+        public String label() {
+            return "o-1";
+        }
     }
 
     /** A supertype of the transition's context, so a pass-through declaration has room to widen. */
@@ -536,6 +542,33 @@ public final class JavaDslSurface {
                             .forException(RuntimeException.class)
                                 .matching(e -> e.getMessage() != null)
                                 .withCompensation(new RollbackCompensation())))))
+            .state("s2", s -> { })
+            .build();
+    }
+
+    /**
+     * The execution logging registration, with the entity label written as a method reference, and
+     * a per-owner listener with a typed-lambda label on a transition that declares its context.
+     *
+     * @return the built state machine
+     */
+    public static StateMachine<Order> executionLoggingShapes() {
+        return Transflux.<Order>defineStateMachine()
+            .forEntityType(Order.class)
+            .withStateResolver(o -> o.state)
+            .withStateApplier((o, s) -> o.state = s)
+            .withExecutionLogging(ExecutionLogging.atLevel(Level.INFO)
+                                      .withEntityLabel(Order::label)
+                                      .withTimings())
+            .step("record", OrderCtx.class, new RecordingAction())
+            .state("s1", s -> s
+                .onExit("log-exit", ExecutionLogging.defaults().stateListener())
+                .transitionsTo("s2", "t", OrderCtx.class, t -> t
+                    .onComplete("log-payment", ExecutionLogging.atLevel(Level.DEBUG)
+                        .withEntityLabel((Order o) -> o.label())
+                        .withContext()
+                        .transitionListener())
+                    .run("record")))
             .state("s2", s -> { })
             .build();
     }

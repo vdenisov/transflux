@@ -24,6 +24,8 @@ import org.transflux.core.transition.Transition
 import spock.lang.Specification
 import spock.lang.Unroll
 
+import java.time.Duration
+
 class ActionExecutionSpec extends Specification {
 
 
@@ -34,7 +36,7 @@ class ActionExecutionSpec extends Specification {
 
         when:
         def execution = new ActionExecution(
-            ActionPhase.COMPLETE, path, ActionKind.STEP, transition, null)
+            ActionPhase.COMPLETE, path, ActionKind.STEP, transition, null, Duration.ofMillis(3))
 
         then:
         execution.phase() == ActionPhase.COMPLETE
@@ -42,18 +44,19 @@ class ActionExecutionSpec extends Specification {
         execution.kind() == ActionKind.STEP
         execution.transition().is(transition)
         execution.error() == null
+        execution.duration() == Duration.ofMillis(3)
     }
 
     def 'actionId is the leaf of the path'() {
         expect:
         new ActionExecution(ActionPhase.START, ActionPath.of('activate', 'charge'),
-                                    ActionKind.STEP, Stub(Transition), null).actionId() == 'charge'
+                                    ActionKind.STEP, Stub(Transition), null, null).actionId() == 'charge'
     }
 
     @Unroll
     def 'the constructor rejects a null #component'() {
         when:
-        new ActionExecution(phase, path, kind, transition, null)
+        new ActionExecution(phase, path, kind, transition, null, null)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -70,7 +73,7 @@ class ActionExecutionSpec extends Specification {
     def 'ERROR requires an error'() {
         when:
         new ActionExecution(ActionPhase.ERROR, ActionPath.of('a'), ActionKind.STEP,
-                                    Stub(Transition), null)
+                                    Stub(Transition), null, Duration.ZERO)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -81,7 +84,8 @@ class ActionExecutionSpec extends Specification {
     def '#phase rejects an error'() {
         when:
         new ActionExecution(phase, ActionPath.of('a'), ActionKind.STEP, Stub(Transition),
-                                    new IllegalStateException('boom'))
+                                    new IllegalStateException('boom'),
+                                    phase == ActionPhase.START ? null : Duration.ZERO)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -97,6 +101,30 @@ class ActionExecutionSpec extends Specification {
 
         expect:
         new ActionExecution(ActionPhase.ERROR, ActionPath.of('a'), ActionKind.OPERATION,
-                                    Stub(Transition), boom).error().is(boom)
+                                    Stub(Transition), boom, Duration.ZERO).error().is(boom)
+    }
+
+    def 'START rejects a duration'() {
+        when:
+        new ActionExecution(ActionPhase.START, ActionPath.of('a'), ActionKind.STEP,
+                            Stub(Transition), null, Duration.ZERO)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == 'Action execution duration must be null at phase START'
+    }
+
+    @Unroll
+    def '#phase requires a duration'() {
+        when:
+        new ActionExecution(phase, ActionPath.of('a'), ActionKind.STEP, Stub(Transition),
+                            phase == ActionPhase.ERROR ? new IllegalStateException('boom') : null, null)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == "Action execution duration cannot be null at phase ${phase}"
+
+        where:
+        phase << [ActionPhase.COMPLETE, ActionPhase.ERROR]
     }
 }

@@ -40,6 +40,7 @@ import org.transflux.core.transition.TransitionPhase;
 import org.transflux.core.transition.TransitionResult;
 import org.transflux.core.trigger.Trigger;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -782,10 +783,12 @@ class StateMachineImpl<T> implements StateMachine<T> {
      * @param transition the read-only view of the transition being executed - the caller's own, so
      *                   that the one view built per execution serves every notification in it
      * @param error the failure at {@link ActionPhase#ERROR}, otherwise {@code null}
+     * @param duration how long the body ran, or {@code null} at {@link ActionPhase#START}
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
     <C> void notifyActionListeners(BoundAction<T, C> bound, ActionPhase phase, T entity, C context,
-                                   ActionPath path, Transition transition, Throwable error) {
+                                   ActionPath path, Transition transition, Throwable error,
+                                   Duration duration) {
         List<BoundActionListener<T, C>> own = bound.listeners().forPhase(phase);
         List<BoundActionListener<T, Object>> global = globalActionListeners.forPhase(phase);
         if (own.isEmpty() && global.isEmpty()) {
@@ -793,7 +796,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
         }
 
         ActionExecution execution = new ActionExecution(
-            phase, path, bound.kind(), transition, error);
+            phase, path, bound.kind(), transition, error, duration);
 
         for (BoundActionListener<T, C> listener : own) {
             notifyActionListener(listener, entity, context, execution);

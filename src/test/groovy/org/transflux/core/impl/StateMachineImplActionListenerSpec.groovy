@@ -134,6 +134,43 @@ class StateMachineImplActionListenerSpec extends Specification {
         log == ['start', 'error']
     }
 
+    @Unroll
+    def 'the #hook payload carries the body duration, excluding its listeners, and START carries none'() {
+        given:
+        def durations = [:]
+        def sm = build({ d ->
+            d.state('s1', { st ->
+                st.transitionsTo('s2', 't', { t ->
+                    t.step('act', { StepDef s ->
+                        s.using({ e, ctx, tr ->
+                            Thread.sleep(20)
+                            if (fails) {
+                                throw new IllegalStateException('boom')
+                            }
+                        } as Action)
+                         .onStart('before', { e, c, x -> Thread.sleep(200); durations.START = x.duration() } as ActionListener)
+                         .onComplete('after', { e, c, x -> durations.COMPLETE = x.duration() } as ActionListener)
+                         .onError('failed', { e, c, x -> durations.ERROR = x.duration() } as ActionListener)
+                    } as Consumer)
+                } as Consumer)
+            } as Consumer)
+             .state('s2', {} as Consumer)
+        })
+
+        when:
+        sm.entity(new Entity('s1')).transitionTo('s2')
+
+        then:
+        durations.containsKey('START') && durations.START == null
+        durations[hook].toMillis() >= 20
+        durations[hook].toMillis() < 200
+
+        where:
+        hook       | fails
+        'COMPLETE' | false
+        'ERROR'    | true
+    }
+
     def 'a transition rejected by a pre-condition notifies nothing - no action ever ran'() {
         given:
         def log = []

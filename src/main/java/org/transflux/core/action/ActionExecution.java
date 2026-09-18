@@ -22,6 +22,8 @@ import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.transition.ActionPath;
 import org.transflux.core.transition.Transition;
 
+import java.time.Duration;
+
 import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
@@ -60,12 +62,16 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param kind the form the action was authored in
  * @param transition the transition this execution belongs to
  * @param error the failure, or {@code null} at any phase other than {@link ActionPhase#ERROR}
+ * @param duration how long the action's body ran, excluding this action's own start listeners,
+ *                 or {@code null} at {@link ActionPhase#START}; a container's body is its members,
+ *                 so its duration includes them and whatever their listeners cost
  */
 public record ActionExecution(ActionPhase phase,
                               ActionPath path,
                               ActionKind kind,
                               Transition transition,
-                              Throwable error) {
+                              Throwable error,
+                              Duration duration) {
 
     public ActionExecution {
         requireNotNull(phase, "Action execution phase");
@@ -73,6 +79,7 @@ public record ActionExecution(ActionPhase phase,
         requireNotNull(kind, "Action execution kind");
         requireNotNull(transition, "Action execution transition");
         requireErrorMatchesPhase(phase, error);
+        requireDurationMatchesPhase(phase, duration);
     }
 
     /**
@@ -82,6 +89,21 @@ public record ActionExecution(ActionPhase phase,
      */
     public String actionId() {
         return path.leaf();
+    }
+
+    private static void requireDurationMatchesPhase(ActionPhase phase, Duration duration) {
+        if (phase == ActionPhase.START) {
+            if (duration != null) {
+                throw new TransfluxValidationException(
+                    "Action execution duration must be null at phase START");
+            }
+            return;
+        }
+
+        if (duration == null) {
+            throw new TransfluxValidationException(
+                "Action execution duration cannot be null at phase " + phase);
+        }
     }
 
     private static void requireErrorMatchesPhase(ActionPhase phase, Throwable error) {

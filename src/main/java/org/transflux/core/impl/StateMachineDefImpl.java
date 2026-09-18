@@ -35,6 +35,7 @@ import org.transflux.core.action.StepDef;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
 import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.logging.ExecutionLogging;
 import org.transflux.core.state.StateApplier;
 import org.transflux.core.state.StateDef;
 import org.transflux.core.state.StateListener;
@@ -1031,6 +1032,25 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         StateDefImpl<T> stateDef = registerState(stateId);
         ConfigurableDefImpl.runConfigurer(stateDef, configurer);
         return this;
+    }
+
+    @Override
+    public StateMachineDef<T> withExecutionLogging() {
+        return withExecutionLogging(ExecutionLogging.defaults());
+    }
+
+    @Override
+    public StateMachineDef<T> withExecutionLogging(ExecutionLogging<? super T> logging) {
+        requireNotNull(logging, "Execution logging");
+        return onAnyStateEntry("transflux-log-state-entry", logging.<T>stateListener())
+            .onAnyStateExit("transflux-log-state-exit", logging.<T>stateListener())
+            .onAnyTransitionStart("transflux-log-transition-start", logging.<T, Object>transitionListener())
+            .onAnyTransitionComplete("transflux-log-transition-complete",
+                                     logging.<T, Object>transitionListener())
+            .onAnyTransitionError("transflux-log-transition-error", logging.<T, Object>transitionListener())
+            .onAnyActionStart("transflux-log-action-start", logging.<T, Object>actionListener())
+            .onAnyActionComplete("transflux-log-action-complete", logging.<T, Object>actionListener())
+            .onAnyActionError("transflux-log-action-error", logging.<T, Object>actionListener());
     }
 
     @Override
