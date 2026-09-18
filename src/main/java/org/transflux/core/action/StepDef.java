@@ -88,4 +88,10 @@ public interface StepDef<T, C> extends ActionDef<T, C> {
     @Override
     StepDef<T, C> onError(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
 
+    @Override
+    StepDef<T, C> disableGlobalListener(String listenerId);
+
+    @Override
+    StepDef<T, C> disableAllGlobalListeners();
+
 }

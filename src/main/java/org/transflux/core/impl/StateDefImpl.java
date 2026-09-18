@@ -42,6 +42,8 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
     private final List<StateListenerDefImpl<T>> entryListeners = new ArrayList<>();
     private final List<StateListenerDefImpl<T>> exitListeners = new ArrayList<>();
 
+    private final GlobalListenerDisables disabledGlobals = new GlobalListenerDisables(this);
+
     StateDefImpl(StateMachineDefImpl<T> smd, String id) {
         super(id, "state", "State ID");
         requireNotNull(smd, "State machine definition");
@@ -83,6 +85,27 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
         requireNotNull(configurer, "State listener configurer");
         exitListeners.add(declareListener(listenerId, configurer));
         return this;
+    }
+
+    @Override
+    public StateDefImpl<T> disableGlobalListener(String listenerId) {
+        disabledGlobals.disable(listenerId);
+        return this;
+    }
+
+    @Override
+    public StateDefImpl<T> disableAllGlobalListeners() {
+        disabledGlobals.disableAll();
+        return this;
+    }
+
+    /**
+     * Returns what this state turned off among the state-machine-wide state listeners.
+     *
+     * @return this state's declaration; never {@code null}
+     */
+    GlobalListenerDisables getDisabledGlobals() {
+        return disabledGlobals;
     }
 
     /**

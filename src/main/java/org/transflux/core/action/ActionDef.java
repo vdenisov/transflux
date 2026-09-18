@@ -285,4 +285,46 @@ public interface ActionDef<T, C> extends Identifiable {
      */
     ActionDef<T, C> onError(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
 
+    /**
+     * Suppresses one state-machine-wide action listener for this action, leaving this action's own
+     * listeners and every other global untouched.
+     * <p>
+     * The id must name a listener registered through
+     * {@code StateMachineDef.onAnyActionStart(...)} or one of its siblings; an unknown id, or one
+     * naming a listener of another category, fails the build. Declaring the same id twice is a
+     * no-op. Because the three hooks are registered separately, silencing a listener attached to
+     * all three means naming all three ids - or declaring
+     * {@link #disableAllGlobalListeners()} instead.
+     *
+     * <p>Like everything else on this def, the disable belongs to the action rather than to any
+     * one call site, so it applies at every invocation. It is not inherited: a container that
+     * declares it does not disable the globals of the members it dispatches, which is what keeps
+     * an action's observers from depending on where it was called from.
+     *
+     * <p>This is a deny-list and <b>fails open</b> - a global listener registered later is not
+     * covered by a list written today. An application that has to guarantee what a listener never
+     * sees registers its own global listener and sanitises there.
+     *
+     * @param listenerId the id of the global action listener to suppress; never {@code null} or
+     *                   blank
+     *
+     * @return this def for chaining
+     *
+     * @throws org.transflux.core.exception.TransfluxValidationException if {@code listenerId} is
+     *         {@code null} or blank, or if the configurer has already returned
+     */
+    ActionDef<T, C> disableGlobalListener(String listenerId);
+
+    /**
+     * Suppresses every state-machine-wide action listener for this action. It wins over
+     * {@link #disableGlobalListener(String)} whichever order the two are declared in, and this
+     * action's own listeners still receive everything.
+     *
+     * @return this def for chaining
+     *
+     * @throws org.transflux.core.exception.TransfluxValidationException if the configurer has
+     *         already returned
+     */
+    ActionDef<T, C> disableAllGlobalListeners();
+
 }

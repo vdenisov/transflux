@@ -92,6 +92,8 @@ class StateDefImplLambdaConfigurerSpec extends Specification {
         'withName'        || { StateDef s -> s.withName('x') }
         'withDescription' || { StateDef s -> s.withDescription('x') }
         'transitionsTo'   || { StateDef s -> s.transitionsTo(ACTIVE.id, 't1', {}) }
+        'disableGlobalListener'     || { StateDef s -> s.disableGlobalListener('g') }
+        'disableAllGlobalListeners' || { StateDef s -> s.disableAllGlobalListeners() }
     }
 
     def 'nested transitionsTo configurer succeeds while StateDef guard remains active'() {

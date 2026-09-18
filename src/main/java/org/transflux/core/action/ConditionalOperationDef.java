@@ -144,4 +144,10 @@ public interface ConditionalOperationDef<T, C> extends ActionDef<T, C> {
     ConditionalOperationDef<T, C> onError(String listenerId,
                                           Consumer<ActionListenerDef<T, C>> configurer);
 
+    @Override
+    ConditionalOperationDef<T, C> disableGlobalListener(String listenerId);
+
+    @Override
+    ConditionalOperationDef<T, C> disableAllGlobalListeners();
+
 }

@@ -295,7 +295,8 @@ final class OperationDefImpl<T, C>
         this.executor = new CompositeOperationExecutor<T, C>(ownScope());
 
         return BoundAction.of(getId(), executor, ActionKind.OPERATION, buildBoundListeners(),
-                              buildCompensationRouter(), getAsyncRejectionPolicy());
+                              buildCompensationRouter(), getAsyncRejectionPolicy(),
+                              getDisabledGlobals());
     }
 
     @Override

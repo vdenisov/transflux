@@ -499,4 +499,42 @@ public interface TransitionDef<T, C>
      */
     TransitionDef<T, C> onError(String listenerId, Consumer<TransitionListenerDef<T, C>> configurer);
 
+    /**
+     * Suppresses one state-machine-wide transition listener for this transition, leaving this
+     * transition's own listeners and every other global untouched.
+     * <p>
+     * The id must name a listener registered through
+     * {@code StateMachineDef.onAnyTransitionStart(...)} or one of its siblings; an unknown id, or
+     * one naming a listener of another category, fails the build. Declaring the same id twice is a
+     * no-op.
+     *
+     * <p>The disable covers this transition alone: it does not reach the actions this transition
+     * runs, nor the states it moves between, so this transition's context still reaches a global
+     * state listener unless that state disables it too.
+     *
+     * <p>This is a deny-list and <b>fails open</b> - a global listener registered later is not
+     * covered by a list written today. An application that has to guarantee what a listener never
+     * sees registers its own global listener and sanitises there.
+     *
+     * @param listenerId the id of the global transition listener to suppress; never {@code null}
+     *                   or blank
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code listenerId} is {@code null} or blank, or if
+     *         the configurer has already returned
+     */
+    TransitionDef<T, C> disableGlobalListener(String listenerId);
+
+    /**
+     * Suppresses every state-machine-wide transition listener for this transition. It wins over
+     * {@link #disableGlobalListener(String)} whichever order the two are declared in, and this
+     * transition's own listeners still receive everything.
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if the configurer has already returned
+     */
+    TransitionDef<T, C> disableAllGlobalListeners();
+
 }

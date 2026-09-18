@@ -574,6 +574,38 @@ public final class JavaDslSurface {
     }
 
     /**
+     * Both disable forms, on each of the three owners that carries them, against globals the same
+     * definition registers.
+     *
+     * @return the built state machine
+     */
+    public static StateMachine<Order> globalListenerDisableShapes() {
+        return Transflux.<Order>defineStateMachine()
+            .forEntityType(Order.class)
+            .withStateResolver(o -> o.state)
+            .withStateApplier((o, s) -> o.state = s)
+            .onAnyStateEntry("any-entry", (order, ctx, change) -> order.trail.add("any-entry"))
+            .onAnyStateExit("any-exit", (order, ctx, change) -> order.trail.add("any-exit"))
+            .onAnyTransitionStart("any-start",
+                                  (order, ctx, execution) -> order.trail.add("any-start"))
+            .onAnyActionStart("any-action-start",
+                              (order, ctx, execution) -> order.trail.add("any-action-start"))
+            .step("record", OrderCtx.class, step -> step
+                .using(new RecordingAction())
+                .disableGlobalListener("any-action-start"))
+            .operation("wrap", OrderCtx.class, op -> op
+                .disableAllGlobalListeners()
+                .run("record"))
+            .state("s1", s -> s
+                .disableGlobalListener("any-exit")
+                .transitionsTo("s2", "t", OrderCtx.class, t -> t
+                    .disableGlobalListener("any-start")
+                    .run("wrap")))
+            .state("s2", s -> s.disableAllGlobalListeners())
+            .build();
+    }
+
+    /**
      * The async listener declaration in both shapes, on each of the three listener categories.
      *
      * @return the built state machine, which owns a pool and must be closed

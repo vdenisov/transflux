@@ -273,6 +273,16 @@ The three categories differ in what they can tell the host. A state listener ans
 
 Volume is set by the hooks rather than by the listener count, and the categories differ by orders of magnitude. A transition notifies its start, its source state's exit, its outcome and its target state's entry — at most four submissions for a listener attached to all of them. An action notifies twice per *invocation*, at every nesting depth: a global async action listener submits twice for every action a transition runs, and a body dispatching an action a thousand times in a loop submits two thousand notifications from one transition. That fills the default queue, and under `DROP` loses the overflow. A high-volume action listener belongs on the synchronous path, or declares `CALLER_RUNS` or `BLOCK` when losing notifications is not acceptable.
 
+**An owner may turn its global listeners off.** A state, a transition and an action each suppress the state-machine-wide listeners of its own category: `disableGlobalListener(id)` names one, repeatably, and `disableAllGlobalListeners()` takes them all and wins whichever order the two were declared in. The motivating case is an action whose context carries sensitive data, running in a state machine whose host registered global listeners the action knows nothing about — the author replaces the generic observation with a listener of its own that records a redacted line. It is a convenience rather than a security control: an application that has to guarantee what a listener never sees writes its own global listener and sanitises there, and nothing the framework ships competes with that. Six rules, sized to that bar.
+
+- *An owner's own listeners always receive everything.* Attaching a listener to an owner is the consent, and it is also how the owner replaces what it just turned off, with whatever configuration it wants and through the same DSL the globals use.
+- *Suppression is total, not payload withholding.* A disabled global is not notified at all; notifying it context-free would produce a second record of the same execution. The payload records are therefore unchanged by this feature.
+- *The category follows the owner*, with no cross-category reach: all global action listeners on an action, all global transition listeners on a transition, all global state listeners on a state. A transition's context still reaches a global state listener unless that state disables it too.
+- *A disable covers exactly the def it is declared on, never its children.* An operation that disables its global action listeners does not disable its members'; a transition that disables its global transition listeners does not touch the actions it runs or the states it moves between. Inheriting would make an action's observers depend on its call site, which the attachment rule above rules out.
+- *The named form is a deny-list and fails open.* A global listener registered next year is not covered by a list written today. That is a consequence of the shape, not an oversight, and it is why the bar is "good enough and predictable".
+- *An unknown id fails the build.* It must name a registered global listener of the owner's own category — an id naming another category's global, or a listener attached to an owner, is rejected — because a typo in a deny-list silently protects nothing. Declaring the same id twice is a no-op.
+
+
 #### 2.2.11 Compensation Engine
 
 Manages error recovery and rollback operations.
@@ -2279,6 +2289,18 @@ stateMachineDef
     .onAnyActionStart("audit-any-action-start", new ActionAuditListener())
     .onAnyActionComplete("audit-any-action-complete", new ActionAuditListener())
     .onAnyActionError("audit-any-action-error", new ActionAuditListener());
+
+// Turning globals off, per owner and per category (§2.2.10). The owner's own listeners still
+// receive everything, and the disable is not inherited by anything the owner dispatches.
+stateMachineDef
+    .step("capture-payment", BillingContext.class, s -> s
+        .using(new CapturePaymentAction())
+        .disableGlobalListener("audit-any-action-start")
+        .onStart("capture-redacted", new RedactedCaptureListener()))
+    .state("active", st -> st
+        .disableAllGlobalListeners()
+        .transitionsTo("cancelled", "cancel", CancelContext.class, t -> t
+            .disableGlobalListener("audit-any-start")));
 ```
 
 Each hook accepts a listener instance or a

@@ -188,4 +188,41 @@ public interface StateDef<T> extends Identifiable {
     <C> StateDef<T> transitionsTo(String targetStateId, String transitionId, Class<C> contextType,
                                   Consumer<TransitionDef<T, C>> configurer);
 
+    /**
+     * Suppresses one state-machine-wide state listener for this state, leaving this state's own
+     * listeners and every other global untouched.
+     * <p>
+     * The id must name a listener registered through
+     * {@code StateMachineDef.onAnyStateEntry(...)} or {@code onAnyStateExit(...)}; an unknown id,
+     * or one naming a listener of another category, fails the build. Declaring the same id twice
+     * is a no-op.
+     *
+     * <p>The disable covers this state alone: it does not reach the transitions that enter or
+     * leave it, nor the actions those transitions run.
+     *
+     * <p>This is a deny-list and <b>fails open</b> - a global listener registered later is not
+     * covered by a list written today. An application that has to guarantee what a listener never
+     * sees registers its own global listener and sanitises there.
+     *
+     * @param listenerId the id of the global state listener to suppress; never {@code null} or
+     *                   blank
+     *
+     * @return this StateDef instance for chaining inside the configurer body
+     *
+     * @throws TransfluxValidationException if {@code listenerId} is {@code null} or blank, or if
+     *         the configurer has already returned
+     */
+    StateDef<T> disableGlobalListener(String listenerId);
+
+    /**
+     * Suppresses every state-machine-wide state listener for this state. It wins over
+     * {@link #disableGlobalListener(String)} whichever order the two are declared in, and this
+     * state's own listeners still receive everything.
+     *
+     * @return this StateDef instance for chaining inside the configurer body
+     *
+     * @throws TransfluxValidationException if the configurer has already returned
+     */
+    StateDef<T> disableAllGlobalListeners();
+
 }

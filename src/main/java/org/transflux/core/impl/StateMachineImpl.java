@@ -675,10 +675,15 @@ class StateMachineImpl<T> implements StateMachine<T> {
         List<BoundStateListener<T>> globalExit = bindStateListeners(def.getGlobalExitListeners());
 
         for (StateDefImpl<T> sd : def.getStates().values()) {
+            // The state's own deny-list applies here rather than at the hook: this merge is
+            // already per state, so filtering costs the build one pass and notification nothing.
+            GlobalListenerDisables disabled = sd.getDisabledGlobals();
             entryListenersByState.put(sd.getId(),
-                concatListeners(bindStateListeners(sd.getEntryListeners()), globalEntry));
+                concatListeners(bindStateListeners(sd.getEntryListeners()),
+                                disabled.filter(globalEntry, BoundStateListener::id)));
             exitListenersByState.put(sd.getId(),
-                concatListeners(bindStateListeners(sd.getExitListeners()), globalExit));
+                concatListeners(bindStateListeners(sd.getExitListeners()),
+                                disabled.filter(globalExit, BoundStateListener::id)));
         }
     }
 
@@ -790,7 +795,15 @@ class StateMachineImpl<T> implements StateMachine<T> {
                                    ActionPath path, Transition transition, Throwable error,
                                    Duration duration) {
         List<BoundActionListener<T, C>> own = bound.listeners().forPhase(phase);
-        List<BoundActionListener<T, Object>> global = globalActionListeners.forPhase(phase);
+        // Filtered here rather than at bind time because buildBound() has no state machine to
+        // read the globals from - not because the result varies, which it does not: the deny-list
+        // belongs to the action, so this list is the same at every call site. An action that
+        // disables nothing - almost every action - pays one field read.
+        // ponytail: a named deny-list filters per notification; precompute per bound action if one
+        // ever lands on a hot action.
+        List<BoundActionListener<T, Object>> global =
+            bound.disabledGlobals().filter(globalActionListeners.forPhase(phase),
+                                           BoundActionListener::id);
         if (own.isEmpty() && global.isEmpty()) {
             return;
         }
@@ -917,10 +930,14 @@ class StateMachineImpl<T> implements StateMachine<T> {
     private <C> BoundTransition<T, C> buildTransition(TransitionDefImpl<T, C> td,
                                                       Map<String, BoundCondition<T, ?>> conditionRegistry,
                                                       BoundTransitionListeners<T, Object> globals) {
+        GlobalListenerDisables disabled = td.getDisabledGlobals();
         BoundTransitionListeners<T, C> listeners = new BoundTransitionListeners<>(
-            concatListeners(bindTransitionListeners(td.getStartListeners()), (List) globals.onStart()),
-            concatListeners(bindTransitionListeners(td.getCompleteListeners()), (List) globals.onComplete()),
-            concatListeners(bindTransitionListeners(td.getErrorListeners()), (List) globals.onError()));
+            concatListeners(bindTransitionListeners(td.getStartListeners()),
+                            (List) disabled.filter(globals.onStart(), BoundTransitionListener::id)),
+            concatListeners(bindTransitionListeners(td.getCompleteListeners()),
+                            (List) disabled.filter(globals.onComplete(), BoundTransitionListener::id)),
+            concatListeners(bindTransitionListeners(td.getErrorListeners()),
+                            (List) disabled.filter(globals.onError(), BoundTransitionListener::id)));
 
         return BoundTransition.from(td, (Map) conditionRegistry, listeners);
     }

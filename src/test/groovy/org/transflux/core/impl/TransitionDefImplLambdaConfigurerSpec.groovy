@@ -123,6 +123,8 @@ class TransitionDefImplLambdaConfigurerSpec extends Specification {
         'operation'          || { TransitionDef t -> t.operation('co', { c -> }) }
         'preCondition'       || { TransitionDef t -> t.preCondition('p', { ent -> true }) }
         'postCondition'      || { TransitionDef t -> t.postCondition('p', { ent -> true }) }
+        'disableGlobalListener'     || { TransitionDef t -> t.disableGlobalListener('g') }
+        'disableAllGlobalListeners' || { TransitionDef t -> t.disableAllGlobalListeners() }
     }
 
     def 'null configurer is rejected with a clear message'() {

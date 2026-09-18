@@ -76,4 +76,10 @@ public interface OperationDef<T, C> extends ActionDef<T, C>,
     @Override
     OperationDef<T, C> onError(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
 
+    @Override
+    OperationDef<T, C> disableGlobalListener(String listenerId);
+
+    @Override
+    OperationDef<T, C> disableAllGlobalListeners();
+
 }

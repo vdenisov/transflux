@@ -74,6 +74,8 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
 
     private final CompensationSink<T, C, SELF> compensation = new CompensationSink<>(this, self());
 
+    private final GlobalListenerDisables disabledGlobals = new GlobalListenerDisables(this);
+
     /**
      * What a fork of this action does when the executor cannot take it. {@code null} until
      * declared, which is what lets the state machine's own default apply instead.
@@ -283,6 +285,29 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     @Override
     public SELF onError(String listenerId, Consumer<ActionListenerDef<T, C>> configurer) {
         return listeners.configured(ActionPhase.ERROR, listenerId, configurer);
+    }
+
+    @Override
+    public SELF disableGlobalListener(String listenerId) {
+        disabledGlobals.disable(listenerId);
+        return self();
+    }
+
+    @Override
+    public SELF disableAllGlobalListeners() {
+        disabledGlobals.disableAll();
+        return self();
+    }
+
+    /**
+     * Returns what this action turned off among the state-machine-wide action listeners. Read by
+     * the build, which validates the named ids, and carried onto the bound action, which is where
+     * the globals are appended.
+     *
+     * @return this action's declaration; never {@code null}
+     */
+    final GlobalListenerDisables getDisabledGlobals() {
+        return disabledGlobals;
     }
 
     /**

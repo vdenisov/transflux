@@ -199,6 +199,23 @@ class JavaDslSurfaceSpec extends Specification {
         sm.close()
     }
 
+    def 'the global listener disable shapes build and suppress only the globals'() {
+        given:
+        def sm = JavaDslSurface.globalListenerDisableShapes()
+        def order = new JavaDslSurface.Order()
+
+        when:
+        def result = sm.entity(order).transitionTo('s2', new JavaDslSurface.OrderCtx())
+
+        then:
+        result.success
+        order.trail.contains('recording')
+        !order.trail.any { it.startsWith('any-') }
+
+        cleanup:
+        sm.close()
+    }
+
     def 'the async listener shapes build and run'() {
         given:
         def sm = JavaDslSurface.asyncListenerShapes()

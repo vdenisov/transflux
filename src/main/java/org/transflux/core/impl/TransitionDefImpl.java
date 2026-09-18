@@ -85,6 +85,8 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     private final List<TransitionListenerDefImpl<T, C>> completeListeners = new ArrayList<>();
     private final List<TransitionListenerDefImpl<T, C>> errorListeners = new ArrayList<>();
 
+    private final GlobalListenerDisables disabledGlobals = new GlobalListenerDisables(this);
+
     /**
      * Constructs a new TransitionDefImpl with the specified parameters.
      * <p>
@@ -679,6 +681,27 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
      */
     List<TransitionListenerDefImpl<T, C>> getErrorListeners() {
         return errorListeners;
+    }
+
+    @Override
+    public TransitionDefImpl<T, C> disableGlobalListener(String listenerId) {
+        disabledGlobals.disable(listenerId);
+        return this;
+    }
+
+    @Override
+    public TransitionDefImpl<T, C> disableAllGlobalListeners() {
+        disabledGlobals.disableAll();
+        return this;
+    }
+
+    /**
+     * Returns what this transition turned off among the state-machine-wide transition listeners.
+     *
+     * @return this transition's declaration; never {@code null}
+     */
+    GlobalListenerDisables getDisabledGlobals() {
+        return disabledGlobals;
     }
 
     /**

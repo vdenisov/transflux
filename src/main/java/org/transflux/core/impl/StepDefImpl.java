@@ -83,7 +83,8 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
      */
     BoundAction<T, C> buildBoundAction() {
         return BoundAction.of(getId(), source.resolve("Step"), ActionKind.STEP, buildBoundListeners(),
-                              buildCompensationRouter(), getAsyncRejectionPolicy());
+                              buildCompensationRouter(), getAsyncRejectionPolicy(),
+                              getDisabledGlobals());
     }
 
     @Override

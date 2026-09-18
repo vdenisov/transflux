@@ -1277,6 +1277,63 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
+     * Rejects a deny-list entry that names no global listener of its owner's own category.
+     * <p>
+     * A typo in a deny-list silently protects nothing, which is the one failure mode this feature
+     * cannot absorb - hence an error rather than a warning. The category follows the owner, so an
+     * id naming a global of another category is rejected too, as is one naming a listener attached
+     * to an owner: those are never suppressed, because attaching a listener to an owner is the
+     * consent.
+     *
+     * @throws TransfluxValidationException if a disabled id names no such global listener
+     */
+    private void checkGlobalListenerDisables() {
+        Set<String> stateGlobals = listenerIdsOf(globalEntryListeners, globalExitListeners);
+        Set<String> transitionGlobals =
+            listenerIdsOf(globalStartListeners, globalCompleteListeners, globalErrorListeners);
+        Set<String> actionGlobals = listenerIdsOf(globalActionStartListeners,
+                                                  globalActionCompleteListeners,
+                                                  globalActionErrorListeners);
+
+        for (StateDefImpl<T> sd : states.values()) {
+            checkDisabledIds(sd.getDisabledGlobals(), stateGlobals, sd.defLabel(), "state",
+                             "onAnyStateEntry / onAnyStateExit");
+        }
+        for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
+            checkDisabledIds(td.getDisabledGlobals(), transitionGlobals, td.defLabel(), "transition",
+                             "onAnyTransitionStart / onAnyTransitionComplete / onAnyTransitionError");
+        }
+        visitActionDefs(def -> checkDisabledIds(def.getDisabledGlobals(), actionGlobals,
+                                                def.defLabel(), "action",
+                                                "onAnyActionStart / onAnyActionComplete / onAnyActionError"));
+    }
+
+    @SafeVarargs
+    private static Set<String> listenerIdsOf(List<? extends IdentifiedDefImpl<?>>... groups) {
+        Set<String> ids = new HashSet<>();
+        for (List<? extends IdentifiedDefImpl<?>> group : groups) {
+            for (IdentifiedDefImpl<?> listener : group) {
+                ids.add(listener.getId());
+            }
+        }
+
+        return ids;
+    }
+
+    private static void checkDisabledIds(GlobalListenerDisables disabled, Set<String> globals,
+                                         String ownerLabel, String category, String registrations) {
+        for (String listenerId : disabled.ids()) {
+            if (!globals.contains(listenerId)) {
+                throw new TransfluxValidationException(
+                    "Listener ID '" + listenerId + "' is disabled on " + ownerLabel
+                        + ", but no global " + category + " listener is registered under it."
+                        + " disableGlobalListener names one registered through " + registrations
+                        + "; an owner's own listeners are always notified");
+            }
+        }
+    }
+
+    /**
      * Visits every listener def in this definition, of all three categories, owned and global.
      *
      * @param visitor what to apply to each
@@ -1648,6 +1705,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     private void validateContextCompatibilityAndCycles() {
         checkOwnedListenerIds();
+        checkGlobalListenerDisables();
         checkBlockingIsPossible();
         collectInlineMemberContexts();
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {

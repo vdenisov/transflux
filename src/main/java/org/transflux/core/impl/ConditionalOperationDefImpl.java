@@ -321,7 +321,8 @@ final class ConditionalOperationDefImpl<T, C>
         // being built, so an earlier machine's conditional keeps the members it was built with.
         this.executor = new ConditionalBranchExecutor(conditions, ownScope());
         return BoundAction.of(getId(), executor, ActionKind.OPERATION, buildBoundListeners(),
-                              buildCompensationRouter(), getAsyncRejectionPolicy());
+                              buildCompensationRouter(), getAsyncRejectionPolicy(),
+                              getDisabledGlobals());
     }
 
     private List<CompositeMember<T, C>> bindMembers(List<ActionSequenceSink.DeclaredMember<T, C>> declared,
