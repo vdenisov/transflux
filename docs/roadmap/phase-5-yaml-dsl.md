@@ -3,90 +3,152 @@
 ## Phase 5: YAML DSL & Component System (v0.5.0)
 *Target: The declarative DSL at parity with the Java DSL.*
 
-### 5.0 Java DSL Audit & Java/YAML Alignment (first work item)
-*This pass runs **before** any YAML implementation work. The YAML DSL is only as good as the Java DSL it shadows; if the Java DSL has drifted from `requirements.md` (or from itself) during Phases 2–4, that drift must be resolved first or it propagates into YAML.*
-- [ ] **`requirements.md` ↔ Java DSL audit.** Walk `requirements.md` end-to-end against the implemented Java DSL. For every code snippet in the spec, verify it compiles and runs against the live API. Update wording, examples, and types in `requirements.md` to match the implementation; conversely, flag implementation gaps where the spec was right and the code drifted. Sections most likely to need touch-ups (cumulative debt from Phases 2–4; §3.8 already reconciled the action-model sections, so expect the remainder): §2.1 (core abstractions), §2.1.4 (`TransitionResult`), §2.1.5 (action execution), §2.4 (execution flow), §3.6 (conditions), §4.3 (transition definitions), §4.4 (action definitions), §4.5 (nested actions + async).
-- [ ] **Java DSL self-consistency review.** Cross-cutting pass through every Def's public API. Verify: shape consistency (lambda-configurer everywhere children exist, per Phase 2.6); naming consistency (`with*` for entity properties, `using*` for declarative property-setters, `for*` for scoping/grouping blocks); generic-parameter consistency across paired Def/runtime types; metadata accessor parity (id / name / description). Surface any inconsistencies as targeted fix tasks before Phase 5 work proceeds.
-- [ ] **Java/YAML alignment proposal.** Produce a short alignment doc (transient, repo-root scratch file along the lines of the offer-state-machine example in §2.6.9) walking the YAML shape side-by-side with the Java shape for every top-level element (state, transition, action, condition, mapper, async, listener, trigger). Flag every place where the YAML would naturally read differently from the Java — those are the design questions to resolve before writing the parser. Propose changes, additions, or improvements to the Java DSL where the YAML walkthrough surfaces opportunities (e.g., the Java DSL gains a sugar form because the YAML wants it, or both DSLs gain a feature the spec hadn't anticipated).
-- [x] **Inline nested declarative containers in the Java DSL** - moved to [Phase 4b](../history/phase-4b-action-sequence-grammar.md), which closed the whole parity gap rather than this one cell: a member-position `operation(id, ...)`, a conditional nested inside a branch, mappers and forks on branch members, and one shared member grammar (`ActionSequence`) the YAML mapper is written against. **Shipped**, and it went further than this item assumed - a transition's body is a sequence too, an inline declaration may name a context of its own, and every declaring verb has a forked twin. Two consequences for the mapper: write it against `ActionSequence<T, C, SELF>`, which is generic in the concrete def type precisely so one walk fills any of the four positions; and a transition's `action:` key becomes an `actions:` list (§5.3).
-- [ ] **`ConditionDef<T, C>` (deferred from Phase 3.7).** Mandatory id, optional name/description, covering the three Java authoring flavours (instance, predicate, expression) and YAML's `class:`, which the factory resolves into the instance form, plus the configurer overloads that depend on it — `StateMachineDef.condition(id, Consumer<ConditionDef>)` and `TransitionDef.preCondition(...)` / `postCondition(...)`. Phase 3 closed the item as a decision rather than as code: the def's only payload beyond what exists is metadata nothing reads (no `Condition` runtime view, no condition catalog, no payload carrying one), and making it reach runtime means widening all four `ConditionDescriptor` records plus `BoundCondition` and mirroring the family across `StateMachineDef`, `ContextScope`, `TransitionDef`'s two slots, `BranchDef`, `ManualTriggerDef` and `DataTriggerDef`. It lands here because the sealed descriptor grammar it intersects is what §5.5 pins down for YAML anyway. Naming is settled by precedent: `condition(String, Consumer<…>)` collides with `condition(String, Predicate<T>)`, both being one-argument functional interfaces an implicitly-typed lambda fits, so it needs a name of its own exactly as `mapperDef` did. Note this is a *real* collision, unlike the one that briefly justified `conditionPredicate` / `conditionExpression`, which differed in arity and has since been undone.
-- [ ] **`Describable` super-interface — decide (deferred from Phase 3.7).** Phase 3 dropped it rather than carrying it: gate (a), the listener payload shape, answered *per-kind* across all three payloads, and gate (b) is this phase's question — does the YAML serialiser walk Defs polymorphically, or per-kind? If per-kind, the item stays closed and the per-interface `getName()` / `getDescription()` declarations stand. If polymorphic, introduce `Describable extends Identifiable` then; it is purely additive.
-- [ ] **YAML spelling for action listeners (deferred from Phase 3.5).** The third listener category has no YAML surface. It is not the state and transition blocks with a third noun substituted: an action listener attaches to the *action* rather than to a call site, and YAML makes inline action definitions first-class at every member position, so where the attachment is written — and whether a `run:` reference inherits the callee's listeners, which in the Java DSL it does — both need settling. Belongs with §5.2's listener component library, which the Java DSL has no equivalent of.
-- [ ] **Two metadata-accessor anomalies (surfaced in Phase 3.7).** Fold into the self-consistency review above: `StateDef` and `TransitionDef` publish `withName` / `withDescription` but not the matching getters (which exist on `IdentifiedDefImpl`, so only the published contract is short); and the runtime `Transition` exposes no `getName()` while `State<T>` does.
-- [ ] **Decisions captured.** Resolve the alignment questions and capture decisions in `requirements.md` before moving to §5.1. This means `requirements.md` is the single source of truth for both DSLs entering YAML implementation work.
+**Shape of the phase.** Each numbered item is sized to one working session and has one kind of output. §5.1–§5.4 settle the Java DSL and the YAML grammar before any YAML code exists; §5.5 and §5.6 are core work with no YAML dependency; §5.7–§5.11 build the loader in slices; §5.12 and §5.13 close it.
 
-### 5.1 YAML Processing Infrastructure
-- [ ] Dependencies: SnakeYAML 2.4, Jackson YAML module (2.20.x, matching the core Jackson version), JSON Schema Validator 1.x current.
-- [ ] JSON Schema for Transflux YAML format.
-- [ ] Schema-based validation with line-number / context error reporting.
-- [ ] IDE-support schema files for autocomplete (the schema itself; IDE plugin work is out of scope).
+| Item | Output | Depends on |
+| --- | --- | --- |
+| 5.1 `requirements.md` ↔ Java audit | spec edits, fixture additions, a drift list | — |
+| 5.2 Java DSL self-consistency review | small Java fixes | — |
+| 5.3 Java/YAML alignment and decisions | `requirements.md` §3 rewritten where needed | 5.1 |
+| 5.4 Java DSL changes from the alignment | Java code | 5.3 |
+| 5.5 `StateMachine` as handle + `replaceDefinition` | Java code | — |
+| 5.6 Definition Sourcing SPI | Java code | — |
+| 5.7 `transflux-yaml` module and loader infrastructure | module, entry point, node walk, error model | 5.3, 5.6 |
+| 5.8 Parsing: component libraries | loader code | 5.4, 5.7 |
+| 5.9 Parsing: the state machine | loader code | 5.8 |
+| 5.10 Parsing: member grammar, compensation, fork | loader code | 5.8 |
+| 5.11 Imports and global configuration | loader code | 5.9, 5.10 |
+| 5.12 JSON Schema | schema file, agreement spec | 5.11 |
+| 5.13 Parity and hot-swap | specs | 5.5, 5.11 |
 
-### 5.2 Component Library System
-- [ ] `ComponentLibrary` — reusable definitions of actions, conditions, triggers, listeners.
-- [ ] Component identification rules per requirements §2.2.1 (mandatory `id`; expression-based conditions excepted).
-- [ ] Component versioning / compatibility metadata.
+**Three decisions that hold across the phase.**
+- **The mapper only emits `Def` calls.** Everything the Java build already checks — reference existence, action cycles, state-machine-wide id uniqueness, context compatibility — is checked there and nowhere else. The loader adds only what a document can get wrong before a def exists (structure, unknown keys, unloadable classes, import cycles) and attributes a build failure to the file and line that declared the offending def.
+- **Parity is capability, not spelling.** `InstanceBased` conditions are Java-only and `class:` is YAML-only already; SpEL forms of the state resolver, the state applier and a mapper's `mapTo` join the YAML-only side (§5.9, §5.8), since Java has a lambda for the same job. Where YAML needs something the Java DSL has no equivalent of *capability* for — a listener or trigger declared once and attached in several places — Java gains it (§5.4).
+- **The loader validates; the schema is for editors.** A mapper walking the YAML node tree knows the line, the column and what is being declared, so it can say `subscription.yml:42: action entry declares both 'run' and 'step'` where a schema validator says `must be valid to exactly one schema`. The JSON Schema ships for IDE autocomplete and is kept honest by a spec rather than used at runtime (§5.12).
 
-### 5.3 Component Reference Grammar
-- [ ] String-shorthand reference resolution (`action: my-action`).
-- [ ] Inline block definitions (`action: { type: operation, ... }`) — first-class everywhere.
-- [ ] Long-form reference (`{ ref: my-op }`) accepted in block contexts.
-- [ ] Type discrimination rules for inline definitions.
-- [ ] Circular reference detection.
-- [ ] Component dependency graph.
+### 5.1 `requirements.md` ↔ Java DSL Audit
+*Runs before anything else. The YAML DSL is only as good as the Java DSL it shadows; drift accumulated during Phases 2–4 propagates into YAML unless it is resolved first.*
+- [ ] Walk `requirements.md` §2 and §4 end-to-end against the implemented Java DSL. Update wording, examples and types to match the implementation; where the spec was right and the code drifted, record an implementation gap instead. Sections most likely to need touch-ups (the action-model sections were already reconciled): §2.1 (core abstractions), §2.1.4 (`TransitionResult`), §2.1.5 (action execution), §2.4 (execution flow), §4.3 (transition definitions), §4.4 (action definitions), §4.5 (nested actions + async), §4.7 (conditions).
+- [ ] **Every Java snippet compiles, durably.** A call shape the spec documents and `org.transflux.dsl.JavaDslSurface` lacks goes into the fixture, so the check outlives this audit.
+- [ ] **Separate "ahead of the code" from "drifted".** Some of §4 describes API that Phase 6 owns and nothing implements yet — `ComponentRegistry` / `withComponentRegistry` (§4.1), `TransfluxConfiguration` (§4.10). Mark those sections as not yet implemented, naming the phase that owns them, rather than "fixing" either side.
+- [ ] **§3 for internal consistency only** — its grammar is §5.3's subject, but contradictions within it are this item's. Known: §3.9 says the entity is the SpEL evaluation root while every example writes `entity.status`; event filters write `event.validation` where the implementation binds `#event`; transitions still show a single `action:` key.
+- [ ] Output: the spec edits, plus a list of implementation gaps handed to §5.2 (small) or §5.4 (needs a decision).
 
-### 5.4 Definition Sourcing SPI
-*Lands before §5.5 (parsing) — the loader consumes a `DefinitionSource`, not a `Path` or classloader. Per `requirements.md` §2.6.*
-- [ ] `DefinitionSource` interface: `Optional<DefinitionResource> open(String identifier)`.
-- [ ] `DefinitionResource` AutoCloseable carrying `identifier()`, `bytes()`, optional `lastModified()`, optional `etag()`.
-- [ ] Identifiers are **opaque, source-defined strings** — no path canonicalisation, no implicit `.yml` suffix, no relative-to-importer resolution by the framework. Hosts pick the scheme; the source decides what to make of it.
-- [ ] Ships-with implementations: `ClasspathDefinitionSource` (default), `FileSystemDefinitionSource(Path root)` (with `..`-traversal rejection and symlink policy), `CompositeDefinitionSource` (route by scheme prefix or by ordered fallback).
-- [ ] Error reporting threads the resource identifier into every validation error message, including the full import chain.
-- [ ] The framework never caches parsed definitions across builds; sources may cache bytes themselves. A fresh `replaceDefinition` (§5.8) re-loads through the source on every call.
-- [ ] **Imports flow through the source.** Cross-file `path:` references on `imports:` are handed verbatim to the source, not resolved to filesystem paths.
-- [ ] Cross-file ID-uniqueness detection still happens after the source has assembled the byte stream — it's a property of the combined definition, not the source.
-- [ ] Circular import detection.
+### 5.2 Java DSL Self-Consistency Review
+- [ ] Cross-cutting pass through every Def's public API. Verify: shape consistency (lambda-configurer everywhere children exist); naming consistency (`with*` for entity properties, `using*` for declarative property-setters, `for*` for scoping/grouping blocks); generic-parameter consistency across paired Def/runtime types; metadata accessor parity (id / name / description).
+- [ ] **Two known metadata-accessor anomalies (surfaced in Phase 3.7).** `StateDef` and `TransitionDef` publish `withName` / `withDescription` but not the matching getters (which exist on `IdentifiedDefImpl`, so only the published contract is short); and the runtime `Transition` exposes no `getName()` while `State<T>` does.
+- [ ] Fix what is small and uncontested here. Anything that changes the shape of the DSL goes to §5.3 as a question instead.
 
-### 5.5 YAML DSL Parsing
-- [ ] State machine definition parser.
-- [ ] State, transition, action, condition, trigger, listener parsers.
-- [ ] Member grammar for every position that holds an ordered list, which Phase 4b made one grammar rather than three: a **reference** to an action registered elsewhere, and an **inline declaration** that names its authoring form. The Java side is `ActionSequence` (`requirements.md` §2.2.5.1) — `run` against `step` / `operation` / `conditional`, each declaring verb in three context shapes, and each verb with a forked twin. YAML needs no forked twins: `fork: true` is a per-member flag that sits beside any verb (§3.4.2), and the context a declaration runs against is its own `context:` key. Each reference exposes the call-site mapper grammar — an optional `mapper:` field accepting a string (registered mapper id), a `class:` block (mapper class), or an inline `mapTo:` SpEL expression. Full inline `ContextMapper` instances are Java-only and have no YAML surface.
-- [ ] **A transition's body becomes an `actions:` list**, replacing the single `action:` key the `transitions:` examples in §3 still show. Phase 4b made a transition a sequence on the Java side; this is the YAML half of it, and it leaves the mapper one member-list grammar everywhere instead of a one-slot special case. Update §3's transition examples with it.
-- [ ] `mapper:` is a new top-level component kind in the YAML DSL (peer to the action and condition kinds), with `parent-type` / `child-type` / `class` (or `mapTo:` SpEL) fields. Mappers participate in cross-file imports and ID-uniqueness checks.
-- [ ] Cross-file ID-uniqueness checks walk into container members so nested action ids participate in collision detection (SM-wide uniqueness is already enforced on the Java side; the YAML loader must mirror it across imports).
-- [ ] Condition Descriptor parsing (the four YAML-expressible forms — reference, class, predicate, expression). The fifth `InstanceBased` form is Java-only and has no YAML surface.
-- [ ] State resolver + state applier configuration (class or SpEL).
-- [ ] Listener parity with the Java DSL (state entry/exit + transition start/complete).
-- [ ] Validation against the JSON Schema.
-- [ ] Conversion from YAML model to runtime `*Def` builders, then to runtime instances.
+### 5.3 Java/YAML Alignment and Decisions
+*A design item: its output is `requirements.md`, not code. Expect it to be a conversation rather than a single pass.*
+- [ ] **Alignment doc.** A transient repo-root scratch file walking the YAML shape side-by-side with the Java shape for every top-level element (state, transition, action, condition, mapper, fork, listener, trigger, compensation and its routes, global config). Flag every place where the YAML would naturally read differently from the Java — those are the questions to resolve before writing the loader. Propose Java DSL changes where the walkthrough surfaces them.
+- [ ] **Shared listener and trigger pools.** §3.1.1 declares a listener or a trigger once in a library and references it from many owners; the Java DSL claims a listener id or a trigger id at the point of attachment, so two references are a duplicate id. Decided in principle: Java gains registrations (§5.4). To settle here: the registration and by-id attachment surface for each, what a by-id attachment's id is when the same listener sits on two owners, how `TransitionExecution.firedBy` and the trigger catalog report a trigger shared by two transitions, and whether any other component kind needs the same.
+- [ ] **YAML spelling for action listeners (deferred from Phase 3.5).** Not the state and transition blocks with a third noun substituted: an action listener attaches to the *action* rather than to a call site, and YAML makes inline action definitions first-class at every member position, so where the attachment is written — and that a `run:` reference inherits the callee's listeners, which in the Java DSL it does — both need stating. Global action listeners and the three `disableGlobalListener*` forms need spellings on all three owner kinds.
+- [ ] **`ConditionDef<T, C>` — decide (deferred from Phase 3.7).** Phase 3 closed it as a decision rather than code: its only payload beyond what exists is a name and a description nothing reads (no `Condition` runtime view, no catalog, no payload carrying one), and reaching runtime means widening every `ConditionDescriptor` record plus `BoundCondition` and mirroring the family across `StateMachineDef`, `ContextScope`, `TransitionDef`'s two slots, `BranchDef`, `ManualTriggerDef` and `DataTriggerDef`. YAML conditions do carry `name:` / `description:` (§3.1.1), so the question is now concrete: does the loader accept and drop them, or does something read them? If it lands, naming is settled by precedent — `condition(String, Consumer<…>)` collides with `condition(String, Predicate<T>)`, a real collision of one-argument functional interfaces, so it needs a name of its own exactly as `mapperDef` did.
+- [ ] **`Describable` super-interface — decide (deferred from Phase 3.7).** Gate (a), the listener payload shape, answered *per-kind*. Gate (b) is this phase's: does the loader walk Defs polymorphically to apply `name` / `description`, or per-kind? If per-kind, the item stays closed. If polymorphic, introduce `Describable extends Identifiable`; it is purely additive.
+- [ ] **A transition's body becomes an `actions:` list**, replacing the single `action:` key §3's transition examples still show. Phase 4b made a transition a sequence on the Java side; this is the YAML half, and it leaves the loader one member-list grammar everywhere.
+- [ ] **SpEL conventions, stated once.** Evaluation root, the variable names (`#context`, `#event`, `#transition`), and what the three YAML-only expression forms bind: a resolver expression reads the state id off the entity; an applier expression is an assignable property path; a mapper's `mapTo:` sees the parent context and returns the child. `mapFrom` has no expression form — write-back is a class.
+- [ ] **Loose ends in §3.** The `contexts:` section (§3.5.1) — nothing references a context by id, so define its use or remove it. `stateMachine.version` and component "versioning / compatibility metadata" — nothing reads either; define or cut. `config.metrics` belongs to Phase 6.3 — reserve the key or reject it until then.
+- [ ] **Decisions captured** in `requirements.md`, which is the single source of truth for both DSLs entering the loader work. Delete the scratch file.
+- [x] **Inline nested declarative containers in the Java DSL** - moved to [Phase 4b](../history/phase-4b-action-sequence-grammar.md), which closed the whole parity gap rather than this one cell: a member-position `operation(id, ...)`, a conditional nested inside a branch, mappers and forks on branch members, and one shared member grammar (`ActionSequence`) the loader is written against. **Shipped.**
 
-### 5.6 `StateMachine` as Handle + `replaceDefinition`
-*Per `requirements.md` §2.7. The handle abstraction is API-shape work that lands in Phase 5 because the YAML loader is its first non-trivial caller and `DefinitionSource`-driven swap is the use case that justifies the contract. Watcher-driven automatic reload is Post-1.0 (§7.2).*
-- [ ] **`StateMachine<T>` becomes the host-facing handle.** The immutable per-version data — states, transitions, registries, bound steps/operations — moves into an internal `StateMachineSnapshot<T>` (a renamed-and-internalised `StateMachineImpl`). The current `StateMachineImpl` symbol stays as the snapshot type or gets renamed to make the role explicit; external callers continue to depend on `StateMachine<T>` and see no source-incompatible change.
-- [ ] **Every external entry point on `StateMachine<T>`** (`entity(...)`, `executeTransition(...)`, `processEvent(...)`, `processDataChange(...)`, `getTransition(...)`, `getState(...)`, `resolveCurrentState(...)`, future catalog accessors) captures the current snapshot at the top of the call and delegates against that snapshot. Snapshot capture happens exactly once per top-level call; mid-call swaps never split a transition between versions.
-- [ ] **`ExecutingTransitionImpl`** holds the snapshot reference it was constructed with — no change to its own internals beyond pointing at a snapshot instead of the SM. `view.run(...)` and scope-stack resolution all run against the snapshot.
+### 5.4 Java DSL Changes from the Alignment
+- [ ] Listener registrations and by-id attachment, per §5.3, for all three listener categories.
+- [ ] Trigger registrations and by-id attachment, per §5.3.
+- [ ] `ConditionDef` and `Describable`, only if §5.3 decided yes.
+- [ ] Implementation gaps §5.1 handed over.
+- [ ] Every new call shape goes into `JavaDslSurface`; `requirements.md` §4 documents it.
+
+### 5.5 `StateMachine` as Handle + `replaceDefinition`
+*Per `requirements.md` §2.7. Independent of every YAML item except §5.13's demo, so it can run at any point. The handle is API-shape work that lands in this phase because the YAML loader is its first non-trivial caller. Watcher-driven automatic reload is Post-1.0 (§7.2).*
+- [ ] **Decide first: who owns the async executor across a swap.** Today a framework-built pool belongs to the `StateMachineImpl` that becomes the snapshot, and `close()` shuts it down. A new definition may size its pool differently, declare none, or bring a host executor; branches forked under the old snapshot outlive the transition that forked them, and an in-flight transition may still fork after the swap. Settle: handle-owned or snapshot-owned, when a replaced snapshot's pool is released, what `close()` on the handle closes, and what a swap between a framework pool and a host executor does. Capture the answer in §2.7.
+- [ ] **`StateMachine<T>` becomes the host-facing handle.** The immutable per-version data — states, transitions, registries, bound actions — moves into an internal `StateMachineSnapshot<T>` (a renamed-and-internalised `StateMachineImpl`). External callers continue to depend on `StateMachine<T>` and see no source-incompatible change.
+- [ ] **Every external entry point on `StateMachine<T>`** (`entity(...)`, `executeTransition(...)`, `processEvent(...)`, `processDataChange(...)`, `getTransition(...)`, `getState(...)`, `resolveCurrentState(...)`, the catalog accessors) captures the current snapshot at the top of the call and delegates against it. Capture happens exactly once per top-level call; mid-call swaps never split a transition between versions. An entity binding returned by `entity(...)` is such a call: it runs on the snapshot it captured, however late its terminal method is invoked.
+- [ ] **`ExecutingTransitionImpl`** holds the snapshot reference it was constructed with. `run(...)`, `fork(...)` and scope-stack resolution all run against the snapshot.
+- [ ] **The reentrancy guard and the async-branch ban key on the handle, not the snapshot.** §2.7.4 requires that an in-flight execution reentering through the handle is rejected; keyed on `(snapshot, entity)`, a reentrant call made after a swap captures a different snapshot and passes. The same holds for the deque naming the machines whose branches the current thread is running: a branch forked under generation N must not drive generation N+1 either.
 - [ ] **`long generation()`** on `StateMachine<T>`. Starts at `1` after `build()`. Monotonic per-handle, incremented by exactly `1` per successful swap.
 - [ ] **`long replaceDefinition(StateMachineDef<T> newDef)`** on `StateMachine<T>`:
-  - Full validation runs first (state graph, condition resolution, composite refs, context compatibility, cycle detection, id uniqueness). Any `TransfluxValidationException` leaves the existing snapshot in place; nothing was swapped.
+  - Full validation runs first (state graph, condition resolution, member refs, context compatibility, cycle detection, id uniqueness). Any `TransfluxValidationException` leaves the existing snapshot in place; nothing was swapped.
   - **Entity-type compatibility check** — the new def's `entityType()` must be `==` the current snapshot's `entityType()`. Replacing a `StateMachine<Foo>`'s definition with a `StateMachineDef<Bar>` (including subtypes/supertypes of `Foo`) is rejected with a `TransfluxValidationException` whose message names both types. The entity type is the handle's identity contract.
   - Builds a new `StateMachineSnapshot<T>` from the validated def.
   - CAS-swaps the snapshot reference (concurrent swaps are serialised; only one wins per generation).
   - Increments `generation()` and returns the new generation number.
-  - In-flight executions hold their own snapshot reference and finish on the pre-swap topology — required by §2.7's atomicity guarantee. The reentrancy guard keys on `(snapshot, entity)`, which already gives the right semantics.
-- [ ] `StateMachine.build()` (and the existing `Transflux.defineStateMachine()...build()` chain) returns the handle unchanged from today's signature; the handle starts at generation `1`.
-- [ ] **No host-side synchronisation requirement** for ordinary reads. The snapshot reference is held in a `volatile` field (or equivalent atomic primitive). `generation()` and snapshot reads are coherent without external locking.
+  - In-flight executions hold their own snapshot reference and finish on the pre-swap topology — required by §2.7's atomicity guarantee.
+- [ ] `build()` returns the handle unchanged from today's signature; the handle starts at generation `1`.
+- [ ] **No host-side synchronisation requirement** for ordinary reads. The snapshot reference is held in a `volatile` field (or equivalent atomic primitive), which also discharges the safe-publication contract for a snapshot installed by a swap.
+- [ ] Logging: a swap is an INFO line on `build.lifecycle` (rare, consequential, invisible from a transition's return value).
 - [ ] **Specs:**
-  - Atomic-or-nothing semantics: a validation failure inside `replaceDefinition` leaves `generation()` unchanged and the current snapshot's behaviour intact.
-  - Entity-type compatibility rejection covers identical types, supertypes, subtypes, and unrelated types — only `==` passes.
-  - In-flight isolation: a transition started against generation N completes against generation N's snapshot even when concurrent threads swap to generations N+1, N+2 during the call.
+  - Atomic-or-nothing: a validation failure inside `replaceDefinition` leaves `generation()` unchanged and the current snapshot's behaviour intact.
+  - Entity-type compatibility rejection covers supertypes, subtypes and unrelated types — only `==` passes.
+  - In-flight isolation: a transition started against generation N completes against generation N's snapshot even when concurrent threads swap to N+1, N+2 during the call.
+  - Reentrancy through the handle across a swap is rejected; so is driving the handle from a branch forked under an earlier generation.
+  - Executor lifecycle across a swap, per the decision above.
   - Generation monotonicity: failed swaps don't bump; successful swaps bump by exactly 1.
-  - `StateMachine<T>` as handle: existing specs that construct `Transflux.defineStateMachine()...build()` and call `.entity(...).transitionTo(...)` continue to pass unchanged — confirms the source-compat contract.
-- [ ] **Java DSL hot-swap demo spec** — a state machine is built, transitioned once against generation 1, has its definition replaced with a topologically different (but entity-type-compatible) one, transitioned again against generation 2. Covers the manual-swap use case end-to-end.
-- [ ] **YAML hot-swap demo spec** — same exercise driven through the §5.4 source, demonstrating that YAML reload is just "build a new def via the source + call `replaceDefinition`."
+  - Source compatibility: existing specs that build a machine and call `.entity(...).transitionTo(...)` pass unchanged.
+- [ ] **Java DSL hot-swap demo spec** — a state machine is built, transitioned once against generation 1, has its definition replaced with a topologically different (but entity-type-compatible) one, transitioned again against generation 2.
 
-### 5.7 Specifications
-- [ ] Parser specs for each top-level element.
-- [ ] Reference Grammar specs (ref vs. inline; bare string vs. block).
-- [ ] Import resolution specs (through §5.4's `DefinitionSource`).
-- [ ] Schema validation error message specs.
-- [ ] DSL parity check: a single non-trivial state machine expressed in both DSLs produces equivalent runtime instances.
+### 5.6 Definition Sourcing SPI
+*Per `requirements.md` §2.6. The SPI and its implementations only — no parser needed. What the loader does with a source (imports, import-chain errors, import cycles) is §5.11.*
+- [ ] `DefinitionSource` interface: `Optional<DefinitionResource> open(String identifier)`.
+- [ ] `DefinitionResource` AutoCloseable carrying `identifier()`, `bytes()`, optional `lastModified()`, optional `etag()`.
+- [ ] Identifiers are **opaque, source-defined strings** — no path canonicalisation, no implicit `.yml` suffix, no relative-to-importer resolution by the framework. Hosts pick the scheme; the source decides what to make of it.
+- [ ] Ships-with implementations: `ClasspathDefinitionSource` (default), `FileSystemDefinitionSource(Path root)` (with `..`-traversal rejection and symlink policy), `CompositeDefinitionSource` (route by scheme prefix or by ordered fallback).
+- [ ] Home: the SPI has no YAML dependency, but nothing outside the loader consumes it. Place it in `transflux-yaml` unless §5.3 found a core consumer.
 
+### 5.7 `transflux-yaml` Module and Loader Infrastructure
+- [ ] **Multi-module build.** The repository becomes a parent POM with the existing library as one module and `transflux-yaml` as a second, depending on it. The core module gains no dependency. Toolchain, Surefire's `**/*Spec` include and JaCoCo move to the parent. Update CLAUDE.md and the README's "Package Structure" for the new top-level package.
+- [ ] **Dependencies: SnakeYAML 2.x only**, used through its node API so every node keeps its line and column. Add a second library only when something needs it.
+- [ ] **The loader uses the public API alone.** It lives outside `core.impl` and is written against `ActionSequence<T, C, SELF>` and the `*Def` interfaces, which makes it the second out-of-package caller of the DSL after `JavaDslSurface`. If it needs something that is not public, that is a finding about the Java DSL, not a reason to widen visibility.
+- [ ] **Host entry point.** A loader taking a `DefinitionSource`, a root identifier and the entity `Class<T>`, returning a `StateMachineDef<T>` — a def rather than a built machine, since `replaceDefinition` (§5.5) takes one. The document's `entityType:` must name exactly the class passed; a mismatch is a validation error naming both.
+- [ ] **Instantiation seam.** One small interface turning a `Class<X>` into an `X`, with a reflective no-arg-constructor default; the loader takes an optional override. Class loading goes through a configurable `ClassLoader`, defaulting to the context one. Every `class:` key in the grammar goes through this seam and nothing else instantiates. Phase 6.2's `ComponentFactory` widens this seam rather than introducing a second one. Failures — class not found, wrong type for the position, no usable constructor — are validation errors at the declaring line.
+- [ ] **Error model.** Every loader error carries the resource identifier, line and column, and the declaration path (`transition 't' > operation 'op'`, the build's own label convention). A `TransfluxValidationException` raised by the Java build for a def the loader declared is rethrown with the source position of that def's declaration prepended. Unknown keys are errors, not ignored.
+- [ ] **Raw-type safety.** The loader calls typed verbs with classes loaded by name, so what javac proves for a Java host is unproven here: an action's, compensation's, listener's or mapper's type arguments against the declared `context:`, and a mapped inline declaration's `ContextMapper<C, N>`, which the Java build deliberately does not check. Check what reflection can see (declared generic supertypes) at load time; where it cannot, the existing runtime context check is the backstop. State which is which in `requirements.md`.
+- [ ] **Loggers**: `org.transflux.yaml.parse` / `.binding`, in a holder of the module's own; extend `LoggersSpec`'s rules (or mirror the spec) to cover it.
+
+### 5.8 Parsing: Component Libraries
+*A library document (§3.1.1) loaded into registrations on a `StateMachineDef`. No state machine, no imports yet — one file in, registrations out.*
+- [ ] Document envelope: `apiVersion`, `metadata`, `spec`.
+- [ ] `steps:` — `class`, `context`, `name` / `description`, `compensation` and `errorHandling` (routes share §5.10's parser; whichever item lands first writes it).
+- [ ] `conditions:` and the Condition Descriptor grammar — reference, `class:`, `predicate:`, `expression:`, long-form `ref:`; "exactly one of" enforced. `InstanceBased` is Java-only and has no YAML surface. One descriptor parser, reused at every position that takes a condition.
+- [ ] `mappers:` — a top-level component kind, peer to actions and conditions: `parent-type` / `child-type` and either `class:` or a `mapTo:` SpEL expression. The SpEL adapter is a `ContextMapper` built in this module and registered through the existing instance overload; `mapFrom` stays the inherited no-op.
+- [ ] `listeners:` and `triggers:` — onto the registrations §5.4 added. Listener `config: { async, onRejection }` maps to `withAsync(...)`; `FAIL` is refused as it is in Java. Triggers: `type: manual | event | data`, `event:`, `filter:`, `condition:`, `preConditions:`.
+- [ ] Component identification per `requirements.md` §2.2.1: `id` mandatory, inline expression conditions excepted.
+- [ ] `operations:` registered at library level use §5.10's member grammar; until that lands, this item covers the other sections.
+
+### 5.9 Parsing: the State Machine
+- [ ] `stateMachine:` — `id`, `name`, `description`, `entityType`.
+- [ ] **State resolver and state applier**: `class:` through the instantiation seam, or `expression:`. The expression forms are YAML-only adapters built in this module and passed to `withStateResolver(...)` / `withStateApplier(...)`: the resolver evaluates the expression against the entity and returns the state id; the applier assigns the new state id through the expression as a property path. Verify the assignment converts a `String` to an enum-typed property, the common case, and say so in §3.2.1 either way.
+- [ ] `states:` — metadata, `listeners: { onEntry, onExit }`, global-listener disables.
+- [ ] `transitions:` — `from` / `to`, `context:`, `preConditions` / `postConditions` (descriptor grammar from §5.8), `triggers:` (by reference or inline, all three kinds), `listeners: { onStart, onComplete, onError }`, global-listener disables. The body's `actions:` list is §5.10's.
+- [ ] Global listeners — the top-level `listeners:` block of §3.7, all three categories.
+- [ ] Every listener position accepts a reference or an inline definition, as §3.1.2 promises for every component.
+
+### 5.10 Parsing: Member Grammar, Compensation, Fork
+*One walk, generic in the concrete def type, fills all four positions that hold an ordered list — a container, a branch, a default branch, a transition's body. That is what `ActionSequence<T, C, SELF>` is self-typed for.*
+- [ ] Verb-keyed entries: `run:` (reference) against `step:` / `operation:` / `conditional:` (declarations); exactly one per entry. Declarations nest to any depth.
+- [ ] **Context shapes**: a declaration's own `context:` key, alone (pass-through) or with a `mapper:` (mapped). A reference's `mapper:` accepts a registered mapper id, a `class:` block, or an inline `mapTo:` expression. Full inline `ContextMapper` instances are Java-only.
+- [ ] **`fork: true`** beside any verb, mapping to the verb's forked twin; `onRejection:` beside it — the call-site rung on a `run:`, the def's own declaration on a declaring entry.
+- [ ] `conditional:` — `branches:` (id, condition descriptor, `actions:`), `default:`, and the `NoMatchBehavior` key.
+- [ ] `compensation:` and `errorHandling:` routes (`exception`, optional guard `condition`, `compensation`) on any action, in declaration order.
+- [ ] Action listeners at the position §5.3 settled, plus global-listener disables on an action.
+- [ ] Library-level `operations:` (left open by §5.8) and transition bodies (left open by §5.9) both close here.
+
+### 5.11 Imports and Global Configuration
+- [ ] **Imports flow through the source.** Each `imports:` `path:` is handed verbatim to the `DefinitionSource`, never resolved as a filesystem path. Each resource is parsed exactly once per load; the loader caches nothing across loads, so a fresh `replaceDefinition` re-reads through the source every time. Sources may cache bytes themselves.
+- [ ] A missing import and a **circular import** are validation errors naming the chain.
+- [ ] **Import chain in every error** (§2.6.4): `root.yml -> imports/shared.yml -> condition 'foo': ...`, composed with §5.7's error model.
+- [ ] **Cross-file id uniqueness** needs no check of its own: every imported registration lands on one `StateMachineDef`, whose build already enforces state-machine-wide uniqueness, nested members included. What this item owns is attribution — the message names both declaring files and lines.
+- [ ] `config.async` → `withAsyncPool(...)` / `withAsyncRejectionPolicy(...)`, including the "block present but sizes nothing" case; `config.logging` → `withExecutionLogging(...)`. `config.metrics` per §5.3's decision.
+
+### 5.12 JSON Schema
+*Written last, against a grammar that has stopped moving.*
+- [ ] JSON Schema for the Transflux YAML format — library documents and state-machine documents — shipped in the `transflux-yaml` jar for editor autocomplete and inline validation. IDE plugin work is out of scope.
+- [ ] **Agreement spec.** A corpus of valid and invalid documents, each run through both the loader and a schema validator (test scope only); the two must agree on accept/reject. This is what keeps the schema honest without putting it on the runtime path, and the corpus doubles as the loader's error-message fixtures.
+- [ ] Every YAML example in `requirements.md` §3 is in the valid corpus.
+
+### 5.13 Parity and Hot-Swap
+*Element-level specs are co-located with each class as it lands, per the repo convention; this item is only what cuts across.*
+- [ ] **DSL parity check**: one non-trivial state machine — nested operations, a conditional, a forked member, a mapped call site, compensation routes, all three trigger kinds, all three listener categories — expressed in both DSLs, driven through the same scenarios, producing equal `TransitionResult` paths, catalogs and listener traces.
+- [ ] **YAML hot-swap demo spec** — §5.5's exercise driven through a `DefinitionSource`, demonstrating that YAML reload is "load a new def through the source, call `replaceDefinition`".
+- [ ] Error-message review: read the invalid corpus's messages as a host would. Each names the file, the line, the declaration, what was wrong and what was expected.
+- [ ] README: the YAML module, its dependency coordinates, the `org.transflux.yaml.*` logger leaves.

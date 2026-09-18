@@ -17,7 +17,7 @@
 - [ ] Named component registration and retrieval.
 - [ ] Custom factory function registration.
 - [ ] Circular dependency detection within component graphs.
-- [ ] YAML DSL integration: instantiation from `class:` references.
+- [ ] YAML DSL integration: `ComponentFactory` plugs into the instantiation seam Phase 5 §5.7 shipped (reflective no-arg by default), which every `class:` reference already goes through. This widens that seam; it does not add a second path.
 - [ ] Nested-operation instantiation goes through the same factory path — no separate code path for operations used as composite members.
 
 ### 6.3 Observability Hooks
