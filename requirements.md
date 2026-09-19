@@ -82,7 +82,7 @@ Direct transition execution (via `transitionTo(...)` and `fire(...)`) returns a 
 
 Business outcomes (failed conditions, failed actions, post-condition violations) are reported through `TransitionResult` rather than thrown. The one exception is a `java.lang.Error`, which is rolled back and rethrown rather than reported (§2.2.11). **Configuration and validation errors** — invalid definitions, missing transitions, unknown states, illegal builder usage — throw `TransfluxValidationException` synchronously.
 
-**What the framework itself refuses mid-transition has its own type**, `TransfluxExecutionException`, so that a result's error — and a compensation route (§2.2.11) — can tell "the framework rejected this" from "the definition is broken" and from "host code threw". It has three subtypes, each carrying the ids a host would otherwise parse out of a message: `TransfluxConditionException` (`getConditionId()`, `getRole()` — `PRE_CONDITION` or `POST_CONDITION` — and `getTransitionId()`), `TransfluxNoMatchException` (`getConditionalId()`, for a conditional declared `onNoMatch(ERROR)`), and `TransfluxContextException` (`getSubjectId()` — the action, or the listener for an async notification whose context would not fork — for a context crossing only runtime can check: an incompatible pass-through from an action's body, a call-site mapper producing `null` or the wrong type, a `ForkableContext` forking to `null`). None of them extends `TransfluxValidationException`. A refused fork under `FAIL` stays the JDK's `RejectedExecutionException`.
+**What the framework itself refuses mid-transition has its own type**, `TransfluxExecutionException`, so that a result's error — and a compensation route (§2.2.11) — can tell "the framework rejected this" from "the definition is broken" and from "host code threw". It has three subtypes, each carrying the ids a host would otherwise parse out of a message: `TransfluxConditionException` (`getConditionId()`, `getRole()` — `PRE_CONDITION` or `POST_CONDITION` — and `getTransitionId()`), `TransfluxNoMatchException` (`getChoiceId()`, for a choice declared `onNoMatch(ERROR)`), and `TransfluxContextException` (`getSubjectId()` — the action, or the listener for an async notification whose context would not fork — for a context crossing only runtime can check: an incompatible pass-through from an action's body, a call-site mapper producing `null` or the wrong type, a `ForkableContext` forking to `null`). None of them extends `TransfluxValidationException`. A refused fork under `FAIL` stays the JDK's `RejectedExecutionException`.
 
 #### 2.1.5 Action Result Mapping
 
@@ -106,11 +106,13 @@ All components in Transflux (states, transitions, actions, conditions, triggers,
 - Used for internal referencing, component lookup, and programmatic access.
 - Opaque strings; the library does not mandate a casing convention. Examples in this document use **kebab-case** for readability.
 
-**Component Name:**
-- **Optional property** on every component definition.
-- Provides a human-readable description or display name.
+**Component Name and Description:**
+- **Optional properties** on every component definition except a condition's, which carries neither (below).
+- The name is a human-readable display name; the description says what the component is for.
 - Used for documentation, user interfaces, and logging.
 - Can contain spaces, special characters, and be more descriptive than IDs.
+
+**Conditions carry an id and nothing else.** A condition has no name and no description in either DSL: nothing at runtime represents a condition beyond its id — there is no condition catalog and no payload carrying one — so there is nowhere for either to be read from. A rejection is identified by the ids on `TransfluxConditionException`.
 
 **Example:**
 ```yaml
@@ -135,6 +137,8 @@ The central orchestrator that manages entity state transitions and coordinates a
 - Coordinate pre/post-conditions and listeners.
 - Manage operation contexts and data flow.
 - Invoke the configured `StateApplier<T>` to commit successful transitions.
+
+**Metadata.** A state machine carries an optional id, name, description and version, set on the definition and reported by the built `StateMachine` (`null` where none was given). The version is an opaque string the framework never parses or compares; it is there for a host that loads definitions from an external source (§2.6) and needs to know which one a machine is running. All four belong to the definition rather than to the handle: after a replacement (§2.7) the machine reports the new definition's, and replacing does not compare ids — the entity type is the handle's only identity contract. The framework logs id and version when a definition is built and when one is swapped in.
 
 #### 2.2.3 State
 
@@ -176,11 +180,11 @@ The unit of work executed during state transitions. `Action<T, C>` is a **pure f
 
 **Two authoring forms, mutually exclusive:**
 - **`StepDef`** — *imperative*: a Java body, supplied as an `Action<T, C>` instance. It binds no children, though it may dispatch other actions by id while it runs.
-- **`OperationDef`** — *declarative*: an ordered list of members, where declaration order **is** execution order. There is no Java body; at build time the framework synthesizes the `Action<T, C>` that walks the members. `ConditionalOperationDef` is a variant whose ordering rule is "first matching branch" rather than "all, in order".
+- **`OperationDef`** — *declarative*: an ordered list of members, where declaration order **is** execution order. There is no Java body; at build time the framework synthesizes the `Action<T, C>` that walks the members. `ChoiceDef` is a variant whose ordering rule is "first matching branch" rather than "all, in order".
 
 **Vocabulary:** a *step* is an imperative action, an *operation* is a declarative one. The distinction is what the author wrote, not what the runtime does — both forms execute through one path (§2.4) and are dispatched identically. The authored form travels with the action as an `ActionKind` and surfaces in diagnostics so a message can name the thing the way its author wrote it.
 
-**A transition's body is an ordered list of actions**, in either form and in any mix — the same member grammar a declarative container and a conditional's branch carry (§2.2.5.1). There is no elevation mechanism and no need for a single-member wrapper, and no wrapper either when a transition does several things: the members sit directly on it, in the order written. What the transition carries beyond that list — states, conditions, triggers, the commit — is around the list rather than in it, so the transition is not itself an action: it holds no id in the action namespace, no compensation of its own and no action listeners. Rolling the body back as a unit is a matter of declaring it as one.
+**A transition's body is an ordered list of actions**, in either form and in any mix — the same member grammar a declarative container and a choice's branch carry (§2.2.5.1). There is no elevation mechanism and no need for a single-member wrapper, and no wrapper either when a transition does several things: the members sit directly on it, in the order written. What the transition carries beyond that list — states, conditions, triggers, the commit — is around the list rather than in it, so the transition is not itself an action: it holds no id in the action namespace, no compensation of its own and no action listeners. Rolling the body back as a unit is a matter of declaring it as one.
 
 **Features:**
 - Type safety (entity, context) with generics.
@@ -192,13 +196,13 @@ The unit of work executed during state transitions. `Action<T, C>` is a **pure f
 
 ##### 2.2.5.1 The Member Grammar
 
-Four things hold an ordered list of actions: a declarative container, a conditional's branch, its default branch, and a transition's body. Every one admits the same ways of filling a position — reference an action by id, optionally through a call-site mapper (§4.5.2), or declare one in place as a step, an operation or a conditional. In Java that invariant is one self-typed interface, `ActionSequence<T, C, SELF>`, which the four def types extend, so each member form is declared exactly once and a chain keeps the concrete type it started on; it is also the type a generic caller walking a member list is written against. Every verb has a forked twin, because whether the enclosing sequence waits for a member is a property of the position rather than of the action named there (§4.4.2).
+Four things hold an ordered list of actions: a declarative container, a choice's branch, its default branch, and a transition's body. Every one admits the same ways of filling a position — reference an action by id, optionally through a call-site mapper (§4.5.2), or declare one in place as a step, an operation or a choice. In Java that invariant is one self-typed interface, `ActionSequence<T, C, SELF>`, which the four def types extend, so each member form is declared exactly once and a chain keeps the concrete type it started on; it is also the type a generic caller walking a member list is written against. Every verb has a forked twin, because whether the enclosing sequence waits for a member is a property of the position rather than of the action named there (§4.4.2).
 
-What differs between the four is what the enclosing thing *is*, not what a member may be. A container is also an action, so it carries an id, a context type, compensation and listeners. A transition carries its states, conditions, triggers and the state commit, and is not an action at all. **A branch is not an operation**: it has a condition, belongs to its conditional, is not independently referenceable, and is not an action — so it shares the member grammar without sharing the contract, which is why a branch has no compensation of its own and no id in the action namespace.
+What differs between the four is what the enclosing thing *is*, not what a member may be. A container is also an action, so it carries an id, a context type, compensation and listeners. A transition carries its states, conditions, triggers and the state commit, and is not an action at all. **A branch is not an operation**: it has a condition, belongs to its choice, is not independently referenceable, and is not an action — so it shares the member grammar without sharing the contract, which is why a branch has no compensation of its own and no id in the action namespace.
 
 #### 2.2.6 Action Invocation
 
-An action is invoked in one of two ways: as a declared member of an ordered list — a transition's body, a declarative container, or a conditional's branch — or dynamically through `transition.run("id")` — or `transition.fork("id")`, which hands it to the executor instead of waiting — from inside another action's body. Both flow through the same internal path, so id recording, timing, nesting, and compensation registration are uniform regardless of who initiated the invocation.
+An action is invoked in one of two ways: as a declared member of an ordered list — a transition's body, a declarative container, or a choice's branch — or dynamically through `transition.run("id")` — or `transition.fork("id")`, which hands it to the executor instead of waiting — from inside another action's body. Both flow through the same internal path, so id recording, timing, nesting, and compensation registration are uniform regardless of who initiated the invocation.
 
 A dispatch site names a callee and nothing more. Which form the callee was authored in is a property of *its* registration rather than of the call, which is why there is a single `run(...)` verb at every reference position instead of one per form. The `step(...)` and `operation(...)` verbs appear only where an action is being *declared*, because there the form is being chosen at that site.
 
@@ -213,7 +217,7 @@ Manages shared state during transition execution.
 
 Context access in concurrent execution paths is governed by the rules in §4.5.3 — by default a forked member shares the enclosing context reference; isolation is opt-in, either by implementing `ForkableContext` or by mapping at the fork's call site.
 
-**Null ctx for Object-typed components from Void callers.** A transition declared with `Void.class` context (see §4.5.2.8) rejects any non-null firing value at the dispatch boundary. A composite member or imperative `view.run` call inside that transition may still pass through to an `Object.class`-typed reusable component — the build-time pass-through check admits this unconditionally, since `Object.class` components are by definition context-agnostic. At runtime, the component's `ctx` parameter receives `null`. Component bodies registered under `Object.class` are expected to tolerate `null` ctx; the canonical reason to register under `Object.class` is "this component ignores ctx," which the null-tolerance follows from.
+**Null context for Object-typed components from Void callers.** A transition declared with `Void.class` context (see §4.5.2.8) rejects any non-null firing value at the dispatch boundary. A composite member or imperative `view.run` call inside that transition may still pass through to an `Object.class`-typed reusable component — the build-time pass-through check admits this unconditionally, since `Object.class` components are by definition context-agnostic. At runtime, the component's context parameter receives `null`. Component bodies registered under `Object.class` are expected to tolerate a `null` context; the canonical reason to register under `Object.class` is "this component ignores the context," which the null-tolerance follows from.
 
 #### 2.2.8 Trigger System
 
@@ -226,6 +230,8 @@ Manages the various mechanisms for initiating state transitions.
 - **EventTrigger** — transitions initiated by host-published events. The host pushes events into the state machine via `processEvent(...)`; the framework matches them against registered triggers.
 
 - **DataTrigger** — transitions initiated by the host calling `entity(e).processDataChange()`. The framework re-evaluates the data triggers on transitions leaving the entity's current state, in declaration order, and fires the first whose gate holds. **Transflux does not watch entity fields, hook into ORM change tracking, or run background evaluations** — data triggers are host-driven re-evaluation only in 1.0. Background watching is a Post-1.0 theme (see §7.2).
+
+**A trigger is declared on a transition or registered once and attached to several.** A registration on the state-machine definition claims the trigger's id and carries everything the trigger is — its kind, its metadata, a manual trigger's pre-conditions, an event trigger's event and filter, a data trigger's gate, and the context type it was declared against; a transition then attaches it by id, and the build checks that context against each transition it is attached to. It stays **one trigger**: the catalog lists it once, reporting every transition it is attached to, and a transition listener's payload names it as the origin whichever of them ran — the payload carries the transition beside it. Firing a shared manual trigger selects the attachment leaving the entity's current state, so a host fires `manual-cancel` without knowing whether the entity is `active` or `suspended`; two attachments of one manual trigger leaving the same state would make that choice ambiguous and fail the build. Event and data triggers need no such rule, since their dispatch is already first-match in declaration order. A trigger declared in place on a transition claims its id state-machine-wide like any other and is visible to that transition alone: nothing else can attach it, and sharing one means registering it.
 
 #### 2.2.9 Condition System
 
@@ -254,7 +260,9 @@ The three categories differ in what they can tell the host. A state listener ans
 
 **Registration and ordering.** A listener attaches either to a single owner — a state, through `onEntry` / `onExit`; a transition or an action, through `onStart` / `onComplete` / `onError` — or to every owner of that kind, through the `onAnyStateEntry` / `onAnyStateExit` / `onAnyTransitionStart` / `onAnyTransitionComplete` / `onAnyTransitionError` / `onAnyActionStart` / `onAnyActionComplete` / `onAnyActionError` registrations on the state-machine definition. At each hook the owner's own listeners run first, in declaration order, followed by the global ones, also in declaration order. Every listener carries a required id per §2.2.1; listener ids form a single namespace, shared by all three categories and unique across the state machine.
 
-**An action listener attaches to the action, not to the call site.** It is declared on the action's own definition and fires at every invocation of that action — as a member of a transition's body, as a container member, as a conditional branch member, and when another action's body dispatches it by id. Which observers an action has is a property of the action, exactly as its compensation is; a by-id reference therefore carries no listener attachment of its own, and needs none. A transition's body is not itself an action (§2.2.5.1), so nothing notifies for it: the first action notification of a transition is its first member's, and there is no root node above that to observe.
+**The id names the listener, not the attachment.** A listener is either declared in place at a hook or registered once on the state-machine definition — under its category, with the context type it was written against — and attached by id wherever it is wanted. Attaching claims nothing, so one registered listener sits on any number of owners and hooks, and everything declared on it, `withAsync` included, holds at every one of them; the build checks its context type against each owner it is attached to. The same listener may be attached to an owner and registered as a global at once: disabling it on that owner (below) then suppresses the global delivery only, because an owner's own listeners always receive everything. A listener declared in place claims its id state-machine-wide and is visible only to the definition it is declared on — that owner's other hooks may attach it by id, in either order, which is how one listener serves `onStart`, `onComplete` and `onError` without three ids; the state-machine-wide hooks count as one owner between them. It is not visible to the owner's members or to anything else, the rule an inline action's id already follows (§4.5.2.5), and a reference from outside is a build error that says to register it.
+
+**An action listener attaches to the action, not to the call site.** It is declared on the action's own definition and fires at every invocation of that action — as a member of a transition's body, as a container member, as a choice's branch member, and when another action's body dispatches it by id. Which observers an action has is a property of the action, exactly as its compensation is; a by-id reference therefore carries no listener attachment of its own, and needs none. A transition's body is not itself an action (§2.2.5.1), so nothing notifies for it: the first action notification of a transition is its first member's, and there is no root node above that to observe.
 
 **Complete and error partition the outcomes.** Exactly one of them follows every start notification, and neither occurs without one. This holds for transitions and for actions alike. Two consequences follow. A transition rejected by a pre-condition notifies nothing at all — it never reached the start hook, which §2.4 places after the pre-conditions, and the host already learns of the rejection from the returned `TransitionResult`. And a completion listener never has to check whether the transition actually worked, because a failure reaches the error hook instead. For actions the error hook fires at *every* enclosing level as the failure propagates outwards, each reporting the same throwable: a container whose member threw did fail, and the whole subtree failed with it.
 
@@ -301,7 +309,7 @@ There are three authoring channels. An imperative action can return its compensa
 
 **Exactly one compensation runs for one action**, and it is the first of those three that answers for the failure at hand: a matching route, then the declared fallback, then the dynamic hook. Two consequences follow from that order. A declared fallback suppresses the dynamic hook entirely, because it answers every failure anyway and consulting both would put the same qualified path on `compensatedPath` twice; routes alone do *not* suppress it, because a route that misses has said nothing about this failure and does not get to veto on the action's behalf. And when nothing answers at all, the action is simply not rolled back and does not appear on `compensatedPath` — that list reports what actually ran, not what was eligible to.
 
-**Routing rules.** A route answers when the failure is an instance of its declared exception type (subclasses included) and its guard, where it declared one, accepts. Routes are tried in declaration order and the first match wins — the rule a conditional operation's branches follow (§3.4.3), and the one a Java `catch` chain follows. An unguarded route on a broad type therefore shadows every narrower route declared after it, and the build warns about the shadowed one where it can prove the shadowing; where the earlier route carries a guard it cannot prove anything, since that guard may reject exactly the cases the later route wants, so only the provable case is reported. A warning and not an error: the shape is legal, and an author who wants it that way is not doing anything the framework has to forbid. The guard is consulted only once the type has matched, so it receives the failure already narrowed to that type, and a guard that throws counts as a non-match rather than as a second failure — the drain is already unwinding one, and letting another escape would lose it. Note that the failure a route is matched against is **the one that ended the transition**: the same throwable for every entry on the rollback stack, not necessarily one this action threw, since most of what unwinds never threw anything at all.
+**Routing rules.** A route answers when the failure is an instance of its declared exception type (subclasses included) and its guard, where it declared one, accepts. Routes are tried in declaration order and the first match wins — the rule a choice's branches follow (§3.4.3), and the one a Java `catch` chain follows. An unguarded route on a broad type therefore shadows every narrower route declared after it, and the build warns about the shadowed one where it can prove the shadowing; where the earlier route carries a guard it cannot prove anything, since that guard may reject exactly the cases the later route wants, so only the provable case is reported. A warning and not an error: the shape is legal, and an author who wants it that way is not doing anything the framework has to forbid. The guard is consulted only once the type has matched, so it receives the failure already narrowed to that type, and a guard that throws counts as a non-match rather than as a second failure — the drain is already unwinding one, and letting another escape would lose it. Note that the failure a route is matched against is **the one that ended the transition**: the same throwable for every entry on the rollback stack, not necessarily one this action threw, since most of what unwinds never threw anything at all.
 
 **A `java.lang.Error` rolls back too, and is then rethrown.** An `AssertionError` or a `LinkageError` is raised on a perfectly healthy JVM, and leaving the side effects of completed actions in place because of one is a worse outcome than running their compensations. So an `Error` drains the stack and notifies the error hooks exactly as an exception does — routes match it like any other failure — but it is never converted into a `TransitionResult`: once the rollback is done it propagates to the caller. One case is exempt. A `VirtualMachineError` (out of memory, an internal error) propagates at once with no rollback and no notification, because driving rollback handlers through network calls on a JVM that can no longer be trusted is more dangerous than abandoning them; a route declared for one is rejected at definition time, since it could never match. The same rule holds on a forked branch, where the rethrown `Error` ends the worker thread as it always did. Wherever the framework *contains* a failure rather than acting on it — a listener, a compensation that throws mid-drain, a route guard — an `Error` is contained exactly as an exception is, with the same warning: an observer's `AssertionError` fails nothing, and one thrown by a compensation does not cost the entries beneath it their rollback. Only a `VirtualMachineError` escapes those seams.
 
@@ -342,7 +350,7 @@ StateMachine
 ├── States
 │   ├── Entry/Exit Listeners
 │   ├── Transitions
-│   │   ├── Body: ordered Actions (step, operation, conditional; run or forked)
+│   │   ├── Body: ordered Actions (step, operation, choice; run or forked)
 │   │   │   ├── Nested Actions
 │   │   │   ├── Context
 │   │   │   ├── Compensations
@@ -481,142 +489,154 @@ public interface StateMachine<T> {
 
 The YAML-based DSL provides a declarative approach to defining state machines, transitions, and operations. It supports modular definitions with imports and references for reusability.
 
-### 3.1 Reusable Component Libraries
+### 3.1 Documents and Component Libraries
 
-To eliminate duplication and promote reusability, Transflux supports shared component libraries that can be defined once and referenced multiple times across different state machines, operations, and transitions.
+Components are declared once and referenced wherever they are needed — across operations, transitions and state machines. A document that declares components and no state machine is a **library**; a state machine document imports libraries and may declare components of its own in the same sections.
 
-#### 3.1.1 Component Library Structure
+#### 3.1.1 Document Structure
+
+Every document has one shape:
+
+```yaml
+apiVersion: transflux/v1        # required in every document
+
+imports:                        # optional (§3.1.4)
+  - components/shared-components.yml
+
+steps: [ ... ]                  # seven component sections, each optional, in any document
+operations: [ ... ]
+choices: [ ... ]
+conditions: [ ... ]
+mappers: [ ... ]
+triggers: [ ... ]
+listeners: [ ... ]
+
+stateMachine: { ... }           # the root document only (§3.2)
+```
+
+The document handed to the loader is the **root** and must carry `stateMachine:`; an imported document must not. Everything a state machine configures about itself — its global listeners (§3.7) and its `config:` (§3.8) included — sits inside `stateMachine:`, so a library has nothing to say about either. A library names no entity type: its classes are checked against the root's `entityType` when the root is loaded. Unknown keys are errors at every level; a document is documented with YAML comments.
+
+A library:
 
 ```yaml
 # components/shared-components.yml
 apiVersion: transflux/v1
-metadata:
-  name: "Subscription Management Components"
-  description: "Shared components for subscription management"
 
-spec:
-  # Shared Steps
-  steps:
-    - id: prepare-notifications
-      name: "Prepare Notifications"
-      class: com.example.steps.PrepareNotificationsStep
-      description: "Prepare notification messages"
-      
-    - id: send-notifications
-      class: com.example.steps.SendNotificationsStep
-      description: "Send prepared notifications"
-      
-    - id: update-analytics
-      name: "Update Analytics"
-      class: com.example.steps.UpdateAnalyticsStep
-      description: "Update analytics data"
-      
-    - id: activate-features
-      class: com.example.steps.ActivateFeaturesStep
-      description: "Activate related subscription features"
-      
-    - id: prepare-event-actor
-      class: com.example.steps.PrepareEventActorStep
-      description: "Prepare event actor for transition"
-      
-    - id: validate-prerequisites
-      name: "Validate Prerequisites"
-      class: com.example.steps.ValidatePrerequisitesStep
-      description: "Validate operation prerequisites"
-      compensation: com.example.compensations.ValidationCompensation
-      
-  # Shared Conditions
-  conditions:
-    - id: payment-method-valid
-      name: "Payment Method Valid"
-      class: com.example.conditions.PaymentMethodValidCondition
-      description: "Verify payment method is valid"
-        
-    - id: subscription-features-activated
-      class: com.example.conditions.FeaturesActivatedCondition
-      description: "Verify all subscription features are activated"
-      
-    - id: business-hours
-      name: "Business Hours Check"
-      expression: "T(java.time.LocalTime).now().hour >= 9 && T(java.time.LocalTime).now().hour < 17"
-      description: "Check if current time is within business hours"
-      
-  # Shared Triggers
-  triggers:
-    - id: payment-method-validated-event
-      name: "Payment Method Validated"
-      type: event
-      event: PAYMENT_METHOD_VALIDATED
-      filter:
-        expression: "#event.validation == 'CONFIRMED'"
-        
-    - id: data-priority-change
-      type: data
-      condition:
-        expression: "status == 'READY_FOR_ACTIVATION' && priority > 5"
-        
-  # Shared Listeners
-  listeners:
-    - id: audit-start
-      name: "Audit Start Listener"
-      class: com.example.listeners.TransitionStartListener
-      description: "Audit transition start"
-      
-    - id: audit-complete
-      class: com.example.listeners.TransitionCompleteListener
-      description: "Audit transition completion"
-      
-    - id: subscription-activated
-      name: "Subscription Activated Listener"
-      class: com.example.listeners.SubscriptionActivatedListener
-      description: "Handle subscription activation events"
-      config:
-        async: true
-        onRejection: CALLER_RUNS   # optional: DROP (default), BLOCK or CALLER_RUNS; FAIL is refused
-        
-  # Shared Operations — declarative containers; members run in declaration order
-  operations:
-    - id: notification-flow
-      name: "Notification Flow"
-      description: "Standard notification flow"
-      actions:
-        - run: prepare-notifications
-        - run: send-notifications
+steps:
+  - id: prepare-notifications
+    name: "Prepare Notifications"
+    description: "Prepare notification messages"
+    class: com.example.steps.PrepareNotificationsStep
+
+  - id: send-notifications
+    class: com.example.steps.SendNotificationsStep
+
+  - id: charge-card
+    class: com.example.steps.ChargeCardStep
+    context: com.example.contexts.BillingContext
+    compensation: com.example.compensations.RefundCompensation
+    listeners:
+      onError:
+        - charge-audit
+
+  - id: validate-prerequisites
+    name: "Validate Prerequisites"
+    class: com.example.steps.ValidatePrerequisitesStep
+    compensation: com.example.compensations.ValidationCompensation
+
+# Declarative containers; members run in declaration order (§3.4.2)
+operations:
+  - id: notification-flow
+    name: "Notification Flow"
+    actions:
+      - run: prepare-notifications
+      - run: send-notifications
+
+# First-matching-branch actions (§3.4.3)
+choices:
+  - id: tier-routing
+    branches:
+      - id: premium
+        condition:
+          expression: "customerTier == 'PREMIUM'"
+        actions:
+          - run: notification-flow
+    onNoMatch: SILENT
+
+# A condition carries an id and nothing else — no name, no description (§2.2.1)
+conditions:
+  - id: payment-method-valid
+    class: com.example.conditions.PaymentMethodValidCondition
+
+  - id: high-priority
+    predicate: com.example.predicates.HighPriorityPredicate
+
+  - id: business-hours
+    expression: "T(java.time.LocalTime).now().hour >= 9 && T(java.time.LocalTime).now().hour < 17"
+
+mappers:
+  - id: billing-from-activation
+    parentType: com.example.contexts.ActivationContext
+    childType: com.example.contexts.BillingContext
+    class: com.example.mappers.BillingFromActivationMapper     # OR  mapTo: "<expression>" (§3.5)
+
+triggers:
+  - id: manual-cancel
+    name: "Manual Cancellation"
+    type: manual
+    preConditions:
+      - support-user-authorized
+
+  - id: payment-method-validated-event
+    type: event
+    event: PAYMENT_METHOD_VALIDATED
+    filter:
+      expression: "#event.validation == 'CONFIRMED'"
+
+  - id: data-priority-change
+    type: data
+    condition:
+      expression: "status == 'READY_FOR_ACTIVATION' && priority > 5"
+
+# One pool for all three listener categories. The category is read off the interface the class
+# implements; `type: state | transition | action` is required only when it implements several.
+listeners:
+  - id: audit-start
+    name: "Audit Start Listener"
+    class: com.example.listeners.TransitionStartListener
+
+  - id: charge-audit
+    class: com.example.listeners.ChargeAuditListener
+
+  - id: subscription-activated
+    class: com.example.listeners.SubscriptionActivatedListener
+    async: true
+    onRejection: CALLER_RUNS    # optional: DROP (default), BLOCK or CALLER_RUNS; FAIL is refused
 ```
 
-The `steps:` and `operations:` sections are the two **declaration** forms of the same concept: a step is an imperative action, an operation is a declarative one (§2.2.5). Both are registered into one id namespace and both are referenced the same way, so nothing downstream needs to know which section a given id came from.
+`steps:`, `operations:` and `choices:` are the three **declaration** forms of one concept: a step is an imperative action, an operation is a declarative one, a choice is the declarative variant that runs its first matching branch (§2.2.5). All three register into one id namespace and are referenced the same way, so nothing downstream needs to know which section an id came from. There is no section for "a step used as an operation": any action attaches wherever an action is accepted, so an alias whose only content is a reference has nothing to add.
 
-Note there is no section for "a step used as an operation". Any action attaches wherever an action is accepted, so an alias whose only content is a reference to a step has nothing to add — reference the step directly.
+Any registered component may carry `context:`, the context type it was written against — the typed registration of §4.2. Without one it is registered against `Object` and must tolerate any context, `null` included (§2.2.7).
 
 #### 3.1.2 Component Reference Grammar
 
-Any field that expects a component (action, condition, trigger, listener) accepts **either** a reference or an inline definition. This is the YAML spelling of the split the Java DSL makes with its verbs (§2.2.6): a **reference** names a component declared elsewhere and says nothing about the form it was authored in; a **declaration** brings a new one into existence at that position.
+Any position that expects a component accepts **either** a reference or a declaration in place. This is the YAML spelling of the split the Java DSL makes with its verbs (§2.2.6): a **reference** names a component declared elsewhere and says nothing about the form it was authored in; a **declaration** brings a new one into existence at that position. Inline declarations are first-class throughout the DSL; they are essential to keep simple cases readable (a lesson learned the hard way with overly-modularized BPMN dialects).
 
-**1. String ID — a reference** to a component defined in the current file, in an imported library, or in the runtime component registry:
+**1. Conditions, triggers and listeners — a string references, a block declares.**
 
 ```yaml
-action: activate-subscription
 preConditions:
-  - payment-method-valid
+  - payment-method-valid                  # reference
+  - id: has-payment-method                # declaration
+    class: com.example.conditions.HasPaymentMethodCondition
+
+triggers:
+  - manual-cancel                         # reference — the same trigger may sit on several transitions
+  - id: end-of-trial-cron                 # declaration
+    type: manual
 ```
 
-**2. Inline block — a full component definition.** Inline definitions are first-class throughout the DSL; they are essential to keep simple cases readable (a lesson learned the hard way with overly-modularized BPMN dialects):
-
-```yaml
-action:
-  step: cancel-subscription
-  class: com.example.actions.CancelSubscriptionStep
-  compensation: com.example.compensations.RefundPartialFeesCompensation
-```
-
-A long-form `ref:` is also accepted where a block is more natural:
-
-```yaml
-action:
-  ref: activate-subscription
-```
-
-**3. Verb-keyed entry — inside an `actions:` list.** A bare string cannot carry the distinction where every entry is already a block, so each one is keyed by the verb that names what it does, and that key carries the id. The four verbs are the Java DSL's, unchanged:
+**2. Actions — a verb-keyed entry in an `actions:` list.** A bare string cannot carry the distinction where every entry is already a block, so each one is keyed by the verb that names what it does, and that key carries the id. The four verbs are the Java DSL's, unchanged:
 
 ```yaml
 actions:
@@ -630,80 +650,95 @@ actions:
     actions:
       - run: send-notifications
 
-  - conditional: tier-routing       # declaration, first-matching-branch
+  - choice: tier-routing            # declaration, first-matching-branch
     branches: [ ... ]
 ```
 
-Why a verb rather than inferring from content: `id` would otherwise mean two opposite things. Under a reference it *resolves* an id declared elsewhere; under a declaration it *claims* one in the state-machine-wide namespace (§2.2.1). Inferring which from the presence of sibling keys makes forgetting `class:` degrade silently into a reference, and makes "unknown action id" and "id already claimed" indistinguishable to a validator that has to guess the author's intent. The verb states it, and — as in the Java DSL — lets a reader tell the two apart without reading the arguments.
+Why a verb rather than inferring from content: `id` would otherwise mean two opposite things. Under a reference it *resolves* an id declared elsewhere; under a declaration it *claims* one in the state-machine-wide namespace (§2.2.1). Inferring which from the presence of sibling keys makes forgetting `class:` degrade silently into a reference, and makes "unknown action id" and "id already claimed" indistinguishable to a validator that has to guess the author's intent. The verb states it, and — as in the Java DSL — lets a reader tell the two apart without reading the arguments. An `actions:` list is the only position an action occupies: a transition's body is one (§3.3.1), so there is no single-action key and no string shorthand.
+
+**3. Mappers — a string references, a block is the mapper itself.** A call site's `mapper:` takes a registered id, or a block holding `class:` or `mapTo:` (§3.5). The block form claims no id: it is the YAML spelling of passing a mapper instance at the call site, which has none in Java either.
+
+**What an inline declaration is visible to.** Every inline declaration claims its id state-machine-wide — moving it never forces a rename — but is *visible* only where it was declared:
+
+| Declared inline | Visible to |
+| --- | --- |
+| an action (`step:` / `operation:` / `choice:`) | the enclosing container's subtree (§4.5.2.5); a choice's branches share one scope |
+| a listener | the other hooks of the same owner, in either order — one listener serves `onStart`, `onComplete` and `onError` under one id; the state machine's `onAny*` hooks are one owner |
+| a trigger | its transition alone, so nothing else can reference it |
+| a condition | the position it is declared at |
+
+A reference that reaches for an inline declaration from outside is an error that says so — *declared inline on transition 't'; register it under `listeners:` to share it* — rather than an unknown id. What is shared is registered.
+
+**Class-valued keys.** Where a key's value can only ever be a class, it is the bare class name: `context:`, `compensation:`, and a route's `exception:`. `class:` appears as a key in two roles only — as the defining key of a component entry, and as one alternative among several (`class` / `expression` on a state resolver, a filter or a guard; `class` / `predicate` / `expression` on a condition). A bare string is therefore an id wherever a pool exists to resolve it and a class name where none does; the two never share a position.
 
 **Rules:**
-- All component IDs must be unique within their type across the current file and all imported definitions.
-- An inline definition's `id` is **required**, except for inline expression-based conditions (the single auto-ID exception described in §2.2.1).
-- An entry in an `actions:` list must carry **exactly one** of `run`, `step`, `operation`, or `conditional` — the same "exactly one of" rule a condition block obeys for `class` / `predicate` / `expression` / `ref`.
-- Actions carry no `type:` discriminator. The authoring form is named by the declaring verb, so there is no `simple` / `composite` distinction to declare. (`type:` survives on triggers, where `manual` / `event` / `data` are genuinely different kinds of one component.)
+- Ids are unique within their namespace across the root document and everything it imports, and every namespace is state-machine-wide (§2.2.1): states, transitions, triggers and listeners have one each; actions, conditions and mappers share one.
+- A declaration's `id` is **required**, except on an inline expression-based condition (the single auto-id exception of §2.2.1) and on a call-site mapper block.
+- An entry in an `actions:` list carries **exactly one** of `run`, `step`, `operation` or `choice` — the same "exactly one of" rule a condition block obeys for `class` / `predicate` / `expression`.
+- Actions carry no `type:` discriminator; the declaring verb names the form. `type:` survives on triggers, where `manual` / `event` / `data` are genuinely different kinds of one component, and on a listener whose class leaves its category ambiguous.
+- Listeners and `disableGlobalListeners:` belong to an action's *declaration*. On a `run:` entry both are errors: a reference carries the callee's listeners with it (§3.7).
 
 #### 3.1.3 Component References in Context
 
-Components from libraries can be referenced directly by their unique name:
-
 ```yaml
-# In operations — one verb for every reference, whichever form the callee was authored in
 operations:
   - id: activation-operation
     actions:
       - run: prepare-event-actor      # a step
       - run: validate-prerequisites   # a step
       - run: notification-flow        # an operation — same spelling
+      - run: tier-routing             # a choice — same spelling
 
-# In transitions
-transitions:
-  - id: draft-to-active
-    from: draft
-    to: active
-    
-    preConditions:
-      - checkout-fulfilled
-      - business-hours
-      
-    postConditions:
-      - subscription-features-activated
-      
-    triggers:
-      - checkout-event
-      - data-priority-change
-      
-    listeners:
-      onStart:
-        - audit-start
-      onComplete:
-        - audit-complete
+stateMachine:
+  transitions:
+    - id: draft-to-active
+      from: draft
+      to: active
+
+      actions:
+        - run: activation-operation
+
+      preConditions:
+        - checkout-fulfilled
+        - business-hours
+
+      postConditions:
+        - subscription-features-activated
+
+      triggers:
+        - checkout-event
+        - data-priority-change
+
+      listeners:
+        onStart:
+          - audit-start
+        onComplete:
+          - audit-complete
 ```
 
 #### 3.1.4 Library Imports
 
-Each `path:` value is an **opaque identifier** handed verbatim to the configured `DefinitionSource` (§2.6). The framework does not interpret it as a filesystem path, classpath resource, or URI — that's the source's job. A filesystem-style example reads naturally and is the most common default (`ClasspathDefinitionSource` interprets such strings as classpath resources, `FileSystemDefinitionSource` interprets them as paths under a configured root), but any string the configured source understands is valid: `cp:components/shared.yml`, `db://workflows/subscription/imports/payment`, `git://main/operations.yml`, and so on.
+Each entry is an **opaque identifier** handed verbatim to the configured `DefinitionSource` (§2.6). The framework does not interpret it as a filesystem path, classpath resource, or URI — that's the source's job. A filesystem-style example reads naturally and is the most common default (`ClasspathDefinitionSource` interprets such strings as classpath resources, `FileSystemDefinitionSource` interprets them as paths under a configured root), but any string the configured source understands is valid: `cp:components/shared.yml`, `db://workflows/subscription/imports/payment`, `git://main/operations.yml`, and so on.
 
 ```yaml
 apiVersion: transflux/v1
 
-# Import component libraries
-# All component IDs must be unique across all imported definitions.
-# Each `path:` is an opaque identifier; the configured DefinitionSource (§2.6) resolves it.
 imports:
-- path: components/shared-components.yml
-- path: components/subscription-specific-components.yml
-- path: operations/subscription-operations.yml
+  - components/shared-components.yml
+  - components/subscription-specific-components.yml
+  - operations/subscription-operations.yml
 
 stateMachine:
   id: subscription-state-machine
   name: "Subscription State Machine"
   entityType: com.example.Subscription
-  
+
   transitions:
     - id: trial-to-active
       from: trial
       to: active
-      action: activate-subscription
+      actions:
+        - run: activate-subscription
       preConditions:
         - payment-method-valid
         - subscription-specific-validation
@@ -711,55 +746,59 @@ stateMachine:
         - end-of-trial-cron
 ```
 
+A library may import libraries. Each resource is read once per load, keyed by its identifier, so two import paths arriving at the same library are legal and declare its components once. A missing import, a circular import, and an imported document that carries `stateMachine:` are errors naming the import chain (§2.6.4).
+
 ### 3.2 State Machine Definition
 
 #### 3.2.1 Basic Structure
 
-> Note: only a single state machine definition is allowed per file.
+> Note: a document defines at most one state machine, and only the root document defines one (§3.1.1).
 
 ```yaml
 # subscription-state-machine.yml
 apiVersion: transflux/v1
 
 imports:
-- operations/subscription-operations.yml
-- triggers/subscription-triggers.yml
-- conditions/subscription-conditions.yml
+  - operations/subscription-operations.yml
+  - triggers/subscription-triggers.yml
+  - conditions/subscription-conditions.yml
 
 stateMachine:
+  # All four are optional, and are what the built StateMachine reports
   id: subscription-state-machine
   name: "Subscription State Machine"
-  version: 1.0.0
   description: "State machine for subscription lifecycle management"
-  
-  entityType: com.example.Subscription
-  
+  version: 1.0.0
+
+  entityType: com.example.Subscription    # required; must be the class the host loads the document for
+
   # State resolver — read the current state
   stateResolver:
     class: com.example.resolvers.SubscriptionStateResolver
-    # Alternatives:
-    #   expression: "status"
-  
-  # State applier — finalize the transition by writing the new state
+    # OR  expression: "status"
+
+  # State applier — finalize the transition by writing the new state (optional, §2.2.12)
   stateApplier:
     class: com.example.appliers.SubscriptionStateApplier
-    # Alternatives:
-    #   expression: "status"     # SpEL write-through property path
-  
+    # OR  expression: "status"            # an assignable property path
+
+  # listeners: { ... }                    # state-machine-wide listeners (§3.7)
+  # config: { ... }                       # executor and trace logging (§3.8)
+
   states:
     - id: trial
       name: "Trial State"
       description: "Initial trial state"
-      
+
     - id: active
       description: "Active subscription state"
-      
+
     - id: suspended
       description: "Suspended subscription state"
-      
+
     - id: cancelled
       description: "Cancelled subscription state"
-      
+
     - id: expired
       description: "Expired subscription state"
 
@@ -768,60 +807,66 @@ stateMachine:
       name: "Trial to Active Transition"
       from: trial
       to: active
-      action: activate-subscription
+      actions:
+        - run: activate-subscription
       preConditions:
         - payment-method-valid
       triggers:
         - id: end-of-trial-cron
           type: manual
           description: "Invoked manually by an external cron job"
-      
+
     - id: active-to-suspended
       from: active
       to: suspended
-      # Inline declaration — the `operation:` verb makes it a declarative container
-      action:
-        operation: evaluate-suspension
-        description: "Evaluate suspension handling with retry or notify branches"
-        actions:
-          - run: evaluate-risk
-          - conditional: branch-on-risk
-            branches:
-              - id: low-risk-retry
-                condition:
-                  expression: "@riskService.isLowRisk(id)"
-                actions:
-                  - run: schedule-retry-payment
-            default:
+      # The body is a member list like any other (§3.1.2): reference, declare, or mix
+      actions:
+        - run: evaluate-risk
+        - choice: branch-on-risk
+          branches:
+            - id: low-risk-retry
+              condition:
+                expression: "@riskService.isLowRisk(id)"
               actions:
-                - step: notify-user
-                  class: com.example.actions.NotifyPaymentIssueStep
+                - run: schedule-retry-payment
+          default:
+            actions:
+              - step: notify-user
+                class: com.example.actions.NotifyPaymentIssueStep
       triggers:
         - id: payment-failed
           type: data
           condition:
-            predicate: com.example.triggers.PaymentFailedTrigger
-      
+            id: payment-has-failed
+            predicate: com.example.triggers.PaymentFailedPredicate
+
     - id: suspended-to-cancelled
       from: suspended
       to: cancelled
-      # Inline declaration — a step attaches to a transition directly, no wrapper
-      action:
-        step: cancel-subscription
-        description: "Cancel subscription with compensation"
-        class: com.example.actions.CancelSubscriptionStep
-        compensation: com.example.compensations.RefundPartialFeesCompensation
+      actions:
+        - step: cancel-subscription
+          description: "Cancel subscription with compensation"
+          class: com.example.actions.CancelSubscriptionStep
+          compensation: com.example.compensations.RefundPartialFeesCompensation
       preConditions:
         - no-recovery-7-days
       triggers:
-        - id: cancellation-cron
-          type: manual
-          description: "Invoked manually by an external cron job"
-      
+        - manual-cancel                   # registered once, attached here and below (§3.3.2)
+
+    - id: active-to-cancelled
+      from: active
+      to: cancelled
+      triggers:
+        - manual-cancel
+
     - id: active-to-expired
       from: active
       to: expired
 ```
+
+**Metadata.** `id`, `name`, `description` and `version` are optional and land on the runtime `StateMachine`, which reports `null` for whichever was not given. `version` is an opaque string the framework never parses or compares — a semantic version, a commit hash and a timestamp are all fine. It exists for the host that loads definitions from an external source (§2.6) and needs to know which one a machine is running: all four belong to the *definition*, so after a replacement (§2.7) the machine reports the new definition's, and the framework logs id and version when a definition is built or swapped in.
+
+**Resolver and applier expressions** are YAML's stand-in for the two lambdas a Java host writes (§2.2.12). Both evaluate against the entity as root. The resolver's result is the state id — an enum contributes its `name()`, anything else its `toString()`. The applier's expression is an assignment *target*: the framework assigns the new state id through it, and SpEL's standard conversion turns the string into an enum-typed property. Anything computed, or any pairing the two expressions cannot say, is a class.
 
 #### 3.2.2 State Configuration
 
@@ -836,6 +881,8 @@ states:
         - subscription-activated
       onExit:
         - subscription-deactivated
+    # Turn off state-machine-wide state listeners for this state (§3.7)
+    disableGlobalListeners: [state-audit]
 ```
 
 ### 3.3 Transition Configuration
@@ -846,35 +893,43 @@ states:
 transitions:
   - id: trial-to-active
     name: "Trial to Active Transition"
+    description: "Activate trial subscription"
     from: trial
     to: active
-    description: "Activate trial subscription"
-    
-    # A transition carries at most one action, in either authoring form
-    action: activate-subscription
-    
+
+    # The context type a firing must supply. Omitted: any context, or none.
+    # java.lang.Void: the transition rejects a non-null context (§4.5).
+    context: com.example.contexts.ActivationContext
+
+    # The body: an ordered member list in the grammar of §3.1.2. Optional.
+    actions:
+      - run: activate-subscription
+      - run: send-welcome-email
+        fork: true
+
     preConditions:
       - payment-method-valid
-        
+
     postConditions:
       - milestones-activated
-    
+
     triggers:
-      - id: end-of-trial-cron
-        type: manual
-        description: "Invoked manually by an external cron job"
-        
-      - id: external-activation
+      - end-of-trial-cron                 # a registered trigger, by id
+
+      - id: external-activation           # declared in place
         type: data
         condition:
-          class: com.example.triggers.SubscriptionActivatedTrigger
-        
+          id: subscription-activated-externally
+          class: com.example.triggers.SubscriptionActivatedCondition
+
     listeners:
       onStart:
         - audit-start
       onComplete:
         - audit-complete
 ```
+
+A transition declares no compensation of its own (§2.2.11): rolling the body back as a unit is one wrapping `operation:` carrying the `compensation:`.
 
 #### 3.3.2 Manual Triggers
 
@@ -889,6 +944,8 @@ triggers:
       - support-user-authorized
 ```
 
+A trigger registered under the top-level `triggers:` may be attached to several transitions and remains one trigger (§2.2.8). For a manual one that is the point: `manual-cancel` on both `active → cancelled` and `suspended → cancelled` lets the host fire it without knowing which state the entity is in, and the framework takes the attachment leaving the current state. Attaching one manual trigger to two transitions leaving the *same* state is an error.
+
 #### 3.3.3 Event Triggers
 
 Event triggers fire in response to events that the host publishes into the state machine via `processEvent(...)`.
@@ -900,37 +957,42 @@ triggers:
     event: PAYMENT_METHOD_VALIDATED
     filter:
       expression: "#event.validation == 'CONFIRMED'"
+      # OR  class: com.example.triggers.ConfirmedValidationFilter
 ```
+
+A `filter:` is not a condition (§3.6.1): it judges the event, so it has no id, cannot be referenced, and cannot reference a registered condition. Its class implements `BiPredicate<Object, T>` over `(event, entity)` or `Predicate<Object>` over the event alone; its expression sees the event as `#event` (§3.9).
 
 #### 3.3.4 Data Triggers
 
 Data triggers fire when the host calls `entity(e).processDataChange()` and the trigger's condition matches the entity's current state.
 
-> **Reminder:** Transflux does not watch entity fields, hook into ORM change tracking, or evaluate triggers automatically in 1.0 — data triggers are host-driven re-evaluation only (see §1.3 Non-Goals). The host's typical pattern is: update the entity → call `entity(e).processDataChange()` → framework evaluates registered data triggers and fires any matching transition.
+> **Reminder:** Transflux does not watch entity fields, hook into ORM change tracking, or evaluate triggers automatically in 1.0 — data triggers are host-driven re-evaluation only (see §1.3 Non-Goals). The host's typical pattern is: update the entity → call `entity(e).processDataChange()` → framework evaluates the data triggers on transitions leaving the current state, in declaration order, and fires the first whose gate holds.
 
-A data trigger's condition follows the standard Condition Descriptor grammar (§3.6.1):
+A data trigger's `condition:` follows the standard Condition Descriptor grammar (§3.6.1):
 
 ```yaml
 triggers:
-  # Class-based — full Condition<T> implementation
+  # Class-based — full Condition<T, C> implementation
   - id: priority-change-class
     type: data
     condition:
+      id: priority-changed
       class: com.example.triggers.SubscriptionPriorityChangedCondition
-      
-  # Predicate-based — lighter-weight Predicate<T>-style class
+
+  # Predicate-based — a lighter BiPredicate<T, C>-style class
   - id: payment-failed
     type: data
     condition:
-      predicate: com.example.triggers.PaymentFailedTrigger
-      
-  # Expression-based — inline SpEL
+      id: payment-has-failed
+      predicate: com.example.triggers.PaymentFailedPredicate
+
+  # Expression-based — inline SpEL; the one form that may omit its id
   - id: priority-change-expression
     type: data
     condition:
       expression: "status == 'READY_FOR_ACTIVATION' && priority > 5"
-      
-  # Reference to a pre-defined condition (id shorthand)
+
+  # Reference to a registered condition
   - id: ready-and-high-priority
     type: data
     condition: ready-and-high-priority-condition
@@ -938,9 +1000,11 @@ triggers:
 
 ### 3.4 Action Definitions
 
-There is one runtime concept — an action — declared in one of two forms (§2.2.5). A **step** is imperative: a Java class implementing `Action`, with no bound children. An **operation** is declarative: an ordered `actions:` list, where declaration order *is* execution order and the framework synthesizes the executable that walks it. A **conditional operation** is the declarative variant whose ordering rule is "first matching branch" rather than "all, in order".
+There is one runtime concept — an action — declared in one of two forms (§2.2.5). A **step** is imperative: a Java class implementing `Action`, with no bound children. An **operation** is declarative: an ordered `actions:` list, where declaration order *is* execution order and the framework synthesizes the executable that walks it. A **choice** is the declarative variant whose ordering rule is "first matching branch" rather than "all, in order".
 
-Both forms attach anywhere an action is accepted — as a transition's `action:`, as a member of an operation, or as a member of a conditional branch. Neither form needs a wrapper to reach a position the other can occupy.
+Every form attaches anywhere an action is accepted — as a member of a transition's body, of an operation, or of a choice's branch. None needs a wrapper to reach a position another can occupy.
+
+Whatever its form, an action's declaration — registered or in place — accepts the same keys around its own content: `name`, `description`, `context` (§3.5.1), `compensation` and `errorHandling` (§3.4.2), `listeners` and `disableGlobalListeners` (§3.7), and `onRejection`, which is what a refused submission does when this action is reached through a fork (§3.8).
 
 #### 3.4.1 Steps
 
@@ -952,8 +1016,7 @@ steps:
     name: "Activate Subscription"
     description: "Activate a trial subscription"
     class: com.example.actions.ActivateSubscriptionStep
-    context:
-      class: com.example.contexts.ActivationContext
+    context: com.example.contexts.ActivationContext
 
   - id: send-welcome-email
     class: com.example.actions.SendWelcomeEmailStep
@@ -961,7 +1024,7 @@ steps:
 
 #### 3.4.2 Operations
 
-An operation is declared under `operations:` and carries an `actions:` list. Each entry is verb-keyed per §3.1.2 — `run:` to reference, `step:` / `operation:` / `conditional:` to declare — and the list runs in declaration order.
+An operation is declared under `operations:` and carries an `actions:` list. Each entry is verb-keyed per §3.1.2 — `run:` to reference, `step:` / `operation:` / `choice:` to declare — and the list runs in declaration order.
 
 A reference says nothing about the form of the thing it names: `run: notification-flow` reaches an operation and `run: charge-card` reaches a step, spelled identically, because which form the callee was authored in is a property of *its* declaration rather than of the call.
 
@@ -969,15 +1032,13 @@ A reference says nothing about the form of the thing it names: `run: notificatio
 operations:
   - id: complex-activation
     description: "Complex activation with several actions"
-    
-    context:
-      class: com.example.contexts.ComplexActivationContext
-      
+    context: com.example.contexts.ComplexActivationContext
+
     actions:
       - run: prepare-event-actor
       - run: validate-prerequisites
 
-      # A reference may carry a context mapper at the call site (§3.5)
+      # A reference may carry a context mapper at the call site (§3.5.2)
       - run: charge-card
         mapper: billing-from-activation
 
@@ -985,46 +1046,51 @@ operations:
       - step: lock-resources
         class: com.example.actions.LockResourcesStep
         description: "Lock resources for activation"
+        listeners:
+          onError:
+            - lock-failure-audit
 
-      # Declared in place; a nested operation - see the note below
+      # Declared in place, against a context of its own, mapped into at this position (§3.5.1)
       - operation: notify-flow
+        context: com.example.contexts.NotificationContext
+        mapper: notification-from-activation
         actions:
           - run: prepare-notifications
           - run: send-notifications
 
-      - conditional: multi-branch-conditional
+      - choice: priority-routing
         branches:
           - id: high-priority-branch
             condition:
+              id: is-high-priority
               predicate: com.example.predicates.HighPriorityPredicate
             actions:
               - step: high-priority-processing
                 class: com.example.actions.HighPriorityStep
               - step: urgent-notification
                 class: com.example.actions.UrgentNotificationStep
-                
+
           - id: medium-priority-branch
             condition:
               expression: "priority >= 5 && priority < 8"
             actions:
               - step: medium-priority-processing
                 class: com.example.actions.MediumPriorityStep
-                
+
           - id: vip-customer-branch
-            condition:
-              predicate: com.example.predicates.VipCustomerPredicate
+            condition: is-vip-customer          # a registered condition
             actions:
               - run: vip-processing
               - step: account-manager-notification
                 class: com.example.actions.AccountManagerNotificationStep
-                
+
         default:
           actions:
             - step: standard-processing
               class: com.example.actions.StandardProcessingStep
             - step: standard-notification
               class: com.example.actions.StandardNotificationStep
-              
+
       - step: finalize
         class: com.example.actions.FinalizeActivationStep
 
@@ -1035,6 +1101,7 @@ operations:
       - run: external-integrations
         fork: true
         mapper: notification-from-activation
+        onRejection: CALLER_RUNS            # this position's answer to a refused submission (§3.8)
 
       # The flag rides on a declaring entry too, so a one-off group can be
       # declared where it is forked rather than registered and referenced
@@ -1049,36 +1116,40 @@ operations:
 
     errorHandling:
       - exception: com.example.exceptions.RecoverableException
-        condition:
-          predicate: com.example.predicates.RecoverableErrorPredicate
+        guard:
+          class: com.example.predicates.RecoverableErrorPredicate
         compensation: com.example.compensations.RecoverableCompensation
 
-      - exception: com.example.exceptions.GatewayTimeoutException
+      - exception: com.example.exceptions.GatewayException
+        guard:
+          expression: "statusCode == 503"
         compensation: com.example.compensations.ReconcileLaterCompensation
 ```
 
-> **Error handling is the routing table of §2.2.11.** Each `errorHandling:` entry is one route: `exception:` is the failure type it answers for, the optional `condition:` is its guard over that failure, and `compensation:` is what it runs. Entries are tried in declaration order and the first match wins, so the list is ordered the way a Java `catch` chain is. The unconditional fallback is the owner's own `compensation:` key, exactly as in the Java DSL — there is deliberately no separate "for every exception" entry spelling, since an entry on `java.lang.Exception` and the `compensation:` key would then be two ways to say the same thing with an ordering question between them. The block is accepted on any action, not only on an operation.
+> **Error handling is the routing table of §2.2.11.** Each `errorHandling:` entry is one route: `exception:` is the failure type it answers for, the optional `guard:` narrows it, and `compensation:` is what it runs. Entries are tried in declaration order and the first match wins, so the list is ordered the way a Java `catch` chain is. A `guard:` is not a condition (§3.6.1): it judges the *failure*, never the entity or the context, so it has no id and no reference form. Its class implements `Predicate` over the declared exception type; its expression is evaluated with the failure as root (§3.9). The unconditional fallback is the owner's own `compensation:` key, exactly as in the Java DSL — there is deliberately no separate "for every exception" entry spelling, since an entry on `java.lang.Exception` and the `compensation:` key would then be two ways to say the same thing with an ordering question between them. The block is accepted on any action, not only on an operation.
 
-> **Forking is a per-member flag, not a block.** `fork: true` on a member entry means the member is submitted where it appears in the `actions:` list and the members after it do not wait for it. There is deliberately no `fork:` block with an `enabled` key and an anchor — a position in an ordered list already says when work starts, and the two anchor forms an earlier design proposed ("when execution reaches x", "when x completes successfully") are just the positions before and after `x`. A forked member accepts the same `mapper:` key any other reference does; what it may not accept is a mapper that writes back (§4.5.3.2).
+> **Forking is a per-member flag, not a block.** `fork: true` on a member entry means the member is submitted where it appears in the `actions:` list and the members after it do not wait for it. There is deliberately no `fork:` block with an `enabled` key and an anchor — a position in an ordered list already says when work starts, and the two anchor forms an earlier design proposed ("when execution reaches x", "when x completes successfully") are just the positions before and after `x`. A forked member accepts the same `mapper:` key any other member does; what it may not rely on is a mapper that writes back (§4.5.3.2).
 
-> **`fork` names the act; `async` names the machinery.** The key is `fork:` and not `async:` because what the flag says is that *this member* is forked — it becomes a branch with its own context and its own rollback stack (§4.5.3). Where branches run is a separate question with its own answer: `config.async:` (§3.8) configures the executor, matching `withAsyncPool(...)` and `withAsyncExecutor(...)` on the Java side. `ForkableContext` sits on the fork side of that line, because a context is a branch's own; `AsyncRejectionPolicy` sits on the async side, because it answers for the executor rather than for the member — the same four answers apply to any work handed to it. A listener's `config: { async: true }` (§3.1.1) keeps `async` on purpose: an observer that does not block is not a forked member — it has no context of its own, no rollback stack, and appears on no path.
+> **`fork` names the act; `async` names the machinery.** The key is `fork:` and not `async:` because what the flag says is that *this member* is forked — it becomes a branch with its own context and its own rollback stack (§4.5.3). Where branches run is a separate question with its own answer: `config.async:` (§3.8) configures the executor, matching `withAsyncPool(...)` and `withAsyncExecutor(...)` on the Java side. `ForkableContext` sits on the fork side of that line, because a context is a branch's own; `AsyncRejectionPolicy` sits on the async side, because it answers for the executor rather than for the member — the same four answers apply to any work handed to it. A listener's `async: true` (§3.7) keeps `async` on purpose: an observer that does not block is not a forked member — it has no context of its own, no rollback stack, and appears on no path.
 
-> **The flag is orthogonal to the verb, which is why YAML needs one of it and Java needs eight.** `fork: true` sits beside `run:`, `step:`, `operation:` or `conditional:` alike, so every member form is forkable with no second spelling. Java cannot do that: `fork` and its declaring siblings must be distinct method names, because a mapper and a configurer are indistinguishable to javac at an implicitly-typed lambda. The four verbs `run` / `step` / `operation` / `conditional` therefore each have a twin — `fork` / `forkStep` / `forkOperation` / `forkConditional` (§4.4.2) — and a mapper is passed positionally rather than under a key. The models are the same; only the spelling differs, and the mapper resolves this direction because a YAML document cannot hold a lambda.
+> **The flag is orthogonal to the verb, which is why YAML needs one of it and Java needs eight.** `fork: true` sits beside `run:`, `step:`, `operation:` or `choice:` alike, so every member form is forkable with no second spelling. Java cannot do that: `fork` and its declaring siblings must be distinct method names, because a mapper and a configurer are indistinguishable to javac at an implicitly-typed lambda. The four verbs `run` / `step` / `operation` / `choice` therefore each have a twin — `fork` / `forkStep` / `forkOperation` / `forkChoice` (§4.4.2) — and a mapper is passed positionally rather than under a key. The models are the same; only the spelling differs, and the mapper resolves this direction because a YAML document cannot hold a lambda.
 
-#### 3.4.3 Multi-Branch Conditional Operations
+#### 3.4.3 Choices
 
-A conditional operation allows for complex decision-making with multiple predicates and a default fallback branch. It evaluates conditions in declaration order and executes the **first matching** branch, or the default branch if no conditions match. It is a declarative action like any other, so it may be declared in place with the `conditional:` verb (as below) or registered under `operations:` and referenced with `run:`.
+A choice allows for complex decision-making with multiple conditions and a default fallback branch. It evaluates its branches' conditions in declaration order and executes the **first matching** branch, or the default branch if none match. It is a declarative action like any other, so it may be declared in place with the `choice:` verb (as below) or registered under `choices:` and referenced with `run:`.
 
 ```yaml
 operations:
   - id: priority-based-routing
     description: "Route processing based on multiple priority conditions"
-    
+
     actions:
-      - conditional: multi-priority-routing
+      - choice: multi-priority-routing
+        onNoMatch: ERROR                  # only consulted when there is no `default:`
         branches:
           - id: critical-priority
             condition:
+              id: is-critical-priority
               predicate: com.example.predicates.CriticalPriorityPredicate
             actions:
               - step: escalate-immediately
@@ -1087,7 +1158,7 @@ operations:
                 class: com.example.actions.ManagementNotificationStep
               - step: expedited-processing
                 class: com.example.actions.ExpeditedProcessingStep
-                
+
           - id: high-priority
             condition:
               expression: "priority >= 8 && customerTier == 'PREMIUM'"
@@ -1096,61 +1167,107 @@ operations:
                 class: com.example.actions.PriorityProcessingStep
               - step: premium-notification
                 class: com.example.actions.PremiumNotificationStep
-                
+
           - id: vip-customer
-            condition:
-              predicate: com.example.predicates.VipCustomerPredicate
+            condition: is-vip-customer
             actions:
               - step: vip-processing
                 class: com.example.actions.VipProcessingStep
               - step: account-manager-alert
                 class: com.example.actions.AccountManagerAlertStep
-                
+
           - id: time-sensitive
             condition:
               expression: "deadline.isBefore(T(java.time.LocalDate).now().plusDays(1))"
             actions:
               - step: urgent-processing
                 class: com.example.actions.UrgentProcessingStep
-                
+
           - id: business-hours
-            condition:
-              expression: "T(java.time.LocalTime).now().hour >= 9 && T(java.time.LocalTime).now().hour < 17"
+            condition: business-hours
             actions:
               - step: business-hours-processing
                 class: com.example.actions.BusinessHoursProcessingStep
-                
-        default:
-          actions:
-            - step: standard-processing
-              class: com.example.actions.StandardProcessingStep
-            - step: standard-notification
-              class: com.example.actions.StandardNotificationStep
-            - step: queue-for-batch
-              class: com.example.actions.QueueForBatchStep
 ```
+
+A branch carries an `id`, a `condition:` in the descriptor grammar (§3.6.1) and an `actions:` list; `default:` carries the list alone. A branch is not an action (§2.2.5.1), so neither accepts `compensation:`, `listeners:` or a `context:` — those belong to the choice, or to the members.
 
 **Execution Semantics:**
 1. Branches are evaluated in the order they are defined.
 2. The first branch whose condition evaluates to `true` is executed.
 3. Once a branch is executed, no further conditions are evaluated.
 4. If no branch conditions match, the `default` branch is executed.
-5. If no `default` branch is defined and no conditions match, the outcome is configurable through the `NoMatchBehavior` enumeration on the conditional operation:
-   - **`WARN`** (default) — log a warning and continue. The conditional operation itself completes without dispatching any inner actions; its id is recorded on `executedPath`.
+5. If no `default` branch is defined and no conditions match, the outcome is set by `onNoMatch:` on the choice — the `NoMatchBehavior` enumeration in Java:
+   - **`WARN`** (default) — log a warning and continue. The choice itself completes without dispatching any inner actions; its id is recorded on `executedPath`.
    - **`SILENT`** — same as `WARN` but without logging. Suits the guard pattern (`if (cond) { ... }` with no `else`), where a no-match is the deliberate, expected outcome.
-   - **`ERROR`** — raise a transition failure. The conditional operation fails, the enclosing action fails, and any registered compensations run.
+   - **`ERROR`** — raise a transition failure. The choice fails, the enclosing action fails, and any registered compensations run.
 
 ### 3.5 Context and Data Mapping
 
-#### 3.5.1 Context Definition
+#### 3.5.1 Context Types
+
+A context is a plain host class, and `context:` names it — a bare class name at every position, never an id: there is no pool of contexts, because nothing about a context is declared beyond its class.
+
+| Position | `context:` means |
+| --- | --- |
+| a transition | the type a firing must supply (§3.3.1) |
+| a registered component — any kind | the type it was written against (§3.1.1) |
+| an inline `step:` / `operation:` / `choice:` | the type *this* action runs against, where that differs from the enclosing list's |
+
+An inline declaration comes in three shapes, as it does in Java (§4.5.2). Without `context:` it inherits the enclosing list's context. With `context:` alone it declares its own and receives the enclosing one as it is, which requires the declared type to accept it — widening is fine, narrowing is a build error. With `context:` and `mapper:` it declares its own and the mapper produces it at this position.
+
+#### 3.5.2 Mappers
+
+A mapper turns the context at a call site into the one the callee runs against (`mapTo`), and may write results back when the callee returns (`mapFrom`). Mapping is a property of the call site, never of the callee (§4.5.2).
 
 ```yaml
-contexts:
-  - id: activation-context
-    class: com.example.contexts.ActivationContext
+mappers:
+  # Class-based — a ContextMapper<P, N>, for a mapping that needs logic
+  - id: billing-from-activation
+    name: "Billing from Activation"
+    parentType: com.example.contexts.ActivationContext
+    childType: com.example.contexts.BillingContext
+    class: com.example.mappers.BillingFromActivationMapper
+
+  # Expression-based — a read-only projection
+  - id: notification-from-activation
+    parentType: com.example.contexts.ActivationContext
+    childType: com.example.contexts.NotificationContext
+    mapTo: "new com.example.contexts.NotificationContext(subscriptionId, activatedBy)"
+
+  # Expression-based, writing back when the callee returns
+  - id: payment-from-activation
+    parentType: com.example.contexts.ActivationContext
+    childType: com.example.contexts.PaymentContext
+    mapTo: "new com.example.contexts.PaymentContext(subscriptionId, paymentMethodId)"
+    mapFrom:
+      chargeId: "chargeId"                          # parent.chargeId          <-  child.chargeId
+      activationResult: "result.status"             # parent.activationResult  <-  child.result.status
+      chargedAt: "#parent.chargedAt ?: completedAt"
 ```
 
-#### 3.5.2 Context Usage Examples
+A `mapTo:` expression is evaluated with the **parent context as root** and must produce the child context (§3.9); the entity is not in scope, since a mapper never sees one.
+
+`mapFrom:` is a map of assignments, applied in document order once the callee has returned. Each **key** is an assignable property path on the parent context, written through the way a state applier's expression is (§3.2.1), with the same type conversion. Each **value** is an expression evaluated with the **child context as root**, with the parent available as `#parent` for the occasional merge. It assigns *into* the parent rather than producing a new one, and that is not a limitation of the spelling: by the time a callee returns, the parent context is referenced by the host that will read results off it, by every compensation already on the rollback stack and by the enclosing actions, so a replacement object would carry values nothing looks at. The parent therefore needs writable properties, as it does for a Java `mapFrom`. `mapFrom:` requires `mapTo:` beside it; a write-back with logic in it is a class. At a forked call site it never runs, like any other mapper's (§4.5.3.2).
+
+At a call site, `mapper:` takes any of three forms. The two block forms need no `parentType` / `childType`: the position already fixes both.
+
+```yaml
+actions:
+  - run: charge-card
+    mapper: billing-from-activation                       # a registered mapper
+
+  - run: charge-card
+    mapper:
+      class: com.example.mappers.BillingFromActivationMapper
+
+  - run: send-receipt
+    mapper:
+      mapTo: "new com.example.contexts.ReceiptContext(subscriptionId)"
+      # mapFrom: { ... }                                  # accepted here too
+```
+
+#### 3.5.3 Context Usage Examples
 
 Applications must populate the context before execution and read results after completion:
 
@@ -1175,164 +1292,223 @@ log.info("Activated subscription {} at {} with result {}",
 
 #### 3.6.1 Condition Descriptor
 
-Conditions appear in many places: pre/post conditions, conditional branch selectors, data-trigger gates, event-trigger filters. They share a single grammar — the **Condition Descriptor** — with five authoring forms, three of which both DSLs express. The other two are each one DSL's way of naming a condition object: `InstanceBased` attaches a pre-built `Condition<T, C>` and is Java-only, since a live object has no YAML serialization; `ClassBased` names a class and is YAML-only, since the Java DSL holds the object already and the factory (§6.2) is what turns a class name into one.
+A condition appears at five positions: a transition's pre- and post-conditions, a manual trigger's pre-conditions, a choice's branch, and a data trigger's gate. They share a single grammar — the **Condition Descriptor** — with five authoring forms, three of which both DSLs express. The other two are each one DSL's way of naming a condition object: `InstanceBased` attaches a pre-built `Condition<T, C>` and is Java-only, since a live object has no YAML serialization; `ClassBased` names a class and is YAML-only, since the Java DSL holds the object already and the factory (§6.2) is what turns a class name into one.
 
 ```yaml
-# 1. Reference to a pre-defined condition (string shorthand)
 preConditions:
+  # 1. Reference to a registered condition
   - payment-method-valid
 
-# 2. Inline class-based — a full Condition<T> implementation
-preConditions:
-  - condition:
-      class: com.example.conditions.PaymentMethodValidCondition
+  # 2. Inline class-based — a full Condition<T, C> implementation
+  - id: payment-method-present
+    class: com.example.conditions.PaymentMethodPresentCondition
 
-# 3. Inline predicate-based — a BiPredicate<T, C>-style class (lighter than Condition<T>;
-#    useful for stateless boolean tests over (entity, context) without DI or rich failure
-#    metadata). The Java DSL also exposes a Predicate<T> convenience overload for entity-only
-#    tests; the context is ignored at evaluation time.
-preConditions:
-  - condition:
-      predicate: com.example.predicates.PaymentMethodValidPredicate
+  # 3. Inline predicate-based — a BiPredicate<T, C>-style class (lighter than Condition<T, C>;
+  #    useful for stateless boolean tests over (entity, context)). A class implementing
+  #    Predicate<T> is accepted for entity-only tests; the context is then ignored.
+  - id: payment-method-current
+    predicate: com.example.predicates.PaymentMethodCurrentPredicate
 
-# 4. Inline expression — SpEL evaluated against the entity (and context where applicable)
-preConditions:
-  - condition:
-      expression: "paymentMethodId != null"
+  # 4. Inline expression — SpEL (§3.9); the one form that may omit its id
+  - expression: "paymentMethodId != null"
 
-# 5. (Java DSL only) InstanceBased — attach a pre-built Condition<T, C> instance under an explicit id.
-#    Useful when the host already holds a configured instance (e.g., from a DI container) and wants
-#    to wire it through the same descriptor pipeline as the class/predicate forms.
+  # 5. (Java DSL only) InstanceBased — attach a pre-built Condition<T, C> instance under an explicit id.
 ```
 
 **Resolution rules:**
-- When a list element is a **bare string**, it is interpreted as form 1 (reference).
-- When it is a **block**, it must contain exactly one of `class`, `predicate`, `expression`, or `ref` (long-form reference).
+- A **string** is form 1, a reference. A **block** is an inline declaration and carries exactly one of `class`, `predicate` or `expression`.
+- An inline declaration carries an `id`, which it claims in the namespace actions and mappers share (§2.2.1); only the expression form may omit it, and is then given one derived from the expression and its position.
+- In a list position (`preConditions:`, `postConditions:`) each element is a descriptor. In a single position (`condition:` on a branch or a data trigger) the key's value is one.
+- A condition carries **no `name:` or `description:`**, registered or inline — both keys are errors. Nothing at runtime represents a condition beyond its id, so there would be nowhere for them to go; a condition is documented with a comment.
 
 **Form comparison:**
 - A **`Condition<T, C>` instance** (form 5, Java DSL only) is the right choice when the host already has a configured `Condition` (DI-wired, holds runtime state) and wants to attach it to a single site without re-routing through the `StateMachineDef.condition(id, ...)` registry.
-- A **`Condition<T, C>` class name** (form 2, YAML only) is how a document points at that same full-featured shape — one that holds injected dependencies and returns rich failure metadata. The factory resolves it to an instance before registration, so it reaches the runtime as form 5 does.
-- A **`BiPredicate<T, C>`** (form 3) is the minimal shape — a simple boolean test over `(entity, context)`. Useful for stateless conditions where rich metadata is unnecessary. The Java DSL accepts a `Predicate<T>` convenience overload for entity-only tests.
+- A **`Condition<T, C>` class name** (form 2, YAML only) is how a document points at that same full-featured shape — one that holds injected dependencies and sees the transition it is evaluated for. The factory resolves it to an instance before registration, so it reaches the runtime as form 5 does.
+- A **`BiPredicate<T, C>`** (form 3) is the minimal shape — a simple boolean test over `(entity, context)`.
 - An **expression** (form 4) is for one-off inline logic that doesn't justify a Java class.
-- A **reference** (form 1) shares a single definition across many transitions.
+- A **reference** (form 1) shares a single definition across many positions.
 
-The same descriptor grammar is reused everywhere a condition is accepted: pre/post conditions, conditional branch selectors, data-trigger gates.
+Two keys look like conditions and are not, because neither judges `(entity, context)`: an event trigger's `filter:` judges the event (§3.3.3), and a compensation route's `guard:` judges the failure (§3.4.2). Both take `class` or `expression`, neither takes an id, and neither can reference a registered condition.
 
-#### 3.6.2 Pre/Post Conditions
+#### 3.6.2 Registered Conditions
 
 ```yaml
 conditions:
   - id: checkout-fulfilled
     class: com.example.conditions.CheckoutFulfilledCondition
-      
+
   - id: milestones-activated
     class: com.example.conditions.MilestonesActivatedCondition
-    
+    context: com.example.contexts.ActivationContext
+
   - id: business-hours
     expression: "T(java.time.LocalTime).now().isAfter(T(java.time.LocalTime).of(9, 0)) and T(java.time.LocalTime).now().isBefore(T(java.time.LocalTime).of(17, 0))"
 ```
 
 ### 3.7 Listeners and Hooks
 
-The YAML DSL supports state entry/exit listeners and transition start/complete/error listeners. The third category, action start/complete/error, has no YAML spelling yet — see the parity note below.
+All three listener categories (§2.2.10) are written the same way: the owner carries a `listeners:` block keyed by its hooks, and each hook holds a list whose entries are a reference to a registered listener or a declaration in place (§3.1.2).
+
+| Owner | Hooks |
+| --- | --- |
+| a state | `onEntry`, `onExit` |
+| a transition | `onStart`, `onComplete`, `onError` |
+| an action's declaration — registered or inline, in any form | `onStart`, `onComplete`, `onError` |
+| the state machine | `onAnyStateEntry`, `onAnyStateExit`, `onAnyTransitionStart`, `onAnyTransitionComplete`, `onAnyTransitionError`, `onAnyActionStart`, `onAnyActionComplete`, `onAnyActionError` |
 
 ```yaml
-# State entry/exit listeners — attached to the state definition
-states:
-  - id: active
-    listeners:
-      onEntry:
-        - subscription-activated
-      onExit:
-        - subscription-deactivated
+listeners:                                # the pool (§3.1.1)
+  - id: state-audit
+    class: com.example.listeners.StateAuditListener
+  - id: subscription-activated
+    class: com.example.listeners.SubscriptionActivatedListener
+    async: true
 
-# Transition listeners — attached to the transition definition
-transitions:
-  - id: trial-to-active
+steps:
+  - id: charge-card
+    class: com.example.steps.ChargeCardStep
+    context: com.example.contexts.BillingContext
     listeners:
-      onStart:
-        - audit-start
-      onComplete:
-        - audit-complete
       onError:
-        - audit-failure
+        - id: charge-audit                # declared in place
+          class: com.example.listeners.ChargeAuditListener
 
-# Global listeners — apply to all transitions or all states
-listeners:
-  transitionListeners:
-    - transition: "*"
-      onComplete:
-        - class: com.example.listeners.TransitionAuditListener
-      onError:
-        - class: com.example.listeners.TransitionFailureListener
-        
-  stateListeners:
-    - state: "*"
-      onEntry:
-        - class: com.example.listeners.StateAuditListener
+stateMachine:
+  # State-machine-wide listeners: they fire for every owner of their category,
+  # after that owner's own
+  listeners:
+    onAnyStateEntry:
+      - state-audit
+    onAnyTransitionComplete:
+      - id: transition-audit
+        class: com.example.listeners.TransitionAuditListener
+        async: true
+        onRejection: CALLER_RUNS
+    onAnyTransitionError:
+      - transition-audit                  # the same listener, reused by this owner's other hook
+    onAnyActionError:
+      - action-failure-audit
+
+  states:
+    - id: active
+      listeners:
+        onEntry:
+          - subscription-activated
+        onExit:
+          - subscription-deactivated
+
+  transitions:
+    - id: trial-to-active
+      from: trial
+      to: active
+      listeners:
+        onStart:
+          - id: activation-audit
+            class: com.example.listeners.ActivationAuditListener
+        onComplete:
+          - activation-audit
+        onError:
+          - activation-audit
+      actions:
+        - run: charge-card                # charge-audit fires here, and at every other call site
 ```
 
-> **Parity gap — action listeners.** The third category (§2.2.10) exists in the Java DSL — `onStart` / `onComplete` / `onError` on an action's own definition, and `onAnyActionStart` / `onAnyActionComplete` / `onAnyActionError` on the state machine — but has no YAML spelling yet. Its shape is not merely the two blocks above with a third noun substituted: an action listener attaches to the action rather than to the call site, and YAML admits inline action definitions at member positions, so where the attachment is written and how a referenced action inherits it both need settling. This closes with the rest of the YAML listener library, which is deferred to Phase 5 for the same reason: YAML references listeners by id from a shared pool, which needs a listener registry the Java DSL does not have.
+**A listener entry** declared in place carries `id`, `class`, optional `name` / `description` / `context`, and the two async keys: `async: true`, and `onRejection:` — `DROP` (the default), `BLOCK` or `CALLER_RUNS`; `FAIL` is refused (§2.2.10). Its category is fixed by the hook it sits under, and its class must implement that category's interface. A registered listener has no hook to read a category from, so it is read off the interface its class implements; a class implementing more than one names the category it is registered under with `type: state | transition | action`.
+
+**The id names the listener, not the attachment** (§2.2.10). A registered listener may sit under any number of hooks on any number of owners, the state machine's own included, and whatever it declares — `async:` too — holds at each. A listener declared in place is visible to its owner's other hooks and to nothing else, which is what `activation-audit` and `transition-audit` do above; one class serving several hooks tells them apart by the phase in its payload.
+
+**An action listener attaches to the action, not to the call site.** It is written on the action's declaration and fires wherever that action is invoked, so a `run:` entry carries the callee's listeners with it and accepts none of its own — `listeners:` on a `run:` entry is an error that names where the action is declared. The same holds for `disableGlobalListeners:`.
+
+**Turning state-machine-wide listeners off.** A state, a transition and an action's declaration each accept `disableGlobalListeners:`, suppressing the state-machine-wide listeners of the owner's own category under the rules of §2.2.10:
+
+```yaml
+transitions:
+  - id: cancel
+    from: active
+    to: cancelled
+    disableGlobalListeners: [transition-audit]    # these; an empty list is an error
+
+steps:
+  - id: capture-payment
+    class: com.example.steps.CapturePaymentStep
+    disableGlobalListeners: true                  # all of them
+    listeners:
+      onStart:
+        - id: capture-redacted
+          class: com.example.listeners.RedactedCaptureListener
+```
 
 ### 3.8 Global Configuration
 
-```yaml
-config:
-  # Where forked members run, and what happens when the queue is full
-  async:
-    threadPoolSize: 16       # omit for the current default: 2 x processors, at least 4
-    queueCapacity: 160       # omit for the current default: 10 x threadPoolSize
-    onRejection: DROP        # OR: FAIL, BLOCK, CALLER_RUNS
+`config:` sits inside `stateMachine:` — it configures this state machine, and a library has none.
 
-  # Metrics settings
-  metrics:
-    enabled: true
-    flowLabel: subscription-management
-    
-  # The shipped logging listeners, attached globally
-  logging:
-    level: INFO              # every trace line's level; DEBUG when omitted
-    includeContext: false    # true writes the context's toString() into the trace
-    includeTimings: true     # durations on transition and action outcome lines
+```yaml
+stateMachine:
+  config:
+    # Where forked members and async listeners run, and what happens when the queue is full
+    async:
+      threadPoolSize: 16       # omit for the current default: 2 x processors, at least 4
+      queueCapacity: 160       # omit for the current default: 10 x threadPoolSize
+      onRejection: DROP        # OR: FAIL, BLOCK, CALLER_RUNS
+
+    # The shipped logging listeners, attached globally
+    logging:
+      level: INFO              # every trace line's level; DEBUG when omitted
+      includeContext: false    # true writes the context's toString() into the trace
+      includeTimings: true     # durations on transition and action outcome lines
 ```
 
 > **The `async` block configures this state machine's executor**, mapping to `withAsyncPool(...)` and `withAsyncRejectionPolicy(...)` on the Java `StateMachineDef` (§4.10.1); a block that sizes nothing is `withAsyncPool()`. The default sizing scales with the processors available to the JVM, because forked work mostly waits on I/O and a fixed number is wrong for both a two-vCPU container and a large host. The formula in the comments above is the current choice, not a contract: a pool logs the sizes it was built with, and a host that depends on specific numbers states them. It is per state machine rather than process-wide because the pool's lifecycle is the state machine's: `StateMachine.close()` shuts down a pool the framework built. A host that would rather share one executor across several machines supplies it in Java through `withAsyncExecutor(...)`; there is no YAML spelling for that, since a YAML document cannot name a live object. A definition that forks nothing and declares no async listener builds no pool, whatever this block says — with one exception, which is that declaring the block *is* such a statement. A fork written inside a Java body (§4.5.2.1) is invisible to every definition-time walk, so asking for a pool is how a definition whose only forks are imperative says that it forks at all.
 
 > **The `logging` block attaches the shipped logging listeners; it is not framework logging.** It maps to `withExecutionLogging(...)` in Java, which attaches a state, a transition and an action listener to every owner, writing to the `org.transflux.trace.*` subtree at the level given. The framework's own diagnostics never log a payload and are configured through the logging backend alone (§4.7); this block is the host asking for a trace of its own execution, so `includeContext: true` is the host's call to put its own context in its own logs. It stays off by default, and the expected pattern for a flow that wants payloads in only a few places is to leave the global trace context-free and attach a context-logging listener to those owners. Java adds an entity label — `withEntityLabel(Order::getId)` — which YAML has no spelling for, since a document cannot supply a function.
 
-> **`onRejection` here is the default, not the whole story.** It applies to async work that declares nothing of its own. Three parties can speak for one submission, and the most specific wins: the position that forks it, the component's own declaration, then this default. Some work knows how it must be treated — an audit listener, a write that must never be lost — and declares it on itself: `config.onRejection` on the component, `ActionDef.withAsyncRejectionPolicy(...)` in Java. Some work does not — a notification step is droppable in one flow and not in another — and the position that forks it says so: `onRejection:` beside the `fork:` flag on the member, `fork(id, policy)` in Java. `BLOCK` is the one value that needs a pool the framework built: waiting for capacity happens inside the rejection handler the framework installs, and a host's executor is not the framework's to reconfigure. Declaring `BLOCK` anywhere alongside `withAsyncExecutor(...)` fails the build.
+> **`onRejection` here is the default, not the whole story.** It applies to async work that declares nothing of its own. Three parties can speak for one submission, and the most specific wins: the position that forks it, the component's own declaration, then this default. Some work knows how it must be treated — an audit listener, a write that must never be lost — and declares it on itself: `onRejection:` on the component's declaration, `ActionDef.withAsyncRejectionPolicy(...)` in Java. Some work does not — a notification step is droppable in one flow and not in another — and the position that forks it says so: `onRejection:` beside the `fork:` flag on a `run:` entry, `fork(id, policy)` in Java. On a declaring entry the two coincide, since an inline declaration is its own call site. `BLOCK` is the one value that needs a pool the framework built: waiting for capacity happens inside the rejection handler the framework installs, and a host's executor is not the framework's to reconfigure. Declaring `BLOCK` anywhere alongside `withAsyncExecutor(...)` fails the build.
 
 ### 3.9 Expression Language Support
 
-Transflux uses SpEL (Spring Expression Language) for inline expression evaluation in conditions, filters, and computed state.
+Transflux uses SpEL (Spring Expression Language) wherever a document says `expression:` or `mapTo:`.
 
-**The entity is the evaluation root**, so its properties are written bare: `status == 'READY'`, not `entity.status`. Everything else is a named variable: `#context` (the firing context, possibly `null`), `#transition` (the read-only `Transition`), `#event` (an event trigger's payload, in a filter only), and `#entity` — the root again under a name, for the one thing a bare property cannot say, which is passing the whole entity to a method: `@validationService.validate(#entity)`.
+**In a condition, the entity is the evaluation root**, so its properties are written bare: `status == 'READY'`, not `entity.status`. Everything else is a named variable: `#context` (the firing context, possibly `null`), `#transition` (the read-only `Transition`), and `#entity` — the root again under a name, for the one thing a bare property cannot say, which is passing the whole entity to a method: `@validationService.validate(#entity)`. The other positions bind what their Java counterpart is handed, and nothing more:
+
+| Position | Root | Variables | Result |
+| --- | --- | --- | --- |
+| a condition, at any of its five positions (§3.6.1) | the entity | `#context`, `#transition`, `#entity` | boolean |
+| an event trigger's `filter:` (§3.3.3) | the entity | `#event`, `#context`, `#entity` | boolean |
+| `stateResolver:` (§3.2.1) | the entity | `#entity` | the state id |
+| `stateApplier:` (§3.2.1) | the entity | — | none: the expression is assigned to |
+| a mapper's `mapTo:` (§3.5.2) | the parent context | — | the child context |
+| a mapper's `mapFrom:` entry (§3.5.2) | the child context | `#parent` | the value assigned to the entry's key, a property path on the parent |
+| a route's `guard:` (§3.4.2) | the failure | — | boolean |
+
+**A definition is code.** Expressions are evaluated with SpEL's full feature set — type references such as `T(java.time.LocalTime)` included, which the examples below depend on — and every `class:` key instantiates a class by name. Loading a definition from an external source is therefore loading code, and the `DefinitionSource` (§2.6) is a trust boundary the host owns.
+
+**`@name` needs a resolver.** A bean reference such as `@checkoutService` resolves through the dependency-injection integration of §6.1. Without one, the expression still parses, and fails when it is first evaluated.
 
 ```yaml
 conditions:
   # Simple field access
   - id: status-ready
     expression: "status == 'READY'"
-    
+
   # Method calls (with DI integration when available)
   - id: checkout-fulfilled
     expression: "@checkoutService.isCheckoutFulfilled(checkoutUid)"
-    
+
   # Date/time conditions
   - id: business-hours
     expression: |
-      T(java.time.LocalTime).now().isAfter(T(java.time.LocalTime).of(9, 0)) && 
+      T(java.time.LocalTime).now().isAfter(T(java.time.LocalTime).of(9, 0)) &&
       T(java.time.LocalTime).now().isBefore(T(java.time.LocalTime).of(17, 0))
-      
+
   # Collection operations
   - id: all-milestones-active
     expression: "milestones.![state].contains('INACTIVE') == false"
-    
+
   # Conditional logic
   - id: priority-based-validation
     expression: |
-      priority > 8 ? 
-        @validationService.strictValidation(#entity) : 
+      priority > 8 ?
+        @validationService.strictValidation(#entity) :
         @validationService.basicValidation(#entity)
 
 # Data-based triggers with SpEL expression evaluation
@@ -1346,8 +1522,6 @@ triggers:
     type: data
     condition:
       # Expedite if pending and the request is marked as expedited in context.
-      # SpEL binding: entity is the evaluation root (bare property access),
-      # context is bound as the named variable #context.
       expression: "status == 'PENDING' && (#context?.expedited ?: false)"
 ```
 
@@ -1357,177 +1531,129 @@ triggers:
 
 The Java-based builder DSL provides a programmatic, type-safe approach to defining state machines, transitions, and operations. It emphasizes fluent interfaces, compile-time safety, and IDE support.
 
-### 4.1 Reusable Component Registry
+### 4.1 Reusable Components
 
-To eliminate duplication and promote reusability, the Java DSL supports a component registry that lets components be defined once and referenced across state machines, operations, and transitions.
+A component is declared once on the state-machine definition and referenced by id wherever it is needed. This is the Java counterpart of a YAML library's sections (§3.1.1): the same seven kinds, the same namespaces (§2.2.1), and the same rule that what is shared is registered while what is used once may be declared in place.
 
-#### 4.1.1 Component Registry Structure
+#### 4.1.1 Registrations
+
+```java
+StateMachineDef<Subscription> def = Transflux.defineStateMachine(Subscription.class)
+
+    // Steps — an instance, or a configurer when the step wants metadata, compensation or listeners
+    .step("prepare-notifications", new PrepareNotificationsStep())
+    .step("send-notifications", new SendNotificationsStep())
+    .step("charge-card", BillingContext.class, s -> s
+        .using(new ChargeCardStep())
+        .withCompensation(new RefundCompensation())
+        .onError("charge-audit"))                           // a registered listener, by id
+
+    // Operations and choices — declarative, so always a configurer
+    .operation("notification-flow", Object.class, op -> op
+        .run("prepare-notifications")
+        .run("send-notifications"))
+    .choice("tier-routing", Object.class, c -> c
+        .branch("premium", b -> b
+            .conditionExpression("customerTier == 'PREMIUM'")
+            .run("notification-flow"))
+        .onNoMatch(NoMatchBehavior.SILENT))
+
+    // Conditions
+    .condition("payment-method-valid", new PaymentMethodValidCondition())
+    .condition("high-priority", (subscription, context) -> subscription.getPriority() > 8)
+    .condition("business-hours", "T(java.time.LocalTime).now().hour >= 9")
+
+    // Mappers
+    .mapper("billing-from-activation", ActivationContext.class, BillingContext.class,
+            new BillingFromActivationMapper())
+
+    // Triggers — one verb per kind, each a configurer over that kind's def
+    .manualTrigger("manual-cancel", t -> t
+        .withName("Manual Cancellation")
+        .preCondition("support-user-authorized"))
+    .eventTrigger("payment-method-validated-event", t -> t
+        .onEvent("PAYMENT_METHOD_VALIDATED")
+        .filterExpression("#event.validation == 'CONFIRMED'"))
+    .dataTrigger("data-priority-change", t -> t
+        .conditionExpression("status == 'READY_FOR_ACTIVATION' && priority > 5"))
+
+    // Listeners — one verb per category; an instance, or a configurer for metadata and withAsync
+    .stateListener("subscription-activated", l -> l
+        .using(new SubscriptionActivatedListener())
+        .withAsync(AsyncRejectionPolicy.CALLER_RUNS))
+    .transitionListener("audit-start", new TransitionStartListener())
+    .actionListener("charge-audit", BillingContext.class, new ChargeAuditListener());
+```
+
+Every kind has a typed form taking the context class the component was written against, and the same registrations are available grouped under `forContext(Class<C>, scope -> ...)` (§4.2). A trigger or listener registered without one is registered against `Object` and attaches anywhere.
+
+#### 4.1.2 References
+
+```java
+def.state("draft", s -> s
+    .onExit("subscription-deactivated")                     // a registered state listener
+    .transitionsTo("active", "draft-to-active", ActivationContext.class, t -> t
+        .preCondition("checkout-fulfilled")
+        .preCondition("business-hours")
+        .postCondition("milestones-activated")
+        .addTrigger("payment-method-validated-event")       // a registered trigger
+        .addTrigger("data-priority-change")
+        .onStart("audit-start")                             // a registered transition listener
+        .onComplete("audit-complete")
+        .run("prepare-event-actor")
+        .run("charge-card", "billing-from-activation")      // a registered action through a registered mapper
+        .run("notification-flow")));
+```
+
+Attaching by id claims nothing, so the same trigger or listener may be attached any number of times (§2.2.8, §2.2.10): `addTrigger("manual-cancel")` on two transitions is one trigger reported with both, and the one-argument `onStart(id)` — beside the two-argument form that declares a listener in place — attaches a registered listener, or one the same owner declared at another of its hooks. The state-machine-wide hooks take the same one-argument form (`onAnyTransitionStart("audit-start")`). The build checks a registered trigger's or listener's context type against every owner it is attached to, exactly as it checks a typed step against its call sites (§4.5.2).
+
+**Sharing across state machines** needs nothing beyond the language: a method that takes the definition and registers into it.
+
+```java
+final class SubscriptionComponents {
+    static <T extends Subscription> void register(StateMachineDef<T> def) { /* the registrations of §4.1.1 */ }
+}
+```
+
+#### 4.1.3 Component Registry
+
+A `ComponentRegistry` is the dependency-injected form of the same thing, planned with the DI integration of §6: a bundle of components a container discovers, which populates exactly the registrations above — so a definition built from a registry, one built by hand and one loaded from YAML are indistinguishable once built. A registry attached to several state machines parents each one's root scope, which is how one set of components serves a whole process without being registered per machine.
 
 ```java
 @Component
 public class SubscriptionComponentRegistry implements ComponentRegistry {
-    
-    // Shared Steps
+
     @RegisterStep("prepare-notifications")
     public PrepareNotificationsStep prepareNotificationsStep() {
         return new PrepareNotificationsStep();
     }
-    
-    @RegisterStep("send-notifications")
-    public SendNotificationsStep sendNotificationsStep() {
-        return new SendNotificationsStep();
-    }
-    
-    @RegisterStep("update-analytics")
-    public UpdateAnalyticsStep updateAnalyticsStep() {
-        return new UpdateAnalyticsStep();
-    }
-    
-    @RegisterStep("activate-milestones")
-    public ActivateMilestonesStep activateMilestonesStep() {
-        return new ActivateMilestonesStep();
-    }
-    
-    @RegisterStep("prepare-event-actor")
-    public PrepareEventActorStep prepareEventActorStep() {
-        return new PrepareEventActorStep();
-    }
-    
-    @RegisterStep("validate-prerequisites")
-    public ValidatePrerequisitesStep validatePrerequisitesStep() {
-        return new ValidatePrerequisitesStep();
-    }
-    
-    // Shared Conditions
+
     @RegisterCondition("payment-method-valid")
     public PaymentMethodValidCondition paymentMethodValidCondition() {
         return new PaymentMethodValidCondition();
     }
-    
-    @RegisterCondition("milestones-activated")
-    public MilestonesActivatedCondition milestonesActivatedCondition() {
-        return new MilestonesActivatedCondition();
-    }
-    
-    @RegisterCondition("business-hours")
-    public BusinessHoursCondition businessHoursCondition() {
-        return new BusinessHoursCondition();
-    }
-    
-    // Shared Triggers
-    @RegisterTrigger("payment-method-validated-event")
-    public EventTrigger paymentMethodValidatedEvent() {
-        return EventTrigger.builder()
-            .event(Event.PAYMENT_METHOD_VALIDATED)
-            .filterBy("subscriptionId", entity -> ((Subscription) entity).getId())
-            .build();
-    }
-    
-    @RegisterTrigger("data-priority-change")
-    public DataTrigger dataPriorityChangeTrigger() {
-        return DataTrigger.builder()
-            .evaluateEntity(entity -> {
-                Subscription s = (Subscription) entity;
-                return "READY_FOR_ACTIVATION".equals(s.getStatus())
-                    && s.getPriority() > 5;
-            })
-            .build();
-    }
-    
-    // Shared Listeners
+
     @RegisterListener("audit-start")
     public TransitionStartListener auditStartListener() {
         return new TransitionStartListener();
     }
-    
-    @RegisterListener("audit-complete")
-    public TransitionCompleteListener auditCompleteListener() {
-        return new TransitionCompleteListener();
-    }
-    
-    @RegisterListener("subscription-activated")
-    public SubscriptionActivatedListener subscriptionActivatedListener() {
-        return new SubscriptionActivatedListener();
-    }
-    
-    // Shared Actions
-    @RegisterAction("notification-flow")
-    public Action notificationFlowOperation() {
-        return operation("notification-flow")
-            .run("prepare-notifications")
-            .run("send-notifications")
-            .build();
-    }
-    
-    @RegisterAction("analytics-update")
-    public Action analyticsUpdateAction() {
-        return step("analytics-update")
-            .using(new UpdateAnalyticsAction())
-            .build();
-    }
 }
-```
 
-#### 4.1.2 Component References
-
-Components from the registry can be referenced directly by their unique name. All component IDs must be unique across all registered components:
-
-```java
-// In a declarative container
-Action activationOperation = operation("activation-operation")
-    .run("prepare-event-actor")
-    .run("validate-prerequisites")
-    .run("notification-flow")
-    .run("analytics-update")
-    .build();
-
-// In transitions
-draftActiveTransition
-    .addPreCondition("checkout-fulfilled")
-    .addPreCondition("business-hours")
-    .addPostCondition("milestones-activated")
-    .addTrigger("checkout-event")
-    .addTrigger("data-priority-change")
-    .onStart("audit-start")
-    .onComplete("audit-complete");
-```
-
-#### 4.1.3 Registry Configuration and Injection
-
-```java
 @Configuration
 @EnableTransflux
 public class TransfluxConfig {
-    
-    @Bean
-    public ComponentRegistry subscriptionComponentRegistry() {
-        return new SubscriptionComponentRegistry();
-    }
-    
+
     @Bean
     public StateMachine<Subscription> subscriptionStateMachine(ComponentRegistry registry) {
         return Transflux.defineStateMachine(Subscription.class)
             .withComponentRegistry(registry)
-            // ... state machine definition using component references
+            // ... the state machine, referencing the registry's components by id
             .build();
     }
 }
-
-// Alternative programmatic registration
-ComponentRegistry registry = ComponentRegistry.builder()
-    .registerStep("prepare-notifications", PrepareNotificationsStep.class)
-    .registerStep("send-notifications", SendNotificationsStep.class)
-    .registerStep("update-analytics", UpdateAnalyticsStep.class)
-    .registerCondition("payment-method-valid", PaymentMethodValidCondition.class)
-    .registerCondition("milestones-activated", MilestonesActivatedCondition.class)
-    .registerListener("audit-start", TransitionStartListener.class)
-    .registerListener("audit-complete", TransitionCompleteListener.class)
-    .build();
-
-StateMachine<Subscription> stateMachine = Transflux.defineStateMachine(Subscription.class)
-    .withComponentRegistry(registry)
-    .build();
 ```
+
+The sketch covers the kinds a factory method can return as an object — steps, conditions, mappers, listeners. The def-shaped kinds (operations, choices, triggers) exist only inside their configurers, and how a registry contributes one is settled with the registry itself.
 
 ### 4.2 Core API Structure
 
@@ -1552,8 +1678,9 @@ final class SubTransition {
 }
 
 StateMachine<Subscription> subscriptionStateMachine = Transflux.defineStateMachine(Subscription.class)
-    .withName("subscription-state-machine")
-    .withVersion("1.0.0")
+    .withId("subscription-state-machine")
+    .withName("Subscription State Machine")
+    .withVersion("1.0.0")             // all three optional, and reported by the built StateMachine
 
     // State resolver — read the current state
     .withStateResolver(entity -> entity.getStatus().name())
@@ -1735,17 +1862,17 @@ t.operation("complex-subscription-activation", c -> c
         .run("allocate-quota")
         .step("open-tenant", new OpenTenantAction()))
 
-    // Multi-branch conditional. Every branch condition carries an id of its own, which is
+    // Multi-branch choice. Every branch condition carries an id of its own, which is
     // what names it in diagnostics; only the expression form may have one derived for it.
-    .conditional("subscription-tier-routing", cs -> cs
+    .choice("subscription-tier-routing", cs -> cs
         .branch("premium-tier", b -> b
             .condition("is-premium", new PremiumTierPredicate())
             .step("premium-tier-processing", new PremiumTierAction())
             .run("vip-notification")
 
             // A branch is a sequence, so it holds everything a container's member list
-            // does — a conditional included, which is how routing nests
-            .conditional("premium-region-routing", inner -> inner
+            // does — a choice included, which is how routing nests
+            .choice("premium-region-routing", inner -> inner
                 .branch("eu", ib -> ib
                     .condition("is-eu", r -> "EU".equals(r.getRegion()))
                     .run("eu-provisioning"))
@@ -1786,17 +1913,17 @@ t.operation("complex-subscription-activation", c -> c
         .run("emit-audit-record")));
 ```
 
-> **Fork semantics.** Forking puts the member at the position it is written: the work starts when execution reaches that point, and the members after it do not wait. That subsumes both anchors an earlier design proposed — "kick off at a join point" is a fork declared after the conditional, and "kick off once the previous member succeeded" is a fork declared after it, since a member that throws never reaches the next one. What a forked member does with its context is §4.5.3; what happens to its outcome is §4.5.3.6.
+> **Fork semantics.** Forking puts the member at the position it is written: the work starts when execution reaches that point, and the members after it do not wait. That subsumes both anchors an earlier design proposed — "kick off at a join point" is a fork declared after the choice, and "kick off once the previous member succeeded" is a fork declared after it, since a member that throws never reaches the next one. What a forked member does with its context is §4.5.3; what happens to its outcome is §4.5.3.6.
 
-> **One verb per authored form, forked and not.** A **reference** is `run(...)` or `fork(...)`, in three call shapes each — bare, through a registered mapper id, or through an inline `ContextMapper`. A **declaration** brings a new action into existence at that position and names the form it is being given: `step` / `operation` / `conditional`, and `forkStep` / `forkOperation` / `forkConditional`. Each declaring verb comes in three context shapes (§4.5.2.3). The asynchronous half cannot be a flag or an overload of `fork`, because a `ContextMapper` and a `Consumer<...Def>` are both applicable to an implicitly-typed lambda — the same erasure wall that keeps the three declaring verbs from collapsing into one. The whole family is declared once, on `ActionSequence<T, C, SELF>` (§2.2.5.1), so every position that holds a member list carries all of it. A dispatch issued from *inside* an action's body is not a member declaration, and carries the reference half alone — both verbs, in all three call shapes, and `fork` additionally in a policy-bearing form at each (§4.5.2.1). The declaring verbs stay out of it: a body that wants a new action declares it in the sequence that encloses it, where every other declaration lives.
+> **One verb per authored form, forked and not.** A **reference** is `run(...)` or `fork(...)`, in three call shapes each — bare, through a registered mapper id, or through an inline `ContextMapper`. A **declaration** brings a new action into existence at that position and names the form it is being given: `step` / `operation` / `choice`, and `forkStep` / `forkOperation` / `forkChoice`. Each declaring verb comes in three context shapes (§4.5.2.3). The asynchronous half cannot be a flag or an overload of `fork`, because a `ContextMapper` and a `Consumer<...Def>` are both applicable to an implicitly-typed lambda — the same erasure wall that keeps the three declaring verbs from collapsing into one. The whole family is declared once, on `ActionSequence<T, C, SELF>` (§2.2.5.1), so every position that holds a member list carries all of it. A dispatch issued from *inside* an action's body is not a member declaration, and carries the reference half alone — both verbs, in all three call shapes, and `fork` additionally in a policy-bearing form at each (§4.5.2.1). The declaring verbs stay out of it: a body that wants a new action declares it in the sequence that encloses it, where every other declaration lives.
 
-#### 4.4.3 Multi-Branch Conditional Operations
+#### 4.4.3 Choices
 
-Branches are evaluated in declaration order; the first branch whose condition matches is executed. If no branch matches and a `defaultBranch()` is defined, it runs; otherwise the conditional operation's behavior is controlled by `.onNoMatch(NoMatchBehavior)` — `WARN` (default; log + complete without dispatching inner actions), `SILENT` (complete without logging, suiting the guard pattern), or `ERROR` (fail the transition). See §3.4.3 for full semantics — the Java API mirrors them exactly.
+Branches are evaluated in declaration order; the first branch whose condition matches is executed. If no branch matches and a `defaultBranch()` is defined, it runs; otherwise the choice's behavior is controlled by `.onNoMatch(NoMatchBehavior)` — `WARN` (default; log + complete without dispatching inner actions), `SILENT` (complete without logging, suiting the guard pattern), or `ERROR` (fail the transition). See §3.4.3 for full semantics — the Java API mirrors them exactly.
 
-**A conditional is an action, so it occupies every position an action can.** It is a member of any sequence — a container's list, a transition's body, and a branch or default branch of another conditional — and it registers at state-machine level under `conditional(id, Class<C>, cfg)`, or inside a `forContext(...)` block, sharing one id namespace with steps, operations and conditions. A registered conditional is reached by `run(...)` like any other action, since a reference says nothing about the form of what it names.
+**A choice is an action, so it occupies every position an action can.** It is a member of any sequence — a container's list, a transition's body, and a branch or default branch of another choice — and it registers at state-machine level under `choice(id, Class<C>, cfg)`, or inside a `forContext(...)` block, sharing one id namespace with steps, operations and conditions. A registered choice is reached by `run(...)` like any other action, since a reference says nothing about the form of what it names.
 
-**A conditional owns the scope its branches bind against.** Anything a branch declares inline is visible from every branch of that conditional — so a step several of them need is declared once — and from nowhere outside it. The conditional's own bound action goes into the enclosing scope, so naming it by id works from either side.
+**A choice owns the scope its branches bind against.** Anything a branch declares inline is visible from every branch of that choice — so a step several of them need is declared once — and from nowhere outside it. The choice's own bound action goes into the enclosing scope, so naming it by id works from either side.
 
 ### 4.5 Context Usage in Transitions
 
@@ -1854,7 +1981,7 @@ The last two rows are one overload, not two. A read-only projection is a `Contex
 
 A body carries the reference half and nothing else — there is no `view.step(...)`, because a declaration belongs in the sequence that encloses the body. What it does carry, it carries in full, and two things about a forked dispatch cannot be settled by the build the way a declared member's are. The executor has to have been asked for: `withAsyncPool(...)` or `withAsyncExecutor(...)` on the definition, since no definition-time walk can see a fork written in Java (§3.8). And the callee's context boundary is checked at the call site rather than at build — a mapper that produces the wrong type, or none, fails the enclosing transition there, where the failure can still be named, rather than as a cast failure on a worker thread that nothing joins.
 
-An inline *declaration* that names no context of its own (`.step("id", Action<T, C>)`, `.conditional("id", configurer)`) defines a member typed against the container's `C` and runs pass-through, needing no boundary mapping. One that declares a context of its own takes the same mapper grammar the by-id forms do.
+An inline *declaration* that names no context of its own (`.step("id", Action<T, C>)`, `.choice("id", configurer)`) defines a member typed against the container's `C` and runs pass-through, needing no boundary mapping. One that declares a context of its own takes the same mapper grammar the by-id forms do.
 
 The `ContextMapper<P, N>` interface:
 
@@ -1916,7 +2043,7 @@ orderOperation.run("validate-address", "address-from-order");
 
 ##### 4.5.2.4 Build-Time Type Compatibility
 
-For every by-id reference declared inside a container - including inside a conditional's branches - the build pipeline checks:
+For every by-id reference declared inside a container - including inside a choice's branches - the build pipeline checks:
 
 - **Pass-through (no mapper):** the called member's required context type must be assignable from the caller's context type (`memberCtx.isAssignableFrom(callerCtx)`; `Object`-typed members always pass through). Otherwise a `TransfluxValidationException` is raised at `build()` time with a message pointing the user to supply a mapper.
 - **Mapper by id:** the registered mapper's `parentType` must be assignable from the caller's context and its `childType` must be assignable to the called member's required context. Mismatches are rejected at build time.
@@ -1926,9 +2053,9 @@ For every by-id reference declared inside a container - including inside a condi
 
 Component identifiers are unique **across the entire state machine** — uniqueness is a global property regardless of nesting depth. Two sibling containers cannot independently host an inline component with the same id under two different payloads; one must be renamed. The same instance or the same class registered under the same id in multiple places is treated idempotently and does not trigger a collision.
 
-**Visibility, however, is lexical.** A component inline-declared inside a container (`op.step("foo", new FooAction())` and friends) is reachable only from inside that container's lexical subtree — its own member references, its conditional branches, and any `view.run("foo")` issued while that container is on the call stack. Sibling containers cannot resolve another's inline ids by reference: doing so raises a build-time error ("unknown action id in scope"). SM-level (root) registrations are reachable from every container via the parent-chain walk.
+**Visibility, however, is lexical.** A component inline-declared inside a container (`op.step("foo", new FooAction())` and friends) is reachable only from inside that container's lexical subtree — its own member references, its choice branches, and any `view.run("foo")` issued while that container is on the call stack. Sibling containers cannot resolve another's inline ids by reference: doing so raises a build-time error ("unknown action id in scope"). SM-level (root) registrations are reachable from every container via the parent-chain walk.
 
-**A conditional is a scope of its own**, nested inside whatever encloses it. A component declared inside one of its branches belongs to the conditional rather than to the enclosing container, so *every* branch can reach it — a step several branches share is declared once, in whichever branch reads best — while nothing outside the conditional can, including the enclosing container and its other members. Resolution from inside a branch still walks outwards, so a branch reaches the enclosing container's inline ids and the root's as before. The conditional's *own* id is registered in the enclosing scope, not its own, so it can be named from either side: by a sibling of the conditional, and by its own branches.
+**A choice is a scope of its own**, nested inside whatever encloses it. A component declared inside one of its branches belongs to the choice rather than to the enclosing container, so *every* branch can reach it — a step several branches share is declared once, in whichever branch reads best — while nothing outside the choice can, including the enclosing container and its other members. Resolution from inside a branch still walks outwards, so a branch reaches the enclosing container's inline ids and the root's as before. The choice's *own* id is registered in the enclosing scope, not its own, so it can be named from either side: by a sibling of the choice, and by its own branches.
 
 Two practical consequences:
 
@@ -1937,7 +2064,7 @@ Two practical consequences:
 
 External addressability — using a component id as the target of a YAML `ref:` descriptor, a registry lookup, or any other cross-state-machine handle — applies only to root-registered components. Inline container members have no externally-stable name; their id is meaningful only within their lexical scope.
 
-At runtime, every declarative container owns a `Registry` whose parent is the enclosing scope's registry — the root for a container registered at state-machine level and for a transition's body, the enclosing container's or conditional's scope for one declared in place. (A process-wide registry is planned to parent the root.) Resolution walks the chain local-first and is flattened at the end of state-machine construction so by-id lookups are a single map operation thereafter. The framework never relies on the parent-chain walk at runtime hot paths.
+At runtime, every declarative container owns a `Registry` whose parent is the enclosing scope's registry — the root for a container registered at state-machine level and for a transition's body, the enclosing container's or choice's scope for one declared in place. (A process-wide registry is planned to parent the root.) Resolution walks the chain local-first and is flattened at the end of state-machine construction so by-id lookups are a single map operation thereafter. The framework never relies on the parent-chain walk at runtime hot paths.
 
 ##### 4.5.2.6 Result Reporting
 
@@ -2004,7 +2131,7 @@ When neither `ForkableContext` nor a context mapper is declared, the branch rece
 
 To prevent silent sharing, the framework emits a definition-time **warning** (not an error), **per forked member** rather than per container — a container may mix a mapped member with an unmapped one, and only the unmapped one is sharing. It is not emitted when the member declares a mapper, when the declared context type is `Void`, or when that type implements `ForkableContext`. It is not emitted for a fork issued from inside an action's body either, for the reason every definition-time facility misses those: nothing in the definition records that the fork exists. The rule it warns about still applies there — that call site shares the enclosing reference unless it maps or the context forks itself — and the host is simply on its own about it.
 
-The warning names the action, the position the member was written at, and — separately — **the position that declared the context being shared**, which is not always the same place. A member that declares no context of its own is handed the enclosing one, and so is every branch of a conditional, so the position a host has to change may be several levels out: an action attached to a transition takes the transition's context, and the fix is `transitionsTo(target, id, Class<C>, ...)`. Naming the position that holds the member instead would point at somewhere with no context to declare.
+The warning names the action, the position the member was written at, and — separately — **the position that declared the context being shared**, which is not always the same place. A member that declares no context of its own is handed the enclosing one, and so is every branch of a choice, so the position a host has to change may be several levels out: an action attached to a transition takes the transition's context, and the fix is `transitionsTo(target, id, Class<C>, ...)`. Naming the position that holds the member instead would point at somewhere with no context to declare.
 
 Where that context type is `Object` — which is what a transition declared without one has — the framework cannot establish anything about the runtime object, and says so: the warning fires with a distinct message reporting that forkability could not be checked, and naming the three ways out (declare a context on the position that owns it, implement `ForkableContext`, or map at the call site). Hosts that intend to share — explicitly — suppress either message through standard logging configuration.
 
@@ -2162,18 +2289,6 @@ The authoring forms above (reference, full `Condition<T>` instance, `BiPredicate
 
 **One `condition(...)` name everywhere.** Every registration form — instance, `BiPredicate`, `Predicate`, expression — is spelled `condition(...)` on both `StateMachineDef` and `ContextScope`, typed and untyped alike. The forms are told apart by how many parameters they take, which is what lets an implicitly-typed lambda select one: `Condition` takes three, `BiPredicate` two, `Predicate` one, and an expression is a `String`. The typed family briefly carried the distinguishing names `conditionPredicate` / `conditionExpression`, on the stated grounds that erasure made them indistinguishable from a class-taking `condition(...)`; that reasoning was wrong — the two differed in arity and could never both be applicable — and the class form has since gone in any case. The single-argument `conditionExpression(String)` / `preConditionExpression(String)` on `TransitionDef`, `BranchDef` and the triggers do keep their own names, because there `condition(String)` is genuinely taken by the reference-by-id form.
 
-#### 4.7.2 Advanced Condition Configuration
-
-```java
-trialActiveTransition
-    .addPreCondition(new CheckoutFulfilledCondition())
-    
-    // Condition with custom error message and error code
-    .addPreCondition("business-hours", this::isBusinessHours, condition -> condition
-        .withErrorMessage("Transitions only allowed during business hours")
-        .withErrorCode("BUSINESS_HOURS_VIOLATION"));
-```
-
 ### 4.8 Listeners and Hooks
 
 #### 4.8.1 Listener Definition
@@ -2318,7 +2433,7 @@ categories share one namespace.
 Note the asymmetry the action category forces on the shorthand registrations: an action declared
 through `step(id, Action)` has no def behind it to hold an attachment, so a
 listener needs the configurer form. That holds at every position — the state-machine registry, a
-transition, a container member, and a conditional branch member — and is the same
+transition, a container member, and a choice's branch member — and is the same
 shorthand-versus-configurer split the rest of the DSL already makes for names and descriptions.
 
 ### 4.9 Execution and Usage
@@ -2476,7 +2591,7 @@ TransfluxConfiguration config = TransfluxConfiguration.builder()
 
 For 1.0, Transflux supports:
 - **Spring** integration (optional dependency) — automatic Spring-bean discovery for Transflux components and `@EnableTransflux` auto-configuration.
-- **Manual wiring** via the `ComponentRegistry` SPI (see §4.1) — for environments without a DI framework, or for embedding Transflux in non-Spring applications.
+- **Manual wiring** via the `ComponentRegistry` SPI (see §4.1.3) — for environments without a DI framework, or for embedding Transflux in non-Spring applications.
 
 Additional DI frameworks (Guice, CDI / Weld, Dagger 2) are deferred to a Post-1.0 theme (see §7.2). The framework-agnostic abstraction proposed in earlier drafts is part of that same Post-1.0 theme; in 1.0, Spring and manual wiring share a minimal `ComponentFactory` SPI without a multi-framework abstraction layer.
 
@@ -2510,7 +2625,7 @@ In-scope capabilities:
 - **Both DSLs at parity** — programmatic builder and YAML DSL cover the same surface area, including listener types and condition descriptor forms.
 - **Component library + registry** — reusable component definitions with imports (YAML) and a Java-side `ComponentRegistry`.
 - **Condition descriptor grammar** — instance, predicate, expression, reference, plus YAML's `class:`.
-- **Multi-branch conditional operations** — sequential branch evaluation with default fallback.
+- **Choices** — sequential branch evaluation with default fallback.
 - **Compensation engine** — LIFO stack, unified `Compensation<T, C>` interface, exception-specific compensation strategies.
 - **Optional Spring integration** — auto-configuration, `@EnableTransflux`, Spring-bean component discovery.
 - **Manual wiring fallback** — `ComponentRegistry` SPI.
