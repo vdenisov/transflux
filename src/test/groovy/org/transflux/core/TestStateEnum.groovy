@@ -18,9 +18,8 @@
 
 package org.transflux.core
 
-enum TestStateEnum implements Identifiable {
+enum TestStateEnum {
     TRIAL, ACTIVE, EXPIRED;
 
-    @Override
     String getId() { name() }
 }

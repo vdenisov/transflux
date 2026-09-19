@@ -183,8 +183,7 @@ public final class JavaDslSurface {
      * @return the built state machine
      */
     public static StateMachine<Order> mapperCallSites() {
-        return Transflux.<Order>defineStateMachine()
-            .forEntityType(Order.class)
+        return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .withAsyncPool(2, 8)
@@ -216,8 +215,7 @@ public final class JavaDslSurface {
      * @return the built state machine
      */
     public static StateMachine<Order> branchMemberShapes() {
-        return Transflux.<Order>defineStateMachine()
-            .forEntityType(Order.class)
+        return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .step("record", new RecordingAction())
@@ -287,8 +285,7 @@ public final class JavaDslSurface {
      * @return the built state machine
      */
     public static StateMachine<Order> typedConditions() {
-        return Transflux.<Order>defineStateMachine()
-            .forEntityType(Order.class)
+        return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .condition("as-condition", OrderCtx.class, (order, ctx, view) -> true)
@@ -322,8 +319,7 @@ public final class JavaDslSurface {
      * @return the built state machine
      */
     public static StateMachine<Order> registeredConditional() {
-        return Transflux.<Order>defineStateMachine()
-            .forEntityType(Order.class)
+        return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .step("record", new RecordingAction())
@@ -354,8 +350,7 @@ public final class JavaDslSurface {
      * @return the built state machine
      */
     public static StateMachine<Order> transitionConditional() {
-        return Transflux.<Order>defineStateMachine()
-            .forEntityType(Order.class)
+        return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .step("record", new RecordingAction())
@@ -382,8 +377,7 @@ public final class JavaDslSurface {
      * @return the built state machine
      */
     public static StateMachine<Order> inlineSequenceShapes() {
-        return Transflux.<Order>defineStateMachine()
-            .forEntityType(Order.class)
+        return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .step("record", new RecordingAction())
@@ -422,8 +416,7 @@ public final class JavaDslSurface {
      * @return the built state machine
      */
     public static StateMachine<Order> declaredContextShapes() {
-        return Transflux.<Order>defineStateMachine()
-            .forEntityType(Order.class)
+        return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .state("s1", s -> s
@@ -493,8 +486,7 @@ public final class JavaDslSurface {
             view.run("notify", parent -> new NotifyCtx(parent.orderId));
         };
 
-        return Transflux.<Order>defineStateMachine()
-            .forEntityType(Order.class)
+        return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .step("record", new RecordingAction())
@@ -515,8 +507,7 @@ public final class JavaDslSurface {
      * @return the built state machine
      */
     public static StateMachine<Order> declarationShapes() {
-        return Transflux.<Order>defineStateMachine()
-            .forEntityType(Order.class)
+        return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .state("s1", s -> s
@@ -547,8 +538,7 @@ public final class JavaDslSurface {
      * @return the built state machine
      */
     public static StateMachine<Order> compensationShapes() {
-        return Transflux.<Order>defineStateMachine()
-            .forEntityType(Order.class)
+        return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .state("s1", s -> s
@@ -574,8 +564,7 @@ public final class JavaDslSurface {
      * @return the built state machine
      */
     public static StateMachine<Order> executionLoggingShapes() {
-        return Transflux.<Order>defineStateMachine()
-            .forEntityType(Order.class)
+        return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .withExecutionLogging(ExecutionLogging.atLevel(Level.INFO)
@@ -601,8 +590,7 @@ public final class JavaDslSurface {
      * @return the built state machine
      */
     public static StateMachine<Order> globalListenerDisableShapes() {
-        return Transflux.<Order>defineStateMachine()
-            .forEntityType(Order.class)
+        return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .onAnyStateEntry("any-entry", (order, ctx, change) -> order.trail.add("any-entry"))
@@ -635,8 +623,7 @@ public final class JavaDslSurface {
      * @return the built state machine, which owns a pool and must be closed
      */
     public static StateMachine<Order> asyncListenerShapes() {
-        return Transflux.<Order>defineStateMachine()
-            .forEntityType(Order.class)
+        return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .onAnyStateEntry("state-async", l -> l
@@ -678,8 +665,7 @@ public final class JavaDslSurface {
                       AsyncRejectionPolicy.DROP);
         };
 
-        return Transflux.<Order>defineStateMachine()
-            .forEntityType(Order.class)
+        return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .withAsyncPool()
@@ -700,8 +686,7 @@ public final class JavaDslSurface {
      * @return the built state machine, which owns a pool and must be closed
      */
     public static StateMachine<Order> executorConfiguration() {
-        return Transflux.<Order>defineStateMachine()
-            .forEntityType(Order.class)
+        return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .withAsyncPool(2, 8, runnable -> {
@@ -741,8 +726,7 @@ public final class JavaDslSurface {
      * @return the built state machine, which owns a pool and must be closed
      */
     public static StateMachine<Order> transitionSequenceShapes() {
-        return Transflux.<Order>defineStateMachine()
-            .forEntityType(Order.class)
+        return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .step("record", new RecordingAction())
@@ -800,8 +784,7 @@ public final class JavaDslSurface {
      * @return the built state machine, which owns a pool and must be closed
      */
     public static StateMachine<Order> forkedDeclarationShapes() {
-        return Transflux.<Order>defineStateMachine()
-            .forEntityType(Order.class)
+        return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .step("record", new RecordingAction())
@@ -926,8 +909,7 @@ public final class JavaDslSurface {
      * @return the built state machine
      */
     public static StateMachine<Order> conditionAndTriggerShapes() {
-        return Transflux.<Order>defineStateMachine()
-            .forEntityType(Order.class)
+        return Transflux.defineStateMachine(Order.class)
             .withName("Orders")
             .withVersion("1.0.0")
             .withStateResolver(o -> o.state)
@@ -989,8 +971,7 @@ public final class JavaDslSurface {
      * @return the built state machine
      */
     public static StateMachine<Order> listenerHookShapes() {
-        return Transflux.<Order>defineStateMachine()
-            .forEntityType(Order.class)
+        return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .onAnyStateEntry("g-entry", new StateAudit())
@@ -1048,6 +1029,7 @@ public final class JavaDslSurface {
      * @return the built state machine
      */
     public static StateMachine<Order> registrationShapes() {
+        // the no-argument entry point needs the witness: T is not inferable at the receiver
         return Transflux.<Order>defineStateMachine()
             .forEntityType(Order.class)
             .withStateResolver(o -> o.state)
@@ -1126,8 +1108,7 @@ public final class JavaDslSurface {
      * @return the ids read off the reported error
      */
     public static String refusalIds() {
-        try (StateMachine<Order> sm = Transflux.<Order>defineStateMachine()
-            .forEntityType(Order.class)
+        try (StateMachine<Order> sm = Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .state("s1", s -> s
                 .transitionsTo("s2", "t", t -> t.preCondition("never", order -> false)))

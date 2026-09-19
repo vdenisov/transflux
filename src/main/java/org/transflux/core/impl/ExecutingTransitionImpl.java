@@ -135,6 +135,16 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
     }
 
     @Override
+    public String getName() {
+        return boundTransition.name();
+    }
+
+    @Override
+    public String getDescription() {
+        return boundTransition.description();
+    }
+
+    @Override
     public String getSourceStateId() {
         return boundTransition.sourceStateId();
     }

@@ -32,13 +32,15 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * computed once against the live registry.
  *
  * <p>This type implements neither runtime transition interface. The topology accessors user code
- * sees are answered by {@link TransitionImpl}, which copies the three strings out of this record;
+ * sees are answered by {@link TransitionImpl}, which copies the strings out of this record;
  * the {@code run(...)} dispatch surface lives on {@link ExecutingTransitionImpl}, which holds a
  * {@code BoundTransition} and runs against the captured execution scope. Members of the
  * {@code Bound*} family are framework-internal data carriers; user code should not reference this
  * type directly.
  *
  * @param id the transition id; never {@code null} or blank
+ * @param name the optional human-readable name
+ * @param description the optional description
  * @param sourceStateId the source state id; never {@code null} or blank
  * @param targetStateId the target state id; never {@code null} or blank
  * @param contextType the declared firing-context type; never {@code null}
@@ -52,6 +54,8 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <C> the host-supplied context type carried through transition execution
  */
 record BoundTransition<T, C>(String id,
+                             String name,
+                             String description,
                              String sourceStateId,
                              String targetStateId,
                              Class<C> contextType,
@@ -93,6 +97,8 @@ record BoundTransition<T, C>(String id,
         requireNotNull(conditionRegistry, "Condition registry");
         return new BoundTransition<>(
             def.getId(),
+            def.getName(),
+            def.getDescription(),
             def.getSourceStateId(),
             def.getTargetStateId(),
             def.getContextType(),

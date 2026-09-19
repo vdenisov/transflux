@@ -26,7 +26,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * The {@link Transition} view handed to every observer of an execution — conditions, state
  * listeners, transition listeners, action listeners, and a data trigger's gate.
  * <p>
- * It carries copies of the three topology strings rather than a reference to the
+ * It carries copies of the transition's strings rather than a reference to the
  * {@link BoundTransition} they came from, and that is deliberate rather than incidental. An
  * expression-based condition binds this object into SpEL as {@code #transition}, and SpEL resolves
  * properties reflectively against the runtime object — including private fields. A view that held
@@ -36,10 +36,13 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * takes away. Only what this record declares is reachable.
  *
  * @param id the transition id
+ * @param name the optional name
+ * @param description the optional description
  * @param sourceStateId the source state id
  * @param targetStateId the target state id
  */
-record TransitionImpl(String id, String sourceStateId, String targetStateId)
+record TransitionImpl(String id, String name, String description, String sourceStateId,
+                      String targetStateId)
     implements Transition {
 
     /**
@@ -51,12 +54,23 @@ record TransitionImpl(String id, String sourceStateId, String targetStateId)
      */
     static Transition of(BoundTransition<?, ?> bound) {
         requireNotNull(bound, "Bound transition");
-        return new TransitionImpl(bound.id(), bound.sourceStateId(), bound.targetStateId());
+        return new TransitionImpl(bound.id(), bound.name(), bound.description(), bound.sourceStateId(),
+                                  bound.targetStateId());
     }
 
     @Override
     public String getId() {
         return id;
+    }
+
+    @Override
+    public String getName() {
+        return name;
+    }
+
+    @Override
+    public String getDescription() {
+        return description;
     }
 
     @Override

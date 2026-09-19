@@ -49,9 +49,7 @@ import java.util.Collection;
  *
  * <p><b>Example usage:</b>
  * <pre>{@code
- * StateMachine<Subscription> subscriptionSM = Transflux
- *     .defineStateMachine()
- *     .forEntityType(Subscription.class)
+ * StateMachine<Subscription> subscriptionSM = Transflux.defineStateMachine(Subscription.class)
  *     .withStateResolver(subscription -> subscription.getStatus().name())
  *     .state("trial", s -> s
  *         .withName("Trial Period")
@@ -232,6 +230,11 @@ public interface StateMachine<T> extends AutoCloseable {
          * at the dispatch boundary that {@code context == null || transitionContextType.isInstance(context)}
          * and throws {@link TransfluxValidationException} on mismatch. A transition declared with
          * {@code Void.class} context rejects any non-null firing value.
+         *
+         * <p><b>A {@code String} context does not reach this overload.</b> An argument whose static
+         * type is {@code String} selects {@link #transitionTo(String, String)} and is read as a
+         * transition id. Pass it as {@code (Object) context}, or name the transition through
+         * {@link #transitionTo(String, String, Object)}.
          *
          * @param targetStateId the ID of the target state
          * @param context the fire-time context; may be {@code null}

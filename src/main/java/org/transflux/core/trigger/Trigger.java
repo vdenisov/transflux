@@ -18,6 +18,8 @@
 
 package org.transflux.core.trigger;
 
+import org.transflux.core.Identifiable;
+
 /**
  * Runtime view of a trigger attached to a transition, as surfaced by the state machine's trigger
  * catalog.
@@ -31,7 +33,7 @@ package org.transflux.core.trigger;
  * {@link org.transflux.core.StateMachine} and, for manual triggers, invoked through
  * {@code entity(e).fire(triggerId)}.
  */
-public interface Trigger {
+public interface Trigger extends Identifiable {
 
     /**
      * Returns the unique identifier of this trigger. Trigger ids are unique among the triggers of
@@ -39,6 +41,7 @@ public interface Trigger {
      *
      * @return the trigger id; never {@code null} or blank
      */
+    @Override
     String getId();
 
     /**

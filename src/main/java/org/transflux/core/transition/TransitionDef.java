@@ -104,6 +104,20 @@ public interface TransitionDef<T, C>
     String getId();
 
     /**
+     * Returns the transition's human-readable name.
+     *
+     * @return the name, or {@code null} if none was set
+     */
+    String getName();
+
+    /**
+     * Returns the transition's description.
+     *
+     * @return the description, or {@code null} if none was set
+     */
+    String getDescription();
+
+    /**
      * Returns the ID of the source state for this transition.
      *
      * @return the source state ID

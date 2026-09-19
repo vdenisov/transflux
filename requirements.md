@@ -1506,8 +1506,7 @@ public class TransfluxConfig {
     
     @Bean
     public StateMachine<Subscription> subscriptionStateMachine(ComponentRegistry registry) {
-        return Transflux.defineStateMachine()
-            .forEntityType(Subscription.class)
+        return Transflux.defineStateMachine(Subscription.class)
             .withComponentRegistry(registry)
             // ... state machine definition using component references
             .build();
@@ -1525,8 +1524,7 @@ ComponentRegistry registry = ComponentRegistry.builder()
     .registerListener("audit-complete", TransitionCompleteListener.class)
     .build();
 
-StateMachine<Subscription> stateMachine = Transflux.defineStateMachine()
-    .forEntityType(Subscription.class)
+StateMachine<Subscription> stateMachine = Transflux.defineStateMachine(Subscription.class)
     .withComponentRegistry(registry)
     .build();
 ```
@@ -1553,8 +1551,7 @@ final class SubTransition {
     static final String SUSPENDED_TO_CANCELLED = "suspended-to-cancelled";
 }
 
-StateMachine<Subscription> subscriptionStateMachine = Transflux.defineStateMachine()
-    .forEntityType(Subscription.class)
+StateMachine<Subscription> subscriptionStateMachine = Transflux.defineStateMachine(Subscription.class)
     .withName("subscription-state-machine")
     .withVersion("1.0.0")
 
@@ -1609,8 +1606,7 @@ Two lines, honest about where the bidirectional binding lives. The framework int
 #### 4.2.2 Advanced State Configuration
 
 ```java
-StateMachine<Subscription> stateMachine = Transflux.defineStateMachine()
-    .forEntityType(Subscription.class)
+StateMachine<Subscription> stateMachine = Transflux.defineStateMachine(Subscription.class)
     
     .state("active", s -> s
         .withName("Active")
@@ -2405,8 +2401,7 @@ public class TransfluxConfig {
     
     @Bean
     public StateMachine<Subscription> subscriptionStateMachine() {
-        return Transflux.defineStateMachine()
-            .forEntityType(Subscription.class)
+        return Transflux.defineStateMachine(Subscription.class)
             // ... state machine definition
             .build();
     }

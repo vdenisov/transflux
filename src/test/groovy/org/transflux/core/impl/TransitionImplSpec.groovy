@@ -44,6 +44,14 @@ class TransitionImplSpec extends Specification {
         view.targetStateId == 's2'
     }
 
+    def 'the metadata accessors answer from the declaration, and are null when nothing was declared'() {
+        expect:
+        topologyView().name == 'Go'
+        topologyView().description == 'Moves on'
+        topologyView({ t -> }).name == null
+        topologyView({ t -> }).description == null
+    }
+
     def 'the view carries no dispatch surface at all'() {
         given:
         def view = topologyView()
@@ -129,18 +137,19 @@ class TransitionImplSpec extends Specification {
         when:
         def result = sm.entity(entity).transitionTo('s2')
 
-        then: 'the view copies three strings, so there is no bound transition to walk into'
+        then: 'the view copies strings only, so there is no bound transition to walk into'
         !result.success
         result.error instanceof TransfluxValidationException
         result.error.message.startsWith('Failed to evaluate SpEL expression')
         entity.state == 's1'
     }
 
-    private static Transition topologyView() {
+    private static Transition topologyView(
+        Consumer cfg = { t -> t.withName('Go').withDescription('Moves on') }) {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t -> }) })
+            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, cfg) })
             .state('s2', {})
         def sm = (StateMachineImpl<Entity>) smd.build()
         return TransitionImpl.of(sm.getTransition('t'))

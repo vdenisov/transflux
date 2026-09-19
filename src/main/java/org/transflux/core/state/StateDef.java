@@ -41,8 +41,7 @@ import java.util.function.Consumer;
  *
  * <p><b>Example usage:</b>
  * <pre>{@code
- * StateMachine<Order> orderSM = Transflux.defineStateMachine()
- *     .forEntityType(Order.class)
+ * StateMachine<Order> orderSM = Transflux.defineStateMachine(Order.class)
  *     .withStateResolver(order -> order.getStatus().name())
  *     .state("pending", s -> s
  *         .withName("Pending Order")
@@ -68,6 +67,20 @@ public interface StateDef<T> extends Identifiable {
      */
     @Override
     String getId();
+
+    /**
+     * Returns the state's human-readable name.
+     *
+     * @return the name, or {@code null} if none was set
+     */
+    String getName();
+
+    /**
+     * Returns the state's description.
+     *
+     * @return the description, or {@code null} if none was set
+     */
+    String getDescription();
 
     /**
      * Sets the human-readable name for this state.

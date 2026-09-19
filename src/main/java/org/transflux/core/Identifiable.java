@@ -19,49 +19,19 @@
 package org.transflux.core;
 
 /**
- * Functional interface for components that have unique identifiers.
+ * How a definition or a runtime view reports its own id.
  * <p>
- * All components in Transflux (states, transitions, operations, steps, conditions, triggers)
- * must have unique identifiers for proper referencing and management within the framework.
- * Component IDs are required properties that must be unique within their component type
- * and are used for internal referencing, component lookup, and programmatic access.
- * 
- * <p>It is recommended to use enums implementing this interface for states and other
- * {@code Identifiable} instances, as they provide type safety and better IDE support.
- * 
- * <p><b>Example usage:</b>
- * <pre>{@code
- * public enum OrderState implements Identifiable {
- *     PENDING("pending"),
- *     PROCESSING("processing"),
- *     SHIPPED("shipped"),
- *     DELIVERED("delivered");
- *     
- *     private final String id;
- *     
- *     OrderState(String id) {
- *         this.id = id;
- *     }
- *     
- *     @Override
- *     public String getId() {
- *         return id;
- *     }
- * }
- * }</pre>
- * 
+ * Every id-bearing {@code *Def} and every runtime view ({@code State}, {@code Transition}, {@code Trigger})
+ * extends it. Nothing in the API accepts one as an argument: every method that names a component
+ * takes the id as a {@code String}, so there is nothing to gain from implementing it in host code.
+ * A host that wants its ids in one place keeps them as {@code String} constants.
  */
-@FunctionalInterface
 public interface Identifiable {
-    
+
     /**
-     * Returns the unique identifier for this component.
-     * <p>
-     * The identifier must be unique within the component type (e.g., all state IDs
-     * must be unique within a state machine) and should follow naming conventions
-     * suitable for programmatic use such as kebab-case or camelCase.
-     * 
-     * @return the unique identifier, never {@code null} or blank
+     * Returns this component's id - the one it was declared under.
+     *
+     * @return the id; never {@code null} or blank
      */
     String getId();
 }

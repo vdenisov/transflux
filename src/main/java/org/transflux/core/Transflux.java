@@ -44,9 +44,7 @@ import org.transflux.core.impl.StateMachineDefImpl;
  * <p><b>Example usage:</b>
  * <pre>{@code
  * // Create a state machine for subscription entities
- * StateMachine<Subscription> subscriptionSM = Transflux
- *     .defineStateMachine()
- *     .forEntityType(Subscription.class)
+ * StateMachine<Subscription> subscriptionSM = Transflux.defineStateMachine(Subscription.class)
  *     .withName("Subscription Lifecycle")
  *     .withStateResolver(subscription -> subscription.getStatus().name())
  *     .state("trial", s -> s
@@ -83,5 +81,20 @@ public final class Transflux {
      */
     public static <T> StateMachineDef<T> defineStateMachine() {
         return new StateMachineDefImpl<>();
+    }
+
+    /**
+     * Creates a new state machine definition builder bound to the given entity class - the form
+     * that needs no type witness, since {@code T} is inferred from the argument.
+     *
+     * @param entityType the entity class; never {@code null}
+     * @param <T> the type of entity that will be managed by the state machine
+     *
+     * @return a new {@link StateMachineDef} with its entity type already bound
+     *
+     * @throws TransfluxValidationException if {@code entityType} is {@code null}
+     */
+    public static <T> StateMachineDef<T> defineStateMachine(Class<T> entityType) {
+        return Transflux.<T>defineStateMachine().forEntityType(entityType);
     }
 }

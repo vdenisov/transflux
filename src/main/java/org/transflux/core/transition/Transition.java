@@ -45,6 +45,20 @@ import org.transflux.core.Identifiable;
 public interface Transition extends Identifiable {
 
     /**
+     * Returns the human-readable name of this transition.
+     *
+     * @return the name, or {@code null} if none was declared
+     */
+    String getName();
+
+    /**
+     * Returns the description of this transition.
+     *
+     * @return the description, or {@code null} if none was declared
+     */
+    String getDescription();
+
+    /**
      * Returns the identifier of the source state from which this transition can be initiated.
      * <p>
      * The source state ID must correspond to a state defined in the state machine.
