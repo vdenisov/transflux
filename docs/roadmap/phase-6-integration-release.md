@@ -68,7 +68,7 @@ Phase 1.1 captured the dependency versions present in the repo when bootstrappin
 - [ ] Best-practices / patterns guide (when to use simple vs. composite operations, manual vs. event vs. data triggers, etc.).
 - [ ] Migration guide template for breaking changes (will be reused at 2.0).
 - [ ] Complete API Javadoc.
-- [ ] Example applications: simple state machine, complex workflow, Spring Boot integration.
+- [ ] Example application: the contracting sample, plain-Java and Spring Boot modules — tracked in [contracting-sample.md](contracting-sample.md), which runs interleaved with this phase.
 
 ### 6.8 Release Engineering
 - [ ] Semantic versioning policy document.
@@ -80,7 +80,8 @@ Phase 1.1 captured the dependency versions present in the repo when bootstrappin
 - [ ] Spock specification coverage ≥ 80% for core packages.
 - [ ] No critical or high-severity security findings.
 - [ ] Performance baseline established (basic benchmarks; not a 1.0 feature, but a baseline to detect regressions).
-- [ ] API surface review and sign-off.
+- [ ] API surface review and sign-off; the contracting sample's findings list is empty or explicitly deferred.
+- [ ] Both contracting sample modules build, all their specs pass, and every item in the 1.0 contract summary is exercised by the sample — the reverse index in [the design](../design/contracting-sample.md) §6 is current.
 - [ ] Load test of representative workflow.
 - [ ] Documentation completeness verification.
 
