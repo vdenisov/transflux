@@ -21,6 +21,7 @@ package org.transflux.core.impl;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.trigger.EventTriggerDef;
 
+import java.util.List;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -29,14 +30,15 @@ import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
 import static org.transflux.core.impl.ValidationUtils.warnIfSet;
 
+
 /**
  * Default {@link EventTriggerDef} implementation.
  * <p>
  * Captures the listened-for event id and the optional payload filter during configuration, then
  * resolves them into a runtime {@link EventTriggerImpl} at build time through
- * {@link #buildBoundTrigger()}. The enclosing transition's id is captured at construction so the
- * resulting trigger knows which transition it fires. The event id is mandatory; its absence is
- * reported when {@link #buildBoundTrigger()} runs.
+ * {@link #buildBoundTrigger(List)}. The transitions it is attached to are supplied at build time, since a
+ * registered trigger may sit on several. The event id is mandatory; its absence is
+ * reported when {@link #buildBoundTrigger(List)} runs.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
@@ -49,6 +51,10 @@ final class EventTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, EventTriggerD
 
     EventTriggerDefImpl(String id, TransitionDefImpl<T, C> owner) {
         super(id, "event trigger", owner);
+    }
+
+    EventTriggerDefImpl(String id, Class<C> contextType) {
+        super(id, "event trigger", contextType);
     }
 
     @Override
@@ -89,13 +95,13 @@ final class EventTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, EventTriggerD
      *
      * @throws TransfluxValidationException if no event id was declared
      */
-    EventTriggerImpl<T> buildBoundTrigger() {
+    EventTriggerImpl<T> buildBoundTrigger(List<String> transitionIds) {
         if (eventId == null) {
             throw new TransfluxValidationException(
                 "Event trigger '" + getId() + "' declares no event id; call onEvent(...) in its configurer");
         }
         EventFilter<T> resolved = resolveFilter();
-        return new EventTriggerImpl<>(getId(), getName(), getDescription(), transitionId(), eventId, resolved);
+        return new EventTriggerImpl<>(getId(), getName(), getDescription(), transitionIds, eventId, resolved);
     }
 
     /**

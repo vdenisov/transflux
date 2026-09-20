@@ -21,13 +21,13 @@ package org.transflux.core.impl;
 import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
- * Shared base for the trigger definition family, holding the enclosing transition every trigger
- * belongs to.
+ * Shared base for the trigger definition family.
  * <p>
- * Both the transition id and the context type are read back through that transition rather than
- * copied at construction, so a trigger reports whatever the transition carries rather than a stale
- * snapshot. Declaration order inside the configurer therefore does not matter, which is the same
- * freedom the rest of the DSL gives.
+ * A trigger is either declared in place on a transition, which then owns it, or registered on the
+ * state machine and attached by id. The first reads its context back through its owner rather than
+ * copying it at construction, so it reports whatever the transition carries rather than a stale
+ * snapshot, and declaration order inside the configurer does not matter - the same freedom the rest
+ * of the DSL gives. The second has no owner and carries a context of its own.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
@@ -38,28 +38,41 @@ sealed abstract class TriggerDefImpl<T, C, SELF extends TriggerDefImpl<T, C, SEL
     permits ManualTriggerDefImpl, EventTriggerDefImpl, DataTriggerDefImpl {
 
     private final TransitionDefImpl<T, C> owner;
+    private final Class<C> registeredContext;
 
+    /** A trigger declared in place on a transition, which is the only one that may attach it. */
     TriggerDefImpl(String id, String kind, TransitionDefImpl<T, C> owner) {
         super(id, kind, "Trigger ID");
         requireNotNull(owner, "Trigger transition");
         this.owner = owner;
+        this.registeredContext = null;
+    }
+
+    /** A trigger registered on the state machine, which any number of transitions may attach. */
+    TriggerDefImpl(String id, String kind, Class<C> contextType) {
+        super(id, kind, "Trigger ID");
+        requireNotNull(contextType, "Trigger context type");
+        this.owner = null;
+        this.registeredContext = contextType;
     }
 
     /**
-     * Returns the id of the transition this trigger fires.
+     * Returns the transition this trigger was declared on, which is the only one that may attach
+     * it.
      *
-     * @return the enclosing transition's id
+     * @return the declaring transition's id, or {@code null} when this trigger was registered
      */
-    String transitionId() {
-        return owner.getId();
+    String declaredOn() {
+        return owner == null ? null : owner.getId();
     }
 
     /**
-     * Returns the context class carried by the enclosing transition, as currently declared.
+     * Returns the context class this trigger runs against - a registration's own, or the enclosing
+     * transition's as currently declared.
      *
-     * @return the enclosing transition's context type
+     * @return the context type; never {@code null}
      */
     public Class<C> getContextType() {
-        return owner.getContextType();
+        return owner == null ? registeredContext : owner.getContextType();
     }
 }

@@ -53,6 +53,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.function.BiFunction;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,6 +62,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
+import org.transflux.core.trigger.DataTriggerDef;
+import org.transflux.core.trigger.EventTriggerDef;
+import org.transflux.core.trigger.ManualTriggerDef;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -94,6 +98,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private final Map<String, ConditionRegistration<T>> conditionRegistrations = new LinkedHashMap<>();
 
     private final Map<String, ActionDefImpl<T, ?, ?>> smCompositeOperations = new LinkedHashMap<>();
+
+    /** Registered triggers, in their own state-machine-wide namespace. */
+    private final Map<String, TriggerDefImpl<T, ?, ?>> triggerRegistrations = new LinkedHashMap<>();
 
     private final Map<String, MapperDefImpl<?, ?>> mapperRegistrations = new LinkedHashMap<>();
 
@@ -354,6 +361,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             canonical.put(id, mapperRegistrations.get(id));
         }
 
+        claimRegisteredTriggerConditions(canonical);
+
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             claimInlineConditions(canonical, td);
             ActionDefImpl<T, ?, ?> op = td.getActionDef();
@@ -473,6 +482,24 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      *
      * @throws TransfluxValidationException if any id is already held by a different payload
      */
+    /**
+     * Claims the inline condition ids a registered trigger declares, which no transition walk
+     * reaches: a registration is not owned by one.
+     *
+     * @param canonical the per-build id table
+     */
+    private void claimRegisteredTriggerConditions(Map<String, Object> canonical) {
+        for (TriggerDefImpl<T, ?, ?> registered : triggerRegistrations.values()) {
+            if (registered instanceof ManualTriggerDefImpl<?, ?> manual) {
+                for (ConditionDescriptor descriptor : manual.getPreConditionDescriptors()) {
+                    claimInlineCondition(canonical, descriptor);
+                }
+            } else if (registered instanceof DataTriggerDefImpl<?, ?> data) {
+                claimInlineCondition(canonical, data.getGateDescriptor());
+            }
+        }
+    }
+
     private void claimInlineConditions(Map<String, Object> canonical, TransitionDefImpl<T, ?> td) {
         for (ConditionDescriptor descriptor : td.getPreConditionDescriptors()) {
             claimInlineCondition(canonical, descriptor);
@@ -604,6 +631,42 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     @Override
     public <C> StateMachineDef<T> choice(String id, Class<C> contextType, Consumer<ChoiceDef<T, C>> configurer) {
         registerScopedChoice(id, configurer, contextType);
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> manualTrigger(String id, Consumer<ManualTriggerDef<T, Object>> configurer) {
+        return manualTrigger(id, Object.class, configurer);
+    }
+
+    @Override
+    public <C> StateMachineDef<T> manualTrigger(String id, Class<C> contextType,
+                                     Consumer<ManualTriggerDef<T, C>> configurer) {
+        registerTrigger(id, contextType, configurer, ManualTriggerDefImpl::new, "manual trigger");
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> eventTrigger(String id, Consumer<EventTriggerDef<T, Object>> configurer) {
+        return eventTrigger(id, Object.class, configurer);
+    }
+
+    @Override
+    public <C> StateMachineDef<T> eventTrigger(String id, Class<C> contextType,
+                                     Consumer<EventTriggerDef<T, C>> configurer) {
+        registerTrigger(id, contextType, configurer, EventTriggerDefImpl::new, "event trigger");
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> dataTrigger(String id, Consumer<DataTriggerDef<T, Object>> configurer) {
+        return dataTrigger(id, Object.class, configurer);
+    }
+
+    @Override
+    public <C> StateMachineDef<T> dataTrigger(String id, Class<C> contextType,
+                                     Consumer<DataTriggerDef<T, C>> configurer) {
+        registerTrigger(id, contextType, configurer, DataTriggerDefImpl::new, "data trigger");
         return this;
     }
 
@@ -980,6 +1043,48 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         ConfigurableDefImpl.runConfigurer(composite, configurer);
         smCompositeOperations.put(id, composite);
         tagContextType(id, contextType);
+    }
+
+    /**
+     * Registers a trigger of any kind under its own namespace, running the configurer against a
+     * freshly-constructed def that carries the declared context rather than a transition's.
+     *
+     * @param id the trigger id
+     * @param contextType the context the trigger was declared against
+     * @param configurer the caller's configurer
+     * @param factory builds the def for this kind
+     * @param kind the kind's label, for the rejection message
+     * @param <C> the trigger's context type
+     * @param <D> the def type this kind exposes
+     */
+    <C, D> void registerTrigger(String id, Class<C> contextType, Consumer<D> configurer,
+                                BiFunction<String, Class<C>, TriggerDefImpl<T, C, ?>> factory,
+                                String kind) {
+        requireNotBlank(id, "Trigger ID");
+        requireNotNull(contextType, "Trigger context type");
+        requireNotNull(configurer, "Trigger configurer");
+
+        TriggerDefImpl<T, C, ?> existing = (TriggerDefImpl<T, C, ?>) triggerRegistrations.get(id);
+        if (existing != null) {
+            throw new TransfluxValidationException(
+                "Trigger id '" + id + "' is already registered as a " + existing.defLabel()
+                    + "; ids are unique across this state machine's triggers");
+        }
+
+        TriggerDefImpl<T, C, ?> def = factory.apply(id, contextType);
+        ConfigurableDefImpl.runConfigurer(def, (Consumer) configurer);
+        triggerRegistrations.put(id, def);
+        Loggers.BUILD_REGISTRY.debug("Trigger registered, triggerId={}, kind={}, contextType={}",
+                                     new Object[] {id, kind, contextType.getName()});
+    }
+
+    /**
+     * Returns the registered triggers, keyed by id, in declaration order.
+     *
+     * @return the trigger registrations; never {@code null}
+     */
+    Map<String, TriggerDefImpl<T, ?, ?>> getTriggerRegistrations() {
+        return triggerRegistrations;
     }
 
     /**
@@ -1721,6 +1826,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         checkOwnedListenerIds();
         checkGlobalListenerDisables();
         checkBlockingIsPossible();
+        checkTriggerAttachments();
         collectInlineMemberContexts();
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             Class<?> transitionContext = td.getContextType();
@@ -1731,12 +1837,92 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             }
             checkConditionRefs(td);
         }
+        checkRegisteredTriggerConditionRefs();
         for (Map.Entry<String, ActionDefImpl<T, ?, ?>> e : smCompositeOperations.entrySet()) {
             Class<?> scopeContext = componentContextTypes.get(e.getKey());
             e.getValue().checkRefs(scopeContext, smLevelLabel(e.getValue()),
                                    smLevelLabel(e.getValue()), List.of(), this);
         }
         detectCompositeCycles();
+    }
+
+    /**
+     * Validates every {@code addTrigger(id)} attachment: that the id names a registration, that
+     * the registration's context accepts the attaching transition's, and that no manual trigger
+     * ends up on two transitions leaving one state.
+     * <p>
+     * A trigger declared in place gets its own message rather than "unknown": it exists, it is
+     * simply visible to the transition that declared it and to nothing else.
+     *
+     * @throws TransfluxValidationException on the first attachment that breaks one of those
+     */
+    private void checkTriggerAttachments() {
+        Map<String, String> declaredInline = new HashMap<>();
+        for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
+            for (TriggerDefImpl<T, ?, ?> declared : List.copyOf(td.getManualTriggers())) {
+                declaredInline.put(declared.getId(), td.getId());
+            }
+            td.getEventTriggers().forEach(t -> declaredInline.put(t.getId(), td.getId()));
+            td.getDataTriggers().forEach(t -> declaredInline.put(t.getId(), td.getId()));
+        }
+
+        Map<String, Map<String, String>> manualBySource = new HashMap<>();
+        for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
+            Set<String> attachedHere = new HashSet<>();
+            for (String ref : td.getTriggerRefs()) {
+                if (!attachedHere.add(ref)) {
+                    throw new TransfluxValidationException(
+                        "Transition '" + td.getId() + "' attaches trigger '" + ref
+                            + "' more than once; attaching is not additive");
+                }
+
+                TriggerDefImpl<T, ?, ?> registered = triggerRegistrations.get(ref);
+                if (registered == null) {
+                    String owner = declaredInline.get(ref);
+                    throw new TransfluxValidationException(owner == null
+                        ? "Transition '" + td.getId() + "' attaches trigger '" + ref
+                            + "', which is not registered on this state machine"
+                        : "Transition '" + td.getId() + "' attaches trigger '" + ref
+                            + "', which is declared inline on transition '" + owner
+                            + "'; register it under its own id to attach it elsewhere");
+                }
+
+                checkTriggerContext(registered, td);
+                if (registered instanceof ManualTriggerDefImpl) {
+                    String clash = manualBySource
+                        .computeIfAbsent(ref, k -> new HashMap<>())
+                        .putIfAbsent(td.getSourceStateId(), td.getId());
+                    if (clash != null) {
+                        throw new TransfluxValidationException(
+                            "Manual trigger '" + ref + "' is attached to transitions '" + clash
+                                + "' and '" + td.getId() + "', which both leave state '"
+                                + td.getSourceStateId() + "'; fire(id) could not choose between them");
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Checks a registered trigger's declared context against a transition attaching it, by the rule
+     * a by-id component reference follows: a registration typed to {@code Object} attaches
+     * anywhere, and any other must accept what the transition carries.
+     *
+     * @param registered the trigger registration
+     * @param td the transition attaching it
+     */
+    private void checkTriggerContext(TriggerDefImpl<T, ?, ?> registered, TransitionDefImpl<T, ?> td) {
+        Class<?> declared = registered.getContextType();
+        Class<?> transitionContext = td.getContextType() == null ? Object.class : td.getContextType();
+        if (declared == Object.class || declared.isAssignableFrom(transitionContext)) {
+            return;
+        }
+
+        throw new TransfluxValidationException(
+            "Context type mismatch: transition '" + td.getId() + "' (context "
+                + transitionContext.getName() + ") attaches " + registered.defLabel()
+                + " declared for context " + declared.getName()
+                + "; a trigger runs against the context of the transition it fires");
     }
 
     /**
@@ -1763,6 +1949,30 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         for (DataTriggerDefImpl<T, ?> dt : td.getDataTriggers()) {
             checkConditionRef(dt.getGateDescriptor(), context,
                 "data trigger '" + dt.getId() + "'", "gate condition");
+        }
+    }
+
+    /**
+     * Validates the by-id condition references a registered trigger carries, against the context
+     * the registration itself declared.
+     * <p>
+     * A registration has no transition of its own, and the one it attaches to is checked
+     * separately: what has to hold here is that the trigger's own gate can run against the context
+     * the trigger says it runs against.
+     *
+     * @throws TransfluxValidationException if a referenced condition declares an incompatible
+     *         context type
+     */
+    private void checkRegisteredTriggerConditionRefs() {
+        for (TriggerDefImpl<T, ?, ?> registered : triggerRegistrations.values()) {
+            Class<?> context = registered.getContextType();
+            String label = registered.defLabel();
+            if (registered instanceof ManualTriggerDefImpl<?, ?> manual) {
+                checkConditionRefs(manual.getPreConditionDescriptors(), context, label,
+                                   "pre-condition");
+            } else if (registered instanceof DataTriggerDefImpl<?, ?> data) {
+                checkConditionRef(data.getGateDescriptor(), context, label, "gate condition");
+            }
         }
     }
 

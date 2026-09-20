@@ -23,6 +23,8 @@ import org.transflux.core.trigger.EventTrigger;
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
 
+import java.util.List;
+
 /**
  * Runtime event trigger paired with its resolved payload filter.
  * <p>
@@ -37,9 +39,9 @@ final class EventTriggerImpl<T> extends TriggerImpl implements EventTrigger {
     private final String eventId;
     private final EventFilter<T> filter;
 
-    EventTriggerImpl(String id, String name, String description, String transitionId,
+    EventTriggerImpl(String id, String name, String description, List<String> transitionIds,
                      String eventId, EventFilter<T> filter) {
-        super(id, name, description, transitionId);
+        super(id, name, description, transitionIds);
         requireNotBlank(eventId, "Trigger event ID");
         requireNotNull(filter, "Trigger filter");
         this.eventId = eventId;

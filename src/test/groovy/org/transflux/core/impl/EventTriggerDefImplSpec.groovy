@@ -61,7 +61,7 @@ class EventTriggerDefImplSpec extends Specification {
         trigger.name == 'Payment received'
         trigger.description == 'Fires on a confirmed payment'
         trigger.eventId == 'PAYMENT'
-        trigger.transitionId == 't'
+        trigger.transitionIds == ['t']
     }
 
     def 'the flat (id, eventId) form sets the event id'() {

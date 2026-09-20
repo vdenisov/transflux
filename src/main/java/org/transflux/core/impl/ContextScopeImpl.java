@@ -24,6 +24,9 @@ import org.transflux.core.action.ChoiceDef;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.StepDef;
+import org.transflux.core.trigger.DataTriggerDef;
+import org.transflux.core.trigger.EventTriggerDef;
+import org.transflux.core.trigger.ManualTriggerDef;
 
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
@@ -125,6 +128,27 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
         requireNotBlank(id, "Choice ID");
         requireNotNull(configurer, "Choice configurer");
         smd.registerScopedChoice(id, configurer, contextType);
+        return this;
+    }
+
+    @Override
+    public ContextScope<T, C> manualTrigger(String id, Consumer<ManualTriggerDef<T, C>> configurer) {
+        requireConfigurerActive("manualTrigger");
+        smd.registerTrigger(id, contextType, configurer, ManualTriggerDefImpl::new, "manual trigger");
+        return this;
+    }
+
+    @Override
+    public ContextScope<T, C> eventTrigger(String id, Consumer<EventTriggerDef<T, C>> configurer) {
+        requireConfigurerActive("eventTrigger");
+        smd.registerTrigger(id, contextType, configurer, EventTriggerDefImpl::new, "event trigger");
+        return this;
+    }
+
+    @Override
+    public ContextScope<T, C> dataTrigger(String id, Consumer<DataTriggerDef<T, C>> configurer) {
+        requireConfigurerActive("dataTrigger");
+        smd.registerTrigger(id, contextType, configurer, DataTriggerDefImpl::new, "data trigger");
         return this;
     }
 

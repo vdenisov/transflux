@@ -35,9 +35,9 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * Default {@link ManualTriggerDef} implementation.
  * <p>
  * Accumulates the trigger's pre-condition descriptors during configuration and resolves them into
- * {@link BoundCondition} instances at build time through {@link #buildBoundTrigger(Map)}, producing
- * a runtime {@link ManualTriggerImpl}. The enclosing transition's id is captured at construction so
- * the resulting trigger knows which transition it fires.
+ * {@link BoundCondition} instances at build time through {@link #buildBoundTrigger(Map, List)}, producing
+ * a runtime {@link ManualTriggerImpl}. The transitions it is attached to are supplied at build time,
+ * since a registered trigger may sit on several.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
@@ -50,6 +50,10 @@ final class ManualTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, ManualTrigge
 
     ManualTriggerDefImpl(String id, TransitionDefImpl<T, C> owner) {
         super(id, "manual trigger", owner);
+    }
+
+    ManualTriggerDefImpl(String id, Class<C> contextType) {
+        super(id, "manual trigger", contextType);
     }
 
     @Override
@@ -100,7 +104,7 @@ final class ManualTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, ManualTrigge
      *
      * @throws TransfluxValidationException if any descriptor cannot be resolved
      */
-    ManualTriggerImpl<T, C> buildBoundTrigger(Map<String, BoundCondition<T, C>> registry) {
+    ManualTriggerImpl<T, C> buildBoundTrigger(Map<String, BoundCondition<T, C>> registry, List<String> transitionIds) {
         requireNotNull(registry, "Condition registry");
         List<ConditionDescriptor> descriptors = preConditions.descriptors();
         List<BoundCondition<T, C>> bound = new ArrayList<>(descriptors.size());
@@ -108,6 +112,6 @@ final class ManualTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, ManualTrigge
             String path = "trigger:" + getId() + ":pre[" + i + "]";
             bound.add(ConditionResolver.resolve(descriptors.get(i), registry, path));
         }
-        return new ManualTriggerImpl<>(getId(), getName(), getDescription(), transitionId(), bound);
+        return new ManualTriggerImpl<>(getId(), getName(), getDescription(), transitionIds, bound);
     }
 }

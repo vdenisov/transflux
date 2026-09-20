@@ -22,6 +22,8 @@ import org.transflux.core.trigger.DataTrigger;
 
 import static org.transflux.core.Preconditions.requireNotNull;
 
+import java.util.List;
+
 /**
  * Runtime data trigger paired with its resolved gate condition.
  * <p>
@@ -36,9 +38,9 @@ final class DataTriggerImpl<T, C> extends TriggerImpl implements DataTrigger {
 
     private final BoundCondition<T, C> gate;
 
-    DataTriggerImpl(String id, String name, String description, String transitionId,
+    DataTriggerImpl(String id, String name, String description, List<String> transitionIds,
                     BoundCondition<T, C> gate) {
-        super(id, name, description, transitionId);
+        super(id, name, description, transitionIds);
         requireNotNull(gate, "Trigger gate condition");
         this.gate = gate;
     }

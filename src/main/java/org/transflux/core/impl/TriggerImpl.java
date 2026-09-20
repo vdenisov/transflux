@@ -24,6 +24,7 @@ import org.transflux.core.trigger.Trigger;
 import java.util.List;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
+import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Shared base for the runtime trigger family, carrying the catalog metadata that makes up the whole
@@ -40,15 +41,15 @@ sealed abstract class TriggerImpl implements Trigger
     private final String id;
     private final String name;
     private final String description;
-    private final String transitionId;
+    private final List<String> transitionIds;
 
-    TriggerImpl(String id, String name, String description, String transitionId) {
+    TriggerImpl(String id, String name, String description, List<String> transitionIds) {
         requireNotBlank(id, "Trigger ID");
-        requireNotBlank(transitionId, "Trigger transition ID");
+        requireNotNull(transitionIds, "Trigger transition IDs");
         this.id = id;
         this.name = name;
         this.description = description;
-        this.transitionId = transitionId;
+        this.transitionIds = List.copyOf(transitionIds);
     }
 
     @Override
@@ -67,8 +68,8 @@ sealed abstract class TriggerImpl implements Trigger
     }
 
     @Override
-    public final String getTransitionId() {
-        return transitionId;
+    public final List<String> getTransitionIds() {
+        return transitionIds;
     }
 
     /**

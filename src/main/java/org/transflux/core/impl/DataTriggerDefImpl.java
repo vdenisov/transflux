@@ -23,6 +23,7 @@ import org.transflux.core.condition.ConditionDescriptor;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.trigger.DataTriggerDef;
 
+import java.util.List;
 import java.util.Map;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
@@ -30,14 +31,15 @@ import java.util.function.Predicate;
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
 
+
 /**
  * Default {@link DataTriggerDef} implementation.
  * <p>
  * Captures the trigger's single gate descriptor during configuration and resolves it into a
- * {@link BoundCondition} at build time through {@link #buildBoundTrigger(Map)}, producing a runtime
- * {@link DataTriggerImpl}. The enclosing transition's id is captured at construction so the
- * resulting trigger knows which transition it fires. A gate condition is mandatory; its absence is
- * reported when {@link #buildBoundTrigger(Map)} runs.
+ * {@link BoundCondition} at build time through {@link #buildBoundTrigger(Map, List)}, producing a runtime
+ * {@link DataTriggerImpl}. The transitions it is attached to are supplied at build time, since a
+ * registered trigger may sit on several. A gate condition is mandatory; its absence is
+ * reported when {@link #buildBoundTrigger(Map, List)} runs.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
@@ -50,6 +52,10 @@ final class DataTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, DataTriggerDef
 
     DataTriggerDefImpl(String id, TransitionDefImpl<T, C> owner) {
         super(id, "data trigger", owner);
+    }
+
+    DataTriggerDefImpl(String id, Class<C> contextType) {
+        super(id, "data trigger", contextType);
     }
 
     @Override
@@ -101,7 +107,7 @@ final class DataTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, DataTriggerDef
      * @throws TransfluxValidationException if no gate condition was declared or the descriptor
      *         cannot be resolved
      */
-    DataTriggerImpl<T, C> buildBoundTrigger(Map<String, BoundCondition<T, C>> registry) {
+    DataTriggerImpl<T, C> buildBoundTrigger(Map<String, BoundCondition<T, C>> registry, List<String> transitionIds) {
         requireNotNull(registry, "Condition registry");
         ConditionDescriptor descriptor = gate.descriptor();
         if (descriptor == null) {
@@ -110,6 +116,6 @@ final class DataTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, DataTriggerDef
         }
         String path = "trigger:" + getId() + ":gate";
         BoundCondition<T, C> bound = ConditionResolver.resolve(descriptor, registry, path);
-        return new DataTriggerImpl<>(getId(), getName(), getDescription(), transitionId(), bound);
+        return new DataTriggerImpl<>(getId(), getName(), getDescription(), transitionIds, bound);
     }
 }

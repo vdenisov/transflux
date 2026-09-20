@@ -112,6 +112,14 @@ class StateMachineImpl<T> implements StateMachine<T> {
         new LinkedHashMap<>();
 
     /**
+     * For each manual trigger, the transition it fires from a given source state. A registered
+     * trigger sits on any number of transitions, so {@code fire(id)} picks the attachment leaving
+     * the entity's current state; the build rejects two attachments that would share one.
+     */
+    private final Map<String, Map<String, BoundTransition<T, ?>>> manualTriggerTargets =
+        new LinkedHashMap<>();
+
+    /**
      * State listeners indexed by the state they observe, in notification order: the state's own
      * listeners first, then the ones registered against every state. Merging at build time keeps
      * notification a single map lookup.
@@ -250,11 +258,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
                                     .add(transition);
         }
 
-        for (TransitionDefImpl<T, ?> td : def.getTransitionsById().values()) {
-            registerManualTriggers(td, conditionRegistry);
-            registerEventTriggers(td);
-            registerDataTriggers(td, conditionRegistry);
-        }
+        registerTriggers(def, conditionRegistry);
 
         def.bindDeferredMembers(this);
         def.visitActionDefs(actionDef -> indexFilteredActionGlobals(actionDef.getDisabledGlobals()));
@@ -699,36 +703,145 @@ class StateMachineImpl<T> implements StateMachine<T> {
         return transition;
     }
 
+    /**
+     * Builds every trigger the definition declares and indexes it per attachment.
+     * <p>
+     * A trigger is built exactly once however many transitions attach it, because it is one
+     * trigger: the catalog lists it once and reports them all. The scan order a transition
+     * contributes is its own declarations first, then the registrations it attached, which is what
+     * first-match dispatch reads.
+     *
+     * @param def the definition being built
+     * @param conditionRegistry the resolved conditions a manual trigger's pre-conditions and a data
+     *                          trigger's gate reference by id
+     */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private void registerManualTriggers(TransitionDefImpl<T, ?> td,
-                                        Map<String, BoundCondition<T, ?>> conditionRegistry) {
-        for (ManualTriggerDefImpl<T, ?> mt : td.getManualTriggers()) {
-            putTrigger(mt.buildBoundTrigger((Map) conditionRegistry));
+    private void registerTriggers(StateMachineDefImpl<T> def,
+                                  Map<String, BoundCondition<T, ?>> conditionRegistry) {
+        Map<String, List<TransitionDefImpl<T, ?>>> attachments = new LinkedHashMap<>();
+        Map<String, TriggerDefImpl<T, ?, ?>> defsById = new LinkedHashMap<>();
+
+        for (TransitionDefImpl<T, ?> td : def.getTransitionsById().values()) {
+            for (TriggerDefImpl<T, ?, ?> declared : declaredTriggers(td)) {
+                claimTriggerId(defsById, declared);
+                attachments.computeIfAbsent(declared.getId(), k -> new ArrayList<>()).add(td);
+            }
+            for (String ref : td.getTriggerRefs()) {
+                claimTriggerId(defsById, def.getTriggerRegistrations().get(ref));
+                attachments.computeIfAbsent(ref, k -> new ArrayList<>()).add(td);
+            }
+        }
+
+        // A registration nothing attached is still a trigger the catalog reports, with no
+        // transitions - a component library may register one a later definition attaches.
+        for (TriggerDefImpl<T, ?, ?> registered : def.getTriggerRegistrations().values()) {
+            claimTriggerId(defsById, registered);
+        }
+
+        for (Map.Entry<String, TriggerDefImpl<T, ?, ?>> entry : defsById.entrySet()) {
+            List<String> transitionIds = attachments.getOrDefault(entry.getKey(), List.of())
+                                                    .stream()
+                                                    .map(TransitionDefImpl::getId)
+                                                    .toList();
+            putTrigger(buildTrigger(entry.getValue(), transitionIds, conditionRegistry));
+        }
+
+        // Indexing walks the transitions again rather than the triggers, because a source state's
+        // scan order is the order its transitions declared their triggers - and a registration
+        // attached by an earlier transition must not drag a later one's attachment up with it.
+        for (TransitionDefImpl<T, ?> td : def.getTransitionsById().values()) {
+            BoundTransition<T, ?> transition = getTransition(td.getId());
+            for (TriggerDefImpl<T, ?, ?> declared : declaredTriggers(td)) {
+                indexAttachment(triggers.get(declared.getId()), transition);
+            }
+            for (String ref : td.getTriggerRefs()) {
+                indexAttachment(triggers.get(ref), transition);
+            }
         }
     }
 
-    private void registerEventTriggers(TransitionDefImpl<T, ?> td) {
-        BoundTransition<T, ?> transition = getTransition(td.getId());
-        for (EventTriggerDefImpl<T, ?> et : td.getEventTriggers()) {
-            EventTriggerImpl<T> trigger = et.buildBoundTrigger();
-            putTrigger(trigger);
-            eventTriggersBySource
-                .computeIfAbsent(transition.sourceStateId(), s -> new ArrayList<>())
-                .add(new TriggerBinding<>(trigger, transition));
+    /**
+     * Claims one id for one trigger def. Attaching a registration several times names the same def
+     * every time and is the point of the feature; two <em>different</em> defs under one id is the
+     * ordinary duplicate, whichever kinds they are and wherever each was declared.
+     *
+     * @param defsById the ids claimed so far
+     * @param triggerDef the def claiming its id
+     */
+    private void claimTriggerId(Map<String, TriggerDefImpl<T, ?, ?>> defsById,
+                                TriggerDefImpl<T, ?, ?> triggerDef) {
+        TriggerDefImpl<T, ?, ?> prior = defsById.putIfAbsent(triggerDef.getId(), triggerDef);
+        if (prior != null && prior != triggerDef) {
+            throw new TransfluxValidationException(
+                "Trigger id '" + triggerDef.getId() + "' is already registered");
         }
     }
 
+    /** The triggers a transition declares in place, in the order dispatch scans them. */
+    private List<TriggerDefImpl<T, ?, ?>> declaredTriggers(TransitionDefImpl<T, ?> td) {
+        List<TriggerDefImpl<T, ?, ?>> declared = new ArrayList<>();
+        declared.addAll(td.getManualTriggers());
+        declared.addAll(td.getEventTriggers());
+        declared.addAll(td.getDataTriggers());
+        return declared;
+    }
+
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private void registerDataTriggers(TransitionDefImpl<T, ?> td,
-                                      Map<String, BoundCondition<T, ?>> conditionRegistry) {
-        BoundTransition<T, ?> transition = getTransition(td.getId());
-        for (DataTriggerDefImpl<T, ?> dt : td.getDataTriggers()) {
-            DataTriggerImpl<T, ?> trigger = dt.buildBoundTrigger((Map) conditionRegistry);
-            putTrigger(trigger);
-            dataTriggersBySource
-                .computeIfAbsent(transition.sourceStateId(), s -> new ArrayList<>())
-                .add(new TriggerBinding<>(trigger, transition));
+    private TriggerImpl buildTrigger(TriggerDefImpl<T, ?, ?> triggerDef, List<String> transitionIds,
+                                     Map<String, BoundCondition<T, ?>> conditionRegistry) {
+        if (triggerDef instanceof ManualTriggerDefImpl manual) {
+            return manual.buildBoundTrigger((Map) conditionRegistry, transitionIds);
         }
+        if (triggerDef instanceof EventTriggerDefImpl event) {
+            return event.buildBoundTrigger(transitionIds);
+        }
+        return ((DataTriggerDefImpl) triggerDef).buildBoundTrigger((Map) conditionRegistry,
+                                                                   transitionIds);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void indexAttachment(TriggerImpl trigger, BoundTransition<T, ?> transition) {
+        String source = transition.sourceStateId();
+        if (trigger instanceof EventTriggerImpl<?> event) {
+            eventTriggersBySource.computeIfAbsent(source, s -> new ArrayList<>())
+                                 .add(new TriggerBinding(event, transition));
+        } else if (trigger instanceof DataTriggerImpl<?, ?> data) {
+            dataTriggersBySource.computeIfAbsent(source, s -> new ArrayList<>())
+                                .add(new TriggerBinding(data, transition));
+        } else {
+            manualTriggerTargets.computeIfAbsent(trigger.getId(), t -> new LinkedHashMap<>())
+                                .put(source, transition);
+        }
+        Loggers.BUILD_BINDING.debug("Trigger attached, triggerId={}, transitionId={}",
+                                    trigger.getId(), transition.id());
+    }
+
+    /**
+     * Picks the transition a manual trigger fires from the entity's current state.
+     * <p>
+     * One trigger may sit on several transitions, so the current state is what selects between
+     * them. The build rejects two attachments leaving one state, which is what makes the choice
+     * unambiguous here.
+     *
+     * @param trigger the trigger being fired
+     * @param currentStateId the state the entity is in
+     *
+     * @return the transition to execute; never {@code null}
+     *
+     * @throws TransfluxValidationException if the trigger sits on no transition leaving that state
+     */
+    private BoundTransition<T, ?> manualTarget(TriggerImpl trigger, String currentStateId) {
+        Map<String, BoundTransition<T, ?>> bySource =
+            manualTriggerTargets.getOrDefault(trigger.getId(), Map.of());
+        BoundTransition<T, ?> transition = bySource.get(currentStateId);
+        if (transition == null) {
+            throw new TransfluxValidationException(
+                String.format("Entity is in state '%s' but trigger '%s' leaves %s",
+                              currentStateId, trigger.getId(),
+                              bySource.isEmpty() ? "no state" : "only " + bySource.keySet()));
+        }
+
+        return transition;
     }
 
     private void putTrigger(TriggerImpl trigger) {
@@ -1477,15 +1590,9 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
             TriggerImpl trigger = StateMachineImpl.this.getTriggerImpl(triggerId);
             trigger.checkDirectlyFireable();
-            BoundTransition<T, ?> transition = StateMachineImpl.this.getTransition(trigger.getTransitionId());
 
             String currentStateId = resolveCurrentState(entity);
-            if (!transition.sourceStateId().equals(currentStateId)) {
-                throw new TransfluxValidationException(
-                    String.format("Entity is in state '%s' but trigger '%s' requires source state '%s'",
-                        currentStateId, triggerId, transition.sourceStateId())
-                );
-            }
+            BoundTransition<T, ?> transition = StateMachineImpl.this.manualTarget(trigger, currentStateId);
 
             verifyFireContext(transition, firingContext);
             return fireWith(entity, firingContext, transition, trigger);

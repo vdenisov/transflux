@@ -24,6 +24,9 @@ import org.transflux.core.action.ChoiceDef;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.StepDef;
+import org.transflux.core.trigger.DataTriggerDef;
+import org.transflux.core.trigger.EventTriggerDef;
+import org.transflux.core.trigger.ManualTriggerDef;
 
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
@@ -145,5 +148,35 @@ public interface ContextScope<T, C> {
      * @return this scope for chaining
      */
     ContextScope<T, C> choice(String id, Consumer<ChoiceDef<T, C>> configurer);
+
+    /**
+     * Registers a manual trigger against this scope's context type. A transition attaches it by id.
+     *
+     * @param id the trigger id; unique among this state machine's triggers
+     * @param configurer callback that declares the trigger
+     *
+     * @return this scope for chaining
+     */
+    ContextScope<T, C> manualTrigger(String id, Consumer<ManualTriggerDef<T, C>> configurer);
+
+    /**
+     * Registers a event trigger against this scope's context type. A transition attaches it by id.
+     *
+     * @param id the trigger id; unique among this state machine's triggers
+     * @param configurer callback that declares the trigger
+     *
+     * @return this scope for chaining
+     */
+    ContextScope<T, C> eventTrigger(String id, Consumer<EventTriggerDef<T, C>> configurer);
+
+    /**
+     * Registers a data trigger against this scope's context type. A transition attaches it by id.
+     *
+     * @param id the trigger id; unique among this state machine's triggers
+     * @param configurer callback that declares the trigger
+     *
+     * @return this scope for chaining
+     */
+    ContextScope<T, C> dataTrigger(String id, Consumer<DataTriggerDef<T, C>> configurer);
 
 }

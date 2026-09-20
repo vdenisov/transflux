@@ -315,6 +315,25 @@ public interface TransitionDef<T, C>
     TransitionDef<T, C> postCondition(String id, String expression);
 
     /**
+     * Attaches a trigger registered on the state machine to this transition.
+     * <p>
+     * Attaching claims no id, so the same registration may be attached to any number of
+     * transitions and stays one trigger. The id must name a registration: a trigger declared in
+     * place on another transition is visible to that transition alone, and naming one here is a
+     * build error that says so. The build also checks the registration's context type against this
+     * transition's, and rejects one manual trigger attached to two transitions leaving the same
+     * state, which would make {@code fire(id)} ambiguous.
+     *
+     * @param triggerId the id of a trigger registered on the state machine; never {@code null} or
+     *                  blank
+     *
+     * @return this transition def for chaining
+     *
+     * @throws TransfluxValidationException if {@code triggerId} is {@code null} or blank
+     */
+    TransitionDef<T, C> addTrigger(String triggerId);
+
+    /**
      * Attaches a manual trigger to this transition under the given id, with no extra metadata or
      * pre-conditions. The trigger is invokable through {@code entity(e).fire(id)}.
      *

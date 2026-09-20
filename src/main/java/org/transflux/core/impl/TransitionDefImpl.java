@@ -78,6 +78,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         new ConditionDescriptorSink<>(this, this, "preCondition");
     private final ConditionDescriptorSink<T, C, TransitionDef<T, C>> postConditions =
         new ConditionDescriptorSink<>(this, this, "postCondition");
+    private final List<String> triggerRefs = new ArrayList<>();
     private final List<ManualTriggerDefImpl<T, C>> manualTriggers = new ArrayList<>();
     private final List<EventTriggerDefImpl<T, C>> eventTriggers = new ArrayList<>();
     private final List<DataTriggerDefImpl<T, C>> dataTriggers = new ArrayList<>();
@@ -255,6 +256,16 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
      */
     List<DataTriggerDefImpl<T, C>> getDataTriggers() {
         return dataTriggers;
+    }
+
+    /**
+     * Returns the ids of the registered triggers this transition attaches, in declaration order.
+     * Dispatch scans a transition's own declarations before these.
+     *
+     * @return the attached trigger ids; never {@code null}
+     */
+    List<String> getTriggerRefs() {
+        return triggerRefs;
     }
 
     @Override
@@ -541,6 +552,14 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     @Override
     public TransitionDef<T, C> postCondition(String id, String expression) {
         return postConditions.expression(id, expression);
+    }
+
+    @Override
+    public TransitionDef<T, C> addTrigger(String triggerId) {
+        requireConfigurerActive("addTrigger");
+        requireNotBlank(triggerId, "Trigger ID");
+        triggerRefs.add(triggerId);
+        return this;
     }
 
     @Override

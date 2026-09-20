@@ -21,10 +21,10 @@ package org.transflux.core;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.ActionListener;
 import org.transflux.core.action.ActionListenerDef;
-import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.AsyncRejectionPolicy;
-import org.transflux.core.action.MapperDef;
 import org.transflux.core.action.ChoiceDef;
+import org.transflux.core.action.ContextMapper;
+import org.transflux.core.action.MapperDef;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.StepDef;
 import org.transflux.core.condition.Condition;
@@ -35,9 +35,11 @@ import org.transflux.core.state.StateDef;
 import org.transflux.core.state.StateListener;
 import org.transflux.core.state.StateListenerDef;
 import org.transflux.core.state.StateResolver;
-import org.transflux.core.transition.TransitionDef;
 import org.transflux.core.transition.TransitionListener;
 import org.transflux.core.transition.TransitionListenerDef;
+import org.transflux.core.trigger.DataTriggerDef;
+import org.transflux.core.trigger.EventTriggerDef;
+import org.transflux.core.trigger.ManualTriggerDef;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
@@ -400,6 +402,96 @@ public interface StateMachineDef<T> {
      * @return this state machine def for chaining
      */
     <C> StateMachineDef<T> condition(String id, Class<C> contextType, String spelExpression);
+
+    /**
+     * Registers a manual trigger against this state machine under the given id, against the
+     * {@code Object} context so it attaches to any transition.
+     * <p>
+     * A registration claims the id and carries everything the trigger is; a transition attaches it
+     * by id through {@link org.transflux.core.transition.TransitionDef#addTrigger(String)}, any
+     * number of times. It stays one trigger: the catalog lists it once, reporting every transition
+     * it sits on. Registering one nothing attaches is not an error.
+     *
+     * @param id the trigger id; unique among this state machine's triggers
+     * @param configurer callback that declares the trigger; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> manualTrigger(String id, Consumer<ManualTriggerDef<T, Object>> configurer);
+
+    /**
+     * Registers a manual trigger against this state machine under the given id, tagged with the
+     * supplied context class. The build checks that context against every transition it is
+     * attached to.
+     *
+     * @param id the trigger id; unique among this state machine's triggers
+     * @param contextType the context class the trigger was written against; never {@code null}
+     * @param configurer callback that declares the trigger; never {@code null}
+     * @param <C> the trigger's context type
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> manualTrigger(String id, Class<C> contextType, Consumer<ManualTriggerDef<T, C>> configurer);
+
+    /**
+     * Registers a event trigger against this state machine under the given id, against the
+     * {@code Object} context so it attaches to any transition.
+     * <p>
+     * A registration claims the id and carries everything the trigger is; a transition attaches it
+     * by id through {@link org.transflux.core.transition.TransitionDef#addTrigger(String)}, any
+     * number of times. It stays one trigger: the catalog lists it once, reporting every transition
+     * it sits on. Registering one nothing attaches is not an error.
+     *
+     * @param id the trigger id; unique among this state machine's triggers
+     * @param configurer callback that declares the trigger; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> eventTrigger(String id, Consumer<EventTriggerDef<T, Object>> configurer);
+
+    /**
+     * Registers a event trigger against this state machine under the given id, tagged with the
+     * supplied context class. The build checks that context against every transition it is
+     * attached to.
+     *
+     * @param id the trigger id; unique among this state machine's triggers
+     * @param contextType the context class the trigger was written against; never {@code null}
+     * @param configurer callback that declares the trigger; never {@code null}
+     * @param <C> the trigger's context type
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> eventTrigger(String id, Class<C> contextType, Consumer<EventTriggerDef<T, C>> configurer);
+
+    /**
+     * Registers a data trigger against this state machine under the given id, against the
+     * {@code Object} context so it attaches to any transition.
+     * <p>
+     * A registration claims the id and carries everything the trigger is; a transition attaches it
+     * by id through {@link org.transflux.core.transition.TransitionDef#addTrigger(String)}, any
+     * number of times. It stays one trigger: the catalog lists it once, reporting every transition
+     * it sits on. Registering one nothing attaches is not an error.
+     *
+     * @param id the trigger id; unique among this state machine's triggers
+     * @param configurer callback that declares the trigger; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> dataTrigger(String id, Consumer<DataTriggerDef<T, Object>> configurer);
+
+    /**
+     * Registers a data trigger against this state machine under the given id, tagged with the
+     * supplied context class. The build checks that context against every transition it is
+     * attached to.
+     *
+     * @param id the trigger id; unique among this state machine's triggers
+     * @param contextType the context class the trigger was written against; never {@code null}
+     * @param configurer callback that declares the trigger; never {@code null}
+     * @param <C> the trigger's context type
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> dataTrigger(String id, Class<C> contextType, Consumer<DataTriggerDef<T, C>> configurer);
 
     /**
      * Registers a composite operation against this state machine under the given id, tagged

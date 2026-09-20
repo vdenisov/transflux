@@ -126,7 +126,8 @@ class StateMachineImplTriggerSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains("'go'")
-        e.message.contains("source state 's1'")
+        e.message.contains("state 's2'")
+        e.message.contains("only [s1]")
     }
 
     def 'firing with the wrong context type is rejected'() {

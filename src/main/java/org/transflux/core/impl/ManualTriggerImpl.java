@@ -39,9 +39,9 @@ final class ManualTriggerImpl<T, C> extends TriggerImpl implements ManualTrigger
 
     private final List<BoundCondition<T, C>> preConditions;
 
-    ManualTriggerImpl(String id, String name, String description, String transitionId,
+    ManualTriggerImpl(String id, String name, String description, List<String> transitionIds,
                       List<BoundCondition<T, C>> preConditions) {
-        super(id, name, description, transitionId);
+        super(id, name, description, transitionIds);
         requireNotNull(preConditions, "Trigger pre-conditions");
         this.preConditions = List.copyOf(preConditions);
     }

@@ -471,6 +471,11 @@ class JavaDslSurfaceSpec extends Specification {
         JavaDslSurface.stateMachineMetadata() == 'orders:Orders:What an order does:3:true'
     }
 
+    def 'one registered trigger sits on two transitions and fires from either state'() {
+        expect:
+        JavaDslSurface.sharedTriggerShapes() == '[from-s1, from-s2]:from-s1:from-s2'
+    }
+
     private static boolean waitFor(Closure<Boolean> condition) {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
         while (System.nanoTime() < deadline) {

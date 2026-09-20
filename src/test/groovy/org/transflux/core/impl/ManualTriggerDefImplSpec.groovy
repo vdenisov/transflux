@@ -58,7 +58,7 @@ class ManualTriggerDefImplSpec extends Specification {
         sm.getTriggers().size() == 1
         def trigger = sm.getTrigger('manual-cancel')
         trigger.id == 'manual-cancel'
-        trigger.transitionId == 't'
+        trigger.transitionIds == ['t']
         trigger.name == null
         trigger.description == null
     }

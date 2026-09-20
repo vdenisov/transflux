@@ -1312,6 +1312,48 @@ public final class JavaDslSurface {
         return order.label() != null;
     }
 
+    /**
+     * Every trigger registration form, and the by-id attachment that shares one across transitions.
+     * One manual trigger sits on two transitions leaving different states, so {@code fire(id)}
+     * picks between them by the entity's current state.
+     *
+     * @return the shared trigger's attachments and the two transitions it fired, joined
+     */
+    public static String sharedTriggerShapes() {
+        try (StateMachine<Order> sm = Transflux.defineStateMachine(Order.class)
+            .withStateResolver(o -> o.state)
+            .withStateApplier((o, next) -> o.state = next)
+            // untyped: registered against Object, so it attaches to any transition
+            .manualTrigger("cancel", t -> t.withName("Cancel"))
+            // typed: the build checks this context against every transition attaching it
+            .eventTrigger("settled", OrderCtx.class, t -> t
+                .onEvent("SETTLED")
+                .filterExpression("#event == 'ok'"))
+            .dataTrigger("swept", t -> t.conditionExpression("state == 's1'"))
+            // and the same three under a forContext block
+            .forContext(OrderCtx.class, scope -> scope
+                .manualTrigger("scoped-manual", t -> t.withDescription("Scoped"))
+                .eventTrigger("scoped-event", t -> t.onEvent("SCOPED"))
+                .dataTrigger("scoped-data", t -> t.conditionExpression("state != null")))
+            .state("s1", s -> s
+                .transitionsTo("s2", "from-s1", OrderCtx.class, t -> t
+                    .addTrigger("cancel")
+                    .addTrigger("settled")
+                    .addTrigger("swept")))
+            .state("s2", s -> s
+                .transitionsTo("s3", "from-s2", t -> t.addTrigger("cancel")))
+            .state("s3", s -> { })
+            .build()) {
+
+            Trigger shared = sm.getTrigger("cancel");
+            Order order = new Order();
+            String first = sm.entity(order).fire("cancel", new OrderCtx()).getTransitionId();
+            String second = sm.entity(order).fire("cancel").getTransitionId();
+
+            return shared.getTransitionIds() + ":" + first + ":" + second;
+        }
+    }
+
     private static boolean isOpen(Order order) {
         return "s1".equals(order.state);
     }

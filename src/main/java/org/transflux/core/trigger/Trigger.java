@@ -18,15 +18,16 @@
 
 package org.transflux.core.trigger;
 
+import java.util.List;
 
 /**
- * Runtime view of a trigger attached to a transition, as surfaced by the state machine's trigger
- * catalog.
+ * Runtime view of a trigger, as surfaced by the state machine's trigger catalog.
  * <p>
  * A trigger is a named handle that initiates a transition. It carries identity and optional
  * metadata; the executable gating (if any) lives behind the handle and is applied when the
- * trigger fires. Each trigger is bound to exactly one transition, returned by
- * {@link #getTransitionId()}.
+ * trigger fires. One trigger may sit on several transitions - it is declared in place on one, or
+ * registered once and attached by id wherever it is wanted - and {@link #getTransitionIds()}
+ * reports them all.
  *
  * <p>Triggers are enumerated through the catalog methods on
  * {@link org.transflux.core.StateMachine} and, for manual triggers, invoked through
@@ -57,9 +58,13 @@ public interface Trigger {
     String getDescription();
 
     /**
-     * Returns the id of the transition this trigger fires.
+     * Returns the transitions this trigger is attached to, in the order they declared it.
+     * <p>
+     * A trigger declared in place on a transition reports that one. A registered trigger reports
+     * every transition that attached it by id - it is still one trigger, listed once in the
+     * catalog - and reports none at all when nothing attached it.
      *
-     * @return the transition id; never {@code null} or blank
+     * @return the transition ids; never {@code null}, possibly empty
      */
-    String getTransitionId();
+    List<String> getTransitionIds();
 }
