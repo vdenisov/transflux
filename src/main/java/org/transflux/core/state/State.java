@@ -18,8 +18,6 @@
 
 package org.transflux.core.state;
 
-import org.transflux.core.Identifiable;
-
 /**
  * Represents a state in the state machine with associated metadata and behavior.
  * <p>
@@ -32,11 +30,16 @@ import org.transflux.core.Identifiable;
  * 
  * <p>States contain metadata such as human-readable names and descriptions to support
  * documentation, user interfaces, and logging.
- *
- * @param <T> the type of entity managed by the state machine
  */
-public interface State<T> extends Identifiable {
-    
+public interface State {
+
+    /**
+     * Returns this state's id - the one it was declared under.
+     *
+     * @return the id; never {@code null} or blank
+     */
+    String getId();
+
     /**
      * Returns the human-readable name of this state.
      * <p>

@@ -18,7 +18,6 @@
 
 package org.transflux.core.trigger;
 
-import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
 
@@ -48,14 +47,13 @@ import java.util.function.Predicate;
  * @param <T> the entity type managed by the enclosing state machine
  * @param <C> the host-supplied context type carried through transition execution
  */
-public interface DataTriggerDef<T, C> extends Identifiable {
+public interface DataTriggerDef<T, C> {
 
     /**
      * Returns the unique identifier of this trigger.
      *
      * @return the trigger id; never {@code null} or blank
      */
-    @Override
     String getId();
 
     /**
@@ -77,7 +75,7 @@ public interface DataTriggerDef<T, C> extends Identifiable {
      *
      * @return the context class; never {@code null}
      */
-    Class<C> contextType();
+    Class<C> getContextType();
 
     /**
      * Sets the human-readable name of this trigger.

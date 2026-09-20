@@ -2305,8 +2305,7 @@ public class SubscriptionActivatedListener
     @Inject private AuditService auditService;
 
     @Override
-    public void onState(Subscription subscription, Object context,
-                        StateChange<Subscription> change) {
+    public void onState(Subscription subscription, Object context, StateChange change) {
         auditService.logStateChange(subscription,
                                     change.phase(),
                                     change.state().getId(),

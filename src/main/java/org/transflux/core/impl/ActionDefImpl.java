@@ -105,13 +105,13 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
 
     @Override
     @SuppressWarnings("unchecked")
-    public final Class<C> contextType() {
+    public final Class<C> getContextType() {
         return declaredContextType != null ? declaredContextType : (Class<C>) Object.class;
     }
 
     /**
      * The context this action's declaration site named, or {@code null} when it named none.
-     * Distinct from {@link #contextType()}, which reports the {@code Object} sentinel in that
+     * Distinct from {@link #getContextType()}, which reports the {@code Object} sentinel in that
      * case - the build has to tell "declared as Object" from "not declared".
      *
      * @return the declared context, or {@code null}

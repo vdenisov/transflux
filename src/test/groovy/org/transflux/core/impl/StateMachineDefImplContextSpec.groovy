@@ -73,7 +73,7 @@ class StateMachineDefImplContextSpec extends Specification {
 
         and: 'the def carries the scope context and the metadata set inside the configurer'
         captured.getName() == 'N'
-        captured.contextType() == CtxA
+        captured.getContextType() == CtxA
     }
 
     def 'the ContextScope step configurer and the flat step(id, Class, Consumer) register identically'() {

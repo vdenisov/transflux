@@ -18,7 +18,6 @@
 
 package org.transflux.core.action;
 
-import org.transflux.core.Identifiable;
 
 import java.util.function.Consumer;
 
@@ -38,14 +37,13 @@ import java.util.function.Consumer;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-public interface ActionDef<T, C> extends Identifiable {
+public interface ActionDef<T, C> {
 
     /**
      * Returns the unique identifier of this action def.
      *
      * @return the action id; never {@code null} or blank
      */
-    @Override
     String getId();
 
     /**
@@ -73,7 +71,7 @@ public interface ActionDef<T, C> extends Identifiable {
      * @return the action's context class; never {@code null}
      */
     @SuppressWarnings("unchecked")
-    default Class<C> contextType() {
+    default Class<C> getContextType() {
         return (Class<C>) Object.class;
     }
 

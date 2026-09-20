@@ -32,14 +32,13 @@ import org.transflux.core.exception.TransfluxValidationException;
  * @param <L> the listener contract this def attaches
  * @param <SELF> the concrete def type, returned from every setter
  */
-public interface ListenerDef<L, SELF extends ListenerDef<L, SELF>> extends Identifiable {
+public interface ListenerDef<L, SELF extends ListenerDef<L, SELF>> {
 
     /**
      * Returns this listener's identifier.
      *
      * @return the listener id; never {@code null} or blank
      */
-    @Override
     String getId();
 
     /**

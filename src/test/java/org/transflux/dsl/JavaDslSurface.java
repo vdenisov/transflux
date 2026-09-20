@@ -865,7 +865,7 @@ public final class JavaDslSurface {
     /** A state listener written as a class, reading every component of its payload. */
     public static final class StateAudit implements StateListener<Order> {
         @Override
-        public void onState(Order order, Object ctx, StateChange<Order> change) {
+        public void onState(Order order, Object ctx, StateChange change) {
             order.trail.add(change.phase() + ":" + change.state().getId()
                                 + ":" + change.transition().getId());
         }

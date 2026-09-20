@@ -78,7 +78,7 @@ class StepDefImplSpec extends Specification {
 
         expect:
         def_.getId() == 's1'
-        def_.contextType() == Object
+        def_.getContextType() == Object
         def_.getName() == 'My Step'
         def_.getDescription() == 'does stuff'
     }

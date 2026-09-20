@@ -18,7 +18,6 @@
 
 package org.transflux.core.action;
 
-import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 
 /**
@@ -40,14 +39,13 @@ import org.transflux.core.exception.TransfluxValidationException;
  * @param <P> the enclosing parent's context type at the call site
  * @param <N> the called step or operation's required context type
  */
-public interface MapperDef<P, N> extends Identifiable {
+public interface MapperDef<P, N> {
 
     /**
      * Returns the unique identifier of this mapper def.
      *
      * @return the mapper id; never {@code null} or blank
      */
-    @Override
     String getId();
 
     /**
@@ -69,14 +67,14 @@ public interface MapperDef<P, N> extends Identifiable {
      *
      * @return the parent class; never {@code null}
      */
-    Class<P> parentType();
+    Class<P> getParentType();
 
     /**
      * Returns the child context class this mapper produces.
      *
      * @return the child class; never {@code null}
      */
-    Class<N> childType();
+    Class<N> getChildType();
 
     /**
      * Wires this def to a pre-constructed {@link ContextMapper} instance.

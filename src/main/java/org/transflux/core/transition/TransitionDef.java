@@ -18,7 +18,6 @@
 
 package org.transflux.core.transition;
 
-import org.transflux.core.Identifiable;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.ActionSequence;
@@ -93,14 +92,13 @@ import java.util.function.Predicate;
  */
 @SuppressWarnings("GrazieInspection")
 public interface TransitionDef<T, C>
-    extends Identifiable, ActionSequence<T, C, TransitionDef<T, C>> {
+    extends ActionSequence<T, C, TransitionDef<T, C>> {
 
     /**
      * Returns the unique identifier of this transition.
      *
      * @return the transition ID
      */
-    @Override
     String getId();
 
     /**

@@ -18,8 +18,6 @@
 
 package org.transflux.core.transition;
 
-import org.transflux.core.Identifiable;
-
 /**
  * A transition between two states — the path an entity may take out of one state and into
  * another, together with the operation, conditions, triggers and listeners declared on it.
@@ -42,7 +40,14 @@ import org.transflux.core.Identifiable;
  * <p>Configuration of transitions (actions, conditions, triggers, listeners) is done on
  * {@link TransitionDef} during state machine construction, not on this runtime interface.
  */
-public interface Transition extends Identifiable {
+public interface Transition {
+
+    /**
+     * Returns this transition's id - the one it was declared under.
+     *
+     * @return the id; never {@code null} or blank
+     */
+    String getId();
 
     /**
      * Returns the human-readable name of this transition.

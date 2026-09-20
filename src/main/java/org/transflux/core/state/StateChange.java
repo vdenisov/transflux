@@ -38,9 +38,8 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param phase whether the state is being entered or left
  * @param state the state being entered or left
  * @param transition the transition causing the change
- * @param <T> the entity type the surrounding state machine manages
  */
-public record StateChange<T>(StatePhase phase, State<T> state, Transition transition) {
+public record StateChange(StatePhase phase, State state, Transition transition) {
 
     public StateChange {
         requireNotNull(phase, "State change phase");

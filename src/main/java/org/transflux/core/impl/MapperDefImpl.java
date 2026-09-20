@@ -54,12 +54,12 @@ final class MapperDefImpl<P, N> extends IdentifiedDefImpl<MapperDefImpl<P, N>>
 
 
     @Override
-    public Class<P> parentType() {
+    public Class<P> getParentType() {
         return parentType;
     }
 
     @Override
-    public Class<N> childType() {
+    public Class<N> getChildType() {
         return childType;
     }
 

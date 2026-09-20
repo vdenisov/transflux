@@ -125,7 +125,7 @@ class ManualTriggerDefImplSpec extends Specification {
         Class captured = null
 
         when:
-        buildSm({ t -> t.addManualTrigger('mt', { mt -> captured = mt.contextType() }) })
+        buildSm({ t -> t.addManualTrigger('mt', { mt -> captured = mt.getContextType() }) })
 
         then:
         captured == TestContext
@@ -145,7 +145,7 @@ class ManualTriggerDefImplSpec extends Specification {
         smd.build()
 
         then: 'the trigger reads the type back through the transition rather than copying it'
-        captured.contextType() == TestContext
+        captured.getContextType() == TestContext
     }
 
     def 'pre-conditions in every authoring form resolve and gate the trigger'() {

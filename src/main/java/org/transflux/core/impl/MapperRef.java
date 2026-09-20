@@ -178,8 +178,8 @@ sealed interface MapperRef
                     scopeLabel + " references unknown mapper '" + mapperId + "' at " + kind
                         + " '" + memberId + "'");
             }
-            Class<?> mapperParent = mapperDef.parentType();
-            Class<?> mapperChild = mapperDef.childType();
+            Class<?> mapperParent = mapperDef.getParentType();
+            Class<?> mapperChild = mapperDef.getChildType();
             if (!mapperParent.isAssignableFrom(scopeContext)) {
                 throw new TransfluxValidationException(
                     "Mapper '" + mapperId + "' parent type " + mapperParent.getName()

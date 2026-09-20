@@ -29,11 +29,11 @@ class StateChangeSpec extends Specification {
 
     def 'the record carries the phase, the state, and the transition'() {
         given:
-        State<Entity> state = Stub(State)
+        State state = Stub(State)
         Transition transition = Stub(Transition)
 
         when:
-        def change = new StateChange<Entity>(StatePhase.ENTRY, state, transition)
+        def change = new StateChange(StatePhase.ENTRY, state, transition)
 
         then:
         change.phase() == StatePhase.ENTRY
@@ -43,7 +43,7 @@ class StateChangeSpec extends Specification {
 
     def 'the constructor rejects a null phase'() {
         when:
-        new StateChange<Entity>(null, Stub(State), Stub(Transition))
+        new StateChange(null, Stub(State), Stub(Transition))
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -52,7 +52,7 @@ class StateChangeSpec extends Specification {
 
     def 'the constructor rejects a null state'() {
         when:
-        new StateChange<Entity>(StatePhase.ENTRY, null, Stub(Transition))
+        new StateChange(StatePhase.ENTRY, null, Stub(Transition))
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -61,7 +61,7 @@ class StateChangeSpec extends Specification {
 
     def 'the constructor rejects a null transition'() {
         when:
-        new StateChange<Entity>(StatePhase.EXIT, Stub(State), null)
+        new StateChange(StatePhase.EXIT, Stub(State), null)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -70,13 +70,13 @@ class StateChangeSpec extends Specification {
 
     def 'records with equal components are equal and share a hash code'() {
         given:
-        State<Entity> state = Stub(State)
+        State state = Stub(State)
         Transition transition = Stub(Transition)
 
         and:
-        def a = new StateChange<Entity>(StatePhase.EXIT, state, transition)
-        def b = new StateChange<Entity>(StatePhase.EXIT, state, transition)
-        def c = new StateChange<Entity>(StatePhase.ENTRY, state, transition)
+        def a = new StateChange(StatePhase.EXIT, state, transition)
+        def b = new StateChange(StatePhase.EXIT, state, transition)
+        def c = new StateChange(StatePhase.ENTRY, state, transition)
 
         expect:
         a == b

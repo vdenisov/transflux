@@ -37,7 +37,7 @@ final class LoggingStateListener<T> implements StateListener<T> {
 
     @Override
     @SuppressWarnings("unchecked")
-    public void onState(T entity, Object context, StateChange<T> change) {
+    public void onState(T entity, Object context, StateChange change) {
         if (!TraceLine.enabled(TraceLine.STATE, options)) {
             return;
         }

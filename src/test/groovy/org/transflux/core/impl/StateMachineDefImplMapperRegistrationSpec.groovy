@@ -74,8 +74,8 @@ class StateMachineDefImplMapperRegistrationSpec extends Specification {
 
         then:
         smd.getMapperDef('p-to-n') != null
-        smd.getMapperDef('p-to-n').parentType() == P
-        smd.getMapperDef('p-to-n').childType() == N
+        smd.getMapperDef('p-to-n').getParentType() == P
+        smd.getMapperDef('p-to-n').getChildType() == N
         ((MapperDefImpl) smd.getMapperDef('p-to-n')).buildMapper().is(mapper)
     }
 

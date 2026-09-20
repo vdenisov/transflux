@@ -18,7 +18,6 @@
 
 package org.transflux.core.state;
 
-import org.transflux.core.Identifiable;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.transition.TransitionDef;
 
@@ -58,14 +57,13 @@ import java.util.function.Consumer;
  *
  * @param <T> the type of entity managed by the state machine
  */
-public interface StateDef<T> extends Identifiable {
+public interface StateDef<T> {
 
     /**
      * Returns the state's identifier.
      *
      * @return the state ID
      */
-    @Override
     String getId();
 
     /**

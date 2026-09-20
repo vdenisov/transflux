@@ -93,7 +93,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
     private final StateResolver<T> stateResolver;
     private final StateApplier<T> stateApplier;
 
-    private final Map<String, State<T>> states = new LinkedHashMap<>();
+    private final Map<String, State> states = new LinkedHashMap<>();
     private final Map<String, BoundTransition<T, ?>> transitions = new LinkedHashMap<>();
     private final Map<String, TriggerImpl> triggers = new LinkedHashMap<>();
 
@@ -643,10 +643,10 @@ class StateMachineImpl<T> implements StateMachine<T> {
         return trigger;
     }
 
-    State<T> getState(String stateId) {
+    State getState(String stateId) {
         requireNotBlank(stateId, "State ID");
 
-        State<T> state = states.get(stateId);
+        State state = states.get(stateId);
         if (state == null) {
             throw new TransfluxValidationException("State '" + stateId + "' does not exist");
         }
@@ -763,8 +763,8 @@ class StateMachineImpl<T> implements StateMachine<T> {
             return;
         }
 
-        StateChange<T> change =
-            new StateChange<>(phase, states.get(stateId), TransitionImpl.of(transition));
+        StateChange change =
+            new StateChange(phase, states.get(stateId), TransitionImpl.of(transition));
 
         for (BoundStateListener<T> listener : listeners) {
             deliver(listener.id(), listener.async(), context, ctx -> {

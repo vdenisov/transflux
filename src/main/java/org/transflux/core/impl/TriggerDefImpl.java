@@ -59,7 +59,7 @@ sealed abstract class TriggerDefImpl<T, C, SELF extends TriggerDefImpl<T, C, SEL
      *
      * @return the enclosing transition's context type
      */
-    public Class<C> contextType() {
+    public Class<C> getContextType() {
         return owner.getContextType();
     }
 }

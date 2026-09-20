@@ -31,7 +31,7 @@ class StateMachineDefImplStateListenerSpec extends Specification {
 
     static class NoopListener implements StateListener<Object> {
         @Override
-        void onState(Object entity, Object context, StateChange<Object> change) {
+        void onState(Object entity, Object context, StateChange change) {
         }
     }
 

@@ -60,5 +60,5 @@ public interface StateListener<T> {
      * @param change the phase, the state, and a read-only view of the transition responsible;
      *               never {@code null}
      */
-    void onState(T entity, Object context, StateChange<T> change);
+    void onState(T entity, Object context, StateChange change);
 }

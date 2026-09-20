@@ -37,7 +37,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * state machine construction and should not be instantiated directly by client code.
  * 
  */
-class StateImpl<T> implements State<T> {
+class StateImpl implements State {
     private final String id;
     private final String name;
     private final String description;
@@ -53,7 +53,7 @@ class StateImpl<T> implements State<T> {
      *
      * @throws TransfluxValidationException if the state definition is null or has invalid properties
      */
-    StateImpl(StateDefImpl<T> stateDef) {
+    StateImpl(StateDefImpl<?> stateDef) {
         validateStateDef(stateDef);
         this.id = stateDef.getId();
         this.name = stateDef.getName();
@@ -67,7 +67,7 @@ class StateImpl<T> implements State<T> {
      *
      * @throws TransfluxValidationException if the state definition is null or has invalid properties
      */
-    private void validateStateDef(StateDefImpl<T> stateDef) {
+    private void validateStateDef(StateDefImpl<?> stateDef) {
         requireNotNull(stateDef, "State definition");
         requireNotBlank(stateDef.getId(), "State ID");
     }
@@ -104,7 +104,7 @@ class StateImpl<T> implements State<T> {
 
     @Override
     public final boolean equals(Object o) {
-        if (!(o instanceof StateImpl<?> that)) return false;
+        if (!(o instanceof StateImpl that)) return false;
         return id.equals(that.id);
     }
 

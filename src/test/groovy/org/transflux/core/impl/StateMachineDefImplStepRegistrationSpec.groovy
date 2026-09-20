@@ -384,7 +384,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         captured.getId() == 'a'
         captured.getName() == 'N'
         captured.getDescription() == 'D'
-        captured.contextType() == TestContext
+        captured.getContextType() == TestContext
     }
 
     def "step(id, Class, Consumer) and the flat step(id, Class, Step) register identically"() {
@@ -443,7 +443,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
 
         and: 'metadata lives on the def, whose context type is the permissive default'
         captured.getName() == 'N'
-        captured.contextType() == Object
+        captured.getContextType() == Object
 
         and: 'the untyped form tags no context, exactly like step(id, Action)'
         ((StateMachineDefImpl) smd).getComponentContextType('a') == null
