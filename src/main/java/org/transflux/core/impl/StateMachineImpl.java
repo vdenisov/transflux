@@ -144,6 +144,15 @@ class StateMachineImpl<T> implements StateMachine<T> {
     private final StateMachineDefImpl<T> def;
 
     /**
+     * Copied rather than read back off the def, which nothing freezes at build: the same
+     * definition builds any number of machines, and each answers with what it was built from.
+     */
+    private final String id;
+    private final String name;
+    private final String description;
+    private final String version;
+
+    /**
      * Where forked members run, and whether shutting it down is this state machine's business.
      * Both are {@code null} / {@code false} for a definition that neither forks, declares an async
      * listener, nor asks for a pool of its own.
@@ -161,6 +170,10 @@ class StateMachineImpl<T> implements StateMachine<T> {
     @SuppressWarnings({"unchecked", "rawtypes"})
     StateMachineImpl(StateMachineDefImpl<T> def) {
         this.def = def;
+        this.id = def.getId();
+        this.name = def.getName();
+        this.description = def.getDescription();
+        this.version = def.getVersion();
         this.stateResolver = def.getStateResolver();
         this.stateApplier = def.getStateApplier();
         this.asyncRejectionPolicy = def.getAsyncRejectionPolicy();
@@ -522,6 +535,26 @@ class StateMachineImpl<T> implements StateMachine<T> {
                     + " branch it spawned, and a forked member may not drive the machine that"
                     + " forked it");
         }
+    }
+
+    @Override
+    public String getId() {
+        return id;
+    }
+
+    @Override
+    public String getName() {
+        return name;
+    }
+
+    @Override
+    public String getDescription() {
+        return description;
+    }
+
+    @Override
+    public String getVersion() {
+        return version;
     }
 
     @Override

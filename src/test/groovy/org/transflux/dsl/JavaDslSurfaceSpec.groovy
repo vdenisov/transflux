@@ -466,6 +466,11 @@ class JavaDslSurfaceSpec extends Specification {
         shipments.close()
     }
 
+    def 'the state machine reports its own metadata, and an expression can pass the entity whole'() {
+        expect:
+        JavaDslSurface.stateMachineMetadata() == 'orders:Orders:What an order does:3:true'
+    }
+
     private static boolean waitFor(Closure<Boolean> condition) {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
         while (System.nanoTime() < deadline) {

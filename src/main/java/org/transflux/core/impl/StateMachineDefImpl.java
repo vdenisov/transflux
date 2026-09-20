@@ -75,6 +75,7 @@ import static org.transflux.core.impl.ValidationUtils.warnIfSet;
  */
 public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private Class<T> entityType;
+    private String id;
     private String name;
     private String description;
     private String version;
@@ -162,6 +163,14 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     public StateMachineDef<T> forEntityType(Class<T> entityType) {
         requireNotNull(entityType, "Entity type");
         this.entityType = entityType;
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> withId(String id) {
+        warnIfSet(this.id, id, "Id", Loggers.BUILD_VALIDATION);
+
+        this.id = id;
         return this;
     }
 
@@ -1579,9 +1588,10 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         // resolved into the shape it expected. The component count is the root registry's, matching
         // the name the binding pass uses. A generation counter belongs here too once definition
         // replacement lands.
-        Loggers.BUILD_LIFECYCLE.info("State machine built, states={}, transitions={}, triggers={}, rootComponents={}",
-                                     stateMachine.stateCount(), stateMachine.transitionCount(),
-                                     stateMachine.triggerCount(), stateMachine.componentCount());
+        Loggers.BUILD_LIFECYCLE.info(
+            "State machine built, id={}, version={}, states={}, transitions={}, triggers={}, rootComponents={}",
+            new Object[] {id, version, stateMachine.stateCount(), stateMachine.transitionCount(),
+                          stateMachine.triggerCount(), stateMachine.componentCount()});
 
         return stateMachine;
     }
@@ -1892,6 +1902,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     /** @return the bound entity class */
     public Class<T> getEntityType() {
         return entityType;
+    }
+
+    /** @return the state machine id, or {@code null} if unset */
+    public String getId() {
+        return id;
     }
 
     /** @return the state machine name, or {@code null} if unset */

@@ -34,6 +34,12 @@ class SpelConditionEvaluatorSpec extends Specification {
         boolean flag
     }
 
+    static class Named {
+        static boolean isNamed(Entity entity) {
+            return entity.name != null
+        }
+    }
+
     def "should evaluate a boolean expression against the entity"() {
         given:
         def eval = new SpelConditionEvaluator()
@@ -42,6 +48,19 @@ class SpelConditionEvaluatorSpec extends Specification {
         expect:
         eval.evaluate('value > 0', entity, null, null)
         !eval.evaluate('value < 0', entity, null, null)
+    }
+
+    def "should expose the entity as #entity beside the root it names"() {
+        given: 'a static helper, because passing the root whole has no other spelling'
+        def eval = new SpelConditionEvaluator()
+        def entity = new Entity(value: 5, name: 'e-1')
+
+        expect: 'a condition and an event filter both bind it'
+        eval.evaluate("T(${Named.name}).isNamed(#entity)", entity, null, null)
+        eval.evaluateEventFilter("T(${Named.name}).isNamed(#entity)", entity, null, null)
+
+        and: 'it is the same object the root resolves against'
+        eval.evaluate('#entity.value == value', entity, null, null)
     }
 
     def "should expose the context as #context"() {

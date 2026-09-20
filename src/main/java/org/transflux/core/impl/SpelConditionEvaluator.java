@@ -37,7 +37,8 @@ import static org.transflux.core.Preconditions.requireNotBlank;
  * <p>
  * Evaluation binds the entity as the SpEL root object and exposes the context and the
  * per-execution {@link Transition} view as the SpEL variables {@code #context} and
- * {@code #transition} respectively.
+ * {@code #transition} respectively. The entity is bound a second time as {@code #entity}, which
+ * is how an expression passes it to a method whole - the root has no other spelling.
  * <p>
  * A process-wide singleton is available via {@link #shared()}; framework-owned
  * expression-based conditions use the singleton so cache benefits accumulate across state
@@ -67,7 +68,8 @@ final class SpelConditionEvaluator {
      * supplied scope.
      *
      * @param expression the SpEL expression text; never {@code null} or blank
-     * @param entity the entity bound as the SpEL root object; may be {@code null}
+     * @param entity the entity bound as the SpEL root object and as {@code #entity}; may be
+     *               {@code null}
      * @param context the host-supplied context bound as {@code #context}; may be {@code null}
      * @param transition the read-only transition view bound as {@code #transition}; may be
      *                   {@code null}
@@ -84,6 +86,7 @@ final class SpelConditionEvaluator {
         requireNotBlank(expression, "Expression");
 
         StandardEvaluationContext evalContext = new StandardEvaluationContext(entity);
+        evalContext.setVariable("entity", entity);
         evalContext.setVariable("context", context);
         evalContext.setVariable("transition", transition);
 
@@ -94,11 +97,12 @@ final class SpelConditionEvaluator {
      * Parses (or retrieves from cache) the given event-filter expression and evaluates it against
      * the supplied scope.
      * <p>
-     * Event filters bind the entity as the SpEL root object, the event payload as the variable
-     * {@code #event}, and the host-supplied context as {@code #context}.
+     * Event filters bind the entity as the SpEL root object and as {@code #entity}, the event
+     * payload as the variable {@code #event}, and the host-supplied context as {@code #context}.
      *
      * @param expression the SpEL expression text; never {@code null} or blank
-     * @param entity the entity bound as the SpEL root object; may be {@code null}
+     * @param entity the entity bound as the SpEL root object and as {@code #entity}; may be
+     *               {@code null}
      * @param eventData the event payload bound as {@code #event}; may be {@code null}
      * @param context the host-supplied context bound as {@code #context}; may be {@code null}
      * @param <T> the entity type
@@ -113,6 +117,7 @@ final class SpelConditionEvaluator {
         requireNotBlank(expression, "Expression");
 
         StandardEvaluationContext evalContext = new StandardEvaluationContext(entity);
+        evalContext.setVariable("entity", entity);
         evalContext.setVariable("event", eventData);
         evalContext.setVariable("context", context);
 

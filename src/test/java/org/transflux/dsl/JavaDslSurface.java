@@ -1280,6 +1280,38 @@ public final class JavaDslSurface {
             .build();
     }
 
+    /**
+     * The state machine's own metadata, declared on the definition and read back off the built
+     * machine, alongside an expression that passes the entity whole through {@code #entity} - the
+     * root has no other spelling a method call can use.
+     *
+     * @return the four accessors and the transition's outcome, joined
+     */
+    public static String stateMachineMetadata() {
+        try (StateMachine<Order> sm = Transflux.defineStateMachine(Order.class)
+            .withId("orders")
+            .withName("Orders")
+            .withDescription("What an order does")
+            .withVersion("3")
+            .withStateResolver(o -> o.state)
+            .withStateApplier((o, next) -> o.state = next)
+            .condition("labelled", "T(org.transflux.dsl.JavaDslSurface).hasLabel(#entity)")
+            .state("s1", s -> s
+                .transitionsTo("s2", "t", t -> t.preCondition("labelled")))
+            .state("s2", s -> { })
+            .build()) {
+
+            boolean fired = sm.entity(new Order()).transitionTo("s2").isSuccess();
+            return sm.getId() + ":" + sm.getName() + ":" + sm.getDescription()
+                + ":" + sm.getVersion() + ":" + fired;
+        }
+    }
+
+    /** Reachable from SpEL by name, so {@code #entity} has somewhere to be passed whole. */
+    public static boolean hasLabel(Order order) {
+        return order.label() != null;
+    }
+
     private static boolean isOpen(Order order) {
         return "s1".equals(order.state);
     }

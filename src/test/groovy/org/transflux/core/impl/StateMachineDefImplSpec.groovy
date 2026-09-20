@@ -92,6 +92,7 @@ class StateMachineDefImplSpec extends Specification {
 
         where:
         method            | getter           | firstValue | secondValue | expectedValue
+        'withId'          | 'getId'          | 'i1'       | 'i2'        | 'i2'
         'withName'        | 'getName'        | 'n1'       | 'n2'        | 'n2'
         'withDescription' | 'getDescription' | 'd1'       | 'd2'        | 'd2'
         'withVersion'     | 'getVersion'     | 'v1'       | 'v2'        | 'v2'

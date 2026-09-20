@@ -95,6 +95,38 @@ public interface StateMachine<T> extends AutoCloseable {
     void close();
 
     /**
+     * Returns the id this state machine's definition declared, if any.
+     * <p>
+     * The four metadata accessors are diagnostics: nothing resolves a state machine by them, and
+     * they report whatever the definition in force declared - so a definition replacement carries
+     * its own, and does not have to agree with what it replaced.
+     *
+     * @return the id, or {@code null} if the definition declared none
+     */
+    String getId();
+
+    /**
+     * Returns the name this state machine's definition declared, if any.
+     *
+     * @return the name, or {@code null} if the definition declared none
+     */
+    String getName();
+
+    /**
+     * Returns the description this state machine's definition declared, if any.
+     *
+     * @return the description, or {@code null} if the definition declared none
+     */
+    String getDescription();
+
+    /**
+     * Returns the version this state machine's definition declared, if any.
+     *
+     * @return the version, or {@code null} if the definition declared none
+     */
+    String getVersion();
+
+    /**
      * Begins a fluent execution scope for the given entity. Preferred usage is
      * {@code stateMachine.entity(e).transitionTo("target", ctx)}.
      *

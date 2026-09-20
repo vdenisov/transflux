@@ -192,6 +192,56 @@ class StateMachineImplSpec extends Specification {
         state.name == "Trial State"
     }
 
+    def "should report the metadata its definition declared, and null for what it did not"() {
+        given:
+        def declared = Transflux.defineStateMachine(TestEntity)
+            .withId('orders')
+            .withName('Orders')
+            .withDescription('The order lifecycle')
+            .withVersion('3')
+            .state(TRIAL.id, {})
+            .build()
+        def bare = Transflux.defineStateMachine(TestEntity)
+            .state(TRIAL.id, {})
+            .build()
+
+        expect:
+        declared.id == 'orders'
+        declared.name == 'Orders'
+        declared.description == 'The order lifecycle'
+        declared.version == '3'
+
+        and: 'all four are optional, so a definition that declared none reports null'
+        bare.id == null
+        bare.name == null
+        bare.description == null
+        bare.version == null
+
+        cleanup:
+        declared.close()
+        bare.close()
+    }
+
+    def "should answer from the metadata it was built with, not the def's current values"() {
+        given: 'one def, built twice, mutated in between - nothing freezes a def at build'
+        def smd = Transflux.defineStateMachine(TestEntity)
+            .withVersion('3')
+            .state(TRIAL.id, {})
+        def first = smd.build()
+
+        when:
+        smd.withVersion('4')
+        def second = smd.build()
+
+        then: 'the first machine still reports what it was built from'
+        first.version == '3'
+        second.version == '4'
+
+        cleanup:
+        first.close()
+        second.close()
+    }
+
     def "getState should throw when state does not exist"() {
         given:
         def sm = Transflux.defineStateMachine()

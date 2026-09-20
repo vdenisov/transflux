@@ -94,6 +94,16 @@ public interface StateMachineDef<T> {
     <C> StateMachineDef<T> forContext(Class<C> contextType, Consumer<ContextScope<T, C>> configurer);
 
     /**
+     * Sets the optional state machine id. Used for diagnostics only; nothing resolves a state
+     * machine by it, and a definition replacement does not compare it.
+     *
+     * @param id an identifier for this state machine
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> withId(String id);
+
+    /**
      * Sets the optional state machine name. Used for diagnostics only.
      *
      * @param name human-readable name

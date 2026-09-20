@@ -35,8 +35,9 @@ import java.util.function.Predicate;
  * <p>The filter receives the published payload as its first argument and the entity as its second.
  * Four forms are offered: a {@link BiPredicate} over {@code (eventData, entity)}, an entity-blind
  * {@link Predicate} over {@code eventData}, a predicate class, and an SpEL expression. In the SpEL
- * form the entity is the expression root, the payload is bound as {@code #event}, and the
- * host-supplied context (if any) is bound as {@code #context}. A trigger declared with no filter
+ * form the entity is the expression root (and is bound as {@code #entity} for passing it whole),
+ * the payload is bound as {@code #event}, and the host-supplied context (if any) is bound as
+ * {@code #context}. A trigger declared with no filter
  * fires on every published event of its id.
  *
  * <p>Event triggers are declared inside a transition's configurer through
@@ -132,8 +133,9 @@ public interface EventTriggerDef<T, C> {
     EventTriggerDef<T, C> filter(Predicate<Object> filter);
 
     /**
-     * Sets a filter expressed as SpEL. The entity is the expression root, the event payload is
-     * bound as {@code #event}, and the host-supplied context (if any) is bound as {@code #context}.
+     * Sets a filter expressed as SpEL. The entity is the expression root and is also bound as
+     * {@code #entity}, the event payload is bound as {@code #event}, and the host-supplied context
+     * (if any) is bound as {@code #context}.
      * The expression must evaluate to a boolean.
      *
      * @param expression the SpEL expression text; never {@code null} or blank

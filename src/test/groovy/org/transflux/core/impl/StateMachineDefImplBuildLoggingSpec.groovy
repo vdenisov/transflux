@@ -72,7 +72,21 @@ class StateMachineDefImplBuildLoggingSpec extends Specification {
 
         then:
         capture.messagesAtOrAbove(Level.INFO) == [
-            'State machine built, states=2, transitions=1, triggers=1, rootComponents=2'
+            'State machine built, id=null, version=null, states=2, transitions=1, triggers=1, rootComponents=2'
+        ]
+    }
+
+    def 'the build INFO carries the id and version the definition declared'() {
+        given:
+        capture = LogCapture.start('org.transflux.build.lifecycle')
+        def smd = defWith({ smb -> smb.withId('orders').withVersion('3') })
+
+        when:
+        smd.build()
+
+        then: 'the pair is what identifies one definition against the next across a reload'
+        capture.messagesAtOrAbove(Level.INFO) == [
+            'State machine built, id=orders, version=3, states=2, transitions=1, triggers=1, rootComponents=0'
         ]
     }
 
