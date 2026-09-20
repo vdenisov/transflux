@@ -70,17 +70,59 @@ public interface StepDef<T, C> extends ActionDef<T, C> {
     <X extends Throwable> CompensationRouteDef<T, C, X, ? extends StepDef<T, C>> forException(
         Class<X> exceptionType);
 
+    /**
+     * Attaches a listener declared elsewhere to this action's onStart hook.
+     * <p>
+     * The id names a listener registered on the state machine, or one this action declared at any
+     * of its own hooks. Attaching claims nothing, and the listener rides on the action, so it
+     * fires at every call site that reaches it.
+     *
+     * @param listenerId the id of a registered or own-declared action listener
+     *
+     * @return this def for chaining
+     */
+    @Override
+    StepDef<T, C> onStart(String listenerId);
+
     @Override
     StepDef<T, C> onStart(String listenerId, ActionListener<? super T, C> listener);
 
     @Override
     StepDef<T, C> onStart(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
 
+    /**
+     * Attaches a listener declared elsewhere to this action's onComplete hook.
+     * <p>
+     * The id names a listener registered on the state machine, or one this action declared at any
+     * of its own hooks. Attaching claims nothing, and the listener rides on the action, so it
+     * fires at every call site that reaches it.
+     *
+     * @param listenerId the id of a registered or own-declared action listener
+     *
+     * @return this def for chaining
+     */
+    @Override
+    StepDef<T, C> onComplete(String listenerId);
+
     @Override
     StepDef<T, C> onComplete(String listenerId, ActionListener<? super T, C> listener);
 
     @Override
     StepDef<T, C> onComplete(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
+
+    /**
+     * Attaches a listener declared elsewhere to this action's onError hook.
+     * <p>
+     * The id names a listener registered on the state machine, or one this action declared at any
+     * of its own hooks. Attaching claims nothing, and the listener rides on the action, so it
+     * fires at every call site that reaches it.
+     *
+     * @param listenerId the id of a registered or own-declared action listener
+     *
+     * @return this def for chaining
+     */
+    @Override
+    StepDef<T, C> onError(String listenerId);
 
     @Override
     StepDef<T, C> onError(String listenerId, ActionListener<? super T, C> listener);

@@ -40,9 +40,18 @@ final class TransitionListenerDefImpl<T, C> extends ListenerDefImpl<TransitionLi
     private final InstanceSource<TransitionListener<? super T, C>> source;
 
     TransitionListenerDefImpl(String id) {
-        super(id, "transition listener", "Transition listener ID");
+        this(id, Object.class);
+    }
+
+    TransitionListenerDefImpl(String id, Class<?> contextType) {
+        super(id, "transition listener", "Transition listener ID", contextType);
         this.source = new InstanceSource<>(Loggers.BUILD_VALIDATION, "Transition listener source",
                                            "TransitionListenerDef '" + id + "'");
+    }
+
+    @Override
+    boolean hasListener() {
+        return source.isSet();
     }
 
     @Override

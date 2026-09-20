@@ -45,9 +45,9 @@ class StateDefImplListenerSpec extends Specification {
         declare.call(s)
 
         then:
-        s.getEntryListeners()*.getId() == ['l1']
+        s.getEntryListeners()*.id() == ['l1']
         s.getExitListeners().isEmpty()
-        s.getEntryListeners().first().buildBoundListener().listener() != null
+        s.getEntryListeners().first().declared().buildBoundListener().listener() != null
 
         where:
         form         | declare
@@ -64,9 +64,9 @@ class StateDefImplListenerSpec extends Specification {
         declare.call(s)
 
         then:
-        s.getExitListeners()*.getId() == ['l1']
+        s.getExitListeners()*.id() == ['l1']
         s.getEntryListeners().isEmpty()
-        s.getExitListeners().first().buildBoundListener().listener() != null
+        s.getExitListeners().first().declared().buildBoundListener().listener() != null
 
         where:
         form         | declare
@@ -84,7 +84,7 @@ class StateDefImplListenerSpec extends Specification {
          .onEntry('third', new NoopListener())
 
         then:
-        s.getEntryListeners()*.getId() == ['first', 'second', 'third']
+        s.getEntryListeners()*.id() == ['first', 'second', 'third']
     }
 
     def 'the configurer form carries metadata through to the bound listener'() {
@@ -97,7 +97,7 @@ class StateDefImplListenerSpec extends Specification {
         } as Consumer)
 
         then:
-        def bound = s.getEntryListeners().first().buildBoundListener()
+        def bound = s.getEntryListeners().first().declared().buildBoundListener()
         bound.name() == 'Audit'
         bound.description() == 'records entries'
     }
@@ -130,7 +130,7 @@ class StateDefImplListenerSpec extends Specification {
 
         then:
         noExceptionThrown()
-        s.getEntryListeners()*.getId() == ['audit']
+        s.getEntryListeners()*.id() == ['audit']
     }
 
     def 'a listener id reused across the two hooks is rejected'() {

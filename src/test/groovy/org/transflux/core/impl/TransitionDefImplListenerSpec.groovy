@@ -44,8 +44,8 @@ class TransitionDefImplListenerSpec extends Specification {
         declare.call(td)
 
         then:
-        listeners.call(td)*.getId() == ['l1']
-        listeners.call(td).first().buildBoundListener().listener() != null
+        listeners.call(td)*.id() == ['l1']
+        listeners.call(td).first().declared().buildBoundListener().listener() != null
 
         and: 'the other two hooks stay empty'
         td.getStartListeners().size() + td.getCompleteListeners().size() + td.getErrorListeners().size() == 1
@@ -70,7 +70,7 @@ class TransitionDefImplListenerSpec extends Specification {
           .onStart('third', new NoopListener())
 
         then:
-        td.getStartListeners()*.getId() == ['first', 'second', 'third']
+        td.getStartListeners()*.id() == ['first', 'second', 'third']
     }
 
     def 'the configurer form carries metadata through to the bound listener'() {
@@ -83,7 +83,7 @@ class TransitionDefImplListenerSpec extends Specification {
         } as Consumer)
 
         then:
-        def bound = td.getCompleteListeners().first().buildBoundListener()
+        def bound = td.getCompleteListeners().first().declared().buildBoundListener()
         bound.name() == 'Audit'
         bound.description() == 'records completions'
     }

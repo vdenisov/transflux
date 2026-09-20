@@ -39,8 +39,8 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
 
     private final StateMachineDefImpl<T> stateMachineDef;
 
-    private final List<StateListenerDefImpl<T>> entryListeners = new ArrayList<>();
-    private final List<StateListenerDefImpl<T>> exitListeners = new ArrayList<>();
+    private final List<ListenerEntry<StateListenerDefImpl<T>>> entryListeners = new ArrayList<>();
+    private final List<ListenerEntry<StateListenerDefImpl<T>>> exitListeners = new ArrayList<>();
 
     private final GlobalListenerDisables disabledGlobals = new GlobalListenerDisables(this);
 
@@ -56,7 +56,7 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
         requireConfigurerActive("onEntry");
         requireNotBlank(listenerId, "State listener ID");
         requireNotNull(listener, "State listener");
-        entryListeners.add(declareListener(listenerId, l -> l.using(listener)));
+        entryListeners.add(declare(listenerId, l -> l.using(listener)));
         return this;
     }
 
@@ -65,7 +65,23 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
         requireConfigurerActive("onEntry");
         requireNotBlank(listenerId, "State listener ID");
         requireNotNull(configurer, "State listener configurer");
-        entryListeners.add(declareListener(listenerId, configurer));
+        entryListeners.add(declare(listenerId, configurer));
+        return this;
+    }
+
+    @Override
+    public StateDefImpl<T> onEntry(String listenerId) {
+        requireConfigurerActive("onEntry");
+        requireNotBlank(listenerId, "State listener ID");
+        entryListeners.add(ListenerEntry.reference(listenerId));
+        return this;
+    }
+
+    @Override
+    public StateDefImpl<T> onExit(String listenerId) {
+        requireConfigurerActive("onExit");
+        requireNotBlank(listenerId, "State listener ID");
+        exitListeners.add(ListenerEntry.reference(listenerId));
         return this;
     }
 
@@ -74,7 +90,7 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
         requireConfigurerActive("onExit");
         requireNotBlank(listenerId, "State listener ID");
         requireNotNull(listener, "State listener");
-        exitListeners.add(declareListener(listenerId, l -> l.using(listener)));
+        exitListeners.add(declare(listenerId, l -> l.using(listener)));
         return this;
     }
 
@@ -83,7 +99,7 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
         requireConfigurerActive("onExit");
         requireNotBlank(listenerId, "State listener ID");
         requireNotNull(configurer, "State listener configurer");
-        exitListeners.add(declareListener(listenerId, configurer));
+        exitListeners.add(declare(listenerId, configurer));
         return this;
     }
 
@@ -119,7 +135,7 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
      *
      * @return the live entry-listener list
      */
-    List<StateListenerDefImpl<T>> getEntryListeners() {
+    List<ListenerEntry<StateListenerDefImpl<T>>> getEntryListeners() {
         return entryListeners;
     }
 
@@ -128,7 +144,7 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
      *
      * @return the live exit-listener list
      */
-    List<StateListenerDefImpl<T>> getExitListeners() {
+    List<ListenerEntry<StateListenerDefImpl<T>>> getExitListeners() {
         return exitListeners;
     }
 
@@ -160,14 +176,14 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
         return this;
     }
 
-    private StateListenerDefImpl<T> declareListener(String listenerId,
-                                                    Consumer<StateListenerDef<T>> configurer) {
+    private ListenerEntry<StateListenerDefImpl<T>> declare(String listenerId,
+                                                           Consumer<StateListenerDef<T>> configurer) {
         StateListenerDefImpl<T> listenerDef = new StateListenerDefImpl<>(listenerId);
         // Claimed only once the configurer has returned, so a configurer that throws leaves the id
         // free for the caller's corrected retry.
         ConfigurableDefImpl.runConfigurer(listenerDef, configurer);
         stateMachineDef.claimListenerId(listenerId);
-        return listenerDef;
+        return ListenerEntry.declared(listenerId, listenerDef);
     }
 
     @Override

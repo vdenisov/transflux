@@ -99,6 +99,19 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     private final Map<String, ActionDefImpl<T, ?, ?>> smCompositeOperations = new LinkedHashMap<>();
 
+    /**
+     * Resolves listener references for the build in progress. Per build rather than per definition:
+     * it caches one bound record per registration, and a second build must not hand out the first
+     * build's.
+     */
+    private ListenerRegistrations<T> listenerBinder;
+
+    /** Registered listeners, per category, sharing the state-machine-wide listener namespace. */
+    private final Map<String, StateListenerDefImpl<T>> stateListenerRegistrations = new LinkedHashMap<>();
+    private final Map<String, TransitionListenerDefImpl<T, ?>> transitionListenerRegistrations =
+        new LinkedHashMap<>();
+    private final Map<String, ActionListenerDefImpl<T, ?>> actionListenerRegistrations = new LinkedHashMap<>();
+
     /** Registered triggers, in their own state-machine-wide namespace. */
     private final Map<String, TriggerDefImpl<T, ?, ?>> triggerRegistrations = new LinkedHashMap<>();
 
@@ -132,26 +145,26 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * State listeners attached to every state rather than to one. Kept in declaration order; the
      * per-state listeners of whichever state is being entered or left run ahead of these.
      */
-    private final List<StateListenerDefImpl<T>> globalEntryListeners = new ArrayList<>();
-    private final List<StateListenerDefImpl<T>> globalExitListeners = new ArrayList<>();
+    private final List<ListenerEntry<StateListenerDefImpl<T>>> globalEntryListeners = new ArrayList<>();
+    private final List<ListenerEntry<StateListenerDefImpl<T>>> globalExitListeners = new ArrayList<>();
 
     /**
      * Transition listeners attached to every transition rather than to one. Kept in declaration
      * order; the per-transition listeners of whichever transition is executing run ahead of these.
      * They span transitions with differing context types and so are typed against {@link Object}.
      */
-    private final List<TransitionListenerDefImpl<T, Object>> globalStartListeners = new ArrayList<>();
-    private final List<TransitionListenerDefImpl<T, Object>> globalCompleteListeners = new ArrayList<>();
-    private final List<TransitionListenerDefImpl<T, Object>> globalErrorListeners = new ArrayList<>();
+    private final List<ListenerEntry<TransitionListenerDefImpl<T, Object>>> globalStartListeners = new ArrayList<>();
+    private final List<ListenerEntry<TransitionListenerDefImpl<T, Object>>> globalCompleteListeners = new ArrayList<>();
+    private final List<ListenerEntry<TransitionListenerDefImpl<T, Object>>> globalErrorListeners = new ArrayList<>();
 
     /**
      * Action listeners attached to every action rather than to one. Kept in declaration order; the
      * listeners of whichever action is running run ahead of these. They span actions declared
      * against differing context types and so are typed against {@link Object}.
      */
-    private final List<ActionListenerDefImpl<T, Object>> globalActionStartListeners = new ArrayList<>();
-    private final List<ActionListenerDefImpl<T, Object>> globalActionCompleteListeners = new ArrayList<>();
-    private final List<ActionListenerDefImpl<T, Object>> globalActionErrorListeners = new ArrayList<>();
+    private final List<ListenerEntry<ActionListenerDefImpl<T, Object>>> globalActionStartListeners = new ArrayList<>();
+    private final List<ListenerEntry<ActionListenerDefImpl<T, Object>>> globalActionCompleteListeners = new ArrayList<>();
+    private final List<ListenerEntry<ActionListenerDefImpl<T, Object>>> globalActionErrorListeners = new ArrayList<>();
 
     /**
      * Listener ids claimed so far. Listeners form one state-machine-wide namespace across both
@@ -1045,6 +1058,126 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         tagContextType(id, contextType);
     }
 
+    @Override
+    public StateMachineDef<T> stateListener(String id, StateListener<? super T> listener) {
+        requireNotNull(listener, "State listener");
+        return stateListener(id, l -> l.using(listener));
+    }
+
+    @Override
+    public StateMachineDef<T> stateListener(String id, Consumer<StateListenerDef<T>> configurer) {
+        StateListenerDefImpl<T> def = new StateListenerDefImpl<>(requireListenerId(id));
+        registerListener(id, def, configurer, "State listener configurer", stateListenerRegistrations);
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> transitionListener(String id, TransitionListener<? super T, Object> listener) {
+        requireNotNull(listener, "Transition listener");
+        return transitionListener(id, Object.class, l -> l.using(listener));
+    }
+
+    @Override
+    public <C> StateMachineDef<T> transitionListener(String id, Class<C> contextType,
+                                                     TransitionListener<? super T, C> listener) {
+        requireNotNull(listener, "Transition listener");
+        return transitionListener(id, contextType, l -> l.using(listener));
+    }
+
+    @Override
+    public StateMachineDef<T> transitionListener(String id,
+                                                 Consumer<TransitionListenerDef<T, Object>> configurer) {
+        return transitionListener(id, Object.class, configurer);
+    }
+
+    @Override
+    public <C> StateMachineDef<T> transitionListener(String id, Class<C> contextType,
+                                                     Consumer<TransitionListenerDef<T, C>> configurer) {
+        requireNotNull(contextType, "Listener context type");
+        TransitionListenerDefImpl<T, C> def = new TransitionListenerDefImpl<>(requireListenerId(id), contextType);
+        registerListener(id, def, configurer, "Transition listener configurer", transitionListenerRegistrations);
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> actionListener(String id, ActionListener<? super T, Object> listener) {
+        requireNotNull(listener, "Action listener");
+        return actionListener(id, Object.class, l -> l.using(listener));
+    }
+
+    @Override
+    public <C> StateMachineDef<T> actionListener(String id, Class<C> contextType,
+                                                 ActionListener<? super T, C> listener) {
+        requireNotNull(listener, "Action listener");
+        return actionListener(id, contextType, l -> l.using(listener));
+    }
+
+    @Override
+    public StateMachineDef<T> actionListener(String id, Consumer<ActionListenerDef<T, Object>> configurer) {
+        return actionListener(id, Object.class, configurer);
+    }
+
+    @Override
+    public <C> StateMachineDef<T> actionListener(String id, Class<C> contextType,
+                                                 Consumer<ActionListenerDef<T, C>> configurer) {
+        requireNotNull(contextType, "Listener context type");
+        ActionListenerDefImpl<T, C> def = new ActionListenerDefImpl<>(requireListenerId(id), contextType);
+        registerListener(id, def, configurer, "Action listener configurer", actionListenerRegistrations);
+        return this;
+    }
+
+    private static String requireListenerId(String id) {
+        requireNotBlank(id, "Listener ID");
+        return id;
+    }
+
+    /**
+     * Runs a registration's configurer, then claims its id and files it.
+     * <p>
+     * In that order, for the reason the inline path gives: a configurer that throws leaves the id
+     * free for the caller's corrected retry. The listener has to have one by the time this returns
+     * - a registration is what an owner attaches by id, so discovering it declared nothing only
+     * when something attaches it would report the failure at the wrong place, and never at all for
+     * one nothing attaches.
+     *
+     * @param id the registration's id
+     * @param def the freshly-constructed def
+     * @param configurer the caller's configurer
+     * @param label names the configurer argument in a rejection
+     * @param registrations the category's registration map
+     * @param <D> the category's def type
+     * @param <X> the def type the caller's configurer sees
+     */
+    private <D extends ListenerDefImpl<?>, X> void registerListener(
+            String id, D def, Consumer<X> configurer, String label, Map<String, ? super D> registrations) {
+        requireNotNull(configurer, label);
+        ConfigurableDefImpl.runConfigurer(def, (Consumer) configurer);
+        def.requireListenerDeclared();
+        claimListenerId(id);
+        registrations.put(id, def);
+    }
+
+    /**
+     * Returns the resolver binding this build's listener references.
+     *
+     * @return the binder; never {@code null} while a build is running
+     */
+    ListenerRegistrations<T> listenerBinder() {
+        return listenerBinder;
+    }
+
+    Map<String, StateListenerDefImpl<T>> getStateListenerRegistrations() {
+        return stateListenerRegistrations;
+    }
+
+    Map<String, TransitionListenerDefImpl<T, ?>> getTransitionListenerRegistrations() {
+        return transitionListenerRegistrations;
+    }
+
+    Map<String, ActionListenerDefImpl<T, ?>> getActionListenerRegistrations() {
+        return actionListenerRegistrations;
+    }
+
     /**
      * Registers a trigger of any kind under its own namespace, running the configurer against a
      * freshly-constructed def that carries the declared context rather than a transition's.
@@ -1172,6 +1305,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
+    public StateMachineDef<T> onAnyStateEntry(String listenerId) {
+        requireNotBlank(listenerId, "State listener ID");
+        globalEntryListeners.add(ListenerEntry.reference(listenerId));
+        return this;
+    }
+
+    @Override
     public StateMachineDef<T> onAnyStateEntry(String listenerId, StateListener<? super T> listener) {
         requireNotBlank(listenerId, "State listener ID");
         requireNotNull(listener, "State listener");
@@ -1181,6 +1321,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     @Override
     public StateMachineDef<T> onAnyStateEntry(String listenerId, Consumer<StateListenerDef<T>> configurer) {
         globalEntryListeners.add(declareStateListener(listenerId, configurer));
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyStateExit(String listenerId) {
+        requireNotBlank(listenerId, "State listener ID");
+        globalExitListeners.add(ListenerEntry.reference(listenerId));
         return this;
     }
 
@@ -1202,7 +1349,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      *
      * @return the live global entry-listener list
      */
-    List<StateListenerDefImpl<T>> getGlobalEntryListeners() {
+    List<ListenerEntry<StateListenerDefImpl<T>>> getGlobalEntryListeners() {
         return globalEntryListeners;
     }
 
@@ -1211,8 +1358,15 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      *
      * @return the live global exit-listener list
      */
-    List<StateListenerDefImpl<T>> getGlobalExitListeners() {
+    List<ListenerEntry<StateListenerDefImpl<T>>> getGlobalExitListeners() {
         return globalExitListeners;
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyTransitionStart(String listenerId) {
+        requireNotBlank(listenerId, "Transition listener ID");
+        globalStartListeners.add(ListenerEntry.reference(listenerId));
+        return this;
     }
 
     @Override
@@ -1226,6 +1380,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     public StateMachineDef<T> onAnyTransitionStart(String listenerId,
                                                    Consumer<TransitionListenerDef<T, Object>> configurer) {
         globalStartListeners.add(declareTransitionListener(listenerId, configurer));
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyTransitionComplete(String listenerId) {
+        requireNotBlank(listenerId, "Transition listener ID");
+        globalCompleteListeners.add(ListenerEntry.reference(listenerId));
         return this;
     }
 
@@ -1244,6 +1405,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
+    public StateMachineDef<T> onAnyTransitionError(String listenerId) {
+        requireNotBlank(listenerId, "Transition listener ID");
+        globalErrorListeners.add(ListenerEntry.reference(listenerId));
+        return this;
+    }
+
+    @Override
     public StateMachineDef<T> onAnyTransitionError(String listenerId, TransitionListener<? super T, Object> listener) {
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(listener, "Transition listener");
@@ -1254,6 +1422,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     public StateMachineDef<T> onAnyTransitionError(String listenerId,
                                                    Consumer<TransitionListenerDef<T, Object>> configurer) {
         globalErrorListeners.add(declareTransitionListener(listenerId, configurer));
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyActionStart(String listenerId) {
+        requireNotBlank(listenerId, "Action listener ID");
+        globalActionStartListeners.add(ListenerEntry.reference(listenerId));
         return this;
     }
 
@@ -1272,6 +1447,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
+    public StateMachineDef<T> onAnyActionComplete(String listenerId) {
+        requireNotBlank(listenerId, "Action listener ID");
+        globalActionCompleteListeners.add(ListenerEntry.reference(listenerId));
+        return this;
+    }
+
+    @Override
     public StateMachineDef<T> onAnyActionComplete(String listenerId, ActionListener<? super T, Object> listener) {
         requireNotBlank(listenerId, "Action listener ID");
         requireNotNull(listener, "Action listener");
@@ -1282,6 +1464,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     public StateMachineDef<T> onAnyActionComplete(String listenerId,
                                                   Consumer<ActionListenerDef<T, Object>> configurer) {
         globalActionCompleteListeners.add(declareActionListener(listenerId, configurer));
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> onAnyActionError(String listenerId) {
+        requireNotBlank(listenerId, "Action listener ID");
+        globalActionErrorListeners.add(ListenerEntry.reference(listenerId));
         return this;
     }
 
@@ -1304,7 +1493,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      *
      * @return the live global action-start listener list
      */
-    List<ActionListenerDefImpl<T, Object>> getGlobalActionStartListeners() {
+    List<ListenerEntry<ActionListenerDefImpl<T, Object>>> getGlobalActionStartListeners() {
         return globalActionStartListeners;
     }
 
@@ -1313,7 +1502,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      *
      * @return the live global action-complete listener list
      */
-    List<ActionListenerDefImpl<T, Object>> getGlobalActionCompleteListeners() {
+    List<ListenerEntry<ActionListenerDefImpl<T, Object>>> getGlobalActionCompleteListeners() {
         return globalActionCompleteListeners;
     }
 
@@ -1322,7 +1511,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      *
      * @return the live global action-error listener list
      */
-    List<ActionListenerDefImpl<T, Object>> getGlobalActionErrorListeners() {
+    List<ListenerEntry<ActionListenerDefImpl<T, Object>>> getGlobalActionErrorListeners() {
         return globalActionErrorListeners;
     }
 
@@ -1331,7 +1520,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      *
      * @return the live global start-listener list
      */
-    List<TransitionListenerDefImpl<T, Object>> getGlobalStartListeners() {
+    List<ListenerEntry<TransitionListenerDefImpl<T, Object>>> getGlobalStartListeners() {
         return globalStartListeners;
     }
 
@@ -1340,7 +1529,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      *
      * @return the live global completion-listener list
      */
-    List<TransitionListenerDefImpl<T, Object>> getGlobalCompleteListeners() {
+    List<ListenerEntry<TransitionListenerDefImpl<T, Object>>> getGlobalCompleteListeners() {
         return globalCompleteListeners;
     }
 
@@ -1349,7 +1538,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      *
      * @return the live global error-listener list
      */
-    List<TransitionListenerDefImpl<T, Object>> getGlobalErrorListeners() {
+    List<ListenerEntry<TransitionListenerDefImpl<T, Object>>> getGlobalErrorListeners() {
         return globalErrorListeners;
     }
 
@@ -1378,9 +1567,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         Set<String> claimed = new HashSet<>(listenerIds);
 
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
-            claimTransitionListenerIds(td.getStartListeners(), td.getId(), "onStart", claimed);
-            claimTransitionListenerIds(td.getCompleteListeners(), td.getId(), "onComplete", claimed);
-            claimTransitionListenerIds(td.getErrorListeners(), td.getId(), "onError", claimed);
+            claimTransitionListenerIds(ListenerRegistrations.declaredOf(td.getStartListeners()), td.getId(), "onStart", claimed);
+            claimTransitionListenerIds(ListenerRegistrations.declaredOf(td.getCompleteListeners()), td.getId(), "onComplete", claimed);
+            claimTransitionListenerIds(ListenerRegistrations.declaredOf(td.getErrorListeners()), td.getId(), "onError", claimed);
         }
 
         BiConsumer<String, String> actionListenerIds = (listenerId, ownerLabel) -> {
@@ -1427,11 +1616,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @SafeVarargs
-    private static Set<String> listenerIdsOf(List<? extends IdentifiedDefImpl<?>>... groups) {
+    private static Set<String> listenerIdsOf(List<? extends ListenerEntry<?>>... groups) {
         Set<String> ids = new HashSet<>();
-        for (List<? extends IdentifiedDefImpl<?>> group : groups) {
-            for (IdentifiedDefImpl<?> listener : group) {
-                ids.add(listener.getId());
+        for (List<? extends ListenerEntry<?>> group : groups) {
+            for (ListenerEntry<?> entry : group) {
+                // A global attached by id is a global of that category too, so a deny-list may
+                // name it - the id is what the hook carries either way.
+                ids.add(entry.id());
             }
         }
 
@@ -1457,26 +1648,31 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @param visitor what to apply to each
      */
     private void visitListenerDefs(Consumer<ListenerDefImpl<?>> visitor) {
-        globalEntryListeners.forEach(visitor);
-        globalExitListeners.forEach(visitor);
-        globalStartListeners.forEach(visitor);
-        globalCompleteListeners.forEach(visitor);
-        globalErrorListeners.forEach(visitor);
-        globalActionStartListeners.forEach(visitor);
-        globalActionCompleteListeners.forEach(visitor);
-        globalActionErrorListeners.forEach(visitor);
+        ListenerRegistrations.declaredOf(globalEntryListeners).forEach(visitor);
+        ListenerRegistrations.declaredOf(globalExitListeners).forEach(visitor);
+        ListenerRegistrations.declaredOf(globalStartListeners).forEach(visitor);
+        ListenerRegistrations.declaredOf(globalCompleteListeners).forEach(visitor);
+        ListenerRegistrations.declaredOf(globalErrorListeners).forEach(visitor);
+        ListenerRegistrations.declaredOf(globalActionStartListeners).forEach(visitor);
+        ListenerRegistrations.declaredOf(globalActionCompleteListeners).forEach(visitor);
+        ListenerRegistrations.declaredOf(globalActionErrorListeners).forEach(visitor);
+        // A registration is visited once here rather than once per attachment: an unattached one
+        // still declares what it declares, and a doubly-attached one must not count twice.
+        stateListenerRegistrations.values().forEach(visitor);
+        transitionListenerRegistrations.values().forEach(visitor);
+        actionListenerRegistrations.values().forEach(visitor);
         for (StateDefImpl<T> sd : states.values()) {
-            sd.getEntryListeners().forEach(visitor);
-            sd.getExitListeners().forEach(visitor);
+            ListenerRegistrations.declaredOf(sd.getEntryListeners()).forEach(visitor);
+            ListenerRegistrations.declaredOf(sd.getExitListeners()).forEach(visitor);
         }
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
-            td.getStartListeners().forEach(visitor);
-            td.getCompleteListeners().forEach(visitor);
-            td.getErrorListeners().forEach(visitor);
+            ListenerRegistrations.declaredOf(td.getStartListeners()).forEach(visitor);
+            ListenerRegistrations.declaredOf(td.getCompleteListeners()).forEach(visitor);
+            ListenerRegistrations.declaredOf(td.getErrorListeners()).forEach(visitor);
         }
         visitActionDefs(def -> {
             for (ActionPhase phase : ActionPhase.values()) {
-                def.getListeners(phase).forEach(visitor);
+                ListenerRegistrations.declaredOf(def.getListeners(phase)).forEach(visitor);
             }
         });
     }
@@ -1587,7 +1783,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
     }
 
-    private StateListenerDefImpl<T> declareStateListener(String listenerId,
+    private ListenerEntry<StateListenerDefImpl<T>> declareStateListener(String listenerId,
                                                          Consumer<StateListenerDef<T>> configurer) {
         requireNotBlank(listenerId, "State listener ID");
         requireNotNull(configurer, "State listener configurer");
@@ -1596,10 +1792,10 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         // free for the caller's corrected retry.
         ConfigurableDefImpl.runConfigurer(listenerDef, configurer);
         claimListenerId(listenerId);
-        return listenerDef;
+        return ListenerEntry.declared(listenerId, listenerDef);
     }
 
-    private TransitionListenerDefImpl<T, Object> declareTransitionListener(
+    private ListenerEntry<TransitionListenerDefImpl<T, Object>> declareTransitionListener(
             String listenerId, Consumer<TransitionListenerDef<T, Object>> configurer) {
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(configurer, "Transition listener configurer");
@@ -1608,10 +1804,10 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         // free for the caller's corrected retry.
         ConfigurableDefImpl.runConfigurer(listenerDef, configurer);
         claimListenerId(listenerId);
-        return listenerDef;
+        return ListenerEntry.declared(listenerId, listenerDef);
     }
 
-    private ActionListenerDefImpl<T, Object> declareActionListener(
+    private ListenerEntry<ActionListenerDefImpl<T, Object>> declareActionListener(
             String listenerId, Consumer<ActionListenerDef<T, Object>> configurer) {
         requireNotBlank(listenerId, "Action listener ID");
         requireNotNull(configurer, "Action listener configurer");
@@ -1620,7 +1816,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         // free for the caller's corrected retry.
         ConfigurableDefImpl.runConfigurer(listenerDef, configurer);
         claimListenerId(listenerId);
-        return listenerDef;
+        return ListenerEntry.declared(listenerId, listenerDef);
     }
 
     private StateDefImpl<T> registerState(String stateId) {
@@ -1684,7 +1880,15 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         validateContextCompatibilityAndCycles();
 
         Loggers.BUILD_LIFECYCLE.debug("Populating registries and binding components");
-        StateMachineImpl<T> stateMachine = new StateMachineImpl<>(this);
+        listenerBinder = new ListenerRegistrations<>(this);
+        visitActionDefs(actionDef -> ((ActionDefImpl) actionDef).setListenerBinder(listenerBinder));
+        StateMachineImpl<T> stateMachine;
+        try {
+            stateMachine = new StateMachineImpl<>(this);
+        } finally {
+            listenerBinder = null;
+            visitActionDefs(actionDef -> ((ActionDefImpl) actionDef).setListenerBinder(null));
+        }
 
         Loggers.BUILD_LIFECYCLE.debug("Validating registered components");
         validateComponents(stateMachine.getComponentRegistry());
@@ -1828,6 +2032,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         checkBlockingIsPossible();
         checkTriggerAttachments();
         collectInlineMemberContexts();
+        checkListenerAttachments();
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             Class<?> transitionContext = td.getContextType();
             ActionDefImpl<T, ?, ?> op = td.getActionDef();
@@ -1844,6 +2049,214 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
                                    smLevelLabel(e.getValue()), List.of(), this);
         }
         detectCompositeCycles();
+    }
+
+    /**
+     * Validates every one-argument listener hook: that the id resolves, that it resolves within
+     * its own category, and that the listener's context accepts the owner attaching it.
+     * <p>
+     * Resolution is owner-first - a reference reaches anything the same owner declared at any of
+     * its hooks, in either order - and then the registrations of that hook's category. Everything
+     * else gets a message naming what was actually found, because "unknown id" would be wrong: a
+     * listener declared on another owner exists, and so does one of another category.
+     *
+     * @throws TransfluxValidationException on the first reference that breaks one of those
+     */
+    private void checkListenerAttachments() {
+        Map<String, String> declaredElsewhere = new HashMap<>();
+        for (StateDefImpl<T> sd : states.values()) {
+            collectOwnerDeclarations(declaredElsewhere, "state '" + sd.getId() + "'",
+                                     sd.getEntryListeners(), sd.getExitListeners());
+        }
+        for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
+            collectOwnerDeclarations(declaredElsewhere, "transition '" + td.getId() + "'",
+                                     td.getStartListeners(), td.getCompleteListeners(),
+                                     td.getErrorListeners());
+        }
+        collectOwnerDeclarations(declaredElsewhere, "the state machine",
+                                 globalEntryListeners, globalExitListeners, globalStartListeners,
+                                 globalCompleteListeners, globalErrorListeners,
+                                 globalActionStartListeners, globalActionCompleteListeners,
+                                 globalActionErrorListeners);
+        visitActionDefs(ad -> collectOwnerDeclarations(declaredElsewhere, ad.defLabel(),
+                                                       ad.getListeners(ActionPhase.START),
+                                                       ad.getListeners(ActionPhase.COMPLETE),
+                                                       ad.getListeners(ActionPhase.ERROR)));
+
+        for (StateDefImpl<T> sd : states.values()) {
+            checkReferences("state '" + sd.getId() + "'", Object.class, declaredElsewhere,
+                            stateListenerRegistrations, "state",
+                            ListenerRegistrations.ownIds(sd.getEntryListeners(), sd.getExitListeners()),
+                            sd.getEntryListeners(), sd.getExitListeners());
+        }
+        for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
+            Class<?> context = td.getContextType() == null ? Object.class : td.getContextType();
+            checkReferences("transition '" + td.getId() + "'", context, declaredElsewhere,
+                            transitionListenerRegistrations, "transition",
+                            ListenerRegistrations.ownIds(td.getStartListeners(),
+                                                         td.getCompleteListeners(),
+                                                         td.getErrorListeners()),
+                            td.getStartListeners(), td.getCompleteListeners(), td.getErrorListeners());
+        }
+        visitActionDefs(ad -> checkReferences(ad.defLabel(), actionContext(ad), declaredElsewhere,
+                                              actionListenerRegistrations, "action",
+                                              ListenerRegistrations.ownIds(
+                                                  ad.getListeners(ActionPhase.START),
+                                                  ad.getListeners(ActionPhase.COMPLETE),
+                                                  ad.getListeners(ActionPhase.ERROR)),
+                                              ad.getListeners(ActionPhase.START),
+                                              ad.getListeners(ActionPhase.COMPLETE),
+                                              ad.getListeners(ActionPhase.ERROR)));
+
+        checkGlobalReferences(declaredElsewhere);
+    }
+
+    /**
+     * The context an action actually runs against, which is not what {@code getContextType()}
+     * reports: that answers with the {@code Object} sentinel for a declaration naming no context,
+     * where the action in fact inherits the enclosing one. A registration is tagged, and an inline
+     * declaration was resolved by {@code collectInlineMemberContexts}; anything neither pass saw
+     * genuinely runs against {@code Object}.
+     *
+     * @param ad the action def
+     *
+     * @return the context to check its listener attachments against
+     */
+    private Class<?> actionContext(ActionDefImpl<?, ?, ?> ad) {
+        if (ad.declaredContext() != null) {
+            return ad.declaredContext();
+        }
+
+        Class<?> tagged = componentContextTypes.get(ad.getId());
+        if (tagged != null) {
+            return tagged;
+        }
+
+        for (Map<String, Class<?>> scope : inlineMemberContexts.values()) {
+            Class<?> inline = scope.get(ad.getId());
+            if (inline != null) {
+                return inline;
+            }
+        }
+
+        return Object.class;
+    }
+
+    @SafeVarargs
+    private void collectOwnerDeclarations(Map<String, String> declaredElsewhere, String owner,
+                                          List<? extends ListenerEntry<?>>... hooks) {
+        for (List<? extends ListenerEntry<?>> hook : hooks) {
+            for (ListenerEntry<?> entry : hook) {
+                if (!entry.isReference()) {
+                    declaredElsewhere.put(entry.id(), owner);
+                }
+            }
+        }
+    }
+
+    /**
+     * Checks one owner's references, where {@code ownIds} is what that owner itself declared and
+     * is reached before any registration.
+     *
+     * @param ownerLabel names the owner in a rejection
+     * @param ownerContext the context the owner runs against
+     * @param declaredElsewhere every inline declaration in the definition, by owner
+     * @param registrations the registrations of this hook's category
+     * @param category the category name, for the rejection
+     * @param ownIds the ids this owner declared at any of its hooks
+     * @param hooks the owner's hook lists
+     */
+    @SafeVarargs
+    private void checkReferences(
+            String ownerLabel, Class<?> ownerContext, Map<String, String> declaredElsewhere,
+            Map<String, ? extends ListenerDefImpl<?>> registrations, String category,
+            Set<String> ownIds, List<? extends ListenerEntry<?>>... hooks) {
+        for (List<? extends ListenerEntry<?>> hook : hooks) {
+            for (ListenerEntry<?> entry : hook) {
+                if (!entry.isReference() || ownIds.contains(entry.id())) {
+                    continue;
+                }
+
+                ListenerDefImpl<?> registered = registrations.get(entry.id());
+                if (registered == null) {
+                    throw new TransfluxValidationException(unresolvedListener(
+                        ownerLabel, entry.id(), category, declaredElsewhere));
+                }
+
+                checkListenerContext(ownerLabel, ownerContext, registered);
+            }
+        }
+    }
+
+    /**
+     * Builds the message for a reference that did not resolve, naming what was found instead: a
+     * listener of another category, one declared on another owner, or nothing at all.
+     */
+    private String unresolvedListener(String ownerLabel, String id, String category,
+                                      Map<String, String> declaredElsewhere) {
+        String head = ownerLabel + " attaches listener '" + id + "', which ";
+        if (otherCategoryRegistrations(category).containsKey(id)) {
+            return head + "is registered in another category; a hook only reaches listeners of its own";
+        }
+
+        String owner = declaredElsewhere.get(id);
+        if (owner != null) {
+            return head + "is declared on " + owner
+                + "; a listener declared in place is visible to its own owner alone, so register it"
+                + " to attach it elsewhere";
+        }
+
+        return head + "is not a registered " + category + " listener";
+    }
+
+    private Map<String, ? extends ListenerDefImpl<?>> otherCategoryRegistrations(String category) {
+        Map<String, ListenerDefImpl<?>> others = new HashMap<>();
+        if (!"state".equals(category)) {
+            others.putAll(stateListenerRegistrations);
+        }
+        if (!"transition".equals(category)) {
+            others.putAll(transitionListenerRegistrations);
+        }
+        if (!"action".equals(category)) {
+            others.putAll(actionListenerRegistrations);
+        }
+
+        return others;
+    }
+
+    private void checkListenerContext(String ownerLabel, Class<?> ownerContext,
+                                      ListenerDefImpl<?> registered) {
+        Class<?> declared = registered.getContextType();
+        Class<?> owner = ownerContext == null ? Object.class : ownerContext;
+        if (declared == Object.class || declared.isAssignableFrom(owner)) {
+            return;
+        }
+
+        throw new TransfluxValidationException(
+            "Context type mismatch: " + ownerLabel + " (context " + owner.getName() + ") attaches "
+                + registered.defLabel() + " declared for context " + declared.getName());
+    }
+
+    /**
+     * The eight state-machine-wide hooks are one owner, and they take {@code Object}: a hook
+     * spanning every transition, or every action, cannot promise one context, so a registration
+     * typed to anything narrower is refused here rather than at whichever owner it would break on.
+     */
+    private void checkGlobalReferences(Map<String, String> declaredElsewhere) {
+        checkReferences("the state machine", Object.class, declaredElsewhere, stateListenerRegistrations,
+                        "state", ListenerRegistrations.ownIds(globalEntryListeners, globalExitListeners),
+                        globalEntryListeners, globalExitListeners);
+        checkReferences("the state machine", Object.class, declaredElsewhere, transitionListenerRegistrations,
+                        "transition", ListenerRegistrations.ownIds(globalStartListeners,
+                                                                   globalCompleteListeners,
+                                                                   globalErrorListeners),
+                        globalStartListeners, globalCompleteListeners, globalErrorListeners);
+        checkReferences("the state machine", Object.class, declaredElsewhere, actionListenerRegistrations,
+                        "action", ListenerRegistrations.ownIds(globalActionStartListeners,
+                                                               globalActionCompleteListeners,
+                                                               globalActionErrorListeners),
+                        globalActionStartListeners, globalActionCompleteListeners,
+                        globalActionErrorListeners);
     }
 
     /**

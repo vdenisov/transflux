@@ -99,6 +99,20 @@ public interface StateDef<T> {
     StateDef<T> withDescription(String description);
 
     /**
+     * Attaches a listener declared elsewhere to this state's onEntry hook.
+     * <p>
+     * The id names a listener registered on the state machine, or one this state declared at
+     * either of its own hooks - in either order, which is how one listener serves both without
+     * needing two ids. A listener declared on another owner is visible to that owner alone, and
+     * naming one here is a build error that says so.
+     *
+     * @param listenerId the id of a registered or own-declared state listener
+     *
+     * @return this state def for chaining
+     */
+    StateDef<T> onEntry(String listenerId);
+
+    /**
      * Attaches a listener notified when an entity enters this state.
      *
      * <p>Entry listeners fire after the transition has been committed, in declaration order,
@@ -129,6 +143,20 @@ public interface StateDef<T> {
      *         declares no listener
      */
     StateDef<T> onEntry(String listenerId, Consumer<StateListenerDef<T>> configurer);
+
+    /**
+     * Attaches a listener declared elsewhere to this state's onExit hook.
+     * <p>
+     * The id names a listener registered on the state machine, or one this state declared at
+     * either of its own hooks - in either order, which is how one listener serves both without
+     * needing two ids. A listener declared on another owner is visible to that owner alone, and
+     * naming one here is a build error that says so.
+     *
+     * @param listenerId the id of a registered or own-declared state listener
+     *
+     * @return this state def for chaining
+     */
+    StateDef<T> onExit(String listenerId);
 
     /**
      * Attaches a listener notified when an entity leaves this state.

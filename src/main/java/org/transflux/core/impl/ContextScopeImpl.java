@@ -24,6 +24,8 @@ import org.transflux.core.action.ChoiceDef;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.StepDef;
+import org.transflux.core.action.ActionListenerDef;
+import org.transflux.core.transition.TransitionListenerDef;
 import org.transflux.core.trigger.DataTriggerDef;
 import org.transflux.core.trigger.EventTriggerDef;
 import org.transflux.core.trigger.ManualTriggerDef;
@@ -128,6 +130,20 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
         requireNotBlank(id, "Choice ID");
         requireNotNull(configurer, "Choice configurer");
         smd.registerScopedChoice(id, configurer, contextType);
+        return this;
+    }
+
+    @Override
+    public ContextScope<T, C> transitionListener(String id, Consumer<TransitionListenerDef<T, C>> configurer) {
+        requireConfigurerActive("transitionListener");
+        smd.transitionListener(id, contextType, configurer);
+        return this;
+    }
+
+    @Override
+    public ContextScope<T, C> actionListener(String id, Consumer<ActionListenerDef<T, C>> configurer) {
+        requireConfigurerActive("actionListener");
+        smd.actionListener(id, contextType, configurer);
         return this;
     }
 

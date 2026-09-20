@@ -32,10 +32,42 @@ import static org.transflux.core.impl.ValidationUtils.warnIfSet;
  */
 abstract class ListenerDefImpl<SELF extends ListenerDefImpl<SELF>> extends IdentifiedDefImpl<SELF> {
 
+    private final Class<?> contextType;
     private AsyncRejectionPolicy async;
 
-    protected ListenerDefImpl(String id, String kind, String idLabel) {
+    protected ListenerDefImpl(String id, String kind, String idLabel, Class<?> contextType) {
         super(id, kind, idLabel);
+        this.contextType = requireNotNull(contextType, "Listener context type");
+    }
+
+    /**
+     * Reports whether a listener instance has been supplied through {@code using(...)}.
+     *
+     * @return {@code true} once one has been set
+     */
+    abstract boolean hasListener();
+
+    /**
+     * Rejects a def that declared no listener, at the point the def is filed rather than when
+     * something eventually binds it.
+     *
+     * @throws TransfluxValidationException if no listener was supplied
+     */
+    final void requireListenerDeclared() {
+        if (!hasListener()) {
+            throw new TransfluxValidationException(
+                Character.toUpperCase(defLabel().charAt(0)) + defLabel().substring(1)
+                    + " declares no listener; call using(...) in its configurer");
+        }
+    }
+
+    /**
+     * Returns the context class this listener was declared against.
+     *
+     * @return the context type; never {@code null}
+     */
+    public Class<?> getContextType() {
+        return contextType;
     }
 
     /**

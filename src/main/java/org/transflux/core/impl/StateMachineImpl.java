@@ -857,33 +857,27 @@ class StateMachineImpl<T> implements StateMachine<T> {
      * globals are bound once and shared across states rather than rebound per state.
      */
     private void buildStateListenerIndexes(StateMachineDefImpl<T> def) {
-        List<BoundStateListener<T>> globalEntry = bindStateListeners(def.getGlobalEntryListeners());
-        List<BoundStateListener<T>> globalExit = bindStateListeners(def.getGlobalExitListeners());
+        ListenerRegistrations<T> binder = def.listenerBinder();
+        Map<String, StateListenerDefImpl<T>> globalScope =
+            ListenerRegistrations.ownScope(def.getGlobalEntryListeners(), def.getGlobalExitListeners());
+        List<BoundStateListener<T>> globalEntry =
+            binder.bindStates(def.getGlobalEntryListeners(), globalScope);
+        List<BoundStateListener<T>> globalExit =
+            binder.bindStates(def.getGlobalExitListeners(), globalScope);
 
         for (StateDefImpl<T> sd : def.getStates().values()) {
+            Map<String, StateListenerDefImpl<T>> ownScope =
+                ListenerRegistrations.ownScope(sd.getEntryListeners(), sd.getExitListeners());
             // The state's own deny-list applies here rather than at the hook: this merge is
             // already per state, so filtering costs the build one pass and notification nothing.
             GlobalListenerDisables disabled = sd.getDisabledGlobals();
             entryListenersByState.put(sd.getId(),
-                concatListeners(bindStateListeners(sd.getEntryListeners()),
+                concatListeners(binder.bindStates(sd.getEntryListeners(), ownScope),
                                 disabled.filter(globalEntry, BoundStateListener::id)));
             exitListenersByState.put(sd.getId(),
-                concatListeners(bindStateListeners(sd.getExitListeners()),
+                concatListeners(binder.bindStates(sd.getExitListeners(), ownScope),
                                 disabled.filter(globalExit, BoundStateListener::id)));
         }
-    }
-
-    private List<BoundStateListener<T>> bindStateListeners(List<StateListenerDefImpl<T>> defs) {
-        if (defs.isEmpty()) {
-            return List.of();
-        }
-
-        List<BoundStateListener<T>> bound = new ArrayList<>(defs.size());
-        for (StateListenerDefImpl<T> ld : defs) {
-            bound.add(ld.buildBoundListener());
-        }
-
-        return List.copyOf(bound);
     }
 
     private <C> void notifyStateExit(BoundTransition<T, C> transition, T entity, C context) {
@@ -1119,24 +1113,16 @@ class StateMachineImpl<T> implements StateMachine<T> {
      * record rather than rebinding them per action.
      */
     private BoundActionListeners<T, Object> bindGlobalActionListeners(StateMachineDefImpl<T> def) {
+        ListenerRegistrations<T> binder = def.listenerBinder();
+        // The eight state-machine-wide hooks are one owner between them, so a reference at any of
+        // them reaches a listener declared at any other.
+        Map<String, ActionListenerDefImpl<T, Object>> scope = ListenerRegistrations.ownScope(
+            def.getGlobalActionStartListeners(), def.getGlobalActionCompleteListeners(),
+            def.getGlobalActionErrorListeners());
         return new BoundActionListeners<>(
-            bindActionListeners(def.getGlobalActionStartListeners()),
-            bindActionListeners(def.getGlobalActionCompleteListeners()),
-            bindActionListeners(def.getGlobalActionErrorListeners()));
-    }
-
-    private static <T, C> List<BoundActionListener<T, C>> bindActionListeners(
-            List<ActionListenerDefImpl<T, C>> defs) {
-        if (defs.isEmpty()) {
-            return List.of();
-        }
-
-        List<BoundActionListener<T, C>> bound = new ArrayList<>(defs.size());
-        for (ActionListenerDefImpl<T, C> ld : defs) {
-            bound.add(ld.buildBoundListener());
-        }
-
-        return List.copyOf(bound);
+            binder.bindActions(def.getGlobalActionStartListeners(), scope),
+            binder.bindActions(def.getGlobalActionCompleteListeners(), scope),
+            binder.bindActions(def.getGlobalActionErrorListeners(), scope));
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -1144,12 +1130,15 @@ class StateMachineImpl<T> implements StateMachine<T> {
                                                       Map<String, BoundCondition<T, ?>> conditionRegistry,
                                                       BoundTransitionListeners<T, Object> globals) {
         GlobalListenerDisables disabled = td.getDisabledGlobals();
+        ListenerRegistrations<T> binder = def.listenerBinder();
+        Map<String, TransitionListenerDefImpl<T, C>> ownScope = ListenerRegistrations.ownScope(
+            td.getStartListeners(), td.getCompleteListeners(), td.getErrorListeners());
         BoundTransitionListeners<T, C> listeners = new BoundTransitionListeners<>(
-            concatListeners(bindTransitionListeners(td.getStartListeners()),
+            concatListeners(binder.bindTransitions(td.getStartListeners(), ownScope),
                             (List) disabled.filter(globals.onStart(), BoundTransitionListener::id)),
-            concatListeners(bindTransitionListeners(td.getCompleteListeners()),
+            concatListeners(binder.bindTransitions(td.getCompleteListeners(), ownScope),
                             (List) disabled.filter(globals.onComplete(), BoundTransitionListener::id)),
-            concatListeners(bindTransitionListeners(td.getErrorListeners()),
+            concatListeners(binder.bindTransitions(td.getErrorListeners(), ownScope),
                             (List) disabled.filter(globals.onError(), BoundTransitionListener::id)));
 
         return BoundTransition.from(td, (Map) conditionRegistry, listeners);
@@ -1160,24 +1149,14 @@ class StateMachineImpl<T> implements StateMachine<T> {
      * one bound record rather than rebinding them per transition.
      */
     private BoundTransitionListeners<T, Object> bindGlobalTransitionListeners(StateMachineDefImpl<T> def) {
+        ListenerRegistrations<T> binder = def.listenerBinder();
+        Map<String, TransitionListenerDefImpl<T, Object>> scope = ListenerRegistrations.ownScope(
+            def.getGlobalStartListeners(), def.getGlobalCompleteListeners(),
+            def.getGlobalErrorListeners());
         return new BoundTransitionListeners<>(
-            bindTransitionListeners(def.getGlobalStartListeners()),
-            bindTransitionListeners(def.getGlobalCompleteListeners()),
-            bindTransitionListeners(def.getGlobalErrorListeners()));
-    }
-
-    private <C> List<BoundTransitionListener<T, C>> bindTransitionListeners(
-            List<TransitionListenerDefImpl<T, C>> defs) {
-        if (defs.isEmpty()) {
-            return List.of();
-        }
-
-        List<BoundTransitionListener<T, C>> bound = new ArrayList<>(defs.size());
-        for (TransitionListenerDefImpl<T, C> ld : defs) {
-            bound.add(ld.buildBoundListener());
-        }
-
-        return List.copyOf(bound);
+            binder.bindTransitions(def.getGlobalStartListeners(), scope),
+            binder.bindTransitions(def.getGlobalCompleteListeners(), scope),
+            binder.bindTransitions(def.getGlobalErrorListeners(), scope));
     }
 
     private <X> List<X> concatListeners(List<X> own, List<X> global) {

@@ -82,9 +82,9 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     private final List<ManualTriggerDefImpl<T, C>> manualTriggers = new ArrayList<>();
     private final List<EventTriggerDefImpl<T, C>> eventTriggers = new ArrayList<>();
     private final List<DataTriggerDefImpl<T, C>> dataTriggers = new ArrayList<>();
-    private final List<TransitionListenerDefImpl<T, C>> startListeners = new ArrayList<>();
-    private final List<TransitionListenerDefImpl<T, C>> completeListeners = new ArrayList<>();
-    private final List<TransitionListenerDefImpl<T, C>> errorListeners = new ArrayList<>();
+    private final List<ListenerEntry<TransitionListenerDefImpl<T, C>>> startListeners = new ArrayList<>();
+    private final List<ListenerEntry<TransitionListenerDefImpl<T, C>>> completeListeners = new ArrayList<>();
+    private final List<ListenerEntry<TransitionListenerDefImpl<T, C>>> errorListeners = new ArrayList<>();
 
     private final GlobalListenerDisables disabledGlobals = new GlobalListenerDisables(this);
 
@@ -620,11 +620,35 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
+    public TransitionDef<T, C> onStart(String listenerId) {
+        requireConfigurerActive("onStart");
+        requireNotBlank(listenerId, "Transition listener ID");
+        startListeners.add(ListenerEntry.reference(listenerId));
+        return this;
+    }
+
+    @Override
+    public TransitionDef<T, C> onComplete(String listenerId) {
+        requireConfigurerActive("onComplete");
+        requireNotBlank(listenerId, "Transition listener ID");
+        completeListeners.add(ListenerEntry.reference(listenerId));
+        return this;
+    }
+
+    @Override
+    public TransitionDef<T, C> onError(String listenerId) {
+        requireConfigurerActive("onError");
+        requireNotBlank(listenerId, "Transition listener ID");
+        errorListeners.add(ListenerEntry.reference(listenerId));
+        return this;
+    }
+
+    @Override
     public TransitionDef<T, C> onStart(String listenerId, TransitionListener<? super T, C> listener) {
         requireConfigurerActive("onStart");
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(listener, "Transition listener");
-        startListeners.add(declareListener(listenerId, l -> l.using(listener)));
+        startListeners.add(declare(listenerId, l -> l.using(listener)));
         return this;
     }
 
@@ -633,7 +657,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         requireConfigurerActive("onStart");
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(configurer, "Transition listener configurer");
-        startListeners.add(declareListener(listenerId, configurer));
+        startListeners.add(declare(listenerId, configurer));
         return this;
     }
 
@@ -642,7 +666,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         requireConfigurerActive("onComplete");
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(listener, "Transition listener");
-        completeListeners.add(declareListener(listenerId, l -> l.using(listener)));
+        completeListeners.add(declare(listenerId, l -> l.using(listener)));
         return this;
     }
 
@@ -651,7 +675,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         requireConfigurerActive("onComplete");
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(configurer, "Transition listener configurer");
-        completeListeners.add(declareListener(listenerId, configurer));
+        completeListeners.add(declare(listenerId, configurer));
         return this;
     }
 
@@ -660,7 +684,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         requireConfigurerActive("onError");
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(listener, "Transition listener");
-        errorListeners.add(declareListener(listenerId, l -> l.using(listener)));
+        errorListeners.add(declare(listenerId, l -> l.using(listener)));
         return this;
     }
 
@@ -669,7 +693,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         requireConfigurerActive("onError");
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(configurer, "Transition listener configurer");
-        errorListeners.add(declareListener(listenerId, configurer));
+        errorListeners.add(declare(listenerId, configurer));
         return this;
     }
 
@@ -678,7 +702,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
      *
      * @return the live start-listener list
      */
-    List<TransitionListenerDefImpl<T, C>> getStartListeners() {
+    List<ListenerEntry<TransitionListenerDefImpl<T, C>>> getStartListeners() {
         return startListeners;
     }
 
@@ -687,7 +711,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
      *
      * @return the live completion-listener list
      */
-    List<TransitionListenerDefImpl<T, C>> getCompleteListeners() {
+    List<ListenerEntry<TransitionListenerDefImpl<T, C>>> getCompleteListeners() {
         return completeListeners;
     }
 
@@ -696,7 +720,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
      *
      * @return the live error-listener list
      */
-    List<TransitionListenerDefImpl<T, C>> getErrorListeners() {
+    List<ListenerEntry<TransitionListenerDefImpl<T, C>>> getErrorListeners() {
         return errorListeners;
     }
 
@@ -732,11 +756,11 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
      * claimed here: a transition def holds no reference to the enclosing state machine def, so
      * the shared listener namespace is checked once the definition is built.
      */
-    private TransitionListenerDefImpl<T, C> declareListener(String listenerId,
-                                                            Consumer<TransitionListenerDef<T, C>> configurer) {
+    private ListenerEntry<TransitionListenerDefImpl<T, C>> declare(
+            String listenerId, Consumer<TransitionListenerDef<T, C>> configurer) {
         TransitionListenerDefImpl<T, C> listenerDef = new TransitionListenerDefImpl<>(listenerId);
         ConfigurableDefImpl.runConfigurer(listenerDef, configurer);
-        return listenerDef;
+        return ListenerEntry.declared(listenerId, listenerDef);
     }
 
     private List<BoundCondition<T, C>> buildBoundConditionList(List<ConditionDescriptor> descriptors,

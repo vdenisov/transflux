@@ -39,9 +39,18 @@ final class ActionListenerDefImpl<T, C> extends ListenerDefImpl<ActionListenerDe
     private final InstanceSource<ActionListener<? super T, C>> source;
 
     ActionListenerDefImpl(String id) {
-        super(id, "action listener", "Action listener ID");
+        this(id, Object.class);
+    }
+
+    ActionListenerDefImpl(String id, Class<?> contextType) {
+        super(id, "action listener", "Action listener ID", contextType);
         this.source = new InstanceSource<>(Loggers.BUILD_VALIDATION, "Action listener source",
                                            "ActionListenerDef '" + id + "'");
+    }
+
+    @Override
+    boolean hasListener() {
+        return source.isSet();
     }
 
     @Override

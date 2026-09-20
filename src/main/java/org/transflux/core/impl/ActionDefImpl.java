@@ -70,6 +70,7 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      */
     private RegistryImpl<T> scopeRegistry;
 
+    private ListenerRegistrations<T> listenerBinder;
     private final ActionListenerSink<T, C, SELF> listeners = new ActionListenerSink<>(this, self());
 
     private final CompensationSink<T, C, SELF> compensation = new CompensationSink<>(this, self());
@@ -258,6 +259,11 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     @Override
+    public SELF onStart(String listenerId) {
+        return listeners.reference(ActionPhase.START, listenerId);
+    }
+
+    @Override
     public SELF onStart(String listenerId, ActionListener<? super T, C> listener) {
         return listeners.instanceBased(ActionPhase.START, listenerId, listener);
     }
@@ -268,6 +274,11 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     @Override
+    public SELF onComplete(String listenerId) {
+        return listeners.reference(ActionPhase.COMPLETE, listenerId);
+    }
+
+    @Override
     public SELF onComplete(String listenerId, ActionListener<? super T, C> listener) {
         return listeners.instanceBased(ActionPhase.COMPLETE, listenerId, listener);
     }
@@ -275,6 +286,11 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     @Override
     public SELF onComplete(String listenerId, Consumer<ActionListenerDef<T, C>> configurer) {
         return listeners.configured(ActionPhase.COMPLETE, listenerId, configurer);
+    }
+
+    @Override
+    public SELF onError(String listenerId) {
+        return listeners.reference(ActionPhase.ERROR, listenerId);
     }
 
     @Override
@@ -324,7 +340,7 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      *
      * @return that hook's listener defs
      */
-    final List<ActionListenerDefImpl<T, C>> getListeners(ActionPhase phase) {
+    final List<ListenerEntry<ActionListenerDefImpl<T, C>>> getListeners(ActionPhase phase) {
         return listeners.forPhase(phase);
     }
 
@@ -334,7 +350,22 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      * @return the three hook lists, in declaration order
      */
     final BoundActionListeners<T, C> buildBoundListeners() {
-        return listeners.buildBound();
+        return listeners.buildBound(
+            listenerBinder == null ? ListenerRegistrations.standalone() : listenerBinder);
+    }
+
+    /**
+     * Seeds the resolver this def's listener references bind through.
+     * <p>
+     * A field rather than a {@code buildBound} parameter, for the reason the choice's condition
+     * registry is one: {@code buildBound()} takes no arguments and is reached through three
+     * def-specific wrappers, so threading it would widen five signatures. One walk over every
+     * action def sets it before any of them builds.
+     *
+     * @param binder the build's listener resolver
+     */
+    final void setListenerBinder(ListenerRegistrations<T> binder) {
+        this.listenerBinder = binder;
     }
 
     /**
@@ -359,7 +390,7 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      */
     protected final void emitOwnListenerIds(BiConsumer<String, String> sink) {
         for (ActionPhase phase : ActionPhase.values()) {
-            for (ActionListenerDefImpl<T, C> ld : getListeners(phase)) {
+            for (ActionListenerDefImpl<T, C> ld : ListenerRegistrations.declaredOf(getListeners(phase))) {
                 sink.accept(ld.getId(), defLabel() + " via " + ActionListenerSink.hook(phase));
             }
         }

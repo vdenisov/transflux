@@ -122,6 +122,20 @@ public interface ChoiceDef<T, C> extends ActionDef<T, C> {
      */
     ChoiceDef<T, C> onNoMatch(NoMatchBehavior behavior);
 
+    /**
+     * Attaches a listener declared elsewhere to this action's onStart hook.
+     * <p>
+     * The id names a listener registered on the state machine, or one this action declared at any
+     * of its own hooks. Attaching claims nothing, and the listener rides on the action, so it
+     * fires at every call site that reaches it.
+     *
+     * @param listenerId the id of a registered or own-declared action listener
+     *
+     * @return this def for chaining
+     */
+    @Override
+    ChoiceDef<T, C> onStart(String listenerId);
+
     @Override
     ChoiceDef<T, C> onStart(String listenerId, ActionListener<? super T, C> listener);
 
@@ -129,12 +143,40 @@ public interface ChoiceDef<T, C> extends ActionDef<T, C> {
     ChoiceDef<T, C> onStart(String listenerId,
                             Consumer<ActionListenerDef<T, C>> configurer);
 
+    /**
+     * Attaches a listener declared elsewhere to this action's onComplete hook.
+     * <p>
+     * The id names a listener registered on the state machine, or one this action declared at any
+     * of its own hooks. Attaching claims nothing, and the listener rides on the action, so it
+     * fires at every call site that reaches it.
+     *
+     * @param listenerId the id of a registered or own-declared action listener
+     *
+     * @return this def for chaining
+     */
+    @Override
+    ChoiceDef<T, C> onComplete(String listenerId);
+
     @Override
     ChoiceDef<T, C> onComplete(String listenerId, ActionListener<? super T, C> listener);
 
     @Override
     ChoiceDef<T, C> onComplete(String listenerId,
                                Consumer<ActionListenerDef<T, C>> configurer);
+
+    /**
+     * Attaches a listener declared elsewhere to this action's onError hook.
+     * <p>
+     * The id names a listener registered on the state machine, or one this action declared at any
+     * of its own hooks. Attaching claims nothing, and the listener rides on the action, so it
+     * fires at every call site that reaches it.
+     *
+     * @param listenerId the id of a registered or own-declared action listener
+     *
+     * @return this def for chaining
+     */
+    @Override
+    ChoiceDef<T, C> onError(String listenerId);
 
     @Override
     ChoiceDef<T, C> onError(String listenerId, ActionListener<? super T, C> listener);

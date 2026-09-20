@@ -24,6 +24,8 @@ import org.transflux.core.action.ChoiceDef;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.StepDef;
+import org.transflux.core.action.ActionListenerDef;
+import org.transflux.core.transition.TransitionListenerDef;
 import org.transflux.core.trigger.DataTriggerDef;
 import org.transflux.core.trigger.EventTriggerDef;
 import org.transflux.core.trigger.ManualTriggerDef;
@@ -148,6 +150,26 @@ public interface ContextScope<T, C> {
      * @return this scope for chaining
      */
     ContextScope<T, C> choice(String id, Consumer<ChoiceDef<T, C>> configurer);
+
+    /**
+     * Registers a transition listener against this scope's context type, for an owner to attach by id.
+     *
+     * @param id the listener id, unique among this state machine's listeners
+     * @param configurer callback that declares the listener
+     *
+     * @return this scope for chaining
+     */
+    ContextScope<T, C> transitionListener(String id, Consumer<TransitionListenerDef<T, C>> configurer);
+
+    /**
+     * Registers an action listener against this scope's context type, for an owner to attach by id.
+     *
+     * @param id the listener id, unique among this state machine's listeners
+     * @param configurer callback that declares the listener
+     *
+     * @return this scope for chaining
+     */
+    ContextScope<T, C> actionListener(String id, Consumer<ActionListenerDef<T, C>> configurer);
 
     /**
      * Registers a manual trigger against this scope's context type. A transition attaches it by id.

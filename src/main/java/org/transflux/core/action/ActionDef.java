@@ -208,6 +208,19 @@ public interface ActionDef<T, C> {
         Class<X> exceptionType);
 
     /**
+     * Attaches a listener declared elsewhere to this action's onStart hook.
+     * <p>
+     * The id names a listener registered on the state machine, or one this action declared at any
+     * of its own hooks. Attaching claims nothing, and the listener rides on the action, so it
+     * fires at every call site that reaches it.
+     *
+     * @param listenerId the id of a registered or own-declared action listener
+     *
+     * @return this def for chaining
+     */
+    ActionDef<T, C> onStart(String listenerId);
+
+    /**
      * Attaches a listener notified before this action's body runs.
      * <p>
      * The listener belongs to the action, not to any one call site, so it fires at every invocation
@@ -242,6 +255,19 @@ public interface ActionDef<T, C> {
     ActionDef<T, C> onStart(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
 
     /**
+     * Attaches a listener declared elsewhere to this action's onComplete hook.
+     * <p>
+     * The id names a listener registered on the state machine, or one this action declared at any
+     * of its own hooks. Attaching claims nothing, and the listener rides on the action, so it
+     * fires at every call site that reaches it.
+     *
+     * @param listenerId the id of a registered or own-declared action listener
+     *
+     * @return this def for chaining
+     */
+    ActionDef<T, C> onComplete(String listenerId);
+
+    /**
      * Attaches a listener notified after this action's body returns normally.
      * <p>
      * This hook and {@link #onError(String, ActionListener)} partition the outcomes: exactly one of
@@ -265,6 +291,19 @@ public interface ActionDef<T, C> {
      * @return this def for chaining
      */
     ActionDef<T, C> onComplete(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
+
+    /**
+     * Attaches a listener declared elsewhere to this action's onError hook.
+     * <p>
+     * The id names a listener registered on the state machine, or one this action declared at any
+     * of its own hooks. Attaching claims nothing, and the listener rides on the action, so it
+     * fires at every call site that reaches it.
+     *
+     * @param listenerId the id of a registered or own-declared action listener
+     *
+     * @return this def for chaining
+     */
+    ActionDef<T, C> onError(String listenerId);
 
     /**
      * Attaches a listener notified when this action's body, or an action it dispatched, throws.

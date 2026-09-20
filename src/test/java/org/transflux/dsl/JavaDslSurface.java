@@ -50,6 +50,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /**
  * Every DSL call shape a host would write, written the way a host writes it: in Java, from outside
@@ -1351,6 +1352,57 @@ public final class JavaDslSurface {
             String second = sm.entity(order).fire("cancel").getTransitionId();
 
             return shared.getTransitionIds() + ":" + first + ":" + second;
+        }
+    }
+
+    /**
+     * Every listener registration form and every one-argument hook that attaches one by id. One
+     * registration serves a transition hook, an action hook and a state-machine-wide hook at once.
+     *
+     * @return the ids the attached listeners recorded, joined
+     */
+    public static String listenerRegistrationShapes() {
+        Order order = new Order();
+        try (StateMachine<Order> sm = Transflux.defineStateMachine(Order.class)
+            .withStateResolver(o -> o.state)
+            .withStateApplier((o, next) -> o.state = next)
+            .step("record", new RecordingAction())
+            // instance and configurer forms, untyped and typed
+            .stateListener("state-audit", new StateAudit())
+            .stateListener("state-configured", l -> l.using(new StateAudit()).withName("Configured"))
+            .transitionListener("any-transition", new AnyTransitionAudit())
+            .transitionListener("typed-transition", OrderCtx.class, new TransitionAudit())
+            .transitionListener("configured-transition", l -> l.using(new AnyTransitionAudit()))
+            .actionListener("typed-action", OrderCtx.class, new ActionAudit())
+            .actionListener("configured-action", l -> l.withAsync().using((o, ctx, x) -> { }))
+            // and the same two categories under a forContext block
+            .forContext(OrderCtx.class, scope -> scope
+                .transitionListener("scoped-transition", l -> l.using(new TransitionAudit()))
+                .actionListener("scoped-action", l -> l.using(new ActionAudit())))
+            // attached state-machine-wide by id
+            .onAnyTransitionStart("any-transition")
+            .onAnyStateEntry("state-audit")
+            .state("s1", s -> s
+                .onExit("state-audit")
+                .onEntry("state-configured")
+                .transitionsTo("s2", "t", OrderCtx.class, t -> t
+                    .onStart("typed-transition")
+                    .onComplete("scoped-transition")
+                    .onError("configured-transition")
+                    .step("tracked", step -> step
+                        .using(new RecordingAction())
+                        .onStart("typed-action")
+                        .onComplete("scoped-action")
+                        .onError("configured-action"))))
+            .state("s2", s -> { })
+            .build()) {
+
+            sm.entity(order).transitionTo("s2", new OrderCtx());
+            // The phases alone: enough to pin that every attachment fired, without restating the
+            // payload fields the listener classes already assert elsewhere.
+            return order.trail.stream()
+                              .map(line -> line.split(":")[0])
+                              .collect(Collectors.joining(","));
         }
     }
 

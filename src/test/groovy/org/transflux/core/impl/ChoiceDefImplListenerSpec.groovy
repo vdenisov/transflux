@@ -52,7 +52,7 @@ class ChoiceDefImplListenerSpec extends Specification {
         declare.call(def_)
 
         then:
-        def_.getListeners(phase)*.getId() == ['l1']
+        def_.getListeners(phase)*.id() == ['l1']
 
         where:
         hook         | form         | phase                | declare
@@ -89,7 +89,7 @@ class ChoiceDefImplListenerSpec extends Specification {
             .onError('second', new NoopListener())
 
         then:
-        def_.getListeners(ActionPhase.ERROR)*.getId() == ['first', 'second']
+        def_.getListeners(ActionPhase.ERROR)*.id() == ['first', 'second']
     }
 
     @Unroll

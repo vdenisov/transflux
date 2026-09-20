@@ -52,8 +52,8 @@ class StateMachineDefImplTransitionListenerSpec extends Specification {
         declare.call(smd)
 
         then:
-        listeners.call(smd)*.getId() == ['l1']
-        listeners.call(smd).first().buildBoundListener().listener() != null
+        listeners.call(smd)*.id() == ['l1']
+        listeners.call(smd).first().declared().buildBoundListener().listener() != null
 
         and: 'the other two hooks stay empty'
         [smd.getGlobalStartListeners(), smd.getGlobalCompleteListeners(), smd.getGlobalErrorListeners()]*.size().sum() == 1
@@ -78,8 +78,8 @@ class StateMachineDefImplTransitionListenerSpec extends Specification {
            .onAnyTransitionError('third', new NoopListener())
 
         then:
-        smd.getGlobalStartListeners()*.getId() == ['first', 'second']
-        smd.getGlobalErrorListeners()*.getId() == ['third']
+        smd.getGlobalStartListeners()*.id() == ['first', 'second']
+        smd.getGlobalErrorListeners()*.id() == ['third']
     }
 
     def 'the configurer form carries metadata through to the bound listener'() {
@@ -92,7 +92,7 @@ class StateMachineDefImplTransitionListenerSpec extends Specification {
         } as Consumer)
 
         then:
-        def bound = smd.getGlobalErrorListeners().first().buildBoundListener()
+        def bound = smd.getGlobalErrorListeners().first().declared().buildBoundListener()
         bound.name() == 'Audit'
         bound.description() == 'records every failure'
     }
@@ -125,7 +125,7 @@ class StateMachineDefImplTransitionListenerSpec extends Specification {
 
         then:
         noExceptionThrown()
-        smd.getGlobalStartListeners()*.getId() == ['audit']
+        smd.getGlobalStartListeners()*.id() == ['audit']
     }
 
     def 'state and transition listeners share one id namespace'() {

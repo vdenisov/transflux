@@ -25,6 +25,7 @@ import org.transflux.core.action.ActionPhase;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
@@ -50,9 +51,9 @@ final class ActionListenerSink<T, C, D> {
     private final ConfigurableDefImpl owner;
     private final D self;
 
-    private final List<ActionListenerDefImpl<T, C>> onStart = new ArrayList<>();
-    private final List<ActionListenerDefImpl<T, C>> onComplete = new ArrayList<>();
-    private final List<ActionListenerDefImpl<T, C>> onError = new ArrayList<>();
+    private final List<ListenerEntry<ActionListenerDefImpl<T, C>>> onStart = new ArrayList<>();
+    private final List<ListenerEntry<ActionListenerDefImpl<T, C>>> onComplete = new ArrayList<>();
+    private final List<ListenerEntry<ActionListenerDefImpl<T, C>>> onError = new ArrayList<>();
 
     /**
      * Creates a sink for one action def.
@@ -72,6 +73,13 @@ final class ActionListenerSink<T, C, D> {
         return store(phase, listenerId, l -> l.using(listener));
     }
 
+    D reference(ActionPhase phase, String listenerId) {
+        owner.requireConfigurerActive(hook(phase));
+        requireNotBlank(listenerId, "Action listener ID");
+        listFor(phase).add(ListenerEntry.reference(listenerId));
+        return self;
+    }
+
     D configured(ActionPhase phase, String listenerId, Consumer<ActionListenerDef<T, C>> configurer) {
         owner.requireConfigurerActive(hook(phase));
         requireNotBlank(listenerId, "Action listener ID");
@@ -86,7 +94,7 @@ final class ActionListenerSink<T, C, D> {
      *
      * @return an unmodifiable view of that hook's listener defs
      */
-    List<ActionListenerDefImpl<T, C>> forPhase(ActionPhase phase) {
+    List<ListenerEntry<ActionListenerDefImpl<T, C>>> forPhase(ActionPhase phase) {
         return Collections.unmodifiableList(listFor(phase));
     }
 
@@ -95,31 +103,22 @@ final class ActionListenerSink<T, C, D> {
      *
      * @return the three hook lists, in declaration order
      */
-    BoundActionListeners<T, C> buildBound() {
-        return new BoundActionListeners<>(bind(onStart), bind(onComplete), bind(onError));
-    }
-
-    private static <T, C> List<BoundActionListener<T, C>> bind(List<ActionListenerDefImpl<T, C>> defs) {
-        if (defs.isEmpty()) {
-            return List.of();
-        }
-
-        List<BoundActionListener<T, C>> bound = new ArrayList<>(defs.size());
-        for (ActionListenerDefImpl<T, C> ld : defs) {
-            bound.add(ld.buildBoundListener());
-        }
-
-        return bound;
+    BoundActionListeners<T, C> buildBound(ListenerRegistrations<T> binder) {
+        Map<String, ActionListenerDefImpl<T, C>> scope =
+            ListenerRegistrations.ownScope(onStart, onComplete, onError);
+        return new BoundActionListeners<>(binder.bindActions(onStart, scope),
+                                          binder.bindActions(onComplete, scope),
+                                          binder.bindActions(onError, scope));
     }
 
     private D store(ActionPhase phase, String listenerId, Consumer<ActionListenerDef<T, C>> configurer) {
         ActionListenerDefImpl<T, C> listenerDef = new ActionListenerDefImpl<>(listenerId);
         ConfigurableDefImpl.runConfigurer(listenerDef, configurer);
-        listFor(phase).add(listenerDef);
+        listFor(phase).add(ListenerEntry.declared(listenerId, listenerDef));
         return self;
     }
 
-    private List<ActionListenerDefImpl<T, C>> listFor(ActionPhase phase) {
+    private List<ListenerEntry<ActionListenerDefImpl<T, C>>> listFor(ActionPhase phase) {
         return switch (phase) {
             case START -> onStart;
             case COMPLETE -> onComplete;

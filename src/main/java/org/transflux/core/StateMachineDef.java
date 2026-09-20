@@ -404,6 +404,137 @@ public interface StateMachineDef<T> {
     <C> StateMachineDef<T> condition(String id, Class<C> contextType, String spelExpression);
 
     /**
+     * Registers a state listener under the given id, for any state to attach by id.
+     * <p>
+     * A registration claims the id and carries everything the listener is, {@code withAsync}
+     * included; attaching claims nothing, so one registration serves any number of hooks and
+     * everything declared on it holds at each. A state listener takes its context as
+     * {@code Object}, so there is no typed form.
+     *
+     * @param id the listener id, unique among this state machine's listeners
+     * @param listener the listener instance; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> stateListener(String id, StateListener<? super T> listener);
+
+    /**
+     * Registers a state listener declared through a configurer, for metadata or {@code withAsync}.
+     *
+     * @param id the listener id, unique among this state machine's listeners
+     * @param configurer callback that declares the listener; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> stateListener(String id, Consumer<StateListenerDef<T>> configurer);
+
+    /**
+     * Registers a transition listener against the {@code Object} context, so it attaches to any
+     * transition.
+     * <p>
+     * The listener is typed to {@code Object} rather than to a wildcard on purpose: a registration
+     * carries the context it was written against, and that is what the build checks against every
+     * owner attaching it. A listener that wants a narrower context registers through the typed
+     * form instead.
+     *
+     * @param id the listener id, unique among this state machine's listeners
+     * @param listener the listener instance; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> transitionListener(String id, TransitionListener<? super T, Object> listener);
+
+    /**
+     * Registers a transition listener written against a context class. The build checks it against
+     * every transition it is attached to.
+     *
+     * @param id the listener id, unique among this state machine's listeners
+     * @param contextType the context the listener was written against; never {@code null}
+     * @param listener the listener instance; never {@code null}
+     * @param <C> the listener's context type
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> transitionListener(String id, Class<C> contextType,
+                                              TransitionListener<? super T, C> listener);
+
+    /**
+     * Registers a transition listener declared through a configurer, against {@code Object}.
+     *
+     * @param id the listener id, unique among this state machine's listeners
+     * @param configurer callback that declares the listener; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> transitionListener(String id, Consumer<TransitionListenerDef<T, Object>> configurer);
+
+    /**
+     * Registers a transition listener declared through a configurer, against a context class.
+     *
+     * @param id the listener id, unique among this state machine's listeners
+     * @param contextType the context the listener was written against; never {@code null}
+     * @param configurer callback that declares the listener; never {@code null}
+     * @param <C> the listener's context type
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> transitionListener(String id, Class<C> contextType,
+                                              Consumer<TransitionListenerDef<T, C>> configurer);
+
+    /**
+     * Registers an action listener against the {@code Object} context, so it attaches to any
+     * action.
+     * <p>
+     * The listener is typed to {@code Object} rather than to a wildcard on purpose: a registration
+     * carries the context it was written against, and that is what the build checks against every
+     * owner attaching it. A listener that wants a narrower context registers through the typed
+     * form instead.
+     *
+     * @param id the listener id, unique among this state machine's listeners
+     * @param listener the listener instance; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> actionListener(String id, ActionListener<? super T, Object> listener);
+
+    /**
+     * Registers an action listener written against a context class. The build checks it against
+     * every action it is attached to.
+     *
+     * @param id the listener id, unique among this state machine's listeners
+     * @param contextType the context the listener was written against; never {@code null}
+     * @param listener the listener instance; never {@code null}
+     * @param <C> the listener's context type
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> actionListener(String id, Class<C> contextType,
+                                          ActionListener<? super T, C> listener);
+
+    /**
+     * Registers an action listener declared through a configurer, against {@code Object}.
+     *
+     * @param id the listener id, unique among this state machine's listeners
+     * @param configurer callback that declares the listener; never {@code null}
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> actionListener(String id, Consumer<ActionListenerDef<T, Object>> configurer);
+
+    /**
+     * Registers an action listener declared through a configurer, against a context class.
+     *
+     * @param id the listener id, unique among this state machine's listeners
+     * @param contextType the context the listener was written against; never {@code null}
+     * @param configurer callback that declares the listener; never {@code null}
+     * @param <C> the listener's context type
+     *
+     * @return this state machine def for chaining
+     */
+    <C> StateMachineDef<T> actionListener(String id, Class<C> contextType,
+                                          Consumer<ActionListenerDef<T, C>> configurer);
+
+    /**
      * Registers a manual trigger against this state machine under the given id, against the
      * {@code Object} context so it attaches to any transition.
      * <p>
@@ -612,6 +743,19 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> withExecutionLogging(ExecutionLogging<? super T> logging);
 
     /**
+     * Attaches a listener declared elsewhere to the state-machine-wide onAnyStateEntry hook.
+     * <p>
+     * The id names a registered listener, or one declared at any of the eight {@code onAny*}
+     * hooks, which count as one owner between them. A registration typed to anything but
+     * {@code Object} is refused here: a hook spanning every owner cannot promise one context.
+     *
+     * @param listenerId the id of a registered or globally-declared listener
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyStateEntry(String listenerId);
+
+    /**
      * Attaches a listener notified whenever an entity enters <b>any</b> state of this machine.
      *
      * <p>Global listeners run after the entered state's own entry listeners, in declaration
@@ -643,6 +787,19 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> onAnyStateEntry(String listenerId, Consumer<StateListenerDef<T>> configurer);
 
     /**
+     * Attaches a listener declared elsewhere to the state-machine-wide onAnyStateExit hook.
+     * <p>
+     * The id names a registered listener, or one declared at any of the eight {@code onAny*}
+     * hooks, which count as one owner between them. A registration typed to anything but
+     * {@code Object} is refused here: a hook spanning every owner cannot promise one context.
+     *
+     * @param listenerId the id of a registered or globally-declared listener
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyStateExit(String listenerId);
+
+    /**
      * Attaches a listener notified whenever an entity leaves <b>any</b> state of this machine.
      *
      * <p>Global listeners run after the departed state's own exit listeners, in declaration
@@ -672,6 +829,19 @@ public interface StateMachineDef<T> {
      *         declares no listener
      */
     StateMachineDef<T> onAnyStateExit(String listenerId, Consumer<StateListenerDef<T>> configurer);
+
+    /**
+     * Attaches a listener declared elsewhere to the state-machine-wide onAnyTransitionStart hook.
+     * <p>
+     * The id names a registered listener, or one declared at any of the eight {@code onAny*}
+     * hooks, which count as one owner between them. A registration typed to anything but
+     * {@code Object} is refused here: a hook spanning every owner cannot promise one context.
+     *
+     * @param listenerId the id of a registered or globally-declared listener
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyTransitionStart(String listenerId);
 
     /**
      * Attaches a listener notified when <b>any</b> transition of this machine starts.
@@ -708,6 +878,19 @@ public interface StateMachineDef<T> {
                                             Consumer<TransitionListenerDef<T, Object>> configurer);
 
     /**
+     * Attaches a listener declared elsewhere to the state-machine-wide onAnyTransitionComplete hook.
+     * <p>
+     * The id names a registered listener, or one declared at any of the eight {@code onAny*}
+     * hooks, which count as one owner between them. A registration typed to anything but
+     * {@code Object} is refused here: a hook spanning every owner cannot promise one context.
+     *
+     * @param listenerId the id of a registered or globally-declared listener
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyTransitionComplete(String listenerId);
+
+    /**
      * Attaches a listener notified when <b>any</b> transition of this machine completes
      * successfully.
      *
@@ -738,6 +921,19 @@ public interface StateMachineDef<T> {
                                                Consumer<TransitionListenerDef<T, Object>> configurer);
 
     /**
+     * Attaches a listener declared elsewhere to the state-machine-wide onAnyTransitionError hook.
+     * <p>
+     * The id names a registered listener, or one declared at any of the eight {@code onAny*}
+     * hooks, which count as one owner between them. A registration typed to anything but
+     * {@code Object} is refused here: a hook spanning every owner cannot promise one context.
+     *
+     * @param listenerId the id of a registered or globally-declared listener
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyTransitionError(String listenerId);
+
+    /**
      * Attaches a listener notified when <b>any</b> transition of this machine fails, once any
      * compensations it registered have run.
      *
@@ -766,6 +962,19 @@ public interface StateMachineDef<T> {
      */
     StateMachineDef<T> onAnyTransitionError(String listenerId,
                                             Consumer<TransitionListenerDef<T, Object>> configurer);
+
+    /**
+     * Attaches a listener declared elsewhere to the state-machine-wide onAnyActionStart hook.
+     * <p>
+     * The id names a registered listener, or one declared at any of the eight {@code onAny*}
+     * hooks, which count as one owner between them. A registration typed to anything but
+     * {@code Object} is refused here: a hook spanning every owner cannot promise one context.
+     *
+     * @param listenerId the id of a registered or globally-declared listener
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyActionStart(String listenerId);
 
     /**
      * Attaches a listener notified before <b>any</b> action of this machine runs — at every nesting
@@ -803,6 +1012,19 @@ public interface StateMachineDef<T> {
                                         Consumer<ActionListenerDef<T, Object>> configurer);
 
     /**
+     * Attaches a listener declared elsewhere to the state-machine-wide onAnyActionComplete hook.
+     * <p>
+     * The id names a registered listener, or one declared at any of the eight {@code onAny*}
+     * hooks, which count as one owner between them. A registration typed to anything but
+     * {@code Object} is refused here: a hook spanning every owner cannot promise one context.
+     *
+     * @param listenerId the id of a registered or globally-declared listener
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyActionComplete(String listenerId);
+
+    /**
      * Attaches a listener notified when <b>any</b> action of this machine returns normally.
      *
      * @param listenerId the listener id, unique among all listeners on this state machine
@@ -822,6 +1044,19 @@ public interface StateMachineDef<T> {
      */
     StateMachineDef<T> onAnyActionComplete(String listenerId,
                                            Consumer<ActionListenerDef<T, Object>> configurer);
+
+    /**
+     * Attaches a listener declared elsewhere to the state-machine-wide onAnyActionError hook.
+     * <p>
+     * The id names a registered listener, or one declared at any of the eight {@code onAny*}
+     * hooks, which count as one owner between them. A registration typed to anything but
+     * {@code Object} is refused here: a hook spanning every owner cannot promise one context.
+     *
+     * @param listenerId the id of a registered or globally-declared listener
+     *
+     * @return this state machine def for chaining
+     */
+    StateMachineDef<T> onAnyActionError(String listenerId);
 
     /**
      * Attaches a listener notified when <b>any</b> action of this machine fails.

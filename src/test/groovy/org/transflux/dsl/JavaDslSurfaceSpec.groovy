@@ -476,6 +476,12 @@ class JavaDslSurfaceSpec extends Specification {
         JavaDslSurface.sharedTriggerShapes() == '[from-s1, from-s2]:from-s1:from-s2'
     }
 
+    def 'every listener registration form attaches by id, across categories and scopes'() {
+        expect: 'each attachment delivered - a dropped one changes the sequence, not just its length'
+        JavaDslSurface.listenerRegistrationShapes() ==
+            'START,any,EXIT,START,recording,COMPLETE,COMPLETE,ENTRY'
+    }
+
     private static boolean waitFor(Closure<Boolean> condition) {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
         while (System.nanoTime() < deadline) {

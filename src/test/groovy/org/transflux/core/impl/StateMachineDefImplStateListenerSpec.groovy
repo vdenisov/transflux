@@ -44,9 +44,9 @@ class StateMachineDefImplStateListenerSpec extends Specification {
         declare.call(smd)
 
         then:
-        smd.getGlobalEntryListeners()*.getId() == ['l1']
+        smd.getGlobalEntryListeners()*.id() == ['l1']
         smd.getGlobalExitListeners().isEmpty()
-        smd.getGlobalEntryListeners().first().buildBoundListener().listener() != null
+        smd.getGlobalEntryListeners().first().declared().buildBoundListener().listener() != null
 
         where:
         form         | declare
@@ -63,9 +63,9 @@ class StateMachineDefImplStateListenerSpec extends Specification {
         declare.call(smd)
 
         then:
-        smd.getGlobalExitListeners()*.getId() == ['l1']
+        smd.getGlobalExitListeners()*.id() == ['l1']
         smd.getGlobalEntryListeners().isEmpty()
-        smd.getGlobalExitListeners().first().buildBoundListener().listener() != null
+        smd.getGlobalExitListeners().first().declared().buildBoundListener().listener() != null
 
         where:
         form         | declare
@@ -83,8 +83,8 @@ class StateMachineDefImplStateListenerSpec extends Specification {
            .onAnyStateExit('third', new NoopListener())
 
         then:
-        smd.getGlobalEntryListeners()*.getId() == ['first', 'second']
-        smd.getGlobalExitListeners()*.getId() == ['third']
+        smd.getGlobalEntryListeners()*.id() == ['first', 'second']
+        smd.getGlobalExitListeners()*.id() == ['third']
     }
 
     def 'the configurer form carries metadata through to the bound listener'() {
@@ -97,7 +97,7 @@ class StateMachineDefImplStateListenerSpec extends Specification {
         } as Consumer)
 
         then:
-        def bound = smd.getGlobalExitListeners().first().buildBoundListener()
+        def bound = smd.getGlobalExitListeners().first().declared().buildBoundListener()
         bound.name() == 'Audit'
         bound.description() == 'records every exit'
     }
@@ -130,7 +130,7 @@ class StateMachineDefImplStateListenerSpec extends Specification {
 
         then:
         noExceptionThrown()
-        smd.getGlobalEntryListeners()*.getId() == ['audit']
+        smd.getGlobalEntryListeners()*.id() == ['audit']
     }
 
     @Unroll

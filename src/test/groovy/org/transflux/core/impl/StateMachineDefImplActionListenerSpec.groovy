@@ -44,10 +44,10 @@ class StateMachineDefImplActionListenerSpec extends Specification {
         declare.call(smd)
 
         then:
-        smd.getGlobalActionStartListeners()*.getId() == ['l1']
+        smd.getGlobalActionStartListeners()*.id() == ['l1']
         smd.getGlobalActionCompleteListeners().isEmpty()
         smd.getGlobalActionErrorListeners().isEmpty()
-        smd.getGlobalActionStartListeners().first().buildBoundListener().listener() != null
+        smd.getGlobalActionStartListeners().first().declared().buildBoundListener().listener() != null
 
         where:
         form         | declare
@@ -64,7 +64,7 @@ class StateMachineDefImplActionListenerSpec extends Specification {
         declare.call(smd)
 
         then:
-        smd.getGlobalActionCompleteListeners()*.getId() == ['l1']
+        smd.getGlobalActionCompleteListeners()*.id() == ['l1']
         smd.getGlobalActionStartListeners().isEmpty()
         smd.getGlobalActionErrorListeners().isEmpty()
 
@@ -83,7 +83,7 @@ class StateMachineDefImplActionListenerSpec extends Specification {
         declare.call(smd)
 
         then:
-        smd.getGlobalActionErrorListeners()*.getId() == ['l1']
+        smd.getGlobalActionErrorListeners()*.id() == ['l1']
         smd.getGlobalActionStartListeners().isEmpty()
         smd.getGlobalActionCompleteListeners().isEmpty()
 
@@ -103,8 +103,8 @@ class StateMachineDefImplActionListenerSpec extends Specification {
            .onAnyActionError('third', new NoopListener())
 
         then:
-        smd.getGlobalActionStartListeners()*.getId() == ['first', 'second']
-        smd.getGlobalActionErrorListeners()*.getId() == ['third']
+        smd.getGlobalActionStartListeners()*.id() == ['first', 'second']
+        smd.getGlobalActionErrorListeners()*.id() == ['third']
     }
 
     def 'the configurer form carries metadata through to the bound listener'() {
@@ -117,7 +117,7 @@ class StateMachineDefImplActionListenerSpec extends Specification {
         } as Consumer)
 
         then:
-        def bound = smd.getGlobalActionCompleteListeners().first().buildBoundListener()
+        def bound = smd.getGlobalActionCompleteListeners().first().declared().buildBoundListener()
         bound.name() == 'Audit'
         bound.description() == 'records every action'
     }
@@ -163,7 +163,7 @@ class StateMachineDefImplActionListenerSpec extends Specification {
 
         then:
         noExceptionThrown()
-        smd.getGlobalActionStartListeners()*.getId() == ['audit']
+        smd.getGlobalActionStartListeners()*.id() == ['audit']
     }
 
     @Unroll

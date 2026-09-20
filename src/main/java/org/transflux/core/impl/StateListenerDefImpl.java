@@ -38,9 +38,14 @@ final class StateListenerDefImpl<T> extends ListenerDefImpl<StateListenerDefImpl
     private final InstanceSource<StateListener<? super T>> source;
 
     StateListenerDefImpl(String id) {
-        super(id, "state listener", "State listener ID");
+        super(id, "state listener", "State listener ID", Object.class);
         this.source = new InstanceSource<>(Loggers.BUILD_VALIDATION, "State listener source",
                                            "StateListenerDef '" + id + "'");
+    }
+
+    @Override
+    boolean hasListener() {
+        return source.isSet();
     }
 
     @Override

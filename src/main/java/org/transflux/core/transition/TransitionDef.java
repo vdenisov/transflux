@@ -433,6 +433,20 @@ public interface TransitionDef<T, C>
     TransitionDef<T, C> addDataTrigger(String id, Consumer<DataTriggerDef<T, C>> configurer);
 
     /**
+     * Attaches a listener declared elsewhere to this transition's onStart hook.
+     * <p>
+     * The id names a listener registered on the state machine, or one this transition declared at
+     * any of its own hooks - in either order, so one listener can serve all three under a single
+     * id. Attaching claims nothing. A listener declared on another owner is visible to that owner
+     * alone, and naming one here is a build error that says so.
+     *
+     * @param listenerId the id of a registered or own-declared transition listener
+     *
+     * @return this transition def for chaining
+     */
+    TransitionDef<T, C> onStart(String listenerId);
+
+    /**
      * Attaches a listener notified once this transition's pre-conditions have passed, before its
      * operation runs.
      *
@@ -467,6 +481,20 @@ public interface TransitionDef<T, C>
     TransitionDef<T, C> onStart(String listenerId, Consumer<TransitionListenerDef<T, C>> configurer);
 
     /**
+     * Attaches a listener declared elsewhere to this transition's onComplete hook.
+     * <p>
+     * The id names a listener registered on the state machine, or one this transition declared at
+     * any of its own hooks - in either order, so one listener can serve all three under a single
+     * id. Attaching claims nothing. A listener declared on another owner is visible to that owner
+     * alone, and naming one here is a build error that says so.
+     *
+     * @param listenerId the id of a registered or own-declared transition listener
+     *
+     * @return this transition def for chaining
+     */
+    TransitionDef<T, C> onComplete(String listenerId);
+
+    /**
      * Attaches a listener notified after this transition succeeds and its new state has been
      * committed.
      *
@@ -497,6 +525,20 @@ public interface TransitionDef<T, C>
      *         no listener
      */
     TransitionDef<T, C> onComplete(String listenerId, Consumer<TransitionListenerDef<T, C>> configurer);
+
+    /**
+     * Attaches a listener declared elsewhere to this transition's onError hook.
+     * <p>
+     * The id names a listener registered on the state machine, or one this transition declared at
+     * any of its own hooks - in either order, so one listener can serve all three under a single
+     * id. Attaching claims nothing. A listener declared on another owner is visible to that owner
+     * alone, and naming one here is a build error that says so.
+     *
+     * @param listenerId the id of a registered or own-declared transition listener
+     *
+     * @return this transition def for chaining
+     */
+    TransitionDef<T, C> onError(String listenerId);
 
     /**
      * Attaches a listener notified after this transition fails, once any compensations it

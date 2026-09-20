@@ -49,6 +49,19 @@ public interface ListenerDef<L, SELF extends ListenerDef<L, SELF>> {
     String getName();
 
     /**
+     * Returns the context class this listener was written against.
+     * <p>
+     * A listener is a class, so it cannot handle an arbitrary context; one that does not care
+     * about the context says so by declaring {@code Object}, which is also the default for a
+     * declaration that names none. A state listener always reports {@code Object}: a state can be
+     * entered from transitions carrying different contexts, so there is no one type to report. For
+     * the other two the build checks it against every owner the listener is attached to.
+     *
+     * @return the context type; never {@code null}
+     */
+    Class<?> getContextType();
+
+    /**
      * Returns this listener's optional description.
      *
      * @return the description, or {@code null} if none was set

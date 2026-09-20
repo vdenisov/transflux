@@ -50,7 +50,7 @@ class ActionDefImplListenerSpec extends Specification {
         declare.call(def_)
 
         then:
-        def_.getListeners(phase)*.getId() == ['l1']
+        def_.getListeners(phase)*.id() == ['l1']
         otherPhases(phase).every { def_.getListeners(it).isEmpty() }
 
         where:
@@ -73,8 +73,8 @@ class ActionDefImplListenerSpec extends Specification {
             .onComplete('after', new NoopListener())
 
         then:
-        def_.getListeners(ActionPhase.START)*.getId() == ['before']
-        def_.getListeners(ActionPhase.COMPLETE)*.getId() == ['after']
+        def_.getListeners(ActionPhase.START)*.id() == ['before']
+        def_.getListeners(ActionPhase.COMPLETE)*.id() == ['after']
     }
 
     def 'listeners on one hook keep declaration order'() {
@@ -87,7 +87,7 @@ class ActionDefImplListenerSpec extends Specification {
             .onStart('third', new NoopListener())
 
         then:
-        def_.getListeners(ActionPhase.START)*.getId() == ['first', 'second', 'third']
+        def_.getListeners(ActionPhase.START)*.id() == ['first', 'second', 'third']
     }
 
     def 'the listeners reach the bound action in declaration order'() {
