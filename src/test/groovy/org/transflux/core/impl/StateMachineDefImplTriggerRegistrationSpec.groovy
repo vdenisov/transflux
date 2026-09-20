@@ -153,7 +153,29 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
         def e = thrown(TransfluxValidationException)
         e.message.contains("Manual trigger 'go'")
         e.message.contains("leave state 's1'")
-        e.message.contains('fire(id) could not choose')
+        e.message.contains('dispatch could not choose')
+    }
+
+    def '#kind attached to two transitions leaving one state is ambiguous whatever its kind'() {
+        when:
+        build({ d -> d
+            .state('s1', { s -> s
+                .transitionsTo('s2', 'a', { t -> t.addTrigger('go') })
+                .transitionsTo('s3', 'b', { t -> t.addTrigger('go') }) })
+            .state('s2', {})
+            .state('s3', {})
+            .with(register) })
+
+        then: 'the filter or gate is one object, so the second attachment could never fire'
+        def e = thrown(TransfluxValidationException)
+        e.message.contains("transitions 'a' and 'b'")
+        e.message.contains("leave state 's1'")
+
+        where:
+        kind     | register
+        'manual' | { d -> d.manualTrigger('go', { t -> }) }
+        'event'  | { d -> d.eventTrigger('go', { t -> t.onEvent('E') }) }
+        'data'   | { d -> d.dataTrigger('go', { t -> t.conditionExpression('state != null') }) }
     }
 
     def 'a registration typed to a context is checked against every transition attaching it'() {
@@ -293,24 +315,21 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
         e.message.contains("attaches trigger 'paid' more than once")
     }
 
-    def 'scan order stays per transition when two of them share a source state'() {
-        given: 'the earlier transition attaches the registration, the later one also declares its own'
+    def 'scan order stays per transition when a registration is attached from two states'() {
+        given: 'an earlier transition attaches the registration, a later one declares its own too'
         def sm = build({ d -> d
             .eventTrigger('shared', { t -> t.onEvent('E') })
-            .state('s1', { s -> s
-                .transitionsTo('s2', 'first', { t -> t.addTrigger('shared') })
-                .transitionsTo('s3', 'second', { t -> t
-                    .addEventTrigger('own', { et -> et.onEvent('E') })
-                    .addTrigger('shared') }) })
-            .state('s2', {})
+            .state('s1', { s -> s.transitionsTo('s2', 'first', { t -> t.addTrigger('shared') }) })
+            .state('s2', { s -> s.transitionsTo('s3', 'second', { t -> t
+                .addEventTrigger('own', { et -> et.onEvent('E') })
+                .addTrigger('shared') }) })
             .state('s3', {}) })
 
-        when:
-        def fired = sm.entity(new Entity('s1')).processEvent('E', null)
+        when: 'the entity is in the state the later transition leaves'
+        def fired = sm.entity(new Entity('s2')).processEvent('E', null)
 
-        then: "the first transition's attachment still wins, and 'own' is not dragged ahead of it"
-        fired.firedTriggerId() == 'shared'
-        fired.result().get().transitionId == 'first'
+        then: 'its own declaration is scanned first, not the registration an earlier one attached'
+        fired.firedTriggerId() == 'own'
     }
 
     private static StateMachine<Entity> build(Consumer<StateMachineDef<Entity>> cfg) {

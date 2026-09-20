@@ -57,16 +57,6 @@ sealed abstract class TriggerDefImpl<T, C, SELF extends TriggerDefImpl<T, C, SEL
     }
 
     /**
-     * Returns the transition this trigger was declared on, which is the only one that may attach
-     * it.
-     *
-     * @return the declaring transition's id, or {@code null} when this trigger was registered
-     */
-    String declaredOn() {
-        return owner == null ? null : owner.getId();
-    }
-
-    /**
      * Returns the context class this trigger runs against - a registration's own, or the enclosing
      * transition's as currently declared.
      *

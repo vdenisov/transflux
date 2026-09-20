@@ -103,6 +103,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * Resolves listener references for the build in progress. Per build rather than per definition:
      * it caches one bound record per registration, and a second build must not hand out the first
      * build's.
+     * <p>
+     * Held on the definition, so one definition builds one machine at a time. Building the same
+     * definition twice is supported and is what the clearing in {@code build()} is for; building it
+     * twice <em>concurrently</em> is not, in line with §2.1.2 leaving concurrency to the host - a
+     * def is mutable throughout its life and was never safe to share across threads.
      */
     private ListenerRegistrations<T> listenerBinder;
 
@@ -2209,6 +2214,10 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         return head + "is not a registered " + category + " listener";
     }
 
+    private static String capitalize(String label) {
+        return Character.toUpperCase(label.charAt(0)) + label.substring(1);
+    }
+
     private Map<String, ? extends ListenerDefImpl<?>> otherCategoryRegistrations(String category) {
         Map<String, ListenerDefImpl<?>> others = new HashMap<>();
         if (!"state".equals(category)) {
@@ -2279,7 +2288,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             td.getDataTriggers().forEach(t -> declaredInline.put(t.getId(), td.getId()));
         }
 
-        Map<String, Map<String, String>> manualBySource = new HashMap<>();
+        Map<String, Map<String, String>> attachedBySource = new HashMap<>();
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             Set<String> attachedHere = new HashSet<>();
             for (String ref : td.getTriggerRefs()) {
@@ -2301,16 +2310,21 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
                 }
 
                 checkTriggerContext(registered, td);
-                if (registered instanceof ManualTriggerDefImpl) {
-                    String clash = manualBySource
-                        .computeIfAbsent(ref, k -> new HashMap<>())
-                        .putIfAbsent(td.getSourceStateId(), td.getId());
-                    if (clash != null) {
-                        throw new TransfluxValidationException(
-                            "Manual trigger '" + ref + "' is attached to transitions '" + clash
-                                + "' and '" + td.getId() + "', which both leave state '"
-                                + td.getSourceStateId() + "'; fire(id) could not choose between them");
-                    }
+
+                // Whatever its kind, one trigger on two transitions leaving one state cannot
+                // choose between them: a manual trigger has only the current state to go on, and
+                // an event's filter or a data trigger's gate is the same object at both
+                // attachments, so the second is unreachable and its filter runs twice on the way
+                // to proving it. Two *different* triggers competing is the first-match rule and
+                // stays legal.
+                String clash = attachedBySource
+                    .computeIfAbsent(ref, k -> new HashMap<>())
+                    .putIfAbsent(td.getSourceStateId(), td.getId());
+                if (clash != null) {
+                    throw new TransfluxValidationException(
+                        capitalize(registered.defLabel()) + " is attached to transitions '" + clash
+                            + "' and '" + td.getId() + "', which both leave state '"
+                            + td.getSourceStateId() + "'; dispatch could not choose between them");
                 }
             }
         }
