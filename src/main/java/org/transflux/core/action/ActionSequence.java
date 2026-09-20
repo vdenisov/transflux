@@ -443,7 +443,7 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      *         {@code null}
      */
     <N> SELF choice(String id, Class<N> contextType,
-                         Consumer<ChoiceDef<T, N>> configurer);
+                    Consumer<ChoiceDef<T, N>> configurer);
 
     /**
      * Declares a multi-branch choice against a context of its own, produced by {@code mapper}
@@ -460,8 +460,7 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      * @throws TransfluxValidationException if {@code id} is blank or any other argument is
      *         {@code null}
      */
-    <N> SELF choice(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                         Consumer<ChoiceDef<T, N>> configurer);
+    <N> SELF choice(String id, Class<N> contextType, ContextMapper<C, N> mapper, Consumer<ChoiceDef<T, N>> configurer);
 
     /**
      * Declares a nested sequence against a context of its own, running pass-through. Its members,
@@ -589,7 +588,7 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      *         {@code null}
      */
     <N> SELF forkChoice(String id, Class<N> contextType,
-                             Consumer<ChoiceDef<T, N>> configurer);
+                        Consumer<ChoiceDef<T, N>> configurer);
 
     /**
      * Forked form of {@link #choice(String, Class, ContextMapper, Consumer)} - the mapper
@@ -608,7 +607,7 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      *         {@code null}
      */
     <N> SELF forkChoice(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                             Consumer<ChoiceDef<T, N>> configurer);
+                        Consumer<ChoiceDef<T, N>> configurer);
 
     /**
      * Forked form of {@link #operation(String, Class, Consumer)} - see {@link #fork(String)} for

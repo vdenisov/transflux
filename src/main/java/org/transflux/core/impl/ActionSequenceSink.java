@@ -139,7 +139,7 @@ final class ActionSequenceSink<T, C, D> {
     }
 
     D choice(String id, Consumer<ChoiceDef<T, C>> configurer,
-                  boolean forked) {
+             boolean forked) {
         owner.requireConfigurerActive(verb("choice", forked));
         requireNotBlank(id, "Choice ID");
         requireNotNull(configurer, "Choice configurer");
@@ -152,7 +152,7 @@ final class ActionSequenceSink<T, C, D> {
     }
 
     <N> D choice(String id, Class<N> contextType, MapperRef mapperRef,
-                      Consumer<ChoiceDef<T, N>> configurer, boolean forked) {
+                 Consumer<ChoiceDef<T, N>> configurer, boolean forked) {
         owner.requireConfigurerActive(verb("choice", forked));
         requireNotBlank(id, "Choice ID");
         requireNotNull(contextType, "Choice context type");
@@ -358,9 +358,9 @@ final class ActionSequenceSink<T, C, D> {
                 Class<?> own = memberContext(ref, choice.def(), effectiveScope, scopeLabel);
                 String label = scopeLabel + " > " + choice.def().defLabel();
                 choice.def().checkRefs(own, label,
-                                            ownerBeneath(ref.declaredContext(), own, contextOwner,
-                                                         label),
-                                            visibleScopes, smDef);
+                                       ownerBeneath(ref.declaredContext(), own, contextOwner,
+                                                    label),
+                                       visibleScopes, smDef);
             } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
                 Class<?> own = memberContext(ref, nested.def(), effectiveScope, scopeLabel);
                 String label = scopeLabel + " > " + nested.def().defLabel();

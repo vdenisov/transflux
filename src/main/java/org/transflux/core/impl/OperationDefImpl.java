@@ -179,7 +179,7 @@ final class OperationDefImpl<T, C>
 
     @Override
     public OperationDefImpl<T, C> forkChoice(String id,
-                                                  Consumer<ChoiceDef<T, C>> configurer) {
+                                             Consumer<ChoiceDef<T, C>> configurer) {
         return members.choice(id, configurer, true);
     }
 
@@ -492,8 +492,7 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
-    public <N> OperationDefImpl<T, C> choice(String id, Class<N> contextType,
-                                 Consumer<ChoiceDef<T, N>> configurer) {
+    public <N> OperationDefImpl<T, C> choice(String id, Class<N> contextType, Consumer<ChoiceDef<T, N>> configurer) {
         return members.choice(id, contextType, MapperRef.passThrough(), configurer, false);
     }
 
@@ -542,14 +541,14 @@ final class OperationDefImpl<T, C>
 
     @Override
     public <N> OperationDefImpl<T, C> forkChoice(String id, Class<N> contextType,
-                                                      Consumer<ChoiceDef<T, N>> configurer) {
+                                                 Consumer<ChoiceDef<T, N>> configurer) {
         return members.choice(id, contextType, MapperRef.passThrough(), configurer, true);
     }
 
     @Override
     public <N> OperationDefImpl<T, C> forkChoice(String id, Class<N> contextType,
-                                                      ContextMapper<C, N> mapper,
-                                                      Consumer<ChoiceDef<T, N>> configurer) {
+                                                 ContextMapper<C, N> mapper,
+                                                 Consumer<ChoiceDef<T, N>> configurer) {
         return members.choice(id, contextType, MapperRef.inline(mapper), configurer, true);
     }
 

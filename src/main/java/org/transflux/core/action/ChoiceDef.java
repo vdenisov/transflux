@@ -127,21 +127,21 @@ public interface ChoiceDef<T, C> extends ActionDef<T, C> {
 
     @Override
     ChoiceDef<T, C> onStart(String listenerId,
-                                          Consumer<ActionListenerDef<T, C>> configurer);
+                            Consumer<ActionListenerDef<T, C>> configurer);
 
     @Override
     ChoiceDef<T, C> onComplete(String listenerId, ActionListener<T, C> listener);
 
     @Override
     ChoiceDef<T, C> onComplete(String listenerId,
-                                             Consumer<ActionListenerDef<T, C>> configurer);
+                               Consumer<ActionListenerDef<T, C>> configurer);
 
     @Override
     ChoiceDef<T, C> onError(String listenerId, ActionListener<T, C> listener);
 
     @Override
     ChoiceDef<T, C> onError(String listenerId,
-                                          Consumer<ActionListenerDef<T, C>> configurer);
+                            Consumer<ActionListenerDef<T, C>> configurer);
 
     @Override
     ChoiceDef<T, C> disableGlobalListener(String listenerId);

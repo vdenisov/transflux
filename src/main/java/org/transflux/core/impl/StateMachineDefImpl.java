@@ -593,8 +593,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public <C> StateMachineDef<T> choice(String id, Class<C> contextType,
-                                              Consumer<ChoiceDef<T, C>> configurer) {
+    public <C> StateMachineDef<T> choice(String id, Class<C> contextType, Consumer<ChoiceDef<T, C>> configurer) {
         registerScopedChoice(id, configurer, contextType);
         return this;
     }
@@ -986,8 +985,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @param <C> the choice's context type
      */
     <C> void registerScopedChoice(String id,
-                                       Consumer<ChoiceDef<T, C>> configurer,
-                                       Class<C> contextType) {
+                                  Consumer<ChoiceDef<T, C>> configurer,
+                                  Class<C> contextType) {
         requireNotBlank(id, "Choice ID");
         requireNotNull(contextType, "Context type");
         requireNotNull(configurer, "Choice configurer");

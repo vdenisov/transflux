@@ -359,7 +359,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
 
     @Override
     public TransitionDef<T, C> forkChoice(String id,
-                                               Consumer<ChoiceDef<T, C>> configurer) {
+                                          Consumer<ChoiceDef<T, C>> configurer) {
         body.forkChoice(id, configurer);
         return this;
     }
@@ -398,16 +398,15 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public <N> TransitionDef<T, C> choice(String id, Class<N> contextType,
-                                               Consumer<ChoiceDef<T, N>> configurer) {
+    public <N> TransitionDef<T, C> choice(String id, Class<N> contextType, Consumer<ChoiceDef<T, N>> configurer) {
         body.choice(id, contextType, configurer);
         return this;
     }
 
     @Override
     public <N> TransitionDef<T, C> choice(String id, Class<N> contextType,
-                                               ContextMapper<C, N> mapper,
-                                               Consumer<ChoiceDef<T, N>> configurer) {
+                                          ContextMapper<C, N> mapper,
+                                          Consumer<ChoiceDef<T, N>> configurer) {
         body.choice(id, contextType, mapper, configurer);
         return this;
     }
@@ -456,16 +455,15 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public <N> TransitionDef<T, C> forkChoice(String id, Class<N> contextType,
-                                                   Consumer<ChoiceDef<T, N>> configurer) {
+    public <N> TransitionDef<T, C> forkChoice(String id, Class<N> contextType, Consumer<ChoiceDef<T, N>> configurer) {
         body.forkChoice(id, contextType, configurer);
         return this;
     }
 
     @Override
     public <N> TransitionDef<T, C> forkChoice(String id, Class<N> contextType,
-                                                   ContextMapper<C, N> mapper,
-                                                   Consumer<ChoiceDef<T, N>> configurer) {
+                                              ContextMapper<C, N> mapper,
+                                              Consumer<ChoiceDef<T, N>> configurer) {
         body.forkChoice(id, contextType, mapper, configurer);
         return this;
     }

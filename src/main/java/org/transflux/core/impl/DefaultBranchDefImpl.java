@@ -151,7 +151,7 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
 
     @Override
     public DefaultBranchDef<T, C> forkChoice(String id,
-                                                  Consumer<ChoiceDef<T, C>> configurer) {
+                                             Consumer<ChoiceDef<T, C>> configurer) {
         return members.choice(id, configurer, true);
     }
 
@@ -184,8 +184,7 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
     }
 
     @Override
-    public <N> DefaultBranchDef<T, C> choice(String id, Class<N> contextType,
-                                 Consumer<ChoiceDef<T, N>> configurer) {
+    public <N> DefaultBranchDef<T, C> choice(String id, Class<N> contextType, Consumer<ChoiceDef<T, N>> configurer) {
         return members.choice(id, contextType, MapperRef.passThrough(), configurer, false);
     }
 
@@ -234,14 +233,14 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
 
     @Override
     public <N> DefaultBranchDef<T, C> forkChoice(String id, Class<N> contextType,
-                                                      Consumer<ChoiceDef<T, N>> configurer) {
+                                                 Consumer<ChoiceDef<T, N>> configurer) {
         return members.choice(id, contextType, MapperRef.passThrough(), configurer, true);
     }
 
     @Override
     public <N> DefaultBranchDef<T, C> forkChoice(String id, Class<N> contextType,
-                                                      ContextMapper<C, N> mapper,
-                                                      Consumer<ChoiceDef<T, N>> configurer) {
+                                                 ContextMapper<C, N> mapper,
+                                                 Consumer<ChoiceDef<T, N>> configurer) {
         return members.choice(id, contextType, MapperRef.inline(mapper), configurer, true);
     }
 

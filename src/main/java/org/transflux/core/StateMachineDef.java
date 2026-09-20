@@ -419,8 +419,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    <C> StateMachineDef<T> choice(String id, Class<C> contextType,
-                                       Consumer<ChoiceDef<T, C>> configurer);
+    <C> StateMachineDef<T> choice(String id, Class<C> contextType, Consumer<ChoiceDef<T, C>> configurer);
 
     /**
      * Registers a {@link ContextMapper} instance against this state machine under the given id,

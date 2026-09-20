@@ -825,7 +825,7 @@ public final class JavaDslSurface {
                             .step("f-mapped-member",
                                   (order, ctx, view) -> order.trail.add("f-mapped:" + ctx.orderId)))
                         .forkChoice("f-mapped-route", NotifyCtx.class,
-                                         parent -> new NotifyCtx(parent.orderId), choice -> choice
+                                    parent -> new NotifyCtx(parent.orderId), choice -> choice
                             .branch("f-mapped-taken", b -> b
                                 .condition("f-mapped-always", (order, ctx) -> true)
                                 .step("f-mapped-branch-member", new NotifyAction()))))))

@@ -191,7 +191,7 @@ sealed interface ActionRef<T, C>
     }
 
     static <T, C> ActionRef<T, C> choice(String id, ChoiceDefImpl<T, C> def,
-                                              MapperRef mapperRef) {
+                                         MapperRef mapperRef) {
         return new Choice<>(id, def, mapperRef);
     }
 

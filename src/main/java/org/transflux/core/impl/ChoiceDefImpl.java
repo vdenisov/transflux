@@ -496,7 +496,7 @@ final class ChoiceDefImpl<T, C>
         private List<CompositeMember<T, C>> defaultMembers;
 
         ChoiceBranchExecutor(String choiceId, NoMatchBehavior noMatchBehavior,
-                                  List<BoundCondition<T, C>> conditions, Registry<T> scopeRegistry) {
+                             List<BoundCondition<T, C>> conditions, Registry<T> scopeRegistry) {
             this.choiceId = choiceId;
             this.noMatchBehavior = noMatchBehavior;
             this.conditions = conditions;
