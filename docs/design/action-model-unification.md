@@ -48,7 +48,7 @@ There are two authoring forms, mutually exclusive:
 * **declarative** - an ordered child list, where declaration order *is* execution order. There is no Java body; the framework synthesizes the executable that walks the list.
 * **imperative** - a Java body, no bound children, free to dispatch ids declared elsewhere.
 
-**Vocabulary: "step" is an imperative action, "operation" is a declarative one.** Applied consistently, this is what makes `SimpleOperationDef` disappear - a "simple operation" was always a step, we just could not attach a step to a transition. And `ConditionalStepDef` becomes a conditional *operation*: a declarative-container variant whose ordering rule is "first matching branch" rather than "all, in order". Leaving room for further variants later (a parallel container is the obvious candidate, though not in 1.0).
+**Vocabulary: "step" is an imperative action, "operation" is a declarative one.** Applied consistently, this is what makes `SimpleOperationDef` disappear - a "simple operation" was always a step, we just could not attach a step to a transition. And `ChoiceStepDef` becomes a choice *operation*: a declarative-container variant whose ordering rule is "first matching branch" rather than "all, in order". Leaving room for further variants later (a parallel container is the obvious candidate, though not in 1.0).
 
 **"Action" is the runtime noun. The DSL splits its verbs by what the call site is doing**, not by what the callee is. At every position where an action can appear there are two categories:
 
@@ -59,8 +59,8 @@ Declaration cannot collapse to a single verb, and that is a language constraint 
 
 Reference, on the other hand, wants exactly one verb - and if it borrows either declaration verb, it starts asserting something it cannot know. So the two categories are split by part of speech:
 
-* **references use `run(...)`** - one verb everywhere a reference can appear: a member of a declarative container, a member of a conditional branch, the action attached to a transition, and imperative dispatch from inside an action body. Eight overloads (bare id, registered mapper id, inline `Function`, inline `ContextMapper`, plus the `Identifiable` and mixed siblings), replacing the 16 that `Transition` declares today.
-* **declarations use the nouns** - `step(...)` for an imperative action, `operation(...)` for a declarative one, `conditional(...)` for the first-matching-branch variant.
+* **references use `run(...)`** - one verb everywhere a reference can appear: a member of a declarative container, a member of a choice branch, the action attached to a transition, and imperative dispatch from inside an action body. Eight overloads (bare id, registered mapper id, inline `Function`, inline `ContextMapper`, plus the `Identifiable` and mixed siblings), replacing the 16 that `Transition` declares today.
+* **declarations use the nouns** - `step(...)` for an imperative action, `operation(...)` for a declarative one, `choice(...)` for the first-matching-branch variant.
 
 Verbs invoke, nouns declare, and you can tell the two apart without reading the arguments:
 
@@ -69,7 +69,7 @@ t.operation("complex-activation", op -> op
     .step("prepare-actor", PrepareActorStep.class)
     .run("validate-payment-method")
     .run("charge-card", "payment-from-order")
-    .conditional("tier-routing", c -> c
+    .choice("tier-routing", c -> c
         .branch("premium", b -> b
             .condition(PremiumTier.class)
             .run("premium-processing"))))
@@ -79,7 +79,7 @@ t.operation("complex-activation", op -> op
 |---|---|---|
 | SM-level registration | - | `step(...)` / `operation(...)` |
 | Transition | `run(id)` | `step(...)` / `operation(...)` |
-| Container member | `run(id)` | `step(...)` / `conditional(...)` |
+| Container member | `run(id)` | `step(...)` / `choice(...)` |
 | Branch member | `run(id)` | `step(...)` |
 | Inside an action body | `run(id)` | - |
 
@@ -156,11 +156,11 @@ What Phase 4 still has to build, and what this note fixes as the intended semant
 | `OperationDef<T, C>` | `ActionDef<T, C>` | the common base, now genuinely common |
 | `StepDef`, `SimpleOperationDef` | `StepDef extends ActionDef` | the imperative form |
 | `CompositeOperationDef` | `OperationDef extends ActionDef` | the declarative form |
-| `ConditionalStepDef` | `ConditionalOperationDef extends ActionDef` | branches, not a member list, so it does not extend `OperationDef` |
+| `ChoiceStepDef` | `ChoiceDef extends ActionDef` | branches, not a member list, so it does not extend `OperationDef` |
 | `BoundStep`, `BoundOperation` | `BoundAction(id, action, kind)` | was a sealed marker interface, becomes the record |
 | (none) | `ActionKind` | public, `STEP` / `OPERATION` |
 | `Component.Step`, `Component.Operation` | `Component.Action` | `permits Component.Action, Component.Condition` |
-| `ActionRef` × 6 variants | `ById`, `InlineInstance`, `InlineClass`, `Conditional` | `StepRef` / `OperationRef` and their duplicated `resolve` bodies both go |
+| `ActionRef` × 6 variants | `ById`, `InlineInstance`, `InlineClass`, `Choice` | `StepRef` / `OperationRef` and their duplicated `resolve` bodies both go |
 | `Transition.step(...)` ×8, `Transition.operation(...)` ×8 | `Transition.run(...)` ×8 | same collapse on `TransitionView` and `TopologyTransition` |
 | `composite.step(id)` / `composite.operation(id)` | `run(id)` | by-id members; inline declaration keeps `step(...)` |
 | `simpleOperation(...)` / `compositeOperation(...)` | `step(...)` / `operation(...)` | on `StateMachineDef`, `ContextScope` and `TransitionDef` |
