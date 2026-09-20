@@ -107,17 +107,17 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     }
 
     @Override
-    public BranchDef<T, C> condition(String id, Condition<T, C> condition) {
+    public BranchDef<T, C> condition(String id, Condition<? super T, C> condition) {
         return branchCondition.instanceBased(id, condition);
     }
 
     @Override
-    public BranchDef<T, C> condition(String id, BiPredicate<T, C> predicate) {
+    public BranchDef<T, C> condition(String id, BiPredicate<? super T, C> predicate) {
         return branchCondition.predicate(id, predicate);
     }
 
     @Override
-    public BranchDef<T, C> condition(String id, Predicate<T> predicate) {
+    public BranchDef<T, C> condition(String id, Predicate<? super T> predicate) {
         return branchCondition.predicate(id, predicate);
     }
 
@@ -182,7 +182,7 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     }
 
     @Override
-    public BranchDef<T, C> step(String id, Action<T, C> step) {
+    public BranchDef<T, C> step(String id, Action<? super T, C> step) {
         return members.step(id, step, false);
     }
 
@@ -192,7 +192,7 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     }
 
     @Override
-    public BranchDef<T, C> forkStep(String id, Action<T, C> action) {
+    public BranchDef<T, C> forkStep(String id, Action<? super T, C> action) {
         return members.step(id, action, true);
     }
 
@@ -213,13 +213,13 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     }
 
     @Override
-    public <N> BranchDef<T, C> step(String id, Class<N> contextType, Action<T, N> action) {
+    public <N> BranchDef<T, C> step(String id, Class<N> contextType, Action<? super T, N> action) {
         return members.step(id, contextType, MapperRef.passThrough(), action, false);
     }
 
     @Override
     public <N> BranchDef<T, C> step(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                          Action<T, N> action) {
+                          Action<? super T, N> action) {
         return members.step(id, contextType, MapperRef.inline(mapper), action, false);
     }
 
@@ -258,13 +258,13 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     }
 
     @Override
-    public <N> BranchDef<T, C> forkStep(String id, Class<N> contextType, Action<T, N> action) {
+    public <N> BranchDef<T, C> forkStep(String id, Class<N> contextType, Action<? super T, N> action) {
         return members.step(id, contextType, MapperRef.passThrough(), action, true);
     }
 
     @Override
     public <N> BranchDef<T, C> forkStep(String id, Class<N> contextType,
-                                        ContextMapper<C, N> mapper, Action<T, N> action) {
+                                        ContextMapper<C, N> mapper, Action<? super T, N> action) {
         return members.step(id, contextType, MapperRef.inline(mapper), action, true);
     }
 

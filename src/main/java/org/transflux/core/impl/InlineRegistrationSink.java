@@ -53,7 +53,7 @@ final class InlineRegistrationSink<T, C> {
         this.conditionRegistry = conditionRegistry;
     }
 
-    void registerInlineAction(String id, Action<T, C> action, ActionKind kind) {
+    void registerInlineAction(String id, Action<? super T, C> action, ActionKind kind) {
         claimCanonical(canonical, id, action, label(kind));
         if (scope.get(id).isPresent()) {
             return;

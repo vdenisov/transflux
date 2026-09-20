@@ -35,7 +35,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
 final class StateListenerDefImpl<T> extends ListenerDefImpl<StateListenerDefImpl<T>>
         implements StateListenerDef<T> {
 
-    private final InstanceSource<StateListener<T>> source;
+    private final InstanceSource<StateListener<? super T>> source;
 
     StateListenerDefImpl(String id) {
         super(id, "state listener", "State listener ID");
@@ -44,7 +44,7 @@ final class StateListenerDefImpl<T> extends ListenerDefImpl<StateListenerDefImpl
     }
 
     @Override
-    public StateListenerDefImpl<T> using(StateListener<T> listener) {
+    public StateListenerDefImpl<T> using(StateListener<? super T> listener) {
         requireConfigurerActive("using");
         requireNotNull(listener, "State listener");
         source.setInstance(listener);

@@ -216,7 +216,7 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     @Override
-    public SELF withCompensation(Compensation<T, C> compensation) {
+    public SELF withCompensation(Compensation<? super T, C> compensation) {
         return this.compensation.withCompensationInstance(compensation);
     }
 
@@ -258,7 +258,7 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     @Override
-    public SELF onStart(String listenerId, ActionListener<T, C> listener) {
+    public SELF onStart(String listenerId, ActionListener<? super T, C> listener) {
         return listeners.instanceBased(ActionPhase.START, listenerId, listener);
     }
 
@@ -268,7 +268,7 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     @Override
-    public SELF onComplete(String listenerId, ActionListener<T, C> listener) {
+    public SELF onComplete(String listenerId, ActionListener<? super T, C> listener) {
         return listeners.instanceBased(ActionPhase.COMPLETE, listenerId, listener);
     }
 
@@ -278,7 +278,7 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     @Override
-    public SELF onError(String listenerId, ActionListener<T, C> listener) {
+    public SELF onError(String listenerId, ActionListener<? super T, C> listener) {
         return listeners.instanceBased(ActionPhase.ERROR, listenerId, listener);
     }
 

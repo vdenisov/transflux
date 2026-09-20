@@ -61,7 +61,7 @@ final class EventTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, EventTriggerD
     }
 
     @Override
-    public EventTriggerDef<T, C> filter(BiPredicate<Object, T> filter) {
+    public EventTriggerDef<T, C> filter(BiPredicate<Object, ? super T> filter) {
         requireConfigurerActive("filter");
         requireNotNull(filter, "Filter");
         return setFilter(() -> (eventData, entity, context) -> filter.test(eventData, entity));

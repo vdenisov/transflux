@@ -131,7 +131,7 @@ public interface DataTriggerDef<T, C> {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code condition} is {@code null}
      */
-    DataTriggerDef<T, C> condition(String id, Condition<T, C> condition);
+    DataTriggerDef<T, C> condition(String id, Condition<? super T, C> condition);
 
     /**
      * Sets the gate to a {@link BiPredicate} over {@code (entity, context)} under the given id. The
@@ -145,7 +145,7 @@ public interface DataTriggerDef<T, C> {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code predicate} is {@code null}
      */
-    DataTriggerDef<T, C> condition(String id, BiPredicate<T, C> predicate);
+    DataTriggerDef<T, C> condition(String id, BiPredicate<? super T, C> predicate);
 
     /**
      * Convenience overload of {@link #condition(String, BiPredicate)} accepting an entity-only
@@ -156,7 +156,7 @@ public interface DataTriggerDef<T, C> {
      *
      * @return this trigger def for chaining
      */
-    DataTriggerDef<T, C> condition(String id, Predicate<T> predicate);
+    DataTriggerDef<T, C> condition(String id, Predicate<? super T> predicate);
 
     /**
      * Sets the gate to a SpEL expression under the given id.

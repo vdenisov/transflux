@@ -433,6 +433,39 @@ class JavaDslSurfaceSpec extends Specification {
         JavaDslSurface.refusalIds() == 'never:PRE_CONDITION:t'
     }
 
+    def 'one set of components, written against a shared trait, drives a machine per entity type'() {
+        given: 'two machines built from the same component instances'
+        def (orders, shipments) = JavaDslSurface.sharedAcrossEntityTypes()
+        def order = new JavaDslSurface.Order()
+        def shipment = new JavaDslSurface.Shipment()
+
+        when:
+        def orderResult = orders.entity(order).transitionTo('s2')
+        def shipmentResult = shipments.entity(shipment).transitionTo('s2')
+
+        then: 'the shared resolver and applier drove both'
+        orderResult.success
+        shipmentResult.success
+        order.currentState() == 's2'
+        shipment.currentState() == 's2'
+
+        and: 'the shared step ran at each of its three positions, on either entity'
+        order.trail().count { it == 'tracked' } == 3
+        shipment.trail().count { it == 'tracked' } == 3
+
+        and: 'and so did each listener category'
+        order.trail().any { it.startsWith('state:') }
+        order.trail().any { it.startsWith('transition:') }
+        order.trail().any { it.startsWith('action:') }
+        shipment.trail().any { it.startsWith('state:') }
+        shipment.trail().any { it.startsWith('transition:') }
+        shipment.trail().any { it.startsWith('action:') }
+
+        cleanup:
+        orders.close()
+        shipments.close()
+    }
+
     private static boolean waitFor(Closure<Boolean> condition) {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
         while (System.nanoTime() < deadline) {

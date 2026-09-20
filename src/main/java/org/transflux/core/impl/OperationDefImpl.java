@@ -148,7 +148,7 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
-    public OperationDefImpl<T, C> step(String id, Action<T, C> action) {
+    public OperationDefImpl<T, C> step(String id, Action<? super T, C> action) {
         return members.step(id, action, false);
     }
 
@@ -168,7 +168,7 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
-    public OperationDefImpl<T, C> forkStep(String id, Action<T, C> action) {
+    public OperationDefImpl<T, C> forkStep(String id, Action<? super T, C> action) {
         return members.step(id, action, true);
     }
 
@@ -470,13 +470,13 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
-    public <N> OperationDefImpl<T, C> step(String id, Class<N> contextType, Action<T, N> action) {
+    public <N> OperationDefImpl<T, C> step(String id, Class<N> contextType, Action<? super T, N> action) {
         return members.step(id, contextType, MapperRef.passThrough(), action, false);
     }
 
     @Override
     public <N> OperationDefImpl<T, C> step(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                          Action<T, N> action) {
+                          Action<? super T, N> action) {
         return members.step(id, contextType, MapperRef.inline(mapper), action, false);
     }
 
@@ -516,13 +516,13 @@ final class OperationDefImpl<T, C>
 
     @Override
     public <N> OperationDefImpl<T, C> forkStep(String id, Class<N> contextType,
-                                               Action<T, N> action) {
+                                               Action<? super T, N> action) {
         return members.step(id, contextType, MapperRef.passThrough(), action, true);
     }
 
     @Override
     public <N> OperationDefImpl<T, C> forkStep(String id, Class<N> contextType,
-                                               ContextMapper<C, N> mapper, Action<T, N> action) {
+                                               ContextMapper<C, N> mapper, Action<? super T, N> action) {
         return members.step(id, contextType, MapperRef.inline(mapper), action, true);
     }
 

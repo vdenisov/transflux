@@ -55,39 +55,39 @@ class ActionSequenceSpec extends Specification {
     def 'the declared member grammar is exactly the documented one'() {
         expect: 'a widening is a deliberate edit here, not a side effect elsewhere'
         signatures(ActionSequence).toSorted() == [
-            'choice(java.lang.String,java.lang.Class,java.util.function.Consumer)',
-            'choice(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,java.util.function.Consumer)',
-            'choice(java.lang.String,java.util.function.Consumer)',
+            'choice(java.lang.String,java.lang.Class<N>,java.util.function.Consumer<org.transflux.core.action.ChoiceDef<T, N>>)',
+            'choice(java.lang.String,java.lang.Class<N>,org.transflux.core.action.ContextMapper<C, N>,java.util.function.Consumer<org.transflux.core.action.ChoiceDef<T, N>>)',
+            'choice(java.lang.String,java.util.function.Consumer<org.transflux.core.action.ChoiceDef<T, C>>)',
             'fork(java.lang.String)',
             'fork(java.lang.String,java.lang.String)',
             'fork(java.lang.String,java.lang.String,org.transflux.core.action.AsyncRejectionPolicy)',
             'fork(java.lang.String,org.transflux.core.action.AsyncRejectionPolicy)',
-            'fork(java.lang.String,org.transflux.core.action.ContextMapper)',
-            'fork(java.lang.String,org.transflux.core.action.ContextMapper,org.transflux.core.action.AsyncRejectionPolicy)',
-            'forkChoice(java.lang.String,java.lang.Class,java.util.function.Consumer)',
-            'forkChoice(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,java.util.function.Consumer)',
-            'forkChoice(java.lang.String,java.util.function.Consumer)',
-            'forkOperation(java.lang.String,java.lang.Class,java.util.function.Consumer)',
-            'forkOperation(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,java.util.function.Consumer)',
-            'forkOperation(java.lang.String,java.util.function.Consumer)',
-            'forkStep(java.lang.String,java.lang.Class,java.util.function.Consumer)',
-            'forkStep(java.lang.String,java.lang.Class,org.transflux.core.action.Action)',
-            'forkStep(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,java.util.function.Consumer)',
-            'forkStep(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,org.transflux.core.action.Action)',
-            'forkStep(java.lang.String,java.util.function.Consumer)',
-            'forkStep(java.lang.String,org.transflux.core.action.Action)',
-            'operation(java.lang.String,java.lang.Class,java.util.function.Consumer)',
-            'operation(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,java.util.function.Consumer)',
-            'operation(java.lang.String,java.util.function.Consumer)',
+            'fork(java.lang.String,org.transflux.core.action.ContextMapper<C, ?>)',
+            'fork(java.lang.String,org.transflux.core.action.ContextMapper<C, ?>,org.transflux.core.action.AsyncRejectionPolicy)',
+            'forkChoice(java.lang.String,java.lang.Class<N>,java.util.function.Consumer<org.transflux.core.action.ChoiceDef<T, N>>)',
+            'forkChoice(java.lang.String,java.lang.Class<N>,org.transflux.core.action.ContextMapper<C, N>,java.util.function.Consumer<org.transflux.core.action.ChoiceDef<T, N>>)',
+            'forkChoice(java.lang.String,java.util.function.Consumer<org.transflux.core.action.ChoiceDef<T, C>>)',
+            'forkOperation(java.lang.String,java.lang.Class<N>,java.util.function.Consumer<org.transflux.core.action.OperationDef<T, N>>)',
+            'forkOperation(java.lang.String,java.lang.Class<N>,org.transflux.core.action.ContextMapper<C, N>,java.util.function.Consumer<org.transflux.core.action.OperationDef<T, N>>)',
+            'forkOperation(java.lang.String,java.util.function.Consumer<org.transflux.core.action.OperationDef<T, C>>)',
+            'forkStep(java.lang.String,java.lang.Class<N>,java.util.function.Consumer<org.transflux.core.action.StepDef<T, N>>)',
+            'forkStep(java.lang.String,java.lang.Class<N>,org.transflux.core.action.Action<? super T, N>)',
+            'forkStep(java.lang.String,java.lang.Class<N>,org.transflux.core.action.ContextMapper<C, N>,java.util.function.Consumer<org.transflux.core.action.StepDef<T, N>>)',
+            'forkStep(java.lang.String,java.lang.Class<N>,org.transflux.core.action.ContextMapper<C, N>,org.transflux.core.action.Action<? super T, N>)',
+            'forkStep(java.lang.String,java.util.function.Consumer<org.transflux.core.action.StepDef<T, C>>)',
+            'forkStep(java.lang.String,org.transflux.core.action.Action<? super T, C>)',
+            'operation(java.lang.String,java.lang.Class<N>,java.util.function.Consumer<org.transflux.core.action.OperationDef<T, N>>)',
+            'operation(java.lang.String,java.lang.Class<N>,org.transflux.core.action.ContextMapper<C, N>,java.util.function.Consumer<org.transflux.core.action.OperationDef<T, N>>)',
+            'operation(java.lang.String,java.util.function.Consumer<org.transflux.core.action.OperationDef<T, C>>)',
             'run(java.lang.String)',
             'run(java.lang.String,java.lang.String)',
-            'run(java.lang.String,org.transflux.core.action.ContextMapper)',
-            'step(java.lang.String,java.lang.Class,java.util.function.Consumer)',
-            'step(java.lang.String,java.lang.Class,org.transflux.core.action.Action)',
-            'step(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,java.util.function.Consumer)',
-            'step(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,org.transflux.core.action.Action)',
-            'step(java.lang.String,java.util.function.Consumer)',
-            'step(java.lang.String,org.transflux.core.action.Action)',
+            'run(java.lang.String,org.transflux.core.action.ContextMapper<C, ?>)',
+            'step(java.lang.String,java.lang.Class<N>,java.util.function.Consumer<org.transflux.core.action.StepDef<T, N>>)',
+            'step(java.lang.String,java.lang.Class<N>,org.transflux.core.action.Action<? super T, N>)',
+            'step(java.lang.String,java.lang.Class<N>,org.transflux.core.action.ContextMapper<C, N>,java.util.function.Consumer<org.transflux.core.action.StepDef<T, N>>)',
+            'step(java.lang.String,java.lang.Class<N>,org.transflux.core.action.ContextMapper<C, N>,org.transflux.core.action.Action<? super T, N>)',
+            'step(java.lang.String,java.util.function.Consumer<org.transflux.core.action.StepDef<T, C>>)',
+            'step(java.lang.String,org.transflux.core.action.Action<? super T, C>)',
         ]
     }
 
@@ -111,7 +111,7 @@ class ActionSequenceSpec extends Specification {
 
     private static Set<String> signatures(Class<?> type) {
         return type.methods
-            .collect { "${it.name}(${it.parameterTypes*.name.join(',')})".toString() }
+            .collect { "${it.name}(${it.genericParameterTypes*.typeName.join(',')})".toString() }
             .toSet()
     }
 }

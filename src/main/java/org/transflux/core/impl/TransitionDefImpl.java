@@ -322,7 +322,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> step(String id, Action<T, C> action) {
+    public TransitionDef<T, C> step(String id, Action<? super T, C> action) {
         body.step(id, action);
         return this;
     }
@@ -346,7 +346,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> forkStep(String id, Action<T, C> action) {
+    public TransitionDef<T, C> forkStep(String id, Action<? super T, C> action) {
         body.forkStep(id, action);
         return this;
     }
@@ -371,14 +371,14 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public <N> TransitionDef<T, C> step(String id, Class<N> contextType, Action<T, N> action) {
+    public <N> TransitionDef<T, C> step(String id, Class<N> contextType, Action<? super T, N> action) {
         body.step(id, contextType, action);
         return this;
     }
 
     @Override
     public <N> TransitionDef<T, C> step(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                                        Action<T, N> action) {
+                                        Action<? super T, N> action) {
         body.step(id, contextType, mapper, action);
         return this;
     }
@@ -427,14 +427,14 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public <N> TransitionDef<T, C> forkStep(String id, Class<N> contextType, Action<T, N> action) {
+    public <N> TransitionDef<T, C> forkStep(String id, Class<N> contextType, Action<? super T, N> action) {
         body.forkStep(id, contextType, action);
         return this;
     }
 
     @Override
     public <N> TransitionDef<T, C> forkStep(String id, Class<N> contextType,
-                                            ContextMapper<C, N> mapper, Action<T, N> action) {
+                                            ContextMapper<C, N> mapper, Action<? super T, N> action) {
         body.forkStep(id, contextType, mapper, action);
         return this;
     }
@@ -494,17 +494,17 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> preCondition(String id, Condition<T, C> condition) {
+    public TransitionDef<T, C> preCondition(String id, Condition<? super T, C> condition) {
         return preConditions.instanceBased(id, condition);
     }
 
     @Override
-    public TransitionDef<T, C> preCondition(String id, BiPredicate<T, C> predicate) {
+    public TransitionDef<T, C> preCondition(String id, BiPredicate<? super T, C> predicate) {
         return preConditions.predicate(id, predicate);
     }
 
     @Override
-    public TransitionDef<T, C> preCondition(String id, Predicate<T> predicate) {
+    public TransitionDef<T, C> preCondition(String id, Predicate<? super T> predicate) {
         return preConditions.predicate(id, predicate);
     }
 
@@ -524,17 +524,17 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> postCondition(String id, Condition<T, C> condition) {
+    public TransitionDef<T, C> postCondition(String id, Condition<? super T, C> condition) {
         return postConditions.instanceBased(id, condition);
     }
 
     @Override
-    public TransitionDef<T, C> postCondition(String id, BiPredicate<T, C> predicate) {
+    public TransitionDef<T, C> postCondition(String id, BiPredicate<? super T, C> predicate) {
         return postConditions.predicate(id, predicate);
     }
 
     @Override
-    public TransitionDef<T, C> postCondition(String id, Predicate<T> predicate) {
+    public TransitionDef<T, C> postCondition(String id, Predicate<? super T> predicate) {
         return postConditions.predicate(id, predicate);
     }
 
@@ -601,7 +601,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> onStart(String listenerId, TransitionListener<T, C> listener) {
+    public TransitionDef<T, C> onStart(String listenerId, TransitionListener<? super T, C> listener) {
         requireConfigurerActive("onStart");
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(listener, "Transition listener");
@@ -619,7 +619,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> onComplete(String listenerId, TransitionListener<T, C> listener) {
+    public TransitionDef<T, C> onComplete(String listenerId, TransitionListener<? super T, C> listener) {
         requireConfigurerActive("onComplete");
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(listener, "Transition listener");
@@ -637,7 +637,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> onError(String listenerId, TransitionListener<T, C> listener) {
+    public TransitionDef<T, C> onError(String listenerId, TransitionListener<? super T, C> listener) {
         requireConfigurerActive("onError");
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(listener, "Transition listener");

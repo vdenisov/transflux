@@ -117,7 +117,7 @@ public interface EventTriggerDef<T, C> {
      *
      * @throws TransfluxValidationException if {@code filter} is {@code null}
      */
-    EventTriggerDef<T, C> filter(BiPredicate<Object, T> filter);
+    EventTriggerDef<T, C> filter(BiPredicate<Object, ? super T> filter);
 
     /**
      * Convenience overload of {@link #filter(BiPredicate)} accepting an entity-blind

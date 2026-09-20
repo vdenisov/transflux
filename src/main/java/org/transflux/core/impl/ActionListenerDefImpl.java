@@ -36,7 +36,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
 final class ActionListenerDefImpl<T, C> extends ListenerDefImpl<ActionListenerDefImpl<T, C>>
         implements ActionListenerDef<T, C> {
 
-    private final InstanceSource<ActionListener<T, C>> source;
+    private final InstanceSource<ActionListener<? super T, C>> source;
 
     ActionListenerDefImpl(String id) {
         super(id, "action listener", "Action listener ID");
@@ -45,7 +45,7 @@ final class ActionListenerDefImpl<T, C> extends ListenerDefImpl<ActionListenerDe
     }
 
     @Override
-    public ActionListenerDefImpl<T, C> using(ActionListener<T, C> listener) {
+    public ActionListenerDefImpl<T, C> using(ActionListener<? super T, C> listener) {
         requireConfigurerActive("using");
         requireNotNull(listener, "Action listener");
         source.setInstance(listener);

@@ -127,7 +127,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    StateMachineDef<T> withStateResolver(StateResolver<T> stateResolver);
+    StateMachineDef<T> withStateResolver(StateResolver<? super T> stateResolver);
 
     /**
      * Sets the optional {@link StateApplier} used to write the new state to an entity after
@@ -137,7 +137,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    StateMachineDef<T> withStateApplier(StateApplier<T> stateApplier);
+    StateMachineDef<T> withStateApplier(StateApplier<? super T> stateApplier);
 
     /**
      * Supplies the executor that forked members run on, in place of the one this state machine
@@ -246,7 +246,7 @@ public interface StateMachineDef<T> {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank, {@code step}
      *         is {@code null}, or another step is already registered under {@code id}
      */
-    StateMachineDef<T> step(String id, Action<T, ?> step);
+    StateMachineDef<T> step(String id, Action<? super T, ?> step);
 
     /**
      * Registers a step against this state machine via a lambda configurer, without a declared
@@ -279,7 +279,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    <C> StateMachineDef<T> step(String id, Class<C> contextType, Action<T, C> step);
+    <C> StateMachineDef<T> step(String id, Class<C> contextType, Action<? super T, C> step);
 
     /**
      * Registers a step against this state machine via a lambda configurer, tagged with the
@@ -306,7 +306,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    StateMachineDef<T> condition(String id, Condition<T, ?> condition);
+    StateMachineDef<T> condition(String id, Condition<? super T, ?> condition);
 
     /**
      * Registers an {@code (entity, context)} predicate as a condition under the given id.
@@ -316,7 +316,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    StateMachineDef<T> condition(String id, BiPredicate<T, ?> predicate);
+    StateMachineDef<T> condition(String id, BiPredicate<? super T, ?> predicate);
 
     /**
      * Convenience overload of {@link #condition(String, BiPredicate)} accepting an entity-only
@@ -327,7 +327,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    StateMachineDef<T> condition(String id, Predicate<T> predicate);
+    StateMachineDef<T> condition(String id, Predicate<? super T> predicate);
 
     /**
      * Registers a SpEL expression as a condition under the given id.
@@ -350,7 +350,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    <C> StateMachineDef<T> condition(String id, Class<C> contextType, Condition<T, C> condition);
+    <C> StateMachineDef<T> condition(String id, Class<C> contextType, Condition<? super T, C> condition);
 
     /**
      * Registers an {@code (entity, context)} predicate as a condition under the given id,
@@ -363,7 +363,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    <C> StateMachineDef<T> condition(String id, Class<C> contextType, BiPredicate<T, C> predicate);
+    <C> StateMachineDef<T> condition(String id, Class<C> contextType, BiPredicate<? super T, C> predicate);
 
     /**
      * Convenience overload of {@link #condition(String, Class, BiPredicate)}
@@ -376,7 +376,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    <C> StateMachineDef<T> condition(String id, Class<C> contextType, Predicate<T> predicate);
+    <C> StateMachineDef<T> condition(String id, Class<C> contextType, Predicate<? super T> predicate);
 
     /**
      * Registers a SpEL expression as a condition under the given id, tagged with the
@@ -523,7 +523,7 @@ public interface StateMachineDef<T> {
      * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
      *         or another state listener is already registered under the same id
      */
-    StateMachineDef<T> onAnyStateEntry(String listenerId, StateListener<T> listener);
+    StateMachineDef<T> onAnyStateEntry(String listenerId, StateListener<? super T> listener);
 
     /**
      * Attaches a global entry listener declared through a configurer, for the cases where the
@@ -554,7 +554,7 @@ public interface StateMachineDef<T> {
      * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
      *         or another state listener is already registered under the same id
      */
-    StateMachineDef<T> onAnyStateExit(String listenerId, StateListener<T> listener);
+    StateMachineDef<T> onAnyStateExit(String listenerId, StateListener<? super T> listener);
 
     /**
      * Attaches a global exit listener declared through a configurer, for the cases where the
@@ -587,7 +587,7 @@ public interface StateMachineDef<T> {
      * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
      *         or another listener is already registered under the same id
      */
-    StateMachineDef<T> onAnyTransitionStart(String listenerId, TransitionListener<T, Object> listener);
+    StateMachineDef<T> onAnyTransitionStart(String listenerId, TransitionListener<? super T, Object> listener);
 
     /**
      * Attaches a global start listener declared through a configurer, for the cases where the
@@ -617,7 +617,7 @@ public interface StateMachineDef<T> {
      * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
      *         or another listener is already registered under the same id
      */
-    StateMachineDef<T> onAnyTransitionComplete(String listenerId, TransitionListener<T, Object> listener);
+    StateMachineDef<T> onAnyTransitionComplete(String listenerId, TransitionListener<? super T, Object> listener);
 
     /**
      * Attaches a global completion listener declared through a configurer, for the cases where the
@@ -647,7 +647,7 @@ public interface StateMachineDef<T> {
      * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
      *         or another listener is already registered under the same id
      */
-    StateMachineDef<T> onAnyTransitionError(String listenerId, TransitionListener<T, Object> listener);
+    StateMachineDef<T> onAnyTransitionError(String listenerId, TransitionListener<? super T, Object> listener);
 
     /**
      * Attaches a global error listener declared through a configurer, for the cases where the
@@ -682,7 +682,7 @@ public interface StateMachineDef<T> {
      * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
      *         or another listener is already registered under the same id
      */
-    StateMachineDef<T> onAnyActionStart(String listenerId, ActionListener<T, Object> listener);
+    StateMachineDef<T> onAnyActionStart(String listenerId, ActionListener<? super T, Object> listener);
 
     /**
      * Attaches a global action-start listener declared through a configurer, for the cases where
@@ -708,7 +708,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    StateMachineDef<T> onAnyActionComplete(String listenerId, ActionListener<T, Object> listener);
+    StateMachineDef<T> onAnyActionComplete(String listenerId, ActionListener<? super T, Object> listener);
 
     /**
      * Attaches a global action-complete listener declared through a configurer.
@@ -732,7 +732,7 @@ public interface StateMachineDef<T> {
      *
      * @return this state machine def for chaining
      */
-    StateMachineDef<T> onAnyActionError(String listenerId, ActionListener<T, Object> listener);
+    StateMachineDef<T> onAnyActionError(String listenerId, ActionListener<? super T, Object> listener);
 
     /**
      * Attaches a global action-error listener declared through a configurer.

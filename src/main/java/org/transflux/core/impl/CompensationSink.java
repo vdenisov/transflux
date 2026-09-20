@@ -45,7 +45,7 @@ final class CompensationSink<T, C, D> {
     private final ConfigurableDefImpl owner;
     private final D self;
 
-    private final InstanceSource<Compensation<T, C>> fallback;
+    private final InstanceSource<Compensation<? super T, C>> fallback;
     private final List<CompensationRouteDefImpl<T, C, ?, D>> routes = new ArrayList<>();
 
     /**
@@ -61,7 +61,7 @@ final class CompensationSink<T, C, D> {
                                                     owner.defLabel());
     }
 
-    D withCompensationInstance(Compensation<T, C> compensation) {
+    D withCompensationInstance(Compensation<? super T, C> compensation) {
         owner.requireConfigurerActive("withCompensation");
         requireNotNull(compensation, "Compensation");
         fallback.setInstance(compensation);
@@ -95,7 +95,7 @@ final class CompensationSink<T, C, D> {
      *         compensation
      */
     BoundCompensationRouter<T, C> buildRouter() {
-        Compensation<T, C> declaredFallback = fallback.resolveOptional("Compensation");
+        Compensation<? super T, C> declaredFallback = fallback.resolveOptional("Compensation");
 
         if (routes.isEmpty()) {
             return declaredFallback == null ? null : BoundCompensationRouter.always(declaredFallback);
@@ -126,7 +126,7 @@ final class CompensationSink<T, C, D> {
      * declared fallback nothing to answer. Only that type is provable: a route on
      * {@code Exception} still misses an {@code Error}.
      */
-    private void warnIfFallbackUnreachable(Compensation<T, C> declaredFallback) {
+    private void warnIfFallbackUnreachable(Compensation<? super T, C> declaredFallback) {
         if (declaredFallback == null) {
             return;
         }

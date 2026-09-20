@@ -41,7 +41,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  */
 record BoundCompensationRoute<T, C>(Class<? extends Throwable> exceptionType,
                                     Predicate<Throwable> guard,
-                                    Compensation<T, C> compensation) {
+                                    Compensation<? super T, C> compensation) {
 
     BoundCompensationRoute {
         requireNotNull(exceptionType, "Compensation route exception type");

@@ -45,7 +45,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <C> the host-supplied context type carried through transition execution
  */
 record BoundCompensationRouter<T, C>(List<BoundCompensationRoute<T, C>> routes,
-                                     Compensation<T, C> fallback) {
+                                     Compensation<? super T, C> fallback) {
 
     BoundCompensationRouter {
         requireNotNull(routes, "Compensation routes");
@@ -63,7 +63,7 @@ record BoundCompensationRouter<T, C>(List<BoundCompensationRoute<T, C>> routes,
      *
      * @return a router with no routes and the supplied fallback
      */
-    static <T, C> BoundCompensationRouter<T, C> always(Compensation<T, C> compensation) {
+    static <T, C> BoundCompensationRouter<T, C> always(Compensation<? super T, C> compensation) {
         requireNotNull(compensation, "Compensation");
         return new BoundCompensationRouter<>(List.of(), compensation);
     }
@@ -82,7 +82,7 @@ record BoundCompensationRouter<T, C>(List<BoundCompensationRoute<T, C>> routes,
      *
      * @return this table, or a copy carrying the supplied fallback
      */
-    BoundCompensationRouter<T, C> withFallback(Compensation<T, C> dynamic) {
+    BoundCompensationRouter<T, C> withFallback(Compensation<? super T, C> dynamic) {
         if (dynamic == null || fallback != null) {
             return this;
         }
@@ -98,7 +98,7 @@ record BoundCompensationRouter<T, C>(List<BoundCompensationRoute<T, C>> routes,
      *
      * @return the compensation to run, or {@code null} when nothing answers for this failure
      */
-    Compensation<T, C> select(Throwable error, ActionPath path) {
+    Compensation<? super T, C> select(Throwable error, ActionPath path) {
         for (BoundCompensationRoute<T, C> route : routes) {
             if (route.matches(error, path)) {
                 Loggers.EXECUTION_COMPENSATION.trace(

@@ -34,8 +34,10 @@ import org.transflux.core.exception.TransfluxConditionException;
 import org.transflux.core.exception.TransfluxContextException;
 import org.transflux.core.exception.TransfluxNoMatchException;
 import org.transflux.core.logging.ExecutionLogging;
+import org.transflux.core.state.StateApplier;
 import org.transflux.core.state.StateChange;
 import org.transflux.core.state.StateListener;
+import org.transflux.core.state.StateResolver;
 import org.transflux.core.transition.ExecutingTransition;
 import org.transflux.core.transition.ProcessResult;
 import org.transflux.core.transition.Transition;
@@ -76,12 +78,65 @@ public final class JavaDslSurface {
      * The entity every fixture below transitions. The trail is concurrent because forked members
      * write to it from the pool while the synchronous path is still writing from this thread.
      */
-    public static final class Order {
+    public static final class Order implements Trackable {
         public String state = "s1";
         public final List<String> trail = new CopyOnWriteArrayList<>();
 
         public String label() {
             return "o-1";
+        }
+
+        @Override
+        public List<String> trail() {
+            return trail;
+        }
+
+        @Override
+        public String currentState() {
+            return state;
+        }
+
+        @Override
+        public void currentState(String next) {
+            state = next;
+        }
+    }
+
+    private static final StateResolver<Trackable> TRACKED_RESOLVER = Trackable::currentState;
+    private static final StateApplier<Trackable> TRACKED_APPLIER = Trackable::currentState;
+    private static final TrackStep TRACK_STEP = new TrackStep();
+    private static final IsTracked IS_TRACKED = new IsTracked();
+
+    /**
+     * A trait two unrelated entities share. A component written against it registers on a machine
+     * for either, which is what the contravariant entity type buys.
+     */
+    public interface Trackable {
+        List<String> trail();
+
+        String currentState();
+
+        void currentState(String next);
+    }
+
+    /** The second entity, so a component shared across entity types has two machines to sit on. */
+    public static final class Shipment implements Trackable {
+        private String state = "s1";
+        private final List<String> trail = new CopyOnWriteArrayList<>();
+
+        @Override
+        public List<String> trail() {
+            return trail;
+        }
+
+        @Override
+        public String currentState() {
+            return state;
+        }
+
+        @Override
+        public void currentState(String next) {
+            state = next;
         }
     }
 
@@ -900,6 +955,54 @@ public final class JavaDslSurface {
         }
     }
 
+    /** An action against the shared trait, so a machine for either entity can register it. */
+    public static final class TrackStep implements Action<Trackable, Object> {
+        @Override
+        public void execute(Trackable entity, Object ctx, ExecutingTransition<Trackable, Object> view) {
+            entity.trail().add("tracked");
+        }
+    }
+
+    /** A compensation against the trait, attached to a step declared on either machine. */
+    public static final class UntrackCompensation implements Compensation<Trackable, Object> {
+        @Override
+        public void compensate(Trackable entity, Object ctx) {
+            entity.trail().add("untracked");
+        }
+    }
+
+    /** A condition against the trait. */
+    public static final class IsTracked implements Condition<Trackable, Object> {
+        @Override
+        public boolean test(Trackable entity, Object ctx, Transition transition) {
+            return entity.currentState() != null;
+        }
+    }
+
+    /** A state listener against the trait. */
+    public static final class TrackedStateAudit implements StateListener<Trackable> {
+        @Override
+        public void onState(Trackable entity, Object ctx, StateChange change) {
+            entity.trail().add("state:" + change.phase());
+        }
+    }
+
+    /** A transition listener against the trait. */
+    public static final class TrackedTransitionAudit implements TransitionListener<Trackable, Object> {
+        @Override
+        public void onTransition(Trackable entity, Object ctx, TransitionExecution<Trackable> execution) {
+            entity.trail().add("transition:" + execution.phase());
+        }
+    }
+
+    /** An action listener against the trait. */
+    public static final class TrackedActionAudit implements ActionListener<Trackable, Object> {
+        @Override
+        public void onAction(Trackable entity, Object ctx, ActionExecution execution) {
+            entity.trail().add("action:" + execution.phase());
+        }
+    }
+
     /**
      * Every condition attachment form on a transition and every trigger declaration form, on the
      * pass-through {@code transitionsTo} that declares no context. The condition family is the
@@ -1136,6 +1239,45 @@ public final class JavaDslSurface {
             return context.getSubjectId();
         }
         return error.getClass().getName();
+    }
+
+    /**
+     * One set of components, each written against {@link Trackable}, registered on a machine for
+     * {@link Order} and on one for {@link Shipment} - the same instances both times. Before the
+     * entity type accepted a supertype, sharing them meant writing every component as a generic
+     * class.
+     *
+     * @return the two built machines, the one for orders first
+     */
+    public static List<StateMachine<? extends Trackable>> sharedAcrossEntityTypes() {
+        return List.of(trackedMachine(Order.class), trackedMachine(Shipment.class));
+    }
+
+    private static <T extends Trackable> StateMachine<T> trackedMachine(Class<T> entityType) {
+        return Transflux.defineStateMachine(entityType)
+            .withStateResolver(TRACKED_RESOLVER)
+            .withStateApplier(TRACKED_APPLIER)
+            .step("track", TRACK_STEP)
+            .condition("tracked", IS_TRACKED)
+            // an implicitly-typed lambda still infers the entity type rather than the wildcard
+            .condition("has-trail", entity -> entity.trail() != null)
+            .onAnyStateEntry("any-state", new TrackedStateAudit())
+            .onAnyTransitionStart("any-transition", new TrackedTransitionAudit())
+            .onAnyActionStart("any-action", new TrackedActionAudit())
+            .state("s1", s -> s
+                .onExit("on-exit", new TrackedStateAudit())
+                .transitionsTo("s2", "t", t -> t
+                    .preCondition("tracked")
+                    .preCondition("has-trail")
+                    .onStart("on-start", new TrackedTransitionAudit())
+                    .run("track")
+                    .step("inline-track", TRACK_STEP)
+                    .step("compensated", step -> step
+                        .using(TRACK_STEP)
+                        .withCompensation(new UntrackCompensation())
+                        .onStart("on-action", new TrackedActionAudit()))))
+            .state("s2", s -> { })
+            .build();
     }
 
     private static boolean isOpen(Order order) {

@@ -3,6 +3,12 @@
 ## Phase 6: Integration, Polish & Release Prep (v0.6.0 → v1.0.0)
 *Target: 1.0-grade integration, infrastructure, and documentation.*
 
+### Carried Findings
+*Standing item. A defect or gap found by a review of earlier work, too small to re-open that phase for and not worth carrying as a comment in the source. Each is closed, or explicitly deferred past 1.0, before §6.9's sign-off.*
+
+- [ ] **The catch seams stop one class short of `Throwable`.** `StateMachineImpl.executeTransitionInternal`, `ExecutingTransitionImpl.runAction`, `AsyncBranchTask`, `CompensationDrain` and the three notify seams catch `Exception` and `Error` separately. A throwable that is neither — what `@SneakyThrows` or any generic sneaky rethrow can raise — escapes both, so nothing drains, no `ERROR` listener fires, and the caller receives a raw throwable in place of a `TransitionResult`. Catching `Throwable` closes it, and precise rethrow still infers `RuntimeException | Error`, so no signature changes. Note that the `Error` rule itself is not in question: a `VirtualMachineError` says the VM is broken, and the framework unwinds rather than second-guessing which of them a rollback handler might survive.
+- [ ] **A mapper registration with no source fails the build, untested.** `StateMachineImpl`'s constructor builds every registered mapper eagerly, so `mapperDef(id, P, N, d -> d.withDescription(...))` that never calls `using(...)` now fails `build()` even when nothing references it. That is the intended direction — a definition error belongs at build rather than at first dispatch — but no spec pins it. Add the case to `StateMachineDefImplMapperRegistrationSpec`.
+
 ### 6.1 Spring Integration (Optional)
 - [ ] Target **Spring Boot 3.4.x** (Spring Framework 6.2.x). **Documented Java floor: Java 17+ across the board** — the core library targets Java 17, and the optional Spring integration also requires Java 17 (Spring 6 mandates it). Document the Java 17 floor in the README and in the Spring-integration section of the user guide.
 - [ ] Spring Boot auto-configuration class.
@@ -80,7 +86,7 @@ Phase 1.1 captured the dependency versions present in the repo when bootstrappin
 - [ ] Spock specification coverage ≥ 80% for core packages.
 - [ ] No critical or high-severity security findings.
 - [ ] Performance baseline established (basic benchmarks; not a 1.0 feature, but a baseline to detect regressions).
-- [ ] API surface review and sign-off; the contracting sample's findings list is empty or explicitly deferred.
+- [ ] API surface review and sign-off; the contracting sample's findings list and this phase's carried findings are empty or explicitly deferred.
 - [ ] Both contracting sample modules build, all their specs pass, and every item in the 1.0 contract summary is exercised by the sample — the reverse index in [the design](../design/contracting-sample.md) §6 is current.
 - [ ] Load test of representative workflow.
 - [ ] Documentation completeness verification.

@@ -71,7 +71,7 @@ public interface ChoiceDef<T, C> extends ActionDef<T, C> {
     ChoiceDef<T, C> withDescription(String description);
 
     @Override
-    ChoiceDef<T, C> withCompensation(Compensation<T, C> compensation);
+    ChoiceDef<T, C> withCompensation(Compensation<? super T, C> compensation);
 
     @Override
     ChoiceDef<T, C> withAsyncRejectionPolicy(AsyncRejectionPolicy policy);
@@ -123,21 +123,21 @@ public interface ChoiceDef<T, C> extends ActionDef<T, C> {
     ChoiceDef<T, C> onNoMatch(NoMatchBehavior behavior);
 
     @Override
-    ChoiceDef<T, C> onStart(String listenerId, ActionListener<T, C> listener);
+    ChoiceDef<T, C> onStart(String listenerId, ActionListener<? super T, C> listener);
 
     @Override
     ChoiceDef<T, C> onStart(String listenerId,
                             Consumer<ActionListenerDef<T, C>> configurer);
 
     @Override
-    ChoiceDef<T, C> onComplete(String listenerId, ActionListener<T, C> listener);
+    ChoiceDef<T, C> onComplete(String listenerId, ActionListener<? super T, C> listener);
 
     @Override
     ChoiceDef<T, C> onComplete(String listenerId,
                                Consumer<ActionListenerDef<T, C>> configurer);
 
     @Override
-    ChoiceDef<T, C> onError(String listenerId, ActionListener<T, C> listener);
+    ChoiceDef<T, C> onError(String listenerId, ActionListener<? super T, C> listener);
 
     @Override
     ChoiceDef<T, C> onError(String listenerId,

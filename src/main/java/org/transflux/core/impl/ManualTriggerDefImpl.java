@@ -63,17 +63,17 @@ final class ManualTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, ManualTrigge
     }
 
     @Override
-    public ManualTriggerDef<T, C> preCondition(String id, Condition<T, C> condition) {
+    public ManualTriggerDef<T, C> preCondition(String id, Condition<? super T, C> condition) {
         return preConditions.instanceBased(id, condition);
     }
 
     @Override
-    public ManualTriggerDef<T, C> preCondition(String id, BiPredicate<T, C> predicate) {
+    public ManualTriggerDef<T, C> preCondition(String id, BiPredicate<? super T, C> predicate) {
         return preConditions.predicate(id, predicate);
     }
 
     @Override
-    public ManualTriggerDef<T, C> preCondition(String id, Predicate<T> predicate) {
+    public ManualTriggerDef<T, C> preCondition(String id, Predicate<? super T> predicate) {
         return preConditions.predicate(id, predicate);
     }
 

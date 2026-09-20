@@ -47,5 +47,5 @@ import org.transflux.core.exception.TransfluxValidationException;
  * @param <C> the context type the observed action runs against
  */
 public interface ActionListenerDef<T, C>
-    extends ListenerDef<ActionListener<T, C>, ActionListenerDef<T, C>> {
+    extends ListenerDef<ActionListener<? super T, C>, ActionListenerDef<T, C>> {
 }

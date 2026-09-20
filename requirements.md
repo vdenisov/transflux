@@ -1587,6 +1587,8 @@ StateMachineDef<Subscription> def = Transflux.defineStateMachine(Subscription.cl
 
 Every kind has a typed form taking the context class the component was written against, and the same registrations are available grouped under `forContext(Class<C>, scope -> ...)` (§4.2). A trigger or listener registered without one is registered against `Object` and attaches anywhere.
 
+**Every position that accepts a host executable is contravariant in the entity type.** An `Action`, `Condition`, `Compensation`, the `BiPredicate` / `Predicate` condition forms, the three listener interfaces, and `StateResolver` / `StateApplier` are all taken as `? super T` — on these registrations, on the inline `ActionSequence` forms, and on `using(...)`, `withCompensation(...)` and the listener hooks. So one component written against an interface that several entity types share registers on a machine for each of them, as the same instance, rather than having to be a generic class. The context type stays invariant: widening it would make a component's declared context a claim about what it accepts rather than what it runs against, which is what the call-site check in §4.5.2 rests on. Nothing about how a call site is written changes, because an implicitly-typed lambda infers `T` from a `? super T` target exactly as it did from `T`.
+
 #### 4.1.2 References
 
 ```java

@@ -63,17 +63,17 @@ final class DataTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, DataTriggerDef
     }
 
     @Override
-    public DataTriggerDef<T, C> condition(String id, Condition<T, C> condition) {
+    public DataTriggerDef<T, C> condition(String id, Condition<? super T, C> condition) {
         return gate.instanceBased(id, condition);
     }
 
     @Override
-    public DataTriggerDef<T, C> condition(String id, BiPredicate<T, C> predicate) {
+    public DataTriggerDef<T, C> condition(String id, BiPredicate<? super T, C> predicate) {
         return gate.predicate(id, predicate);
     }
 
     @Override
-    public DataTriggerDef<T, C> condition(String id, Predicate<T> predicate) {
+    public DataTriggerDef<T, C> condition(String id, Predicate<? super T> predicate) {
         return gate.predicate(id, predicate);
     }
 

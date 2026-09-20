@@ -452,7 +452,7 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
             return declared;
         }
 
-        Compensation<T, Object> dynamic = bound.action().getCompensation(entity, effective);
+        Compensation<? super T, Object> dynamic = bound.action().getCompensation(entity, effective);
         if (declared == null) {
             return dynamic == null ? null : BoundCompensationRouter.always(dynamic);
         }

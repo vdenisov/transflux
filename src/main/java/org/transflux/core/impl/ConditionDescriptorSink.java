@@ -106,21 +106,21 @@ final class ConditionDescriptorSink<T, C, D> {
         return store(ConditionDescriptor.expression(expression));
     }
 
-    D instanceBased(String id, Condition<T, C> condition) {
+    D instanceBased(String id, Condition<? super T, C> condition) {
         owner.requireConfigurerActive(dslMethod);
         requireNotBlank(id, "Condition ID");
         requireNotNull(condition, "Condition");
         return store(ConditionDescriptor.instanceBased(id, condition));
     }
 
-    D predicate(String id, BiPredicate<T, C> predicate) {
+    D predicate(String id, BiPredicate<? super T, C> predicate) {
         owner.requireConfigurerActive(dslMethod);
         requireNotBlank(id, "Condition ID");
         requireNotNull(predicate, "Predicate");
         return store(ConditionDescriptor.predicate(id, predicate));
     }
 
-    D predicate(String id, Predicate<T> predicate) {
+    D predicate(String id, Predicate<? super T> predicate) {
         owner.requireConfigurerActive(dslMethod);
         requireNotBlank(id, "Condition ID");
         requireNotNull(predicate, "Predicate");

@@ -56,7 +56,7 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
     }
 
     @Override
-    public ContextScope<T, C> step(String id, Action<T, C> step) {
+    public ContextScope<T, C> step(String id, Action<? super T, C> step) {
         requireConfigurerActive("step");
         requireNotBlank(id, "Step ID");
         requireNotNull(step, "Step");
@@ -74,7 +74,7 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
     }
 
     @Override
-    public ContextScope<T, C> condition(String id, Condition<T, C> condition) {
+    public ContextScope<T, C> condition(String id, Condition<? super T, C> condition) {
         requireConfigurerActive("condition");
         requireNotBlank(id, "Condition ID");
         requireNotNull(condition, "Condition");
@@ -83,7 +83,7 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
     }
 
     @Override
-    public ContextScope<T, C> condition(String id, BiPredicate<T, C> predicate) {
+    public ContextScope<T, C> condition(String id, BiPredicate<? super T, C> predicate) {
         requireConfigurerActive("condition");
         requireNotBlank(id, "Condition ID");
         requireNotNull(predicate, "Predicate");
@@ -92,7 +92,7 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
     }
 
     @Override
-    public ContextScope<T, C> condition(String id, Predicate<T> predicate) {
+    public ContextScope<T, C> condition(String id, Predicate<? super T> predicate) {
         requireConfigurerActive("condition");
         requireNotBlank(id, "Condition ID");
         requireNotNull(predicate, "Predicate");

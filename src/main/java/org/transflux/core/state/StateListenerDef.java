@@ -37,5 +37,5 @@ import org.transflux.core.exception.TransfluxValidationException;
  *
  * @param <T> the entity type the surrounding state machine manages
  */
-public interface StateListenerDef<T> extends ListenerDef<StateListener<T>, StateListenerDef<T>> {
+public interface StateListenerDef<T> extends ListenerDef<StateListener<? super T>, StateListenerDef<T>> {
 }

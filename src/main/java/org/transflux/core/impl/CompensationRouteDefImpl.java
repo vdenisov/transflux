@@ -45,7 +45,7 @@ final class CompensationRouteDefImpl<T, C, X extends Throwable, D>
     private final ConfigurableDefImpl owner;
     private final D self;
     private final Class<X> exceptionType;
-    private final InstanceSource<Compensation<T, C>> compensation;
+    private final InstanceSource<Compensation<? super T, C>> compensation;
 
     private Predicate<X> guard;
 
@@ -68,7 +68,7 @@ final class CompensationRouteDefImpl<T, C, X extends Throwable, D>
     }
 
     @Override
-    public D withCompensation(Compensation<T, C> compensation) {
+    public D withCompensation(Compensation<? super T, C> compensation) {
         owner.requireConfigurerActive("withCompensation");
         requireNotNull(compensation, "Compensation");
         this.compensation.setInstance(compensation);

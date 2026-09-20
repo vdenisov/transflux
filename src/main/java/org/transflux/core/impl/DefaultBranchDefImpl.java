@@ -130,7 +130,7 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
     }
 
     @Override
-    public DefaultBranchDef<T, C> step(String id, Action<T, C> step) {
+    public DefaultBranchDef<T, C> step(String id, Action<? super T, C> step) {
         return members.step(id, step, false);
     }
 
@@ -140,7 +140,7 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
     }
 
     @Override
-    public DefaultBranchDef<T, C> forkStep(String id, Action<T, C> action) {
+    public DefaultBranchDef<T, C> forkStep(String id, Action<? super T, C> action) {
         return members.step(id, action, true);
     }
 
@@ -162,13 +162,13 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
     }
 
     @Override
-    public <N> DefaultBranchDef<T, C> step(String id, Class<N> contextType, Action<T, N> action) {
+    public <N> DefaultBranchDef<T, C> step(String id, Class<N> contextType, Action<? super T, N> action) {
         return members.step(id, contextType, MapperRef.passThrough(), action, false);
     }
 
     @Override
     public <N> DefaultBranchDef<T, C> step(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                          Action<T, N> action) {
+                          Action<? super T, N> action) {
         return members.step(id, contextType, MapperRef.inline(mapper), action, false);
     }
 
@@ -208,13 +208,13 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
 
     @Override
     public <N> DefaultBranchDef<T, C> forkStep(String id, Class<N> contextType,
-                                               Action<T, N> action) {
+                                               Action<? super T, N> action) {
         return members.step(id, contextType, MapperRef.passThrough(), action, true);
     }
 
     @Override
     public <N> DefaultBranchDef<T, C> forkStep(String id, Class<N> contextType,
-                                               ContextMapper<C, N> mapper, Action<T, N> action) {
+                                               ContextMapper<C, N> mapper, Action<? super T, N> action) {
         return members.step(id, contextType, MapperRef.inline(mapper), action, true);
     }
 

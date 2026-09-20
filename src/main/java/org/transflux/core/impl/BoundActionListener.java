@@ -37,7 +37,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <C> the context type the observed action runs against
  */
 record BoundActionListener<T, C>(String id, String name, String description,
-                                 AsyncRejectionPolicy async, ActionListener<T, C> listener) {
+                                 AsyncRejectionPolicy async, ActionListener<? super T, C> listener) {
 
     BoundActionListener {
         requireNotBlank(id, "Bound action listener ID");

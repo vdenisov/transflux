@@ -82,7 +82,7 @@ public interface BranchDef<T, C> extends ActionSequence<T, C, BranchDef<T, C>> {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code condition} is {@code null}
      */
-    BranchDef<T, C> condition(String id, Condition<T, C> condition);
+    BranchDef<T, C> condition(String id, Condition<? super T, C> condition);
 
     /**
      * Sets this branch's condition to a {@link BiPredicate} over {@code (entity, context)},
@@ -96,7 +96,7 @@ public interface BranchDef<T, C> extends ActionSequence<T, C, BranchDef<T, C>> {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code predicate} is {@code null}
      */
-    BranchDef<T, C> condition(String id, BiPredicate<T, C> predicate);
+    BranchDef<T, C> condition(String id, BiPredicate<? super T, C> predicate);
 
     /**
      * Convenience overload of {@link #condition(String, BiPredicate)} accepting an entity-only
@@ -110,7 +110,7 @@ public interface BranchDef<T, C> extends ActionSequence<T, C, BranchDef<T, C>> {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code predicate} is {@code null}
      */
-    BranchDef<T, C> condition(String id, Predicate<T> predicate);
+    BranchDef<T, C> condition(String id, Predicate<? super T> predicate);
 
     /**
      * Sets this branch's condition to a SpEL expression under an explicit id.

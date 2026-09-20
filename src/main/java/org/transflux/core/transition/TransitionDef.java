@@ -194,7 +194,7 @@ public interface TransitionDef<T, C>
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code condition} is {@code null}
      */
-    TransitionDef<T, C> preCondition(String id, Condition<T, C> condition);
+    TransitionDef<T, C> preCondition(String id, Condition<? super T, C> condition);
 
     /**
      * Appends a pre-condition built from a {@link BiPredicate} over {@code (entity, context)}
@@ -209,7 +209,7 @@ public interface TransitionDef<T, C>
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code predicate} is {@code null}
      */
-    TransitionDef<T, C> preCondition(String id, BiPredicate<T, C> predicate);
+    TransitionDef<T, C> preCondition(String id, BiPredicate<? super T, C> predicate);
 
     /**
      * Convenience overload of {@link #preCondition(String, BiPredicate)} accepting an
@@ -220,7 +220,7 @@ public interface TransitionDef<T, C>
      *
      * @return this transition def for chaining
      */
-    TransitionDef<T, C> preCondition(String id, Predicate<T> predicate);
+    TransitionDef<T, C> preCondition(String id, Predicate<? super T> predicate);
 
     /**
      * Appends a pre-condition built from a SpEL expression under the given id.
@@ -273,7 +273,7 @@ public interface TransitionDef<T, C>
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code condition} is {@code null}
      */
-    TransitionDef<T, C> postCondition(String id, Condition<T, C> condition);
+    TransitionDef<T, C> postCondition(String id, Condition<? super T, C> condition);
 
     /**
      * Appends a post-condition built from a {@link BiPredicate} over {@code (entity, context)}
@@ -288,7 +288,7 @@ public interface TransitionDef<T, C>
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code predicate} is {@code null}
      */
-    TransitionDef<T, C> postCondition(String id, BiPredicate<T, C> predicate);
+    TransitionDef<T, C> postCondition(String id, BiPredicate<? super T, C> predicate);
 
     /**
      * Convenience overload of {@link #postCondition(String, BiPredicate)} accepting an
@@ -299,7 +299,7 @@ public interface TransitionDef<T, C>
      *
      * @return this transition def for chaining
      */
-    TransitionDef<T, C> postCondition(String id, Predicate<T> predicate);
+    TransitionDef<T, C> postCondition(String id, Predicate<? super T> predicate);
 
     /**
      * Appends a post-condition built from a SpEL expression under the given id.
@@ -430,7 +430,7 @@ public interface TransitionDef<T, C>
      * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
      *         or another listener is already registered under the same id
      */
-    TransitionDef<T, C> onStart(String listenerId, TransitionListener<T, C> listener);
+    TransitionDef<T, C> onStart(String listenerId, TransitionListener<? super T, C> listener);
 
     /**
      * Attaches a start listener declared through a configurer, for the cases where the listener
@@ -462,7 +462,7 @@ public interface TransitionDef<T, C>
      * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
      *         or another listener is already registered under the same id
      */
-    TransitionDef<T, C> onComplete(String listenerId, TransitionListener<T, C> listener);
+    TransitionDef<T, C> onComplete(String listenerId, TransitionListener<? super T, C> listener);
 
     /**
      * Attaches a completion listener declared through a configurer, for the cases where the
@@ -494,7 +494,7 @@ public interface TransitionDef<T, C>
      * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
      *         or another listener is already registered under the same id
      */
-    TransitionDef<T, C> onError(String listenerId, TransitionListener<T, C> listener);
+    TransitionDef<T, C> onError(String listenerId, TransitionListener<? super T, C> listener);
 
     /**
      * Attaches an error listener declared through a configurer, for the cases where the listener

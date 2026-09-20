@@ -102,13 +102,13 @@ final class ConditionResolver {
 
     @SuppressWarnings("unchecked")
     private static <T, C> BoundCondition<T, C> resolveInstanceBased(ConditionDescriptor.InstanceBased descriptor) {
-        Condition<T, C> instance = (Condition<T, C>) descriptor.condition();
+        Condition<? super T, C> instance = (Condition<? super T, C>) descriptor.condition();
         return BoundCondition.of(descriptor.id(), instance);
     }
 
     @SuppressWarnings("unchecked")
     private static <T, C> BoundCondition<T, C> resolvePredicateBased(ConditionDescriptor.PredicateBased descriptor) {
-        BiPredicate<T, C> predicate = (BiPredicate<T, C>) descriptor.predicate();
+        BiPredicate<? super T, C> predicate = (BiPredicate<? super T, C>) descriptor.predicate();
         Condition<T, C> adapted = (entity, ctx, transition) -> predicate.test(entity, ctx);
         return BoundCondition.of(descriptor.id(), adapted);
     }

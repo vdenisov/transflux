@@ -94,7 +94,7 @@ final class CompensationDrain {
         List<ActionPath> compensatedPath = new ArrayList<>(drained.size());
 
         for (BoundCompensation<T, C> bc : drained) {
-            Compensation<T, C> selected = bc.router().select(failure, bc.path());
+            Compensation<? super T, C> selected = bc.router().select(failure, bc.path());
             if (selected == null) {
                 continue;
             }

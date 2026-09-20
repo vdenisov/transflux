@@ -37,7 +37,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
 final class TransitionListenerDefImpl<T, C> extends ListenerDefImpl<TransitionListenerDefImpl<T, C>>
         implements TransitionListenerDef<T, C> {
 
-    private final InstanceSource<TransitionListener<T, C>> source;
+    private final InstanceSource<TransitionListener<? super T, C>> source;
 
     TransitionListenerDefImpl(String id) {
         super(id, "transition listener", "Transition listener ID");
@@ -46,7 +46,7 @@ final class TransitionListenerDefImpl<T, C> extends ListenerDefImpl<TransitionLi
     }
 
     @Override
-    public TransitionListenerDefImpl<T, C> using(TransitionListener<T, C> listener) {
+    public TransitionListenerDefImpl<T, C> using(TransitionListener<? super T, C> listener) {
         requireConfigurerActive("using");
         requireNotNull(listener, "Transition listener");
         source.setInstance(listener);

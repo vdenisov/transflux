@@ -36,7 +36,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  */
 record BoundStateListener<T>(String id, String name, String description, AsyncRejectionPolicy async,
-                             StateListener<T> listener) {
+                             StateListener<? super T> listener) {
 
     BoundStateListener {
         requireNotBlank(id, "Bound state listener ID");

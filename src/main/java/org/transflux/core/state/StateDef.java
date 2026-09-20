@@ -113,7 +113,7 @@ public interface StateDef<T> {
      * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
      *         or another state listener is already registered under the same id
      */
-    StateDef<T> onEntry(String listenerId, StateListener<T> listener);
+    StateDef<T> onEntry(String listenerId, StateListener<? super T> listener);
 
     /**
      * Attaches an entry listener declared through a configurer, for the cases where the listener
@@ -146,7 +146,7 @@ public interface StateDef<T> {
      * @throws TransfluxValidationException if either argument is {@code null}, the id is blank,
      *         or another state listener is already registered under the same id
      */
-    StateDef<T> onExit(String listenerId, StateListener<T> listener);
+    StateDef<T> onExit(String listenerId, StateListener<? super T> listener);
 
     /**
      * Attaches an exit listener declared through a configurer, for the cases where the listener

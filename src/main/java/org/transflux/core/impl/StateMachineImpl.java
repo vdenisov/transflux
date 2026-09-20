@@ -39,6 +39,7 @@ import org.transflux.core.transition.ProcessResult;
 import org.transflux.core.transition.ActionPath;
 import org.transflux.core.transition.Transition;
 import org.transflux.core.transition.TransitionExecution;
+import org.transflux.core.transition.TransitionListener;
 import org.transflux.core.transition.TransitionPhase;
 import org.transflux.core.transition.TransitionResult;
 import org.transflux.core.trigger.Trigger;
@@ -90,8 +91,8 @@ class StateMachineImpl<T> implements StateMachine<T> {
     // ponytail: fixed 10s drain window on close; make it configurable if a host ever needs longer.
     private static final long ASYNC_SHUTDOWN_TIMEOUT_MS = 10_000L;
 
-    private final StateResolver<T> stateResolver;
-    private final StateApplier<T> stateApplier;
+    private final StateResolver<? super T> stateResolver;
+    private final StateApplier<? super T> stateApplier;
 
     private final Map<String, State> states = new LinkedHashMap<>();
     private final Map<String, BoundTransition<T, ?>> transitions = new LinkedHashMap<>();
@@ -320,7 +321,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
         ((Action) body.action()).execute(view.getEntity(), view.getContext(), view);
     }
 
-    StateApplier<T> getStateApplier() {
+    StateApplier<? super T> getStateApplier() {
         return stateApplier;
     }
 
@@ -800,9 +801,13 @@ class StateMachineImpl<T> implements StateMachine<T> {
             phase, TransitionImpl.of(transition), firedBy, result);
 
         for (BoundTransitionListener<T, C> listener : listeners) {
+            // The payload record is invariant, so a listener written against a supertype cannot be
+            // handed it directly; it only ever produces T, which is what makes the cast sound.
+            @SuppressWarnings("unchecked")
+            TransitionListener<T, C> target = (TransitionListener<T, C>) listener.listener();
             deliver(listener.id(), listener.async(), context, ctx -> {
                 try {
-                    listener.listener().onTransition(entity, ctx, execution);
+                    target.onTransition(entity, ctx, execution);
                 } catch (Exception | Error e) {
                     ThrowingUtils.rethrowIfFatal(e);
                     Loggers.EXECUTION_LISTENER.warn(

@@ -33,7 +33,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-record BoundCondition<T, C>(String id, Condition<T, C> condition) {
+record BoundCondition<T, C>(String id, Condition<? super T, C> condition) {
 
     /**
      * Where a condition sits in an execution. Carried into the log line so a host reading a mixed
@@ -115,7 +115,7 @@ record BoundCondition<T, C>(String id, Condition<T, C> condition) {
      *
      * @return a fresh bound condition
      */
-    static <T, C> BoundCondition<T, C> of(String id, Condition<T, C> condition) {
+    static <T, C> BoundCondition<T, C> of(String id, Condition<? super T, C> condition) {
         return new BoundCondition<>(id, condition);
     }
 

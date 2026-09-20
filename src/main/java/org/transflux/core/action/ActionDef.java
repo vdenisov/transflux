@@ -127,7 +127,7 @@ public interface ActionDef<T, C> {
      * @throws org.transflux.core.exception.TransfluxValidationException if {@code compensation} is
      *         {@code null}, or if the configurer has already returned
      */
-    ActionDef<T, C> withCompensation(Compensation<T, C> compensation);
+    ActionDef<T, C> withCompensation(Compensation<? super T, C> compensation);
 
     /**
      * Declares what happens when this action is forked and the executor cannot take it - a full
@@ -228,7 +228,7 @@ public interface ActionDef<T, C> {
      * @throws org.transflux.core.exception.TransfluxValidationException if either argument is
      *         {@code null} or the id is blank, or if the configurer has already returned
      */
-    ActionDef<T, C> onStart(String listenerId, ActionListener<T, C> listener);
+    ActionDef<T, C> onStart(String listenerId, ActionListener<? super T, C> listener);
 
     /**
      * Configurer form of {@link #onStart(String, ActionListener)}, for a listener that also wants a
@@ -254,7 +254,7 @@ public interface ActionDef<T, C> {
      *
      * @return this def for chaining
      */
-    ActionDef<T, C> onComplete(String listenerId, ActionListener<T, C> listener);
+    ActionDef<T, C> onComplete(String listenerId, ActionListener<? super T, C> listener);
 
     /**
      * Configurer form of {@link #onComplete(String, ActionListener)}.
@@ -278,7 +278,7 @@ public interface ActionDef<T, C> {
      *
      * @return this def for chaining
      */
-    ActionDef<T, C> onError(String listenerId, ActionListener<T, C> listener);
+    ActionDef<T, C> onError(String listenerId, ActionListener<? super T, C> listener);
 
     /**
      * Configurer form of {@link #onError(String, ActionListener)}.

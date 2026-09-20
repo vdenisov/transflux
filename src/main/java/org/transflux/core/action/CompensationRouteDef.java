@@ -85,6 +85,6 @@ public interface CompensationRouteDef<T, C, X extends Throwable, D> {
      * @throws org.transflux.core.exception.TransfluxValidationException if {@code compensation} is
      *         {@code null}, or if the owning def's configurer has already returned
      */
-    D withCompensation(Compensation<T, C> compensation);
+    D withCompensation(Compensation<? super T, C> compensation);
 
 }

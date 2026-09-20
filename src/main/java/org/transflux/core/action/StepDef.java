@@ -52,7 +52,7 @@ public interface StepDef<T, C> extends ActionDef<T, C> {
      *
      * @throws TransfluxValidationException if {@code action} is {@code null}
      */
-    StepDef<T, C> using(Action<T, C> action);
+    StepDef<T, C> using(Action<? super T, C> action);
 
     @Override
     StepDef<T, C> withName(String name);
@@ -61,7 +61,7 @@ public interface StepDef<T, C> extends ActionDef<T, C> {
     StepDef<T, C> withDescription(String description);
 
     @Override
-    StepDef<T, C> withCompensation(Compensation<T, C> compensation);
+    StepDef<T, C> withCompensation(Compensation<? super T, C> compensation);
 
     @Override
     StepDef<T, C> withAsyncRejectionPolicy(AsyncRejectionPolicy policy);
@@ -71,19 +71,19 @@ public interface StepDef<T, C> extends ActionDef<T, C> {
         Class<X> exceptionType);
 
     @Override
-    StepDef<T, C> onStart(String listenerId, ActionListener<T, C> listener);
+    StepDef<T, C> onStart(String listenerId, ActionListener<? super T, C> listener);
 
     @Override
     StepDef<T, C> onStart(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
 
     @Override
-    StepDef<T, C> onComplete(String listenerId, ActionListener<T, C> listener);
+    StepDef<T, C> onComplete(String listenerId, ActionListener<? super T, C> listener);
 
     @Override
     StepDef<T, C> onComplete(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
 
     @Override
-    StepDef<T, C> onError(String listenerId, ActionListener<T, C> listener);
+    StepDef<T, C> onError(String listenerId, ActionListener<? super T, C> listener);
 
     @Override
     StepDef<T, C> onError(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);

@@ -45,7 +45,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <C> the host-supplied context type this action requires
  */
 final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> implements StepDef<T, C> {
-    private final InstanceSource<Action<T, C>> source;
+    private final InstanceSource<Action<? super T, C>> source;
 
     /**
      * Declares an action that names no context of its own, so it takes the enclosing position's.
@@ -67,7 +67,7 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
     }
 
     @Override
-    public StepDefImpl<T, C> using(Action<T, C> action) {
+    public StepDefImpl<T, C> using(Action<? super T, C> action) {
         requireConfigurerActive("using");
         requireNotNull(action, "Step");
         source.setInstance(action);

@@ -79,8 +79,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private String description;
     private String version;
 
-    private StateResolver<T> stateResolver;
-    private StateApplier<T> stateApplier;
+    private StateResolver<? super T> stateResolver;
+    private StateApplier<? super T> stateApplier;
 
     private final Map<String, StateDefImpl<T>> states = new LinkedHashMap<>();
 
@@ -190,7 +190,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> withStateResolver(StateResolver<T> stateResolver) {
+    public StateMachineDef<T> withStateResolver(StateResolver<? super T> stateResolver) {
         requireNotNull(stateResolver, "State resolver");
 
         if (this.stateResolver != null) {
@@ -240,7 +240,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> step(String id, Action<T, ?> step) {
+    public StateMachineDef<T> step(String id, Action<? super T, ?> step) {
         requireNotBlank(id, "Step ID");
         requireNotNull(step, "Step");
         registerStepInstance(id, step);
@@ -258,7 +258,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public <C> StateMachineDef<T> step(String id, Class<C> contextType, Action<T, C> step) {
+    public <C> StateMachineDef<T> step(String id, Class<C> contextType, Action<? super T, C> step) {
         requireNotBlank(id, "Step ID");
         requireNotNull(contextType, "Context type");
         requireNotNull(step, "Step");
@@ -285,7 +285,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         actionRegistrations.put(id, ActionRegistration.ofDef(def));
     }
 
-    private void registerStepInstance(String id, Action<T, ?> action) {
+    private void registerStepInstance(String id, Action<? super T, ?> action) {
         ActionRegistration<T> existing = actionRegistrations.get(id);
         if (existing == null) {
             checkIdNotRegisteredAsContainer(id);
@@ -519,7 +519,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> condition(String id, Condition<T, ?> condition) {
+    public StateMachineDef<T> condition(String id, Condition<? super T, ?> condition) {
         requireNotBlank(id, "Condition ID");
         requireNotNull(condition, "Condition");
         registerConditionInstance(id, condition);
@@ -527,7 +527,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> condition(String id, BiPredicate<T, ?> predicate) {
+    public StateMachineDef<T> condition(String id, BiPredicate<? super T, ?> predicate) {
         requireNotBlank(id, "Condition ID");
         requireNotNull(predicate, "Predicate");
         registerConditionPredicate(id, predicate);
@@ -535,7 +535,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> condition(String id, Predicate<T> predicate) {
+    public StateMachineDef<T> condition(String id, Predicate<? super T> predicate) {
         requireNotNull(predicate, "Predicate");
         return condition(id, adaptEntityPredicate(predicate));
     }
@@ -549,7 +549,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public <C> StateMachineDef<T> condition(String id, Class<C> contextType, Condition<T, C> condition) {
+    public <C> StateMachineDef<T> condition(String id, Class<C> contextType, Condition<? super T, C> condition) {
         requireNotBlank(id, "Condition ID");
         requireNotNull(contextType, "Context type");
         requireNotNull(condition, "Condition");
@@ -559,7 +559,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public <C> StateMachineDef<T> condition(String id, Class<C> contextType, BiPredicate<T, C> predicate) {
+    public <C> StateMachineDef<T> condition(String id, Class<C> contextType, BiPredicate<? super T, C> predicate) {
         requireNotBlank(id, "Condition ID");
         requireNotNull(contextType, "Context type");
         requireNotNull(predicate, "Predicate");
@@ -570,9 +570,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     @Override
     @SuppressWarnings("unchecked")
-    public <C> StateMachineDef<T> condition(String id, Class<C> contextType, Predicate<T> predicate) {
+    public <C> StateMachineDef<T> condition(String id, Class<C> contextType, Predicate<? super T> predicate) {
         requireNotNull(predicate, "Predicate");
-        BiPredicate<T, C> adapted = (BiPredicate<T, C>) adaptEntityPredicate(predicate);
+        BiPredicate<? super T, C> adapted = (BiPredicate<? super T, C>) adaptEntityPredicate(predicate);
         return condition(id, contextType, adapted);
     }
 
@@ -651,7 +651,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         return mapperRegistrations.get(id);
     }
 
-    private void registerConditionInstance(String id, Condition<T, ?> condition) {
+    private void registerConditionInstance(String id, Condition<? super T, ?> condition) {
         ConditionRegistration<T> existing = conditionRegistrations.get(id);
         if (existing == null) {
             conditionRegistrations.put(id, ConditionRegistration.ofInstance(condition));
@@ -665,7 +665,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         throw new TransfluxValidationException("Condition ID '" + id + "' is already registered");
     }
 
-    private void registerConditionPredicate(String id, BiPredicate<T, ?> predicate) {
+    private void registerConditionPredicate(String id, BiPredicate<? super T, ?> predicate) {
         ConditionRegistration<T> existing = conditionRegistrations.get(id);
         if (existing == null) {
             conditionRegistrations.put(id, ConditionRegistration.ofPredicate(predicate));
@@ -679,7 +679,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         throw new TransfluxValidationException("Condition ID '" + id + "' is already registered");
     }
 
-    private static <T> BiPredicate<T, Object> adaptEntityPredicate(Predicate<T> predicate) {
+    private static <T> BiPredicate<T, Object> adaptEntityPredicate(Predicate<? super T> predicate) {
         return (entity, context) -> predicate.test(entity);
     }
 
@@ -932,7 +932,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         return smCompositeOperations.get(id);
     }
 
-    <C> void registerScopedStep(String id, Action<T, C> step, Class<C> contextType) {
+    <C> void registerScopedStep(String id, Action<? super T, C> step, Class<C> contextType) {
         registerStepInstance(id, step);
         tagContextType(id, contextType);
     }
@@ -944,12 +944,12 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         tagContextType(id, contextType);
     }
 
-    <C> void registerScopedCondition(String id, Condition<T, C> condition, Class<C> contextType) {
+    <C> void registerScopedCondition(String id, Condition<? super T, C> condition, Class<C> contextType) {
         registerConditionInstance(id, condition);
         tagContextType(id, contextType);
     }
 
-    <C> void registerScopedCondition(String id, BiPredicate<T, C> predicate, Class<C> contextType) {
+    <C> void registerScopedCondition(String id, BiPredicate<? super T, C> predicate, Class<C> contextType) {
         registerConditionPredicate(id, predicate);
         tagContextType(id, contextType);
     }
@@ -1010,7 +1010,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> withStateApplier(StateApplier<T> stateApplier) {
+    public StateMachineDef<T> withStateApplier(StateApplier<? super T> stateApplier) {
         requireNotNull(stateApplier, "State applier");
 
         if (this.stateApplier != null) {
@@ -1058,7 +1058,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyStateEntry(String listenerId, StateListener<T> listener) {
+    public StateMachineDef<T> onAnyStateEntry(String listenerId, StateListener<? super T> listener) {
         requireNotBlank(listenerId, "State listener ID");
         requireNotNull(listener, "State listener");
         return onAnyStateEntry(listenerId, l -> l.using(listener));
@@ -1071,7 +1071,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyStateExit(String listenerId, StateListener<T> listener) {
+    public StateMachineDef<T> onAnyStateExit(String listenerId, StateListener<? super T> listener) {
         requireNotBlank(listenerId, "State listener ID");
         requireNotNull(listener, "State listener");
         return onAnyStateExit(listenerId, l -> l.using(listener));
@@ -1102,7 +1102,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyTransitionStart(String listenerId, TransitionListener<T, Object> listener) {
+    public StateMachineDef<T> onAnyTransitionStart(String listenerId, TransitionListener<? super T, Object> listener) {
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(listener, "Transition listener");
         return onAnyTransitionStart(listenerId, l -> l.using(listener));
@@ -1116,7 +1116,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyTransitionComplete(String listenerId, TransitionListener<T, Object> listener) {
+    public StateMachineDef<T> onAnyTransitionComplete(String listenerId, TransitionListener<? super T, Object> listener) {
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(listener, "Transition listener");
         return onAnyTransitionComplete(listenerId, l -> l.using(listener));
@@ -1130,7 +1130,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyTransitionError(String listenerId, TransitionListener<T, Object> listener) {
+    public StateMachineDef<T> onAnyTransitionError(String listenerId, TransitionListener<? super T, Object> listener) {
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(listener, "Transition listener");
         return onAnyTransitionError(listenerId, l -> l.using(listener));
@@ -1144,7 +1144,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyActionStart(String listenerId, ActionListener<T, Object> listener) {
+    public StateMachineDef<T> onAnyActionStart(String listenerId, ActionListener<? super T, Object> listener) {
         requireNotBlank(listenerId, "Action listener ID");
         requireNotNull(listener, "Action listener");
         return onAnyActionStart(listenerId, l -> l.using(listener));
@@ -1158,7 +1158,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyActionComplete(String listenerId, ActionListener<T, Object> listener) {
+    public StateMachineDef<T> onAnyActionComplete(String listenerId, ActionListener<? super T, Object> listener) {
         requireNotBlank(listenerId, "Action listener ID");
         requireNotNull(listener, "Action listener");
         return onAnyActionComplete(listenerId, l -> l.using(listener));
@@ -1172,7 +1172,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public StateMachineDef<T> onAnyActionError(String listenerId, ActionListener<T, Object> listener) {
+    public StateMachineDef<T> onAnyActionError(String listenerId, ActionListener<? super T, Object> listener) {
         requireNotBlank(listenerId, "Action listener ID");
         requireNotNull(listener, "Action listener");
         return onAnyActionError(listenerId, l -> l.using(listener));
@@ -1910,12 +1910,12 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /** @return the state resolver, or {@code null} if unset */
-    public StateResolver<T> getStateResolver() {
+    public StateResolver<? super T> getStateResolver() {
         return stateResolver;
     }
 
     /** @return the state applier, or {@code null} if unset */
-    public StateApplier<T> getStateApplier() {
+    public StateApplier<? super T> getStateApplier() {
         return stateApplier;
     }
 
@@ -1927,9 +1927,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         return transitionsById;
     }
 
-    private record ActionRegistration<T>(Action<T, ?> instance, StepDefImpl<T, ?> def) {
+    private record ActionRegistration<T>(Action<? super T, ?> instance, StepDefImpl<T, ?> def) {
 
-        static <T> ActionRegistration<T> ofInstance(Action<T, ?> instance) {
+        static <T> ActionRegistration<T> ofInstance(Action<? super T, ?> instance) {
             return new ActionRegistration<>(instance, null);
         }
 
@@ -1946,14 +1946,14 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
     }
 
-    private record ConditionRegistration<T>(Condition<T, ?> instance, BiPredicate<T, ?> predicate,
+    private record ConditionRegistration<T>(Condition<? super T, ?> instance, BiPredicate<? super T, ?> predicate,
                                             String expression) {
 
-        static <T> ConditionRegistration<T> ofInstance(Condition<T, ?> instance) {
+        static <T> ConditionRegistration<T> ofInstance(Condition<? super T, ?> instance) {
                 return new ConditionRegistration<>(instance, null, null);
             }
 
-            static <T> ConditionRegistration<T> ofPredicate(BiPredicate<T, ?> predicate) {
+            static <T> ConditionRegistration<T> ofPredicate(BiPredicate<? super T, ?> predicate) {
                 return new ConditionRegistration<>(null, predicate, null);
             }
 
@@ -1967,7 +1967,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
                     return BoundCondition.of(id, (Condition) instance);
                 }
                 if (predicate != null) {
-                    BiPredicate<T, Object> p = (BiPredicate<T, Object>) predicate;
+                    BiPredicate<? super T, Object> p = (BiPredicate<? super T, Object>) predicate;
                     Condition<T, Object> adapted = (entity, ctx, transition) -> p.test(entity, ctx);
                     return BoundCondition.of(id, (Condition) adapted);
                 }

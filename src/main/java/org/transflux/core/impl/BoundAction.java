@@ -47,7 +47,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-record BoundAction<T, C>(String id, Action<T, C> action, ActionKind kind,
+record BoundAction<T, C>(String id, Action<? super T, C> action, ActionKind kind,
                          BoundActionListeners<T, C> listeners,
                          BoundCompensationRouter<T, C> compensationRouter,
                          AsyncRejectionPolicy asyncRejectionPolicy,
@@ -74,7 +74,7 @@ record BoundAction<T, C>(String id, Action<T, C> action, ActionKind kind,
      *
      * @return a fresh bound action with no listeners and no declared compensation
      */
-    static <T, C> BoundAction<T, C> of(String id, Action<T, C> action, ActionKind kind) {
+    static <T, C> BoundAction<T, C> of(String id, Action<? super T, C> action, ActionKind kind) {
         return new BoundAction<>(id, action, kind, BoundActionListeners.none(), null, null,
                                  GlobalListenerDisables.none());
     }
@@ -94,7 +94,7 @@ record BoundAction<T, C>(String id, Action<T, C> action, ActionKind kind,
      *
      * @return a fresh bound action
      */
-    static <T, C> BoundAction<T, C> of(String id, Action<T, C> action, ActionKind kind,
+    static <T, C> BoundAction<T, C> of(String id, Action<? super T, C> action, ActionKind kind,
                                        BoundActionListeners<T, C> listeners,
                                        BoundCompensationRouter<T, C> compensationRouter,
                                        AsyncRejectionPolicy asyncRejectionPolicy,

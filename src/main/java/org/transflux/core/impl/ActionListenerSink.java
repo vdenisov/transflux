@@ -65,7 +65,7 @@ final class ActionListenerSink<T, C, D> {
         this.self = self;
     }
 
-    D instanceBased(ActionPhase phase, String listenerId, ActionListener<T, C> listener) {
+    D instanceBased(ActionPhase phase, String listenerId, ActionListener<? super T, C> listener) {
         owner.requireConfigurerActive(hook(phase));
         requireNotBlank(listenerId, "Action listener ID");
         requireNotNull(listener, "Action listener");

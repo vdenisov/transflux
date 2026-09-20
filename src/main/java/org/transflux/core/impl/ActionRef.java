@@ -174,7 +174,7 @@ sealed interface ActionRef<T, C>
         return new ById<>(id, mapperRef);
     }
 
-    static <T, C> ActionRef<T, C> inline(String id, Action<T, C> action, ActionKind kind) {
+    static <T, C> ActionRef<T, C> inline(String id, Action<? super T, C> action, ActionKind kind) {
         return new InlineInstance<>(id, action, kind);
     }
 
@@ -212,7 +212,7 @@ sealed interface ActionRef<T, C>
     }
 
     @SuppressWarnings("ClassEscapesDefinedScope")
-    record InlineInstance<T, C>(String id, Action<T, C> action, ActionKind kind)
+    record InlineInstance<T, C>(String id, Action<? super T, C> action, ActionKind kind)
         implements ActionRef<T, C> {
 
         public InlineInstance {

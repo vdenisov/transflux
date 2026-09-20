@@ -131,7 +131,7 @@ public interface ManualTriggerDef<T, C> {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code condition} is {@code null}
      */
-    ManualTriggerDef<T, C> preCondition(String id, Condition<T, C> condition);
+    ManualTriggerDef<T, C> preCondition(String id, Condition<? super T, C> condition);
 
     /**
      * Appends a pre-condition built from a {@link BiPredicate} over {@code (entity, context)}
@@ -146,7 +146,7 @@ public interface ManualTriggerDef<T, C> {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank or
      *         {@code predicate} is {@code null}
      */
-    ManualTriggerDef<T, C> preCondition(String id, BiPredicate<T, C> predicate);
+    ManualTriggerDef<T, C> preCondition(String id, BiPredicate<? super T, C> predicate);
 
     /**
      * Convenience overload of {@link #preCondition(String, BiPredicate)} accepting an entity-only
@@ -157,7 +157,7 @@ public interface ManualTriggerDef<T, C> {
      *
      * @return this trigger def for chaining
      */
-    ManualTriggerDef<T, C> preCondition(String id, Predicate<T> predicate);
+    ManualTriggerDef<T, C> preCondition(String id, Predicate<? super T> predicate);
 
     /**
      * Appends a pre-condition built from a SpEL expression under the given id.

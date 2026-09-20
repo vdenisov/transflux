@@ -235,7 +235,7 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      * @throws TransfluxValidationException if {@code id} is blank or {@code action} is
      *         {@code null}
      */
-    SELF step(String id, Action<T, C> action);
+    SELF step(String id, Action<? super T, C> action);
 
     /**
      * Configurer form of the inline declaration, for a member that also wants a name, a
@@ -308,7 +308,7 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      * @throws TransfluxValidationException if {@code id} is blank or {@code action} is
      *         {@code null}
      */
-    SELF forkStep(String id, Action<T, C> action);
+    SELF forkStep(String id, Action<? super T, C> action);
 
     /**
      * Configurer form of {@link #forkStep(String, Action)}, for a member that also wants a name, a
@@ -371,7 +371,7 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      * @throws TransfluxValidationException if {@code id} is blank or either other argument is
      *         {@code null}
      */
-    <N> SELF step(String id, Class<N> contextType, Action<T, N> action);
+    <N> SELF step(String id, Class<N> contextType, Action<? super T, N> action);
 
     /**
      * Declares an imperative action inline against a context of its own, produced by
@@ -392,7 +392,7 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      * @throws TransfluxValidationException if {@code id} is blank or any other argument is
      *         {@code null}
      */
-    <N> SELF step(String id, Class<N> contextType, ContextMapper<C, N> mapper, Action<T, N> action);
+    <N> SELF step(String id, Class<N> contextType, ContextMapper<C, N> mapper, Action<? super T, N> action);
 
     /**
      * Configurer form of {@link #step(String, Class, Action)}, for a member that also wants a
@@ -515,7 +515,7 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      * @throws TransfluxValidationException if {@code id} is blank or either other argument is
      *         {@code null}
      */
-    <N> SELF forkStep(String id, Class<N> contextType, Action<T, N> action);
+    <N> SELF forkStep(String id, Class<N> contextType, Action<? super T, N> action);
 
     /**
      * Forked form of {@link #step(String, Class, ContextMapper, Action)} - see
@@ -536,7 +536,7 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      *         {@code null}
      */
     <N> SELF forkStep(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                      Action<T, N> action);
+                      Action<? super T, N> action);
 
     /**
      * Configurer form of {@link #forkStep(String, Class, Action)}, for a member that also wants a

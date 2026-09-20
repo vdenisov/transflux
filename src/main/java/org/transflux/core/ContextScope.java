@@ -56,7 +56,7 @@ public interface ContextScope<T, C> {
      * @throws TransfluxValidationException if {@code id} is {@code null}/blank, {@code step}
      *         is {@code null}, or another component is already registered under {@code id}
      */
-    ContextScope<T, C> step(String id, Action<T, C> step);
+    ContextScope<T, C> step(String id, Action<? super T, C> step);
 
     /**
      * Registers a step under {@code id} via a lambda configurer, tagged with this scope's context
@@ -84,7 +84,7 @@ public interface ContextScope<T, C> {
      *
      * @return this scope for chaining
      */
-    ContextScope<T, C> condition(String id, Condition<T, C> condition);
+    ContextScope<T, C> condition(String id, Condition<? super T, C> condition);
 
     /**
      * Registers an {@code (entity, context)} predicate as a condition under {@code id},
@@ -95,7 +95,7 @@ public interface ContextScope<T, C> {
      *
      * @return this scope for chaining
      */
-    ContextScope<T, C> condition(String id, BiPredicate<T, C> predicate);
+    ContextScope<T, C> condition(String id, BiPredicate<? super T, C> predicate);
 
     /**
      * Convenience overload of {@link #condition(String, BiPredicate)} accepting an entity-only
@@ -106,7 +106,7 @@ public interface ContextScope<T, C> {
      *
      * @return this scope for chaining
      */
-    ContextScope<T, C> condition(String id, Predicate<T> predicate);
+    ContextScope<T, C> condition(String id, Predicate<? super T> predicate);
 
     /**
      * Registers a SpEL expression as a condition under {@code id}, tagged with this scope's

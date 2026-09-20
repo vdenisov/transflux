@@ -109,7 +109,7 @@ final class ActionSequenceSink<T, C, D> {
         return reference("fork", id, inlineMapper, true, policy);
     }
 
-    D step(String id, Action<T, C> action, boolean forked) {
+    D step(String id, Action<? super T, C> action, boolean forked) {
         owner.requireConfigurerActive(verb("step", forked));
         requireNotBlank(id, "Step ID");
         requireNotNull(action, "Step action");
@@ -127,7 +127,7 @@ final class ActionSequenceSink<T, C, D> {
         return self;
     }
 
-    <N> D step(String id, Class<N> contextType, MapperRef mapperRef, Action<T, N> action,
+    <N> D step(String id, Class<N> contextType, MapperRef mapperRef, Action<? super T, N> action,
                boolean forked) {
         return typedStep(id, contextType, mapperRef, def -> def.using(action), forked);
     }

@@ -49,7 +49,7 @@ public interface OperationDef<T, C> extends ActionDef<T, C>,
     OperationDef<T, C> withDescription(String description);
 
     @Override
-    OperationDef<T, C> withCompensation(Compensation<T, C> compensation);
+    OperationDef<T, C> withCompensation(Compensation<? super T, C> compensation);
 
     @Override
     OperationDef<T, C> withAsyncRejectionPolicy(AsyncRejectionPolicy policy);
@@ -59,19 +59,19 @@ public interface OperationDef<T, C> extends ActionDef<T, C>,
         Class<X> exceptionType);
 
     @Override
-    OperationDef<T, C> onStart(String listenerId, ActionListener<T, C> listener);
+    OperationDef<T, C> onStart(String listenerId, ActionListener<? super T, C> listener);
 
     @Override
     OperationDef<T, C> onStart(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
 
     @Override
-    OperationDef<T, C> onComplete(String listenerId, ActionListener<T, C> listener);
+    OperationDef<T, C> onComplete(String listenerId, ActionListener<? super T, C> listener);
 
     @Override
     OperationDef<T, C> onComplete(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);
 
     @Override
-    OperationDef<T, C> onError(String listenerId, ActionListener<T, C> listener);
+    OperationDef<T, C> onError(String listenerId, ActionListener<? super T, C> listener);
 
     @Override
     OperationDef<T, C> onError(String listenerId, Consumer<ActionListenerDef<T, C>> configurer);

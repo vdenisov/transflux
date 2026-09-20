@@ -39,5 +39,5 @@ import org.transflux.core.exception.TransfluxValidationException;
  * @param <C> the host-supplied context type carried through transition execution
  */
 public interface TransitionListenerDef<T, C>
-    extends ListenerDef<TransitionListener<T, C>, TransitionListenerDef<T, C>> {
+    extends ListenerDef<TransitionListener<? super T, C>, TransitionListenerDef<T, C>> {
 }

@@ -37,7 +37,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <C> the host-supplied context type carried through transition execution
  */
 record BoundTransitionListener<T, C>(String id, String name, String description,
-                                     AsyncRejectionPolicy async, TransitionListener<T, C> listener) {
+                                     AsyncRejectionPolicy async, TransitionListener<? super T, C> listener) {
 
     BoundTransitionListener {
         requireNotBlank(id, "Bound transition listener ID");
