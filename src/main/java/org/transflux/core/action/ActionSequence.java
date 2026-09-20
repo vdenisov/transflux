@@ -25,11 +25,11 @@ import java.util.function.Consumer;
 /**
  * An ordered list of action positions, and the grammar for filling one.
  * <p>
- * Four things in the DSL hold such a list - a declarative container, a conditional's branch, its
+ * Four things in the DSL hold such a list - a declarative container, a choice's branch, its
  * default branch, and a transition's body - and every one of them admits the same ways of naming an
  * action. What differs between them is what the enclosing thing <em>is</em>, not what a member may
  * be: a container is also an action, so it carries an id, a context type, compensation and
- * listeners; a branch belongs to its conditional and carries a condition instead; a transition
+ * listeners; a branch belongs to its choice and carries a condition instead; a transition
  * carries its states, conditions, triggers and the state commit, and is not an action at all.
  *
  * <p><b>Members come in two shapes, and the verb says which.</b> {@link #run(String) run(id)}
@@ -179,7 +179,7 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      * action may be forked from a flow that can lose it and from one that cannot, and only the flow
      * knows which. What is declared here wins over whatever the action's own def declares, which in
      * turn wins over the state machine's default. A declaration made inline - {@code forkStep},
-     * {@code forkOperation}, {@code forkConditional} - is its own call site and declares the policy
+     * {@code forkOperation}, {@code forkChoice} - is its own call site and declares the policy
      * on the def it declares.
      *
      * @param id the registered action id
@@ -223,7 +223,7 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
     /**
      * Declares an imperative action inline at this position, from a supplied {@link Action}
      * instance. The action is registered into the scope that owns this position - the enclosing
-     * container's, or the conditional's when this is one of its branches - so it is visible from
+     * container's, or the choice's when this is one of its branches - so it is visible from
      * anywhere inside that scope's subtree, including a sibling branch, and from nowhere outside
      * it. Its id must be unique across the state machine.
      *
@@ -252,10 +252,10 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
     SELF step(String id, Consumer<StepDef<T, C>> configurer);
 
     /**
-     * Declares a multi-branch conditional at this position - a declarative action whose ordering
+     * Declares a multi-branch choice at this position - a declarative action whose ordering
      * rule is "first matching branch" rather than "all, in order".
      *
-     * @param id the conditional's id; must be unique across the state machine
+     * @param id the choice's id; must be unique across the state machine
      * @param configurer callback that declares the branches
      *
      * @return this def for chaining
@@ -263,7 +263,7 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      * @throws TransfluxValidationException if {@code id} is blank or {@code configurer} is
      *         {@code null}
      */
-    SELF conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer);
+    SELF choice(String id, Consumer<ChoiceDef<T, C>> configurer);
 
     /**
      * Declares a nested sequence at this position - an operation, declared in place rather than
@@ -271,7 +271,7 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      * site: it can carry its own compensation and listeners, and it unwinds as a unit.
      *
      * <p>The nested operation is registered into the scope that owns this position - the
-     * enclosing container's, or the conditional's when this is one of its branches - so it is
+     * enclosing container's, or the choice's when this is one of its branches - so it is
      * visible from anywhere inside that scope's subtree and from nowhere outside it, and its id
      * must be unique across the state machine. Its own members resolve against its own scope
      * first and the enclosing chain after, so it can reach what encloses it while nothing can
@@ -325,11 +325,11 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
     SELF forkStep(String id, Consumer<StepDef<T, C>> configurer);
 
     /**
-     * Forked form of {@link #conditional(String, Consumer)} - see {@link #fork(String)} for what
+     * Forked form of {@link #choice(String, Consumer)} - see {@link #fork(String)} for what
      * forking changes. The branch selection runs on the branch too, against the context acquired
      * at submission.
      *
-     * @param id the conditional's id; must be unique across the state machine
+     * @param id the choice's id; must be unique across the state machine
      * @param configurer callback that declares the branches
      *
      * @return this def for chaining
@@ -337,7 +337,7 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      * @throws TransfluxValidationException if {@code id} is blank or {@code configurer} is
      *         {@code null}
      */
-    SELF forkConditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer);
+    SELF forkChoice(String id, Consumer<ChoiceDef<T, C>> configurer);
 
     /**
      * Forked form of {@link #operation(String, Consumer)} - see {@link #fork(String)} for what
@@ -429,11 +429,11 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
                   Consumer<StepDef<T, N>> configurer);
 
     /**
-     * Declares a multi-branch conditional against a context of its own, running pass-through. Its
+     * Declares a multi-branch choice against a context of its own, running pass-through. Its
      * branches, and everything they declare, run against {@code contextType}.
      *
-     * @param id the conditional's id; must be unique across the state machine
-     * @param contextType the context the conditional runs against
+     * @param id the choice's id; must be unique across the state machine
+     * @param contextType the context the choice runs against
      * @param configurer callback that declares the branches
      * @param <N> the declared context type
      *
@@ -442,16 +442,16 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      * @throws TransfluxValidationException if {@code id} is blank or either other argument is
      *         {@code null}
      */
-    <N> SELF conditional(String id, Class<N> contextType,
-                         Consumer<ConditionalOperationDef<T, N>> configurer);
+    <N> SELF choice(String id, Class<N> contextType,
+                         Consumer<ChoiceDef<T, N>> configurer);
 
     /**
-     * Declares a multi-branch conditional against a context of its own, produced by {@code mapper}
+     * Declares a multi-branch choice against a context of its own, produced by {@code mapper}
      * from the enclosing one.
      *
-     * @param id the conditional's id; must be unique across the state machine
-     * @param contextType the context the conditional runs against
-     * @param mapper produces the conditional's context from the enclosing one
+     * @param id the choice's id; must be unique across the state machine
+     * @param contextType the context the choice runs against
+     * @param mapper produces the choice's context from the enclosing one
      * @param configurer callback that declares the branches
      * @param <N> the declared context type
      *
@@ -460,8 +460,8 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      * @throws TransfluxValidationException if {@code id} is blank or any other argument is
      *         {@code null}
      */
-    <N> SELF conditional(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                         Consumer<ConditionalOperationDef<T, N>> configurer);
+    <N> SELF choice(String id, Class<N> contextType, ContextMapper<C, N> mapper,
+                         Consumer<ChoiceDef<T, N>> configurer);
 
     /**
      * Declares a nested sequence against a context of its own, running pass-through. Its members,
@@ -574,12 +574,12 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
                       Consumer<StepDef<T, N>> configurer);
 
     /**
-     * Forked form of {@link #conditional(String, Class, Consumer)} - see {@link #fork(String)} for
+     * Forked form of {@link #choice(String, Class, Consumer)} - see {@link #fork(String)} for
      * what forking changes. It runs pass-through, so the branch is handed the enclosing context
      * object; see {@link #forkStep(String, Class, Action)} for what that means for sharing.
      *
-     * @param id the conditional's id; must be unique across the state machine
-     * @param contextType the context the conditional runs against
+     * @param id the choice's id; must be unique across the state machine
+     * @param contextType the context the choice runs against
      * @param configurer callback that declares the branches
      * @param <N> the declared context type
      *
@@ -588,17 +588,17 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      * @throws TransfluxValidationException if {@code id} is blank or either other argument is
      *         {@code null}
      */
-    <N> SELF forkConditional(String id, Class<N> contextType,
-                             Consumer<ConditionalOperationDef<T, N>> configurer);
+    <N> SELF forkChoice(String id, Class<N> contextType,
+                             Consumer<ChoiceDef<T, N>> configurer);
 
     /**
-     * Forked form of {@link #conditional(String, Class, ContextMapper, Consumer)} - the mapper
+     * Forked form of {@link #choice(String, Class, ContextMapper, Consumer)} - the mapper
      * produces the branch's context, and does not write back. See
      * {@link #forkStep(String, Class, ContextMapper, Action)}.
      *
-     * @param id the conditional's id; must be unique across the state machine
-     * @param contextType the context the conditional runs against
-     * @param mapper produces the conditional's context from the enclosing one
+     * @param id the choice's id; must be unique across the state machine
+     * @param contextType the context the choice runs against
+     * @param mapper produces the choice's context from the enclosing one
      * @param configurer callback that declares the branches
      * @param <N> the declared context type
      *
@@ -607,8 +607,8 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      * @throws TransfluxValidationException if {@code id} is blank or any other argument is
      *         {@code null}
      */
-    <N> SELF forkConditional(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                             Consumer<ConditionalOperationDef<T, N>> configurer);
+    <N> SELF forkChoice(String id, Class<N> contextType, ContextMapper<C, N> mapper,
+                             Consumer<ChoiceDef<T, N>> configurer);
 
     /**
      * Forked form of {@link #operation(String, Class, Consumer)} - see {@link #fork(String)} for

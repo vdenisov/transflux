@@ -32,7 +32,7 @@ interface InlineContextSink {
     /**
      * @param id the declared id
      * @param context the context the declaration runs against
-     * @param declaringScope the id of the container or conditional whose scope holds it
+     * @param declaringScope the id of the container or choice whose scope holds it
      */
     void accept(String id, Class<?> context, String declaringScope);
 }

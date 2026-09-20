@@ -32,7 +32,7 @@ import java.util.function.Consumer;
  * through. There is no body for a host to implement.
  *
  * <p>The member grammar itself - how a position names or declares an action - is declared once on
- * {@link ActionSequence}, which a conditional's branches share. What this def adds is everything
+ * {@link ActionSequence}, which a choice's branches share. What this def adds is everything
  * that follows from a container also being an action: an id, a context type, compensation and
  * listeners.
  *

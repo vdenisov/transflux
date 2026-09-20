@@ -20,7 +20,7 @@ package org.transflux.core;
 
 import org.transflux.core.condition.Condition;
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.action.ConditionalOperationDef;
+import org.transflux.core.action.ChoiceDef;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.StepDef;
@@ -123,7 +123,7 @@ public interface ContextScope<T, C> {
      * Registers a declarative action - an operation - under {@code id}, tagged with this
      * scope's context class. The configurer is invoked synchronously against a
      * freshly-constructed def; it may reference actions by id and declare inline steps and
-     * conditionals against the typed {@code C}.
+     * choices against the typed {@code C}.
      *
      * @param id the operation id
      * @param configurer callback that configures the operation
@@ -137,13 +137,13 @@ public interface ContextScope<T, C> {
     ContextScope<T, C> operation(String id, Consumer<OperationDef<T, C>> configurer);
 
     /**
-     * Registers a conditional operation against this scope's context type.
+     * Registers a choice against this scope's context type.
      *
-     * @param id the conditional's id
+     * @param id the choice's id
      * @param configurer callback that declares the branches
      *
      * @return this scope for chaining
      */
-    ContextScope<T, C> conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer);
+    ContextScope<T, C> choice(String id, Consumer<ChoiceDef<T, C>> configurer);
 
 }

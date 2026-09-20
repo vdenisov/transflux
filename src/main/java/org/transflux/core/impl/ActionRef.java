@@ -51,7 +51,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  */
 sealed interface ActionRef<T, C>
     permits ActionRef.ById, ActionRef.InlineInstance, ActionRef.InlineDef,
-            ActionRef.Conditional, ActionRef.InlineOperation {
+            ActionRef.Choice, ActionRef.InlineOperation {
 
     String id();
 
@@ -85,7 +85,7 @@ sealed interface ActionRef<T, C>
      * @param scopeRegistry the enclosing composite's scope registry; resolution walks the
      *                      parent chain up to the state-machine root
      * @param ownerLabel names the position that declared this reference (a container, or one
-     *                   branch of a conditional), surfaced in the error message when it does
+     *                   branch of a choice), surfaced in the error message when it does
      *                   not resolve
      * @param excludingCompositeId the id of the composite whose own scope the diagnostic
      *                             enrichment must skip
@@ -118,7 +118,7 @@ sealed interface ActionRef<T, C>
      * Deposits any inline-declaration payloads this reference carries into the supplied sink.
      * By-id references no-op (they contribute nothing to the enclosing scope); an inline
      * declaration pushes itself into the sink, and the two forms that own a scope - a nested
-     * container and a conditional - hand the sink their def so it can allocate that scope before
+     * container and a choice - hand the sink their def so it can allocate that scope before
      * registering them. Drives the scope-binding pass on {@link OperationDefImpl}.
      */
     default void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
@@ -137,7 +137,7 @@ sealed interface ActionRef<T, C>
     }
 
     /**
-     * Visits every member nested beneath this reference. Only a {@link Conditional} nests
+     * Visits every member nested beneath this reference. Only a {@link Choice} nests
      * anything - its branches are member lists like any other - so every other variant no-ops.
      * A by-id reference is deliberately not followed: it names a component resolved elsewhere,
      * and following it would turn a finite source tree into a graph that can cycle.
@@ -145,7 +145,7 @@ sealed interface ActionRef<T, C>
      * @param visitor receives each nested member, in declaration order
      */
     default void visitNestedMembers(Consumer<ActionSequenceSink.DeclaredMember<T, C>> visitor) {
-        // only a conditional nests a member list
+        // only a choice nests a member list
     }
 
     /**
@@ -186,13 +186,13 @@ sealed interface ActionRef<T, C>
         return new InlineDef<>(id, def, mapperRef);
     }
 
-    static <T, C> ActionRef<T, C> conditional(String id, ConditionalOperationDefImpl<T, C> def) {
-        return new Conditional<>(id, def, MapperRef.passThrough());
+    static <T, C> ActionRef<T, C> choice(String id, ChoiceDefImpl<T, C> def) {
+        return new Choice<>(id, def, MapperRef.passThrough());
     }
 
-    static <T, C> ActionRef<T, C> conditional(String id, ConditionalOperationDefImpl<T, C> def,
+    static <T, C> ActionRef<T, C> choice(String id, ChoiceDefImpl<T, C> def,
                                               MapperRef mapperRef) {
-        return new Conditional<>(id, def, mapperRef);
+        return new Choice<>(id, def, mapperRef);
     }
 
     static <T, C> ActionRef<T, C> operation(String id, OperationDefImpl<T, C> def) {
@@ -258,12 +258,12 @@ sealed interface ActionRef<T, C>
     }
 
     @SuppressWarnings("ClassEscapesDefinedScope")
-    record Conditional<T, C>(String id, ConditionalOperationDefImpl<T, C> def, MapperRef mapperRef)
+    record Choice<T, C>(String id, ChoiceDefImpl<T, C> def, MapperRef mapperRef)
         implements ActionRef<T, C> {
 
-        public Conditional {
+        public Choice {
             requireNotBlank(id, "Action reference ID");
-            requireNotNull(def, "Conditional operation def");
+            requireNotNull(def, "Choice def");
             requireNotNull(mapperRef, "Mapper reference");
         }
 
@@ -274,7 +274,7 @@ sealed interface ActionRef<T, C>
 
         @Override
         public void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
-            sink.registerConditional(id, def);
+            sink.registerChoice(id, def);
         }
 
         @Override
@@ -289,7 +289,7 @@ sealed interface ActionRef<T, C>
     }
 
     /**
-     * A declarative container declared in place. Like a conditional, and unlike an inline step, it
+     * A declarative container declared in place. Like a choice, and unlike an inline step, it
      * owns a lexical scope, so its inline registrations land beneath it rather than in the
      * enclosing one - which is why it hands the sink the whole def rather than depositing its
      * children into the enclosing scope first.

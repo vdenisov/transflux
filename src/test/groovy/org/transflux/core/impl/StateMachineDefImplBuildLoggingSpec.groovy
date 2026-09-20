@@ -21,7 +21,7 @@ package org.transflux.core.impl
 import ch.qos.logback.classic.Level
 import org.transflux.core.TestContext
 import org.transflux.core.action.Action
-import org.transflux.core.action.ConditionalOperationDef
+import org.transflux.core.action.ChoiceDef
 import org.transflux.core.action.OperationDef
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.state.StateApplier
@@ -166,18 +166,18 @@ class StateMachineDefImplBuildLoggingSpec extends Specification {
             "Component bound, id=inline-member, kind=step, contextType=${TestContext.name}, scope=sm-op".toString())
     }
 
-    def "a registered conditional's branch members report the registration's context"() {
+    def "a registered choice's branch members report the registration's context"() {
         given:
         capture = LogCapture.start('org.transflux.build.binding')
-        def smd = defWith({ smb -> smb.conditional('sm-cond', TestContext,
-            { ConditionalOperationDef<Entity, TestContext> c -> c.branch('only',
+        def smd = defWith({ smb -> smb.choice('sm-cond', TestContext,
+            { ChoiceDef<Entity, TestContext> c -> c.branch('only',
                 { b -> b.condition('always', { e, ctx -> true } as BiPredicate)
                         .step('branch-member', new NoopStep()) }) }) })
 
         when:
         smd.build()
 
-        then: 'a conditional has no way to restate its context, so it must inherit the registration'
+        then: 'a choice has no way to restate its context, so it must inherit the registration'
         capture.messages().contains(
             "Component bound, id=branch-member, kind=step, contextType=${TestContext.name}, scope=sm-cond".toString())
     }

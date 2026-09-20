@@ -180,7 +180,7 @@ class IdentifiedDefImplSpec extends Specification {
         subclass                        | factory
         'StateDefImpl'                  | ({ id -> new StateDefImpl(Transflux.defineStateMachine() as StateMachineDefImpl, id) } as Function)
         'TransitionDefImpl'             | ({ id -> new TransitionDefImpl(id, 'src', 'tgt') } as Function)
-        'ConditionalOperationDefImpl'   | ({ id -> new ConditionalOperationDefImpl(id) } as Function)
+        'ChoiceDefImpl'   | ({ id -> new ChoiceDefImpl(id) } as Function)
     }
 
     private static class TestDef extends IdentifiedDefImpl<TestDef> {

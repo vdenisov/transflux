@@ -132,7 +132,7 @@ class BoundConditionSpec extends Specification {
         def sm = build({ t -> t
             .preCondition('pre-gate', { Entity e -> true } as Predicate)
             .operation('route', { OperationDef<Entity, TestContext> op ->
-                op.conditional('pick', { c -> c
+                op.choice('pick', { c -> c
                     .branch('low', { b -> b
                         .condition('is-low', { Entity e -> e.value < 0 } as Predicate)
                         .step('low-step', new NoopStep()) })

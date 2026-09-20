@@ -70,23 +70,23 @@ class JavaDslSurfaceSpec extends Specification {
         order.trail.count { it == 'pt:o-1' } == 1
         order.trail.count { it == 'widened:o-1' } == 1
         order.trail.contains('pt-op:o-1')
-        order.trail.contains('pt-cond:o-1')
+        order.trail.contains('pt-choice:o-1')
 
         and: 'a mapped declaration runs against the context its own mapper produced'
         order.trail.count { it == 'notify:o-1' } == 4
         order.trail.contains('mapped-op:o-1')
-        order.trail.contains('mapped-cond:o-1')
+        order.trail.contains('mapped-choice:o-1')
 
         and: 'an implicitly-typed lambda in the mapper slot resolves to the same overloads'
         order.trail.contains('lambda-op:o-1')
-        order.trail.contains('lambda-cond:o-1')
+        order.trail.contains('lambda-choice:o-1')
 
         and: "mapFrom writes back once the member completes, as at a mapped by-id call site"
         ctx.receipt == 'r-1'
 
         and: 'a declared context changes nothing about the reported path'
         result.executedPath*.toString().contains('op/mapped-op/mapped-op-step')
-        result.executedPath*.toString().contains('op/mapped-cond/mapped-cond-step')
+        result.executedPath*.toString().contains('op/mapped-choice/mapped-choice-step')
 
         cleanup:
         sm.close()
@@ -105,9 +105,9 @@ class JavaDslSurfaceSpec extends Specification {
         order.trail == ['recording']
     }
 
-    def 'a conditional registered at SM level builds and runs, in both registration forms'() {
+    def 'a choice registered at SM level builds and runs, in both registration forms'() {
         given:
-        def sm = JavaDslSurface.registeredConditional()
+        def sm = JavaDslSurface.registeredChoice()
         def order = new JavaDslSurface.Order()
 
         when:
@@ -123,15 +123,15 @@ class JavaDslSurfaceSpec extends Specification {
         sm.close()
     }
 
-    def 'a conditional attached to a transition builds and runs'() {
+    def 'a choice attached to a transition builds and runs'() {
         given:
-        def sm = JavaDslSurface.transitionConditional()
+        def sm = JavaDslSurface.transitionChoice()
         def order = new JavaDslSurface.Order()
 
         when:
         def result = sm.entity(order).transitionTo('s2', new JavaDslSurface.OrderCtx())
 
-        then: 'the conditional is the transition root, so no wrapper appears on the path'
+        then: 'the choice is the transition root, so no wrapper appears on the path'
         result.success
         order.trail == ['shared', 'recording']
         result.executedPath*.toString() == ['route', 'route/shared', 'route/record']

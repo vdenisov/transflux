@@ -203,7 +203,7 @@ class OperationDefImplForkValidationSpec extends Specification {
     def 'a forked branch member warns too, and declaredIn names the branch'() {
         when:
         def messages = buildCapturingValidation(PlainCtx, { smd -> }, { op ->
-            op.conditional('route', { cs ->
+            op.choice('route', { cs ->
                 cs.branch('critical', { b ->
                     b.condition('always', { e -> true } as Predicate).fork('send')
                 } as Consumer)
@@ -214,7 +214,7 @@ class OperationDefImplForkValidationSpec extends Specification {
         def warning = messages.find { it.contains('Forked member shares the enclosing context') }
         warning != null
         warning.contains("contextOwner=transition 't'")
-        warning.contains("declaredIn=transition 't' > operation 'op' > conditional operation 'route'"
+        warning.contains("declaredIn=transition 't' > operation 'op' > choice 'route'"
                              + " > branch 'critical'")
         warning.contains('actionId=send')
     }
@@ -222,7 +222,7 @@ class OperationDefImplForkValidationSpec extends Specification {
     def 'a forked default-branch member warns, naming the default branch'() {
         when:
         def messages = buildCapturingValidation(Object, { smd -> }, { op ->
-            op.conditional('route', { cs ->
+            op.choice('route', { cs ->
                 cs.branch('never', { b ->
                     b.condition('nope', { e -> false } as Predicate).step('unreached', new NoopAction())
                 } as Consumer)
@@ -233,16 +233,16 @@ class OperationDefImplForkValidationSpec extends Specification {
         then:
         def warning = messages.find { it.contains('forkability cannot be checked') }
         warning != null
-        warning.contains("declaredIn=transition 't' > operation 'op' > conditional operation 'route'"
+        warning.contains("declaredIn=transition 't' > operation 'op' > choice 'route'"
                              + " > default branch")
     }
 
-    def "a conditional declaring its own context owns it, and the warning names the conditional"() {
-        when: "the branches run against the conditional's context, not the transition's"
+    def "a choice declaring its own context owns it, and the warning names the choice"() {
+        when: "the branches run against the choice's context, not the transition's"
         def messages = buildCapturingValidation(ForkableCtx, { smd ->
             smd.step('narrow', PlainCtx, new PlainAction())
         }, { op ->
-            op.conditional('route', PlainCtx, { p -> new PlainCtx() } as ContextMapper, { cs ->
+            op.choice('route', PlainCtx, { p -> new PlainCtx() } as ContextMapper, { cs ->
                 cs.branch('critical', { b ->
                     b.condition('always', { e -> true } as Predicate).fork('narrow')
                 } as Consumer)
@@ -252,7 +252,7 @@ class OperationDefImplForkValidationSpec extends Specification {
         then: 'the transition declared a forkable context, so blaming it would be useless advice'
         def warning = messages.find { it.contains('Forked member shares the enclosing context') }
         warning != null
-        warning.contains("contextOwner=transition 't' > operation 'op' > conditional operation 'route'")
+        warning.contains("contextOwner=transition 't' > operation 'op' > choice 'route'")
         warning.contains('actionId=narrow')
         warning.contains(PlainCtx.name)
     }

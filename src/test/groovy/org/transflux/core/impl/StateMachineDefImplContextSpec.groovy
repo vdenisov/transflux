@@ -23,7 +23,7 @@ import org.transflux.core.condition.Condition
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.OperationDef
 import org.transflux.core.action.Action
-import org.transflux.core.action.ConditionalOperationDef
+import org.transflux.core.action.ChoiceDef
 import org.transflux.core.action.ContextMapper
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.ExecutingTransition
@@ -274,7 +274,7 @@ class StateMachineDefImplContextSpec extends Specification {
         form          | label                           | declare
         'operation'   | "operation 'inner'"             | narrowOperation(null)
         'step'        | "step 'inner'"                  | narrowStep(null)
-        'conditional' | "conditional operation 'inner'" | narrowConditional(null)
+        'choice' | "choice 'inner'" | narrowChoice(null)
     }
 
     def 'an inline container widening to Object is accepted'() {
@@ -313,7 +313,7 @@ class StateMachineDefImplContextSpec extends Specification {
         form          | declare
         'operation'   | narrowOperation(aToB())
         'step'        | narrowStep(aToB())
-        'conditional' | narrowConditional(aToB())
+        'choice' | narrowChoice(aToB())
     }
 
     def 'a by-id reference to an inline member declaring its own context is checked against it'() {
@@ -479,13 +479,13 @@ class StateMachineDefImplContextSpec extends Specification {
         !e.message.contains('Context type mismatch')
     }
 
-    def "a branch condition is checked against the conditional's own context"() {
-        given: 'a conditional may cross a boundary its branches then sit behind'
+    def "a branch condition is checked against the choice's own context"() {
+        given: 'a choice may cross a boundary its branches then sit behind'
         def smd = baseDef()
         smd.condition('a-cond', CtxA, { Entity e, CtxA a -> true } as BiPredicate)
         smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
             scope.operation('outer', { OperationDef<Entity, CtxA> c ->
-                c.conditional('cond', CtxB, aToB(), { ConditionalOperationDef<Entity, CtxB> cs ->
+                c.choice('cond', CtxB, aToB(), { ChoiceDef<Entity, CtxB> cs ->
                     cs.branch('b', { b -> b.condition('a-cond').step('s', new StepB()) })
                 })
             })
@@ -501,13 +501,13 @@ class StateMachineDefImplContextSpec extends Specification {
         e.message.contains(CtxA.name)
     }
 
-    def "a branch condition matching the conditional's own context is accepted"() {
+    def "a branch condition matching the choice's own context is accepted"() {
         given:
         def smd = baseDef()
         smd.condition('b-cond', CtxB, { Entity e, CtxB b -> true } as BiPredicate)
         smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
             scope.operation('outer', { OperationDef<Entity, CtxA> c ->
-                c.conditional('cond', CtxB, aToB(), { ConditionalOperationDef<Entity, CtxB> cs ->
+                c.choice('cond', CtxB, aToB(), { ChoiceDef<Entity, CtxB> cs ->
                     cs.branch('b', { b -> b.condition('b-cond').step('s', new StepB()) })
                 })
             })
@@ -669,13 +669,13 @@ class StateMachineDefImplContextSpec extends Specification {
             : { c -> c.step('inner', CtxB, mapper, new StepB()) }
     }
 
-    private static Closure narrowConditional(ContextMapper<CtxA, CtxB> mapper) {
-        def body = { ConditionalOperationDef<Entity, CtxB> n ->
+    private static Closure narrowChoice(ContextMapper<CtxA, CtxB> mapper) {
+        def body = { ChoiceDef<Entity, CtxB> n ->
             n.branch('b', { b -> b.condition('always', alwaysTrue()).step('s', new StepB()) })
         }
         return mapper == null
-            ? { c -> c.conditional('inner', CtxB, body) }
-            : { c -> c.conditional('inner', CtxB, mapper, body) }
+            ? { c -> c.choice('inner', CtxB, body) }
+            : { c -> c.choice('inner', CtxB, mapper, body) }
     }
 
     private static BiPredicate<Entity, CtxB> alwaysTrue() {

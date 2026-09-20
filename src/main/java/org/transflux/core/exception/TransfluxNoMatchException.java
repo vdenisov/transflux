@@ -19,25 +19,25 @@
 package org.transflux.core.exception;
 
 /**
- * A conditional operation declared to fail on no match found no branch whose condition held, and
+ * A choice declared to fail on no match found no branch whose condition held, and
  * has no default branch.
  */
 public class TransfluxNoMatchException extends TransfluxExecutionException {
 
-    private final String conditionalId;
+    private final String choiceId;
 
     /**
-     * @param conditionalId the id of the conditional operation that matched nothing
+     * @param choiceId the id of the choice that matched nothing
      */
-    public TransfluxNoMatchException(String conditionalId) {
-        super("Conditional operation '" + conditionalId + "' had no matching branch and no default");
-        this.conditionalId = conditionalId;
+    public TransfluxNoMatchException(String choiceId) {
+        super("Choice '" + choiceId + "' had no matching branch and no default");
+        this.choiceId = choiceId;
     }
 
     /**
-     * @return the id of the conditional operation that matched nothing
+     * @return the id of the choice that matched nothing
      */
-    public String getConditionalId() {
-        return conditionalId;
+    public String getChoiceId() {
+        return choiceId;
     }
 }

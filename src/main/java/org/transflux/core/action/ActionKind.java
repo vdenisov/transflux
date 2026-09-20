@@ -36,8 +36,8 @@ public enum ActionKind {
 
     /**
      * A declarative action - an ordered child list, declared through an {@code operation(...)}
-     * or {@code conditional(...)} form. Declaration order is execution order (or, for the
-     * conditional variant, the order in which branch conditions are evaluated). There is no
+     * or {@code choice(...)} form. Declaration order is execution order (or, for the
+     * choice variant, the order in which branch conditions are evaluated). There is no
      * Java body; the framework synthesizes the executable that walks the children.
      */
     OPERATION

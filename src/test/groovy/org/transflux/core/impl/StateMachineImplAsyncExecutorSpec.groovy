@@ -273,12 +273,12 @@ class StateMachineImplAsyncExecutorSpec extends Specification {
     }
 
     def 'a definition that forks only from inside a branch still builds a pool'() {
-        given: 'the fork walk has to descend into a conditional to see this one'
+        given: 'the fork walk has to descend into a choice to see this one'
         def done = new CountDownLatch(1)
         capture = LogCapture.start('org.transflux.execution.async')
         def sm = build({ smd -> smd.step('notify', { e, c, t -> done.countDown() } as Action) },
                        { op ->
-                           op.conditional('route', { cs ->
+                           op.choice('route', { cs ->
                                cs.branch('only', { b ->
                                    b.condition('always', { e -> true } as Predicate).fork('notify')
                                } as Consumer)
@@ -342,8 +342,8 @@ class StateMachineImplAsyncExecutorSpec extends Specification {
         sm.close()
     }
 
-    def 'a definition that forks only from a transition-attached conditional still builds a pool'() {
-        given: 'the fork walk reaches an attached conditional, which is not an operation'
+    def 'a definition that forks only from a transition-attached choice still builds a pool'() {
+        given: 'the fork walk reaches an attached choice, which is not an operation'
         def done = new CountDownLatch(1)
         capture = LogCapture.start('org.transflux.execution.async')
         def smd = new StateMachineDefImpl<Entity>()
@@ -353,7 +353,7 @@ class StateMachineImplAsyncExecutorSpec extends Specification {
         builder.step('notify', { e, c, t -> done.countDown() } as Action)
         builder.state('s1', { s ->
             s.transitionsTo('s2', 't', { t ->
-                t.conditional('route', { cs ->
+                t.choice('route', { cs ->
                     cs.branch('only', { b ->
                         b.condition('always', { e -> true } as Predicate).fork('notify')
                     } as Consumer)

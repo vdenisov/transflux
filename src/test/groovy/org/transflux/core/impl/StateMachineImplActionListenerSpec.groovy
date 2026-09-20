@@ -26,7 +26,7 @@ import org.transflux.core.action.ActionKind
 import org.transflux.core.action.ActionListener
 import org.transflux.core.action.ActionPhase
 import org.transflux.core.action.BranchDef
-import org.transflux.core.action.ConditionalOperationDef
+import org.transflux.core.action.ChoiceDef
 import org.transflux.core.action.ContextMapper
 import org.transflux.core.action.OperationDef
 import org.transflux.core.action.StepDef
@@ -205,7 +205,7 @@ class StateMachineImplActionListenerSpec extends Specification {
                  st.transitionsTo('s2', 't', { t ->
                      t.operation('outer', { OperationDef op ->
                          op.step('leaf', { e, ctx, tr -> } as Action)
-                           .conditional('choice', { ConditionalOperationDef c ->
+                           .choice('choice', { ChoiceDef c ->
                                c.branch('only', { BranchDef b ->
                                    b.condition('always', { e -> true } as Predicate)
                                     .step('branch-leaf', { e, ctx, tr -> } as Action)
@@ -329,7 +329,7 @@ class StateMachineImplActionListenerSpec extends Specification {
         'as a transition attachment'    | 's1'   | 's2'   || 'charge'
         'as a container member'         | 's2'   | 's3'   || 'wrap/charge'
         'from inside an action body'    | 's3'   | 's4'   || 'caller/charge'
-        'as a conditional branch member'| 's4'   | 's5'   || 'router/pick/charge'
+        'as a choice branch member'| 's4'   | 's5'   || 'router/pick/charge'
     }
 
     def 'a throwing listener leaves the transition successful and does not suppress the ones after it'() {
@@ -632,7 +632,7 @@ class StateMachineImplActionListenerSpec extends Specification {
              .state('s4', { st ->
                  st.transitionsTo('s5', 't4', { t ->
                      t.operation('router', { OperationDef op ->
-                         op.conditional('pick', { ConditionalOperationDef c ->
+                         op.choice('pick', { ChoiceDef c ->
                              c.branch('only', { BranchDef b ->
                                  b.condition('always', { e -> true } as Predicate).run('charge')
                              } as Consumer)

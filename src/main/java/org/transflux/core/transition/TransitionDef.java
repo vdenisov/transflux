@@ -41,7 +41,7 @@ import java.util.function.Predicate;
  * registered through the fluent API and should not be instantiated directly by client code.
  *
  * <p><b>The body.</b> A transition holds an ordered list of actions and runs them in order - the
- * same member grammar a declarative container and a conditional's branch carry, declared once on
+ * same member grammar a declarative container and a choice's branch carry, declared once on
  * {@link ActionSequence} and inherited here. Declaration order is execution order, and a member
  * may be a reference, a forked reference, or an action declared in place:
  *

@@ -21,7 +21,7 @@ package org.transflux.core.impl
 import org.transflux.core.ContextScope
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.BranchDef
-import org.transflux.core.action.ConditionalOperationDef
+import org.transflux.core.action.ChoiceDef
 import org.transflux.core.action.DefaultBranchDef
 import org.transflux.core.action.OperationDef
 import org.transflux.core.action.Action
@@ -124,12 +124,12 @@ class StateMachineDefImplNestedCycleDetectionSpec extends Specification {
         sm != null
     }
 
-    def 'a composite whose conditional branch references it back is rejected'() {
+    def 'a composite whose choice branch references it back is rejected'() {
         given: 'a branch member dispatches through the same path a container member does'
         def smd = baseDef()
         smd.forContext(Ctx, { ContextScope<Entity, Ctx> scope ->
             scope.operation('a', { OperationDef<Entity, Ctx> c ->
-                c.conditional('route', { ConditionalOperationDef<Entity, Ctx> cs ->
+                c.choice('route', { ChoiceDef<Entity, Ctx> cs ->
                     cs.branch('only', { BranchDef<Entity, Ctx> b ->
                         b.condition('always', { Entity e -> true } as Predicate).run('a')
                     })
@@ -151,7 +151,7 @@ class StateMachineDefImplNestedCycleDetectionSpec extends Specification {
         def smd = baseDef()
         smd.forContext(Ctx, { ContextScope<Entity, Ctx> scope ->
             scope.operation('a', { OperationDef<Entity, Ctx> c ->
-                c.conditional('route', { ConditionalOperationDef<Entity, Ctx> cs ->
+                c.choice('route', { ChoiceDef<Entity, Ctx> cs ->
                     cs.branch('only', { BranchDef<Entity, Ctx> b ->
                         b.condition('always', { Entity e -> true } as Predicate).run('b')
                     })
@@ -174,7 +174,7 @@ class StateMachineDefImplNestedCycleDetectionSpec extends Specification {
         def smd = baseDef()
         smd.forContext(Ctx, { ContextScope<Entity, Ctx> scope ->
             scope.operation('a', { OperationDef<Entity, Ctx> c ->
-                c.conditional('route', { ConditionalOperationDef<Entity, Ctx> cs ->
+                c.choice('route', { ChoiceDef<Entity, Ctx> cs ->
                     cs.branch('never', { BranchDef<Entity, Ctx> b ->
                         b.condition('nope', { Entity e -> false } as Predicate)
                          .step('unreached', new NoopStep())
@@ -198,7 +198,7 @@ class StateMachineDefImplNestedCycleDetectionSpec extends Specification {
             scope.operation('b', { OperationDef<Entity, Ctx> c ->
                 c.step('pb', new NoopStep())
             }).operation('a', { OperationDef<Entity, Ctx> c ->
-                c.conditional('route', { ConditionalOperationDef<Entity, Ctx> cs ->
+                c.choice('route', { ChoiceDef<Entity, Ctx> cs ->
                     cs.branch('only', { BranchDef<Entity, Ctx> b ->
                         b.condition('always', { Entity e -> true } as Predicate).run('b')
                     })
@@ -231,12 +231,12 @@ class StateMachineDefImplNestedCycleDetectionSpec extends Specification {
         e.message.contains('inner')
     }
 
-    def 'a conditional whose own branch references it by id is rejected'() {
-        given: 'a conditional is registered under its id too, so a branch can name it'
+    def 'a choice whose own branch references it by id is rejected'() {
+        given: 'a choice is registered under its id too, so a branch can name it'
         def smd = baseDef()
         smd.forContext(Ctx, { ContextScope<Entity, Ctx> scope ->
             scope.operation('a', { OperationDef<Entity, Ctx> c ->
-                c.conditional('route', { ConditionalOperationDef<Entity, Ctx> cs ->
+                c.choice('route', { ChoiceDef<Entity, Ctx> cs ->
                     cs.branch('base', { BranchDef<Entity, Ctx> b ->
                         b.condition('always', { Entity e -> true } as Predicate).run('route')
                     })

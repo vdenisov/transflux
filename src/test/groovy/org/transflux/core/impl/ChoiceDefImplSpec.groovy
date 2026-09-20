@@ -36,7 +36,7 @@ import spock.lang.Unroll
 import java.util.function.BiPredicate
 import java.util.function.Predicate
 
-class ConditionalOperationDefImplSpec extends Specification {
+class ChoiceDefImplSpec extends Specification {
 
     static class Entity {
         String state
@@ -52,7 +52,7 @@ class ConditionalOperationDefImplSpec extends Specification {
 
     def 'constructor rejects null/blank id'() {
         when:
-        new ConditionalOperationDefImpl<Entity, TestContext>(id)
+        new ChoiceDefImpl<Entity, TestContext>(id)
 
         then:
         thrown(TransfluxValidationException)
@@ -66,7 +66,7 @@ class ConditionalOperationDefImplSpec extends Specification {
 
     def 'onNoMatch WARN is the default'() {
         given:
-        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+        def cond = new ChoiceDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
 
         expect:
         cond.noMatchBehavior == NoMatchBehavior.WARN
@@ -75,7 +75,7 @@ class ConditionalOperationDefImplSpec extends Specification {
     @Unroll
     def 'onNoMatch sets the behavior to #behavior'() {
         given:
-        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+        def cond = new ChoiceDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
 
         when:
         cond.onNoMatch(behavior)
@@ -89,7 +89,7 @@ class ConditionalOperationDefImplSpec extends Specification {
 
     def 'onNoMatch rejects null behavior'() {
         given:
-        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+        def cond = new ChoiceDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
 
         when:
         cond.onNoMatch(null)
@@ -100,7 +100,7 @@ class ConditionalOperationDefImplSpec extends Specification {
 
     def 'branch with no condition fails at build time'() {
         given:
-        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+        def cond = new ChoiceDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
             .branch('b1', { BranchDef<Entity, TestContext> b -> b.step('s1', new NoopStep()) })
 
         when:
@@ -114,7 +114,7 @@ class ConditionalOperationDefImplSpec extends Specification {
 
     def 'branch with no steps fails at build time'() {
         given:
-        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+        def cond = new ChoiceDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
             .branch('b1', { BranchDef<Entity, TestContext> b -> b.condition('b1-cond', { e -> true } as Predicate) })
 
         when:
@@ -128,7 +128,7 @@ class ConditionalOperationDefImplSpec extends Specification {
 
     def 'default branch with no steps fails at build time'() {
         given:
-        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+        def cond = new ChoiceDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
             .branch('b1', { BranchDef<Entity, TestContext> b ->
                 b.condition('b1-cond', { e -> true } as Predicate).step('s1', new NoopStep())
             })
@@ -143,9 +143,9 @@ class ConditionalOperationDefImplSpec extends Specification {
         e.message.contains('at least one action')
     }
 
-    def 'conditional with no branches fails at build time even when default is declared'() {
+    def 'choice with no branches fails at build time even when default is declared'() {
         given:
-        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+        def cond = new ChoiceDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
             .defaultBranch({ DefaultBranchDef<Entity, TestContext> d -> d.step('s1', new NoopStep()) })
 
         when:
@@ -153,13 +153,13 @@ class ConditionalOperationDefImplSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message.contains("Conditional operation 'c1'")
+        e.message.contains("Choice 'c1'")
         e.message.contains('at least one branch')
     }
 
-    def 'bound conditional carries the OPERATION kind'() {
-        given: 'a conditional is a declarative action - only its ordering rule differs from a container'
-        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+    def 'bound choice carries the OPERATION kind'() {
+        given: 'a choice is a declarative action - only its ordering rule differs from a container'
+        def cond = new ChoiceDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
             .branch('b1', { BranchDef<Entity, TestContext> b ->
                 b.condition('cond1', { e -> true } as Predicate).step('s1', new NoopStep())
             })
@@ -172,10 +172,10 @@ class ConditionalOperationDefImplSpec extends Specification {
         bound.id() == 'c1'
     }
 
-    def 'declared compensation rides onto the bound conditional'() {
-        given: 'a conditional has no Java body, so the def is its only channel for a compensation'
+    def 'declared compensation rides onto the bound choice'() {
+        given: 'a choice has no Java body, so the def is its only channel for a compensation'
         def compensation = { e, c -> } as Compensation<Entity, TestContext>
-        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+        def cond = new ChoiceDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
             .withCompensation(compensation)
             .branch('b1', { BranchDef<Entity, TestContext> b ->
                 b.condition('cond1', { e -> true } as Predicate).step('s1', new NoopStep())
@@ -185,9 +185,9 @@ class ConditionalOperationDefImplSpec extends Specification {
         cond.buildBoundAction([:]).compensationRouter()?.fallback().is(compensation)
     }
 
-    def 'a conditional that declares no compensation binds none'() {
+    def 'a choice that declares no compensation binds none'() {
         given:
-        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+        def cond = new ChoiceDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
             .branch('b1', { BranchDef<Entity, TestContext> b ->
                 b.condition('cond1', { e -> true } as Predicate).step('s1', new NoopStep())
             })
@@ -198,7 +198,7 @@ class ConditionalOperationDefImplSpec extends Specification {
 
     def 'duplicate branch id is rejected at configurer time'() {
         given:
-        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+        def cond = new ChoiceDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
             .branch('b1', { BranchDef<Entity, TestContext> b ->
                 b.condition('cond1', { e -> true } as Predicate).step('s1', new NoopStep())
             })
@@ -215,7 +215,7 @@ class ConditionalOperationDefImplSpec extends Specification {
 
     def 'declaring default branch twice is rejected'() {
         given:
-        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+        def cond = new ChoiceDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
             .defaultBranch({ DefaultBranchDef<Entity, TestContext> d -> d.step('s1', new NoopStep()) })
 
         when:
@@ -228,7 +228,7 @@ class ConditionalOperationDefImplSpec extends Specification {
 
     def 'multiple condition calls on the same branch: last-wins with warning'() {
         given:
-        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+        def cond = new ChoiceDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
 
         when:
         cond.branch('b1', { BranchDef<Entity, TestContext> b ->
@@ -246,7 +246,7 @@ class ConditionalOperationDefImplSpec extends Specification {
 
     def 'BranchDef.condition(registeredId) builds a Reference descriptor'() {
         given:
-        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+        def cond = new ChoiceDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
 
         when:
         cond.branch('b1', { BranchDef<Entity, TestContext> b ->
@@ -261,7 +261,7 @@ class ConditionalOperationDefImplSpec extends Specification {
 
     def 'BranchDef.conditionExpression builds an ExpressionBased descriptor with auto-derived id'() {
         given:
-        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+        def cond = new ChoiceDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
 
         when:
         cond.branch('b1', { BranchDef<Entity, TestContext> b ->
@@ -277,7 +277,7 @@ class ConditionalOperationDefImplSpec extends Specification {
 
     def 'BranchDef.conditionExpression names itself, not condition, when the configurer has returned'() {
         given:
-        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+        def cond = new ChoiceDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
         BranchDef<Entity, TestContext> escaped = null
 
         when:
@@ -295,7 +295,7 @@ class ConditionalOperationDefImplSpec extends Specification {
 
     def 'BranchDef.condition(id, Condition) builds an InstanceBased descriptor'() {
         given:
-        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+        def cond = new ChoiceDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
         Condition<Entity, TestContext> condition = { e, c, t -> true } as Condition
 
         when:
@@ -312,7 +312,7 @@ class ConditionalOperationDefImplSpec extends Specification {
 
     def 'BranchDef.condition(id, BiPredicate) builds a PredicateBased descriptor'() {
         given:
-        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+        def cond = new ChoiceDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
         BiPredicate<Entity, TestContext> predicate = { e, c -> true } as BiPredicate
 
         when:
@@ -329,7 +329,7 @@ class ConditionalOperationDefImplSpec extends Specification {
 
     def 'BranchDef.condition(id, Predicate) builds a PredicateBased descriptor that ignores the context'() {
         given:
-        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+        def cond = new ChoiceDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
         def calls = []
         Predicate<Entity> predicate = { e -> calls << e; true } as Predicate
 
@@ -355,7 +355,7 @@ class ConditionalOperationDefImplSpec extends Specification {
 
     def 'BranchDef.condition(id, expression) builds an ExpressionBased descriptor with explicit id'() {
         given:
-        def cond = new ConditionalOperationDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
+        def cond = new ChoiceDefImpl<Entity, TestContext>('c1').tap { beginConfigurer() }
 
         when:
         cond.branch('b1', { BranchDef<Entity, TestContext> b ->

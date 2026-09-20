@@ -31,7 +31,7 @@ import java.util.function.Consumer
 
 /**
  * The per-action listener hooks, which every authoring form inherits from {@code ActionDefImpl}.
- * The conditional is covered separately, since its branch recursion is its own.
+ * The choice is covered separately, since its branch recursion is its own.
  */
 class ActionDefImplListenerSpec extends Specification {
 

@@ -24,7 +24,7 @@ import org.transflux.core.action.ContextMapper;
 /**
  * A member of an ordered action list, resolved: the bound action, its call-site context mapping,
  * and whether the declaring verb was {@code fork}. Every position that holds such a list — a
- * declarative container and a conditional's branches — dispatches through {@link #dispatch}.
+ * declarative container and a choice's branches — dispatches through {@link #dispatch}.
  *
  * @param action the bound action this position invokes
  * @param mapping the resolved call-site mapping; pass-through when the position declared no mapper

@@ -261,7 +261,7 @@ class OperationDefImplSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
         smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', TestContext, { t ->
             t.operation('outer', { OperationDef<TestEntity, TestContext> c ->
-                c.conditional('route', { cs ->
+                c.choice('route', { cs ->
                     cs.branch('only', { b ->
                         b.condition('always', { TestEntity e -> true } as Predicate)
                          .operation('nested', { OperationDef<TestEntity, TestContext> n ->

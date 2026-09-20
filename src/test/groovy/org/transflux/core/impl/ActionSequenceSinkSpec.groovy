@@ -32,7 +32,7 @@ import java.util.function.Predicate
  * The member grammar's shared storage and guards, driven directly, plus the one thing that cannot
  * be checked from the sink alone: that all four owning defs reach it with the flag their verb
  * asked for. What each owner does with the grammar beyond that is covered by
- * {@code OperationDefImplSpec} and {@code ConditionalOperationDefImplSpec}.
+ * {@code OperationDefImplSpec} and {@code ChoiceDefImplSpec}.
  */
 class ActionSequenceSinkSpec extends Specification {
 
@@ -58,7 +58,7 @@ class ActionSequenceSinkSpec extends Specification {
         sink.run('a')
         sink.fork('b')
         sink.step('c', new NoopStep(), false)
-        sink.conditional('d', { cond -> cond }, false)
+        sink.choice('d', { cond -> cond }, false)
         sink.operation('e', { op -> op }, false)
         sink.step('f', new NoopStep(), true)
 
@@ -128,10 +128,10 @@ class ActionSequenceSinkSpec extends Specification {
         'run'             | { target -> target.run('a') }
         'fork'            | { target -> target.fork('a') }
         'step'            | { target -> target.step('a', new NoopStep(), false) }
-        'conditional'     | { target -> target.conditional('a', { cond -> cond }, false) }
+        'choice'     | { target -> target.choice('a', { cond -> cond }, false) }
         'operation'       | { target -> target.operation('a', { op -> op }, false) }
         'forkStep'        | { target -> target.step('a', new NoopStep(), true) }
-        'forkConditional' | { target -> target.conditional('a', { cond -> cond }, true) }
+        'forkChoice' | { target -> target.choice('a', { cond -> cond }, true) }
         'forkOperation'   | { target -> target.operation('a', { op -> op }, true) }
     }
 
@@ -215,7 +215,7 @@ class ActionSequenceSinkSpec extends Specification {
     private static List<Map> shapes(String prefix) {
         String stp = prefix ? prefix + 'Step' : 'step'
         String opn = prefix ? prefix + 'Operation' : 'operation'
-        String cnd = prefix ? prefix + 'Conditional' : 'conditional'
+        String cnd = prefix ? prefix + 'Choice' : 'choice'
         return [
             [name: "${stp}(id, action)", call: { it."$stp"('a', new NoopStep()) }],
             [name: "${stp}(id, cfg)",

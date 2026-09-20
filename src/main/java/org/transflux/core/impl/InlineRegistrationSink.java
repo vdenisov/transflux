@@ -29,7 +29,7 @@ import static org.transflux.core.impl.StateMachineDefImpl.claimInlineCondition;
 
 /**
  * Visitor sink for the polymorphic {@code collectInlineRegistrations} walk over a composite's
- * action refs and its conditionals' branch refs. Bundles the per-composite locals
+ * action refs and its choices' branch refs. Bundles the per-composite locals
  * ({@link RegistryImpl scope}, canonical-payload table, context type, conditions registry) so
  * each variant override can deposit its inline registration with a single call.
  *
@@ -82,17 +82,17 @@ final class InlineRegistrationSink<T, C> {
     }
 
     /**
-     * Registers a conditional declared in place. Like a nested container it owns a scope, so its
+     * Registers a choice declared in place. Like a nested container it owns a scope, so its
      * own registry is allocated here, parented on the scope this sink writes into - which is what
      * lets its branches share what any of them declares while keeping all of it out of reach of
-     * the conditional's siblings. The conditional itself is registered into this sink's scope, so
+     * the choice's siblings. The choice itself is registered into this sink's scope, so
      * naming it by id still works from either side.
      *
-     * @param id the conditional's id
-     * @param def the conditional's def
+     * @param id the choice's id
+     * @param def the choice's def
      */
-    void registerConditional(String id, ConditionalOperationDefImpl<T, C> def) {
-        claimCanonical(canonical, id, def, "Conditional operation");
+    void registerChoice(String id, ChoiceDefImpl<T, C> def) {
+        claimCanonical(canonical, id, def, "Choice");
         if (scope.get(id).isPresent()) {
             return;
         }

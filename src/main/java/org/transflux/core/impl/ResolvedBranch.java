@@ -21,7 +21,7 @@ package org.transflux.core.impl;
 import java.util.List;
 
 /**
- * Resolved view of a conditional branch held by the conditional executor — the branch id
+ * Resolved view of a choice branch held by the choice executor — the branch id
  * paired with its resolved {@link BoundCondition} and the bound members the branch dispatches
  * when its condition matches. The members are the same {@link CompositeMember} records a
  * declarative container holds, so a branch member reaches the runtime the way every other

@@ -31,7 +31,7 @@ import java.util.function.Predicate
 
 /**
  * The asynchronous half of a container's member grammar: {@code fork} mirroring the reference
- * shapes {@code run} offers, and {@code forkStep} / {@code forkOperation} / {@code forkConditional}
+ * shapes {@code run} offers, and {@code forkStep} / {@code forkOperation} / {@code forkChoice}
  * mirroring the declaring ones, each recorded at the same position its synchronous twin is.
  */
 class OperationDefImplForkSpec extends Specification {
@@ -164,10 +164,10 @@ class OperationDefImplForkSpec extends Specification {
         verb              || call
         'forkStep'        || { it.forkStep('a', new NoopAction()) }
         'forkOperation'   || { it.forkOperation('a', { op -> op } as Consumer) }
-        'forkConditional' || { it.forkConditional('a', branches) }
+        'forkChoice' || { it.forkChoice('a', branches) }
     }
 
-    /** A conditional configurer with one always-taken branch, so every shape has a body to build. */
+    /** A choice configurer with one always-taken branch, so every shape has a body to build. */
     private static Consumer branches = { cs ->
         cs.branch('taken', { b -> b.condition('always', { e -> true } as Predicate) } as Consumer)
     } as Consumer

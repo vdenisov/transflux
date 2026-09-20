@@ -29,7 +29,7 @@ import java.util.function.Consumer;
  * Two concrete sub-types exist, one per authoring form: {@link StepDef} declares an imperative
  * action (a Java body, supplied as an instance), and {@link OperationDef} declares a
  * declarative one (an ordered list of members, whose executable the framework synthesizes).
- * {@link ConditionalOperationDef} is a declarative variant whose ordering rule is "first matching
+ * {@link ChoiceDef} is a declarative variant whose ordering rule is "first matching
  * branch" rather than "all, in order".
  *
  * <p>The {@code id} is mandatory and must be unique across the state machine. {@code name} and
@@ -171,7 +171,7 @@ public interface ActionDef<T, C> extends Identifiable {
      * }</pre>
      *
      * <p>Routes are tried in the order they are declared and the first whose exception type
-     * <em>and</em> guard both hold wins - the same "first match" rule a conditional operation's
+     * <em>and</em> guard both hold wins - the same "first match" rule a choice's
      * branches obey, and the same one a Java {@code catch} chain obeys. A route matches subclasses
      * of its declared type, so an unguarded route on a broad type shadows every narrower route
      * declared after it; the build warns when it can prove that.
@@ -214,7 +214,7 @@ public interface ActionDef<T, C> extends Identifiable {
      * <p>
      * The listener belongs to the action, not to any one call site, so it fires at every invocation
      * - whether the action is attached to a transition, declared or referenced as a container
-     * member, reached through a conditional branch, or dispatched by id from another action's body.
+     * member, reached through a choice branch, or dispatched by id from another action's body.
      * Listeners attached here run before the state-machine-wide
      * {@code StateMachineDef.onAnyActionStart(...)} registrations, in declaration order within each
      * group.

@@ -26,7 +26,7 @@ import org.transflux.core.action.BranchDef
 import org.transflux.core.action.Compensation
 import org.transflux.core.action.ContextMapper
 import org.transflux.core.action.OperationDef
-import org.transflux.core.action.ConditionalOperationDef
+import org.transflux.core.action.ChoiceDef
 import org.transflux.core.action.DefaultBranchDef
 import org.transflux.core.action.NoMatchBehavior
 import org.transflux.core.action.Action
@@ -39,7 +39,7 @@ import spock.lang.Specification
 import java.util.function.Consumer
 import java.util.function.Predicate
 
-class ConditionalOperationDefImplIntegrationSpec extends Specification {
+class ChoiceDefImplIntegrationSpec extends Specification {
 
     static class ChildCtx {
         String tag
@@ -105,13 +105,13 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         }
     }
 
-    def 'three-branch conditional: predicate branch matches'() {
+    def 'three-branch choice: predicate branch matches'() {
         given:
         def applied = []
         def sm = build(applied,
             { smd -> smd.condition('critical-cond', { Entity e -> e.priority >= 10 } as Predicate) },
             { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
-                c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+                c.choice('route', { ChoiceDef<Entity, TestContext> cs ->
                     cs.branch('critical', { BranchDef<Entity, TestContext> b ->
                         b.condition('critical-cond').step('esc', new TrailStep('escalate'))
                     })
@@ -133,19 +133,19 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         then:
         result.success
         entity.trail == ['escalate']
-        // Branch steps run through the central step runner and are recorded; the conditional
+        // Branch steps run through the central step runner and are recorded; the choice
         // executor itself is also dispatched through the runner, so its id appears last.
         result.executedPath*.toString() == ['op', 'op/route', 'op/route/esc']
         applied == ['s2']
     }
 
-    def 'three-branch conditional: expression branch matches'() {
+    def 'three-branch choice: expression branch matches'() {
         given:
         def applied = []
         def sm = build(applied,
             { smd -> smd.condition('critical-cond', { Entity e -> e.priority >= 10 } as Predicate) },
             { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
-                c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+                c.choice('route', { ChoiceDef<Entity, TestContext> cs ->
                     cs.branch('critical', { BranchDef<Entity, TestContext> b ->
                         b.condition('critical-cond').step('esc', new TrailStep('escalate'))
                     })
@@ -170,7 +170,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         result.executedPath*.toString() == ['op', 'op/route', 'op/route/hi']
     }
 
-    def 'three-branch conditional: registered-condition-reference branch matches when earlier branches do not'() {
+    def 'three-branch choice: registered-condition-reference branch matches when earlier branches do not'() {
         given:
         def applied = []
         def sm = build(applied,
@@ -178,7 +178,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
                 .condition('critical-cond', { Entity e -> e.priority >= 10 } as Predicate)
                 .condition('vip-cond', { Entity e -> e.tier == 'VIP' } as Predicate) },
             { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
-                c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+                c.choice('route', { ChoiceDef<Entity, TestContext> cs ->
                     cs.branch('critical', { BranchDef<Entity, TestContext> b ->
                         b.condition('critical-cond').step('esc', new TrailStep('escalate'))
                     })
@@ -207,7 +207,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         given:
         def applied = []
         def sm = build(applied, { smd -> }, { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
-            c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+            c.choice('route', { ChoiceDef<Entity, TestContext> cs ->
                 cs.branch('a', { BranchDef<Entity, TestContext> b ->
                     b.condition('a-cond', { Entity e -> true } as Predicate).step('a-step', new TrailStep('A'))
                 })
@@ -231,7 +231,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         given:
         def applied = []
         def sm = build(applied, { smd -> }, { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
-            c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+            c.choice('route', { ChoiceDef<Entity, TestContext> cs ->
                 cs.branch('a', { BranchDef<Entity, TestContext> b ->
                     b.condition('a-cond', { Entity e -> false } as Predicate).step('a-step', new TrailStep('A'))
                 })
@@ -251,12 +251,12 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         result.executedPath*.toString() == ['op', 'op/route', 'op/route/default-step']
     }
 
-    def 'WARN with no match and no default: conditional is skipped; preceding steps still recorded'() {
+    def 'WARN with no match and no default: choice is skipped; preceding steps still recorded'() {
         given:
         def applied = []
         def sm = build(applied, { smd -> }, { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
             c.step('before', new TrailStep('before'))
-             .conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+             .choice('route', { ChoiceDef<Entity, TestContext> cs ->
                 cs.branch('a', { BranchDef<Entity, TestContext> b ->
                     b.condition('a-cond', { Entity e -> false } as Predicate).step('a-step', new TrailStep('A'))
                 })
@@ -275,12 +275,12 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         applied == ['s2']
     }
 
-    def 'SILENT with no match and no default: conditional skipped without logging, transition succeeds'() {
+    def 'SILENT with no match and no default: choice skipped without logging, transition succeeds'() {
         given:
         def applied = []
         def sm = build(applied, { smd -> }, { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
             c.step('before', new TrailStep('before'))
-             .conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+             .choice('route', { ChoiceDef<Entity, TestContext> cs ->
                 cs.branch('a', { BranchDef<Entity, TestContext> b ->
                     b.condition('a-cond', { Entity e -> false } as Predicate).step('a-step', new TrailStep('A'))
                 })
@@ -295,7 +295,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         then:
         result.success
         entity.trail == ['before']
-        // Same shape as the WARN case — the conditional itself was dispatched and returned
+        // Same shape as the WARN case — the choice itself was dispatched and returned
         // normally, so its id is on executedPath even though no branch ran.
         result.executedPath*.toString() == ['op', 'op/before', 'op/route']
         applied == ['s2']
@@ -305,7 +305,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         given:
         def applied = []
         def sm = build(applied, { smd -> }, { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
-            c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+            c.choice('route', { ChoiceDef<Entity, TestContext> cs ->
                 cs.branch('a', { BranchDef<Entity, TestContext> b ->
                     b.condition('a-cond', { Entity e -> false } as Predicate).step('a-step', new TrailStep('A'))
                 })
@@ -320,7 +320,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         then:
         !result.success
         result.error instanceof TransfluxNoMatchException
-        result.error.message == "Conditional operation 'route' had no matching branch and no default"
+        result.error.message == "Choice 'route' had no matching branch and no default"
         applied.isEmpty()
     }
 
@@ -328,7 +328,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         given:
         def applied = []
         def sm = build(applied, { smd -> }, { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
-            c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+            c.choice('route', { ChoiceDef<Entity, TestContext> cs ->
                 cs.branch('taken', { BranchDef<Entity, TestContext> b ->
                     b.condition('taken-cond', { Entity e -> true } as Predicate)
                      .step('t1', new TrailStep('t1'))
@@ -356,7 +356,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         given:
         def applied = []
         def sm = build(applied, { smd -> }, { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
-            c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+            c.choice('route', { ChoiceDef<Entity, TestContext> cs ->
                 cs.branch('only', { BranchDef<Entity, TestContext> b ->
                     b.condition('only-cond', { Entity e -> true } as Predicate)
                      .step('s1', new TrailWithCompStep('a'))
@@ -382,7 +382,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
     def 'branch referencing an unknown action id is rejected at build time'() {
         when:
         build([], { smd -> }, { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
-            c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+            c.choice('route', { ChoiceDef<Entity, TestContext> cs ->
                 cs.branch('critical', { BranchDef<Entity, TestContext> b ->
                     b.condition('critical-cond', { Entity e -> true } as Predicate)
                      .run('escalate-immediatly')
@@ -392,7 +392,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
 
         then: 'the typo fails the build rather than the first execution that takes this branch'
         def e = thrown(TransfluxValidationException)
-        e.message.contains("conditional operation 'route'")
+        e.message.contains("choice 'route'")
         e.message.contains("branch 'critical'")
         e.message.contains("'escalate-immediatly'")
         e.message.contains('unknown action id')
@@ -401,7 +401,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
     def 'default branch referencing an unknown action id is rejected at build time'() {
         when:
         build([], { smd -> }, { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
-            c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+            c.choice('route', { ChoiceDef<Entity, TestContext> cs ->
                 cs.branch('a', { BranchDef<Entity, TestContext> b ->
                     b.condition('a-cond', { Entity e -> false } as Predicate).step('a-step', new TrailStep('A'))
                 })
@@ -411,7 +411,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message.contains("conditional operation 'route'")
+        e.message.contains("choice 'route'")
         e.message.contains('default branch')
         e.message.contains("'no-such-step'")
         e.message.contains('unknown action id')
@@ -422,7 +422,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         def applied = []
         def sm = build(applied, { smd -> }, { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
             c.step('shared', new TrailStep('shared'))
-             .conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+             .choice('route', { ChoiceDef<Entity, TestContext> cs ->
                 cs.branch('only', { BranchDef<Entity, TestContext> b ->
                     b.condition('only-cond', { Entity e -> true } as Predicate).run('shared')
                 })
@@ -439,12 +439,12 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         result.executedPath*.toString() == ['op', 'op/shared', 'op/route', 'op/route/shared']
     }
 
-    def 'a branch may reference a container declared after the one holding the conditional'() {
+    def 'a branch may reference a container declared after the one holding the choice'() {
         given: 'members bind after every container is built, not while each one builds'
         def applied = []
         def sm = build(applied,
             { smd -> smd.operation('first', TestContext, { OperationDef<Entity, TestContext> op ->
-                    op.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+                    op.choice('route', { ChoiceDef<Entity, TestContext> cs ->
                         cs.branch('only', { BranchDef<Entity, TestContext> b ->
                             b.condition('always', { Entity e -> true } as Predicate).run('second')
                         })
@@ -470,7 +470,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         when: 'the id is unknown, so resolution reports where it was declared'
         build([], { smd -> },
             { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
-                c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+                c.choice('route', { ChoiceDef<Entity, TestContext> cs ->
                     cs.branch('critical', { BranchDef<Entity, TestContext> b ->
                         b.condition('critical-cond', { Entity e -> true } as Predicate)
                          .run('ghost')
@@ -480,7 +480,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
 
         then: 'each level of the nesting appears, so the branch is locatable and not merely named'
         def e = thrown(TransfluxValidationException)
-        e.message.startsWith("transition 't' > operation 'op' > conditional operation 'route'"
+        e.message.startsWith("transition 't' > operation 'op' > choice 'route'"
                                  + " > branch 'critical' references unknown action id 'ghost'")
     }
 
@@ -488,7 +488,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         when:
         build([], { smd -> smd.condition('not-an-action', { Entity e -> true } as Predicate) },
             { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
-                c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+                c.choice('route', { ChoiceDef<Entity, TestContext> cs ->
                     cs.branch('critical', { BranchDef<Entity, TestContext> b ->
                         b.condition('critical-cond', { Entity e -> true } as Predicate)
                          .run('not-an-action')
@@ -498,7 +498,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
 
         then: 'the id resolves, but to the wrong kind of component'
         def e = thrown(TransfluxValidationException)
-        e.message.contains("conditional operation 'route'")
+        e.message.contains("choice 'route'")
         e.message.contains("branch 'critical'")
         e.message.contains("'not-an-action'")
         e.message.contains('not an action')
@@ -519,7 +519,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
                     { TestContext p -> new ChildCtx(tag: p.tag + '-mapped') } as ContextMapper)
             .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
                 t.operation('op', { OperationDef<Entity, TestContext> c ->
-                    c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+                    c.choice('route', { ChoiceDef<Entity, TestContext> cs ->
                         cs.branch('only', { BranchDef<Entity, TestContext> b ->
                             b.condition('always', { Entity e -> true } as Predicate)
                              .run('child-step', 'child-from-parent')
@@ -552,7 +552,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
             } as Action)
             .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
                 t.operation('op', { OperationDef<Entity, TestContext> c ->
-                    c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+                    c.choice('route', { ChoiceDef<Entity, TestContext> cs ->
                         cs.branch('only', { BranchDef<Entity, TestContext> b ->
                             b.condition('always', { Entity e -> true } as Predicate)
                              .run('child-step',
@@ -571,15 +571,15 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         seen == ['parent-tag-inline']
     }
 
-    def 'a conditional nested inside a branch selects and reports at two levels'() {
+    def 'a choice nested inside a branch selects and reports at two levels'() {
         given:
         def applied = []
         def sm = build(applied, { smd -> },
             { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
-                c.conditional('outer', { ConditionalOperationDef<Entity, TestContext> cs ->
+                c.choice('outer', { ChoiceDef<Entity, TestContext> cs ->
                     cs.branch('high', { BranchDef<Entity, TestContext> b ->
                         b.conditionExpression('priority >= 5')
-                         .conditional('inner', { ConditionalOperationDef<Entity, TestContext> ics ->
+                         .choice('inner', { ChoiceDef<Entity, TestContext> ics ->
                              ics.branch('vip', { BranchDef<Entity, TestContext> ib ->
                                  ib.condition('is-vip', { Entity e -> e.tier == 'VIP' } as Predicate)
                                    .step('vip-leaf', new TrailStep('vip-leaf'))
@@ -599,21 +599,21 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         when:
         def result = sm.executeTransition(entity, 's2')
 
-        then: 'each conditional pushed its own id, so the leaf reports at full depth'
+        then: 'each choice pushed its own id, so the leaf reports at full depth'
         result.success
         entity.trail == ['vip-leaf']
         result.executedPath*.toString() == ['op', 'op/outer', 'op/outer/inner', 'op/outer/inner/vip-leaf']
     }
 
-    def 'a nested conditional falls through to its own default branch'() {
+    def 'a nested choice falls through to its own default branch'() {
         given:
         def applied = []
         def sm = build(applied, { smd -> },
             { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
-                c.conditional('outer', { ConditionalOperationDef<Entity, TestContext> cs ->
+                c.choice('outer', { ChoiceDef<Entity, TestContext> cs ->
                     cs.branch('high', { BranchDef<Entity, TestContext> b ->
                         b.conditionExpression('priority >= 5')
-                         .conditional('inner', { ConditionalOperationDef<Entity, TestContext> ics ->
+                         .choice('inner', { ChoiceDef<Entity, TestContext> ics ->
                              ics.branch('vip', { BranchDef<Entity, TestContext> ib ->
                                  ib.condition('is-vip', { Entity e -> e.tier == 'VIP' } as Predicate)
                                    .step('vip-leaf', new TrailStep('vip-leaf'))
@@ -636,16 +636,16 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         entity.trail == ['plain-leaf']
     }
 
-    def 'a branch member declared inside a nested conditional resolves in the enclosing container scope'() {
+    def 'a branch member declared inside a nested choice resolves in the enclosing container scope'() {
         given:
         def applied = []
         def sm = build(applied, { smd -> },
             { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
                 c.step('shared', new TrailStep('shared'))
-                 .conditional('outer', { ConditionalOperationDef<Entity, TestContext> cs ->
+                 .choice('outer', { ChoiceDef<Entity, TestContext> cs ->
                     cs.branch('only', { BranchDef<Entity, TestContext> b ->
                         b.condition('always', { Entity e -> true } as Predicate)
-                         .conditional('inner', { ConditionalOperationDef<Entity, TestContext> ics ->
+                         .choice('inner', { ChoiceDef<Entity, TestContext> ics ->
                              ics.branch('deep', { BranchDef<Entity, TestContext> ib ->
                                  ib.condition('also-always', { Entity e -> true } as Predicate)
                                    .run('shared')
@@ -659,18 +659,18 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         def entity = new Entity('s1')
         def result = sm.executeTransition(entity, 's2')
 
-        then: 'the inline sibling is visible two conditionals deep'
+        then: 'the inline sibling is visible two choices deep'
         result.success
         entity.trail == ['shared', 'shared']
         result.executedPath*.toString() == ['op', 'op/shared', 'op/outer', 'op/outer/inner', 'op/outer/inner/shared']
     }
 
     def 'one branch reaches an action another branch declared'() {
-        given: 'the branches share the conditional scope, so a common step is declared once'
+        given: 'the branches share the choice scope, so a common step is declared once'
         def applied = []
         def sm = build(applied, { smd -> },
             { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
-                c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs -> cs
+                c.choice('route', { ChoiceDef<Entity, TestContext> cs -> cs
                     .branch('never', { BranchDef<Entity, TestContext> b -> b
                         .condition('no', { Entity e -> false } as Predicate)
                         .step('common', new TrailStep('common')) })
@@ -689,11 +689,11 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         result.executedPath*.toString() == ['op', 'op/route', 'op/route/common']
     }
 
-    def "a sibling of the conditional cannot reach what a branch declared"() {
-        when: 'the conditional scope is private from outside, as a container scope is'
+    def "a sibling of the choice cannot reach what a branch declared"() {
+        when: 'the choice scope is private from outside, as a container scope is'
         build([], { smd -> },
             { t -> t.operation('op', { OperationDef<Entity, TestContext> c -> c
-                .conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+                .choice('route', { ChoiceDef<Entity, TestContext> cs ->
                     cs.branch('only', { BranchDef<Entity, TestContext> b -> b
                         .condition('yes', { Entity e -> true } as Predicate)
                         .step('buried', new TrailStep('buried')) }) })
@@ -706,12 +706,12 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         e.message.contains("composite 'route'")
     }
 
-    def "an action dispatched from a branch member's body resolves in the conditional's scope"() {
+    def "an action dispatched from a branch member's body resolves in the choice's scope"() {
         given: 'the executor pushes its scope, so an imperative run(id) sees what branches share'
         def applied = []
         def sm = build(applied, { smd -> },
             { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
-                c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs -> cs
+                c.choice('route', { ChoiceDef<Entity, TestContext> cs -> cs
                     .branch('other', { BranchDef<Entity, TestContext> b -> b
                         .condition('no', { Entity e -> false } as Predicate)
                         .step('sibling-leaf', new TrailStep('sibling-leaf')) })
@@ -732,8 +732,8 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         result.executedPath*.toString().contains('op/route/dispatcher/sibling-leaf')
     }
 
-    def 'a machine keeps the conditional scope it was built with when the def is built again'() {
-        given: 'a conditional whose branch member is reached by id from a sibling branch'
+    def 'a machine keeps the choice scope it was built with when the def is built again'() {
+        given: 'a choice whose branch member is reached by id from a sibling branch'
         Recorder.RAN.clear()
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
@@ -741,7 +741,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
             .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
         smd.state('s1', { s -> s.transitionsTo('s2', 't', TestContext, { t ->
             t.operation('op', { OperationDef<Entity, TestContext> c ->
-                c.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs -> cs
+                c.choice('route', { ChoiceDef<Entity, TestContext> cs -> cs
                     .branch('other', { BranchDef<Entity, TestContext> b -> b
                         .condition('no', { Entity e -> false } as Predicate)
                         .step('leaf', new Recorder()) })
@@ -764,9 +764,9 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         result.success
         Recorder.RAN.size() == 1
 
-        and: 'each build produced its own conditional, holding its own scope'
-        def firstRoute = conditionalOf(first)
-        def secondRoute = conditionalOf(second)
+        and: 'each build produced its own choice, holding its own scope'
+        def firstRoute = choiceOf(first)
+        def secondRoute = choiceOf(second)
         !firstRoute.is(secondRoute)
         !firstRoute.scopeRegistry.is(secondRoute.scopeRegistry)
 
@@ -779,20 +779,20 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
     }
 
     /**
-     * Digs the conditional's executor out of a built machine: the transition's body holds the
-     * container as its only member, and the container holds the conditional this spec declares.
+     * Digs the choice's executor out of a built machine: the transition's body holds the
+     * container as its only member, and the container holds the choice this spec declares.
      */
-    private static conditionalOf(machine) {
+    private static choiceOf(machine) {
         def body = machine.transitions['t'].boundAction.action()
         def container = body.members[0].action().action()
         container.members[0].action().action()
     }
 
-    def 'a conditional attaches straight to a transition, with no wrapping operation'() {
+    def 'a choice attaches straight to a transition, with no wrapping operation'() {
         given:
         def applied = []
         def sm = build(applied, { smd -> },
-            { t -> t.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs -> cs
+            { t -> t.choice('route', { ChoiceDef<Entity, TestContext> cs -> cs
                 .branch('low', { BranchDef<Entity, TestContext> b -> b
                     .condition('is-low', { Entity e -> false } as Predicate)
                     .step('low-step', new TrailStep('low')) })
@@ -804,18 +804,18 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         when:
         def result = sm.executeTransition(entity, 's2')
 
-        then: 'the conditional is the root action, so no synthetic level appears on the path'
+        then: 'the choice is the root action, so no synthetic level appears on the path'
         result.success
         entity.trail == ['high']
         result.executedPath*.toString() == ['route', 'route/high-step']
         applied == ['s2']
     }
 
-    def 'a transition-attached conditional falls through to its default branch'() {
+    def 'a transition-attached choice falls through to its default branch'() {
         given:
         def applied = []
         def sm = build(applied, { smd -> },
-            { t -> t.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs -> cs
+            { t -> t.choice('route', { ChoiceDef<Entity, TestContext> cs -> cs
                 .branch('never', { BranchDef<Entity, TestContext> b -> b
                     .condition('no', { Entity e -> false } as Predicate)
                     .step('unreached', new TrailStep('unreached')) })
@@ -832,11 +832,11 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         result.executedPath*.toString() == ['route', 'route/fallback']
     }
 
-    def 'a transition-attached conditional under ERROR fails the transition when nothing matches'() {
+    def 'a transition-attached choice under ERROR fails the transition when nothing matches'() {
         given:
         def applied = []
         def sm = build(applied, { smd -> },
-            { t -> t.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs -> cs
+            { t -> t.choice('route', { ChoiceDef<Entity, TestContext> cs -> cs
                 .onNoMatch(NoMatchBehavior.ERROR)
                 .branch('never', { BranchDef<Entity, TestContext> b -> b
                     .condition('no', { Entity e -> false } as Predicate)
@@ -846,18 +846,18 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         when:
         def result = sm.executeTransition(entity, 's2')
 
-        then: 'the conditional is the root action, so its failure is the transition failure'
+        then: 'the choice is the root action, so its failure is the transition failure'
         !result.success
         result.error.message.contains("'route'")
         entity.trail.isEmpty()
         applied.isEmpty()
     }
 
-    def "a transition-attached conditional's branches share its scope"() {
+    def "a transition-attached choice's branches share its scope"() {
         given: 'the scope is parented on the root registry, there being no enclosing container'
         def applied = []
         def sm = build(applied, { smd -> smd.step('sm-level', new TrailStep('sm-level')) },
-            { t -> t.conditional('route', { ConditionalOperationDef<Entity, TestContext> cs -> cs
+            { t -> t.choice('route', { ChoiceDef<Entity, TestContext> cs -> cs
                 .branch('never', { BranchDef<Entity, TestContext> b -> b
                     .condition('no', { Entity e -> false } as Predicate)
                     .step('shared', new TrailStep('shared')) })
@@ -876,11 +876,11 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         result.executedPath*.toString() == ['route', 'route/shared', 'route/sm-level']
     }
 
-    def 'a conditional registered at SM level is referenced by id like any other action'() {
+    def 'a choice registered at SM level is referenced by id like any other action'() {
         given:
         def applied = []
         def sm = build(applied,
-            { smd -> smd.conditional('route', TestContext, { ConditionalOperationDef<Entity, TestContext> cs -> cs
+            { smd -> smd.choice('route', TestContext, { ChoiceDef<Entity, TestContext> cs -> cs
                 .branch('never', { BranchDef<Entity, TestContext> b -> b
                     .condition('no', { Entity e -> false } as Predicate)
                     .step('unreached', new TrailStep('unreached')) })
@@ -899,11 +899,11 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         result.executedPath*.toString() == ['op', 'op/route', 'op/route/chosen']
     }
 
-    def 'a registered conditional can be attached to a transition by id'() {
+    def 'a registered choice can be attached to a transition by id'() {
         given:
         def applied = []
         def sm = build(applied,
-            { smd -> smd.conditional('route', TestContext, { ConditionalOperationDef<Entity, TestContext> cs ->
+            { smd -> smd.choice('route', TestContext, { ChoiceDef<Entity, TestContext> cs ->
                 cs.branch('taken', { BranchDef<Entity, TestContext> b -> b
                     .condition('yes', { Entity e -> true } as Predicate)
                     .step('chosen', new TrailStep('chosen')) }) }) },
@@ -919,11 +919,11 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         result.executedPath*.toString() == ['route', 'route/chosen']
     }
 
-    def 'a registered conditional shares the action namespace'() {
+    def 'a registered choice shares the action namespace'() {
         when:
         build([], { smd ->
             smd.step('clash', new TrailStep('step'))
-            smd.conditional('clash', TestContext, { ConditionalOperationDef<Entity, TestContext> cs ->
+            smd.choice('clash', TestContext, { ChoiceDef<Entity, TestContext> cs ->
                 cs.branch('b', { BranchDef<Entity, TestContext> b -> b
                     .condition('yes', { Entity e -> true } as Predicate)
                     .step('inner', new TrailStep('inner')) }) })
@@ -934,10 +934,10 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         e.message.contains('clash')
     }
 
-    def 'a cycle through a registered conditional is rejected'() {
-        when: 'the conditional is a cycle node like any other registered action'
+    def 'a cycle through a registered choice is rejected'() {
+        when: 'the choice is a cycle node like any other registered action'
         build([], { smd ->
-            smd.conditional('route', TestContext, { ConditionalOperationDef<Entity, TestContext> cs ->
+            smd.choice('route', TestContext, { ChoiceDef<Entity, TestContext> cs ->
                 cs.branch('b', { BranchDef<Entity, TestContext> b -> b
                     .condition('yes', { Entity e -> true } as Predicate)
                     .run('route') }) })
@@ -948,10 +948,10 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
         e.message.endsWith('cycle detected: route -> route')
     }
 
-    def 'a registered conditional is named as one when a branch fails to resolve'() {
+    def 'a registered choice is named as one when a branch fails to resolve'() {
         when: 'the same def reported at a transition slot reads the same way here'
         build([], { smd ->
-            smd.conditional('route', TestContext, { ConditionalOperationDef<Entity, TestContext> cs ->
+            smd.choice('route', TestContext, { ChoiceDef<Entity, TestContext> cs ->
                 cs.branch('critical', { BranchDef<Entity, TestContext> b -> b
                     .condition('yes', { Entity e -> true } as Predicate)
                     .run('ghost') }) })
@@ -959,7 +959,7 @@ class ConditionalOperationDefImplIntegrationSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message.startsWith("SM-level conditional operation 'route' > branch 'critical'"
+        e.message.startsWith("SM-level choice 'route' > branch 'critical'"
                                  + " references unknown action id 'ghost'")
     }
 

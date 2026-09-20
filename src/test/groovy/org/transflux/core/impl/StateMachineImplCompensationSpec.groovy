@@ -25,7 +25,7 @@ import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.BranchDef
 import org.transflux.core.action.Compensation
 import org.transflux.core.action.OperationDef
-import org.transflux.core.action.ConditionalOperationDef
+import org.transflux.core.action.ChoiceDef
 import org.transflux.core.action.ContextMapper
 import org.transflux.core.action.Action
 import org.transflux.core.action.StepDef
@@ -626,11 +626,11 @@ class StateMachineImplCompensationSpec extends Specification {
         applied.isEmpty()
     }
 
-    def 'conditional compensation runs when a branch member fails'() {
+    def 'choice compensation runs when a branch member fails'() {
         given:
         def applied = []
         def sm = build(applied, { t -> t.operation('op', { OperationDef<Entity, TestContext> c ->
-            c.conditional('route', { cs -> cs
+            c.choice('route', { cs -> cs
                 .withCompensation({ Entity e, TestContext ctx -> e.trail << '-cond' } as Compensation)
                 .branch('always', { BranchDef<Entity, TestContext> b -> b
                     .condition('yes', { Entity e -> true } as Predicate)
@@ -655,7 +655,7 @@ class StateMachineImplCompensationSpec extends Specification {
             .step('m1', { StepDef<Entity, TestContext> s -> s
                 .using(new NoCompStep('m'))
                 .withCompensation({ Entity e, TestContext ctx -> e.trail << '-m1' } as Compensation) })
-            .conditional('route', { cs -> cs
+            .choice('route', { cs -> cs
                 .branch('always', { BranchDef<Entity, TestContext> b -> b
                     .condition('yes', { Entity e -> true } as Predicate)
                     .step('m2', { StepDef<Entity, TestContext> s -> s
@@ -705,7 +705,7 @@ class StateMachineImplCompensationSpec extends Specification {
     }
 
     def 'declared compensation on a branch member receives the context its branch ran against'() {
-        given: 'the conditional sits inside a container reached by id through a mapper'
+        given: 'the choice sits inside a container reached by id through a mapper'
         def applied = []
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
@@ -716,7 +716,7 @@ class StateMachineImplCompensationSpec extends Specification {
                 .withCompensation(new ChildCtxCompensation()) })
             .mapper('child-from-parent', TestContext, ChildCtx, new DerivingChildCtxMapper())
             .operation('inner', ChildCtx, { OperationDef<Entity, ChildCtx> op ->
-                op.conditional('route', { ConditionalOperationDef<Entity, ChildCtx> cs ->
+                op.choice('route', { ChoiceDef<Entity, ChildCtx> cs ->
                     cs.branch('only', { BranchDef<Entity, ChildCtx> b ->
                         b.condition('always', { Entity e -> true } as Predicate).run('charge')
                     })

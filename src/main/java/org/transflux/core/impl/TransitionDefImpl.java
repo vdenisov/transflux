@@ -22,7 +22,7 @@ import org.transflux.core.action.AsyncRejectionPolicy;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.action.ConditionalOperationDef;
+import org.transflux.core.action.ChoiceDef;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.Action;
@@ -334,8 +334,8 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer) {
-        body.conditional(id, configurer);
+    public TransitionDef<T, C> choice(String id, Consumer<ChoiceDef<T, C>> configurer) {
+        body.choice(id, configurer);
         return this;
     }
 
@@ -358,9 +358,9 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public TransitionDef<T, C> forkConditional(String id,
-                                               Consumer<ConditionalOperationDef<T, C>> configurer) {
-        body.forkConditional(id, configurer);
+    public TransitionDef<T, C> forkChoice(String id,
+                                               Consumer<ChoiceDef<T, C>> configurer) {
+        body.forkChoice(id, configurer);
         return this;
     }
 
@@ -398,17 +398,17 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public <N> TransitionDef<T, C> conditional(String id, Class<N> contextType,
-                                               Consumer<ConditionalOperationDef<T, N>> configurer) {
-        body.conditional(id, contextType, configurer);
+    public <N> TransitionDef<T, C> choice(String id, Class<N> contextType,
+                                               Consumer<ChoiceDef<T, N>> configurer) {
+        body.choice(id, contextType, configurer);
         return this;
     }
 
     @Override
-    public <N> TransitionDef<T, C> conditional(String id, Class<N> contextType,
+    public <N> TransitionDef<T, C> choice(String id, Class<N> contextType,
                                                ContextMapper<C, N> mapper,
-                                               Consumer<ConditionalOperationDef<T, N>> configurer) {
-        body.conditional(id, contextType, mapper, configurer);
+                                               Consumer<ChoiceDef<T, N>> configurer) {
+        body.choice(id, contextType, mapper, configurer);
         return this;
     }
 
@@ -456,17 +456,17 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
-    public <N> TransitionDef<T, C> forkConditional(String id, Class<N> contextType,
-                                                   Consumer<ConditionalOperationDef<T, N>> configurer) {
-        body.forkConditional(id, contextType, configurer);
+    public <N> TransitionDef<T, C> forkChoice(String id, Class<N> contextType,
+                                                   Consumer<ChoiceDef<T, N>> configurer) {
+        body.forkChoice(id, contextType, configurer);
         return this;
     }
 
     @Override
-    public <N> TransitionDef<T, C> forkConditional(String id, Class<N> contextType,
+    public <N> TransitionDef<T, C> forkChoice(String id, Class<N> contextType,
                                                    ContextMapper<C, N> mapper,
-                                                   Consumer<ConditionalOperationDef<T, N>> configurer) {
-        body.forkConditional(id, contextType, mapper, configurer);
+                                                   Consumer<ChoiceDef<T, N>> configurer) {
+        body.forkChoice(id, contextType, mapper, configurer);
         return this;
     }
 

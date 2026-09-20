@@ -21,7 +21,7 @@ package org.transflux.core.action;
 
 
 /**
- * Sub-builder for the default branch of a {@link ConditionalOperationDef}.
+ * Sub-builder for the default branch of a {@link ChoiceDef}.
  * <p>
  * The default branch carries no condition; the framework runs its steps when every
  * preceding {@link BranchDef} evaluated to {@code false}. The default branch must declare

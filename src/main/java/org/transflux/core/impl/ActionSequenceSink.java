@@ -21,7 +21,7 @@ package org.transflux.core.impl;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.ActionKind;
 import org.transflux.core.action.AsyncRejectionPolicy;
-import org.transflux.core.action.ConditionalOperationDef;
+import org.transflux.core.action.ChoiceDef;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.ForkableContext;
 import org.transflux.core.action.OperationDef;
@@ -38,7 +38,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
  * Shared implementation and storage for the member grammar every ordered action list exposes -
- * a declarative container, a conditional's branch, and its default branch.
+ * a declarative container, a choice's branch, and its default branch.
  * <p>
  * Every owning def declares one sink and implements its public methods as one-line delegates, so
  * validation order, argument labels and the configurer guard are written once. The owners have no
@@ -138,29 +138,29 @@ final class ActionSequenceSink<T, C, D> {
         return typedStep(id, contextType, mapperRef, configurer, forked);
     }
 
-    D conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer,
+    D choice(String id, Consumer<ChoiceDef<T, C>> configurer,
                   boolean forked) {
-        owner.requireConfigurerActive(verb("conditional", forked));
-        requireNotBlank(id, "Conditional operation ID");
-        requireNotNull(configurer, "Conditional configurer");
+        owner.requireConfigurerActive(verb("choice", forked));
+        requireNotBlank(id, "Choice ID");
+        requireNotNull(configurer, "Choice configurer");
 
-        ConditionalOperationDefImpl<T, C> def = new ConditionalOperationDefImpl<>(id);
+        ChoiceDefImpl<T, C> def = new ChoiceDefImpl<>(id);
         ConfigurableDefImpl.runConfigurer(def, configurer);
-        members.add(new DeclaredMember<>(ActionRef.conditional(id, def), forked));
+        members.add(new DeclaredMember<>(ActionRef.choice(id, def), forked));
 
         return self;
     }
 
-    <N> D conditional(String id, Class<N> contextType, MapperRef mapperRef,
-                      Consumer<ConditionalOperationDef<T, N>> configurer, boolean forked) {
-        owner.requireConfigurerActive(verb("conditional", forked));
-        requireNotBlank(id, "Conditional operation ID");
-        requireNotNull(contextType, "Conditional context type");
-        requireNotNull(configurer, "Conditional configurer");
+    <N> D choice(String id, Class<N> contextType, MapperRef mapperRef,
+                      Consumer<ChoiceDef<T, N>> configurer, boolean forked) {
+        owner.requireConfigurerActive(verb("choice", forked));
+        requireNotBlank(id, "Choice ID");
+        requireNotNull(contextType, "Choice context type");
+        requireNotNull(configurer, "Choice configurer");
 
-        ConditionalOperationDefImpl<T, N> def = new ConditionalOperationDefImpl<>(id, contextType);
+        ChoiceDefImpl<T, N> def = new ChoiceDefImpl<>(id, contextType);
         ConfigurableDefImpl.runConfigurer(def, configurer);
-        members.add(new DeclaredMember<>(ActionRef.conditional(id, erase(def), mapperRef),
+        members.add(new DeclaredMember<>(ActionRef.choice(id, erase(def), mapperRef),
                                          forked));
 
         return self;
@@ -242,10 +242,10 @@ final class ActionSequenceSink<T, C, D> {
 
     /**
      * Visits every member of this sequence and, recursively, every member nested inside one -
-     * a conditional member's branches and their own nested conditionals.
+     * a choice member's branches and their own nested choices.
      * <p>
      * The walk terminates by construction: the edge set is the source nesting, every
-     * {@code conditional(...)} and {@code branch(...)} constructs a fresh def, no DSL method
+     * {@code choice(...)} and {@code branch(...)} constructs a fresh def, no DSL method
      * accepts an already-built one, and the configurer guard makes a def inert once its lambda
      * returns - so the structure is a finite tree rather than a graph. Only a by-id reference
      * can close a loop, and this walk does not follow one.
@@ -261,7 +261,7 @@ final class ActionSequenceSink<T, C, D> {
 
     /**
      * Walks this sequence's action refs and forwards each to the supplied sink. By-id refs
-     * no-op; inline refs push themselves; conditional refs recurse into their branches and then
+     * no-op; inline refs push themselves; choice refs recurse into their branches and then
      * register their own bound action.
      *
      * @param sink receives each inline declaration
@@ -303,7 +303,7 @@ final class ActionSequenceSink<T, C, D> {
      * @param scopeContext the context type this sequence's members are written against;
      *                     {@code null} is read as {@code Object}
      * @param declaringScope the id of the scope these declarations register into - the enclosing
-     *                       container's, or the conditional's when this is one of its branches
+     *                       container's, or the choice's when this is one of its branches
      * @param sink receives each inline declaration, with the scope that holds it
      */
     void collectMemberContexts(Class<?> scopeContext, String declaringScope,
@@ -319,9 +319,9 @@ final class ActionSequenceSink<T, C, D> {
             Class<?> declared = ref.declaredContext();
             sink.accept(ref.id(), declared != null ? declared : effectiveScope, declaringScope);
 
-            if (ref instanceof ActionRef.Conditional<T, C> conditional) {
-                conditional.def().collectMemberContexts(
-                    conditional.def().effectiveContext(effectiveScope), sink);
+            if (ref instanceof ActionRef.Choice<T, C> choice) {
+                choice.def().collectMemberContexts(
+                    choice.def().effectiveContext(effectiveScope), sink);
             } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
                 nested.def().collectMemberContexts(
                     nested.def().effectiveContext(effectiveScope), sink);
@@ -331,14 +331,14 @@ final class ActionSequenceSink<T, C, D> {
 
     /**
      * Build-time check over every member: that a by-id reference's context crossing is legal,
-     * that a nested conditional's branches are checked too, and that a forked member is not
+     * that a nested choice's branches are checked too, and that a forked member is not
      * silently sharing a context it cannot copy.
      *
      * @param scopeContext the enclosing context type; {@code null} is read as {@code Object}
      * @param scopeLabel names this sequence in a rejection message
      * @param contextOwner names the position whose context the members run against, which is not
      *                     always this sequence: a declaration that names no context of its own
-     *                     inherits the enclosing one, and so does every branch of a conditional
+     *                     inherits the enclosing one, and so does every branch of a choice
      * @param visibleScopes the ids of the scopes a reference from here resolves through, innermost
      *                      first
      * @param smDef the state-machine def whose component registrations the check consults
@@ -354,10 +354,10 @@ final class ActionSequenceSink<T, C, D> {
                                                                              visibleScopes);
                 byId.mapperRef().validateAgainst(effectiveScope, scopeLabel, "action",
                     byId.id(), componentCtx, smDef.getMapperRegistrations());
-            } else if (ref instanceof ActionRef.Conditional<T, C> conditional) {
-                Class<?> own = memberContext(ref, conditional.def(), effectiveScope, scopeLabel);
-                String label = scopeLabel + " > " + conditional.def().defLabel();
-                conditional.def().checkRefs(own, label,
+            } else if (ref instanceof ActionRef.Choice<T, C> choice) {
+                Class<?> own = memberContext(ref, choice.def(), effectiveScope, scopeLabel);
+                String label = scopeLabel + " > " + choice.def().defLabel();
+                choice.def().checkRefs(own, label,
                                             ownerBeneath(ref.declaredContext(), own, contextOwner,
                                                          label),
                                             visibleScopes, smDef);
@@ -456,7 +456,7 @@ final class ActionSequenceSink<T, C, D> {
      * <p>
      * {@code contextOwner} names the position that declared the context at stake, which is what
      * the advice is actionable against - it is not necessarily where the member was written, since
-     * a conditional's branches, and any declaration naming no context, inherit one from further
+     * a choice's branches, and any declaration naming no context, inherit one from further
      * out. {@code declaredIn} names the position the member was written at.
      */
     private void checkForkBoundary(ActionRef<T, C> ref, Class<?> scopeContext,

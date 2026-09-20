@@ -36,7 +36,7 @@ import java.util.function.Predicate
 /**
  * Covers inline condition ids competing for the per-build canonical id table, which is what makes
  * the documented SM-wide id-uniqueness rule apply to conditions as it already does to steps,
- * operations and conditional operations.
+ * operations and choices.
  */
 class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
 
@@ -177,7 +177,7 @@ class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
         build({ d -> d
             .state('s1', { st -> st.transitionsTo('s2', 't', { t ->
                 t.preCondition('shared', { e -> true } as Predicate)
-                 .operation('comp', { c -> c.conditional('cond', { cs -> cs
+                 .operation('comp', { c -> c.choice('cond', { cs -> cs
                      .branch('b1', { b -> b
                          .condition('shared', { e -> false } as Predicate)
                          .step('s', { en, c2, tr -> } as Action) }) }) }) }) })

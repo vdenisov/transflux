@@ -31,11 +31,11 @@ import spock.lang.Unroll
 import java.util.function.Consumer
 
 /**
- * A conditional operation's listener hooks. The family itself is inherited from
- * {@code ActionDefImpl}; what is covered here is that a conditional carries it like any other
+ * A choice's listener hooks. The family itself is inherited from
+ * {@code ActionDefImpl}; what is covered here is that a choice carries it like any other
  * action, and that listener-id collection descends into its branches.
  */
-class ConditionalOperationDefImplListenerSpec extends Specification {
+class ChoiceDefImplListenerSpec extends Specification {
 
     static class NoopListener implements ActionListener<Object, Object> {
         @Override
@@ -46,7 +46,7 @@ class ConditionalOperationDefImplListenerSpec extends Specification {
     @Unroll
     def '#hook in the #form form registers a listener'() {
         given:
-        def def_ = conditional()
+        def def_ = choice()
 
         when:
         declare.call(def_)
@@ -66,7 +66,7 @@ class ConditionalOperationDefImplListenerSpec extends Specification {
 
     def 'the listeners reach the bound action'() {
         given:
-        def def_ = conditional()
+        def def_ = choice()
         def_.onStart('before', new NoopListener())
         def_.branch('only', { BranchDef b ->
             b.condition('always', { e, ctx, tr -> true } as Condition).run('work')
@@ -82,7 +82,7 @@ class ConditionalOperationDefImplListenerSpec extends Specification {
 
     def 'listeners on one hook keep declaration order'() {
         given:
-        def def_ = conditional()
+        def def_ = choice()
 
         when:
         def_.onError('first', new NoopListener())
@@ -93,9 +93,9 @@ class ConditionalOperationDefImplListenerSpec extends Specification {
     }
 
     @Unroll
-    def 'post-configurer #hook throws naming the conditional'() {
+    def 'post-configurer #hook throws naming the choice'() {
         given:
-        def def_ = conditional()
+        def def_ = choice()
         def_.endConfigurer()
 
         when:
@@ -103,7 +103,7 @@ class ConditionalOperationDefImplListenerSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message.contains("conditional operation 'c1'")
+        e.message.contains("choice 'c1'")
         e.message.contains('after its configurer has returned')
 
         where:
@@ -113,8 +113,8 @@ class ConditionalOperationDefImplListenerSpec extends Specification {
         'onError'    | { it.onError('l1', new NoopListener()) }
     }
 
-    private static ConditionalOperationDefImpl<Object, Object> conditional() {
-        def def_ = new ConditionalOperationDefImpl<Object, Object>('c1')
+    private static ChoiceDefImpl<Object, Object> choice() {
+        def def_ = new ChoiceDefImpl<Object, Object>('c1')
         def_.beginConfigurer()
         return def_
     }

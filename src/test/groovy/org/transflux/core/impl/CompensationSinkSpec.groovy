@@ -199,10 +199,10 @@ class CompensationSinkSpec extends Specification {
         messages.every { !it.contains('Compensation route is unreachable') }
     }
 
-    def 'the conditional drives the same sink as the other authoring forms'() {
+    def 'the choice drives the same sink as the other authoring forms'() {
         given:
         def fallback = new NoopCompensation()
-        def cond = new ConditionalOperationDefImpl<Object, Object>('c1')
+        def cond = new ChoiceDefImpl<Object, Object>('c1')
         cond.beginConfigurer()
         cond.branch('b', { it.condition('b-cond', { e -> true } as Predicate).run('x') })
             .withCompensation(fallback)
@@ -216,9 +216,9 @@ class CompensationSinkSpec extends Specification {
         router.fallback().is(fallback)
     }
 
-    def 'an unclosed route on a conditional fails the build too'() {
+    def 'an unclosed route on a choice fails the build too'() {
         given:
-        def cond = new ConditionalOperationDefImpl<Object, Object>('c1')
+        def cond = new ChoiceDefImpl<Object, Object>('c1')
         cond.beginConfigurer()
         cond.branch('b', { it.condition('b-cond', { e -> true } as Predicate).run('x') })
         cond.forException(IllegalStateException)
@@ -228,7 +228,7 @@ class CompensationSinkSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message.contains("conditional operation 'c1'")
+        e.message.contains("choice 'c1'")
     }
 
     private static List<String> buildCapturingValidation(StepDefImpl<Object, Object> def_) {

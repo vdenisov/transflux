@@ -29,7 +29,7 @@ package org.transflux.core.action;
  * <p><b>A listener attaches to the action, not to the call site.</b> It is declared on the action's
  * own def, through {@code onStart(...)} / {@code onComplete(...)} / {@code onError(...)}, and fires
  * at every invocation of that action - as a transition's attachment, as a container member, as a
- * conditional branch member, and when another action's body dispatches it by id. A reference
+ * choice branch member, and when another action's body dispatches it by id. A reference
  * carries nothing, because which observers an action has is a property of the action, exactly as
  * its compensation is. The state-machine-wide {@code onAnyActionStart(...)} /
  * {@code onAnyActionComplete(...)} / {@code onAnyActionError(...)} registrations observe every

@@ -239,7 +239,7 @@ class StateMachineImplForkSpec extends Specification {
                 done.countDown()
             } as Action)
         }, { op ->
-            op.conditional('route', { cs ->
+            op.choice('route', { cs ->
                 cs.branch('only', { b ->
                     b.condition('always', { e -> true } as Predicate).fork('notify')
                 } as Consumer)
@@ -258,7 +258,7 @@ class StateMachineImplForkSpec extends Specification {
         result.compensatedPath.isEmpty()
     }
 
-    def 'a forked branch member is notified under the conditional qualified path'() {
+    def 'a forked branch member is notified under the choice qualified path'() {
         given:
         def done = new CountDownLatch(1)
         def paths = new ConcurrentLinkedQueue<String>()
@@ -271,7 +271,7 @@ class StateMachineImplForkSpec extends Specification {
                  }
              } as ActionListener)
         }, { op ->
-            op.conditional('route', { cs ->
+            op.choice('route', { cs ->
                 cs.branch('only', { b ->
                     b.condition('always', { e -> true } as Predicate).fork('notify')
                 } as Consumer)
@@ -282,7 +282,7 @@ class StateMachineImplForkSpec extends Specification {
         sm.executeTransition(new Entity('s1'), 's2')
         done.await(WAIT_SECONDS, TimeUnit.SECONDS)
 
-        then: 'the conditional pushed its own id, so the member qualifies beneath it'
+        then: 'the choice pushed its own id, so the member qualifies beneath it'
         paths.any { it == 'op/route/notify' }
     }
 
@@ -376,12 +376,12 @@ class StateMachineImplForkSpec extends Specification {
         order.toList() == ['first', 'second']
     }
 
-    def 'an inline forked conditional selects a branch on the branch'() {
+    def 'an inline forked choice selects a branch on the branch'() {
         given:
         def done = new CountDownLatch(1)
         def taken = new ConcurrentLinkedQueue<String>()
         sm = build({ smd -> }, { op ->
-            op.forkConditional('route', { cs ->
+            op.forkChoice('route', { cs ->
                 cs.branch('critical', { b ->
                     b.condition('always', { e -> true } as Predicate)
                         .step('escalate', { e, c, t ->

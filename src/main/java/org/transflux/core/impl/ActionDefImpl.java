@@ -62,7 +62,7 @@ import static org.transflux.core.impl.ValidationUtils.warnIfSet;
  */
 sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>>
     extends IdentifiedDefImpl<SELF> implements ActionDef<T, C>
-    permits StepDefImpl, OperationDefImpl, ConditionalOperationDefImpl {
+    permits StepDefImpl, OperationDefImpl, ChoiceDefImpl {
 
     /**
      * This action's lexical scope, allocated during the build by whoever parents it. Null for an
@@ -339,7 +339,7 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
 
     /**
      * Build-time hook: visits this action and, for the declarative forms, every action declared
-     * beneath it - a container's members, a conditional's branch members, at any depth. Inline
+     * beneath it - a container's members, a choice's branch members, at any depth. Inline
      * declarations are reached; by-id references are not, since the def they name is visited where
      * it was declared.
      * <p>
@@ -394,7 +394,7 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
 
     /**
      * Build-time hook: resolves every member this action declares - its own, and those inside any
-     * conditional it holds - against the matching lexical scope, and installs them on the
+     * choice it holds - against the matching lexical scope, and installs them on the
      * executors that will iterate them. Runs after every scope is populated and every container's
      * bound action is registered, which is why it is separate from {@link #buildBound}: a
      * container's bound action goes into the scope its own members resolve against, so a member
@@ -430,7 +430,7 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      * Build-time hook: allocates and populates this operation's lexical-scope registry against
      * the enclosing SM. The simple variant no-ops; the composite variant creates a child
      * {@link RegistryImpl} under {@code rootRegistry} and registers its inline members and
-     * conditional bound steps into it.
+     * choice bound steps into it.
      *
      * @param rootRegistry the SM root registry that scopes parent to
      * @param canonical the per-build canonical-payload table enforcing SM-wide id uniqueness
@@ -546,7 +546,7 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     /**
-     * Reports whether any member declared beneath this action - at any depth, a conditional's
+     * Reports whether any member declared beneath this action - at any depth, a choice's
      * branches included - satisfies the test. The one walk behind every "does this definition
      * anywhere declare ..." question, so a new question cannot reach a position the others miss.
      *

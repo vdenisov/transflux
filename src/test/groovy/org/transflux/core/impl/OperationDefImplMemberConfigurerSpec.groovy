@@ -23,7 +23,7 @@ import org.transflux.core.StateMachineDef
 import org.transflux.core.action.Action
 import org.transflux.core.action.ActionListener
 import org.transflux.core.action.BranchDef
-import org.transflux.core.action.ConditionalOperationDef
+import org.transflux.core.action.ChoiceDef
 import org.transflux.core.action.DefaultBranchDef
 import org.transflux.core.action.OperationDef
 import org.transflux.core.action.StepDef
@@ -133,7 +133,7 @@ class OperationDefImplMemberConfigurerSpec extends Specification {
     }
 
     private static void branchMember(List log, OperationDef<Entity, Object> op) {
-        op.conditional('pick', { ConditionalOperationDef c ->
+        op.choice('pick', { ChoiceDef c ->
             c.branch('only', { BranchDef b ->
                 b.condition('always', { e -> true } as Predicate)
                  .step('member', { StepDef s ->
@@ -145,7 +145,7 @@ class OperationDefImplMemberConfigurerSpec extends Specification {
     }
 
     private static void defaultBranchMember(List log, OperationDef<Entity, Object> op) {
-        op.conditional('pick', { ConditionalOperationDef c ->
+        op.choice('pick', { ChoiceDef c ->
             c.branch('never', { BranchDef b ->
                 b.condition('no', { e -> false } as Predicate)
                  .step('unreached', { e, ctx, tr -> log << 'unreached' } as Action)

@@ -22,7 +22,7 @@ import org.transflux.core.TestContext
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.BranchDef
 import org.transflux.core.action.OperationDef
-import org.transflux.core.action.ConditionalOperationDef
+import org.transflux.core.action.ChoiceDef
 import org.transflux.core.action.Action
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.ExecutingTransition
@@ -138,11 +138,11 @@ class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
         sm != null
     }
 
-    def 'conditional-operation id colliding with operation id is rejected'() {
+    def 'choice-operation id colliding with operation id is rejected'() {
         given:
         def smd = baseDef({ t -> t.operation('outer', { OperationDef<Entity, TestContext> c ->
             c.step('twin', new NoOpOperation())
-            c.conditional('twin', { ConditionalOperationDef<Entity, TestContext> cs ->
+            c.choice('twin', { ChoiceDef<Entity, TestContext> cs ->
                 cs.branch('only', { BranchDef<Entity, TestContext> b ->
                     b.conditionExpression('true').run('inner-a')
                 })
@@ -162,10 +162,10 @@ class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
         given: 'ids are global, so nesting buys no fresh namespace'
         def smd = baseDef({ t -> t.operation('outer', { OperationDef<Entity, TestContext> c ->
             c.step('twin', new NoOpStep())
-             .conditional('route', { ConditionalOperationDef<Entity, TestContext> cs ->
+             .choice('route', { ChoiceDef<Entity, TestContext> cs ->
                 cs.branch('only', { BranchDef<Entity, TestContext> b ->
                     b.conditionExpression('true')
-                     .conditional('inner', { ConditionalOperationDef<Entity, TestContext> ics ->
+                     .choice('inner', { ChoiceDef<Entity, TestContext> ics ->
                          ics.branch('deep', { BranchDef<Entity, TestContext> ib ->
                              ib.conditionExpression('true').step('twin', new NoOpStep())
                          })

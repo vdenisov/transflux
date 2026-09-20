@@ -215,7 +215,7 @@ class StateMachineImplForkCompensationSpec extends Specification {
                   .withCompensation({ e, c -> trail.add('-sync') } as Compensation)
              } as Consumer)
         }, { op ->
-            op.conditional('route', { cs ->
+            op.choice('route', { cs ->
                 cs.branch('only', { b ->
                     b.condition('always', { e -> true } as Predicate).fork('inner')
                 } as Consumer)

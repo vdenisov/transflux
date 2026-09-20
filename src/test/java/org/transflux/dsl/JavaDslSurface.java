@@ -225,7 +225,7 @@ public final class JavaDslSurface {
             .state("s1", s -> s
                 .transitionsTo("s2", "t", OrderCtx.class, t -> t
                     .operation("op", c -> c
-                        .conditional("branching", cond -> cond
+                        .choice("branching", choice -> choice
                             .branch("taken", b -> b
                                 .condition("always", (order, ctx) -> true)
                                 .run("record")
@@ -242,13 +242,13 @@ public final class JavaDslSurface {
                                           (order, ctx, view) -> order.trail.add("branch-forked"))
                                 .forkOperation("branch-forked-group", g -> g
                                     .step("branch-forked-member", new RecordingAction()))
-                                .forkConditional("branch-forked-route", fc -> fc
-                                    .branch("branch-forked-taken", fb -> fb
+                                .forkChoice("branch-forked-route", forked -> forked
+                                    .branch("branch-forked-taken", branch -> branch
                                         .condition("branch-forked-always", (order, ctx) -> true)
                                         .run("record")))
-                                .conditional("nested-in-branch", inner -> inner
-                                    .branch("deep", ib -> ib
-                                        .condition("deep-cond", (order, ctx) -> true)
+                                .choice("nested-in-branch", inner -> inner
+                                    .branch("deep", branch -> branch
+                                        .condition("deep-condition", (order, ctx) -> true)
                                         .run("record"))))
                             .defaultBranch(d -> d
                                 .run("record")
@@ -263,13 +263,13 @@ public final class JavaDslSurface {
                                           (order, ctx, view) -> order.trail.add("default-forked"))
                                 .forkOperation("default-forked-group", g -> g
                                     .step("default-forked-member", new RecordingAction()))
-                                .forkConditional("default-forked-route", dfc -> dfc
-                                    .branch("default-forked-taken", fb -> fb
+                                .forkChoice("default-forked-route", forked -> forked
+                                    .branch("default-forked-taken", branch -> branch
                                         .condition("default-forked-always", (order, ctx) -> true)
                                         .run("record")))
-                                .conditional("nested-in-default", inner -> inner
-                                    .branch("deep-default", ib -> ib
-                                        .condition("deep-default-cond", (order, ctx) -> true)
+                                .choice("nested-in-default", inner -> inner
+                                    .branch("deep-default", branch -> branch
+                                        .condition("deep-default-condition", (order, ctx) -> true)
                                         .run("record"))))))))
             .state("s2", s -> { })
             .build();
@@ -313,22 +313,22 @@ public final class JavaDslSurface {
     }
 
     /**
-     * A conditional registered at state-machine level, in both registration forms, and reached by
+     * A choice registered at state-machine level, in both registration forms, and reached by
      * id - which says nothing about the form it was authored in.
      *
      * @return the built state machine
      */
-    public static StateMachine<Order> registeredConditional() {
+    public static StateMachine<Order> registeredChoice() {
         return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .step("record", new RecordingAction())
-            .conditional("flat", OrderCtx.class, cond -> cond
+            .choice("flat", OrderCtx.class, choice -> choice
                 .branch("always", b -> b
                     .condition("yes", (order, ctx) -> true)
                     .run("record")))
             .forContext(OrderCtx.class, scope -> scope
-                .conditional("scoped", cond -> cond
+                .choice("scoped", choice -> choice
                     .branch("never", b -> b
                         .condition("no", (order, ctx) -> false)
                         .step("unreached", (order, ctx, view) -> order.trail.add("unreached")))
@@ -344,19 +344,19 @@ public final class JavaDslSurface {
     }
 
     /**
-     * A conditional attached straight to a transition's action slot - the slot holds one action,
-     * and a conditional is one, so it needs no wrapping operation.
+     * A choice attached straight to a transition's action slot - the slot holds one action,
+     * and a choice is one, so it needs no wrapping operation.
      *
      * @return the built state machine
      */
-    public static StateMachine<Order> transitionConditional() {
+    public static StateMachine<Order> transitionChoice() {
         return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .step("record", new RecordingAction())
             .state("s1", s -> s
                 .transitionsTo("s2", "t", OrderCtx.class, t -> t
-                    .conditional("route", cond -> cond
+                    .choice("route", choice -> choice
                         .branch("premium", b -> b
                             .condition("is-premium", (order, ctx) -> "o-1".equals(ctx.orderId))
                             .step("shared", (order, ctx, view) -> order.trail.add("shared"))
@@ -391,13 +391,13 @@ public final class JavaDslSurface {
                             .step("nested-step", (order, ctx, view) -> order.trail.add("nested"))
                             .operation("two-deep", deepest -> deepest
                                 .step("two-deep-step", (order, ctx, view) -> order.trail.add("two-deep"))))
-                        .conditional("branching", cond -> cond
+                        .choice("branching", choice -> choice
                             .branch("taken", b -> b
                                 .condition("always", (order, ctx) -> true)
                                 .operation("in-branch", inner -> inner
                                     .step("in-branch-step", (order, ctx, view) -> order.trail.add("in-branch"))
-                                    .conditional("deep-conditional", deep -> deep
-                                        .branch("deep-taken", db -> db
+                                    .choice("deep-choice", deep -> deep
+                                        .branch("deep-taken", branch -> branch
                                             .condition("deep-always", (order, ctx) -> true)
                                             .run("record")))))
                             .defaultBranch(d -> d
@@ -430,11 +430,11 @@ public final class JavaDslSurface {
                         .operation("pt-op", HasOrderId.class, inner -> inner
                             .step("pt-op-step",
                                   (order, ctx, view) -> order.trail.add("pt-op:" + ctx.orderId())))
-                        .conditional("pt-cond", HasOrderId.class, cond -> cond
+                        .choice("pt-choice", HasOrderId.class, choice -> choice
                             .branch("pt-taken", b -> b
                                 .condition("pt-always", (order, ctx) -> true)
-                                .step("pt-cond-step",
-                                      (order, ctx, view) -> order.trail.add("pt-cond:" + ctx.orderId()))))
+                                .step("pt-choice-step",
+                                      (order, ctx, view) -> order.trail.add("pt-choice:" + ctx.orderId()))))
 
                         // mapped: the declared context is produced from the enclosing one
                         .step("mapped-instance", NotifyCtx.class, new NotifyFromOrder(),
@@ -446,11 +446,11 @@ public final class JavaDslSurface {
                                 order.trail.add("mapped-op:" + ctx.orderId);
                                 ctx.receipt = "r-1";
                             }))
-                        .conditional("mapped-cond", NotifyCtx.class, new NotifyFromOrder(), cond -> cond
+                        .choice("mapped-choice", NotifyCtx.class, new NotifyFromOrder(), choice -> choice
                             .branch("mapped-taken", b -> b
                                 .condition("mapped-always", (order, ctx) -> true)
-                                .step("mapped-cond-step",
-                                      (order, ctx, view) -> order.trail.add("mapped-cond:" + ctx.orderId))))
+                                .step("mapped-choice-step",
+                                      (order, ctx, view) -> order.trail.add("mapped-choice:" + ctx.orderId))))
 
                         // the same five, with an implicitly-typed lambda in the mapper slot: the
                         // shape a concrete mapper instance cannot prove resolves
@@ -463,12 +463,12 @@ public final class JavaDslSurface {
                                    parent -> new NotifyCtx(parent.orderId), inner -> inner
                             .step("lambda-op-step",
                                   (order, ctx, view) -> order.trail.add("lambda-op:" + ctx.orderId)))
-                        .conditional("lambda-cond", NotifyCtx.class,
-                                     parent -> new NotifyCtx(parent.orderId), cond -> cond
+                        .choice("lambda-choice", NotifyCtx.class,
+                                     parent -> new NotifyCtx(parent.orderId), choice -> choice
                             .branch("lambda-taken", b -> b
                                 .condition("lambda-always", (order, ctx) -> true)
-                                .step("lambda-cond-step",
-                                      (order, ctx, view) -> order.trail.add("lambda-cond:" + ctx.orderId)))))))
+                                .step("lambda-choice-step",
+                                      (order, ctx, view) -> order.trail.add("lambda-choice:" + ctx.orderId)))))))
             .state("s2", s -> { })
             .build();
     }
@@ -501,7 +501,7 @@ public final class JavaDslSurface {
     }
 
     /**
-     * The declaration shapes: inline steps in each form, a conditional with branches, and the
+     * The declaration shapes: inline steps in each form, a choice with branches, and the
      * configurer forms that carry metadata, listeners and compensation.
      *
      * @return the built state machine
@@ -522,7 +522,7 @@ public final class JavaDslSurface {
                             .onStart("watch-start", (order, ctx, execution) -> { })
                             .onComplete("watch-done", (order, ctx, execution) -> { })
                             .onError("watch-fail", (order, ctx, execution) -> { }))
-                        .conditional("branching", cond -> cond
+                        .choice("branching", choice -> choice
                             .branch("premium", b -> b
                                 .condition("is-premium", (order, ctx) -> "o-1".equals(ctx.orderId))
                                 .run("inline-instance"))
@@ -744,7 +744,7 @@ public final class JavaDslSurface {
                     .step("inline", (order, ctx, view) -> order.trail.add("inline:" + ctx.orderId))
                     .step("configured", st -> st.using(new RecordingAction()).withName("Configured"))
                     .operation("group", c -> c.step("grouped", new RecordingAction()))
-                    .conditional("route", cond -> cond
+                    .choice("route", choice -> choice
                         .branch("taken", b -> b
                             .condition("always", (order, ctx) -> true)
                             .step("branch-member", new RecordingAction())))
@@ -764,7 +764,7 @@ public final class JavaDslSurface {
                     .forkStep("t-forked", (order, ctx, view) -> order.trail.add("t-forked"))
                     .forkOperation("t-forked-group", g -> g
                         .step("t-forked-member", new RecordingAction()))
-                    .forkConditional("t-forked-route", cond -> cond
+                    .forkChoice("t-forked-route", choice -> choice
                         .branch("t-forked-taken", b -> b
                             .condition("t-forked-always", (order, ctx) -> true)
                             .run("record")))))
@@ -797,7 +797,7 @@ public final class JavaDslSurface {
                             .using(new RecordingAction())
                             .withName("Forked"))
                         .forkOperation("f-group", g -> g.run("record"))
-                        .forkConditional("f-route", cond -> cond
+                        .forkChoice("f-route", choice -> choice
                             .branch("f-taken", b -> b
                                 .condition("f-always", (order, ctx) -> true)
                                 .run("record")))
@@ -810,7 +810,7 @@ public final class JavaDslSurface {
                         .forkOperation("f-pt-group", HasOrderId.class, g -> g
                             .step("f-pt-member",
                                   (order, ctx, view) -> order.trail.add("f-pt-member")))
-                        .forkConditional("f-pt-route", HasOrderId.class, cond -> cond
+                        .forkChoice("f-pt-route", HasOrderId.class, choice -> choice
                             .branch("f-pt-taken", b -> b
                                 .condition("f-pt-always", (order, ctx) -> true)
                                 .step("f-pt-branch-member", new IgnoresContext())))
@@ -824,8 +824,8 @@ public final class JavaDslSurface {
                                        parent -> new NotifyCtx(parent.orderId), g -> g
                             .step("f-mapped-member",
                                   (order, ctx, view) -> order.trail.add("f-mapped:" + ctx.orderId)))
-                        .forkConditional("f-mapped-route", NotifyCtx.class,
-                                         parent -> new NotifyCtx(parent.orderId), cond -> cond
+                        .forkChoice("f-mapped-route", NotifyCtx.class,
+                                         parent -> new NotifyCtx(parent.orderId), choice -> choice
                             .branch("f-mapped-taken", b -> b
                                 .condition("f-mapped-always", (order, ctx) -> true)
                                 .step("f-mapped-branch-member", new NotifyAction()))))))
@@ -1024,7 +1024,7 @@ public final class JavaDslSurface {
      * Registration shapes the other fixtures leave out: a mapper from an instance, from a method
      * reference and through {@code mapperDef}; an action that supplies its own compensation; a route
      * guard written as a method reference, on a container whose chain carries on afterwards; a
-     * conditional's no-match behaviour; and a branch condition in its one-argument and class forms.
+     * choice's no-match behaviour; and a branch condition in its one-argument and class forms.
      *
      * @return the built state machine
      */
@@ -1052,7 +1052,7 @@ public final class JavaDslSurface {
                         .run("notify", "notify-instance")
                         .run("notify", "notify-method-ref")
                         .run("notify", "notify-def"))
-                    .conditional("route", cond -> cond
+                    .choice("route", choice -> choice
                         .onNoMatch(NoMatchBehavior.SILENT)
                         .branch("labelled", b -> b
                             .condition("is-labelled", new OrderHasLabel())
@@ -1130,7 +1130,7 @@ public final class JavaDslSurface {
             return condition.getConditionId() + ":" + condition.getRole() + ":" + condition.getTransitionId();
         }
         if (error instanceof TransfluxNoMatchException noMatch) {
-            return noMatch.getConditionalId();
+            return noMatch.getChoiceId();
         }
         if (error instanceof TransfluxContextException context) {
             return context.getSubjectId();

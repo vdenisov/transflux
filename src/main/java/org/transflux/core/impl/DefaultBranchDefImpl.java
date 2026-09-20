@@ -19,7 +19,7 @@
 package org.transflux.core.impl;
 
 import org.transflux.core.action.AsyncRejectionPolicy;
-import org.transflux.core.action.ConditionalOperationDef;
+import org.transflux.core.action.ChoiceDef;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.DefaultBranchDef;
@@ -31,7 +31,7 @@ import java.util.function.Consumer;
 
 
 /**
- * Implementation of {@link DefaultBranchDef} used by {@link ConditionalOperationDefImpl}.
+ * Implementation of {@link DefaultBranchDef} used by {@link ChoiceDefImpl}.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
@@ -120,8 +120,8 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
     }
 
     @Override
-    public DefaultBranchDef<T, C> conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer) {
-        return members.conditional(id, configurer, false);
+    public DefaultBranchDef<T, C> choice(String id, Consumer<ChoiceDef<T, C>> configurer) {
+        return members.choice(id, configurer, false);
     }
 
     @Override
@@ -150,9 +150,9 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
     }
 
     @Override
-    public DefaultBranchDef<T, C> forkConditional(String id,
-                                                  Consumer<ConditionalOperationDef<T, C>> configurer) {
-        return members.conditional(id, configurer, true);
+    public DefaultBranchDef<T, C> forkChoice(String id,
+                                                  Consumer<ChoiceDef<T, C>> configurer) {
+        return members.choice(id, configurer, true);
     }
 
     @Override
@@ -184,15 +184,15 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
     }
 
     @Override
-    public <N> DefaultBranchDef<T, C> conditional(String id, Class<N> contextType,
-                                 Consumer<ConditionalOperationDef<T, N>> configurer) {
-        return members.conditional(id, contextType, MapperRef.passThrough(), configurer, false);
+    public <N> DefaultBranchDef<T, C> choice(String id, Class<N> contextType,
+                                 Consumer<ChoiceDef<T, N>> configurer) {
+        return members.choice(id, contextType, MapperRef.passThrough(), configurer, false);
     }
 
     @Override
-    public <N> DefaultBranchDef<T, C> conditional(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                                 Consumer<ConditionalOperationDef<T, N>> configurer) {
-        return members.conditional(id, contextType, MapperRef.inline(mapper), configurer, false);
+    public <N> DefaultBranchDef<T, C> choice(String id, Class<N> contextType, ContextMapper<C, N> mapper,
+                                 Consumer<ChoiceDef<T, N>> configurer) {
+        return members.choice(id, contextType, MapperRef.inline(mapper), configurer, false);
     }
 
     @Override
@@ -233,16 +233,16 @@ final class DefaultBranchDefImpl<T, C> extends ConfigurableDefImpl implements De
     }
 
     @Override
-    public <N> DefaultBranchDef<T, C> forkConditional(String id, Class<N> contextType,
-                                                      Consumer<ConditionalOperationDef<T, N>> configurer) {
-        return members.conditional(id, contextType, MapperRef.passThrough(), configurer, true);
+    public <N> DefaultBranchDef<T, C> forkChoice(String id, Class<N> contextType,
+                                                      Consumer<ChoiceDef<T, N>> configurer) {
+        return members.choice(id, contextType, MapperRef.passThrough(), configurer, true);
     }
 
     @Override
-    public <N> DefaultBranchDef<T, C> forkConditional(String id, Class<N> contextType,
+    public <N> DefaultBranchDef<T, C> forkChoice(String id, Class<N> contextType,
                                                       ContextMapper<C, N> mapper,
-                                                      Consumer<ConditionalOperationDef<T, N>> configurer) {
-        return members.conditional(id, contextType, MapperRef.inline(mapper), configurer, true);
+                                                      Consumer<ChoiceDef<T, N>> configurer) {
+        return members.choice(id, contextType, MapperRef.inline(mapper), configurer, true);
     }
 
     @Override

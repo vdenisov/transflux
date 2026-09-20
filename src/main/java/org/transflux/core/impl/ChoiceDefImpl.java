@@ -23,7 +23,7 @@ import org.transflux.core.action.ActionKind;
 import org.transflux.core.exception.TransfluxNoMatchException;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.BranchDef;
-import org.transflux.core.action.ConditionalOperationDef;
+import org.transflux.core.action.ChoiceDef;
 import org.transflux.core.action.DefaultBranchDef;
 import org.transflux.core.action.NoMatchBehavior;
 import org.transflux.core.action.Action;
@@ -42,9 +42,9 @@ import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
- * Implementation of {@link ConditionalOperationDef}.
+ * Implementation of {@link ChoiceDef}.
  *
- * <p>Holds the conditional's branches and optional default branch in declaration order. The
+ * <p>Holds the choice's branches and optional default branch in declaration order. The
  * branches are validated at build time, not at configurer return — the configurer surface is
  * permissive and validation is centralized in {@link #buildBoundAction(Map)}.
  *
@@ -52,7 +52,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * resolves the branch conditions and produces the {@link BoundAction} that goes into the
  * enclosing operation's scope; {@link #bindBranchMembers} then resolves the branch members and
  * installs them. They are separate because the bound action has to be in that scope before its
- * own members can be resolved — a sibling member may reference the conditional by id, and such a
+ * own members can be resolved — a sibling member may reference the choice by id, and such a
  * reference captures the bound action by value — while resolving the members needs every scope
  * populated and the state machine in existence. A branch member that names an unknown id
  * therefore fails the build rather than the first execution that reaches that branch; its
@@ -62,13 +62,13 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-final class ConditionalOperationDefImpl<T, C>
-    extends ActionDefImpl<T, C, ConditionalOperationDefImpl<T, C>> implements ConditionalOperationDef<T, C> {
+final class ChoiceDefImpl<T, C>
+    extends ActionDefImpl<T, C, ChoiceDefImpl<T, C>> implements ChoiceDef<T, C> {
 
     private final List<BranchDefImpl<T, C>> branches = new ArrayList<>();
     private DefaultBranchDefImpl<T, C> defaultBranch;
     private NoMatchBehavior noMatchBehavior = NoMatchBehavior.WARN;
-    private ConditionalBranchExecutor<T, C> executor;
+    private ChoiceBranchExecutor<T, C> executor;
 
     /**
      * Captured by {@link #bindScope} so {@link #buildBound()} can resolve the branch conditions.
@@ -76,12 +76,12 @@ final class ConditionalOperationDefImpl<T, C>
      */
     private Map<String, BoundCondition<T, C>> boundConditions;
 
-    ConditionalOperationDefImpl(String id) {
+    ChoiceDefImpl(String id) {
         this(id, null);
     }
 
-    ConditionalOperationDefImpl(String id, Class<C> declaredContextType) {
-        super(id, "conditional operation", "Conditional operation ID", declaredContextType);
+    ChoiceDefImpl(String id, Class<C> declaredContextType) {
+        super(id, "choice", "Choice ID", declaredContextType);
     }
 
     NoMatchBehavior getNoMatchBehavior() {
@@ -89,14 +89,14 @@ final class ConditionalOperationDefImpl<T, C>
     }
 
     @Override
-    public ConditionalOperationDef<T, C> branch(String branchId, Consumer<BranchDef<T, C>> configurer) {
+    public ChoiceDef<T, C> branch(String branchId, Consumer<BranchDef<T, C>> configurer) {
         requireConfigurerActive("branch");
         requireNotBlank(branchId, "Branch ID");
         requireNotNull(configurer, "Branch configurer");
         for (BranchDefImpl<T, C> existing : branches) {
             if (existing.getBranchId().equals(branchId)) {
                 throw new TransfluxValidationException(
-                    "Branch ID '" + branchId + "' is already declared on conditional operation '" + getId() + "'");
+                    "Branch ID '" + branchId + "' is already declared on choice '" + getId() + "'");
             }
         }
         BranchDefImpl<T, C> branch = new BranchDefImpl<>(branchId);
@@ -106,12 +106,12 @@ final class ConditionalOperationDefImpl<T, C>
     }
 
     @Override
-    public ConditionalOperationDef<T, C> defaultBranch(Consumer<DefaultBranchDef<T, C>> configurer) {
+    public ChoiceDef<T, C> defaultBranch(Consumer<DefaultBranchDef<T, C>> configurer) {
         requireConfigurerActive("defaultBranch");
         requireNotNull(configurer, "Default branch configurer");
         if (this.defaultBranch != null) {
             throw new TransfluxValidationException(
-                "Default branch is already declared on conditional operation '" + getId() + "'");
+                "Default branch is already declared on choice '" + getId() + "'");
         }
         DefaultBranchDefImpl<T, C> branch = new DefaultBranchDefImpl<>();
         ConfigurableDefImpl.runConfigurer(branch, configurer);
@@ -120,7 +120,7 @@ final class ConditionalOperationDefImpl<T, C>
     }
 
     @Override
-    public ConditionalOperationDef<T, C> onNoMatch(NoMatchBehavior behavior) {
+    public ChoiceDef<T, C> onNoMatch(NoMatchBehavior behavior) {
         requireConfigurerActive("onNoMatch");
         requireNotNull(behavior, "No-match behavior");
         this.noMatchBehavior = behavior;
@@ -128,7 +128,7 @@ final class ConditionalOperationDefImpl<T, C>
     }
 
     /**
-     * Build-time hook: visits this conditional and every action declared inside its branches.
+     * Build-time hook: visits this choice and every action declared inside its branches.
      *
      * @param visitor receives each def in the subtree, this one included
      */
@@ -147,7 +147,7 @@ final class ConditionalOperationDefImpl<T, C>
     /**
      * Walks every branch (and the default branch, if present) and forwards each branch's action
      * refs to the supplied sink. Driven from {@link #bindScopeUnder} against a sink over
-     * <em>this conditional's</em> scope, which is what puts every branch's inline declarations in
+     * <em>this choice's</em> scope, which is what puts every branch's inline declarations in
      * one place: shared between the branches, and out of reach from outside.
      */
     void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
@@ -160,8 +160,8 @@ final class ConditionalOperationDefImpl<T, C>
     }
 
     /**
-     * Returns the ids this conditional reaches by reference, across every branch and the default
-     * one - its outgoing edges for cycle detection. A conditional is registered under its own id
+     * Returns the ids this choice reaches by reference, across every branch and the default
+     * one - its outgoing edges for cycle detection. A choice is registered under its own id
      * in the enclosing scope, so one of its branches naming it closes a cycle.
      *
      * @return the referenced ids in declaration order
@@ -178,7 +178,7 @@ final class ConditionalOperationDefImpl<T, C>
 
     /**
      * Visits every member of every branch, and the default branch's, recursing into any
-     * conditional nested inside one.
+     * choice nested inside one.
      *
      * @param visitor receives each member, in declaration order
      */
@@ -196,10 +196,10 @@ final class ConditionalOperationDefImpl<T, C>
      * operation runs it over its own members.
      *
      * @param scopeContext the enclosing operation's context type
-     * @param ownLabel this conditional's own full position label; each branch label extends it,
+     * @param ownLabel this choice's own full position label; each branch label extends it,
      *                 so a message locates the branch rather than only naming it
      * @param contextOwner names the position the branches' context was declared on - this
-     *                     conditional when it named one, otherwise whatever encloses it, since a
+     *                     choice when it named one, otherwise whatever encloses it, since a
      *                     branch never re-types
      * @param smDef the state-machine def whose component registrations the check consults
      */
@@ -224,25 +224,25 @@ final class ConditionalOperationDefImpl<T, C>
      * Second build pass: resolves every branch member against the enclosing operation's lexical
      * scope and installs the bound members on the executor built by the first pass.
      *
-     * <p>The two passes exist because the conditional's {@link BoundAction} has to be in the
+     * <p>The two passes exist because the choice's {@link BoundAction} has to be in the
      * enclosing scope before its own members can be resolved — a sibling member may reference
-     * the conditional by id, and such a reference captures the bound action by value. The
+     * the choice by id, and such a reference captures the bound action by value. The
      * identity is therefore fixed while the scopes are still being populated, and only the
      * members can wait until every scope is complete and the state machine exists.
      *
      * @param stateMachine the state machine under construction, whose mapper registry and
      *                     diagnostics the resolution consults
-     * @param ownLabel this conditional's own full position label; each branch label extends it
-     * @param enclosingOperationId the id of the operation that declared this conditional
+     * @param ownLabel this choice's own full position label; each branch label extends it
+     * @param owningChoiceId the id of the choice owning these branches
      *
      * @throws TransfluxValidationException if a branch names an id that no action in scope
-     *         carries, or if no executor was built for this conditional
+     *         carries, or if no executor was built for this choice
      */
     void bindBranchMembers(StateMachineImpl<T> stateMachine,
-                           String ownLabel, String enclosingOperationId) {
+                           String ownLabel, String owningChoiceId) {
         if (executor == null) {
             throw new TransfluxValidationException(
-                "Conditional operation '" + getId()
+                "Choice '" + getId()
                     + "' has no executor; state-machine construction did not build it");
         }
 
@@ -254,18 +254,18 @@ final class ConditionalOperationDefImpl<T, C>
                 executor.conditions.get(i),
                 bindMembers(branch.getMembers(), stateMachine,
                             branchLabel(ownLabel, "branch '" + branch.getBranchId() + "'"),
-                            enclosingOperationId)));
+                            owningChoiceId)));
         }
 
         List<CompositeMember<T, C>> defaultMembers = defaultBranch == null ? null
             : bindMembers(defaultBranch.getMembers(), stateMachine,
-                          branchLabel(ownLabel, "default branch"), enclosingOperationId);
+                          branchLabel(ownLabel, "default branch"), owningChoiceId);
 
         executor.bind(resolved, defaultMembers);
     }
 
     /**
-     * First build pass: validates this conditional's shape, resolves each branch's condition, and
+     * First build pass: validates this choice's shape, resolves each branch's condition, and
      * produces the {@link BoundAction} whose executable {@link Action} runs the matching branch
      * against the supplied transition view. The branch members are filled in later, by
      * {@link #bindBranchMembers}.
@@ -273,11 +273,11 @@ final class ConditionalOperationDefImpl<T, C>
      * @param conditionRegistry the resolved state-machine condition registry, used to bind
      *                          each branch's condition descriptor
      *
-     * @return the bound action wrapping this conditional's executor, carrying
-     *         {@link ActionKind#OPERATION} - a conditional is a declarative action, differing
+     * @return the bound action wrapping this choice's executor, carrying
+     *         {@link ActionKind#OPERATION} - a choice is a declarative action, differing
      *         from a plain container only in its "first matching branch" ordering rule
      *
-     * @throws TransfluxValidationException if validation rules on the conditional, its
+     * @throws TransfluxValidationException if validation rules on the choice, its
      *         branches, or the default branch are violated, or if any condition descriptor
      *         cannot be resolved
      */
@@ -286,7 +286,7 @@ final class ConditionalOperationDefImpl<T, C>
 
         if (branches.isEmpty()) {
             throw new TransfluxValidationException(
-                "Conditional operation '" + getId() + "' must declare at least one branch");
+                "Choice '" + getId() + "' must declare at least one branch");
         }
 
         Set<String> seen = new HashSet<>();
@@ -296,31 +296,31 @@ final class ConditionalOperationDefImpl<T, C>
             if (!seen.add(branch.getBranchId())) {
                 throw new TransfluxValidationException(
                     "Branch ID '" + branch.getBranchId()
-                        + "' is duplicated on conditional operation '" + getId() + "'");
+                        + "' is duplicated on choice '" + getId() + "'");
             }
             if (branch.getDescriptor() == null) {
                 throw new TransfluxValidationException(
-                    "Branch '" + branch.getBranchId() + "' on conditional operation '" + getId()
+                    "Branch '" + branch.getBranchId() + "' on choice '" + getId()
                         + "' must declare a condition");
             }
             if (branch.getMembers().isEmpty()) {
                 throw new TransfluxValidationException(
-                    "Branch '" + branch.getBranchId() + "' on conditional operation '" + getId()
+                    "Branch '" + branch.getBranchId() + "' on choice '" + getId()
                         + "' must declare at least one action");
             }
 
-            String path = "conditional:" + getId() + ":branch[" + i + "]";
+            String path = "choice:" + getId() + ":branch[" + i + "]";
             conditions.add(ConditionResolver.resolve(branch.getDescriptor(), conditionRegistry, path));
         }
 
         if (defaultBranch != null && defaultBranch.getMembers().isEmpty()) {
             throw new TransfluxValidationException(
-                "Default branch on conditional operation '" + getId() + "' must declare at least one action");
+                "Default branch on choice '" + getId() + "' must declare at least one action");
         }
 
         // A fresh executor per build: the members a later pass installs belong to the machine
-        // being built, so an earlier machine's conditional keeps the members it was built with.
-        this.executor = new ConditionalBranchExecutor<>(getId(), noMatchBehavior, conditions, ownScope());
+        // being built, so an earlier machine's choice keeps the members it was built with.
+        this.executor = new ChoiceBranchExecutor<>(getId(), noMatchBehavior, conditions, ownScope());
         return BoundAction.of(getId(), executor, ActionKind.OPERATION, buildBoundListeners(),
                               buildCompensationRouter(), getAsyncRejectionPolicy(),
                               getDisabledGlobals());
@@ -329,20 +329,20 @@ final class ConditionalOperationDefImpl<T, C>
     private List<CompositeMember<T, C>> bindMembers(List<ActionSequenceSink.DeclaredMember<T, C>> declared,
                                                     StateMachineImpl<T> stateMachine,
                                                     String ownerLabel,
-                                                    String enclosingOperationId) {
+                                                    String owningChoiceId) {
         Registry<T> scope = ownScope();
         List<CompositeMember<T, C>> bound = new ArrayList<>(declared.size());
         for (ActionSequenceSink.DeclaredMember<T, C> member : declared) {
             ActionRef<T, C> ref = member.ref();
             bound.add(CompositeMember.of(
-                ref.resolve(stateMachine, scope, ownerLabel, enclosingOperationId),
-                ref.mapperRef().resolve(stateMachine, enclosingOperationId),
+                ref.resolve(stateMachine, scope, ownerLabel, owningChoiceId),
+                ref.mapperRef().resolve(stateMachine, owningChoiceId),
                 member));
 
             // Each nested form binds against its own scope. Recursing after the member is built
             // names the outer position first when a resolution fails.
-            if (ref instanceof ActionRef.Conditional<T, C> nested) {
-                // The nested conditional owns the scope its own branches bind against, so it is
+            if (ref instanceof ActionRef.Choice<T, C> nested) {
+                // The nested choice owns the scope its own branches bind against, so it is
                 // what a failure inside them has to name - not whatever encloses this one.
                 nested.def().bindBranchMembers(
                     stateMachine, ownerLabel + " > " + nested.def().defLabel(), nested.id());
@@ -356,7 +356,7 @@ final class ConditionalOperationDefImpl<T, C>
 
     /**
      * Names one branch as a position in the definition tree: the enclosing position, then this
-     * conditional, then the branch. A nested conditional extends the same chain, so a message
+     * choice, then the branch. A nested choice extends the same chain, so a message
      * locates a branch rather than only naming it.
      */
     private String branchLabel(String ownLabel, String branchPart) {
@@ -367,7 +367,7 @@ final class ConditionalOperationDefImpl<T, C>
     BoundAction<T, C> buildBound() {
         if (boundConditions == null) {
             throw new TransfluxValidationException(
-                "Conditional operation '" + getId()
+                "Choice '" + getId()
                     + "' has no condition registry; state-machine construction did not wire it");
         }
         return buildBoundAction(boundConditions);
@@ -376,7 +376,7 @@ final class ConditionalOperationDefImpl<T, C>
     @Override
     void collectMemberContexts(Class<?> scopeContext, InlineContextSink sink) {
         Class<?> effectiveScope = scopeContext != null ? scopeContext : Object.class;
-        // A conditional owns one scope and every branch registers into it, so the branches all
+        // A choice owns one scope and every branch registers into it, so the branches all
         // report the same declaring scope - which is what lets one branch reach another's ids.
         for (BranchDefImpl<T, C> branch : branches) {
             branch.collectMemberContexts(effectiveScope, getId(), sink);
@@ -398,21 +398,21 @@ final class ConditionalOperationDefImpl<T, C>
     }
 
     /**
-     * Allocates this conditional's lexical scope under {@code parentRegistry} and populates it
+     * Allocates this choice's lexical scope under {@code parentRegistry} and populates it
      * with everything its branches declare inline.
      * <p>
-     * The scope is what makes a conditional's members shared between its own branches and private
+     * The scope is what makes a choice's members shared between its own branches and private
      * from outside it: every branch resolves against this one registry and then up the chain, so a
-     * step declared in one branch is reachable from another, while a sibling of the conditional
-     * cannot see in. The conditional's own bound action is registered by the caller into the
-     * <em>enclosing</em> scope, so naming the conditional by id still works from either side.
+     * step declared in one branch is reachable from another, while a sibling of the choice
+     * cannot see in. The choice's own bound action is registered by the caller into the
+     * <em>enclosing</em> scope, so naming the choice by id still works from either side.
      *
      * @param parentRegistry the registry this scope parents onto
      * @param canonical the per-build canonical-payload table enforcing SM-wide id uniqueness
      * @param conditionRegistry the resolved SM-wide condition registry, also captured for
      *                          {@link #buildBound()}
      * @param inheritedContext the enclosing position's context type, used to tag what this
-     *                         conditional registers; {@code null} at a root
+     *                         choice registers; {@code null} at a root
      */
     void bindScopeUnder(RegistryImpl<T> parentRegistry,
                         Map<String, Object> canonical,
@@ -440,7 +440,7 @@ final class ConditionalOperationDefImpl<T, C>
         visitBranchMembers(member -> {
             if (member.ref() instanceof ActionRef.InlineOperation<T, C> inline) {
                 visitor.accept(inline.def());
-            } else if (member.ref() instanceof ActionRef.Conditional<T, C> nested) {
+            } else if (member.ref() instanceof ActionRef.Choice<T, C> nested) {
                 visitor.accept(nested.def());
             }
         });
@@ -451,7 +451,7 @@ final class ConditionalOperationDefImpl<T, C>
         visitBranchMembers(member -> {
             if (member.ref() instanceof ActionRef.InlineOperation<T, C> inline) {
                 sink.accept(inline.id(), inline.def().ownByIdReferenceIds());
-            } else if (member.ref() instanceof ActionRef.Conditional<T, C> nested) {
+            } else if (member.ref() instanceof ActionRef.Choice<T, C> nested) {
                 sink.accept(nested.id(), nested.def().ownByIdReferenceIds());
             }
         });
@@ -470,7 +470,7 @@ final class ConditionalOperationDefImpl<T, C>
     }
 
     /**
-     * Framework-built {@link Action} that evaluates the conditional's branches in declaration
+     * Framework-built {@link Action} that evaluates the choice's branches in declaration
      * order and dispatches the first matching branch's members through the central action
      * runner.
      * <p>
@@ -479,7 +479,7 @@ final class ConditionalOperationDefImpl<T, C>
      * Both are in place before any execution — the machine is not handed to a host until its
      * constructor returns.
      */
-    private static final class ConditionalBranchExecutor<T, C> implements Action<T, C> {
+    private static final class ChoiceBranchExecutor<T, C> implements Action<T, C> {
         private final List<BoundCondition<T, C>> conditions;
 
         /**
@@ -488,16 +488,16 @@ final class ConditionalOperationDefImpl<T, C>
          * build, and an earlier machine must keep what it was built with. The sibling container
          * executor captures for the same reason.
          */
-        private final String conditionalId;
+        private final String choiceId;
         private final NoMatchBehavior noMatchBehavior;
         private final Registry<T> scopeRegistry;
 
         private List<ResolvedBranch<T, C>> resolvedBranches;
         private List<CompositeMember<T, C>> defaultMembers;
 
-        ConditionalBranchExecutor(String conditionalId, NoMatchBehavior noMatchBehavior,
+        ChoiceBranchExecutor(String choiceId, NoMatchBehavior noMatchBehavior,
                                   List<BoundCondition<T, C>> conditions, Registry<T> scopeRegistry) {
-            this.conditionalId = conditionalId;
+            this.choiceId = choiceId;
             this.noMatchBehavior = noMatchBehavior;
             this.conditions = conditions;
             this.scopeRegistry = scopeRegistry;
@@ -512,7 +512,7 @@ final class ConditionalOperationDefImpl<T, C>
         public void execute(T entity, C context, ExecutingTransition<T, C> transition) {
             if (!(transition instanceof ExecutingTransitionImpl<?, ?> rawView)) {
                 throw new TransfluxValidationException(
-                    "Conditional operation must run against the framework's own executing transition; got "
+                    "Choice must run against the framework's own executing transition; got "
                         + (transition == null ? "null" : transition.getClass().getName()));
             }
             @SuppressWarnings("unchecked")
@@ -532,15 +532,15 @@ final class ConditionalOperationDefImpl<T, C>
             }
 
             switch (noMatchBehavior) {
-                case ERROR -> throw new TransfluxNoMatchException(conditionalId);
+                case ERROR -> throw new TransfluxNoMatchException(choiceId);
                 case WARN -> Loggers.EXECUTION_CONDITION.warn(
-                    "Conditional matched no branch and has no default, conditionalId={}", conditionalId);
+                    "Choice matched no branch and has no default, choiceId={}", choiceId);
                 case SILENT -> { /* skip silently */ }
             }
         }
 
         private void dispatchMembers(List<CompositeMember<T, C>> members, ExecutingTransitionImpl<T, C> view) {
-            // The conditional's own scope, so an id dispatched from inside a branch member's body
+            // The choice's own scope, so an id dispatched from inside a branch member's body
             // resolves against what the branches share before walking out to the enclosing chain.
             view.pushScope(scopeRegistry);
             try {

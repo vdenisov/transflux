@@ -29,7 +29,7 @@ import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.ActionPhase;
 import org.transflux.core.action.AsyncRejectionPolicy;
 import org.transflux.core.action.MapperDef;
-import org.transflux.core.action.ConditionalOperationDef;
+import org.transflux.core.action.ChoiceDef;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.StepDef;
 import org.transflux.core.condition.Condition;
@@ -316,7 +316,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * Wires a {@link RegistryImpl} scope onto every composite operation declared on this
      * state-machine def — both the SM-level composites and those embedded in transitions — and
      * populates each scope with the composite's inline-declared members (steps, operations) and
-     * the bound steps for the conditionals it owns. Each scope's parent is the supplied root
+     * the bound steps for the choices it owns. Each scope's parent is the supplied root
      * registry, so by-id refs from inside a composite first check the composite-local entries
      * and fall back to root.
      *
@@ -593,9 +593,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
-    public <C> StateMachineDef<T> conditional(String id, Class<C> contextType,
-                                              Consumer<ConditionalOperationDef<T, C>> configurer) {
-        registerScopedConditional(id, configurer, contextType);
+    public <C> StateMachineDef<T> choice(String id, Class<C> contextType,
+                                              Consumer<ChoiceDef<T, C>> configurer) {
+        registerScopedChoice(id, configurer, contextType);
         return this;
     }
 
@@ -713,7 +713,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     /**
      * Resolves the SM-level step registrations into {@link BoundAction} instances. Composite-local
-     * inline steps and conditionals are bound into their owning composite's scope by
+     * inline steps and choices are bound into their owning composite's scope by
      * {@link #bindCompositeScopes(RegistryImpl, Map)} and are not included
      * here.
      *
@@ -887,7 +887,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * <p>
      * The roots are exactly two - a container registered at SM level, or a transition's body -
      * since every other container is declared inside one of them. Each root is then
-     * walked in full: {@link OperationDefImpl#declaresFork()} descends through any conditional's
+     * walked in full: {@link OperationDefImpl#declaresFork()} descends through any choice's
      * branches and any container declared in place, since a member forks through the same path
      * wherever it sits.
      *
@@ -975,27 +975,27 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
-     * Registers a conditional at state-machine level, so it can be referenced by id like any other
+     * Registers a choice at state-machine level, so it can be referenced by id like any other
      * declarative action. It shares the container's namespace and the container's build passes -
-     * a conditional is an action, and being registered is a property of the declaration site
+     * a choice is an action, and being registered is a property of the declaration site
      * rather than of the form.
      *
-     * @param id the conditional's id
+     * @param id the choice's id
      * @param configurer callback declaring the branches
-     * @param contextType the context the conditional runs against
-     * @param <C> the conditional's context type
+     * @param contextType the context the choice runs against
+     * @param <C> the choice's context type
      */
-    <C> void registerScopedConditional(String id,
-                                       Consumer<ConditionalOperationDef<T, C>> configurer,
+    <C> void registerScopedChoice(String id,
+                                       Consumer<ChoiceDef<T, C>> configurer,
                                        Class<C> contextType) {
-        requireNotBlank(id, "Conditional operation ID");
+        requireNotBlank(id, "Choice ID");
         requireNotNull(contextType, "Context type");
-        requireNotNull(configurer, "Conditional operation configurer");
+        requireNotNull(configurer, "Choice configurer");
         claimSmLevelActionId(id);
 
-        ConditionalOperationDefImpl<T, C> conditional = new ConditionalOperationDefImpl<>(id, contextType);
-        ConfigurableDefImpl.runConfigurer(conditional, configurer);
-        smCompositeOperations.put(id, conditional);
+        ChoiceDefImpl<T, C> choice = new ChoiceDefImpl<>(id, contextType);
+        ConfigurableDefImpl.runConfigurer(choice, configurer);
+        smCompositeOperations.put(id, choice);
         tagContextType(id, contextType);
     }
 
@@ -1589,7 +1589,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     /**
      * Names a state-machine-level registration as a position in the definition tree. It uses the
-     * def's own label, so a registered conditional reads as one rather than as a "composite" -
+     * def's own label, so a registered choice reads as one rather than as a "composite" -
      * the same phrasing the transition-attached path produces for the same def.
      */
     private static String smLevelLabel(ActionDefImpl<?, ?, ?> def) {
@@ -1606,11 +1606,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
-     * Resolves every declared member - a container's own, and those inside any conditional it
+     * Resolves every declared member - a container's own, and those inside any choice it
      * holds - and installs the bound members on the executors that iterate them.
      * <p>
      * Members cannot bind during {@link OperationDefImpl#buildBound}, because a container's or a
-     * conditional's bound action is registered <em>into</em> the very scope its own members
+     * choice's bound action is registered <em>into</em> the very scope its own members
      * resolve against: a sibling may name it by id, and such a reference captures the bound
      * action by value. Binding here, once every scope is populated and every container is
      * registered, also frees a member to reference a container declared after its own.
@@ -1770,9 +1770,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * against the referencing def's own context by the compiler, and expressions are dynamic.
      * Conditions registered through the untyped overloads carry no declared type and are skipped.
      * <p>
-     * A conditional's branch calls this too, which is not merely for symmetry: a conditional may
+     * A choice's branch calls this too, which is not merely for symmetry: a choice may
      * declare a context of its own, so a branch's gate can sit on the far side of a boundary its
-     * own conditional crossed, and a condition takes no mapper to get back.
+     * own choice crossed, and a condition takes no mapper to get back.
      */
     void checkConditionRef(ConditionDescriptor descriptor, Class<?> scopeContext,
                            String scopeLabel, String kind) {
@@ -1807,7 +1807,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * Collects every action a by-id reference can reach, keyed by the id that reaches it, with the
      * ids it reaches in turn as its outgoing edges.
      * <p>
-     * A container declared in place and a conditional are nodes in their own right, not merely
+     * A container declared in place and a choice are nodes in their own right, not merely
      * members of one: each is registered under its id in the enclosing scope, so a sibling - or
      * one of its own descendants - can name it, and a self-reference resolves and then recurses
      * without bound at execution. Rooting only at state-machine level left that edge invisible.
@@ -1816,7 +1816,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * registry, so nothing can name it and it can never lie on a cycle; entering it as a node
      * would let the transition's id answer for edges that are not any action's, which both rejects
      * sound definitions and hides real cycles. Everything the body declares <em>is</em> registered,
-     * in the body's own scope, so a container or conditional declared straight on a transition is
+     * in the body's own scope, so a container or choice declared straight on a transition is
      * a node like any other and a cycle closed through one is found.
      * <p>
      * Registered containers go in first, and the rest through {@code putIfAbsent}: this pass runs
@@ -1825,7 +1825,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * before the collision itself is reported.
      * <p>
      * The edge lists stay over-approximate in the way this detector already is: it does not reason
-     * about which branch of a conditional is selectable, just as it does not reason about whether
+     * about which branch of a choice is selectable, just as it does not reason about whether
      * a container is ever reached.
      * <p>
      * Two consequences of that over-approximation are known and accepted, because both only affect

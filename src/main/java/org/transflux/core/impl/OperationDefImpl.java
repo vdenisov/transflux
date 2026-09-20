@@ -23,7 +23,7 @@ import org.transflux.core.action.ActionKind;
 import org.transflux.core.action.AsyncRejectionPolicy;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.OperationDef;
-import org.transflux.core.action.ConditionalOperationDef;
+import org.transflux.core.action.ChoiceDef;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.StepDef;
@@ -158,8 +158,8 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
-    public OperationDefImpl<T, C> conditional(String id, Consumer<ConditionalOperationDef<T, C>> configurer) {
-        return members.conditional(id, configurer, false);
+    public OperationDefImpl<T, C> choice(String id, Consumer<ChoiceDef<T, C>> configurer) {
+        return members.choice(id, configurer, false);
     }
 
     @Override
@@ -178,9 +178,9 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
-    public OperationDefImpl<T, C> forkConditional(String id,
-                                                  Consumer<ConditionalOperationDef<T, C>> configurer) {
-        return members.conditional(id, configurer, true);
+    public OperationDefImpl<T, C> forkChoice(String id,
+                                                  Consumer<ChoiceDef<T, C>> configurer) {
+        return members.choice(id, configurer, true);
     }
 
     @Override
@@ -210,7 +210,7 @@ final class OperationDefImpl<T, C>
 
     /**
      * Reports whether any member of this container is forked, which is what tells the build
-     * whether an executor is needed at all. Members nested inside a conditional's branches count:
+     * whether an executor is needed at all. Members nested inside a choice's branches count:
      * a branch member is dispatched through the same path a container member is.
      *
      * @return whether a forked member was declared anywhere in this container's subtree
@@ -228,7 +228,7 @@ final class OperationDefImpl<T, C>
      * (it binds no children at definition time), so the caller narrows this list to ids that
      * name a declarative container before walking it.
      *
-     * <p>The walk descends into a conditional's branches, because a branch member dispatches
+     * <p>The walk descends into a choice's branches, because a branch member dispatches
      * through the same path a container member does and can close the same cycle. It is
      * over-approximate in the way the detector already was: it does not reason about which
      * branch is selectable, just as it does not reason about whether a container is ever
@@ -258,7 +258,7 @@ final class OperationDefImpl<T, C>
 
     /**
      * Walks this composite's action refs and forwards each to the supplied sink. By-id refs
-     * no-op; inline refs push themselves; conditional refs recurse into their branches and then
+     * no-op; inline refs push themselves; choice refs recurse into their branches and then
      * register their own bound action. Drives the scope-binding pass in {@link #bindScope}.
      */
     void collectInlineRegistrations(InlineRegistrationSink<T, C> sink) {
@@ -281,7 +281,7 @@ final class OperationDefImpl<T, C>
             throw new TransfluxValidationException(
                 "OperationDef '" + getId()
                     + "' has no members; call run(...), fork(...), step(...), operation(...) or"
-                    + " conditional(...) at least once before build");
+                    + " choice(...) at least once before build");
         }
 
         if (ownScope() == null) {
@@ -314,7 +314,7 @@ final class OperationDefImpl<T, C>
 
     /**
      * Resolves each member reference against this container's lexical scope and installs the
-     * bound members on the executor, then descends into any conditional a member declares.
+     * bound members on the executor, then descends into any choice a member declares.
      *
      * @param stateMachine the state machine under construction
      * @param positionLabel names this container's position in the definition tree
@@ -340,12 +340,12 @@ final class OperationDefImpl<T, C>
 
             // Recursing after the member is built names the outer position first when a
             // resolution fails.
-            if (ref instanceof ActionRef.Conditional<T, C> conditional) {
-                // The conditional owns the scope its branches bind against, so it is what a failure
+            if (ref instanceof ActionRef.Choice<T, C> choice) {
+                // The choice owns the scope its branches bind against, so it is what a failure
                 // inside them has to name - not the container that happens to hold it.
-                conditional.def().bindBranchMembers(
-                    stateMachine, positionLabel + " > " + conditional.def().defLabel(),
-                    conditional.id());
+                choice.def().bindBranchMembers(
+                    stateMachine, positionLabel + " > " + choice.def().defLabel(),
+                    choice.id());
             } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
                 nested.def().bindMembers(stateMachine,
                                          positionLabel + " > " + nested.def().defLabel());
@@ -409,8 +409,8 @@ final class OperationDefImpl<T, C>
         members.visitAllMembers(member -> {
             if (member.ref() instanceof ActionRef.InlineOperation<T, C> inline) {
                 visitor.accept(inline.def());
-            } else if (member.ref() instanceof ActionRef.Conditional<T, C> conditional) {
-                visitor.accept(conditional.def());
+            } else if (member.ref() instanceof ActionRef.Choice<T, C> choice) {
+                visitor.accept(choice.def());
             }
         });
     }
@@ -422,8 +422,8 @@ final class OperationDefImpl<T, C>
         members.visitAllMembers(member -> {
             if (member.ref() instanceof ActionRef.InlineOperation<T, C> inline) {
                 sink.accept(inline.id(), inline.def().ownByIdReferenceIds());
-            } else if (member.ref() instanceof ActionRef.Conditional<T, C> conditional) {
-                sink.accept(conditional.id(), conditional.def().branchByIdReferenceIds());
+            } else if (member.ref() instanceof ActionRef.Choice<T, C> choice) {
+                sink.accept(choice.id(), choice.def().branchByIdReferenceIds());
             }
         });
     }
@@ -492,15 +492,15 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
-    public <N> OperationDefImpl<T, C> conditional(String id, Class<N> contextType,
-                                 Consumer<ConditionalOperationDef<T, N>> configurer) {
-        return members.conditional(id, contextType, MapperRef.passThrough(), configurer, false);
+    public <N> OperationDefImpl<T, C> choice(String id, Class<N> contextType,
+                                 Consumer<ChoiceDef<T, N>> configurer) {
+        return members.choice(id, contextType, MapperRef.passThrough(), configurer, false);
     }
 
     @Override
-    public <N> OperationDefImpl<T, C> conditional(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                                 Consumer<ConditionalOperationDef<T, N>> configurer) {
-        return members.conditional(id, contextType, MapperRef.inline(mapper), configurer, false);
+    public <N> OperationDefImpl<T, C> choice(String id, Class<N> contextType, ContextMapper<C, N> mapper,
+                                 Consumer<ChoiceDef<T, N>> configurer) {
+        return members.choice(id, contextType, MapperRef.inline(mapper), configurer, false);
     }
 
     @Override
@@ -541,16 +541,16 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
-    public <N> OperationDefImpl<T, C> forkConditional(String id, Class<N> contextType,
-                                                      Consumer<ConditionalOperationDef<T, N>> configurer) {
-        return members.conditional(id, contextType, MapperRef.passThrough(), configurer, true);
+    public <N> OperationDefImpl<T, C> forkChoice(String id, Class<N> contextType,
+                                                      Consumer<ChoiceDef<T, N>> configurer) {
+        return members.choice(id, contextType, MapperRef.passThrough(), configurer, true);
     }
 
     @Override
-    public <N> OperationDefImpl<T, C> forkConditional(String id, Class<N> contextType,
+    public <N> OperationDefImpl<T, C> forkChoice(String id, Class<N> contextType,
                                                       ContextMapper<C, N> mapper,
-                                                      Consumer<ConditionalOperationDef<T, N>> configurer) {
-        return members.conditional(id, contextType, MapperRef.inline(mapper), configurer, true);
+                                                      Consumer<ChoiceDef<T, N>> configurer) {
+        return members.choice(id, contextType, MapperRef.inline(mapper), configurer, true);
     }
 
     @Override

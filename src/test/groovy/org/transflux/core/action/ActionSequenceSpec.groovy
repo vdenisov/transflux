@@ -55,18 +55,18 @@ class ActionSequenceSpec extends Specification {
     def 'the declared member grammar is exactly the documented one'() {
         expect: 'a widening is a deliberate edit here, not a side effect elsewhere'
         signatures(ActionSequence).toSorted() == [
-            'conditional(java.lang.String,java.lang.Class,java.util.function.Consumer)',
-            'conditional(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,java.util.function.Consumer)',
-            'conditional(java.lang.String,java.util.function.Consumer)',
+            'choice(java.lang.String,java.lang.Class,java.util.function.Consumer)',
+            'choice(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,java.util.function.Consumer)',
+            'choice(java.lang.String,java.util.function.Consumer)',
             'fork(java.lang.String)',
             'fork(java.lang.String,java.lang.String)',
             'fork(java.lang.String,java.lang.String,org.transflux.core.action.AsyncRejectionPolicy)',
             'fork(java.lang.String,org.transflux.core.action.AsyncRejectionPolicy)',
             'fork(java.lang.String,org.transflux.core.action.ContextMapper)',
             'fork(java.lang.String,org.transflux.core.action.ContextMapper,org.transflux.core.action.AsyncRejectionPolicy)',
-            'forkConditional(java.lang.String,java.lang.Class,java.util.function.Consumer)',
-            'forkConditional(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,java.util.function.Consumer)',
-            'forkConditional(java.lang.String,java.util.function.Consumer)',
+            'forkChoice(java.lang.String,java.lang.Class,java.util.function.Consumer)',
+            'forkChoice(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,java.util.function.Consumer)',
+            'forkChoice(java.lang.String,java.util.function.Consumer)',
             'forkOperation(java.lang.String,java.lang.Class,java.util.function.Consumer)',
             'forkOperation(java.lang.String,java.lang.Class,org.transflux.core.action.ContextMapper,java.util.function.Consumer)',
             'forkOperation(java.lang.String,java.util.function.Consumer)',
@@ -102,8 +102,8 @@ class ActionSequenceSpec extends Specification {
     def '#type declares no member form of its own'() {
         expect: 'the grammar lives in exactly one place, so the four cannot drift'
         type.declaredMethods*.name.toSet()
-            .intersect(['run', 'fork', 'step', 'conditional', 'operation',
-                        'forkStep', 'forkConditional', 'forkOperation'].toSet()).isEmpty()
+            .intersect(['run', 'fork', 'step', 'choice', 'operation',
+                        'forkStep', 'forkChoice', 'forkOperation'].toSet()).isEmpty()
 
         where:
         type << SEQUENCES

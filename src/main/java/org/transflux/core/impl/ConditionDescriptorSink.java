@@ -35,7 +35,7 @@ import static org.transflux.core.impl.ValidationUtils.warnIfSet;
 /**
  * Shared implementation and storage for the condition-descriptor overload family that every
  * condition-bearing def exposes — transition pre- and post-conditions, manual-trigger
- * pre-conditions, data-trigger gates, and conditional branches.
+ * pre-conditions, data-trigger gates, and choice branches.
  * <p>
  * The family is seven {@code (String id, ...)} overloads covering the authoring forms of
  * {@link ConditionDescriptor}. Each owning def declares one sink per condition slot and

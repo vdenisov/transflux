@@ -19,27 +19,26 @@
 package org.transflux.core.action;
 
 /**
- * Behavior selector for a {@link ConditionalOperationDef} when no branch condition matches and no
+ * Behavior selector for a {@link ChoiceDef} when no branch condition matches and no
  * default branch is declared.
  * <ul>
- *   <li>{@link #WARN} — log a warning and skip the conditional operation. The enclosing transition
+ *   <li>{@link #WARN} — log a warning and skip the choice. The enclosing transition
  *       continues with the next step.</li>
- *   <li>{@link #SILENT} — skip the conditional operation without logging. Suits the guard pattern
- *       where a no-match is a normal, expected outcome (the conditional models
+ *   <li>{@link #SILENT} — skip the choice without logging. Suits the guard pattern
+ *       where a no-match is a normal, expected outcome (the choice models
  *       {@code if (cond) { ... }} with no {@code else}).</li>
- *   <li>{@link #ERROR} — raise a {@code TransfluxNoMatchException} from the conditional
- *       operation. The enclosing transition fails and any compensations accumulated so far are
- *       drained.</li>
+ *   <li>{@link #ERROR} — raise a {@code TransfluxNoMatchException} from the choice. The
+ *       enclosing transition fails and any compensations accumulated so far are drained.</li>
  * </ul>
  * The default is {@link #WARN} — a no-match is more often a misconfigured branch than a
  * deliberate guard, so the library surfaces it by default; deliberate guard patterns opt in
  * to {@code SILENT}.
  */
 public enum NoMatchBehavior {
-    /** Log a warning and skip the conditional operation; the enclosing transition continues. */
+    /** Log a warning and skip the choice; the enclosing transition continues. */
     WARN,
-    /** Skip the conditional operation without logging; appropriate for guard-style conditionals. */
+    /** Skip the choice without logging; appropriate for guard-style choices. */
     SILENT,
-    /** Fail the conditional operation and unwind the enclosing transition. */
+    /** Fail the choice and unwind the enclosing transition. */
     ERROR
 }

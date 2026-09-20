@@ -29,7 +29,7 @@ import java.util.function.Consumer;
  * parents flip around a configurer invocation, and the {@link #requireConfigurerActive(String)}
  * guard that every mutator calls before applying its effect. Subclasses implement
  * {@link #defLabel()} to embed an identifying phrase ("state 'draft'", "forContext scope for
- * SubmitCtx", "default branch on conditional 'route'") in the guard error message.
+ * SubmitCtx", "default branch on choice 'route'") in the guard error message.
  *
  * <p>This is the id-less root; the id-bearing specialization lives on {@link IdentifiedDefImpl}.
  * Defs that have no user-facing id (forContext scopes, default branches, regular branches)

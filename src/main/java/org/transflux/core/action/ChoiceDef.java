@@ -23,17 +23,16 @@ import org.transflux.core.exception.TransfluxValidationException;
 import java.util.function.Consumer;
 
 /**
- * Definition surface for a multi-branch conditional operation declared inside an
- * {@link OperationDef operation}.
+ * Definition surface for a multi-branch choice.
  * <p>
- * A conditional operation holds an ordered list of {@link BranchDef branches}; at execution time
+ * A choice holds an ordered list of {@link BranchDef branches}; at execution time
  * the framework walks the list in declaration order, evaluates each branch's condition, and
  * runs the actions of the first branch whose condition returned {@code true}. If no branch
  * matches and a {@link DefaultBranchDef default branch} is configured, its actions run.
- * Otherwise the {@link NoMatchBehavior} attached to this conditional determines whether it is
+ * Otherwise the {@link NoMatchBehavior} attached to this choice determines whether it is
  * silently skipped (with a warning) or fails the enclosing transition.
  *
- * <p>A conditional is a declarative action — its ordering rule is "first matching branch"
+ * <p>A choice is a declarative action — its ordering rule is "first matching branch"
  * rather than "all members, in order", which is the only thing separating it from
  * {@link OperationDef}. Being an action, it occupies any position one can: a member of a
  * container or of a branch, and a transition's attachment, where it attaches directly rather than
@@ -41,59 +40,59 @@ import java.util.function.Consumer;
  * action, so executed-id tracking and compensation registration stay uniform however an action was
  * reached.
  *
- * <p>A conditional owns the lexical scope its branches declare into, so every branch reaches what
+ * <p>A choice owns the lexical scope its branches declare into, so every branch reaches what
  * any branch declares - a step common to several is declared once - while nothing outside the
- * conditional can reach any of it.
+ * choice can reach any of it.
  *
- * <p>The conditional must declare at least one regular branch; a default branch alone is not
- * a valid configuration. Branch ids must be unique within the conditional.
+ * <p>The choice must declare at least one regular branch; a default branch alone is not
+ * a valid configuration. Branch ids must be unique within the choice.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-public interface ConditionalOperationDef<T, C> extends ActionDef<T, C> {
+public interface ChoiceDef<T, C> extends ActionDef<T, C> {
 
     /**
-     * Sets the optional human-readable name for this conditional operation.
+     * Sets the optional human-readable name for this choice.
      *
      * @param name the human-readable name
      *
-     * @return this conditional def for chaining
+     * @return this choice def for chaining
      */
-    ConditionalOperationDef<T, C> withName(String name);
+    ChoiceDef<T, C> withName(String name);
 
     /**
-     * Sets the optional description for this conditional operation.
+     * Sets the optional description for this choice.
      *
      * @param description the description
      *
-     * @return this conditional def for chaining
+     * @return this choice def for chaining
      */
-    ConditionalOperationDef<T, C> withDescription(String description);
+    ChoiceDef<T, C> withDescription(String description);
 
     @Override
-    ConditionalOperationDef<T, C> withCompensation(Compensation<T, C> compensation);
+    ChoiceDef<T, C> withCompensation(Compensation<T, C> compensation);
 
     @Override
-    ConditionalOperationDef<T, C> withAsyncRejectionPolicy(AsyncRejectionPolicy policy);
+    ChoiceDef<T, C> withAsyncRejectionPolicy(AsyncRejectionPolicy policy);
 
     @Override
-    <X extends Throwable> CompensationRouteDef<T, C, X, ? extends ConditionalOperationDef<T, C>>
+    <X extends Throwable> CompensationRouteDef<T, C, X, ? extends ChoiceDef<T, C>>
         forException(Class<X> exceptionType);
 
     /**
-     * Defines a regular conditional branch. The supplied configurer must set exactly one
+     * Defines a regular choice branch. The supplied configurer must set exactly one
      * condition on the branch and append at least one step to it.
      *
-     * @param branchId the branch id; must be unique within this conditional and non-blank
+     * @param branchId the branch id; must be unique within this choice and non-blank
      * @param configurer callback that configures the new branch
      *
-     * @return this conditional def for chaining
+     * @return this choice def for chaining
      *
      * @throws TransfluxValidationException if {@code branchId} is {@code null} or blank,
      *         {@code configurer} is {@code null}, or {@code branchId} is already declared
      */
-    ConditionalOperationDef<T, C> branch(String branchId, Consumer<BranchDef<T, C>> configurer);
+    ChoiceDef<T, C> branch(String branchId, Consumer<BranchDef<T, C>> configurer);
 
     /**
      * Defines the default branch. The supplied configurer must append at least one step.
@@ -101,12 +100,12 @@ public interface ConditionalOperationDef<T, C> extends ActionDef<T, C> {
      *
      * @param configurer callback that configures the default branch
      *
-     * @return this conditional def for chaining
+     * @return this choice def for chaining
      *
      * @throws TransfluxValidationException if {@code configurer} is {@code null} or the
      *         default branch has already been declared
      */
-    ConditionalOperationDef<T, C> defaultBranch(Consumer<DefaultBranchDef<T, C>> configurer);
+    ChoiceDef<T, C> defaultBranch(Consumer<DefaultBranchDef<T, C>> configurer);
 
     /**
      * Sets the behavior used when no branch matches and no default branch is declared.
@@ -117,40 +116,40 @@ public interface ConditionalOperationDef<T, C> extends ActionDef<T, C> {
      *
      * @param behavior the no-match behavior
      *
-     * @return this conditional def for chaining
+     * @return this choice def for chaining
      *
      * @throws TransfluxValidationException if {@code behavior} is {@code null}
      */
-    ConditionalOperationDef<T, C> onNoMatch(NoMatchBehavior behavior);
+    ChoiceDef<T, C> onNoMatch(NoMatchBehavior behavior);
 
     @Override
-    ConditionalOperationDef<T, C> onStart(String listenerId, ActionListener<T, C> listener);
+    ChoiceDef<T, C> onStart(String listenerId, ActionListener<T, C> listener);
 
     @Override
-    ConditionalOperationDef<T, C> onStart(String listenerId,
+    ChoiceDef<T, C> onStart(String listenerId,
                                           Consumer<ActionListenerDef<T, C>> configurer);
 
     @Override
-    ConditionalOperationDef<T, C> onComplete(String listenerId, ActionListener<T, C> listener);
+    ChoiceDef<T, C> onComplete(String listenerId, ActionListener<T, C> listener);
 
     @Override
-    ConditionalOperationDef<T, C> onComplete(String listenerId,
+    ChoiceDef<T, C> onComplete(String listenerId,
                                              Consumer<ActionListenerDef<T, C>> configurer);
 
     @Override
-    ConditionalOperationDef<T, C> onError(String listenerId, ActionListener<T, C> listener);
+    ChoiceDef<T, C> onError(String listenerId, ActionListener<T, C> listener);
 
     @Override
-    ConditionalOperationDef<T, C> onError(String listenerId,
+    ChoiceDef<T, C> onError(String listenerId,
                                           Consumer<ActionListenerDef<T, C>> configurer);
 
     @Override
-    ConditionalOperationDef<T, C> disableGlobalListener(String listenerId);
+    ChoiceDef<T, C> disableGlobalListener(String listenerId);
 
     @Override
-    ConditionalOperationDef<T, C> disableGlobalListeners(String... listenerIds);
+    ChoiceDef<T, C> disableGlobalListeners(String... listenerIds);
 
     @Override
-    ConditionalOperationDef<T, C> disableAllGlobalListeners();
+    ChoiceDef<T, C> disableAllGlobalListeners();
 
 }
