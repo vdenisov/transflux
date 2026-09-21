@@ -12,7 +12,7 @@
 | 5.3 Java/YAML alignment and decisions | `requirements.md` §3 and §4.1 rewritten | 5.1 |
 | 5.4 Java DSL changes from the alignment | Java code | 5.3 |
 | 5.5 `StateMachine` as handle + `replaceDefinition` | Java code | — |
-| 5.6 Definition Sourcing SPI | Java code | — |
+| 5.6 Definition Sourcing SPI | Java code, the multi-module build | — |
 | 5.7 `transflux-yaml` module and loader infrastructure | module, entry point, node walk, error model | 5.3, 5.6 |
 | 5.8 Parsing: component libraries | loader code | 5.4, 5.7 |
 | 5.9 Parsing: the state machine | loader code | 5.8 |
@@ -92,14 +92,15 @@
 
 ### 5.6 Definition Sourcing SPI
 *Per `requirements.md` §2.6. The SPI and its implementations only — no parser needed. What the loader does with a source (imports, import-chain errors, import cycles) is §5.11.*
-- [ ] `DefinitionSource` interface: `Optional<DefinitionResource> open(String identifier)`.
-- [ ] `DefinitionResource` AutoCloseable carrying `identifier()`, `bytes()`, optional `lastModified()`, optional `etag()`.
-- [ ] Identifiers are **opaque, source-defined strings** — no path canonicalisation, no implicit `.yml` suffix, no relative-to-importer resolution by the framework. Hosts pick the scheme; the source decides what to make of it.
-- [ ] Ships-with implementations: `ClasspathDefinitionSource` (default), `FileSystemDefinitionSource(Path root)` (with `..`-traversal rejection and symlink policy), `CompositeDefinitionSource` (route by scheme prefix or by ordered fallback).
-- [ ] Home: the SPI has no YAML dependency, but nothing outside the loader consumes it. Place it in `transflux-yaml`; §5.3 found no core consumer.
+- [x] **Home: `transflux-yaml`, package `org.transflux.yaml.source`.** The module did not exist yet, so this item took §5.7's first bullet: the repository is a parent POM (`transflux-parent`) with `transflux-core` — the existing library, renamed from `transflux` — and `transflux-yaml` as modules. Toolchain, Surefire's `**/*Spec` include, JaCoCo and every dependency version sit in the parent; the core module gained no dependency.
+- [x] `DefinitionSource`: `Optional<DefinitionResource> open(String identifier)`, a functional interface, plus `default Set<String> prefixes()` (empty). Empty from `open` means "no such document" and nothing else; an unreadable document or a refused identifier throws.
+- [x] `DefinitionResource`: a final `AutoCloseable` class carrying `identifier()`, `bytes()` (an `InputStream`), and nullable `location()`, `lastModified()` and `etag()` (`Optional` is kept for `open`'s answer, not for metadata, as in core); `close()` closes the stream. `location()` names where the answering source found the document, which the identifier stops doing once a composite scans; §5.7's error model prints it.
+- [x] Identifiers are **opaque, source-defined strings** — no path canonicalisation, no implicit `.yml` suffix, no relative-to-importer resolution by the framework.
+- [x] `ClasspathDefinitionSource` (context class loader at construction, or one passed in; prefix `cp:`). `FileSystemDefinitionSource(Path root[, SymlinkPolicy])` (prefix `file:`): absolute, drive-rooted and `..`-bearing identifiers refused with a `TransfluxValidationException`; `SymlinkPolicy` `WITHIN_ROOT` (default) / `FOLLOW` / `REJECT`, junctions included; the root itself may be a link. Both take `withPrefixes(...)`. `CompositeDefinitionSource.of(sources...)`: an ordered list; a declared prefix selects the sources declaring it and is stripped, anything else scans every source verbatim; first found wins; a matched prefix never falls through to the scan. One source per prefix (the first cut's map) could not express "config directory, then home directory" under one `file:`.
+- [x] Logger leaf `org.transflux.yaml.source` (DEBUG: the route taken, where a miss looked), in the module's own package-private `Loggers` holder with a module-local `LoggersSpec`. §5.7 decides where `yaml.parse` / `yaml.binding` are declared.
 
 ### 5.7 `transflux-yaml` Module and Loader Infrastructure
-- [ ] **Multi-module build.** The repository becomes a parent POM with the existing library as one module and `transflux-yaml` as a second, depending on it. The core module gains no dependency. Toolchain, Surefire's `**/*Spec` include and JaCoCo move to the parent. Update CLAUDE.md and the README's "Package Structure" for the new top-level package.
+- [x] **Multi-module build** — shipped with §5.6, which needed the module as its home.
 - [ ] **Dependencies: SnakeYAML 2.x only**, used through its node API so every node keeps its line and column. Add a second library only when something needs it.
 - [ ] **The loader uses the public API alone.** It lives outside `core.impl` and is written against `ActionSequence<T, C, SELF>` and the `*Def` interfaces, which makes it the second out-of-package caller of the DSL after `JavaDslSurface`. If it needs something that is not public, that is a finding about the Java DSL, not a reason to widen visibility.
 - [ ] **Host entry point.** A loader taking a `DefinitionSource`, a root identifier and the entity `Class<T>`, returning a `StateMachineDef<T>` — a def rather than a built machine, since `replaceDefinition` (§5.5) takes one. The document's `entityType:` must name exactly the class passed; a mismatch is a validation error naming both.

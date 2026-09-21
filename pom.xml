@@ -31,6 +31,7 @@
 
     <modules>
         <module>transflux-core</module>
+        <module>transflux-yaml</module>
     </modules>
 
     <properties>

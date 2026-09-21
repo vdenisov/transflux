@@ -31,6 +31,7 @@ The project is in active design and the public API is unstable. **No releases ar
 - `org.transflux.core.exception` — `TransfluxException` and its subclasses.
 - `org.transflux.core.trigger` — `Trigger` (runtime catalog view, reporting every transition it is attached to) and its kinds `ManualTrigger` / `EventTrigger` / `DataTrigger`, with the def-side builders `ManualTriggerDef` / `EventTriggerDef` / `DataTriggerDef`. A trigger is declared on a transition, or registered once on the state machine and attached by id wherever it is wanted. Manual triggers fire via `entity(e).fire(...)`; event and data triggers fire via the host-driven `entity(e).processEvent(...)` / `processDataChange(...)`.
 - `org.transflux.core.logging` — the shipped logging listeners: `ExecutionLogging` configures and creates them, and `StateMachineDef.withExecutionLogging(...)` attaches all three.
+- `org.transflux.yaml.source` (module `transflux-yaml`) — where definition documents come from: the `DefinitionSource` SPI and its `DefinitionResource`, plus `ClasspathDefinitionSource`, `FileSystemDefinitionSource` (with its `SymlinkPolicy`) and `CompositeDefinitionSource`, which asks an ordered list of sources — only those declaring the identifier's prefix, or all of them when it has none.
 - `org.transflux.core.impl` — framework-internal implementations: every `*Impl` — including `StateMachineImpl`, the handle a host holds, and the `StateMachineSnapshot` it hands out per call, which is what `StateMachine.replaceDefinition(...)` swaps — the `Registry` / `Component` lookup machinery, the bound-record / action-ref / mapper-ref infrastructure, the SpEL evaluation utilities (`ConditionResolver`, `SpelConditionEvaluator`, `ExpressionIdDerivation`), the runtime-internal `ExecutingTransitionImpl` and `TransitionImpl`, the `Loggers` holder declaring the logger tree, and the shared utilities (`ValidationUtils`, `ThrowingUtils`). User code should not depend on this package directly.
 
 ## Logging
@@ -52,6 +53,7 @@ Transflux logs through SLF4J and ships no binding or configuration of its own �
 | `org.transflux.execution.async` | executor lifecycle; forked-member submission and outcome |
 | `org.transflux.execution.listener` | observer failures |
 | `org.transflux.trigger` | dispatch scans, filters, gates |
+| `org.transflux.yaml.source` | which definition source answered an identifier, and where a miss looked |
 
 **The execution trace is a separate subtree.** `org.transflux.trace.state`, `.transition` and `.action` carry only what the shipped logging listeners write, and only when a host attached them — `withExecutionLogging(...)` for all three globally, or `ExecutionLogging.atLevel(...).stateListener()` (and its siblings) on a single owner. Silencing `org.transflux.execution` leaves a trace you asked for untouched. Every line goes out at the level you chose, and carries ids and paths only: the entity appears as the label you supply with `withEntityLabel(...)`, the context only with `withContext()`, durations only with `withTimings()`, and a failure as its type, never its message.
 

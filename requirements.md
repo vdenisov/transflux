@@ -395,32 +395,52 @@ The YAML DSL needs bytes; Transflux does not impose where those bytes live. The 
 #### 2.6.1 The `DefinitionSource` Contract
 
 ```java
+@FunctionalInterface
 public interface DefinitionSource {
     Optional<DefinitionResource> open(String identifier);
+    default Set<String> prefixes() { return Set.of(); }   // what it answers to in a composite
 }
 
 public final class DefinitionResource implements AutoCloseable {
-    String identifier();         // canonical id, threaded into validation error messages
-    InputStream bytes();         // the raw YAML
-    Optional<Instant> lastModified();   // optional, used by Post-1.0 reload watchers
-    Optional<String> etag();             // optional, used by Post-1.0 reload watchers
-    @Override void close();
+    public DefinitionResource(String identifier, InputStream bytes);
+    public DefinitionResource(String identifier, InputStream bytes,
+                              String location, Instant lastModified, String etag);
+
+    String identifier();                // threaded into error messages; the key imports are deduplicated by
+    InputStream bytes();                // the raw YAML, read once
+    String location();                  // nullable; where the answering source found it, for people reading an error
+    Instant lastModified();             // nullable; for Post-1.0 reload watchers
+    String etag();                      // nullable; for Post-1.0 reload watchers
+    @Override void close();             // closes the stream
 }
 ```
 
+The identifier names what was asked for; the location names where it was found — a path, a URL, a table and key — which matters once a composite scans several sources for one identifier. An empty `Optional` means the source has no such document, and only that. A document that exists but cannot be read, or an identifier the source refuses, is thrown — a failure is never reported as a miss. The SPI and the ships-with sources live in `transflux-yaml`, package `org.transflux.yaml.source`; nothing in the core module consumes them.
+
 #### 2.6.2 Identifier Model
 
-Identifiers passed to `open(...)` are **opaque, source-defined strings**. The framework imposes no path semantics — no relative-path resolution, no implicit `.yml` suffix, no slash interpretation. A `path:` (or `ref:`) field on an `imports:` entry, on `apiVersion: transflux/v1` documents, or anywhere else an external definition is referenced, is handed verbatim to the configured source.
+Identifiers passed to `open(...)` are **opaque, source-defined strings**. The framework imposes no path semantics — no relative-path resolution, no implicit `.yml` suffix, no slash interpretation. An `imports:` entry (§3.1.4), and the root identifier a host passes to the loader, is handed verbatim to the configured source.
 
-This means hosts can choose URI-like schemes (`db://workflows/subscription`, `git://main/operations/payment.yml`), bare ids (`subscription`, `payment-flow`), or filesystem-style paths (`components/shared-components.yml`) — whichever fits the source. A `CompositeDefinitionSource` ships with the framework and routes by **scheme prefix**: `cp:` to a classpath source, `file:` to a filesystem source, anything else to host-registered sources.
+Hosts can therefore choose URI-like schemes (`db://workflows/subscription`, `git://main/operations/payment.yml`), bare ids (`subscription`, `payment-flow`), or filesystem-style paths (`components/shared-components.yml`) — whichever fits the source.
 
 #### 2.6.3 Ships-With Implementations
 
-- **`ClasspathDefinitionSource`** — resolves identifiers against the JVM classpath. The default when a host wires no other source.
-- **`FileSystemDefinitionSource(Path root)`** — resolves identifiers as paths under a configured root, with traversal-rejection (`..` segments) and symlink-policy controls.
-- **`CompositeDefinitionSource`** — routes by scheme prefix or by ordered fallback, depending on configuration. Useful for "classpath defaults + DB overlay" or "DB primary, filesystem fallback."
+- **`ClasspathDefinitionSource`** — the identifier is a classpath resource name, looked up through the thread context class loader current at construction, or a class loader the host passes. The default when a host wires no other source. Prefix `cp:`; location is the resource URL; no change metadata.
+- **`FileSystemDefinitionSource(Path root[, SymlinkPolicy])`** — the identifier is a path relative to `root`. One that is absolute, drive-rooted, or carries a `..` segment anywhere is refused with a `TransfluxValidationException` rather than reported missing. Symbolic links beneath the root follow `SymlinkPolicy`: `WITHIN_ROOT` (the default) follows a link only when its target stays under the root, `FOLLOW` follows every link, `REJECT` refuses any path passing through one, a Windows junction included. The root itself may be a link under every policy. Prefix `file:`; location is the file's path; reports its modification time.
+- **`CompositeDefinitionSource.of(sources...)`** — an ordered list of sources, routed by the prefixes each declares.
 
 Hosts implement their own for database / Git / remote sources.
+
+**Composite routing.** The shipped sources declare the prefixes above and take others through `withPrefixes(...)` — none at all included — so two filesystem sources can share `file:` while one also answers to `config:` and the other to `home:`. A host's own source declares its prefixes by overriding `prefixes()`; one written as a lambda declares none.
+
+| Identifier | Asked of | Each receives |
+| --- | --- | --- |
+| starts with a prefix some source declares | the sources declaring it, in list order | the identifier with its own longest matching prefix stripped |
+| anything else | every source, in list order | the identifier verbatim |
+
+The first resource found wins, and reports the whole identifier with the answering source's location. A matched prefix whose sources all miss is a miss — the rest are not asked, or `db:x` could quietly be served from elsewhere. A source that throws ends the search. Prefixes are literal strings, not parsed schemes: `C:x` or `urn:x` is unprefixed unless some source declared `C:` or `urn:`. A source that needs its scheme gets it through the identifier — `http:https://example.com` reaches an `http:` source as `https://example.com`. A composite declares no prefixes of its own, so a nested one takes part in the unprefixed scan only.
+
+**The order is a trust decision.** An earlier source shadows a later one, so a writable directory listed ahead of the classpath overrides what the application ships. A definition is code (§3.9); the framework accepts that the host sources definitions only from places it trusts and orders them accordingly.
 
 #### 2.6.4 Error Reporting
 
