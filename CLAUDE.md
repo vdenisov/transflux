@@ -10,11 +10,12 @@ Transflux is a lightweight, embeddable microflow orchestration library (Java). I
 
 ## Build & Test
 
+- Modules: the root `pom.xml` is `transflux-parent`, holding the toolchain, plugins (Surefire's `**/*Spec` include, JaCoCo, GMavenPlus) and every dependency version; `transflux-core/` is the library. Each module's paths below are relative to its own directory.
 - Toolchain: Maven builds with **JDK 17+** (enforced via `maven-toolchains-plugin`) and compiles to **Java 17 bytecode** (`<release>17</release>`). A JDK 17+ must be discoverable through `~/.m2/toolchains.xml`.
 - Run all tests: `mvn -q clean test`
-- Run a single Spock spec: `mvn -q test -Dtest=StateMachineImplSpec`
-- Run a single feature method: `mvn -q test -Dtest=StateMachineImplSpec#"feature method name"`
-- Coverage report (JaCoCo, generated during `test` phase): `target/site/jacoco/index.html`
+- Run a single Spock spec: `mvn -q test -pl transflux-core -Dtest=StateMachineImplSpec`
+- Run a single feature method: `mvn -q test -pl transflux-core -Dtest=StateMachineImplSpec#"feature method name"`
+- Coverage report (JaCoCo, generated during `test` phase, per module): `transflux-core/target/site/jacoco/index.html`
 - Surefire only picks up classes matching `**/*Spec` — Groovy/Spock specs in `src/test/groovy`. Plain JUnit tests would not be discovered without changing the include pattern.
 
 ## Architecture

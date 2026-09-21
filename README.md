@@ -19,8 +19,8 @@ The project is in active design and the public API is unstable. **No releases ar
 ## Build
 - Prerequisites: JDK 17+ to build (enforced via Maven toolchains); the library compiles to Java 17 bytecode and is compatible with Java 17+ runtimes. Maven 3.9+.
 - Run tests: `mvn -q clean test`
-- Run a single spec: `mvn -q test -Dtest=StateMachineImplSpec`
-- Coverage report: `target/site/jacoco/index.html`
+- Run a single spec: `mvn -q test -pl transflux-core -Dtest=StateMachineImplSpec`
+- Coverage report: `transflux-core/target/site/jacoco/index.html`
 
 ## Package Structure
 - `org.transflux.core` — entry point (`Transflux`), `StateMachine` / `StateMachineDef`, `ContextScope`, `ListenerDef` (the surface shared by the three listener defs), and the `Preconditions` argument-precondition helpers.
