@@ -48,6 +48,9 @@ final class GlobalListenerDisables {
      * {@link org.transflux.core.action.Action} instance. Its owner is {@code null} because nothing
      * can reach the mutators: no def holds this instance.
      */
+    // ponytail: shared instance with a null owner, so every mutator NPEs rather than mutating it;
+    // give it an immutable subtype if anything ever gains a path to one, since the failure would
+    // otherwise be silent suppression across every machine in the JVM.
     private static final GlobalListenerDisables NONE = new GlobalListenerDisables(null);
 
     private final ConfigurableDefImpl owner;

@@ -59,7 +59,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * @param <C> the host-supplied context type carried through transition execution
  */
 class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
-    private final StateMachineImpl<T> stateMachine;
+    private final StateMachineSnapshot<T> stateMachine;
     private final BoundTransition<T, C> boundTransition;
 
     private final T entity;
@@ -80,7 +80,7 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
 
     private final Transition readOnly;
 
-    ExecutingTransitionImpl(StateMachineImpl<T> stateMachine, BoundTransition<T, C> boundTransition,
+    ExecutingTransitionImpl(StateMachineSnapshot<T> stateMachine, BoundTransition<T, C> boundTransition,
                             T entity, C context) {
         this(stateMachine, boundTransition, entity, context, List.of(), List.of());
     }
@@ -98,7 +98,7 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
      *                {@link Deque#iterator()} yields it
      * @param scopes the enclosing lexical-scope stack, in the same order
      */
-    ExecutingTransitionImpl(StateMachineImpl<T> stateMachine, BoundTransition<T, C> boundTransition,
+    ExecutingTransitionImpl(StateMachineSnapshot<T> stateMachine, BoundTransition<T, C> boundTransition,
                             T entity, C context, Collection<String> nesting,
                             Collection<Registry<T>> scopes) {
         requireNotNull(stateMachine, "State machine");
@@ -233,7 +233,7 @@ class ExecutingTransitionImpl<T, C> implements ExecutingTransition<T, C> {
      * The two-argument {@code policy} fold a declared member gets at build time happens here
      * instead, because an imperative call site has no def to fold it onto: this call site wins,
      * then the action's own declaration, and the state machine's default is applied further down
-     * in {@link StateMachineImpl#submitBranch}.
+     * in {@link StateMachineSnapshot#submitBranch}.
      *
      * @param callee the resolved callee, carrying the context type it was declared for
      * @param mapping this call site's context mapping

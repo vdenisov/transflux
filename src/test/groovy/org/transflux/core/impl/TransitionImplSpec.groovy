@@ -151,7 +151,7 @@ class TransitionImplSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, cfg) })
             .state('s2', {})
-        def sm = (StateMachineImpl<Entity>) smd.build()
+        def sm = ((StateMachineImpl<Entity>) smd.build()).snapshot()
         return TransitionImpl.of(sm.getTransition('t'))
     }
 

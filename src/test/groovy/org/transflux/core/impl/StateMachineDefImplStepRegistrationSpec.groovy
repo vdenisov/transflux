@@ -119,7 +119,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         smd.state(ACTIVE.id, {})
 
         when:
-        def sm = (StateMachineImpl) smd.build()
+        def sm = ((StateMachineImpl) smd.build()).snapshot()
 
         then:
         // Inline composite members live in the composite's scope, not the SM root.
@@ -139,7 +139,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         smd.state(ACTIVE.id, {})
 
         when:
-        def sm = (StateMachineImpl) smd.build()
+        def sm = ((StateMachineImpl) smd.build()).snapshot()
 
         then:
         // SM-level registration survives; inline registration of the same instance is treated
@@ -268,7 +268,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         smd.state(ACTIVE.id, {})
 
         when:
-        def sm = (StateMachineImpl) smd.build()
+        def sm = ((StateMachineImpl) smd.build()).snapshot()
 
         then:
         // The same instance across two composites is idempotent; the build succeeds.
@@ -361,7 +361,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         smd.state(TRIAL.id, {})
 
         when:
-        def sm = (StateMachineImpl) smd.build()
+        def sm = ((StateMachineImpl) smd.build()).snapshot()
 
         then:
         sm.getBoundAction('nothing') == null

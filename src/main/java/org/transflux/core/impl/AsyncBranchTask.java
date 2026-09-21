@@ -33,12 +33,12 @@ import org.transflux.core.transition.ActionPath;
  */
 final class AsyncBranchTask<T> implements Runnable {
 
-    private final StateMachineImpl<T> stateMachine;
+    private final StateMachineSnapshot<T> stateMachine;
     private final ExecutingTransitionImpl<T, Object> view;
     private final BoundAction<T, Object> action;
     private final ActionPath path;
 
-    AsyncBranchTask(StateMachineImpl<T> stateMachine, ExecutingTransitionImpl<T, Object> view,
+    AsyncBranchTask(StateMachineSnapshot<T> stateMachine, ExecutingTransitionImpl<T, Object> view,
                     BoundAction<T, Object> action, ActionPath path) {
         this.stateMachine = stateMachine;
         this.view = view;

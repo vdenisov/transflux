@@ -66,7 +66,7 @@ class ExecutingTransitionImplSpec extends Specification {
         smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', {}) })
         smd.state(ACTIVE.id, {})
 
-        def sm = (StateMachineImpl) smd.build()
+        def sm = ((StateMachineImpl) smd.build()).snapshot()
         def entity = new TestEntity(state: 'TRIAL')
         def ctx = new TestContext()
         def view = new ExecutingTransitionImpl<TestEntity, TestContext>(sm, sm.transitions['t1'], entity, ctx)
@@ -88,7 +88,7 @@ class ExecutingTransitionImplSpec extends Specification {
         smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', {}) })
         smd.state(ACTIVE.id, {})
 
-        def sm = (StateMachineImpl) smd.build()
+        def sm = ((StateMachineImpl) smd.build()).snapshot()
         def view = new ExecutingTransitionImpl<TestEntity, TestContext>(
             sm, sm.transitions['t1'], new TestEntity(state: 'TRIAL'), new TestContext())
 
@@ -103,7 +103,7 @@ class ExecutingTransitionImplSpec extends Specification {
 
     def "pushCompensation should record the context the compensated action ran against"() {
         given:
-        def sm = (StateMachineImpl) viewHostStateMachine()
+        def sm = ((StateMachineImpl) viewHostStateMachine()).snapshot()
         def ctx = new TestContext('parent')
         def childCtx = new TestContext('child')
         def view = new ExecutingTransitionImpl<TestEntity, TestContext>(
@@ -122,7 +122,7 @@ class ExecutingTransitionImplSpec extends Specification {
 
     def "pushCompensation should ignore a null router"() {
         given:
-        def sm = (StateMachineImpl) viewHostStateMachine()
+        def sm = ((StateMachineImpl) viewHostStateMachine()).snapshot()
         def view = new ExecutingTransitionImpl<TestEntity, TestContext>(
             sm, sm.transitions['t1'], new TestEntity(state: 'TRIAL'), new TestContext())
 
@@ -141,7 +141,7 @@ class ExecutingTransitionImplSpec extends Specification {
         smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', {}) })
         smd.state(ACTIVE.id, {})
 
-        def sm = (StateMachineImpl) smd.build()
+        def sm = ((StateMachineImpl) smd.build()).snapshot()
         def view = new ExecutingTransitionImpl<TestEntity, TestContext>(
             sm, sm.transitions['t1'], new TestEntity(state: 'TRIAL'), new TestContext())
 
@@ -164,7 +164,7 @@ class ExecutingTransitionImplSpec extends Specification {
         smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', {}) })
         smd.state(ACTIVE.id, {})
 
-        def sm = (StateMachineImpl) smd.build()
+        def sm = ((StateMachineImpl) smd.build()).snapshot()
         def view = new ExecutingTransitionImpl<TestEntity, TestContext>(
             sm, sm.transitions['t1'], new TestEntity(state: 'TRIAL'), new TestContext())
 

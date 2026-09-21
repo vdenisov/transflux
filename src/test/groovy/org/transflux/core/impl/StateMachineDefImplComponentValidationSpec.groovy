@@ -54,7 +54,7 @@ class StateMachineDefImplComponentValidationSpec extends Specification {
         def sm = smd.build()
 
         when:
-        smd.validateComponents(sm.componentRegistry)
+        smd.validateComponents(sm.snapshot().componentRegistry)
 
         then:
         noExceptionThrown()
@@ -64,10 +64,10 @@ class StateMachineDefImplComponentValidationSpec extends Specification {
         given:
         def smd = defWithComposites()
         def sm = smd.build()
-        plant(sm.componentRegistry)
+        plant(sm.snapshot().componentRegistry)
 
         when:
-        smd.validateComponents(sm.componentRegistry)
+        smd.validateComponents(sm.snapshot().componentRegistry)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -81,7 +81,7 @@ class StateMachineDefImplComponentValidationSpec extends Specification {
         plant(smd.transitionsById['t'].actionDef.ownScope())
 
         when:
-        smd.validateComponents(sm.componentRegistry)
+        smd.validateComponents(sm.snapshot().componentRegistry)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -95,7 +95,7 @@ class StateMachineDefImplComponentValidationSpec extends Specification {
         plant(smd.getSmCompositeOperation('sm-level').ownScope())
 
         when:
-        smd.validateComponents(sm.componentRegistry)
+        smd.validateComponents(sm.snapshot().componentRegistry)
 
         then:
         def e = thrown(TransfluxValidationException)

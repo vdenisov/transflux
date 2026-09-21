@@ -61,7 +61,7 @@ class OperationDefImplSpec extends Specification {
             .build()
         def composite = new OperationDefImpl<TestEntity, TestContext>('op1')
         composite.scopeRegistry = new RegistryImpl<TestEntity>(
-            ((StateMachineImpl<TestEntity>) sm).componentRegistry, composite.getId())
+            ((StateMachineImpl<TestEntity>) sm).snapshot().componentRegistry, composite.getId())
 
         when:
         composite.buildBound()
@@ -113,19 +113,19 @@ class OperationDefImplSpec extends Specification {
         def composite = new OperationDefImpl<TestEntity, TestContext>('op1').tap { beginConfigurer() }
             .run('c-id').run('a-id').run('b-id')
         composite.scopeRegistry = new RegistryImpl<TestEntity>(
-            ((StateMachineImpl<TestEntity>) sm).componentRegistry, composite.getId())
+            ((StateMachineImpl<TestEntity>) sm).snapshot().componentRegistry, composite.getId())
 
         def entity = new TestEntity('TRIAL')
         def view = new ExecutingTransitionImpl<TestEntity, TestContext>(
-            (StateMachineImpl<TestEntity>) sm,
-            ((StateMachineImpl<TestEntity>) sm).transitions['t1'],
+            ((StateMachineImpl<TestEntity>) sm).snapshot(),
+            ((StateMachineImpl<TestEntity>) sm).snapshot().transitions['t1'],
             entity,
             new TestContext()
         )
 
         when:
         def bound = composite.buildBound()
-        composite.bindMembers((StateMachineImpl<TestEntity>) sm, "operation 'op1'")
+        composite.bindMembers(((StateMachineImpl<TestEntity>) sm).snapshot(), "operation 'op1'")
         bound.action.execute(entity, view.context, view)
 
         then:
@@ -148,7 +148,7 @@ class OperationDefImplSpec extends Specification {
             .withCompensation(compensation)
             .run('a-id')
         composite.scopeRegistry = new RegistryImpl<TestEntity>(
-            ((StateMachineImpl<TestEntity>) sm).componentRegistry, composite.getId())
+            ((StateMachineImpl<TestEntity>) sm).snapshot().componentRegistry, composite.getId())
 
         expect:
         composite.buildBound().compensationRouter()?.fallback().is(compensation)
@@ -167,11 +167,11 @@ class OperationDefImplSpec extends Specification {
         def composite = new OperationDefImpl<TestEntity, TestContext>('op1').tap { beginConfigurer() }
             .run('known').run('missing')
         composite.scopeRegistry = new RegistryImpl<TestEntity>(
-            ((StateMachineImpl<TestEntity>) sm).componentRegistry, composite.getId())
+            ((StateMachineImpl<TestEntity>) sm).snapshot().componentRegistry, composite.getId())
 
         when:
         composite.buildBound()
-        composite.bindMembers((StateMachineImpl<TestEntity>) sm, "operation 'op1'")
+        composite.bindMembers(((StateMachineImpl<TestEntity>) sm).snapshot(), "operation 'op1'")
 
         then:
         def e = thrown(TransfluxValidationException)

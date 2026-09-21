@@ -20,6 +20,7 @@ package org.transflux.dsl;
 
 import org.slf4j.event.Level;
 import org.transflux.core.StateMachine;
+import org.transflux.core.StateMachineDef;
 import org.transflux.core.Transflux;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.ActionExecution;
@@ -1306,6 +1307,48 @@ public final class JavaDslSurface {
             return sm.getId() + ":" + sm.getName() + ":" + sm.getDescription()
                 + ":" + sm.getVersion() + ":" + fired;
         }
+    }
+
+    /**
+     * Hot-swap: a state machine built from one definition, driven, handed a topologically different
+     * one, and driven again. The entity type is the only thing the two have to agree on.
+     *
+     * @return the generation before and after the swap, and the trail both versions wrote, joined
+     */
+    public static String definitionReplacement() {
+        try (StateMachine<Order> sm = tinyDefinition("first", "s2").build()) {
+            Order order = new Order();
+            sm.entity(order).transitionTo("s2");
+            long before = sm.generation();
+
+            // A different target state, a different step, a different version - same Order.class.
+            long after = sm.replaceDefinition(tinyDefinition("second", "s3"));
+            sm.entity(order).transitionTo("s1");
+            sm.entity(order).transitionTo("s3");
+
+            return before + ":" + after + ":" + String.join(",", order.trail);
+        }
+    }
+
+    /**
+     * A one-transition definition, left unbuilt so it can be handed to
+     * {@link StateMachine#replaceDefinition(StateMachineDef)}.
+     *
+     * @param tag what the transition's step writes to the entity's trail
+     * @param target the state the transition leads to
+     *
+     * @return the definition
+     */
+    private static StateMachineDef<Order> tinyDefinition(String tag, String target) {
+        return Transflux.defineStateMachine(Order.class)
+            .withVersion(tag)
+            .withStateResolver(o -> o.state)
+            .withStateApplier((o, next) -> o.state = next)
+            .state("s1", s -> s
+                .transitionsTo(target, "t", t -> t
+                    .step("mark", (order, ctx, view) -> order.trail.add(tag))))
+            .state("s2", s -> s.transitionsTo("s1", "back", t -> { }))
+            .state("s3", s -> { });
     }
 
     /** Reachable from SpEL by name, so {@code #entity} has somewhere to be passed whole. */

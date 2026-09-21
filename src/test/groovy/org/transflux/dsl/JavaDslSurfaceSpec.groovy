@@ -428,6 +428,11 @@ class JavaDslSurfaceSpec extends Specification {
         sm.close()
     }
 
+    def 'a definition is replaced in place, and the next transition runs the new one'() {
+        expect: 'generation 1 before the swap, 2 after, and one line from each version'
+        JavaDslSurface.definitionReplacement() == '1:2:first,second'
+    }
+
     def 'a refusal carries the ids a host would otherwise parse out of a message'() {
         expect:
         JavaDslSurface.refusalIds() == 'never:PRE_CONDITION:t'

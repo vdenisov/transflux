@@ -62,7 +62,7 @@ Invocations can overlap in time for two independent reasons: a host driving two 
 
 #### 2.1.3 Reentrancy
 
-Reentrancy is **fail-fast**. Invoking a transition from within a listener, operation, step, or condition on the same `StateMachine<T>` snapshot for the same entity throws `TransfluxReentrancyException`. The guard keys on the snapshot the in-flight execution is running against (see §2.7) — a definition swap that produces a new snapshot does not lift the guard for any execution already in flight against the previous one. Triggering a transition on a *different* entity from within an executing transition is permitted (provided the host is prepared to handle the implications).
+Reentrancy is **fail-fast**. Invoking a transition from within a listener, operation, step, or condition on the same `StateMachine<T>` for the same entity throws `TransfluxReentrancyException`. The guard keys on the **handle** (see §2.7), not on the snapshot the in-flight execution is running against: a replacement that installs a new snapshot mid-execution does not lift the guard, because the reentrant call reaches the same handle whichever version answers it. Triggering a transition on a *different* entity from within an executing transition is permitted (provided the host is prepared to handle the implications).
 
 **A forked member may not drive the state machine that forked it, for any entity.** This is a separate and stricter rule, and it is categorical: an action running on a branch that calls `transitionTo`, `fire`, `processEvent`, `processDataChange` or `executeTransition` on the spawning machine is rejected with the same `TransfluxReentrancyException`, whether or not the entity is the one under transition, and whether or not that transition has finished. A forked member is fire-and-forget (§4.5.3.6), so a transition driven from one would report its outcome to nobody — the result would be discarded and a failure would surface only as a log line. Work that has to drive the machine belongs on the synchronous path, or on an executor the host owns and watches. Other state machines are unaffected: only the one that spawned the branch is closed to it.
 
@@ -231,7 +231,7 @@ Manages the various mechanisms for initiating state transitions.
 
 - **DataTrigger** — transitions initiated by the host calling `entity(e).processDataChange()`. The framework re-evaluates the data triggers on transitions leaving the entity's current state, in declaration order, and fires the first whose gate holds. **Transflux does not watch entity fields, hook into ORM change tracking, or run background evaluations** — data triggers are host-driven re-evaluation only in 1.0. Background watching is a Post-1.0 theme (see §7.2).
 
-**A trigger is declared on a transition or registered once and attached to several.** A registration on the state-machine definition claims the trigger's id and carries everything the trigger is — its kind, its metadata, a manual trigger's pre-conditions, an event trigger's event and filter, a data trigger's gate, and the context type it was declared against; a transition then attaches it by id, and the build checks that context against each transition it is attached to. It stays **one trigger**: the catalog lists it once, reporting every transition it is attached to, and a transition listener's payload names it as the origin whichever of them ran — the payload carries the transition beside it. Firing a shared manual trigger selects the attachment leaving the entity's current state, so a host fires `manual-cancel` without knowing whether the entity is `active` or `suspended`; two attachments of one manual trigger leaving the same state would make that choice ambiguous and fail the build. Registering a trigger nothing attaches is not an error — a component library may register what a given definition does not use, and the catalog reports it with no transitions. Within one transition, dispatch scans the triggers it declared in place before the ones it attaches, and a transition may not attach the same trigger twice. The same holds for an event or data trigger: its filter or gate is one object, evaluated identically at both attachments, so the second could never fire and the first-match scan pays for proving it. What stays legal is two *different* triggers leaving one state, which is what first-match in declaration order decides. A trigger declared in place on a transition claims its id state-machine-wide like any other and is visible to that transition alone: nothing else can attach it, and sharing one means registering it.
+**A trigger is declared on a transition or registered once and attached to several.** A registration on the state-machine definition claims the trigger's id and carries everything the trigger is — its kind, its metadata, a manual trigger's pre-conditions, an event trigger's event and filter, a data trigger's gate, and the context type it was declared against; a transition then attaches it by id, and the build checks that context against each transition it is attached to. It stays **one trigger**: the catalog lists it once, reporting every transition it is attached to, and a transition listener's payload names it as the origin whichever of them ran — the payload carries the transition beside it. Firing a shared manual trigger selects the attachment leaving the entity's current state, so a host fires `manual-cancel` without knowing whether the entity is `active` or `suspended`; two attachments of one manual trigger leaving the same state would make that choice ambiguous and fail the build. Registering a trigger nothing attaches is not an error — a component library may register what a given definition does not use, and the catalog reports it with no transitions. Within one transition, dispatch scans the triggers it declared in place before the ones it attaches, and a transition may not attach the same trigger twice. The same holds for an event or data trigger, and there it is a deliberate uniformity rather than a deduction: its filter or gate is one object, evaluated identically at both attachments, so neither can choose between them, and the one thing that still could — a firing context one transition accepts and the other refuses — is not made to carry that weight. Context eligibility decides between *different* trigger ids, not between two attachments of one. What stays legal is two *different* triggers leaving one state, which is what first-match in declaration order decides. A trigger declared in place on a transition claims its id state-machine-wide like any other and is visible to that transition alone: nothing else can attach it, and sharing one means registering it.
 
 #### 2.2.9 Condition System
 
@@ -457,7 +457,7 @@ public interface StateMachine<T> {
 `replaceDefinition(newDef)`:
 
 1. **Validates the new def in full.** All build-time checks (state graph coherence, condition resolution, composite refs, context compatibility, cycle detection, id uniqueness) run before any snapshot is constructed. A `TransfluxValidationException` thrown here leaves the current snapshot in place; the swap did not happen.
-2. **Enforces entity-type compatibility.** The new def's `entityType()` must be `==` the current snapshot's `entityType()`. Replacing a `StateMachine<Foo>`'s definition with a `StateMachineDef<Bar>` — even a `Bar` that extends `Foo`, or a `Foo` subtype — is rejected with a `TransfluxValidationException`. The entity type is the handle's identity contract; widening or narrowing it would break every host call site that already holds the handle.
+2. **Enforces entity-type compatibility.** The new def's entity type must be `==` the handle's. Replacing a `StateMachine<Foo>`'s definition with a `StateMachineDef<Bar>` — even a `Bar` that extends `Foo`, or a `Foo` subtype — is rejected with a `TransfluxValidationException` naming both classes. The entity type is the handle's identity contract; widening or narrowing it would break every host call site that already holds the handle. This is why **every definition must declare its entity type**: `Transflux.defineStateMachine(Class)` does it for you, `forEntityType(...)` does it on the no-argument form, and `build()` refuses a definition that did neither.
 3. **Builds a new `StateMachineSnapshot<T>`** from the validated def.
 4. **CAS-swaps** the snapshot reference. The previous snapshot's in-flight executions retain their reference and continue uninterrupted.
 5. **Increments `generation()`** and returns the new generation number for the caller's diagnostics, audit logs, and metrics.
@@ -475,13 +475,29 @@ public interface StateMachine<T> {
 - `replaceDefinition` is safe to call from any thread. Concurrent swaps are serialised internally; only one wins per generation increment.
 - `generation()` returns a `long` that is a coherent read of the current generation.
 - The handle imposes no host-side synchronisation requirement for ordinary reads.
-- **In-flight isolation:** an execution started against generation N runs against generation N's snapshot regardless of how many swaps happen during it. The reentrancy guard (§2.1.3) still applies per-snapshot — an in-flight execution that reenters into the *handle* (rather than its own snapshot reference) is rejected the same way.
+- **One definition object is built by one thread at a time.** `replaceDefinition` is safe from any thread, and concurrent swaps on one state machine serialise; what is not safe is handing the same `StateMachineDef` to two builds at once, whether through `build()` or through two state machines' replacements. A definition carries per-build scaffolding, so two builds of one definition would overwrite each other's. Build a fresh definition per state machine, or serialise the builds.
+- **In-flight isolation:** an execution started against generation N runs against generation N's snapshot regardless of how many swaps happen during it. That includes an `EntityBinding` obtained from `entity(...)`: it runs on the snapshot it captured, however late its terminal method is invoked.
+- The reentrancy guard and the ban on driving the machine from a forked branch (both §2.1.3) key on the **handle**, so a swap does not open either of them: an execution in flight against generation N still rejects a reentrant call that arrives after the swap to N+1, and a branch forked under generation N may not drive generation N+1 either.
 
 #### 2.7.5 What Replacing the Definition Does *Not* Do
 
 - It does **not** migrate, freeze, redirect, or otherwise act on entities currently in states that the new def may have removed or renamed. The framework treats this as a host concern, identical to the equivalent in a host that does not use Transflux: if you change the meaning of "state X" or remove it, you owe your entities a migration story. Transflux's job is to make the swap atomic and to keep in-flight transitions correct against the topology they started under; everything else is application-level.
 - It does **not** invalidate, drain, or wait for in-flight executions. Long-running stays a non-goal (§1.3).
 - It does **not** notify listeners. Listener delivery is per-execution, not per-handle.
+- It does **not** re-configure the executor. See §2.7.6.
+
+#### 2.7.6 Executor Ownership
+
+The executor forked members and async listeners run on belongs to the **handle**, not to a snapshot, and the first definition that needs one configures it for the handle's lifetime.
+
+- A definition needs an executor when it declares a forked member, an async listener, `withAsyncPool(...)`, or `withAsyncExecutor(...)`. If the handle has none at that point, it takes one — a pool of its own, or the host's executor — exactly as `build()` would have. A generation-1 definition that forks nothing therefore leaves the handle without an executor, and a generation-2 definition that forks gets one at the swap.
+- A later definition's async configuration is **reported and ignored**: a pool of a different size, or a different host executor, is logged as ignored and the one in force keeps running. A host that has to resize builds a new handle.
+- `close()` shuts down exactly one executor, and only when the framework built it. A host-supplied executor is left running, as always. Work forked after a close meets a refusal from the shut-down pool, answered by the declared `AsyncRejectionPolicy`.
+- **A closed state machine refuses a replacement.** Closing ends a handle's life: a definition installed afterwards would either declare async work against no executor at all — a refusal no policy can answer, because nothing refused it — or have a pool built for it that nothing would ever shut down. A host that needs another definition builds another handle.
+- A definition that introduces `BLOCK` where the pool in force was built without a fair queue is honoured, and the mismatch is logged: fairness is decided when the pool is created, from the definition that created it.
+- `BLOCK` against a host-supplied executor still fails rather than degrading (§4.5.3): a definition declaring it is refused at the swap when the executor in force is the host's, the same way `build()` refuses one declaring both.
+
+The alternative — an executor per snapshot — was rejected. A snapshot is never explicitly retired, so its pool would either be shut down at the swap, losing a branch forked by an in-flight pre-swap transition and contradicting §2.7.1, or be retained for every generation the handle ever ran.
 
 ---
 
@@ -2008,7 +2024,7 @@ sm.mapperDef("payment-from-order", OrderCtx.class, PaymentCtx.class, m ->   // +
     m.withName("Payment from order").using(new OrderToPaymentMapper()));
 ```
 
-There is one source form — an instance — plus a lambda-configurer registration for the cases that also want a name or a description. `ContextMapper` has a single abstract method, so a lambda *is* the instance form: it supplies `mapTo` and leaves `mapFrom` the default no-op, which is exactly the read-only case. There is no separate `Function<P, N>` registration overload; one would be indistinguishable from the instance form at the call site while meaning the same thing.
+There is one source form — an instance — plus a lambda-configurer registration for the cases that also want a name or a description. A registration must declare its source: a `mapperDef(...)` whose configurer never called `using(...)` fails the build, referenced or not, the same way an empty listener registration does. `ContextMapper` has a single abstract method, so a lambda *is* the instance form: it supplies `mapTo` and leaves `mapFrom` the default no-op, which is exactly the read-only case. There is no separate `Function<P, N>` registration overload; one would be indistinguishable from the instance form at the call site while meaning the same thing.
 
 The mandatory `Class<P>` / `Class<N>` tokens let the build pipeline verify that the mapper's parent type is assignable from the caller's context and the mapper's child type matches the called member's required context. An inline `ContextMapper` at the call site cannot be reliably introspected at build time (generic erasure); its alignment is checked at each dispatch: a mapper producing `null` or the wrong type for a callee that declared a context fails the enclosing transition with `TransfluxContextException`, before the child starts. The same check runs for a registered mapper's result.
 
@@ -2485,6 +2501,28 @@ ProcessResult<Subscription> dataOutcome = stateMachine
     .entity(subscription)
     .processDataChange();
 ```
+
+#### 4.9.3 Replacing the Definition
+
+```java
+// One handle, held for the life of the process; what is behind it can change.
+StateMachine<Subscription> stateMachine = subscriptionDefinition(rules).build();
+stateMachine.generation();                       // 1
+
+// Later - an admin endpoint, a config change, a reloaded YAML document (§2.6).
+StateMachineDef<Subscription> updated = subscriptionDefinition(newRules);
+long generation = stateMachine.replaceDefinition(updated);   // 2
+
+// A transition already running finishes on the topology it started under; everything that
+// starts from here runs the new one. A rejected replacement changes nothing at all:
+try {
+    stateMachine.replaceDefinition(brokenDefinition);
+} catch (TransfluxValidationException e) {
+    // generation() is still 2, and the state machine still runs `updated`
+}
+```
+
+See §2.7 for what a replacement guarantees, what it refuses, and what it deliberately leaves alone.
 
 ### 4.10 Configuration and Integration
 

@@ -41,7 +41,7 @@ import java.util.function.Consumer;
  * <p>
  * Holds the composite's member references in declaration order. Building is two passes:
  * {@link #buildBound()} produces the {@link BoundAction} that goes into the enclosing scope, and
- * {@link #bindMembers(StateMachineImpl, String)} resolves the members afterwards. They cannot be one pass
+ * {@link #bindMembers(StateMachineSnapshot, String)} resolves the members afterwards. They cannot be one pass
  * - a sibling member may reference this container by id, and such a reference captures the bound
  * action by value, so it must already be in the scope its own members resolve against.
  *
@@ -268,7 +268,7 @@ final class OperationDefImpl<T, C>
     /**
      * Produces the {@link BoundAction} carrying this container's executor, listeners and
      * compensation table. The members it will iterate are installed by
-     * {@link #bindMembers(StateMachineImpl, String)}; until then the executor holds none.
+     * {@link #bindMembers(StateMachineSnapshot, String)}; until then the executor holds none.
      *
      * @return the bound operation
      *
@@ -323,7 +323,7 @@ final class OperationDefImpl<T, C>
      *         something that is not an action
      */
     @Override
-    void bindMembers(StateMachineImpl<T> stateMachine, String positionLabel) {
+    void bindMembers(StateMachineSnapshot<T> stateMachine, String positionLabel) {
         if (executor == null) {
             throw new TransfluxValidationException(
                 "OperationDef '" + getId()

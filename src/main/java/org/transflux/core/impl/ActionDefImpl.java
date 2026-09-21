@@ -435,7 +435,7 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      * @param positionLabel names this action's position in the definition tree, extended by every
      *                      position nested beneath it and surfaced when a member fails to resolve
      */
-    abstract void bindMembers(StateMachineImpl<T> stateMachine, String positionLabel);
+    abstract void bindMembers(StateMachineSnapshot<T> stateMachine, String positionLabel);
 
     /**
      * Records the context type every action declared inline beneath this one is written against,

@@ -35,7 +35,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * A member is either named by id - the callee is registered elsewhere, and which form it was
  * authored in is a property of that registration rather than of this call site - or declared
  * inline, in which case the declaring form is captured as an {@link ActionKind} and travels onto
- * the bound record. Either way there is a single {@linkplain #resolve(StateMachineImpl, Registry,
+ * the bound record. Either way there is a single {@linkplain #resolve(StateMachineSnapshot, Registry,
  * String) resolve} that hands back a {@link BoundAction}; the composite executor never has to ask
  * what kind of member it is holding.
  * <p>
@@ -95,7 +95,7 @@ sealed interface ActionRef<T, C>
      * @throws TransfluxValidationException if no entry is registered under {@link #id()} in
      *         the scope chain, or the matched entry is not an action
      */
-    default Component.Action<T, ?> resolve(StateMachineImpl<T> stateMachine, Registry<T> scopeRegistry,
+    default Component.Action<T, ?> resolve(StateMachineSnapshot<T> stateMachine, Registry<T> scopeRegistry,
                                            String ownerLabel, String excludingCompositeId) {
         Optional<Component<T>> resolved = scopeRegistry.resolve(id());
         if (resolved.isEmpty()) {
@@ -156,7 +156,7 @@ sealed interface ActionRef<T, C>
      * transitive, so it reaches a nested composite as readily as a sibling, and the two want
      * different remedies. Naming an enclosing scope covers both.
      */
-    static String unknownIdMessage(String id, StateMachineImpl<?> stateMachine,
+    static String unknownIdMessage(String id, StateMachineSnapshot<?> stateMachine,
                                    String ownerLabel, String excludingCompositeId) {
         String base = ownerLabel + " references unknown action id '" + id + "' in its scope";
         return stateMachine.findInlineScopeHolding(id, excludingCompositeId)

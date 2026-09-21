@@ -76,11 +76,11 @@ class StateMachineImplSpec extends Specification {
 
         expect:
         sm != null
-        sm.getDef().getName() == "Test SM"
-        sm.getDef().getEntityType() == TestEntity
-        sm.getDef().getStates().size() == 2
-        sm.getDef().getTransitionsById().size() == 1
-        sm.getDef().getStateResolver() != null
+        ((StateMachineImpl) sm).snapshot().getDef().getName() == "Test SM"
+        ((StateMachineImpl) sm).snapshot().getDef().getEntityType() == TestEntity
+        ((StateMachineImpl) sm).snapshot().getDef().getStates().size() == 2
+        ((StateMachineImpl) sm).snapshot().getDef().getTransitionsById().size() == 1
+        ((StateMachineImpl) sm).snapshot().getDef().getStateResolver() != null
     }
 
     def "resolveCurrentState should return entity's current state"() {
@@ -184,7 +184,7 @@ class StateMachineImplSpec extends Specification {
             .build()
 
         when:
-        def state = sm.getState("TRIAL")
+        def state = ((StateMachineImpl) sm).snapshot().getState("TRIAL")
 
         then:
         state != null
@@ -250,7 +250,7 @@ class StateMachineImplSpec extends Specification {
             .build()
 
         when:
-        sm.getState("NONEXISTENT")
+        ((StateMachineImpl) sm).snapshot().getState("NONEXISTENT")
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -266,7 +266,7 @@ class StateMachineImplSpec extends Specification {
             .build()
 
         when:
-        def transition = sm.getTransition("trial-to-active")
+        def transition = ((StateMachineImpl) sm).snapshot().getTransition("trial-to-active")
 
         then:
         transition != null
@@ -283,7 +283,7 @@ class StateMachineImplSpec extends Specification {
             .build()
 
         when:
-        sm.getTransition("nonexistent")
+        ((StateMachineImpl) sm).snapshot().getTransition("nonexistent")
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -517,7 +517,7 @@ class StateMachineImplSpec extends Specification {
         smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 'trial-to-active', { t -> t.operation('flow', { c -> c.run('stamp') }) }) })
         smd.state(ACTIVE.id, {})
 
-        def sm = (StateMachineImpl<TestEntity>) smd.build()
+        def sm = ((StateMachineImpl<TestEntity>) smd.build()).snapshot()
         def entity = new TestEntity('e1', 'TRIAL')
         def ctx = new TestContext()
         def view = new ExecutingTransitionImpl<TestEntity, TestContext>(sm, sm.transitions['trial-to-active'], entity, ctx)

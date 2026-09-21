@@ -95,6 +95,53 @@ public interface StateMachine<T> extends AutoCloseable {
     void close();
 
     /**
+     * Returns the generation of the definition currently in force.
+     * <p>
+     * A built state machine starts at {@code 1}; every successful {@link #replaceDefinition} adds
+     * exactly one. Generation numbers are monotonic per state machine and mean nothing across two
+     * of them - they exist for a host's diagnostics, audit logs and metrics.
+     *
+     * @return the current generation; always positive
+     */
+    long generation();
+
+    /**
+     * Replaces the definition this state machine runs, atomically.
+     * <p>
+     * The new definition is validated and built in full before anything is swapped, so a rejection
+     * leaves the state machine exactly as it was - same behaviour, same {@link #generation()}. Once
+     * installed, every call that starts afterwards runs against the new definition; a transition
+     * already in flight finishes against the one it started under, as does an
+     * {@link EntityBinding} obtained before the swap.
+     *
+     * <p>The new definition must declare the same entity class - a subtype and a supertype are both
+     * refused, since every call site already holding this state machine was compiled against one
+     * entity type. Nothing else has to agree: id, name, description, version, states and
+     * transitions are all free to differ.
+     *
+     * <p><b>What a replacement does not do.</b> It does not migrate entities sitting in states the
+     * new definition removed or renamed - that is a host concern, exactly as it would be without
+     * this library. It does not wait for or interrupt anything in flight, and it notifies no
+     * listener. It also does not re-configure the executor: the first definition that needed one
+     * configured it for this state machine's lifetime, and a later definition's
+     * {@link StateMachineDef#withAsyncPool(int, int)} or
+     * {@link StateMachineDef#withAsyncExecutor(java.util.concurrent.ExecutorService)} is reported
+     * and ignored. A definition that needs an executor where none is running does get one.
+     *
+     * <p>A state machine that has been {@link #close() closed} refuses a replacement outright:
+     * closing ends a handle's life, and a definition installed afterwards would have no executor to
+     * run the async work it declares. Build another state machine instead.
+     *
+     * @param newDef the definition to install; never {@code null}
+     *
+     * @return the new generation number
+     *
+     * @throws TransfluxValidationException if the definition is invalid, declares a different
+     *         entity type from the one in force, or this state machine has been closed
+     */
+    long replaceDefinition(StateMachineDef<T> newDef);
+
+    /**
      * Returns the id this state machine's definition declared, if any.
      * <p>
      * The four metadata accessors are diagnostics: nothing resolves a state machine by them, and

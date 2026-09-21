@@ -238,7 +238,7 @@ final class ChoiceDefImpl<T, C>
      * @throws TransfluxValidationException if a branch names an id that no action in scope
      *         carries, or if no executor was built for this choice
      */
-    void bindBranchMembers(StateMachineImpl<T> stateMachine,
+    void bindBranchMembers(StateMachineSnapshot<T> stateMachine,
                            String ownLabel, String owningChoiceId) {
         if (executor == null) {
             throw new TransfluxValidationException(
@@ -327,7 +327,7 @@ final class ChoiceDefImpl<T, C>
     }
 
     private List<CompositeMember<T, C>> bindMembers(List<ActionSequenceSink.DeclaredMember<T, C>> declared,
-                                                    StateMachineImpl<T> stateMachine,
+                                                    StateMachineSnapshot<T> stateMachine,
                                                     String ownerLabel,
                                                     String owningChoiceId) {
         Registry<T> scope = ownScope();
@@ -431,7 +431,7 @@ final class ChoiceDefImpl<T, C>
     }
 
     @Override
-    void bindMembers(StateMachineImpl<T> stateMachine, String positionLabel) {
+    void bindMembers(StateMachineSnapshot<T> stateMachine, String positionLabel) {
         bindBranchMembers(stateMachine, positionLabel, getId());
     }
 

@@ -72,7 +72,7 @@ class StateMachineDefImplBuildLoggingSpec extends Specification {
 
         then:
         capture.messagesAtOrAbove(Level.INFO) == [
-            'State machine built, id=null, version=null, states=2, transitions=1, triggers=1, rootComponents=2'
+            'State machine built, id=null, version=null, generation=1, states=2, transitions=1, triggers=1, rootComponents=2'
         ]
     }
 
@@ -86,7 +86,7 @@ class StateMachineDefImplBuildLoggingSpec extends Specification {
 
         then: 'the pair is what identifies one definition against the next across a reload'
         capture.messagesAtOrAbove(Level.INFO) == [
-            'State machine built, id=orders, version=3, states=2, transitions=1, triggers=1, rootComponents=0'
+            'State machine built, id=orders, version=3, generation=1, states=2, transitions=1, triggers=1, rootComponents=0'
         ]
     }
 

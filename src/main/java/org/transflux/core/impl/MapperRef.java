@@ -60,7 +60,7 @@ sealed interface MapperRef
      *
      * @throws TransfluxValidationException if the by-id form references an unknown mapper id
      */
-    ResolvedContextMapping resolve(StateMachineImpl<?> stateMachine, String enclosingId);
+    ResolvedContextMapping resolve(StateMachineSnapshot<?> stateMachine, String enclosingId);
 
     /**
      * Validates this reference at build time against the call-site's scope context and the
@@ -125,7 +125,7 @@ sealed interface MapperRef
         static final PassThrough INSTANCE = new PassThrough();
 
         @Override
-        public ResolvedContextMapping resolve(StateMachineImpl<?> stateMachine, String enclosingId) {
+        public ResolvedContextMapping resolve(StateMachineSnapshot<?> stateMachine, String enclosingId) {
             return ResolvedContextMapping.passThrough();
         }
 
@@ -158,7 +158,7 @@ sealed interface MapperRef
         }
 
         @Override
-        public ResolvedContextMapping resolve(StateMachineImpl<?> stateMachine, String enclosingId) {
+        public ResolvedContextMapping resolve(StateMachineSnapshot<?> stateMachine, String enclosingId) {
             ContextMapper<Object, Object> mapper = stateMachine.getMapper(mapperId);
             if (mapper == null) {
                 throw new TransfluxValidationException(
@@ -207,7 +207,7 @@ sealed interface MapperRef
 
         @Override
         @SuppressWarnings("unchecked")
-        public ResolvedContextMapping resolve(StateMachineImpl<?> stateMachine, String enclosingId) {
+        public ResolvedContextMapping resolve(StateMachineSnapshot<?> stateMachine, String enclosingId) {
             return ResolvedContextMapping.mapped((ContextMapper<Object, Object>) mapper);
         }
 

@@ -25,7 +25,7 @@ import java.util.Set;
  * Unified id-keyed lookup over the framework's reusable building blocks — steps, operations,
  * and conditions — held as {@link Component} variants.
  * <p>
- * Lookup is scope-aware. Every {@link StateMachineImpl} owns one root {@code Registry} that
+ * Lookup is scope-aware. Every {@link StateMachineSnapshot} owns one root {@code Registry} that
  * holds SM-level registrations; every {@code OperationDefImpl} owns its own
  * {@code Registry} whose {@link #parent()} is the enclosing scope's registry (the root
  * registry for an SM-level composite). Inline composite members live in the composite's own

@@ -789,7 +789,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     /**
      * Resolves the condition registrations into {@link BoundCondition} instances. Called from
-     * {@link StateMachineImpl} during state machine construction.
+     * {@link StateMachineSnapshot} during state machine construction.
      */
     Map<String, BoundCondition<T, ?>> buildBoundConditions() {
         Map<String, BoundCondition<T, ?>> resolved = new LinkedHashMap<>();
@@ -1728,28 +1728,35 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * A policy chosen from inside a Java body at runtime is not visible here and is refused at the
      * submission instead.
      */
+    private static final String DECLARES_HOST_EXECUTOR =
+        "this definition declares a host-supplied executor";
+
     private void checkBlockingIsPossible() {
         if (asyncExecutor == null) {
             return;
         }
 
         if (asyncRejectionPolicy == AsyncRejectionPolicy.BLOCK) {
-            throw new TransfluxValidationException(blockUnavailable("StateMachineDef"));
+            throw new TransfluxValidationException(
+                blockUnavailable("StateMachineDef", DECLARES_HOST_EXECUTOR));
         }
         visitActionDefs(def -> {
             if (def.getAsyncRejectionPolicy() == AsyncRejectionPolicy.BLOCK) {
-                throw new TransfluxValidationException(blockUnavailable(def.defLabel()));
+                throw new TransfluxValidationException(
+                    blockUnavailable(def.defLabel(), DECLARES_HOST_EXECUTOR));
             }
         });
         visitListenerDefs(listener -> {
             if (listener.getAsync() == AsyncRejectionPolicy.BLOCK) {
-                throw new TransfluxValidationException(blockUnavailable(listener.defLabel()));
+                throw new TransfluxValidationException(
+                    blockUnavailable(listener.defLabel(), DECLARES_HOST_EXECUTOR));
             }
         });
         anyMember(member -> {
             if (member.policy() == AsyncRejectionPolicy.BLOCK) {
                 throw new TransfluxValidationException(
-                    blockUnavailable("a fork of action '" + member.ref().id() + "'"));
+                    blockUnavailable("a fork of action '" + member.ref().id() + "'",
+                                     DECLARES_HOST_EXECUTOR));
             }
             return false;
         });
@@ -1765,11 +1772,25 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @return the rejection message
      */
     static String blockUnavailable(String ownerLabel) {
-        return "Async rejection policy BLOCK is declared on " + ownerLabel
-            + ", but this state machine runs on a host-supplied executor; waiting for capacity needs"
-            + " the rejection handler the framework installs on a pool it builds itself, so either"
-            + " drop withAsyncExecutor(...) and size the pool with withAsyncPool(...), or choose"
-            + " another policy";
+        return blockUnavailable(ownerLabel, "this state machine runs on a host-supplied executor");
+    }
+
+    /**
+     * The same message with the reason spelled out by the caller. The build check speaks about what
+     * the definition <i>declares</i>, because under handle ownership a definition's own executor is
+     * not necessarily the one that would run its forks; the runtime refusals speak about the
+     * executor actually in force.
+     *
+     * @param ownerLabel what declared the policy
+     * @param because why nothing can honour it
+     *
+     * @return the rejection message
+     */
+    static String blockUnavailable(String ownerLabel, String because) {
+        return "Async rejection policy BLOCK is declared on " + ownerLabel + ", but " + because
+            + "; waiting for capacity needs the rejection handler the framework installs on a pool"
+            + " it builds itself, so either drop withAsyncExecutor(...) and size the pool with"
+            + " withAsyncPool(...), or choose another policy";
     }
 
     /**
@@ -1876,6 +1897,26 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     @Override
     public StateMachine<T> build() {
+        requireEntityType();
+
+        StateMachineImpl<T> handle = new StateMachineImpl<>(entityType);
+        handle.install(buildSnapshot(handle, 1L));
+        return handle;
+    }
+
+    /**
+     * Runs the build pipeline and produces one snapshot for {@code handle}. Shared by
+     * {@link #build()} and by definition replacement, so both go through the same validation, the
+     * same binding and the same completion line.
+     *
+     * @param handle the state machine the snapshot will run under; never {@code null}
+     * @param generation the generation number the snapshot will be installed as
+     *
+     * @return the built snapshot
+     *
+     * @throws TransfluxValidationException if the definition is incomplete or inconsistent
+     */
+    StateMachineSnapshot<T> buildSnapshot(StateMachineImpl<T> handle, long generation) {
         // The three phase boundaries, reported so that "why did my definition build into *that*" has
         // somewhere to start. Each phase names itself before running, so a throw is attributable to
         // the phase whose line was last emitted — which is why all three go to one logger rather than
@@ -1887,27 +1928,30 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         Loggers.BUILD_LIFECYCLE.debug("Populating registries and binding components");
         listenerBinder = new ListenerRegistrations<>(this);
         visitActionDefs(actionDef -> ((ActionDefImpl) actionDef).setListenerBinder(listenerBinder));
-        StateMachineImpl<T> stateMachine;
+        StateMachineSnapshot<T> snapshot;
         try {
-            stateMachine = new StateMachineImpl<>(this);
+            snapshot = new StateMachineSnapshot<>(this, handle);
         } finally {
             listenerBinder = null;
             visitActionDefs(actionDef -> ((ActionDefImpl) actionDef).setListenerBinder(null));
         }
 
         Loggers.BUILD_LIFECYCLE.debug("Validating registered components");
-        validateComponents(stateMachine.getComponentRegistry());
+        validateComponents(snapshot.getComponentRegistry());
+
+        // The executor comes last, so a definition that fails validation never leaves a pool behind.
+        handle.adoptExecutorIfNeeded(this);
 
         // The one build-time INFO: rare, and the only report a host gets that its definition
         // resolved into the shape it expected. The component count is the root registry's, matching
-        // the name the binding pass uses. A generation counter belongs here too once definition
-        // replacement lands.
+        // the name the binding pass uses.
         Loggers.BUILD_LIFECYCLE.info(
-            "State machine built, id={}, version={}, states={}, transitions={}, triggers={}, rootComponents={}",
-            new Object[] {id, version, stateMachine.stateCount(), stateMachine.transitionCount(),
-                          stateMachine.triggerCount(), stateMachine.componentCount()});
+            "State machine built, id={}, version={}, generation={}, states={}, transitions={},"
+                + " triggers={}, rootComponents={}",
+            new Object[] {id, version, generation, snapshot.stateCount(), snapshot.transitionCount(),
+                          snapshot.triggerCount(), snapshot.componentCount()});
 
-        return stateMachine;
+        return snapshot;
     }
 
     /**
@@ -1942,7 +1986,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      *
      * @throws TransfluxValidationException if a member names an id that no action in scope carries
      */
-    void bindDeferredMembers(StateMachineImpl<T> stateMachine) {
+    void bindDeferredMembers(StateMachineSnapshot<T> stateMachine) {
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             ActionDefImpl<T, ?, ?> op = td.getActionDef();
             if (op != null) {
@@ -2311,12 +2355,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
                 checkTriggerContext(registered, td);
 
-                // Whatever its kind, one trigger on two transitions leaving one state cannot
-                // choose between them: a manual trigger has only the current state to go on, and
-                // an event's filter or a data trigger's gate is the same object at both
-                // attachments, so the second is unreachable and its filter runs twice on the way
-                // to proving it. Two *different* triggers competing is the first-match rule and
-                // stays legal.
+                // Whatever its kind, one trigger is not allowed to sit on two transitions leaving
+                // one state. A manual trigger could not choose between them, having only the
+                // current state to go on; an event's filter and a data trigger's gate are the same
+                // object at both attachments, so they cannot either, and the one thing that could
+                // still tell them apart - a firing context one transition accepts and the other
+                // refuses - is deliberately not made to carry that weight. Two *different* triggers
+                // competing is the first-match rule and stays legal, context eligibility included.
                 String clash = attachedBySource
                     .computeIfAbsent(ref, k -> new HashMap<>())
                     .putIfAbsent(td.getSourceStateId(), td.getId());
@@ -2534,6 +2579,22 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
         stack.pop();
         visited.add(id);
+    }
+
+    /**
+     * Refuses a definition that never named its entity class.
+     * <p>
+     * The entity type is what a built state machine is identified by when its definition is later
+     * replaced, so a definition that declares none cannot produce a handle.
+     *
+     * @throws TransfluxValidationException if no entity type was declared
+     */
+    private void requireEntityType() {
+        if (entityType == null) {
+            throw new TransfluxValidationException(
+                "No entity type declared: start from Transflux.defineStateMachine(EntityClass.class),"
+                    + " or call forEntityType(EntityClass.class) before build()");
+        }
     }
 
     /** @return the bound entity class */

@@ -240,7 +240,7 @@ class TransitionDefImplSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<UsingCtxEntity>)
             .state('s1', { s -> s.transitionsTo('s2', 't1', UsingCtx, { t -> }) })
             .state('s2', {})
-        def sm = (StateMachineImpl) smd.build()
+        def sm = ((StateMachineImpl) smd.build()).snapshot()
 
         when:
         def transition = sm.getTransition('t1')

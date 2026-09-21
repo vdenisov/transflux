@@ -152,12 +152,12 @@ class StateMachineDefImplSpec extends Specification {
 
     def "state applier should propagate to built state machine"() {
         given:
-        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
+        def smd = Transflux.defineStateMachine(Object) as StateMachineDefImpl
         def applier = { e, s -> } as StateApplier<Object>
         smd.withStateApplier(applier).state('s', {})
 
         when:
-        def machine = smd.build() as StateMachineImpl
+        def machine = (smd.build() as StateMachineImpl).snapshot()
 
         then:
         machine.getStateApplier().is(applier)
@@ -165,11 +165,11 @@ class StateMachineDefImplSpec extends Specification {
 
     def "build should leave state applier null when not configured"() {
         given:
-        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
+        def smd = Transflux.defineStateMachine(Object) as StateMachineDefImpl
         smd.state('s', {})
 
         when:
-        def machine = smd.build() as StateMachineImpl
+        def machine = (smd.build() as StateMachineImpl).snapshot()
 
         then:
         machine.getStateApplier() == null
@@ -190,7 +190,7 @@ class StateMachineDefImplSpec extends Specification {
 
     def "build should return StateMachine instance"() {
         given:
-        def smd = Transflux.defineStateMachine()
+        def smd = Transflux.defineStateMachine(Object)
         smd.state('S1', {})
 
         when:
@@ -198,6 +198,19 @@ class StateMachineDefImplSpec extends Specification {
 
         then:
         machine != null
+    }
+
+    def "build should reject a definition that never declared an entity type"() {
+        given:
+        def smd = Transflux.defineStateMachine()
+        smd.state('S1', {})
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.startsWith('No entity type declared')
     }
 
     def "getters should return correct values"() {

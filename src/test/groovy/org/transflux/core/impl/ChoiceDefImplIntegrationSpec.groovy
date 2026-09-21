@@ -783,7 +783,7 @@ class ChoiceDefImplIntegrationSpec extends Specification {
      * container as its only member, and the container holds the choice this spec declares.
      */
     private static choiceOf(machine) {
-        def body = machine.transitions['t'].boundAction.action()
+        def body = machine.snapshot().transitions['t'].boundAction.action()
         def container = body.members[0].action().action()
         container.members[0].action().action()
     }

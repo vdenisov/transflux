@@ -66,7 +66,12 @@ import java.util.function.Predicate;
 public interface StateMachineDef<T> {
 
     /**
-     * Binds the entity type this state machine operates on.
+     * Binds the entity type this state machine operates on. Required: {@link #build()} refuses a
+     * definition that never named one, since the entity type is what the built state machine is
+     * identified by when its definition is replaced.
+     * <p>
+     * {@link org.transflux.core.Transflux#defineStateMachine(Class)} calls this for you; the
+     * no-argument entry point leaves it to the caller.
      *
      * @param entityType the entity class; never {@code null}
      *
@@ -1087,7 +1092,8 @@ public interface StateMachineDef<T> {
      *
      * @return the built {@link StateMachine}
      *
-     * @throws TransfluxValidationException if the definition is incomplete or inconsistent
+     * @throws TransfluxValidationException if the definition is incomplete or inconsistent, or if
+     *         no entity type was declared
      */
     StateMachine<T> build();
 }

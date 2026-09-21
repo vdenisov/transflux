@@ -54,7 +54,7 @@ class StateMachineDefImplMapperRegistrationSpec extends Specification {
             .withStateResolver({ e -> 's1' } as StateResolver<Entity>)
             .mapper('early', P, N, new PNMapper())
         smd.state('s1', {})
-        def sm = (StateMachineImpl<Entity>) smd.build()
+        def sm = ((StateMachineImpl<Entity>) smd.build()).snapshot()
 
         when: 'the def goes on registering after the build'
         smd.mapper('late', P, N, new PNMapper())
