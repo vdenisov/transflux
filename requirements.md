@@ -799,7 +799,7 @@ The loader then checks what javac would have checked for a Java host, as far as 
 | concrete type arguments on the position's interface, directly or through a superclass | at load: the entity argument is `entityType` or a supertype of it (§4.1); a context argument is exactly the context the position runs against; a mapper's are exactly its `parentType` and `childType` |
 | a type variable there — a generic class named raw | at runtime: the framework's context checks at dispatch; an entity mismatch surfaces as a `ClassCastException` from inside the component |
 
-A component registered without `context:` is registered against `Object`, as the untyped Java registration is, and its context argument is not checked.
+A component registered without `context:` is registered against `Object`, as the untyped Java registration is, and its context argument is not checked. What is declared on it — its compensation, its listeners, a trigger's conditions — runs against `Object` and is checked against it, as the Java configurer it maps to would check it; so is a transition or action listener registered without `context:`, since the untyped Java registration takes one typed against `Object`.
 
 ### 3.2 State Machine Definition
 
@@ -1013,7 +1013,7 @@ triggers:
       # OR  class: com.example.triggers.ConfirmedValidationFilter
 ```
 
-A `filter:` is not a condition (§3.6.1): it judges the event, so it has no id, cannot be referenced, and cannot reference a registered condition. Its class implements `BiPredicate<Object, T>` over `(event, entity)` or `Predicate<Object>` over the event alone; its expression sees the event as `#event` (§3.9).
+A `filter:` is not a condition (§3.6.1): it judges the event, so it has no id, cannot be referenced, and cannot reference a registered condition. Its class implements `BiPredicate<Object, T>` over `(event, entity)` or `Predicate<Object>` over the event alone, and not both; its expression sees the event as `#event` (§3.9).
 
 #### 3.3.4 Data Triggers
 
@@ -1358,7 +1358,8 @@ preConditions:
 
   # 3. Inline predicate-based — a BiPredicate<T, C>-style class (lighter than Condition<T, C>;
   #    useful for stateless boolean tests over (entity, context)). A class implementing
-  #    Predicate<T> is accepted for entity-only tests; the context is then ignored.
+  #    Predicate<T> is accepted for entity-only tests; the context is then ignored. A class
+  #    implementing both is refused, as a Java call passing it would be ambiguous.
   - id: payment-method-current
     predicate: com.example.predicates.PaymentMethodCurrentPredicate
 
@@ -1466,7 +1467,7 @@ stateMachine:
         - run: charge-card                # charge-audit fires here, and at every other call site
 ```
 
-**A listener entry** declared in place carries `id`, `class`, optional `name` / `description` / `context`, and the two async keys: `async: true`, and `onRejection:` — `DROP` (the default), `BLOCK` or `CALLER_RUNS`; `FAIL` is refused (§2.2.10). Its category is fixed by the hook it sits under, and its class must implement that category's interface. A registered listener has no hook to read a category from, so it is read off the interface its class implements; a class implementing more than one names the category it is registered under with `type: state | transition | action`.
+**A listener entry** declared in place carries `id`, `class`, optional `name` / `description`, and the two async keys: `async: true`, and `onRejection:` — `DROP` (the default), `BLOCK` or `CALLER_RUNS`; `FAIL` is refused (§2.2.10), and `onRejection:` without `async: true` is an error. Its category is fixed by the hook it sits under, its class must implement that category's interface, and its context is its owner's — there is no `context:` key, as there is no context parameter on the Java configurer it maps to. A registered listener has no hook to read a category from, so it is read off the interface its class implements; a class implementing more than one names the category it is registered under with `type: state | transition | action`. A registered transition or action listener may carry `context:`; a state listener may not, since it is handed whichever context the transition carries (§2.2.10).
 
 **The id names the listener, not the attachment** (§2.2.10). A registered listener may sit under any number of hooks on any number of owners, the state machine's own included, and whatever it declares — `async:` too — holds at each. A listener declared in place is visible to its owner's other hooks and to nothing else, which is what `activation-audit` and `transition-audit` do above; one class serving several hooks tells them apart by the phase in its payload.
 
@@ -1532,6 +1533,8 @@ Transflux uses SpEL (Spring Expression Language) wherever a document says `expre
 | a mapper's `mapTo:` (§3.5.2) | the parent context | — | the child context |
 | a mapper's `mapFrom:` entry (§3.5.2) | the child context | `#parent` | the value assigned to the entry's key, a property path on the parent |
 | a route's `guard:` (§3.4.2) | the failure | — | boolean |
+
+**An expression is parsed where it is declared**, in either DSL: a malformed one is refused by the def call that declares it — at its line, in a document — rather than at its first evaluation. It is still evaluated only when the position runs.
 
 **A definition is code.** Expressions are evaluated with SpEL's full feature set — type references such as `T(java.time.LocalTime)` included, which the examples below depend on — and every `class:` key instantiates a class by name. Loading a definition from an external source is therefore loading code, and the `DefinitionSource` (§2.6) is a trust boundary the host owns.
 
