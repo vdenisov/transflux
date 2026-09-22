@@ -62,10 +62,12 @@ final class ListenerEntries {
      * One hook of an owner.
      *
      * @param name the hook's key, such as {@code onStart}
+     * @param category the category every listener under the hook belongs to
      * @param reference attaches a listener declared elsewhere by id
      * @param declaration declares a listener in place under an id, configured by the consumer
      */
-    record Hook(String name, Consumer<String> reference, BiConsumer<String, Consumer<ListenerDef<?, ?>>> declaration) {
+    record Hook(String name, Category category, Consumer<String> reference,
+                BiConsumer<String, Consumer<ListenerDef<?, ?>>> declaration) {
     }
 
     private static final String DISABLE_KEY = "disableGlobalListeners";
@@ -98,17 +100,16 @@ final class ListenerEntries {
                 "a state listener takes no context: it is handed whichever context the transition carries");
         }
 
-        StateMachineDef raw = def;
         Consumer configurer = (Consumer<ListenerDef<?, ?>>) listener ->
             configure(within, listener, type, category, context);
         within.at(within.requiredNode("id"), () -> switch (category) {
-            case STATE -> raw.stateListener(id, configurer);
+            case STATE -> def.stateListener(id, configurer);
             case TRANSITION -> context == null
-                ? raw.transitionListener(id, configurer)
-                : raw.transitionListener(id, context, configurer);
+                ? def.transitionListener(id, configurer)
+                : def.transitionListener(id, context, configurer);
             case ACTION -> context == null
-                ? raw.actionListener(id, configurer)
-                : raw.actionListener(id, context, configurer);
+                ? def.actionListener(id, configurer)
+                : def.actionListener(id, context, configurer);
         });
         within.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("Listener registered, id={}, category={}", id, category.label());
@@ -118,13 +119,12 @@ final class ListenerEntries {
      * Reads an owner's {@code listeners:} block.
      *
      * @param owner the owner's mapping
-     * @param category the category every listener in the block belongs to
      * @param context the owner's context; {@code null} for {@code Object}
      * @param hooks the owner's hooks, which are the keys the block allows
      *
      * @throws DefinitionLoadException when an entry is neither a reference nor a declaration
      */
-    void hooks(NodeMap owner, Category category, Class<?> context, List<Hook> hooks) {
+    void hooks(NodeMap owner, Class<?> context, List<Hook> hooks) {
         NodeMap block = owner.optionalMap("listeners");
         if (block == null) {
             return;
@@ -132,7 +132,7 @@ final class ListenerEntries {
         for (Hook hook : hooks) {
             List<Node> entries = block.optionalList(hook.name());
             if (entries != null) {
-                entries.forEach(entry -> attach(block, entry, hook, category, context));
+                entries.forEach(entry -> attach(block, entry, hook, context));
             }
         }
         block.rejectUnknownKeys();
@@ -174,7 +174,8 @@ final class ListenerEntries {
         });
     }
 
-    private void attach(NodeMap block, Node entry, Hook hook, Category category, Class<?> context) {
+    private void attach(NodeMap block, Node entry, Hook hook, Class<?> context) {
+        Category category = hook.category();
         if (entry instanceof ScalarNode reference) {
             block.at(entry, () -> {
                 hook.reference().accept(reference.getValue());

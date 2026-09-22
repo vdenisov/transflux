@@ -24,9 +24,6 @@ import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.MapperDef;
 import org.transflux.core.action.StepDef;
 import org.transflux.core.condition.Condition;
-import org.transflux.core.trigger.DataTriggerDef;
-import org.transflux.core.trigger.EventTriggerDef;
-import org.transflux.core.trigger.ManualTriggerDef;
 import org.transflux.yaml.TypeArguments.Expected;
 import org.yaml.snakeyaml.nodes.Node;
 
@@ -50,6 +47,7 @@ final class ComponentSections {
     private final ConditionDescriptors conditions;
     private final ListenerEntries listeners;
     private final ActionKeys actionKeys;
+    private final TriggerEntries triggers;
 
     private ComponentSections(Classes classes, Class<?> entityType, StateMachineDef<?> def) {
         this.classes = classes;
@@ -58,6 +56,7 @@ final class ComponentSections {
         this.conditions = new ConditionDescriptors(classes, entityType);
         this.listeners = new ListenerEntries(classes, entityType);
         this.actionKeys = new ActionKeys(classes, entityType, listeners);
+        this.triggers = new TriggerEntries(classes, entityType, conditions);
     }
 
     /**
@@ -75,7 +74,7 @@ final class ComponentSections {
         int count = sections.section(document, "steps", "a step", sections::step)
             + sections.section(document, "conditions", "a condition", sections::condition)
             + sections.section(document, "mappers", "a mapper", sections::mapper)
-            + sections.section(document, "triggers", "a trigger", sections::trigger)
+            + sections.section(document, "triggers", "a trigger", sections.triggers::register)
             + sections.section(document, "listeners", "a listener", sections.listeners::register);
         Loggers.YAML_BINDING.debug("Component sections read, identifier={}, components={}",
             document.document().identifier(), count);
@@ -193,131 +192,6 @@ final class ComponentSections {
         within.at(within.requiredNode("id"), () -> raw.mapperDef(id, parentType, childType, (Consumer) configurer));
         within.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("Mapper registered, id={}, parentType={}", id, parentType.getName());
-    }
-
-    private void trigger(NodeMap entry, StateMachineDef<?> def) {
-        String id = entry.requiredString("id");
-        NodeMap within = entry.within("trigger '" + id + "'");
-        String type = within.requiredString("type");
-        Class<?> context = classes.optionalClass(within, "context", null);
-        Class<?> contextType = context == null ? Object.class : context;
-        Node at = within.requiredNode("id");
-
-        switch (type) {
-            case "manual" -> {
-                Consumer<ManualTriggerDef> configurer = trigger -> {
-                    metadata(within, trigger::withName, trigger::withDescription);
-                    conditions.list(within, "preConditions", contextType, manualTarget(trigger));
-                };
-                within.at(at, () -> raw.manualTrigger(id, contextType, (Consumer) configurer));
-            }
-            case "event" -> {
-                Consumer<EventTriggerDef> configurer = trigger -> {
-                    metadata(within, trigger::withName, trigger::withDescription);
-                    String event = within.requiredString("event");
-                    within.at(within.requiredNode("event"), () -> trigger.onEvent(event));
-                    filter(within, trigger);
-                };
-                within.at(at, () -> raw.eventTrigger(id, contextType, (Consumer) configurer));
-            }
-            case "data" -> {
-                Consumer<DataTriggerDef> configurer = trigger -> {
-                    metadata(within, trigger::withName, trigger::withDescription);
-                    conditions.descriptor(within, within.requiredNode("condition"), contextType, dataTarget(trigger));
-                };
-                within.at(at, () -> raw.dataTrigger(id, contextType, (Consumer) configurer));
-            }
-            default -> throw within.error(within.requiredNode("type"),
-                "'type' must be one of manual, event, data, not '" + type + "'");
-        }
-        within.rejectUnknownKeys();
-        Loggers.YAML_BINDING.debug("Trigger registered, id={}, type={}", id, type);
-    }
-
-    private void filter(NodeMap trigger, EventTriggerDef def) {
-        NodeMap filter = trigger.optionalMap("filter");
-        if (filter == null) {
-            return;
-        }
-        Node at = trigger.requiredNode("filter");
-        if (filter.exactlyOneOf("class", "expression").equals("class")) {
-            Object predicate = conditions.predicate(filter, "class",
-                new Expected[] {Expected.exactly(Object.class), Expected.superOf(entityType)},
-                Expected.exactly(Object.class));
-            trigger.at(at, () -> predicate instanceof BiPredicate bi
-                ? def.filter(bi)
-                : def.filter((Predicate) predicate));
-        } else {
-            String expression = filter.requiredString("expression");
-            filter.at(filter.requiredNode("expression"), () -> def.filterExpression(expression));
-        }
-        filter.rejectUnknownKeys();
-    }
-
-    private static ConditionDescriptors.Target manualTarget(ManualTriggerDef def) {
-        return new ConditionDescriptors.Target() {
-            @Override
-            public void reference(String id) {
-                def.preCondition(id);
-            }
-
-            @Override
-            public void expression(String id, String expression) {
-                if (id == null) {
-                    def.preConditionExpression(expression);
-                } else {
-                    def.preCondition(id, expression);
-                }
-            }
-
-            @Override
-            public void condition(String id, Condition<?, ?> condition) {
-                def.preCondition(id, (Condition) condition);
-            }
-
-            @Override
-            public void predicate(String id, BiPredicate<?, ?> predicate) {
-                def.preCondition(id, (BiPredicate) predicate);
-            }
-
-            @Override
-            public void predicate(String id, Predicate<?> predicate) {
-                def.preCondition(id, (Predicate) predicate);
-            }
-        };
-    }
-
-    private static ConditionDescriptors.Target dataTarget(DataTriggerDef def) {
-        return new ConditionDescriptors.Target() {
-            @Override
-            public void reference(String id) {
-                def.condition(id);
-            }
-
-            @Override
-            public void expression(String id, String expression) {
-                if (id == null) {
-                    def.conditionExpression(expression);
-                } else {
-                    def.condition(id, expression);
-                }
-            }
-
-            @Override
-            public void condition(String id, Condition<?, ?> condition) {
-                def.condition(id, (Condition) condition);
-            }
-
-            @Override
-            public void predicate(String id, BiPredicate<?, ?> predicate) {
-                def.condition(id, (BiPredicate) predicate);
-            }
-
-            @Override
-            public void predicate(String id, Predicate<?> predicate) {
-                def.condition(id, (Predicate) predicate);
-            }
-        };
     }
 
     /**

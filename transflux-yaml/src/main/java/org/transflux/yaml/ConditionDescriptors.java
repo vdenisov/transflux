@@ -24,7 +24,9 @@ import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.ScalarNode;
 
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**
@@ -53,6 +55,55 @@ final class ConditionDescriptors {
         void predicate(String id, BiPredicate<?, ?> predicate);
 
         void predicate(String id, Predicate<?> predicate);
+
+        /**
+         * A target made of one def verb per form, each passed as a method reference so it reaches
+         * the overload its static type selects.
+         *
+         * @param reference attaches a registered condition by id
+         * @param anonymous declares an expression that derives its own id
+         * @param expression declares an expression under an id
+         * @param condition declares a condition instance
+         * @param bi declares a two-argument predicate
+         * @param mono declares a one-argument predicate
+         *
+         * @return the target
+         */
+        @SuppressWarnings("rawtypes")
+        static Target of(Consumer<String> reference, Consumer<String> anonymous, BiConsumer<String, String> expression,
+                         BiConsumer<String, Condition> condition, BiConsumer<String, BiPredicate> bi,
+                         BiConsumer<String, Predicate> mono) {
+            return new Target() {
+                @Override
+                public void reference(String id) {
+                    reference.accept(id);
+                }
+
+                @Override
+                public void expression(String id, String text) {
+                    if (id == null) {
+                        anonymous.accept(text);
+                    } else {
+                        expression.accept(id, text);
+                    }
+                }
+
+                @Override
+                public void condition(String id, Condition<?, ?> instance) {
+                    condition.accept(id, instance);
+                }
+
+                @Override
+                public void predicate(String id, BiPredicate<?, ?> predicate) {
+                    bi.accept(id, predicate);
+                }
+
+                @Override
+                public void predicate(String id, Predicate<?> predicate) {
+                    mono.accept(id, predicate);
+                }
+            };
+        }
     }
 
     private final Classes classes;

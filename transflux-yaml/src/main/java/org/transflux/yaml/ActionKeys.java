@@ -28,7 +28,6 @@ import org.transflux.yaml.TypeArguments.Expected;
 import org.yaml.snakeyaml.nodes.Node;
 
 import java.util.List;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**
@@ -76,10 +75,10 @@ final class ActionKeys {
             routes.forEach(route -> route(map, route, def, context));
         }
 
-        listeners.hooks(map, Category.ACTION, context, List.of(
-            new Hook("onStart", def::onStart, (id, cfg) -> def.onStart(id, (Consumer) cfg)),
-            new Hook("onComplete", def::onComplete, (id, cfg) -> def.onComplete(id, (Consumer) cfg)),
-            new Hook("onError", def::onError, (id, cfg) -> def.onError(id, (Consumer) cfg))));
+        listeners.hooks(map, context, List.of(
+            new Hook("onStart", Category.ACTION, def::onStart, (id, cfg) -> def.onStart(id, cfg)),
+            new Hook("onComplete", Category.ACTION, def::onComplete, (id, cfg) -> def.onComplete(id, cfg)),
+            new Hook("onError", Category.ACTION, def::onError, (id, cfg) -> def.onError(id, cfg))));
         ListenerEntries.disables(map, def::disableAllGlobalListeners, def::disableGlobalListeners);
     }
 
