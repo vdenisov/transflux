@@ -66,7 +66,7 @@ public interface BranchDef<T, C> extends ActionSequence<T, C, BranchDef<T, C>> {
      *
      * @return this branch def for chaining
      *
-     * @throws TransfluxValidationException if {@code expression} is {@code null} or blank
+     * @throws TransfluxValidationException if {@code expression} is {@code null} or blank, or cannot be parsed
      */
     BranchDef<T, C> conditionExpression(String expression);
 
@@ -121,7 +121,7 @@ public interface BranchDef<T, C> extends ActionSequence<T, C, BranchDef<T, C>> {
      * @return this branch def for chaining
      *
      * @throws TransfluxValidationException if {@code id} or {@code expression} is
-     *         {@code null} or blank
+     *         {@code null} or blank, or {@code expression} cannot be parsed
      */
     BranchDef<T, C> condition(String id, String expression);
 

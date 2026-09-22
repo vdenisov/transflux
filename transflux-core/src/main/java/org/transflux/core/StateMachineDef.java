@@ -350,7 +350,7 @@ public interface StateMachineDef<T> {
      * Registers a SpEL expression as a condition under the given id.
      *
      * @param id the condition id
-     * @param spelExpression the SpEL expression source; never {@code null}/blank
+     * @param spelExpression the SpEL expression source; never {@code null}/blank, and must parse
      *
      * @return this state machine def for chaining
      */
@@ -401,7 +401,7 @@ public interface StateMachineDef<T> {
      *
      * @param id the condition id
      * @param contextType the condition's declared context class; never {@code null}
-     * @param spelExpression the SpEL expression source; never {@code null}/blank
+     * @param spelExpression the SpEL expression source; never {@code null}/blank, and must parse
      * @param <C> the context class
      *
      * @return this state machine def for chaining

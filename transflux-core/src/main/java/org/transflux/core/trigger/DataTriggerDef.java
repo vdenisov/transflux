@@ -116,7 +116,7 @@ public interface DataTriggerDef<T, C> {
      *
      * @return this trigger def for chaining
      *
-     * @throws TransfluxValidationException if {@code expression} is {@code null} or blank
+     * @throws TransfluxValidationException if {@code expression} is {@code null} or blank, or cannot be parsed
      */
     DataTriggerDef<T, C> conditionExpression(String expression);
 
@@ -166,7 +166,8 @@ public interface DataTriggerDef<T, C> {
      *
      * @return this trigger def for chaining
      *
-     * @throws TransfluxValidationException if {@code id} or {@code expression} is {@code null} or blank
+     * @throws TransfluxValidationException if {@code id} or {@code expression} is {@code null} or blank,
+     *         or {@code expression} cannot be parsed
      */
     DataTriggerDef<T, C> condition(String id, String expression);
 

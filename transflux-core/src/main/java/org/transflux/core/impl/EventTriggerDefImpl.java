@@ -84,6 +84,7 @@ final class EventTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, EventTriggerD
     public EventTriggerDef<T, C> filterExpression(String expression) {
         requireConfigurerActive("filterExpression");
         requireNotBlank(expression, "Expression");
+        SpelConditionEvaluator.shared().validate(expression);
         return setFilter(() -> (eventData, entity, context) ->
             SpelConditionEvaluator.shared().evaluateEventFilter(expression, entity, eventData, context));
     }

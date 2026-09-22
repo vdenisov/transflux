@@ -116,7 +116,7 @@ public interface ManualTriggerDef<T, C> {
      *
      * @return this trigger def for chaining
      *
-     * @throws TransfluxValidationException if {@code expression} is {@code null} or blank
+     * @throws TransfluxValidationException if {@code expression} is {@code null} or blank, or cannot be parsed
      */
     ManualTriggerDef<T, C> preConditionExpression(String expression);
 
@@ -167,7 +167,8 @@ public interface ManualTriggerDef<T, C> {
      *
      * @return this trigger def for chaining
      *
-     * @throws TransfluxValidationException if {@code id} or {@code expression} is {@code null} or blank
+     * @throws TransfluxValidationException if {@code id} or {@code expression} is {@code null} or blank,
+     *         or {@code expression} cannot be parsed
      */
     ManualTriggerDef<T, C> preCondition(String id, String expression);
 

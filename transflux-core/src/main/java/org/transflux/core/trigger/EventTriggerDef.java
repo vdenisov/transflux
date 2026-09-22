@@ -142,7 +142,7 @@ public interface EventTriggerDef<T, C> {
      *
      * @return this trigger def for chaining
      *
-     * @throws TransfluxValidationException if {@code expression} is {@code null} or blank
+     * @throws TransfluxValidationException if {@code expression} is {@code null} or blank, or cannot be parsed
      */
     EventTriggerDef<T, C> filterExpression(String expression);
 }

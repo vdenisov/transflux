@@ -103,6 +103,7 @@ final class ConditionDescriptorSink<T, C, D> {
     D expression(String expression) {
         owner.requireConfigurerActive(dslMethod + "Expression");
         requireNotBlank(expression, "Expression");
+        SpelConditionEvaluator.shared().validate(expression);
         return store(ConditionDescriptor.expression(expression));
     }
 
@@ -131,6 +132,7 @@ final class ConditionDescriptorSink<T, C, D> {
         owner.requireConfigurerActive(dslMethod);
         requireNotBlank(id, "Condition ID");
         requireNotBlank(expression, "Expression");
+        SpelConditionEvaluator.shared().validate(expression);
         return store(ConditionDescriptor.expression(id, expression));
     }
 

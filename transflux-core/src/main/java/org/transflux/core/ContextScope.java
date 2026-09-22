@@ -118,7 +118,7 @@ public interface ContextScope<T, C> {
      * context class.
      *
      * @param id the condition id
-     * @param spelExpression the SpEL expression text; never {@code null} or blank
+     * @param spelExpression the SpEL expression text; never {@code null} or blank, and must parse
      *
      * @return this scope for chaining
      */

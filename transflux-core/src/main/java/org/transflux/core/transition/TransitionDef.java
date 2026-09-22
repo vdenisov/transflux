@@ -179,7 +179,7 @@ public interface TransitionDef<T, C>
      *
      * @return this transition def for chaining
      *
-     * @throws TransfluxValidationException if {@code expression} is {@code null} or blank
+     * @throws TransfluxValidationException if {@code expression} is {@code null} or blank, or cannot be parsed
      */
     TransitionDef<T, C> preConditionExpression(String expression);
 
@@ -231,7 +231,7 @@ public interface TransitionDef<T, C>
      * @return this transition def for chaining
      *
      * @throws TransfluxValidationException if {@code id} or {@code expression} is
-     *         {@code null} or blank
+     *         {@code null} or blank, or {@code expression} cannot be parsed
      */
     TransitionDef<T, C> preCondition(String id, String expression);
 
@@ -258,7 +258,7 @@ public interface TransitionDef<T, C>
      *
      * @return this transition def for chaining
      *
-     * @throws TransfluxValidationException if {@code expression} is {@code null} or blank
+     * @throws TransfluxValidationException if {@code expression} is {@code null} or blank, or cannot be parsed
      */
     TransitionDef<T, C> postConditionExpression(String expression);
 
@@ -310,7 +310,7 @@ public interface TransitionDef<T, C>
      * @return this transition def for chaining
      *
      * @throws TransfluxValidationException if {@code id} or {@code expression} is
-     *         {@code null} or blank
+     *         {@code null} or blank, or {@code expression} cannot be parsed
      */
     TransitionDef<T, C> postCondition(String id, String expression);
 

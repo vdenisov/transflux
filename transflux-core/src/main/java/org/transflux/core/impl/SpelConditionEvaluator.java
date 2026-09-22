@@ -125,6 +125,18 @@ final class SpelConditionEvaluator {
     }
 
     /**
+     * Parses an expression into the cache without evaluating it, so a malformed one is refused
+     * where it is declared rather than at its first evaluation.
+     *
+     * @param expression the SpEL expression text; never {@code null} or blank
+     *
+     * @throws TransfluxValidationException if the expression cannot be parsed
+     */
+    void validate(String expression) {
+        parsed(expression);
+    }
+
+    /**
      * Parses one expression, keeping the parser's own complaint in the message.
      * <p>
      * This is the one place the framework repeats a failure's message rather than its type, and it
@@ -142,14 +154,17 @@ final class SpelConditionEvaluator {
         }
     }
 
-    private boolean evaluateBoolean(String expression, StandardEvaluationContext evalContext) {
+    private Expression parsed(String expression) {
         Expression parsed = cache.get(expression);
         if (parsed == null) {
             cache.putIfAbsent(expression, parse(expression));
             parsed = cache.get(expression);
         }
+        return parsed;
+    }
 
-        Expression toEvaluate = parsed;
+    private boolean evaluateBoolean(String expression, StandardEvaluationContext evalContext) {
+        Expression toEvaluate = parsed(expression);
         Object result = ThrowingUtils.sneakyGet(() -> toEvaluate.getValue(evalContext),
                                                 "Failed to evaluate SpEL expression '" + expression + "'");
 

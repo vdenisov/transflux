@@ -19,6 +19,8 @@
 package org.transflux.core.impl
 
 
+import org.transflux.core.StateMachineDef
+import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.transition.Transition
 import spock.lang.Specification
@@ -99,6 +101,30 @@ class SpelConditionEvaluatorSpec extends Specification {
         e.message.contains(e.cause.message)
     }
 
+    def "should refuse a malformed expression where #position declares it, not at its first evaluation"() {
+        given:
+        def smd = Transflux.defineStateMachine(Entity)
+
+        when:
+        declare(smd)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.startsWith("Invalid SpEL expression 'value >'")
+
+        where:
+        position                           | declare
+        'a registration'                   | { StateMachineDef d -> d.condition('c', 'value >') }
+        'a typed registration'             | { StateMachineDef d -> d.condition('c', Ctx, 'value >') }
+        'a forContext registration'        | { StateMachineDef d -> d.forContext(Ctx) { it.condition('c', 'value >') } }
+        'a pre-condition'                  | { StateMachineDef d -> transition(d) { it.preConditionExpression('value >') } }
+        'a named post-condition'           | { StateMachineDef d -> transition(d) { it.postCondition('c', 'value >') } }
+        'a branch'                         | { StateMachineDef d -> transition(d) { t -> t.choice('ch') { it.branch('b') { b -> b.conditionExpression('value >') } } } }
+        'a manual trigger pre-condition'   | { StateMachineDef d -> d.manualTrigger('m') { it.preConditionExpression('value >') } }
+        'a data trigger gate'              | { StateMachineDef d -> d.dataTrigger('g') { it.condition('c', 'value >') } }
+        'an event filter'                  | { StateMachineDef d -> d.eventTrigger('e') { it.onEvent('E').filterExpression('value >') } }
+    }
+
     def "should throw TransfluxValidationException when evaluation fails"() {
         given:
         def eval = new SpelConditionEvaluator()
@@ -158,5 +184,9 @@ class SpelConditionEvaluatorSpec extends Specification {
 
         where:
         expr << [null, '', '  ']
+    }
+
+    private static void transition(StateMachineDef<Entity> smd, Closure configurer) {
+        smd.state('a') { it.transitionsTo('b', 't', configurer) }
     }
 }

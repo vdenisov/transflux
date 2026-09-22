@@ -774,6 +774,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     private void registerConditionExpression(String id, String expression) {
+        SpelConditionEvaluator.shared().validate(expression);
         ConditionRegistration<T> existing = conditionRegistrations.get(id);
         if (existing == null) {
             conditionRegistrations.put(id, ConditionRegistration.ofExpression(expression));
