@@ -15,7 +15,8 @@
 | 5.6 Definition Sourcing SPI | Java code, the multi-module build | — |
 | 5.7 `transflux-yaml` module and loader infrastructure | module, entry point, node walk, error model | 5.3, 5.6 |
 | 5.8 Parsing: component libraries | loader code | 5.4, 5.7 |
-| 5.9 Parsing: the state machine | loader code | 5.8 |
+| 5.8.1 Transitions declared on the state machine | Java code | — |
+| 5.9 Parsing: the state machine | loader code | 5.8, 5.8.1 |
 | 5.10 Parsing: member grammar, compensation, fork | loader code | 5.8 |
 | 5.11 Imports and global configuration | loader code | 5.9, 5.10 |
 | 5.12 JSON Schema | schema file, agreement spec | 5.11 |
@@ -121,6 +122,14 @@
 - [x] **Expressions are parsed where they are declared, in core.** Condition and event-filter expressions used to be parsed at first evaluation; the def setters now parse them, so a malformed one is a `TransfluxValidationException` from the call that declared it — which `NodeMap.at` turns into the document's line, and which a Java host gets at declaration as well. The loader parses only the expressions that never reach core as strings: `mapTo`, `mapFrom`, a route's guard.
 - [x] Classes are checked against the position as javac would (§3.1.5): entity contravariant, context exactly the owner's. A registration without `context:` leaves its own class's context argument unchecked, as Java's untyped instance form does, but what is declared on it - and an untyped transition or action listener registration - is checked against `Object`, which is what keeps a typed listener off the `onAny*` hooks.
 - [ ] `operations:` and `choices:` registered at library level use §5.10's member grammar, and close there.
+
+### 5.8.1 Transitions Declared on the State Machine
+*Found while planning §5.9: YAML lists `states:` and `transitions:` side by side, each transition naming `from` / `to`, while Java declared a transition inside its source state's configurer. The two could express the same machines, but the loader would have had to regroup transitions by source state and check `from` itself. Java moved to the document's shape rather than the other way round: a transition body nests deep enough in YAML without two more levels above it.*
+- [x] **`StateMachineDef.transition(id, source, target, [Class<C>,] cfg)`** replaces `StateDef.transitionsTo(target, id, [Class<C>,] cfg)`, which is removed. The id comes first, as on every other registration. A state keeps its metadata, its entry and exit listeners, and its disables.
+- [x] **`StateMachineDef.state(id)`** for a state that configures nothing, which most states became once transitions left them.
+- [x] **Both ends are checked at build**: a transition whose source or target is not a declared state is refused. The target never was checked before - a typo built and failed at runtime, when the resolver read the undeclared state back. States and transitions may be declared in either order.
+- [x] Transitions are held in declaration order. Dispatch is unaffected, since it only scans transitions leaving the current state; the catalog lists them as declared.
+- [x] Every call site moved (the specs, `JavaDslSurface`, the JavaDoc examples, `requirements.md` §2.2.3, §2.2.4, §4). `StateMachineDefImplTransitionSpec` holds the transition cases `StateDefImplSpec` used to.
 
 ### 5.9 Parsing: the State Machine
 - [ ] `stateMachine:` — `id`, `name`, `description`, `version` (all optional), `entityType`. Required in the root document, an error in an imported one.

@@ -153,15 +153,16 @@ The host is responsible for placing entities into an initial state through its o
 
 **Properties:**
 - State identifier and metadata.
-- Valid outgoing transitions.
 - Optional entry/exit listeners (see §2.2.10).
+
+A state does not own its transitions: a transition names the states it leaves and enters (§2.2.4).
 
 #### 2.2.4 Transition
 
 Defines valid state changes and their associated operations, conditions, and triggers.
 
 **Components:**
-- Source and target states.
+- Source and target states, both of which must be declared states; a transition naming an undeclared one fails the build. A transition is declared on the state machine, beside the states, rather than inside its source state, so a definition reads as a list of states and a list of edges in both DSLs.
 - A body: an ordered list of actions (optional, §2.2.5.1).
 - Pre-conditions (must be met **before** execution).
 - Post-conditions (must be met **after** execution; violation triggers rollback / compensation).
@@ -1649,8 +1650,8 @@ Every kind has a typed form taking the context class the component was written a
 
 ```java
 def.state("draft", s -> s
-    .onExit("subscription-deactivated")                     // a registered state listener
-    .transitionsTo("active", "draft-to-active", ActivationContext.class, t -> t
+        .onExit("subscription-deactivated"))                // a registered state listener
+    .transition("draft-to-active", "draft", "active", ActivationContext.class, t -> t
         .preCondition("checkout-fulfilled")
         .preCondition("business-hours")
         .postCondition("milestones-activated")
@@ -1660,7 +1661,7 @@ def.state("draft", s -> s
         .onComplete("audit-complete")
         .run("prepare-event-actor")
         .run("charge-card", "billing-from-activation")      // a registered action through a registered mapper
-        .run("notification-flow")));
+        .run("notification-flow"));
 ```
 
 Attaching by id claims nothing, so the same trigger or listener may be attached any number of times (§2.2.8, §2.2.10): `addTrigger("manual-cancel")` on two transitions is one trigger reported with both, and the one-argument `onStart(id)` — beside the two-argument form that declares a listener in place — attaches a registered listener, or one the same owner declared at another of its hooks. The state-machine-wide hooks take the same one-argument form (`onAnyTransitionStart("audit-start")`). The build checks a registered trigger's or listener's context type against every owner it is attached to, exactly as it checks a typed step against its call sites (§4.5.2).
@@ -1751,21 +1752,17 @@ StateMachine<Subscription> subscriptionStateMachine = Transflux.defineStateMachi
     //   .withStateApplier(new SubscriptionStateApplier())
 
     // Define states.
-    .state(SubState.TRIAL, s -> s
-        .withDescription("Initial trial state")
-        .transitionsTo(SubState.ACTIVE, SubTransition.TRIAL_TO_ACTIVE, t -> {}))
+    .state(SubState.TRIAL, s -> s.withDescription("Initial trial state"))
+    .state(SubState.ACTIVE, s -> s.withDescription("Active subscription state"))
+    .state(SubState.SUSPENDED, s -> s.withDescription("Suspended subscription state"))
+    .state(SubState.CANCELLED)
+    .state(SubState.EXPIRED)
 
-    .state(SubState.ACTIVE, s -> s
-        .withDescription("Active subscription state")
-        .transitionsTo(SubState.SUSPENDED, SubTransition.ACTIVE_TO_SUSPENDED, t -> {})
-        .transitionsTo(SubState.EXPIRED, SubTransition.ACTIVE_TO_EXPIRED, t -> {}))
-
-    .state(SubState.SUSPENDED, s -> s
-        .withDescription("Suspended subscription state")
-        .transitionsTo(SubState.CANCELLED, SubTransition.SUSPENDED_TO_CANCELLED, t -> {}))
-
-    .state(SubState.CANCELLED, s -> {})
-    .state(SubState.EXPIRED, s -> {})
+    // Define transitions: id, source state, target state.
+    .transition(SubTransition.TRIAL_TO_ACTIVE, SubState.TRIAL, SubState.ACTIVE, t -> {})
+    .transition(SubTransition.ACTIVE_TO_SUSPENDED, SubState.ACTIVE, SubState.SUSPENDED, t -> {})
+    .transition(SubTransition.ACTIVE_TO_EXPIRED, SubState.ACTIVE, SubState.EXPIRED, t -> {})
+    .transition(SubTransition.SUSPENDED_TO_CANCELLED, SubState.SUSPENDED, SubState.CANCELLED, t -> {})
 
     .build();
 
@@ -1804,10 +1801,7 @@ StateMachine<Subscription> stateMachine = Transflux.defineStateMachine(Subscript
             notifier.send(subscription, "subscription-activated"))
         .onExit("audit-deactivated", l -> l
             .withDescription("Records departures from the active state")
-            .using(new SubscriptionDeactivatedListener()))
-
-        .transitionsTo("suspended", "active-to-suspended", t -> {})
-        .transitionsTo("expired", "active-to-expired", t -> {}))
+            .using(new SubscriptionDeactivatedListener())))
 
     .build();
 ```
@@ -1819,40 +1813,40 @@ ordering rules.
 
 ### 4.3 Transition Configuration
 
-A transition is declared inside its source state's configurer, and configured inside its own. The
-context type is pre-bound in `transitionsTo(...)` as shown; omitting it defaults the transition to
-`Object`, which accepts any firing context.
+A transition is declared on the state machine by its id, its source state and its target state,
+and configured inside its own configurer. The context type is pre-bound in `transition(...)` as
+shown; omitting it defaults the transition to `Object`, which accepts any firing context. Both
+states must be declared, in either order, by the time the state machine is built.
 
 ```java
-.state("trial", s -> s
-    .transitionsTo("active", "trial-to-active", SubscriptionContext.class, t -> t
-        .withName("trial-to-active")
-        .withDescription("Activate trial subscription")
+.transition("trial-to-active", "trial", "active", SubscriptionContext.class, t -> t
+    .withName("trial-to-active")
+    .withDescription("Activate trial subscription")
 
-        // Operation
-        .step("activate", new ActivateSubscriptionAction())
+    // Operation
+    .step("activate", new ActivateSubscriptionAction())
 
-        // Pre/post conditions
-        .preCondition("payment-method-valid", new PaymentMethodValidCondition())
-        .preCondition("billing-ready", this::billingReady)
-        .postCondition("features-activated", new SubscriptionFeaturesActivatedCondition())
+    // Pre/post conditions
+    .preCondition("payment-method-valid", new PaymentMethodValidCondition())
+    .preCondition("billing-ready", this::billingReady)
+    .postCondition("features-activated", new SubscriptionFeaturesActivatedCondition())
 
-        // Triggers
-        .addManualTrigger("manual-activate")
-        .addEventTrigger("payment-confirmed", "PAYMENT_CONFIRMED")
-        .addEventTrigger("payment-filtered", et -> et
-            .onEvent("PAYMENT_CONFIRMED")
-            .filterExpression("#event.validation == 'CONFIRMED'"))
-        .addDataTrigger("ready-for-activation", dt -> dt
-            .condition("subscription-activated", new SubscriptionActivatedCondition()))
+    // Triggers
+    .addManualTrigger("manual-activate")
+    .addEventTrigger("payment-confirmed", "PAYMENT_CONFIRMED")
+    .addEventTrigger("payment-filtered", et -> et
+        .onEvent("PAYMENT_CONFIRMED")
+        .filterExpression("#event.validation == 'CONFIRMED'"))
+    .addDataTrigger("ready-for-activation", dt -> dt
+        .condition("subscription-activated", new SubscriptionActivatedCondition()))
 
-        // Listeners. Complete and error partition the outcomes — exactly one of the two
-        // follows every start notification.
-        .onStart("audit-start", new TransitionStartListener())
-        .onComplete("audit-complete", new TransitionCompleteListener())
-        .onError("audit-failure", el -> el
-            .withDescription("Records activation failures and what was rolled back")
-            .using(new TransitionErrorListener()))))
+    // Listeners. Complete and error partition the outcomes — exactly one of the two
+    // follows every start notification.
+    .onStart("audit-start", new TransitionStartListener())
+    .onComplete("audit-complete", new TransitionCompleteListener())
+    .onError("audit-failure", el -> el
+        .withDescription("Records activation failures and what was rolled back")
+        .using(new TransitionErrorListener())))
 ```
 
 Note that every inline condition form takes an id as well as the body — the id is the
@@ -1891,11 +1885,10 @@ public class ActivateSubscriptionAction
     }
 }
 
-// The action is declared inside the transition's configurer, at state-declaration
-// time — there is no post-hoc "grab the transition and set its action" step.
-.state("trial", s -> s
-    .transitionsTo("active", "trial-active", SubscriptionContext.class, t -> t
-        .step("activate-subscription", new ActivateSubscriptionAction())))
+// The action is declared inside the transition's configurer — there is no post-hoc
+// "grab the transition and set its action" step.
+.transition("trial-active", "trial", "active", SubscriptionContext.class, t -> t
+    .step("activate-subscription", new ActivateSubscriptionAction()))
 ```
 
 > Any action may be declared directly on a transition, in either form, so there is no wrapper to author when the unit of work is a single Java body — nor when it is several, since a transition's body is an ordered list. Asynchronous dispatch is a property of a *member position*, so `fork(...)` is available wherever a member is declared (§4.4.2), a transition's body included: the members after a forked one do not wait for it, and the transition commits without it.
@@ -1903,7 +1896,7 @@ public class ActivateSubscriptionAction
 #### 4.4.2 Declarative Actions (Operations)
 
 ```java
-// t is the TransitionDef inside its transitionsTo(...) configurer (§4.3)
+// t is the TransitionDef inside its transition(...) configurer (§4.3)
 t.operation("complex-subscription-activation", c -> c
     .withDescription("Complex subscription activation with several members")
 
@@ -1991,9 +1984,8 @@ The host is responsible for populating context before execution and reading resu
 
 ```java
 // The transition declares its context type and operation inside its configurer
-.state("trial", s -> s
-    .transitionsTo("active", "trial-active", SubscriptionContext.class, t -> t
-        .step("activate-subscription", new ActivateSubscriptionAction())))
+.transition("trial-active", "trial", "active", SubscriptionContext.class, t -> t
+    .step("activate-subscription", new ActivateSubscriptionAction()))
 
 // Application usage
 public void activateSubscription(Subscription entity) {
@@ -2189,7 +2181,7 @@ When neither `ForkableContext` nor a context mapper is declared, the branch rece
 
 To prevent silent sharing, the framework emits a definition-time **warning** (not an error), **per forked member** rather than per container — a container may mix a mapped member with an unmapped one, and only the unmapped one is sharing. It is not emitted when the member declares a mapper, when the declared context type is `Void`, or when that type implements `ForkableContext`. It is not emitted for a fork issued from inside an action's body either, for the reason every definition-time facility misses those: nothing in the definition records that the fork exists. The rule it warns about still applies there — that call site shares the enclosing reference unless it maps or the context forks itself — and the host is simply on its own about it.
 
-The warning names the action, the position the member was written at, and — separately — **the position that declared the context being shared**, which is not always the same place. A member that declares no context of its own is handed the enclosing one, and so is every branch of a choice, so the position a host has to change may be several levels out: an action attached to a transition takes the transition's context, and the fix is `transitionsTo(target, id, Class<C>, ...)`. Naming the position that holds the member instead would point at somewhere with no context to declare.
+The warning names the action, the position the member was written at, and — separately — **the position that declared the context being shared**, which is not always the same place. A member that declares no context of its own is handed the enclosing one, and so is every branch of a choice, so the position a host has to change may be several levels out: an action attached to a transition takes the transition's context, and the fix is `transition(id, source, target, Class<C>, ...)`. Naming the position that holds the member instead would point at somewhere with no context to declare.
 
 Where that context type is `Object` — which is what a transition declared without one has — the framework cannot establish anything about the runtime object, and says so: the warning fires with a distinct message reporting that forkability could not be checked, and naming the three ways out (declare a context on the position that owns it, implement `ForkableContext`, or map at the call site). Hosts that intend to share — explicitly — suppress either message through standard logging configuration.
 
@@ -2429,7 +2421,7 @@ public class ChargeAuditListener
 
 ```java
 // Transition listeners — attached inside the transition's configurer (see §4.3)
-.transitionsTo("active", "trial-to-active", ActivationContext.class, t -> t
+.transition("trial-to-active", "trial", "active", ActivationContext.class, t -> t
     .onStart("activation-start", new ActivationStartListener())
     .onComplete("activation-complete", new ActivationCompleteListener())
     .onError("activation-failure", new ActivationFailureListener()))
@@ -2476,9 +2468,9 @@ stateMachineDef
         .disableGlobalListener("audit-any-action-start")
         .onStart("capture-redacted", new RedactedCaptureListener()))
     .state("active", st -> st
-        .disableAllGlobalListeners()
-        .transitionsTo("cancelled", "cancel", CancelContext.class, t -> t
-            .disableGlobalListener("audit-any-start")));
+        .disableAllGlobalListeners())
+    .transition("cancel", "active", "cancelled", CancelContext.class, t -> t
+        .disableGlobalListener("audit-any-start"));
 ```
 
 Each hook accepts a listener instance or a
