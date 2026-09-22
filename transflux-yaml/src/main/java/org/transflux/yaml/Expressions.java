@@ -24,6 +24,8 @@ import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.state.StateApplier;
+import org.transflux.core.state.StateResolver;
 import org.yaml.snakeyaml.nodes.Node;
 
 import java.util.ArrayList;
@@ -31,10 +33,10 @@ import java.util.List;
 import java.util.function.Predicate;
 
 /**
- * The expressions a document writes where the Java DSL takes a lambda: a mapper's {@code mapTo} and
- * {@code mapFrom}, and a route's guard. Each is parsed when it is read, so a malformed one is
- * refused at its line; conditions and event filters are not here, since the definition they are
- * handed to parses them itself.
+ * The expressions a document writes where the Java DSL takes a lambda: the state resolver and
+ * applier, a mapper's {@code mapTo} and {@code mapFrom}, and a route's guard. Each is parsed when
+ * it is read, so a malformed one is refused at its line; conditions and event filters are not here,
+ * since the definition they are handed to parses them itself.
  */
 final class Expressions {
 
@@ -70,6 +72,52 @@ final class Expressions {
     }
 
     /**
+     * Reads a state resolver expression, evaluated against the entity.
+     *
+     * @param map the mapping holding {@code expression}
+     *
+     * @return a resolver returning the expression's value as a state id: an enum contributes its
+     *         {@code name()}, anything else its {@code toString()}, and {@code null} stays null
+     *
+     * @throws DefinitionLoadException when the expression does not parse
+     */
+    static StateResolver<Object> resolver(NodeMap map) {
+        String text = map.requiredString("expression");
+        Expression expression = parse(map, map.requiredNode("expression"), text);
+        return entity -> {
+            Object state = evaluate(expression, text, entityContext(entity));
+            if (state instanceof Enum<?> constant) {
+                return constant.name();
+            }
+            return state == null ? null : state.toString();
+        };
+    }
+
+    /**
+     * Reads a state applier expression, which is an assignment target on the entity.
+     *
+     * @param map the mapping holding {@code expression}
+     *
+     * @return an applier assigning the new state id through the expression; SpEL's standard
+     *         conversion turns the id into an enum-typed property
+     *
+     * @throws DefinitionLoadException when the expression does not parse
+     */
+    static StateApplier<Object> applier(NodeMap map) {
+        String text = map.requiredString("expression");
+        Expression expression = parse(map, map.requiredNode("expression"), text);
+        return (entity, newStateId) -> {
+            try {
+                expression.setValue(new StandardEvaluationContext(entity), newStateId);
+            } catch (RuntimeException e) {
+                // The type alone: a failure's message may carry the host values it was evaluated against.
+                throw new TransfluxValidationException("Failed to assign state applier target '" + text + "': "
+                    + e.getClass().getName(), e);
+            }
+        };
+    }
+
+    /**
      * Reads a route's guard expression, evaluated with the failure as root.
      *
      * @param map the mapping holding {@code expression}
@@ -89,6 +137,17 @@ final class Expressions {
             throw new TransfluxValidationException("Guard expression '" + text
                 + "' must evaluate to boolean but returned " + (result == null ? "null" : result.getClass().getName()));
         };
+    }
+
+    /**
+     * @param entity the entity
+     *
+     * @return an evaluation context with the entity as root and bound to {@code #entity}
+     */
+    private static StandardEvaluationContext entityContext(Object entity) {
+        StandardEvaluationContext context = new StandardEvaluationContext(entity);
+        context.setVariable("entity", entity);
+        return context;
     }
 
     private static Expression parse(NodeMap map, Node at, String text) {

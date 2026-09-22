@@ -26,7 +26,9 @@ import org.transflux.core.action.ActionListener
 import org.transflux.core.action.Compensation
 import org.transflux.core.action.ContextMapper
 import org.transflux.core.condition.Condition
+import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateChange
+import org.transflux.core.state.StateResolver
 import org.transflux.core.state.StateListener
 import org.transflux.core.transition.ExecutingTransition
 import org.transflux.core.transition.Transition
@@ -55,7 +57,17 @@ class LoaderFixtures {
      * @return the definition a root document carrying them loads to
      */
     static StateMachineDef<Order> load(String sections) {
-        String text = "apiVersion: transflux/v1\nstateMachine:\n  entityType: ${Order.name}\n" + sections.stripIndent()
+        return loadDocument("apiVersion: transflux/v1\nstateMachine:\n  entityType: ${Order.name}\n"
+            + sections.stripIndent())
+    }
+
+    /**
+     * @param document a whole root document
+     *
+     * @return the definition it loads to
+     */
+    static StateMachineDef<Order> loadDocument(String document) {
+        String text = document.stripIndent()
         def source = { String id -> Optional.of(new DefinitionResource(id, new ByteArrayInputStream(text.bytes))) }
         return YamlDefinitionLoader.builder(source as DefinitionSource).build().load('root.yml', Order)
     }
@@ -97,6 +109,31 @@ class LoaderFixtures {
     static class Order {
         String state = 'a'
         int priority
+    }
+
+    static class OrderResolver implements StateResolver<Order> {
+        @Override
+        String resolveState(Order entity) {
+            return entity.state
+        }
+    }
+
+    static class OrderApplier implements StateApplier<Order> {
+        @Override
+        void applyState(Order entity, String newStateId) {
+            entity.state = newStateId
+        }
+    }
+
+    static class StringResolver implements StateResolver<String> {
+        @Override
+        String resolveState(String entity) {
+            return entity
+        }
+    }
+
+    static class EnumOrder {
+        Status status = Status.NEW
     }
 
     enum Status { NEW, CHARGED }
@@ -240,6 +277,20 @@ class LoaderFixtures {
         @Override
         void onState(Order entity, Object context, StateChange change) {
             TRAIL << "state:${change.phase()}:${change.state().id}".toString()
+        }
+    }
+
+    static class StateNameAudit implements StateListener<Order> {
+        @Override
+        void onState(Order entity, Object context, StateChange change) {
+            TRAIL << "state-name:${change.state().name}".toString()
+        }
+    }
+
+    static class TransitionNameAudit implements TransitionListener<Order, Object> {
+        @Override
+        void onTransition(Order entity, Object context, TransitionExecution<Order> execution) {
+            TRAIL << "transition-name:${execution.transition().name}".toString()
         }
     }
 

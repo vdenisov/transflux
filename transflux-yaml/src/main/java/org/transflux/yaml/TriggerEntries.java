@@ -67,7 +67,8 @@ final class TriggerEntries {
         within.at(within.requiredNode("id"), () -> switch (type) {
             case "manual" -> def.manualTrigger(id, contextType, configurer);
             case "event" -> def.eventTrigger(id, contextType, configurer);
-            default -> def.dataTrigger(id, contextType, configurer);
+            case "data" -> def.dataTrigger(id, contextType, configurer);
+            default -> throw unknownType(type);
         });
         within.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("Trigger registered, id={}, type={}", id, type);
@@ -98,7 +99,8 @@ final class TriggerEntries {
         within.at(within.requiredNode("id"), () -> switch (type) {
             case "manual" -> def.addManualTrigger(id, configurer);
             case "event" -> def.addEventTrigger(id, configurer);
-            default -> def.addDataTrigger(id, configurer);
+            case "data" -> def.addDataTrigger(id, configurer);
+            default -> throw unknownType(type);
         });
         within.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("Trigger declared, id={}, type={}", id, type);
@@ -127,6 +129,16 @@ final class TriggerEntries {
             default -> throw within.error(within.requiredNode("type"),
                 "'type' must be one of manual, event, data, not '" + type + "'");
         };
+    }
+
+    /**
+     * @param type the type the document named
+     *
+     * @return the failure for a type {@link #configurer} did not already refuse, which is the
+     *         kind's dispatch and its configurer disagreeing rather than anything a document did
+     */
+    private static IllegalStateException unknownType(String type) {
+        return new IllegalStateException("Trigger type '" + type + "' has a configurer but no declaration");
     }
 
     private void filter(NodeMap trigger, EventTriggerDef def) {

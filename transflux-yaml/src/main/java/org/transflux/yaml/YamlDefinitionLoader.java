@@ -126,12 +126,11 @@ public final class YamlDefinitionLoader {
                 + declared.getName() + ", but " + entityType.getName() + " was asked for"
                 + (declared.getName().equals(entityType.getName()) ? " (loaded by another class loader)" : ""));
         }
-        stateMachine.rejectUnknownKeys();
-
         StateMachineDef<T> def = Transflux.defineStateMachine(entityType);
         Loggers.YAML_BINDING.debug("State machine definition created, identifier={}, entityType={}",
             root.document().identifier(), entityType.getName());
         ComponentSections.read(root, def, entityType, classes);
+        StateMachineSection.read(stateMachine, def, entityType, classes);
         root.rejectUnknownKeys();
         return def;
     }

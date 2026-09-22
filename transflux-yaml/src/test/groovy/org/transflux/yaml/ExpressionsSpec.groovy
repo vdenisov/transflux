@@ -23,6 +23,8 @@ import spock.lang.Specification
 
 import static org.transflux.yaml.LoaderFixtures.ChildCtx
 import static org.transflux.yaml.LoaderFixtures.Ctx
+import static org.transflux.yaml.LoaderFixtures.EnumOrder
+import static org.transflux.yaml.LoaderFixtures.Order
 import static org.transflux.yaml.LoaderFixtures.Status
 
 class ExpressionsSpec extends Specification {
@@ -86,6 +88,68 @@ class ExpressionsSpec extends Specification {
         def assignment = thrown(TransfluxValidationException)
         assignment.message == "Failed to assign mapFrom target 'status': org.springframework.expression.spel.SpelEvaluationException"
         !assignment.message.contains('SECRET-VALUE')
+    }
+
+    def 'a resolver reads the state off the entity, an enum contributing its name'() {
+        given:
+        def resolver = Expressions.resolver(map("expression: 'status'\n"))
+
+        expect:
+        resolver.resolveState(new EnumOrder(status: Status.CHARGED)) == 'CHARGED'
+    }
+
+    def 'a resolver renders a non-enum state through toString, and passes null through'() {
+        given:
+        def resolver = Expressions.resolver(map("expression: 'state'\n"))
+
+        expect:
+        resolver.resolveState(new Order(state: 'a')) == 'a'
+        resolver.resolveState(new Order(state: null)) == null
+    }
+
+    def 'a resolver binds the entity under #entity as well as at the root'() {
+        given:
+        def resolver = Expressions.resolver(map("expression: \"#entity.state + '/' + priority\"\n"))
+
+        expect:
+        resolver.resolveState(new Order(state: 'a', priority: 7)) == 'a/7'
+    }
+
+    def 'an applier assigns the state id, converting it to an enum-typed property'() {
+        given:
+        def applier = Expressions.applier(map("expression: 'status'\n"))
+        def order = new EnumOrder()
+
+        when:
+        applier.applyState(order, 'CHARGED')
+
+        then:
+        order.status == Status.CHARGED
+    }
+
+    def 'an applier assigns a String-typed property'() {
+        given:
+        def applier = Expressions.applier(map("expression: 'state'\n"))
+        def order = new Order()
+
+        when:
+        applier.applyState(order, 'b')
+
+        then:
+        order.state == 'b'
+    }
+
+    def 'an applier that cannot assign names the target and the failure type, not the value'() {
+        given:
+        def applier = Expressions.applier(map("expression: 'priority'\n"))
+
+        when:
+        applier.applyState(new Order(), 'SECRET-VALUE')
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == "Failed to assign state applier target 'priority': org.springframework.expression.spel.SpelEvaluationException"
+        !e.message.contains('SECRET-VALUE')
     }
 
     def 'a guard judges the failure it is handed'() {
