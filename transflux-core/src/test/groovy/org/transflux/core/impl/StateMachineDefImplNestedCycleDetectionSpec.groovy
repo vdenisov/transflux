@@ -296,12 +296,13 @@ class StateMachineDefImplNestedCycleDetectionSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1', { s -> s.transitionsTo('s2', 't', Ctx, { t ->
+            .state('s1')
+            .transition('t', 's1', 's2', Ctx, { t ->
                 t.operation('attached', { OperationDef<Entity, Ctx> c ->
                     c.operation('inner', { OperationDef<Entity, Ctx> nested -> nested.run('inner') })
                 })
-            }) })
-            .state('s2', {})
+            })
+            .state('s2')
 
         when:
         smd.build()
@@ -317,10 +318,11 @@ class StateMachineDefImplNestedCycleDetectionSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-        smd.state('s1', { s -> s.transitionsTo('s2', 't', Ctx, { t ->
-            t.operation('a', { OperationDef<Entity, Ctx> c -> c.run('a') })
-        }) })
-        smd.state('s2', {})
+        smd.state('s1')
+            .transition('t', 's1', 's2', Ctx, { t ->
+                t.operation('a', { OperationDef<Entity, Ctx> c -> c.run('a') })
+            })
+        smd.state('s2')
 
         when: 'nothing could name a transition-attached container, so this used to build and recurse'
         smd.build()
@@ -335,8 +337,9 @@ class StateMachineDefImplNestedCycleDetectionSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1', { s -> s.transitionsTo('s2', 't', {}) })
-            .state('s2', {})
+            .state('s1')
+            .transition('t', 's1', 's2', {})
+            .state('s2')
         return smd
     }
 }

@@ -68,9 +68,11 @@ class StateMachineImplTriggerDiagnosticsSpec extends Specification {
     def 'the scan line reports zero candidates when no event trigger leaves the current state'() {
         given: 'the only event trigger leaves s2, while the entity sits in s1'
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't1', {}) })
-            .state('s2', { st -> st.transitionsTo('s3', 't2', { t -> t.addEventTrigger('paid', 'PAYMENT') }) })
-            .state('s3', {}) })
+            .state('s1')
+            .transition('t1', 's1', 's2', {})
+            .state('s2')
+            .transition('t2', 's2', 's3', { t -> t.addEventTrigger('paid', 'PAYMENT') })
+            .state('s3') })
 
         when:
         def result = sm.entity(new Entity('s1')).processEvent('PAYMENT', null)
@@ -86,8 +88,9 @@ class StateMachineImplTriggerDiagnosticsSpec extends Specification {
     def 'a trigger listening for another event is not a candidate, and the two counts say which'() {
         given:
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addEventTrigger('paid', 'PAYMENT') }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t.addEventTrigger('paid', 'PAYMENT') })
+            .state('s2') })
 
         when:
         def result = sm.entity(new Entity('s1')).processEvent('SHIPPED', null)
@@ -104,9 +107,9 @@ class StateMachineImplTriggerDiagnosticsSpec extends Specification {
     def 'a trigger whose transition refuses the context is skipped, naming both types'() {
         given:
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext,
-                { t -> t.addEventTrigger('paid', 'PAYMENT') }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t -> t.addEventTrigger('paid', 'PAYMENT') })
+            .state('s2') })
 
         when: 'the firing context - not the payload - is of the wrong type'
         def result = sm.entity(new Entity('s1')).processEvent('PAYMENT', null, 'not a TestContext')
@@ -125,9 +128,9 @@ class StateMachineImplTriggerDiagnosticsSpec extends Specification {
     def 'a Void-context transition renders its expected type without a space'() {
         given: 'the reason token would otherwise read "expects=Void (no context)"'
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', Void,
-                { t -> t.addEventTrigger('paid', 'PAYMENT') }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', Void, { t -> t.addEventTrigger('paid', 'PAYMENT') })
+            .state('s2') })
 
         when:
         def result = sm.entity(new Entity('s1')).processEvent('PAYMENT', null, 'unwanted')
@@ -141,10 +144,11 @@ class StateMachineImplTriggerDiagnosticsSpec extends Specification {
     def 'a filter that rejects the payload is skipped as filter-rejected'() {
         given:
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addEventTrigger('paid', { et -> et
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t.addEventTrigger('paid', { et -> et
                 .onEvent('PAYMENT')
-                .filter({ ev, e -> ((Payload) ev).kind == 'paid' } as BiPredicate) }) }) })
-            .state('s2', {}) })
+                .filter({ ev, e -> ((Payload) ev).kind == 'paid' } as BiPredicate) }) })
+            .state('s2') })
 
         when:
         def result = sm.entity(new Entity('s1')).processEvent('PAYMENT', new Payload('pending'))
@@ -157,8 +161,9 @@ class StateMachineImplTriggerDiagnosticsSpec extends Specification {
     def 'a fired event trigger reports the trigger and the transition it drives'() {
         given:
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addEventTrigger('paid', 'PAYMENT') }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t.addEventTrigger('paid', 'PAYMENT') })
+            .state('s2') })
 
         when:
         def result = sm.entity(new Entity('s1')).processEvent('PAYMENT', null)
@@ -172,14 +177,14 @@ class StateMachineImplTriggerDiagnosticsSpec extends Specification {
     def 'the scan explains every candidate it passed over before firing'() {
         given: 'a non-candidate, two candidates skipped for different reasons, then one that fires'
         def sm = build({ d -> d
-            .state('s1', { st -> st
-                .transitionsTo('s2', 'wrong-event', { t -> t.addEventTrigger('other-event', 'SHIPPED') })
-                .transitionsTo('s2', 'picky-ctx', TestContext, { t -> t.addEventTrigger('bad-ctx', 'PAYMENT') })
-                .transitionsTo('s2', 'filtered', { t -> t.addEventTrigger('rejects', { et -> et
-                    .onEvent('PAYMENT')
-                    .filter({ ev, e -> false } as BiPredicate) }) })
-                .transitionsTo('s2', 'accepts', { t -> t.addEventTrigger('winner', 'PAYMENT') }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('wrong-event', 's1', 's2', { t -> t.addEventTrigger('other-event', 'SHIPPED') })
+            .transition('picky-ctx', 's1', 's2', TestContext, { t -> t.addEventTrigger('bad-ctx', 'PAYMENT') })
+            .transition('filtered', 's1', 's2', { t -> t.addEventTrigger('rejects', { et -> et
+                .onEvent('PAYMENT')
+                .filter({ ev, e -> false } as BiPredicate) }) })
+            .transition('accepts', 's1', 's2', { t -> t.addEventTrigger('winner', 'PAYMENT') })
+            .state('s2') })
 
         when:
         def result = sm.entity(new Entity('s1')).processEvent('PAYMENT', null, 'not a TestContext')
@@ -204,8 +209,9 @@ class StateMachineImplTriggerDiagnosticsSpec extends Specification {
     def 'the scan line reports zero candidates when no data trigger leaves the current state'() {
         given:
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't1', {}) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t1', 's1', 's2', {})
+            .state('s2') })
 
         when:
         def result = sm.entity(new Entity('s1')).processDataChange()
@@ -219,9 +225,10 @@ class StateMachineImplTriggerDiagnosticsSpec extends Specification {
     def 'a gate that does not hold is skipped as gate-rejected'() {
         given:
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addDataTrigger('ready', { dt ->
-                dt.condition('never', { Entity e -> false } as Predicate) }) }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t.addDataTrigger('ready', { dt ->
+                dt.condition('never', { Entity e -> false } as Predicate) }) })
+            .state('s2') })
 
         when:
         def result = sm.entity(new Entity('s1')).processDataChange()
@@ -236,9 +243,10 @@ class StateMachineImplTriggerDiagnosticsSpec extends Specification {
     def 'a held gate reports the trigger and the transition it drives'() {
         given:
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addDataTrigger('ready', { dt ->
-                dt.condition('always', { Entity e -> true } as Predicate) }) }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t.addDataTrigger('ready', { dt ->
+                dt.condition('always', { Entity e -> true } as Predicate) }) })
+            .state('s2') })
 
         when:
         def result = sm.entity(new Entity('s1')).processDataChange()
@@ -253,8 +261,9 @@ class StateMachineImplTriggerDiagnosticsSpec extends Specification {
     def 'a manual fire reports the trigger and the transition it drives'() {
         given: 'the path that has no scan to explain it, and so is the easiest one to leave silent'
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addManualTrigger('go') }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t.addManualTrigger('go') })
+            .state('s2') })
 
         when:
         sm.entity(new Entity('s1')).fire('go')
@@ -268,12 +277,12 @@ class StateMachineImplTriggerDiagnosticsSpec extends Specification {
     def 'the trigger tree stays below INFO across every dispatch path'() {
         given:
         def sm = build({ d -> d
-            .state('s1', { st -> st
-                .transitionsTo('s2', 'manual', { t -> t.addManualTrigger('go') })
-                .transitionsTo('s2', 'evt', { t -> t.addEventTrigger('paid', 'PAYMENT') })
-                .transitionsTo('s2', 'data', { t -> t.addDataTrigger('ready', { dt ->
-                    dt.condition('never', { Entity e -> false } as Predicate) }) }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('manual', 's1', 's2', { t -> t.addManualTrigger('go') })
+            .transition('evt', 's1', 's2', { t -> t.addEventTrigger('paid', 'PAYMENT') })
+            .transition('data', 's1', 's2', { t -> t.addDataTrigger('ready', { dt ->
+                dt.condition('never', { Entity e -> false } as Predicate) }) })
+            .state('s2') })
 
         when: 'a scan that fires nothing, a scan that fires, and a manual fire'
         sm.entity(new Entity('s1')).processDataChange()
@@ -290,8 +299,9 @@ class StateMachineImplTriggerDiagnosticsSpec extends Specification {
     def 'every scan line lands on the trigger logger'() {
         given:
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addEventTrigger('paid', 'PAYMENT') }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t.addEventTrigger('paid', 'PAYMENT') })
+            .state('s2') })
 
         when:
         sm.entity(new Entity('s1')).processEvent('SHIPPED', null)

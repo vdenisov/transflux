@@ -87,16 +87,15 @@ class StateMachineImplActionListenerSpec extends Specification {
         def log = []
         def entity = new Entity('s1')
         def sm = build({ d ->
-            d.state('s1', { st ->
-                st.transitionsTo('s2', 't', { t ->
+            d.state('s1')
+                .transition('t', 's1', 's2', { t ->
                     t.step('act', { StepDef s ->
                         s.using({ e, ctx, tr -> log << 'body' } as Action)
                          .onStart('before', recorder(log, 'start'))
                          .onComplete('after', recorder(log, 'complete'))
                     } as Consumer)
                 } as Consumer)
-            } as Consumer)
-             .state('s2', {} as Consumer)
+             .state('s2')
         })
 
         when:
@@ -112,8 +111,8 @@ class StateMachineImplActionListenerSpec extends Specification {
         def log = []
         def entity = new Entity('s1')
         def sm = build({ d ->
-            d.state('s1', { st ->
-                st.transitionsTo('s2', 't', { t ->
+            d.state('s1')
+                .transition('t', 's1', 's2', { t ->
                     t.step('act', { StepDef s ->
                         s.using({ e, ctx, tr -> throw new IllegalStateException('boom') } as Action)
                          .onStart('before', recorder(log, 'start'))
@@ -121,8 +120,7 @@ class StateMachineImplActionListenerSpec extends Specification {
                          .onError('failed', recorder(log, 'error'))
                     } as Consumer)
                 } as Consumer)
-            } as Consumer)
-             .state('s2', {} as Consumer)
+             .state('s2')
         })
 
         when:
@@ -139,8 +137,8 @@ class StateMachineImplActionListenerSpec extends Specification {
         given:
         def durations = [:]
         def sm = build({ d ->
-            d.state('s1', { st ->
-                st.transitionsTo('s2', 't', { t ->
+            d.state('s1')
+                .transition('t', 's1', 's2', { t ->
                     t.step('act', { StepDef s ->
                         s.using({ e, ctx, tr ->
                             Thread.sleep(20)
@@ -153,8 +151,7 @@ class StateMachineImplActionListenerSpec extends Specification {
                          .onError('failed', { e, c, x -> durations.ERROR = x.duration() } as ActionListener)
                     } as Consumer)
                 } as Consumer)
-            } as Consumer)
-             .state('s2', {} as Consumer)
+             .state('s2')
         })
 
         when:
@@ -178,13 +175,12 @@ class StateMachineImplActionListenerSpec extends Specification {
         def sm = build({ d ->
             d.onAnyActionStart('any-start', recorder(log, 'start'))
              .onAnyActionError('any-error', recorder(log, 'error'))
-             .state('s1', { st ->
-                 st.transitionsTo('s2', 't', { t ->
-                     t.preCondition('never', { e -> false } as Predicate)
-                      .step('act', { e, ctx, tr -> } as Action)
-                 } as Consumer)
+             .state('s1')
+             .transition('t', 's1', 's2', { t ->
+                 t.preCondition('never', { e -> false } as Predicate)
+                  .step('act', { e, ctx, tr -> } as Action)
              } as Consumer)
-             .state('s2', {} as Consumer)
+             .state('s2')
         })
 
         when:
@@ -201,20 +197,19 @@ class StateMachineImplActionListenerSpec extends Specification {
         def entity = new Entity('s1')
         def sm = build({ d ->
             d.onAnyActionStart('capture', capturing(seen))
-             .state('s1', { st ->
-                 st.transitionsTo('s2', 't', { t ->
-                     t.operation('outer', { OperationDef op ->
-                         op.step('leaf', { e, ctx, tr -> } as Action)
-                           .choice('choice', { ChoiceDef c ->
-                               c.branch('only', { BranchDef b ->
-                                   b.condition('always', { e -> true } as Predicate)
-                                    .step('branch-leaf', { e, ctx, tr -> } as Action)
-                               } as Consumer)
+             .state('s1')
+             .transition('t', 's1', 's2', { t ->
+                 t.operation('outer', { OperationDef op ->
+                     op.step('leaf', { e, ctx, tr -> } as Action)
+                       .choice('choice', { ChoiceDef c ->
+                           c.branch('only', { BranchDef b ->
+                               b.condition('always', { e -> true } as Predicate)
+                                .step('branch-leaf', { e, ctx, tr -> } as Action)
                            } as Consumer)
-                     } as Consumer)
+                       } as Consumer)
                  } as Consumer)
              } as Consumer)
-             .state('s2', {} as Consumer)
+             .state('s2')
         })
 
         when:
@@ -238,14 +233,13 @@ class StateMachineImplActionListenerSpec extends Specification {
         def sm = build({ d ->
             d.step('audit', Object, { StepDef s -> s.using({ e, ctx, tr -> } as Action) } as Consumer)
              .onAnyActionStart('capture', capturing(seen))
-             .state('s1', { st ->
-                 st.transitionsTo('s2', 't', { t ->
-                     t.operation('outer', { OperationDef op ->
-                         op.step('dispatcher', { e, ctx, tr -> tr.run('audit') } as Action)
-                     } as Consumer)
+             .state('s1')
+             .transition('t', 's1', 's2', { t ->
+                 t.operation('outer', { OperationDef op ->
+                     op.step('dispatcher', { e, ctx, tr -> tr.run('audit') } as Action)
                  } as Consumer)
              } as Consumer)
-             .state('s2', {} as Consumer)
+             .state('s2')
         })
 
         when:
@@ -263,14 +257,13 @@ class StateMachineImplActionListenerSpec extends Specification {
         def entity = new Entity('s1')
         def sm = build({ d ->
             d.onAnyActionError('capture', capturing(failures))
-             .state('s1', { st ->
-                 st.transitionsTo('s2', 't', { t ->
-                     t.operation('outer', { OperationDef op ->
-                         op.step('boom', { e, ctx, tr -> throw new IllegalStateException('boom') } as Action)
-                     } as Consumer)
+             .state('s1')
+             .transition('t', 's1', 's2', { t ->
+                 t.operation('outer', { OperationDef op ->
+                     op.step('boom', { e, ctx, tr -> throw new IllegalStateException('boom') } as Action)
                  } as Consumer)
              } as Consumer)
-             .state('s2', {} as Consumer)
+             .state('s2')
         })
 
         when:
@@ -291,16 +284,15 @@ class StateMachineImplActionListenerSpec extends Specification {
         def sm = build({ d ->
             d.onAnyActionStart('any-1', recorder(log, 'any-1'))
              .onAnyActionStart('any-2', recorder(log, 'any-2'))
-             .state('s1', { st ->
-                 st.transitionsTo('s2', 't', { t ->
-                     t.step('act', { StepDef s ->
-                         s.using({ e, ctx, tr -> } as Action)
-                          .onStart('own-1', recorder(log, 'own-1'))
-                          .onStart('own-2', recorder(log, 'own-2'))
-                     } as Consumer)
+             .state('s1')
+             .transition('t', 's1', 's2', { t ->
+                 t.step('act', { StepDef s ->
+                     s.using({ e, ctx, tr -> } as Action)
+                      .onStart('own-1', recorder(log, 'own-1'))
+                      .onStart('own-2', recorder(log, 'own-2'))
                  } as Consumer)
              } as Consumer)
-             .state('s2', {} as Consumer)
+             .state('s2')
         })
 
         when:
@@ -337,16 +329,15 @@ class StateMachineImplActionListenerSpec extends Specification {
         def log = []
         def entity = new Entity('s1')
         def sm = build({ d ->
-            d.state('s1', { st ->
-                st.transitionsTo('s2', 't', { t ->
+            d.state('s1')
+                .transition('t', 's1', 's2', { t ->
                     t.step('act', { StepDef s ->
                         s.using({ e, ctx, tr -> } as Action)
                          .onStart('first', { e, ctx, x -> throw new IllegalStateException('listener blew up') } as ActionListener)
                          .onStart('second', recorder(log, 'second'))
                     } as Consumer)
                 } as Consumer)
-            } as Consumer)
-             .state('s2', {} as Consumer)
+             .state('s2')
         })
 
         when:
@@ -369,22 +360,21 @@ class StateMachineImplActionListenerSpec extends Specification {
             d.step('side-effect', Object, { StepDef s ->
                 s.using({ e, ctx, tr -> stepRuns << 'ran' } as Action)
             } as Consumer)
-             .state('s1', { st ->
-                 st.transitionsTo('s2', 't', { t ->
-                     t.step('act', { StepDef s ->
-                         s.using({ e, ctx, tr -> } as Action)
-                          .onStart('meddler', { e, ctx, x ->
-                              try {
-                                  dispatchable << (x.transition() instanceof ExecutingTransition)
-                                  x.transition().run('side-effect')
-                              } catch (Exception ex) {
-                                  failures << ex.message
-                              }
-                          } as ActionListener)
-                     } as Consumer)
+             .state('s1')
+             .transition('t', 's1', 's2', { t ->
+                 t.step('act', { StepDef s ->
+                     s.using({ e, ctx, tr -> } as Action)
+                      .onStart('meddler', { e, ctx, x ->
+                          try {
+                              dispatchable << (x.transition() instanceof ExecutingTransition)
+                              x.transition().run('side-effect')
+                          } catch (Exception ex) {
+                              failures << ex.message
+                          }
+                      } as ActionListener)
                  } as Consumer)
              } as Consumer)
-             .state('s2', {} as Consumer)
+             .state('s2')
         })
 
         when:
@@ -409,14 +399,13 @@ class StateMachineImplActionListenerSpec extends Specification {
             } as Consumer)
              .mapper('child-from-parent', ParentContext, ChildContext,
                      { ParentContext p -> new ChildContext(p.tag + '-mapped') } as ContextMapper)
-             .state('s1', { st ->
-                 st.transitionsTo('s2', 't', ParentContext, { t ->
-                     t.operation('wrap', { OperationDef op ->
-                         op.run('child', 'child-from-parent')
-                     } as Consumer)
+             .state('s1')
+             .transition('t', 's1', 's2', ParentContext, { t ->
+                 t.operation('wrap', { OperationDef op ->
+                     op.run('child', 'child-from-parent')
                  } as Consumer)
              } as Consumer)
-             .state('s2', {} as Consumer)
+             .state('s2')
         })
 
         when:
@@ -442,14 +431,13 @@ class StateMachineImplActionListenerSpec extends Specification {
             } as Consumer)
              .mapper('child-from-parent', ParentContext, ChildContext, new FailingMapFromMapper())
              .onAnyActionError('capture', capturing(failures))
-             .state('s1', { st ->
-                 st.transitionsTo('s2', 't', ParentContext, { t ->
-                     t.operation('wrap', { OperationDef op ->
-                         op.run('child', 'child-from-parent')
-                     } as Consumer)
+             .state('s1')
+             .transition('t', 's1', 's2', ParentContext, { t ->
+                 t.operation('wrap', { OperationDef op ->
+                     op.run('child', 'child-from-parent')
                  } as Consumer)
              } as Consumer)
-             .state('s2', {} as Consumer)
+             .state('s2')
         })
 
         when:
@@ -476,10 +464,9 @@ class StateMachineImplActionListenerSpec extends Specification {
                      .onComplete('after', recorder(log, 'complete'))
                 } as Consumer)
             } as Consumer)
-             .state('s1', { st ->
-                 st.transitionsTo('s2', 't', ParentContext, { t -> t.run('charge') } as Consumer)
-             } as Consumer)
-             .state('s2', {} as Consumer)
+             .state('s1')
+             .transition('t', 's1', 's2', ParentContext, { t -> t.run('charge') } as Consumer)
+             .state('s2')
         })
 
         when:
@@ -500,10 +487,9 @@ class StateMachineImplActionListenerSpec extends Specification {
                  .onStart('before', recorder(log, 'start'))
                  .onComplete('after', recorder(log, 'complete'))
             } as Consumer)
-             .state('s1', { st ->
-                 st.transitionsTo('s2', 't', { t -> t.run('charge') } as Consumer)
-             } as Consumer)
-             .state('s2', {} as Consumer)
+             .state('s1')
+             .transition('t', 's1', 's2', { t -> t.run('charge') } as Consumer)
+             .state('s2')
         })
 
         when:
@@ -521,16 +507,16 @@ class StateMachineImplActionListenerSpec extends Specification {
         def sm = build({ d ->
             d.state('s1', { st ->
                 st.onExit('leave', stateRecorder(log, 'state-exit'))
-                  .transitionsTo('s2', 't', { t ->
-                      t.onStart('t-start', transitionRecorder(log, 'transition-start'))
-                       .onComplete('t-complete', transitionRecorder(log, 'transition-complete'))
-                       .step('act', { StepDef s ->
-                           s.using({ e, ctx, tr -> log << 'body' } as Action)
-                            .onStart('a-start', recorder(log, 'action-start'))
-                            .onComplete('a-complete', recorder(log, 'action-complete'))
-                       } as Consumer)
-                  } as Consumer)
             } as Consumer)
+                .transition('t', 's1', 's2', { t ->
+                    t.onStart('t-start', transitionRecorder(log, 'transition-start'))
+                     .onComplete('t-complete', transitionRecorder(log, 'transition-complete'))
+                     .step('act', { StepDef s ->
+                         s.using({ e, ctx, tr -> log << 'body' } as Action)
+                          .onStart('a-start', recorder(log, 'action-start'))
+                          .onComplete('a-complete', recorder(log, 'action-complete'))
+                     } as Consumer)
+                } as Consumer)
              .state('s2', { st -> st.onEntry('enter', stateRecorder(log, 'state-entry')) } as Consumer)
         })
 
@@ -548,14 +534,13 @@ class StateMachineImplActionListenerSpec extends Specification {
         StateMachineDef<Entity> builder = smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
         builder.onAnyStateEntry('dup', { e, ctx, change -> } as StateListener)
-               .state('s1', { st ->
-                   st.transitionsTo('s2', 't', { t ->
-                       t.step('act', { StepDef s ->
-                           s.using({ e, ctx, tr -> } as Action).onStart('dup', { e, ctx, x -> } as ActionListener)
-                       } as Consumer)
+               .state('s1')
+               .transition('t', 's1', 's2', { t ->
+                   t.step('act', { StepDef s ->
+                       s.using({ e, ctx, tr -> } as Action).onStart('dup', { e, ctx, x -> } as ActionListener)
                    } as Consumer)
                } as Consumer)
-               .state('s2', {} as Consumer)
+               .state('s2')
 
         when:
         smd.build()
@@ -570,8 +555,8 @@ class StateMachineImplActionListenerSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         StateMachineDef<Entity> builder = smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-        builder.state('s1', { st ->
-            st.transitionsTo('s2', 't', { t ->
+        builder.state('s1')
+            .transition('t', 's1', 's2', { t ->
                 t.operation('outer', { OperationDef op ->
                     op.onStart('dup', { e, ctx, x -> } as ActionListener)
                       .step('leaf', { StepDef s ->
@@ -579,8 +564,7 @@ class StateMachineImplActionListenerSpec extends Specification {
                       } as Consumer)
                 } as Consumer)
             } as Consumer)
-        } as Consumer)
-               .state('s2', {} as Consumer)
+               .state('s2')
 
         when:
         smd.build()
@@ -595,14 +579,13 @@ class StateMachineImplActionListenerSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         StateMachineDef<Entity> builder = smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-        builder.state('s1', { st ->
-            st.transitionsTo('s2', 't', { t ->
+        builder.state('s1')
+            .transition('t', 's1', 's2', { t ->
                 t.step('act', { StepDef s ->
                     s.using({ e, ctx, tr -> } as Action).onStart('audit', { e, ctx, x -> } as ActionListener)
                 } as Consumer)
             } as Consumer)
-        } as Consumer)
-               .state('s2', {} as Consumer)
+               .state('s2')
 
         when:
         smd.build()
@@ -618,29 +601,27 @@ class StateMachineImplActionListenerSpec extends Specification {
                 s.using({ e, ctx, tr -> } as Action)
                  .onStart('charge-audit', { en, ctx, x -> seen << x.path() } as ActionListener)
             } as Consumer)
-             .state('s1', { st -> st.transitionsTo('s2', 't1', { t -> t.run('charge') } as Consumer) } as Consumer)
-             .state('s2', { st ->
-                 st.transitionsTo('s3', 't2', { t ->
-                     t.operation('wrap', { OperationDef op -> op.run('charge') } as Consumer)
-                 } as Consumer)
+             .state('s1')
+             .transition('t1', 's1', 's2', { t -> t.run('charge') } as Consumer)
+             .state('s2')
+             .transition('t2', 's2', 's3', { t ->
+                 t.operation('wrap', { OperationDef op -> op.run('charge') } as Consumer)
              } as Consumer)
-             .state('s3', { st ->
-                 st.transitionsTo('s4', 't3', { t ->
-                     t.step('caller', { e, ctx, tr -> tr.run('charge') } as Action)
-                 } as Consumer)
+             .state('s3')
+             .transition('t3', 's3', 's4', { t ->
+                 t.step('caller', { e, ctx, tr -> tr.run('charge') } as Action)
              } as Consumer)
-             .state('s4', { st ->
-                 st.transitionsTo('s5', 't4', { t ->
-                     t.operation('router', { OperationDef op ->
-                         op.choice('pick', { ChoiceDef c ->
-                             c.branch('only', { BranchDef b ->
-                                 b.condition('always', { e -> true } as Predicate).run('charge')
-                             } as Consumer)
+             .state('s4')
+             .transition('t4', 's4', 's5', { t ->
+                 t.operation('router', { OperationDef op ->
+                     op.choice('pick', { ChoiceDef c ->
+                         c.branch('only', { BranchDef b ->
+                             b.condition('always', { e -> true } as Predicate).run('charge')
                          } as Consumer)
                      } as Consumer)
                  } as Consumer)
              } as Consumer)
-             .state('s5', {} as Consumer)
+             .state('s5')
         })
     }
 

@@ -64,30 +64,37 @@ class DataTriggerDefImplSpec extends Specification {
         where:
         form        | setup
         'reference' | { StateMachineDef d -> d.condition('high', { e -> ((Entity) e).priority > 5 } as Predicate)
-                                .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addDataTrigger('dt', { dt -> dt.condition('high') }) }) })
-                                .state('s2', {}) }
+                                .state('s1')
+                                .transition('t', 's1', 's2', { t -> t.addDataTrigger('dt', { dt -> dt.condition('high') }) })
+                                .state('s2') }
         'instance'        | { StateMachineDef d -> d
-                                .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addDataTrigger('dt', { dt -> dt.condition('inst', new HighPriority()) }) }) })
-                                .state('s2', {}) }
+                                .state('s1')
+                                .transition('t', 's1', 's2', { t -> t.addDataTrigger('dt', { dt -> dt.condition('inst', new HighPriority()) }) })
+                                .state('s2') }
         'BiPredicate'     | { StateMachineDef d -> d
-                                .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addDataTrigger('dt', { dt -> dt.condition('bip', { e, c -> ((Entity) e).priority > 5 } as BiPredicate) }) }) })
-                                .state('s2', {}) }
+                                .state('s1')
+                                .transition('t', 's1', 's2', { t -> t.addDataTrigger('dt', { dt -> dt.condition('bip', { e, c -> ((Entity) e).priority > 5 } as BiPredicate) }) })
+                                .state('s2') }
         'Predicate'       | { StateMachineDef d -> d
-                                .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addDataTrigger('dt', { dt -> dt.condition('pred', { e -> ((Entity) e).priority > 5 } as Predicate) }) }) })
-                                .state('s2', {}) }
+                                .state('s1')
+                                .transition('t', 's1', 's2', { t -> t.addDataTrigger('dt', { dt -> dt.condition('pred', { e -> ((Entity) e).priority > 5 } as Predicate) }) })
+                                .state('s2') }
         'expression'      | { StateMachineDef d -> d
-                                .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addDataTrigger('dt', { dt -> dt.condition('expr', 'priority > 5') }) }) })
-                                .state('s2', {}) }
+                                .state('s1')
+                                .transition('t', 's1', 's2', { t -> t.addDataTrigger('dt', { dt -> dt.condition('expr', 'priority > 5') }) })
+                                .state('s2') }
         'auto-id expr'    | { StateMachineDef d -> d
-                                .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addDataTrigger('dt', { dt -> dt.conditionExpression('priority > 5') }) }) })
-                                .state('s2', {}) }
+                                .state('s1')
+                                .transition('t', 's1', 's2', { t -> t.addDataTrigger('dt', { dt -> dt.conditionExpression('priority > 5') }) })
+                                .state('s2') }
     }
 
     def 'a data trigger declaring no condition is rejected at build'() {
         when:
         build({ StateMachineDef d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addDataTrigger('dt', { dt -> dt.withName('No gate') }) }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t.addDataTrigger('dt', { dt -> dt.withName('No gate') }) })
+            .state('s2') })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -101,10 +108,11 @@ class DataTriggerDefImplSpec extends Specification {
 
         when:
         build({ StateMachineDef d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t -> t.addDataTrigger('dt', { dt ->
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t -> t.addDataTrigger('dt', { dt ->
                 escaped = (DataTriggerDefImpl<Entity, TestContext>) dt
-                dt.condition('any', { e -> true } as Predicate) }) }) })
-            .state('s2', {}) })
+                dt.condition('any', { e -> true } as Predicate) }) })
+            .state('s2') })
         escaped.condition('late', { e -> true } as Predicate)
 
         then:

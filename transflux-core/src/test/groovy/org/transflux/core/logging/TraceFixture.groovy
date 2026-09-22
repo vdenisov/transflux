@@ -63,10 +63,9 @@ class TraceFixture {
             .withStateResolver({ o -> o.state } as StateResolver<Order>)
             .withStateApplier({ o, s -> o.state = s } as StateApplier<Order>)
         smConfig.call(builder)
-        builder.state('s1', { s ->
-            s.transitionsTo('s2', 't', { t -> body.call(t) } as Consumer)
-        } as Consumer)
-        builder.state('s2', {} as Consumer)
+        builder.state('s1')
+            .transition('t', 's1', 's2', { t -> body.call(t) } as Consumer)
+        builder.state('s2')
         return smd.build()
     }
 }

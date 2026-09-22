@@ -21,7 +21,6 @@ package org.transflux.core.impl;
 import org.transflux.core.state.StateDef;
 import org.transflux.core.state.StateListener;
 import org.transflux.core.state.StateListenerDef;
-import org.transflux.core.transition.TransitionDef;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -146,34 +145,6 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
      */
     List<ListenerEntry<StateListenerDefImpl<T>>> getExitListeners() {
         return exitListeners;
-    }
-
-    @Override
-    public StateDefImpl<T> transitionsTo(String targetStateId, String transitionId,
-                                         Consumer<TransitionDef<T, Object>> configurer) {
-        requireConfigurerActive("transitionsTo");
-        requireNotBlank(targetStateId, "Target state ID");
-        requireNotBlank(transitionId, "Transition ID");
-        requireNotNull(configurer, "Transition configurer");
-        TransitionDefImpl<T, Object> td = stateMachineDef.<Object>registerTransition(
-            getId(), targetStateId, transitionId, Object.class);
-        ConfigurableDefImpl.runConfigurer(td, configurer);
-        return this;
-    }
-
-    @Override
-    public <C> StateDefImpl<T> transitionsTo(String targetStateId, String transitionId,
-                                             Class<C> contextType,
-                                             Consumer<TransitionDef<T, C>> configurer) {
-        requireConfigurerActive("transitionsTo");
-        requireNotBlank(targetStateId, "Target state ID");
-        requireNotBlank(transitionId, "Transition ID");
-        requireNotNull(contextType, "Context type");
-        requireNotNull(configurer, "Transition configurer");
-        TransitionDefImpl<T, C> td = stateMachineDef.registerTransition(
-            getId(), targetStateId, transitionId, contextType);
-        ConfigurableDefImpl.runConfigurer(td, configurer);
-        return this;
     }
 
     private ListenerEntry<StateListenerDefImpl<T>> declare(String listenerId,

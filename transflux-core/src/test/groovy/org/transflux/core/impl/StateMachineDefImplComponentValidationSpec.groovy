@@ -109,14 +109,13 @@ class StateMachineDefImplComponentValidationSpec extends Specification {
             .operation('sm-level', TestContext, { OperationDef<Entity, TestContext> c ->
                 c.step('sm-level-inline', new NoOpStep())
             })
-            .state('s1', { s ->
-                s.transitionsTo('s2', 't', TestContext, { t ->
-                    t.operation('outer', { OperationDef<Entity, TestContext> c ->
-                        c.step('outer-inline', new NoOpStep())
-                    })
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
+                t.operation('outer', { OperationDef<Entity, TestContext> c ->
+                    c.step('outer-inline', new NoOpStep())
                 })
             })
-            .state('s2', {})
+            .state('s2')
         return smd
     }
 

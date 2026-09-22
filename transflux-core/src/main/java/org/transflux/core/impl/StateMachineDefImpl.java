@@ -1287,6 +1287,28 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @Override
+    public StateMachineDef<T> state(String stateId) {
+        requireNotBlank(stateId, "State ID");
+        registerState(stateId);
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> transition(String transitionId, String sourceStateId, String targetStateId,
+                                         Consumer<TransitionDef<T, Object>> configurer) {
+        return transition(transitionId, sourceStateId, targetStateId, Object.class, configurer);
+    }
+
+    @Override
+    public <C> StateMachineDef<T> transition(String transitionId, String sourceStateId, String targetStateId,
+                                             Class<C> contextType, Consumer<TransitionDef<T, C>> configurer) {
+        requireNotNull(configurer, "Transition configurer");
+        TransitionDefImpl<T, C> td = registerTransition(sourceStateId, targetStateId, transitionId, contextType);
+        ConfigurableDefImpl.runConfigurer(td, configurer);
+        return this;
+    }
+
+    @Override
     public StateMachineDef<T> withExecutionLogging() {
         return withExecutionLogging(ExecutionLogging.defaults());
     }
@@ -1856,20 +1878,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
-     * Registers a transition between two states with pass-through ({@link Object}) context.
-     *
-     * @param sourceStateId the ID of the source state
-     * @param targetStateId the ID of the target state
-     * @param transitionId the unique identifier for the transition
-     *
-     * @return the newly registered transition def
-     */
-    TransitionDefImpl<T, Object> registerTransition(String sourceStateId, String targetStateId,
-                                                           String transitionId) {
-        return registerTransition(sourceStateId, targetStateId, transitionId, Object.class);
-    }
-
-    /**
      * Registers a transition between two states tagged with the supplied context type.
      *
      * @param sourceStateId the ID of the source state
@@ -2077,6 +2085,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     private void validateContextCompatibilityAndCycles() {
+        checkTransitionEndpoints();
         checkOwnedListenerIds();
         checkGlobalListenerDisables();
         checkBlockingIsPossible();
@@ -2099,6 +2108,19 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
                                    smLevelLabel(e.getValue()), List.of(), this);
         }
         detectCompositeCycles();
+    }
+
+    private void checkTransitionEndpoints() {
+        for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
+            if (!states.containsKey(td.getSourceStateId())) {
+                throw new TransfluxValidationException("Transition '" + td.getId() + "' leaves state '"
+                    + td.getSourceStateId() + "', which is not declared");
+            }
+            if (!states.containsKey(td.getTargetStateId())) {
+                throw new TransfluxValidationException("Transition '" + td.getId() + "' targets state '"
+                    + td.getTargetStateId() + "', which is not declared");
+            }
+        }
     }
 
     /**

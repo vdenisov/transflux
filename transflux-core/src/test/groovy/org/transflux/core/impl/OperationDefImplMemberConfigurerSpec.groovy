@@ -57,10 +57,9 @@ class OperationDefImplMemberConfigurerSpec extends Specification {
         def log = []
         def entity = new Entity('s1')
         def sm = build({ d ->
-            d.state('s1', { st ->
-                st.transitionsTo('s2', 't', { t -> t.operation('outer', declare.curry(log)) } as Consumer)
-            } as Consumer)
-             .state('s2', {} as Consumer)
+            d.state('s1')
+                .transition('t', 's1', 's2', { t -> t.operation('outer', declare.curry(log)) } as Consumer)
+             .state('s2')
         })
 
         when:

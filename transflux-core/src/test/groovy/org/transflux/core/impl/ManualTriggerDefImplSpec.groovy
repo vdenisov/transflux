@@ -84,10 +84,11 @@ class ManualTriggerDefImplSpec extends Specification {
         ManualTriggerDef<Entity, TestContext> captured = null
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
                 t.addManualTrigger('mt', { mt -> captured = mt })
-            }) })
-            .state('s2', {})
+            })
+            .state('s2')
 
         when:
         captured.preCondition('p', { e -> true } as Predicate)
@@ -139,9 +140,10 @@ class ManualTriggerDefImplSpec extends Specification {
         when: 'the trigger is declared inside a transition that pre-bound its context'
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t -> t
-                .addManualTrigger('mt', { mt -> captured = mt }) }) })
-            .state('s2', {})
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t -> t
+                .addManualTrigger('mt', { mt -> captured = mt }) })
+            .state('s2')
         smd.build()
 
         then: 'the trigger reads the type back through the transition rather than copying it'
@@ -159,7 +161,8 @@ class ManualTriggerDefImplSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
             .condition('registered', { e -> true } as Predicate)
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
                 t.addManualTrigger('go', { mt -> mt
                     .preCondition('registered')
                     .preConditionExpression('true')
@@ -167,8 +170,8 @@ class ManualTriggerDefImplSpec extends Specification {
                     .preCondition('bip', biTrue)
                     .preCondition('pred', predTrue)
                     .preCondition('expr', 'true') })
-            }) })
-            .state('s2', {})
+            })
+            .state('s2')
         def sm = smd.build()
 
         when:
@@ -183,8 +186,9 @@ class ManualTriggerDefImplSpec extends Specification {
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t -> cfg.accept(t) }) })
-            .state('s2', {})
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t -> cfg.accept(t) })
+            .state('s2')
         return smd.build()
     }
 }

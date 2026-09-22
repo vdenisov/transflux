@@ -45,10 +45,10 @@ class StateMachineImplDataDispatchSpec extends Specification {
 
     def 'processDataChange fires when the gate holds and skips when it does not'() {
         given:
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', { t -> t.addDataTrigger('hot', { dt -> dt
-                .condition('high', { e -> e.priority > 5 } as Predicate) }) }) })
-            .state('s2', {}) })
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', { t -> t.addDataTrigger('hot', { dt -> dt
+                .condition('high', { e -> e.priority > 5 } as Predicate) }) })
+            .state('s2') })
 
         expect:
         !sm.entity(new Entity('s1', 3)).processDataChange().fired()
@@ -66,10 +66,10 @@ class StateMachineImplDataDispatchSpec extends Specification {
 
     def 'the gate is evaluated against the entity and the supplied context'() {
         given:
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', TestContext, { t -> t.addDataTrigger('hot', { dt -> dt
-                .conditionExpression("priority > 5 && #context.tag == 'go'") }) }) })
-            .state('s2', {}) })
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', TestContext, { t -> t.addDataTrigger('hot', { dt -> dt
+                .conditionExpression("priority > 5 && #context.tag == 'go'") }) })
+            .state('s2') })
 
         expect:
         sm.entity(new Entity('s1', 9)).processDataChange(new TestContext('go')).fired()
@@ -79,13 +79,13 @@ class StateMachineImplDataDispatchSpec extends Specification {
 
     def 'when two gates hold, the first declared fires'() {
         given:
-        def sm = build({ d -> d.state('s1', { st -> st
-            .transitionsTo('s2', 't1', { t -> t.addDataTrigger('first', { dt -> dt
+        def sm = build({ d -> d.state('s1')
+            .transition('t1', 's1', 's2', { t -> t.addDataTrigger('first', { dt -> dt
                 .condition('any', { e -> true } as Predicate) }) })
-            .transitionsTo('s3', 't2', { t -> t.addDataTrigger('second', { dt -> dt
-                .condition('alsoAny', { e -> true } as Predicate) }) }) })
-            .state('s2', {})
-            .state('s3', {}) })
+            .transition('t2', 's1', 's3', { t -> t.addDataTrigger('second', { dt -> dt
+                .condition('alsoAny', { e -> true } as Predicate) }) })
+            .state('s2')
+            .state('s3') })
         def entity = new Entity('s1')
 
         when:
@@ -100,11 +100,11 @@ class StateMachineImplDataDispatchSpec extends Specification {
     def 'the firing context is passed to the operation'() {
         given:
         def seen = []
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', TestContext, { t -> t
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', TestContext, { t -> t
                 .step('op', { e, c, tr -> seen.add(c) } as Action)
-                .addDataTrigger('hot', { dt -> dt.condition('any', { e -> true } as Predicate) }) }) })
-            .state('s2', {}) })
+                .addDataTrigger('hot', { dt -> dt.condition('any', { e -> true } as Predicate) }) })
+            .state('s2') })
         def ctx = new TestContext('ctx')
 
         when:
@@ -117,11 +117,11 @@ class StateMachineImplDataDispatchSpec extends Specification {
     def 'a data trigger does not fire until processDataChange is called'() {
         given:
         def fired = []
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', { t -> t
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', { t -> t
                 .step('op', { e, c, tr -> fired.add(e) } as Action)
-                .addDataTrigger('hot', { dt -> dt.condition('any', { e -> true } as Predicate) }) }) })
-            .state('s2', {}) })
+                .addDataTrigger('hot', { dt -> dt.condition('any', { e -> true } as Predicate) }) })
+            .state('s2') })
         def entity = new Entity('s1')
 
         expect: 'building and holding the machine fires nothing on its own'
@@ -140,11 +140,13 @@ class StateMachineImplDataDispatchSpec extends Specification {
     def 'only triggers leaving the current state are eligible'() {
         given:
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't1', { t -> t.addDataTrigger('from-s1', { dt -> dt
-                .condition('any', { e -> true } as Predicate) }) }) })
-            .state('s2', { st -> st.transitionsTo('s3', 't2', { t -> t.addDataTrigger('from-s2', { dt -> dt
-                .condition('any2', { e -> true } as Predicate) }) }) })
-            .state('s3', {}) })
+            .state('s1')
+            .transition('t1', 's1', 's2', { t -> t.addDataTrigger('from-s1', { dt -> dt
+                .condition('any', { e -> true } as Predicate) }) })
+            .state('s2')
+            .transition('t2', 's2', 's3', { t -> t.addDataTrigger('from-s2', { dt -> dt
+                .condition('any2', { e -> true } as Predicate) }) })
+            .state('s3') })
 
         when: 'the entity is in s2, the s1 trigger is not eligible'
         def entity = new Entity('s2')
@@ -159,10 +161,10 @@ class StateMachineImplDataDispatchSpec extends Specification {
     def 'a gate that throws is attributed to its trigger and keeps the original cause'() {
         given:
         def boom = new IllegalStateException('entity had no priority')
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', { t -> t.addDataTrigger('hot', { dt -> dt
-                .condition('explodes', { e -> throw boom } as Predicate) }) }) })
-            .state('s2', {}) })
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', { t -> t.addDataTrigger('hot', { dt -> dt
+                .condition('explodes', { e -> throw boom } as Predicate) }) })
+            .state('s2') })
 
         when:
         sm.entity(new Entity('s1')).processDataChange()
@@ -178,10 +180,10 @@ class StateMachineImplDataDispatchSpec extends Specification {
     def 'a typed gate never sees a context its transition would reject'() {
         given:
         def gateCalls = []
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', TestContext, { t -> t.addDataTrigger('gated', { dt -> dt
-                .condition('tagged', { e, TestContext c -> gateCalls << c; true } as BiPredicate) }) }) })
-            .state('s2', {}) })
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', TestContext, { t -> t.addDataTrigger('gated', { dt -> dt
+                .condition('tagged', { e, TestContext c -> gateCalls << c; true } as BiPredicate) }) })
+            .state('s2') })
         def entity = new Entity('s1')
 
         when: 'a context of the wrong type is supplied'
@@ -197,13 +199,13 @@ class StateMachineImplDataDispatchSpec extends Specification {
     def 'a context-incompatible data trigger is skipped and a later compatible one still fires'() {
         given:
         def entity = new Entity('s1')
-        def sm = build({ d -> d.state('s1', { st -> st
-            .transitionsTo('s2', 'typed', TestContext, { t -> t.addDataTrigger('first', { dt -> dt
+        def sm = build({ d -> d.state('s1')
+            .transition('typed', 's1', 's2', TestContext, { t -> t.addDataTrigger('first', { dt -> dt
                 .condition('always', { e -> true } as Predicate) }) })
-            .transitionsTo('s3', 'untyped', { t -> t.addDataTrigger('second', { dt -> dt
-                .condition('always2', { e -> true } as Predicate) }) }) })
-            .state('s2', {})
-            .state('s3', {}) })
+            .transition('untyped', 's1', 's3', { t -> t.addDataTrigger('second', { dt -> dt
+                .condition('always2', { e -> true } as Predicate) }) })
+            .state('s2')
+            .state('s3') })
 
         when:
         def result = sm.entity(entity).processDataChange('not-a-context')

@@ -49,9 +49,11 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
         given:
         def sm = build({ d -> d
             .manualTrigger('cancel', { t -> t.withName('Cancel') })
-            .state('active', { s -> s.transitionsTo('cancelled', 'cancel-active', { t -> t.addTrigger('cancel') }) })
-            .state('suspended', { s -> s.transitionsTo('cancelled', 'cancel-suspended', { t -> t.addTrigger('cancel') }) })
-            .state('cancelled', {}) })
+            .state('active')
+            .transition('cancel-active', 'active', 'cancelled', { t -> t.addTrigger('cancel') })
+            .state('suspended')
+            .transition('cancel-suspended', 'suspended', 'cancelled', { t -> t.addTrigger('cancel') })
+            .state('cancelled') })
 
         expect: 'one trigger, reporting both transitions'
         sm.getTriggers().size() == 1
@@ -63,9 +65,11 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
         given:
         def sm = build({ d -> d
             .manualTrigger('cancel', { t -> })
-            .state('active', { s -> s.transitionsTo('cancelled', 'cancel-active', { t -> t.addTrigger('cancel') }) })
-            .state('suspended', { s -> s.transitionsTo('cancelled', 'cancel-suspended', { t -> t.addTrigger('cancel') }) })
-            .state('cancelled', {}) })
+            .state('active')
+            .transition('cancel-active', 'active', 'cancelled', { t -> t.addTrigger('cancel') })
+            .state('suspended')
+            .transition('cancel-suspended', 'suspended', 'cancelled', { t -> t.addTrigger('cancel') })
+            .state('cancelled') })
 
         when: 'the same id is fired from either state'
         def fromActive = sm.entity(new Entity('active')).fire('cancel')
@@ -80,8 +84,9 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
         given:
         def sm = build({ d -> d
             .manualTrigger('cancel', { t -> })
-            .state('active', { s -> s.transitionsTo('cancelled', 'cancel-active', { t -> t.addTrigger('cancel') }) })
-            .state('cancelled', {}) })
+            .state('active')
+            .transition('cancel-active', 'active', 'cancelled', { t -> t.addTrigger('cancel') })
+            .state('cancelled') })
 
         when:
         sm.entity(new Entity('cancelled')).fire('cancel')
@@ -95,8 +100,9 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
     def 'an attachment may precede the registration it names'() {
         given: 'attachment is checked at build, so declaration order is free'
         def sm = build({ d -> d
-            .state('s1', { s -> s.transitionsTo('s2', 't', { t -> t.addTrigger('later') }) })
-            .state('s2', {})
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t.addTrigger('later') })
+            .state('s2')
             .manualTrigger('later', { t -> }) })
 
         expect:
@@ -107,8 +113,9 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
         given: 'a library may register triggers a definition does not use'
         def sm = build({ d -> d
             .manualTrigger('unused', { t -> })
-            .state('s1', { s -> s.transitionsTo('s2', 't', { t -> }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> })
+            .state('s2') })
 
         expect:
         sm.getTrigger('unused').transitionIds == []
@@ -117,8 +124,9 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
     def 'attaching an unregistered id fails the build'() {
         when:
         build({ d -> d
-            .state('s1', { s -> s.transitionsTo('s2', 't', { t -> t.addTrigger('ghost') }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t.addTrigger('ghost') })
+            .state('s2') })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -129,9 +137,11 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
     def "attaching another transition's inline trigger says so rather than calling it unknown"() {
         when:
         build({ d -> d
-            .state('s1', { s -> s.transitionsTo('s2', 'first', { t -> t.addManualTrigger('local') }) })
-            .state('s2', { s -> s.transitionsTo('s3', 'second', { t -> t.addTrigger('local') }) })
-            .state('s3', {}) })
+            .state('s1')
+            .transition('first', 's1', 's2', { t -> t.addManualTrigger('local') })
+            .state('s2')
+            .transition('second', 's2', 's3', { t -> t.addTrigger('local') })
+            .state('s3') })
 
         then: 'it exists - it is just visible to the transition that declared it'
         def e = thrown(TransfluxValidationException)
@@ -143,11 +153,11 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
         when:
         build({ d -> d
             .manualTrigger('go', { t -> })
-            .state('s1', { s -> s
-                .transitionsTo('s2', 'a', { t -> t.addTrigger('go') })
-                .transitionsTo('s3', 'b', { t -> t.addTrigger('go') }) })
-            .state('s2', {})
-            .state('s3', {}) })
+            .state('s1')
+            .transition('a', 's1', 's2', { t -> t.addTrigger('go') })
+            .transition('b', 's1', 's3', { t -> t.addTrigger('go') })
+            .state('s2')
+            .state('s3') })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -159,11 +169,11 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
     def '#kind attached to two transitions leaving one state is ambiguous whatever its kind'() {
         when:
         build({ d -> d
-            .state('s1', { s -> s
-                .transitionsTo('s2', 'a', { t -> t.addTrigger('go') })
-                .transitionsTo('s3', 'b', { t -> t.addTrigger('go') }) })
-            .state('s2', {})
-            .state('s3', {})
+            .state('s1')
+            .transition('a', 's1', 's2', { t -> t.addTrigger('go') })
+            .transition('b', 's1', 's3', { t -> t.addTrigger('go') })
+            .state('s2')
+            .state('s3')
             .with(register) })
 
         then: 'the filter or gate is one object, so the second attachment could never fire'
@@ -182,8 +192,9 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
         when:
         build({ d -> d
             .manualTrigger('typed', Ctx, { t -> })
-            .state('s1', { s -> s.transitionsTo('s2', 't', OtherCtx, { t -> t.addTrigger('typed') }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', OtherCtx, { t -> t.addTrigger('typed') })
+            .state('s2') })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -196,8 +207,9 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
         given: 'registering without a context class means Object, which accepts anything'
         def sm = build({ d -> d
             .manualTrigger('anywhere', { t -> })
-            .state('s1', { s -> s.transitionsTo('s2', 't', Ctx, { t -> t.addTrigger('anywhere') }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', Ctx, { t -> t.addTrigger('anywhere') })
+            .state('s2') })
 
         expect:
         sm.getTrigger('anywhere').transitionIds == ['t']
@@ -207,8 +219,9 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
         when:
         build({ d -> d
             .forContext(Ctx, { scope -> scope.manualTrigger('scoped', { t -> }) })
-            .state('s1', { s -> s.transitionsTo('s2', 't', OtherCtx, { t -> t.addTrigger('scoped') }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', OtherCtx, { t -> t.addTrigger('scoped') })
+            .state('s2') })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -220,7 +233,7 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
         build({ d -> d
             .manualTrigger('dup', { t -> })
             .eventTrigger('dup', { t -> t.onEvent('E') })
-            .state('s1', {}) })
+            .state('s1') })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -231,8 +244,9 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
         when:
         build({ d -> d
             .manualTrigger('clash', { t -> })
-            .state('s1', { s -> s.transitionsTo('s2', 't', { t -> t.addManualTrigger('clash') }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t.addManualTrigger('clash') })
+            .state('s2') })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -243,9 +257,11 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
         given:
         def sm = build({ d -> d
             .eventTrigger('paid', { t -> t.onEvent('PAID') })
-            .state('draft', { s -> s.transitionsTo('done', 'from-draft', { t -> t.addTrigger('paid') }) })
-            .state('held', { s -> s.transitionsTo('done', 'from-held', { t -> t.addTrigger('paid') }) })
-            .state('done', {}) })
+            .state('draft')
+            .transition('from-draft', 'draft', 'done', { t -> t.addTrigger('paid') })
+            .state('held')
+            .transition('from-held', 'held', 'done', { t -> t.addTrigger('paid') })
+            .state('done') })
 
         when:
         def fromDraft = sm.entity(new Entity('draft')).processEvent('PAID', null)
@@ -264,10 +280,11 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
         given:
         def sm = build({ d -> d
             .eventTrigger('attached', { t -> t.onEvent('E') })
-            .state('s1', { s -> s.transitionsTo('s2', 't', { t -> t
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t
                 .addTrigger('attached')
-                .addEventTrigger('inline', { et -> et.onEvent('E') }) }) })
-            .state('s2', {}) })
+                .addEventTrigger('inline', { et -> et.onEvent('E') }) })
+            .state('s2') })
 
         when: 'both match the same event on the same transition'
         def fired = sm.entity(new Entity('s1')).processEvent('E', null)
@@ -281,8 +298,9 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
         build({ d -> d
             .condition('vip', Ctx, { e, c -> true })
             .manualTrigger('cancel', OtherCtx, { t -> t.preCondition('vip') })
-            .state('s1', { s -> s.transitionsTo('s2', 't', OtherCtx, { t -> t.addTrigger('cancel') }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', OtherCtx, { t -> t.addTrigger('cancel') })
+            .state('s2') })
 
         then: 'no transition walk reaches a registration, so it needs a check of its own'
         def e = thrown(TransfluxValidationException)
@@ -295,7 +313,7 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
         build({ d -> d
             .condition('gate', { e -> true })
             .dataTrigger('swept', { t -> t.condition('gate', { e, c -> false }) })
-            .state('s1', {}) })
+            .state('s1') })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -307,8 +325,9 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
         when:
         build({ d -> d
             .eventTrigger('paid', { t -> t.onEvent('PAID') })
-            .state('s1', { s -> s.transitionsTo('s2', 't', { t -> t.addTrigger('paid').addTrigger('paid') }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t.addTrigger('paid').addTrigger('paid') })
+            .state('s2') })
 
         then: 'it would double-bind the trigger and report its transition twice'
         def e = thrown(TransfluxValidationException)
@@ -319,11 +338,13 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
         given: 'an earlier transition attaches the registration, a later one declares its own too'
         def sm = build({ d -> d
             .eventTrigger('shared', { t -> t.onEvent('E') })
-            .state('s1', { s -> s.transitionsTo('s2', 'first', { t -> t.addTrigger('shared') }) })
-            .state('s2', { s -> s.transitionsTo('s3', 'second', { t -> t
+            .state('s1')
+            .transition('first', 's1', 's2', { t -> t.addTrigger('shared') })
+            .state('s2')
+            .transition('second', 's2', 's3', { t -> t
                 .addEventTrigger('own', { et -> et.onEvent('E') })
-                .addTrigger('shared') }) })
-            .state('s3', {}) })
+                .addTrigger('shared') })
+            .state('s3') })
 
         when: 'the entity is in the state the later transition leaves'
         def fired = sm.entity(new Entity('s2')).processEvent('E', null)

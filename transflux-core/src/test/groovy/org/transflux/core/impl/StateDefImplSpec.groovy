@@ -20,47 +20,10 @@ package org.transflux.core.impl
 
 import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
-import org.transflux.core.state.StateResolver
 import spock.lang.Specification
 import spock.lang.Unroll
 
-import static org.transflux.core.TestStateEnum.ACTIVE
-import static org.transflux.core.TestStateEnum.EXPIRED
-import static org.transflux.core.TestStateEnum.TRIAL
-
 class StateDefImplSpec extends Specification {
-
-    def 'transitionsTo should create TransitionDef correctly using string ID'() {
-        given:
-        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def s = new StateDefImpl<Object>(smd, ACTIVE.id)
-        s.beginConfigurer()
-
-        when:
-        s.transitionsTo("EXPIRED", "active-to-expired", {})
-
-        then:
-        smd.getTransition("active-to-expired").with {
-            id == "active-to-expired"
-                && sourceStateId == ACTIVE.id
-                && targetStateId == EXPIRED.id
-        }
-    }
-
-    def 'transitionsTo should prevent duplicate transition id'() {
-        given:
-        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def s = new StateDefImpl<>(smd, ACTIVE.id)
-        s.beginConfigurer()
-        s.transitionsTo(EXPIRED.id, "active-to-expired", {})
-
-        when:
-        s.transitionsTo(TRIAL.id, "active-to-expired", {})
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message == "Transition ID active-to-expired already defined"
-    }
 
     @Unroll
     def 'constructor with String id should validate: #scenario'() {
@@ -118,92 +81,4 @@ class StateDefImplSpec extends Specification {
         e.message.contains("'withName'")
         e.message.contains("'S'")
     }
-
-    def 'transitionsTo(target, id, configurer) defaults the transition context to Object'() {
-        given:
-        def smd = new StateMachineDefImpl<CtxBoundEntity>()
-        smd.forEntityType(CtxBoundEntity)
-            .withStateResolver({ e -> e.state } as StateResolver<CtxBoundEntity>)
-            .state('s1', { s -> s.transitionsTo('s2', 't', {}) })
-            .state('s2', {})
-
-        when:
-        def td = smd.getTransition('t')
-
-        then:
-        td.getContextType() == Object
-    }
-
-    def 'transitionsTo(target, id, Class, configurer) pre-binds the transition context'() {
-        given:
-        def smd = new StateMachineDefImpl<CtxBoundEntity>()
-        smd.forEntityType(CtxBoundEntity)
-            .withStateResolver({ e -> e.state } as StateResolver<CtxBoundEntity>)
-            .state('s1', { s -> s.transitionsTo('s2', 't', CtxBoundA, {}) })
-            .state('s2', {})
-
-        when:
-        def td = smd.getTransition('t')
-
-        then:
-        td.getContextType() == CtxBoundA
-    }
-
-    def 'pre-bound transition rejects fire calls with a wrong context type'() {
-        given:
-        def smd = new StateMachineDefImpl<CtxBoundEntity>()
-        smd.forEntityType(CtxBoundEntity)
-            .withStateResolver({ e -> e.state } as StateResolver<CtxBoundEntity>)
-            .state('s1', { s -> s.transitionsTo('s2', 't', CtxBoundA, {}) })
-            .state('s2', {})
-        def sm = smd.build()
-
-        when:
-        sm.entity(new CtxBoundEntity('s1')).transitionTo('s2', new CtxBoundB())
-
-        then:
-        def e = thrown(TransfluxValidationException)
-        e.message.contains('CtxBoundA')
-        e.message.contains('CtxBoundB')
-    }
-
-    def 'pre-bound transition accepts fire calls with the matching context type'() {
-        given:
-        def smd = new StateMachineDefImpl<CtxBoundEntity>()
-        smd.forEntityType(CtxBoundEntity)
-            .withStateResolver({ e -> e.state } as StateResolver<CtxBoundEntity>)
-            .state('s1', { s -> s.transitionsTo('s2', 't', CtxBoundA, {}) })
-            .state('s2', {})
-        def sm = smd.build()
-
-        when:
-        def result = sm.entity(new CtxBoundEntity('s1')).transitionTo('s2', new CtxBoundA())
-
-        then:
-        result.success
-    }
-
-    def 'transitionsTo with null contextType raises validation error'() {
-        given:
-        def smd = new StateMachineDefImpl<CtxBoundEntity>()
-        smd.forEntityType(CtxBoundEntity)
-            .withStateResolver({ e -> e.state } as StateResolver<CtxBoundEntity>)
-
-        when:
-        smd.state('s1', { s -> s.transitionsTo('s2', 't', (Class) null, {}) })
-
-        then:
-        thrown(TransfluxValidationException)
-    }
-
-
-    static class CtxBoundEntity {
-        String state
-
-        CtxBoundEntity(String state) { this.state = state }
-    }
-
-    static class CtxBoundA { }
-
-    static class CtxBoundB { }
 }

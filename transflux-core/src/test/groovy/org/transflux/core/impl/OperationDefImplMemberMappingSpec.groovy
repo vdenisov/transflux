@@ -216,8 +216,9 @@ class OperationDefImplMemberMappingSpec extends Specification {
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
         smdRegistrations.accept(smd)
-        smd.state('s1', { s -> s.transitionsTo('s2', 't', OrderCtx, transitionConfigurer) })
-            .state('s2', {})
+        smd.state('s1')
+            .transition('t', 's1', 's2', OrderCtx, transitionConfigurer)
+            .state('s2')
         return smd.build()
     }
 }

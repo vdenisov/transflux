@@ -205,14 +205,15 @@ class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
         smd.step('clash', new NoOpStep())
-        smd.state('s1', { s -> s.transitionsTo('s2', 't', TestContext, { t ->
-            t.operation('outer', { OperationDef<Entity, TestContext> c ->
-                c.operation('clash', { OperationDef<Entity, TestContext> nested ->
-                    nested.step('inner', new NoOpStep())
+        smd.state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
+                t.operation('outer', { OperationDef<Entity, TestContext> c ->
+                    c.operation('clash', { OperationDef<Entity, TestContext> nested ->
+                        nested.step('inner', new NoOpStep())
+                    })
                 })
             })
-        }) })
-        smd.state('s2', {})
+        smd.state('s2')
 
         when:
         smd.build()
@@ -226,8 +227,9 @@ class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1', { s -> s.transitionsTo('s2', 't', TestContext, transitionConfigurer) })
-            .state('s2', {})
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, transitionConfigurer)
+            .state('s2')
         return smd
     }
 
@@ -236,9 +238,11 @@ class StateMachineDefImplNestedIdUniquenessSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1', { s -> s.transitionsTo('s2', 't1', TestContext, t1Config) })
-            .state('s2', { s -> s.transitionsTo('s3', 't2', TestContext, t2Config) })
-            .state('s3', {})
+            .state('s1')
+            .transition('t1', 's1', 's2', TestContext, t1Config)
+            .state('s2')
+            .transition('t2', 's2', 's3', TestContext, t2Config)
+            .state('s3')
         return smd
     }
 }

@@ -122,9 +122,10 @@ class StateMachineDefImplBuildLoggingSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
-                t.operation('op', { OperationDef<Entity, TestContext> op -> op.run('does-not-exist') }) }) })
-            .state('s2', {})
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
+                t.operation('op', { OperationDef<Entity, TestContext> op -> op.run('does-not-exist') }) })
+            .state('s2')
 
         when:
         smd.build()
@@ -202,9 +203,10 @@ class StateMachineDefImplBuildLoggingSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
-                t.operation('attached', { op -> op.step('attached-member', new NoopStep()) }) }) })
-            .state('s2', {})
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
+                t.operation('attached', { op -> op.step('attached-member', new NoopStep()) }) })
+            .state('s2')
 
         when:
         smd.build()
@@ -246,9 +248,10 @@ class StateMachineDefImplBuildLoggingSpec extends Specification {
             .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
         smConfig.call(builder)
         builder
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
-                t.addManualTrigger('go') }) })
-            .state('s2', {})
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
+                t.addManualTrigger('go') })
+            .state('s2')
         return smd
     }
 }

@@ -246,8 +246,9 @@ class OperationDefImplNestedPassThroughSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
         smdRegistrations.accept(smd)
-        smd.state('s1', { state -> state.transitionsTo('s2', 't', TestContext, transitionConfigurer) })
-            .state('s2', {})
+        smd.state('s1')
+            .transition('t', 's1', 's2', TestContext, transitionConfigurer)
+            .state('s2')
         return smd.build()
     }
 }

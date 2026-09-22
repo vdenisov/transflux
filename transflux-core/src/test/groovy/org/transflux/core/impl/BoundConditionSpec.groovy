@@ -106,9 +106,10 @@ class BoundConditionSpec extends Specification {
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addDataTrigger('ready', { dt ->
-                dt.condition('gate', { Entity e -> e.value > 0 } as Predicate) }) }) })
-            .state('s2', {})
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t.addDataTrigger('ready', { dt ->
+                dt.condition('gate', { Entity e -> e.value > 0 } as Predicate) }) })
+            .state('s2')
         def sm = smd.build()
 
         when:
@@ -203,10 +204,11 @@ class BoundConditionSpec extends Specification {
         StateMachineDef<Entity> builder = smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
-        builder.state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
-            transitionConfig.accept(t)
-        }) })
-        builder.state('s2', {})
+        builder.state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
+                transitionConfig.accept(t)
+            })
+        builder.state('s2')
         return smd.build()
     }
 }

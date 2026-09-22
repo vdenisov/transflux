@@ -187,6 +187,7 @@ class SpelConditionEvaluatorSpec extends Specification {
     }
 
     private static void transition(StateMachineDef<Entity> smd, Closure configurer) {
-        smd.state('a') { it.transitionsTo('b', 't', configurer) }
+        smd.state('a')
+            .transition('t', 'a', 'b', configurer)
     }
 }

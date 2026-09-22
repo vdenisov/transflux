@@ -51,8 +51,8 @@ class StateMachineImplStateListenerSpec extends Specification {
         def entity = new Entity('s1')
         def sm = build({ d -> d
             .state('s1', { st -> st
-                .onExit('leave-s1', recorder(log, 'exit-s1'))
-                .transitionsTo('s2', 't', {}) })
+                .onExit('leave-s1', recorder(log, 'exit-s1')) })
+            .transition('t', 's1', 's2', {})
             .state('s2', { st -> st.onEntry('enter-s2', recorder(log, 'entry-s2')) }) })
 
         when:
@@ -69,8 +69,8 @@ class StateMachineImplStateListenerSpec extends Specification {
         def entity = new Entity('s1')
         def sm = build({ d -> d
             .state('s1', { st -> st
-                .onExit('leave', recorder(log, 'exit'))
-                .transitionsTo('s2', 't', { t -> t.step('op', { e, ctx, tr -> log << 'operation' } as Action) }) })
+                .onExit('leave', recorder(log, 'exit')) })
+            .transition('t', 's1', 's2', { t -> t.step('op', { e, ctx, tr -> log << 'operation' } as Action) })
             .state('s2', { st -> st.onEntry('enter', recorder(log, 'entry')) }) })
 
         when:
@@ -86,8 +86,8 @@ class StateMachineImplStateListenerSpec extends Specification {
         def entity = new Entity('s1')
         def sm = build({ d -> d
             .state('s1', { st -> st
-                .onExit('leave', { e, ctx, ch -> seen.exit = e.state } as StateListener)
-                .transitionsTo('s2', 't', {}) })
+                .onExit('leave', { e, ctx, ch -> seen.exit = e.state } as StateListener) })
+            .transition('t', 's1', 's2', {})
             .state('s2', { st -> st
                 .onEntry('enter', { e, ctx, ch -> seen.entry = e.state } as StateListener) }) })
 
@@ -106,8 +106,8 @@ class StateMachineImplStateListenerSpec extends Specification {
         def sm = build({ d -> d
             .state('s1', { st -> st
                 .onExit('own-exit-1', recorder(log, 'own-exit-1'))
-                .onExit('own-exit-2', recorder(log, 'own-exit-2'))
-                .transitionsTo('s2', 't', {}) })
+                .onExit('own-exit-2', recorder(log, 'own-exit-2')) })
+            .transition('t', 's1', 's2', {})
             .state('s2', { st -> st
                 .onEntry('own-entry-1', recorder(log, 'own-entry-1'))
                 .onEntry('own-entry-2', recorder(log, 'own-entry-2')) })
@@ -129,8 +129,9 @@ class StateMachineImplStateListenerSpec extends Specification {
         def log = []
         def entity = new Entity('s1')
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', {}) })
-            .state('s2', {})
+            .state('s1')
+            .transition('t', 's1', 's2', {})
+            .state('s2')
             .onAnyStateExit('any-exit', recorder(log, 'any-exit'))
             .onAnyStateEntry('any-entry', recorder(log, 'any-entry')) })
 
@@ -147,8 +148,8 @@ class StateMachineImplStateListenerSpec extends Specification {
         def entity = new Entity('s1')
         def sm = build({ d -> d
             .state('s1', { st -> st
-                .onExit('leave', recorder(log, 'exit'))
-                .transitionsTo('s2', 't', { t -> t.preCondition('never', { e -> false } as Predicate) }) })
+                .onExit('leave', recorder(log, 'exit')) })
+            .transition('t', 's1', 's2', { t -> t.preCondition('never', { e -> false } as Predicate) })
             .state('s2', { st -> st.onEntry('enter', recorder(log, 'entry')) }) })
 
         when:
@@ -167,8 +168,8 @@ class StateMachineImplStateListenerSpec extends Specification {
         def entity = new Entity('s1')
         def sm = build({ d -> d
             .state('s1', { st -> st
-                .onExit('leave', recorder(log, 'exit'))
-                .transitionsTo('s2', 't', configure) })
+                .onExit('leave', recorder(log, 'exit')) })
+            .transition('t', 's1', 's2', configure)
             .state('s2', { st -> st.onEntry('enter', recorder(log, 'entry')) }) })
 
         when:
@@ -191,8 +192,8 @@ class StateMachineImplStateListenerSpec extends Specification {
         def entity = new Entity('s1')
         def sm = build({ d -> d
             .state('s1', { st -> st
-                .onExit('leave', exploding(hook == 'exit'))
-                .transitionsTo('s2', 't', {}) })
+                .onExit('leave', exploding(hook == 'exit')) })
+            .transition('t', 's1', 's2', {})
             .state('s2', { st -> st.onEntry('enter', exploding(hook == 'entry')) }) })
 
         when:
@@ -215,9 +216,9 @@ class StateMachineImplStateListenerSpec extends Specification {
         def sm = build({ d -> d
             .state('s1', { st -> st
                 .onExit('boom', { e, ctx, ch -> throw new IllegalStateException('boom') } as StateListener)
-                .onExit('after', recorder(log, 'after'))
-                .transitionsTo('s2', 't', {}) })
-            .state('s2', {})
+                .onExit('after', recorder(log, 'after')) })
+            .transition('t', 's1', 's2', {})
+            .state('s2')
             .onAnyStateExit('global-after', recorder(log, 'global-after')) })
 
         when:
@@ -234,9 +235,9 @@ class StateMachineImplStateListenerSpec extends Specification {
         def entity = new Entity('s1')
         def sm = build({ d -> d
             .state('s1', { st -> st
-                .withName('First')
-                .transitionsTo('s2', 't', {}) })
-            .state('s2', {})
+                .withName('First') })
+            .transition('t', 's1', 's2', {})
+            .state('s2')
             .onAnyStateExit('capture-exit', { e, ctx, ch -> changes << ch } as StateListener)
             .onAnyStateEntry('capture-entry', { e, ctx, ch -> changes << ch } as StateListener) })
 
@@ -278,9 +279,9 @@ class StateMachineImplStateListenerSpec extends Specification {
                     } catch (Exception ex) {
                         failures << ex.message
                     }
-                } as StateListener)
-                .transitionsTo('s2', 't', {}) })
-            .state('s2', {}) })
+                } as StateListener) })
+            .transition('t', 's1', 's2', {})
+            .state('s2') })
 
         when:
         def result = sm.entity(entity).transitionTo('s2')
@@ -299,7 +300,8 @@ class StateMachineImplStateListenerSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-           .state('s1', { st -> st.transitionsTo('s2', 't', {}) })
+           .state('s1')
+           .transition('t', 's1', 's2', {})
            .state('s2', { st -> st.onEntry('enter', recorder(log, 'entry')) })
         def sm = smd.build()
 
@@ -320,8 +322,8 @@ class StateMachineImplStateListenerSpec extends Specification {
         def sm = build({ d -> d
             .state('s1', { st -> st
                 .onExit('leave', recorder(log, 'exit'))
-                .onEntry('enter', recorder(log, 'entry'))
-                .transitionsTo('s1', 't', {}) }) })
+                .onEntry('enter', recorder(log, 'entry')) })
+            .transition('t', 's1', 's1', {}) })
 
         when:
         def result = sm.entity(entity).transitionTo('s1')
@@ -337,8 +339,9 @@ class StateMachineImplStateListenerSpec extends Specification {
         def context = new TestContext('audit')
         def entity = new Entity('s1')
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', {}) })
-            .state('s2', {})
+            .state('s1')
+            .transition('t', 's1', 's2', {})
+            .state('s2')
             .onAnyStateExit('capture-exit', { e, ctx, ch -> seen << ctx } as StateListener)
             .onAnyStateEntry('capture-entry', { e, ctx, ch -> seen << ctx } as StateListener) })
 
@@ -355,8 +358,9 @@ class StateMachineImplStateListenerSpec extends Specification {
         def seen = []
         def entity = new Entity('s1')
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', {}) })
-            .state('s2', {})
+            .state('s1')
+            .transition('t', 's1', 's2', {})
+            .state('s2')
             .onAnyStateEntry('capture', { e, ctx, ch -> seen << ctx } as StateListener) })
 
         when:
@@ -372,8 +376,8 @@ class StateMachineImplStateListenerSpec extends Specification {
         def entity = new Entity('s1')
         def sm = build({ d -> d
             .state('s1', { st -> st
-                .onExit('leave', recorder(log, 'exit'))
-                .transitionsTo('s2', 't', { t -> t.addManualTrigger('go') }) })
+                .onExit('leave', recorder(log, 'exit')) })
+            .transition('t', 's1', 's2', { t -> t.addManualTrigger('go') })
             .state('s2', { st -> st.onEntry('enter', recorder(log, 'entry')) }) })
 
         when:
@@ -388,9 +392,9 @@ class StateMachineImplStateListenerSpec extends Specification {
         when:
         build({ d -> d
             .state('s1', { st -> st
-                .onEntry('dup', recorder([], 'x'))
-                .transitionsTo('s2', 't', {}) })
-            .state('s2', {})
+                .onEntry('dup', recorder([], 'x')) })
+            .transition('t', 's1', 's2', {})
+            .state('s2')
             .onAnyStateEntry('dup', recorder([], 'y')) })
 
         then:

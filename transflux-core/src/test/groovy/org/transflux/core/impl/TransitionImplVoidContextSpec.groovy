@@ -45,13 +45,14 @@ class TransitionImplVoidContextSpec extends Specification {
         e.message.contains("'t'")
     }
 
-    def 'pre-binding Void via transitionsTo overload yields the same Void semantics'() {
+    def 'pre-binding Void via the typed transition overload yields the same Void semantics'() {
         given:
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1', { s -> s.transitionsTo('s2', 't', Void, {}) })
-            .state('s2', {})
+            .state('s1')
+            .transition('t', 's1', 's2', Void, {})
+            .state('s2')
         def sm = smd.build()
 
         when:
@@ -66,8 +67,9 @@ class TransitionImplVoidContextSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1', { s -> s.transitionsTo('s2', 't', ctx, { t -> }) })
-            .state('s2', {})
+            .state('s1')
+            .transition('t', 's1', 's2', ctx, { t -> })
+            .state('s2')
         return smd
     }
 }

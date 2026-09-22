@@ -69,9 +69,9 @@ class StateMachineImplTriggerKindSpec extends Specification {
 
     def 'getTriggers(Class) returns an empty collection for a kind with no instances'() {
         given:
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', { t -> t.addManualTrigger('m') }) })
-            .state('s2', {}) })
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', { t -> t.addManualTrigger('m') })
+            .state('s2') })
 
         expect:
         sm.getTriggers(EventTrigger).isEmpty()
@@ -91,11 +91,11 @@ class StateMachineImplTriggerKindSpec extends Specification {
 
     def 'a trigger id reused across two kinds is rejected at build'() {
         when:
-        build({ d -> d.state('s1', { st -> st
-            .transitionsTo('s2', 't1', { t -> t.addManualTrigger('dup') })
-            .transitionsTo('s3', 't2', { t -> t.addEventTrigger('dup', 'EVT') }) })
-            .state('s2', {})
-            .state('s3', {}) })
+        build({ d -> d.state('s1')
+            .transition('t1', 's1', 's2', { t -> t.addManualTrigger('dup') })
+            .transition('t2', 's1', 's3', { t -> t.addEventTrigger('dup', 'EVT') })
+            .state('s2')
+            .state('s3') })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -140,11 +140,11 @@ class StateMachineImplTriggerKindSpec extends Specification {
     def 'firing an event trigger id does not bypass its filter by executing the transition'() {
         given:
         def entity = new Entity('s1')
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', { t -> t.addEventTrigger('gated', { et -> et
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', { t -> t.addEventTrigger('gated', { et -> et
                 .onEvent('EVT')
-                .filter({ payload -> false } as Predicate) }) }) })
-            .state('s2', {}) })
+                .filter({ payload -> false } as Predicate) }) })
+            .state('s2') })
 
         when:
         sm.entity(entity).fire('gated')
@@ -155,13 +155,13 @@ class StateMachineImplTriggerKindSpec extends Specification {
     }
 
     private static StateMachine<Entity> mixedMachine() {
-        return build({ d -> d.state('s1', { st -> st
-            .transitionsTo('s2', 't1', { t -> t.addManualTrigger('m') })
-            .transitionsTo('s3', 't2', { t -> t.addEventTrigger('e', 'EVT') })
-            .transitionsTo('s4', 't3', { t -> t.addDataTrigger('d', { dt -> dt.condition('any', { e -> true } as Predicate) }) }) })
-            .state('s2', {})
-            .state('s3', {})
-            .state('s4', {}) })
+        return build({ d -> d.state('s1')
+            .transition('t1', 's1', 's2', { t -> t.addManualTrigger('m') })
+            .transition('t2', 's1', 's3', { t -> t.addEventTrigger('e', 'EVT') })
+            .transition('t3', 's1', 's4', { t -> t.addDataTrigger('d', { dt -> dt.condition('any', { e -> true } as Predicate) }) })
+            .state('s2')
+            .state('s3')
+            .state('s4') })
     }
 
     private static StateMachine<Entity> build(Consumer<StateMachineDef<Entity>> cfg) {

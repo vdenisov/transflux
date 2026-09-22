@@ -63,8 +63,9 @@ class ExecutingTransitionImplSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('foo-id', step)
-        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', {}) })
-        smd.state(ACTIVE.id, {})
+        smd.state(TRIAL.id)
+            .transition('t1', TRIAL.id, ACTIVE.id, {})
+        smd.state(ACTIVE.id)
 
         def sm = ((StateMachineImpl) smd.build()).snapshot()
         def entity = new TestEntity(state: 'TRIAL')
@@ -85,8 +86,9 @@ class ExecutingTransitionImplSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', {}) })
-        smd.state(ACTIVE.id, {})
+        smd.state(TRIAL.id)
+            .transition('t1', TRIAL.id, ACTIVE.id, {})
+        smd.state(ACTIVE.id)
 
         def sm = ((StateMachineImpl) smd.build()).snapshot()
         def view = new ExecutingTransitionImpl<TestEntity, TestContext>(
@@ -138,8 +140,9 @@ class ExecutingTransitionImplSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', {}) })
-        smd.state(ACTIVE.id, {})
+        smd.state(TRIAL.id)
+            .transition('t1', TRIAL.id, ACTIVE.id, {})
+        smd.state(ACTIVE.id)
 
         def sm = ((StateMachineImpl) smd.build()).snapshot()
         def view = new ExecutingTransitionImpl<TestEntity, TestContext>(
@@ -161,8 +164,9 @@ class ExecutingTransitionImplSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('needs-context', TestContext, new TaggingStep('foo'))
-        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', {}) })
-        smd.state(ACTIVE.id, {})
+        smd.state(TRIAL.id)
+            .transition('t1', TRIAL.id, ACTIVE.id, {})
+        smd.state(ACTIVE.id)
 
         def sm = ((StateMachineImpl) smd.build()).snapshot()
         def view = new ExecutingTransitionImpl<TestEntity, TestContext>(
@@ -182,8 +186,9 @@ class ExecutingTransitionImplSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', {}) })
-        smd.state(ACTIVE.id, {})
+        smd.state(TRIAL.id)
+            .transition('t1', TRIAL.id, ACTIVE.id, {})
+        smd.state(ACTIVE.id)
         return smd.build()
     }
 }

@@ -35,6 +35,7 @@ import org.transflux.core.state.StateDef;
 import org.transflux.core.state.StateListener;
 import org.transflux.core.state.StateListenerDef;
 import org.transflux.core.state.StateResolver;
+import org.transflux.core.transition.TransitionDef;
 import org.transflux.core.transition.TransitionListener;
 import org.transflux.core.transition.TransitionListenerDef;
 import org.transflux.core.trigger.DataTriggerDef;
@@ -56,7 +57,7 @@ import java.util.function.Predicate;
  * a declarative DSL for building complex state machines in a readable and maintainable way.
  *
  * <p>The state machine is not parameterized by a single context type. Each transition declares
- * its own context type, through {@code transitionsTo(target, id, Class<C>, configurer)}.
+ * its own context type, through {@code transition(id, source, target, Class<C>, configurer)}.
  * SM-level reusable components (steps, conditions, operations) are registered with an optional
  * explicit {@link Class} context tag via the typed overloads below, or grouped under a
  * {@link #forContext(Class, Consumer) forContext} scope.
@@ -720,6 +721,58 @@ public interface StateMachineDef<T> {
      *         is blank, or another state with the same id has already been declared
      */
     StateMachineDef<T> state(String stateId, Consumer<StateDef<T>> configurer);
+
+    /**
+     * Declares a state that configures nothing beyond its id.
+     *
+     * @param stateId the state ID; never {@code null} or blank
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if {@code stateId} is {@code null} or blank, or another
+     *         state with the same id has already been declared
+     */
+    StateMachineDef<T> state(String stateId);
+
+    /**
+     * Declares a transition with pass-through ({@link Object}) context. The configurer is invoked
+     * synchronously against a freshly-constructed {@link TransitionDef}; the def becomes inert once
+     * the lambda returns. Both states must be declared by the time the state machine is built.
+     *
+     * @param transitionId the transition ID; never {@code null} or blank
+     * @param sourceStateId the state the transition leaves
+     * @param targetStateId the state the transition enters
+     * @param configurer callback that configures the transition; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if any argument is {@code null} or blank, or another
+     *         transition with the same id has already been declared
+     */
+    StateMachineDef<T> transition(String transitionId, String sourceStateId, String targetStateId,
+                                  Consumer<TransitionDef<T, Object>> configurer);
+
+    /**
+     * Declares a transition carrying the supplied context type, as
+     * {@link #transition(String, String, String, Consumer)} does.
+     *
+     * <p>{@code Void.class} declares that the transition takes no context: a firing with a
+     * non-null context is rejected at the dispatch boundary.
+     *
+     * @param transitionId the transition ID; never {@code null} or blank
+     * @param sourceStateId the state the transition leaves
+     * @param targetStateId the state the transition enters
+     * @param contextType the transition's context class
+     * @param configurer callback that configures the transition; never {@code null}
+     * @param <C> the transition context type
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if any argument is {@code null} or blank, or another
+     *         transition with the same id has already been declared
+     */
+    <C> StateMachineDef<T> transition(String transitionId, String sourceStateId, String targetStateId,
+                                      Class<C> contextType, Consumer<TransitionDef<T, C>> configurer);
 
     /**
      * {@link #withExecutionLogging(ExecutionLogging)} with {@link ExecutionLogging#defaults()}.

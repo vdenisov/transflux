@@ -413,14 +413,15 @@ class StateMachineImplCompensationSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
             .step('dynamic', new TrailStep('dyn'))
-            .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, { t ->
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
                 t.operation('op', { OperationDef<Entity, TestContext> c ->
                     c.step('s1', new TrailStep('a'))
                      .step('s2', new DynamicDispatchStep())
                      .step('s3', new ThrowingStep('boom'))
                 })
-            }) })
-            .state('s2', {})
+            })
+            .state('s2')
         def sm = smd.build()
         def entity = new Entity('s1')
 
@@ -443,8 +444,9 @@ class StateMachineImplCompensationSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
             .step('charge', new ThrowingWithCompStep('c'))
-            .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, { t -> t.run('charge') }) })
-            .state('s2', {})
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t -> t.run('charge') })
+            .state('s2')
         def sm = smd.build()
         def entity = new Entity('s1')
 
@@ -485,13 +487,14 @@ class StateMachineImplCompensationSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
             .step('charge', TestContext, new ThrowingWithCompStep('c'))
-            .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, { t ->
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
                 t.operation('op', { OperationDef<Entity, TestContext> c ->
                     c.step('s1', new TrailStep('a'))
                      .run('charge')
                 })
-            }) })
-            .state('s2', {})
+            })
+            .state('s2')
         def sm = smd.build()
         def entity = new Entity('s1')
 
@@ -515,12 +518,13 @@ class StateMachineImplCompensationSpec extends Specification {
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
             .step('charge', ChildCtx, new ChildCtxThrowingStep())
             .mapper('child-from-parent', TestContext, ChildCtx, new ChildCtxMapper())
-            .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, { t ->
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
                 t.operation('op', { OperationDef<Entity, TestContext> c ->
                     c.run('charge', 'child-from-parent')
                 })
-            }) })
-            .state('s2', {})
+            })
+            .state('s2')
         def sm = smd.build()
         def entity = new Entity('s1')
 
@@ -684,12 +688,13 @@ class StateMachineImplCompensationSpec extends Specification {
                 .using(new PlainChildCtxThrowingStep())
                 .withCompensation(new ChildCtxCompensation()) })
             .mapper('child-from-parent', TestContext, ChildCtx, new DerivingChildCtxMapper())
-            .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, { t ->
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
                 t.operation('op', { OperationDef<Entity, TestContext> c ->
                     c.run('charge', 'child-from-parent')
                 })
-            }) })
-            .state('s2', {})
+            })
+            .state('s2')
         def sm = smd.build()
         def entity = new Entity('s1')
 
@@ -722,12 +727,13 @@ class StateMachineImplCompensationSpec extends Specification {
                     })
                 })
             })
-            .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, { t ->
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
                 t.operation('op', { OperationDef<Entity, TestContext> c ->
                     c.run('inner', 'child-from-parent')
                 })
-            }) })
-            .state('s2', {})
+            })
+            .state('s2')
         def sm = smd.build()
         def entity = new Entity('s1')
 
@@ -748,8 +754,9 @@ class StateMachineImplCompensationSpec extends Specification {
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
-            .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, transitionConfigurer) })
-            .state('s2', {})
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, transitionConfigurer)
+            .state('s2')
         return smd.build()
     }
 }

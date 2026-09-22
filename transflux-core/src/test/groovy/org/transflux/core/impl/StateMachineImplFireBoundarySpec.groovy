@@ -101,14 +101,13 @@ class StateMachineImplFireBoundarySpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1', { s ->
-                if (ctx != null) {
-                    s.transitionsTo('s2', transitionId, ctx, { t -> })
-                } else {
-                    s.transitionsTo('s2', transitionId, { t -> })
-                }
-            })
-            .state('s2', {})
+            .state('s1')
+            .state('s2')
+        if (ctx != null) {
+            smd.transition(transitionId, 's1', 's2', ctx, { t -> })
+        } else {
+            smd.transition(transitionId, 's1', 's2', { t -> })
+        }
         return smd
     }
 }

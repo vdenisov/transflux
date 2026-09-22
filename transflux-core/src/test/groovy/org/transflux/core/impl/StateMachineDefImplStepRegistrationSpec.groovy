@@ -113,10 +113,11 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', { t ->
-            t.operation('op1', { c -> c.step('inline-a', stepInstance) })
-        }) })
-        smd.state(ACTIVE.id, {})
+        smd.state(TRIAL.id)
+            .transition('t1', TRIAL.id, ACTIVE.id, { t ->
+                t.operation('op1', { c -> c.step('inline-a', stepInstance) })
+            })
+        smd.state(ACTIVE.id)
 
         when:
         def sm = ((StateMachineImpl) smd.build()).snapshot()
@@ -133,10 +134,11 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('shared', stepInstance)
-        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', { t ->
-            t.operation('op1', { c -> c.step('shared', stepInstance) })
-        }) })
-        smd.state(ACTIVE.id, {})
+        smd.state(TRIAL.id)
+            .transition('t1', TRIAL.id, ACTIVE.id, { t ->
+                t.operation('op1', { c -> c.step('shared', stepInstance) })
+            })
+        smd.state(ACTIVE.id)
 
         when:
         def sm = ((StateMachineImpl) smd.build()).snapshot()
@@ -152,14 +154,14 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL.id, { s -> s
-            .transitionsTo(ACTIVE.id, 't1', { t ->
+        smd.state(TRIAL.id)
+            .transition('t1', TRIAL.id, ACTIVE.id, { t ->
                 t.operation('op1', { c -> c.step('clash', new StepA()) })
             })
-            .transitionsTo(ACTIVE.id, 't2', { t ->
+            .transition('t2', TRIAL.id, ACTIVE.id, { t ->
                 t.operation('op2', { c -> c.step('clash', new StepA()) })
-            }) })
-        smd.state(ACTIVE.id, {})
+            })
+        smd.state(ACTIVE.id)
 
         when:
         smd.build()
@@ -181,10 +183,10 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL.id, { s -> s
-            .transitionsTo(ACTIVE.id, 't1', { t -> t.step('clash', new StepA()) })
-            .transitionsTo(ACTIVE.id, 't2', { t -> t.step('clash', new StepA()) }) })
-        smd.state(ACTIVE.id, {})
+        smd.state(TRIAL.id)
+            .transition('t1', TRIAL.id, ACTIVE.id, { t -> t.step('clash', new StepA()) })
+            .transition('t2', TRIAL.id, ACTIVE.id, { t -> t.step('clash', new StepA()) })
+        smd.state(ACTIVE.id)
 
         when:
         smd.build()
@@ -201,9 +203,9 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('clash', new StepA())
-        smd.state(TRIAL.id, { s -> s
-            .transitionsTo(ACTIVE.id, 't1', { t -> t.step('clash', new StepA()) }) })
-        smd.state(ACTIVE.id, {})
+        smd.state(TRIAL.id)
+            .transition('t1', TRIAL.id, ACTIVE.id, { t -> t.step('clash', new StepA()) })
+        smd.state(ACTIVE.id)
 
         when:
         smd.build()
@@ -221,9 +223,9 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('leaf', new StepA())
         smd.operation('a', Object, { c -> c.run('leaf') })
-        smd.state(TRIAL.id, { s -> s
-            .transitionsTo(ACTIVE.id, 't1', { t -> t.operation('a', { c -> c.run('leaf') }) }) })
-        smd.state(ACTIVE.id, {})
+        smd.state(TRIAL.id)
+            .transition('t1', TRIAL.id, ACTIVE.id, { t -> t.operation('a', { c -> c.run('leaf') }) })
+        smd.state(ACTIVE.id)
 
         when:
         smd.build()
@@ -240,10 +242,10 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL.id, { s -> s
-            .transitionsTo(ACTIVE.id, 't1', { t -> t.step('shared', shared) })
-            .transitionsTo(ACTIVE.id, 't2', { t -> t.step('shared', shared) }) })
-        smd.state(ACTIVE.id, {})
+        smd.state(TRIAL.id)
+            .transition('t1', TRIAL.id, ACTIVE.id, { t -> t.step('shared', shared) })
+            .transition('t2', TRIAL.id, ACTIVE.id, { t -> t.step('shared', shared) })
+        smd.state(ACTIVE.id)
 
         when:
         smd.build()
@@ -258,14 +260,14 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL.id, { s -> s
-            .transitionsTo(ACTIVE.id, 't1', { t ->
+        smd.state(TRIAL.id)
+            .transition('t1', TRIAL.id, ACTIVE.id, { t ->
                 t.operation('op1', { c -> c.step('shared-class', shared) })
             })
-            .transitionsTo(ACTIVE.id, 't2', { t ->
+            .transition('t2', TRIAL.id, ACTIVE.id, { t ->
                 t.operation('op2', { c -> c.step('shared-class', shared) })
-            }) })
-        smd.state(ACTIVE.id, {})
+            })
+        smd.state(ACTIVE.id)
 
         when:
         def sm = ((StateMachineImpl) smd.build()).snapshot()
@@ -282,15 +284,15 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL.id, { s -> s
-            .transitionsTo(ACTIVE.id, 't-consumer', { t ->
+        smd.state(TRIAL.id)
+            .transition('t-consumer', TRIAL.id, ACTIVE.id, { t ->
                 // Consumer composite references an id only declared in another composite below.
                 t.operation('op-consumer', { c -> c.run('via-inline') })
             })
-            .transitionsTo(ACTIVE.id, 't-provider', { t ->
+            .transition('t-provider', TRIAL.id, ACTIVE.id, { t ->
                 t.operation('op-provider', { c -> c.step('via-inline', new StepA()) })
-            }) })
-        smd.state(ACTIVE.id, {})
+            })
+        smd.state(ACTIVE.id)
 
         when:
         smd.build()
@@ -310,15 +312,15 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL.id, { s -> s
-            .transitionsTo(ACTIVE.id, 't', { t ->
+        smd.state(TRIAL.id)
+            .transition('t', TRIAL.id, ACTIVE.id, { t ->
                 // 'buried' is declared one level *below* the position that references it, so the
                 // remedy is hoisting into 'outer' - never "move to SM root".
                 t.operation('outer', { c -> c
                     .operation('inner', { i -> i.step('buried', new StepA()) })
                     .run('buried') })
-            }) })
-        smd.state(ACTIVE.id, {})
+            })
+        smd.state(ACTIVE.id)
 
         when:
         smd.build()
@@ -336,11 +338,11 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL.id, { s -> s
-            .transitionsTo(ACTIVE.id, 't-consumer', { t ->
+        smd.state(TRIAL.id)
+            .transition('t-consumer', TRIAL.id, ACTIVE.id, { t ->
                 t.operation('op-consumer', { c -> c.run('truly-missing') })
-            }) })
-        smd.state(ACTIVE.id, {})
+            })
+        smd.state(ACTIVE.id)
 
         when:
         smd.build()
@@ -358,7 +360,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
-        smd.state(TRIAL.id, {})
+        smd.state(TRIAL.id)
 
         when:
         def sm = ((StateMachineImpl) smd.build()).snapshot()

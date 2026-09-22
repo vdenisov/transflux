@@ -504,9 +504,8 @@ class StateMachineImplAsyncListenerSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
         smConfig.call(builder)
-        builder.state('s1', { s ->
-            s.transitionsTo('s2', 't', { t -> body.call(t) } as Consumer)
-        } as Consumer)
+        builder.state('s1')
+            .transition('t', 's1', 's2', { t -> body.call(t) } as Consumer)
         builder.state('s2', { s -> s2Config.call(s) } as Consumer)
         return smd.build()
     }

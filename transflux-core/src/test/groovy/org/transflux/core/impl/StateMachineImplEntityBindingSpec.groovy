@@ -50,8 +50,9 @@ class StateMachineImplEntityBindingSpec extends Specification {
             .forEntityType(TestEntity)
             .withStateResolver({ TestEntity e -> e.state } as StateResolver<TestEntity>)
             .withStateApplier(applier)
-            .state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, "t1", {}) })
-            .state(ACTIVE.id, {})
+            .state(TRIAL.id)
+            .transition("t1", TRIAL.id, ACTIVE.id, {})
+            .state(ACTIVE.id)
             .build()
 
         def entity = new TestEntity("e1", "TRIAL")
@@ -70,8 +71,9 @@ class StateMachineImplEntityBindingSpec extends Specification {
         StateMachine<TestEntity> sm = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ TestEntity e -> e.state } as StateResolver<TestEntity>)
-            .state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, "t1", {}) })
-            .state(ACTIVE.id, {})
+            .state(TRIAL.id)
+            .transition("t1", TRIAL.id, ACTIVE.id, {})
+            .state(ACTIVE.id)
             .build()
 
         def entity = new TestEntity("e1", "TRIAL")
@@ -90,7 +92,7 @@ class StateMachineImplEntityBindingSpec extends Specification {
         given:
         def sm = Transflux.defineStateMachine()
             .forEntityType(Object)
-            .state("a", {})
+            .state("a")
             .build()
 
         when:
@@ -106,8 +108,9 @@ class StateMachineImplEntityBindingSpec extends Specification {
         StateMachine<TestEntity> sm = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ TestEntity e -> e.state } as StateResolver<TestEntity>)
-            .state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, "t1", {}) })
-            .state(ACTIVE.id, {})
+            .state(TRIAL.id)
+            .transition("t1", TRIAL.id, ACTIVE.id, {})
+            .state(ACTIVE.id)
             .build()
 
         def entity = new TestEntity("e1", "TRIAL")

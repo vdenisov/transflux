@@ -52,9 +52,9 @@ class StateMachineImplEventDispatchSpec extends Specification {
 
     def 'processEvent fires the trigger whose event id matches'() {
         given:
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', { t -> t.addEventTrigger('paid-trigger', 'PAYMENT') }) })
-            .state('s2', {}) })
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', { t -> t.addEventTrigger('paid-trigger', 'PAYMENT') })
+            .state('s2') })
         def entity = new Entity('s1')
 
         when:
@@ -69,9 +69,9 @@ class StateMachineImplEventDispatchSpec extends Specification {
 
     def 'processEvent with no matching event id fires nothing'() {
         given:
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', { t -> t.addEventTrigger('paid-trigger', 'PAYMENT') }) })
-            .state('s2', {}) })
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', { t -> t.addEventTrigger('paid-trigger', 'PAYMENT') })
+            .state('s2') })
         def entity = new Entity('s1')
 
         when:
@@ -86,11 +86,11 @@ class StateMachineImplEventDispatchSpec extends Specification {
 
     def 'a filter that rejects the payload skips the trigger'() {
         given:
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', { t -> t.addEventTrigger('paid', { et -> et
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', { t -> t.addEventTrigger('paid', { et -> et
                 .onEvent('PAYMENT')
-                .filter({ ev, e -> ((Payload) ev).kind == 'paid' } as BiPredicate) }) }) })
-            .state('s2', {}) })
+                .filter({ ev, e -> ((Payload) ev).kind == 'paid' } as BiPredicate) }) })
+            .state('s2') })
 
         expect:
         !sm.entity(new Entity('s1')).processEvent('PAYMENT', new Payload('pending')).fired()
@@ -99,11 +99,11 @@ class StateMachineImplEventDispatchSpec extends Specification {
 
     def 'an expression filter binds the entity as root, the payload as #event, and the context as #context'() {
         given:
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', TestContext, { t -> t.addEventTrigger('paid', { et -> et
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', TestContext, { t -> t.addEventTrigger('paid', { et -> et
                 .onEvent('PAYMENT')
-                .filterExpression("state == 's1' && #event.kind == 'paid' && #context.tag == 'ok'") }) }) })
-            .state('s2', {}) })
+                .filterExpression("state == 's1' && #event.kind == 'paid' && #context.tag == 'ok'") }) })
+            .state('s2') })
 
         expect:
         sm.entity(new Entity('s1')).processEvent('PAYMENT', new Payload('paid'), new TestContext('ok')).fired()
@@ -113,13 +113,13 @@ class StateMachineImplEventDispatchSpec extends Specification {
 
     def 'among triggers on different transitions, the first declared whose filter passes fires'() {
         given:
-        def sm = build({ d -> d.state('s1', { st -> st
-            .transitionsTo('s2', 't1', { t -> t.addEventTrigger('first', { et -> et
+        def sm = build({ d -> d.state('s1')
+            .transition('t1', 's1', 's2', { t -> t.addEventTrigger('first', { et -> et
                 .onEvent('GO').filter({ ev, e -> false } as BiPredicate) }) })
-            .transitionsTo('s3', 't2', { t -> t.addEventTrigger('second', { et -> et
-                .onEvent('GO') }) }) })
-            .state('s2', {})
-            .state('s3', {}) })
+            .transition('t2', 's1', 's3', { t -> t.addEventTrigger('second', { et -> et
+                .onEvent('GO') }) })
+            .state('s2')
+            .state('s3') })
         def entity = new Entity('s1')
 
         when:
@@ -133,13 +133,13 @@ class StateMachineImplEventDispatchSpec extends Specification {
 
     def 'a filter passing but a transition pre-condition failing reports a fired failure without trying the next trigger'() {
         given:
-        def sm = build({ d -> d.state('s1', { st -> st
-            .transitionsTo('s2', 't1', { t -> t
+        def sm = build({ d -> d.state('s1')
+            .transition('t1', 's1', 's2', { t -> t
                 .preCondition('blocked', { e -> false } as Predicate)
                 .addEventTrigger('first', 'GO') })
-            .transitionsTo('s3', 't2', { t -> t.addEventTrigger('second', 'GO') }) })
-            .state('s2', {})
-            .state('s3', {}) })
+            .transition('t2', 's1', 's3', { t -> t.addEventTrigger('second', 'GO') })
+            .state('s2')
+            .state('s3') })
         def entity = new Entity('s1')
 
         when:
@@ -155,11 +155,11 @@ class StateMachineImplEventDispatchSpec extends Specification {
     def 'the firing context is passed to the operation and is distinct from the event payload'() {
         given:
         def seen = []
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', TestContext, { t -> t
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', TestContext, { t -> t
                 .step('op', { e, c, tr -> seen.add(c) } as Action)
-                .addEventTrigger('go', 'GO') }) })
-            .state('s2', {}) })
+                .addEventTrigger('go', 'GO') })
+            .state('s2') })
         def ctx = new TestContext('the-context')
 
         when:
@@ -173,9 +173,9 @@ class StateMachineImplEventDispatchSpec extends Specification {
     def 'a trigger whose transition rejects the supplied context type is skipped, not fired'() {
         given:
         def entity = new Entity('s1')
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', TestContext, { t -> t.addEventTrigger('go', 'GO') }) })
-            .state('s2', {}) })
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', TestContext, { t -> t.addEventTrigger('go', 'GO') })
+            .state('s2') })
 
         when:
         def result = sm.entity(entity).processEvent('GO', null, 'not-a-context')
@@ -188,11 +188,11 @@ class StateMachineImplEventDispatchSpec extends Specification {
     def 'a context-incompatible trigger is skipped and a later compatible one still fires'() {
         given:
         def entity = new Entity('s1')
-        def sm = build({ d -> d.state('s1', { st -> st
-            .transitionsTo('s2', 'typed', TestContext, { t -> t.addEventTrigger('first', 'GO') })
-            .transitionsTo('s3', 'untyped', { t -> t.addEventTrigger('second', 'GO') }) })
-            .state('s2', {})
-            .state('s3', {}) })
+        def sm = build({ d -> d.state('s1')
+            .transition('typed', 's1', 's2', TestContext, { t -> t.addEventTrigger('first', 'GO') })
+            .transition('untyped', 's1', 's3', { t -> t.addEventTrigger('second', 'GO') })
+            .state('s2')
+            .state('s3') })
 
         when: 'a context the first trigger cannot accept is supplied'
         def result = sm.entity(entity).processEvent('GO', null, 'not-a-context')
@@ -206,11 +206,11 @@ class StateMachineImplEventDispatchSpec extends Specification {
     def 'a context-incompatible trigger never reaches its filter'() {
         given:
         def filterCalls = []
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', TestContext, { t -> t.addEventTrigger('go', { et -> et
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', TestContext, { t -> t.addEventTrigger('go', { et -> et
                 .onEvent('GO')
-                .filter({ payload, e -> filterCalls << payload; true } as BiPredicate) }) }) })
-            .state('s2', {}) })
+                .filter({ payload, e -> filterCalls << payload; true } as BiPredicate) }) })
+            .state('s2') })
 
         when:
         def result = sm.entity(new Entity('s1')).processEvent('GO', 'payload', 'not-a-context')
@@ -222,9 +222,9 @@ class StateMachineImplEventDispatchSpec extends Specification {
 
     def 'a targeted fire() still rejects the context the dispatch scan would skip'() {
         given:
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', TestContext, { t -> t.addManualTrigger('go') }) })
-            .state('s2', {}) })
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', TestContext, { t -> t.addManualTrigger('go') })
+            .state('s2') })
 
         when:
         sm.entity(new Entity('s1')).fire('go', 'not-a-context')
@@ -237,11 +237,11 @@ class StateMachineImplEventDispatchSpec extends Specification {
     def 'a filter that throws is attributed to its trigger and keeps the original cause'() {
         given:
         def boom = new IllegalStateException('payload was not a PaymentEvent')
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', { t -> t.addEventTrigger('go', { et -> et
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', { t -> t.addEventTrigger('go', { et -> et
                 .onEvent('GO')
-                .filter({ payload -> throw boom } as Predicate) }) }) })
-            .state('s2', {}) })
+                .filter({ payload -> throw boom } as Predicate) }) })
+            .state('s2') })
 
         when:
         sm.entity(new Entity('s1')).processEvent('GO', 'payload')
@@ -256,9 +256,9 @@ class StateMachineImplEventDispatchSpec extends Specification {
 
     def 'a blank event id is rejected'() {
         given:
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', { t -> t.addEventTrigger('go', 'GO') }) })
-            .state('s2', {}) })
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', { t -> t.addEventTrigger('go', 'GO') })
+            .state('s2') })
 
         when:
         sm.entity(new Entity('s1')).processEvent('  ', null)

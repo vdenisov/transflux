@@ -249,19 +249,19 @@ public final class JavaDslSurface {
             .step("notify", NotifyCtx.class, new NotifyAction())
             .mapper("notify-from-order", OrderCtx.class, NotifyCtx.class,
                     parent -> new NotifyCtx(parent.orderId))
-            .state("s1", s -> s
-                .transitionsTo("s2", "t", OrderCtx.class, t -> t
-                    .operation("op", c -> c
-                        // pass-through: same context type on both sides
-                        .run("record")
-                        // mapped: every shape that can carry a mapper
-                        .run("notify", "notify-from-order")
-                        .run("notify", parent -> new NotifyCtx(parent.orderId))
+            .state("s1")
+            .transition("t", "s1", "s2", OrderCtx.class, t -> t
+                .operation("op", c -> c
+                    // pass-through: same context type on both sides
+                    .run("record")
+                    // mapped: every shape that can carry a mapper
+                    .run("notify", "notify-from-order")
+                    .run("notify", parent -> new NotifyCtx(parent.orderId))
 
-                        .fork("record")
-                        .fork("notify", "notify-from-order")
-                        .fork("notify", parent -> new NotifyCtx(parent.orderId)))))
-            .state("s2", s -> { })
+                    .fork("record")
+                    .fork("notify", "notify-from-order")
+                    .fork("notify", parent -> new NotifyCtx(parent.orderId))))
+            .state("s2")
             .build();
     }
 
@@ -280,56 +280,56 @@ public final class JavaDslSurface {
             .step("notify", NotifyCtx.class, new NotifyAction())
             .mapper("notify-from-order", OrderCtx.class, NotifyCtx.class,
                     parent -> new NotifyCtx(parent.orderId))
-            .state("s1", s -> s
-                .transitionsTo("s2", "t", OrderCtx.class, t -> t
-                    .operation("op", c -> c
-                        .choice("branching", choice -> choice
-                            .branch("taken", b -> b
-                                .condition("always", (order, ctx) -> true)
-                                .run("record")
-                                .run("notify", "notify-from-order")
-                                .run("notify", parent -> new NotifyCtx(parent.orderId))
-                                .step("branch-instance", (order, ctx, view) -> order.trail.add("branch-inline"))
-                                .step("branch-configured", step -> step
-                                    .using(new RecordingAction())
-                                    .withName("In a branch"))
-                                .fork("record")
-                                .fork("notify", "notify-from-order")
-                                .fork("notify", parent -> new NotifyCtx(parent.orderId))
-                                .forkStep("branch-forked",
-                                          (order, ctx, view) -> order.trail.add("branch-forked"))
-                                .forkOperation("branch-forked-group", g -> g
-                                    .step("branch-forked-member", new RecordingAction()))
-                                .forkChoice("branch-forked-route", forked -> forked
-                                    .branch("branch-forked-taken", branch -> branch
-                                        .condition("branch-forked-always", (order, ctx) -> true)
-                                        .run("record")))
-                                .choice("nested-in-branch", inner -> inner
-                                    .branch("deep", branch -> branch
-                                        .condition("deep-condition", (order, ctx) -> true)
-                                        .run("record"))))
-                            .defaultBranch(d -> d
-                                .run("record")
-                                .run("notify", "notify-from-order")
-                                .run("notify", parent -> new NotifyCtx(parent.orderId))
-                                .step("default-instance", (order, ctx, view) -> order.trail.add("default-inline"))
-                                .step("default-configured", step -> step
-                                    .using(new RecordingAction())
-                                    .withName("In the default branch"))
-                                .fork("record")
-                                .forkStep("default-forked",
-                                          (order, ctx, view) -> order.trail.add("default-forked"))
-                                .forkOperation("default-forked-group", g -> g
-                                    .step("default-forked-member", new RecordingAction()))
-                                .forkChoice("default-forked-route", forked -> forked
-                                    .branch("default-forked-taken", branch -> branch
-                                        .condition("default-forked-always", (order, ctx) -> true)
-                                        .run("record")))
-                                .choice("nested-in-default", inner -> inner
-                                    .branch("deep-default", branch -> branch
-                                        .condition("deep-default-condition", (order, ctx) -> true)
-                                        .run("record"))))))))
-            .state("s2", s -> { })
+            .state("s1")
+            .transition("t", "s1", "s2", OrderCtx.class, t -> t
+                .operation("op", c -> c
+                    .choice("branching", choice -> choice
+                        .branch("taken", b -> b
+                            .condition("always", (order, ctx) -> true)
+                            .run("record")
+                            .run("notify", "notify-from-order")
+                            .run("notify", parent -> new NotifyCtx(parent.orderId))
+                            .step("branch-instance", (order, ctx, view) -> order.trail.add("branch-inline"))
+                            .step("branch-configured", step -> step
+                                .using(new RecordingAction())
+                                .withName("In a branch"))
+                            .fork("record")
+                            .fork("notify", "notify-from-order")
+                            .fork("notify", parent -> new NotifyCtx(parent.orderId))
+                            .forkStep("branch-forked",
+                                      (order, ctx, view) -> order.trail.add("branch-forked"))
+                            .forkOperation("branch-forked-group", g -> g
+                                .step("branch-forked-member", new RecordingAction()))
+                            .forkChoice("branch-forked-route", forked -> forked
+                                .branch("branch-forked-taken", branch -> branch
+                                    .condition("branch-forked-always", (order, ctx) -> true)
+                                    .run("record")))
+                            .choice("nested-in-branch", inner -> inner
+                                .branch("deep", branch -> branch
+                                    .condition("deep-condition", (order, ctx) -> true)
+                                    .run("record"))))
+                        .defaultBranch(d -> d
+                            .run("record")
+                            .run("notify", "notify-from-order")
+                            .run("notify", parent -> new NotifyCtx(parent.orderId))
+                            .step("default-instance", (order, ctx, view) -> order.trail.add("default-inline"))
+                            .step("default-configured", step -> step
+                                .using(new RecordingAction())
+                                .withName("In the default branch"))
+                            .fork("record")
+                            .forkStep("default-forked",
+                                      (order, ctx, view) -> order.trail.add("default-forked"))
+                            .forkOperation("default-forked-group", g -> g
+                                .step("default-forked-member", new RecordingAction()))
+                            .forkChoice("default-forked-route", forked -> forked
+                                .branch("default-forked-taken", branch -> branch
+                                    .condition("default-forked-always", (order, ctx) -> true)
+                                    .run("record")))
+                            .choice("nested-in-default", inner -> inner
+                                .branch("deep-default", branch -> branch
+                                    .condition("deep-default-condition", (order, ctx) -> true)
+                                    .run("record")))))))
+            .state("s2")
             .build();
     }
 
@@ -355,18 +355,18 @@ public final class JavaDslSurface {
                 .condition("scoped-bipredicate", (order, ctx) -> true)
                 .condition("scoped-predicate", order -> true)
                 .condition("scoped-expression", "true"))
-            .state("s1", s -> s
-                .transitionsTo("s2", "t", OrderCtx.class, t -> t
-                    .preCondition("as-condition")
-                    .preCondition("as-bipredicate")
-                    .preCondition("as-predicate")
-                    .preCondition("as-expression")
-                    .preCondition("scoped-condition")
-                    .preCondition("scoped-bipredicate")
-                    .preCondition("scoped-predicate")
-                    .preCondition("scoped-expression")
-                    .step("record", new RecordingAction())))
-            .state("s2", s -> { })
+            .state("s1")
+            .transition("t", "s1", "s2", OrderCtx.class, t -> t
+                .preCondition("as-condition")
+                .preCondition("as-bipredicate")
+                .preCondition("as-predicate")
+                .preCondition("as-expression")
+                .preCondition("scoped-condition")
+                .preCondition("scoped-bipredicate")
+                .preCondition("scoped-predicate")
+                .preCondition("scoped-expression")
+                .step("record", new RecordingAction()))
+            .state("s2")
             .build();
     }
 
@@ -392,12 +392,12 @@ public final class JavaDslSurface {
                         .step("unreached", (order, ctx, view) -> order.trail.add("unreached")))
                     .defaultBranch(d -> d
                         .step("fallback", (order, ctx, view) -> order.trail.add("fallback")))))
-            .state("s1", s -> s
-                .transitionsTo("s2", "t", OrderCtx.class, t -> t
-                    .operation("op", c -> c
-                        .run("flat")
-                        .run("scoped"))))
-            .state("s2", s -> { })
+            .state("s1")
+            .transition("t", "s1", "s2", OrderCtx.class, t -> t
+                .operation("op", c -> c
+                    .run("flat")
+                    .run("scoped")))
+            .state("s2")
             .build();
     }
 
@@ -412,18 +412,18 @@ public final class JavaDslSurface {
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .step("record", new RecordingAction())
-            .state("s1", s -> s
-                .transitionsTo("s2", "t", OrderCtx.class, t -> t
-                    .choice("route", choice -> choice
-                        .branch("premium", b -> b
-                            .condition("is-premium", (order, ctx) -> "o-1".equals(ctx.orderId))
-                            .step("shared", (order, ctx, view) -> order.trail.add("shared"))
-                            .run("record"))
-                        .branch("standard", b -> b
-                            .condition("is-standard", (order, ctx) -> false)
-                            .run("shared"))
-                        .defaultBranch(d -> d.run("record")))))
-            .state("s2", s -> { })
+            .state("s1")
+            .transition("t", "s1", "s2", OrderCtx.class, t -> t
+                .choice("route", choice -> choice
+                    .branch("premium", b -> b
+                        .condition("is-premium", (order, ctx) -> "o-1".equals(ctx.orderId))
+                        .step("shared", (order, ctx, view) -> order.trail.add("shared"))
+                        .run("record"))
+                    .branch("standard", b -> b
+                        .condition("is-standard", (order, ctx) -> false)
+                        .run("shared"))
+                    .defaultBranch(d -> d.run("record"))))
+            .state("s2")
             .build();
     }
 
@@ -439,29 +439,29 @@ public final class JavaDslSurface {
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .step("record", new RecordingAction())
-            .state("s1", s -> s
-                .transitionsTo("s2", "t", OrderCtx.class, t -> t
-                    .operation("op", c -> c
-                        .operation("in-container", inner -> inner
-                            .step("in-container-step", (order, ctx, view) -> order.trail.add("in-container"))
-                            .run("record"))
-                        .operation("nested", inner -> inner
-                            .step("nested-step", (order, ctx, view) -> order.trail.add("nested"))
-                            .operation("two-deep", deepest -> deepest
-                                .step("two-deep-step", (order, ctx, view) -> order.trail.add("two-deep"))))
-                        .choice("branching", choice -> choice
-                            .branch("taken", b -> b
-                                .condition("always", (order, ctx) -> true)
-                                .operation("in-branch", inner -> inner
-                                    .step("in-branch-step", (order, ctx, view) -> order.trail.add("in-branch"))
-                                    .choice("deep-choice", deep -> deep
-                                        .branch("deep-taken", branch -> branch
-                                            .condition("deep-always", (order, ctx) -> true)
-                                            .run("record")))))
-                            .defaultBranch(d -> d
-                                .operation("in-default", inner -> inner
-                                    .step("in-default-step", (order, ctx, view) -> order.trail.add("in-default"))))))))
-            .state("s2", s -> { })
+            .state("s1")
+            .transition("t", "s1", "s2", OrderCtx.class, t -> t
+                .operation("op", c -> c
+                    .operation("in-container", inner -> inner
+                        .step("in-container-step", (order, ctx, view) -> order.trail.add("in-container"))
+                        .run("record"))
+                    .operation("nested", inner -> inner
+                        .step("nested-step", (order, ctx, view) -> order.trail.add("nested"))
+                        .operation("two-deep", deepest -> deepest
+                            .step("two-deep-step", (order, ctx, view) -> order.trail.add("two-deep"))))
+                    .choice("branching", choice -> choice
+                        .branch("taken", b -> b
+                            .condition("always", (order, ctx) -> true)
+                            .operation("in-branch", inner -> inner
+                                .step("in-branch-step", (order, ctx, view) -> order.trail.add("in-branch"))
+                                .choice("deep-choice", deep -> deep
+                                    .branch("deep-taken", branch -> branch
+                                        .condition("deep-always", (order, ctx) -> true)
+                                        .run("record")))))
+                        .defaultBranch(d -> d
+                            .operation("in-default", inner -> inner
+                                .step("in-default-step", (order, ctx, view) -> order.trail.add("in-default")))))))
+            .state("s2")
             .build();
     }
 
@@ -477,57 +477,57 @@ public final class JavaDslSurface {
         return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
-            .state("s1", s -> s
-                .transitionsTo("s2", "t", OrderCtx.class, t -> t
-                    .operation("op", c -> c
-                        // pass-through: the declared context widens, so nothing maps
-                        .step("pt-instance", HasOrderId.class,
-                              (order, ctx, view) -> order.trail.add("pt:" + ctx.orderId()))
-                        .step("pt-configured", HasOrderId.class,
-                              st -> st.using(new IgnoresContext()).withName("Widened"))
-                        .operation("pt-op", HasOrderId.class, inner -> inner
-                            .step("pt-op-step",
-                                  (order, ctx, view) -> order.trail.add("pt-op:" + ctx.orderId())))
-                        .choice("pt-choice", HasOrderId.class, choice -> choice
-                            .branch("pt-taken", b -> b
-                                .condition("pt-always", (order, ctx) -> true)
-                                .step("pt-choice-step",
-                                      (order, ctx, view) -> order.trail.add("pt-choice:" + ctx.orderId()))))
+            .state("s1")
+            .transition("t", "s1", "s2", OrderCtx.class, t -> t
+                .operation("op", c -> c
+                    // pass-through: the declared context widens, so nothing maps
+                    .step("pt-instance", HasOrderId.class,
+                          (order, ctx, view) -> order.trail.add("pt:" + ctx.orderId()))
+                    .step("pt-configured", HasOrderId.class,
+                          st -> st.using(new IgnoresContext()).withName("Widened"))
+                    .operation("pt-op", HasOrderId.class, inner -> inner
+                        .step("pt-op-step",
+                              (order, ctx, view) -> order.trail.add("pt-op:" + ctx.orderId())))
+                    .choice("pt-choice", HasOrderId.class, choice -> choice
+                        .branch("pt-taken", b -> b
+                            .condition("pt-always", (order, ctx) -> true)
+                            .step("pt-choice-step",
+                                  (order, ctx, view) -> order.trail.add("pt-choice:" + ctx.orderId()))))
 
-                        // mapped: the declared context is produced from the enclosing one
-                        .step("mapped-instance", NotifyCtx.class, new NotifyFromOrder(),
-                              new NotifyAction())
-                        .step("mapped-configured", NotifyCtx.class, new NotifyFromOrder(),
-                              st -> st.using(new NotifyAction()).withName("Mapped"))
-                        .operation("mapped-op", NotifyCtx.class, new NotifyFromOrder(), inner -> inner
-                            .step("mapped-op-step", (order, ctx, view) -> {
-                                order.trail.add("mapped-op:" + ctx.orderId);
-                                ctx.receipt = "r-1";
-                            }))
-                        .choice("mapped-choice", NotifyCtx.class, new NotifyFromOrder(), choice -> choice
-                            .branch("mapped-taken", b -> b
-                                .condition("mapped-always", (order, ctx) -> true)
-                                .step("mapped-choice-step",
-                                      (order, ctx, view) -> order.trail.add("mapped-choice:" + ctx.orderId))))
+                    // mapped: the declared context is produced from the enclosing one
+                    .step("mapped-instance", NotifyCtx.class, new NotifyFromOrder(),
+                          new NotifyAction())
+                    .step("mapped-configured", NotifyCtx.class, new NotifyFromOrder(),
+                          st -> st.using(new NotifyAction()).withName("Mapped"))
+                    .operation("mapped-op", NotifyCtx.class, new NotifyFromOrder(), inner -> inner
+                        .step("mapped-op-step", (order, ctx, view) -> {
+                            order.trail.add("mapped-op:" + ctx.orderId);
+                            ctx.receipt = "r-1";
+                        }))
+                    .choice("mapped-choice", NotifyCtx.class, new NotifyFromOrder(), choice -> choice
+                        .branch("mapped-taken", b -> b
+                            .condition("mapped-always", (order, ctx) -> true)
+                            .step("mapped-choice-step",
+                                  (order, ctx, view) -> order.trail.add("mapped-choice:" + ctx.orderId))))
 
-                        // the same five, with an implicitly-typed lambda in the mapper slot: the
-                        // shape a concrete mapper instance cannot prove resolves
-                        .step("lambda-instance", NotifyCtx.class,
-                              parent -> new NotifyCtx(parent.orderId), new NotifyAction())
-                        .step("lambda-configured", NotifyCtx.class,
-                              parent -> new NotifyCtx(parent.orderId),
-                              st -> st.using(new NotifyAction()).withName("Lambda-mapped"))
-                        .operation("lambda-op", NotifyCtx.class,
-                                   parent -> new NotifyCtx(parent.orderId), inner -> inner
-                            .step("lambda-op-step",
-                                  (order, ctx, view) -> order.trail.add("lambda-op:" + ctx.orderId)))
-                        .choice("lambda-choice", NotifyCtx.class,
-                                     parent -> new NotifyCtx(parent.orderId), choice -> choice
-                            .branch("lambda-taken", b -> b
-                                .condition("lambda-always", (order, ctx) -> true)
-                                .step("lambda-choice-step",
-                                      (order, ctx, view) -> order.trail.add("lambda-choice:" + ctx.orderId)))))))
-            .state("s2", s -> { })
+                    // the same five, with an implicitly-typed lambda in the mapper slot: the
+                    // shape a concrete mapper instance cannot prove resolves
+                    .step("lambda-instance", NotifyCtx.class,
+                          parent -> new NotifyCtx(parent.orderId), new NotifyAction())
+                    .step("lambda-configured", NotifyCtx.class,
+                          parent -> new NotifyCtx(parent.orderId),
+                          st -> st.using(new NotifyAction()).withName("Lambda-mapped"))
+                    .operation("lambda-op", NotifyCtx.class,
+                               parent -> new NotifyCtx(parent.orderId), inner -> inner
+                        .step("lambda-op-step",
+                              (order, ctx, view) -> order.trail.add("lambda-op:" + ctx.orderId)))
+                    .choice("lambda-choice", NotifyCtx.class,
+                                 parent -> new NotifyCtx(parent.orderId), choice -> choice
+                        .branch("lambda-taken", b -> b
+                            .condition("lambda-always", (order, ctx) -> true)
+                            .step("lambda-choice-step",
+                                  (order, ctx, view) -> order.trail.add("lambda-choice:" + ctx.orderId))))))
+            .state("s2")
             .build();
     }
 
@@ -551,10 +551,10 @@ public final class JavaDslSurface {
             .step("notify", NotifyCtx.class, new NotifyAction())
             .mapper("notify-from-order", OrderCtx.class, NotifyCtx.class,
                     parent -> new NotifyCtx(parent.orderId))
-            .state("s1", s -> s
-                .transitionsTo("s2", "t", OrderCtx.class, t -> t
-                    .step("dispatch", dispatcher)))
-            .state("s2", s -> { })
+            .state("s1")
+            .transition("t", "s1", "s2", OrderCtx.class, t -> t
+                .step("dispatch", dispatcher))
+            .state("s2")
             .build();
     }
 
@@ -568,24 +568,24 @@ public final class JavaDslSurface {
         return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
-            .state("s1", s -> s
-                .transitionsTo("s2", "t", OrderCtx.class, t -> t
-                    .operation("op", c -> c
-                        .step("inline-instance", (order, ctx, view) -> order.trail.add("inline"))
-                        .step("inline-configured", step -> step
-                            .using(new RecordingAction())
-                            .withName("Configured")
-                            .withDescription("Declared through a configurer")
-                            .withCompensation(new RollbackCompensation())
-                            .onStart("watch-start", (order, ctx, execution) -> { })
-                            .onComplete("watch-done", (order, ctx, execution) -> { })
-                            .onError("watch-fail", (order, ctx, execution) -> { }))
-                        .choice("branching", choice -> choice
-                            .branch("premium", b -> b
-                                .condition("is-premium", (order, ctx) -> "o-1".equals(ctx.orderId))
-                                .run("inline-instance"))
-                            .defaultBranch(d -> d.run("inline-configured"))))))
-            .state("s2", s -> { })
+            .state("s1")
+            .transition("t", "s1", "s2", OrderCtx.class, t -> t
+                .operation("op", c -> c
+                    .step("inline-instance", (order, ctx, view) -> order.trail.add("inline"))
+                    .step("inline-configured", step -> step
+                        .using(new RecordingAction())
+                        .withName("Configured")
+                        .withDescription("Declared through a configurer")
+                        .withCompensation(new RollbackCompensation())
+                        .onStart("watch-start", (order, ctx, execution) -> { })
+                        .onComplete("watch-done", (order, ctx, execution) -> { })
+                        .onError("watch-fail", (order, ctx, execution) -> { }))
+                    .choice("branching", choice -> choice
+                        .branch("premium", b -> b
+                            .condition("is-premium", (order, ctx) -> "o-1".equals(ctx.orderId))
+                            .run("inline-instance"))
+                        .defaultBranch(d -> d.run("inline-configured")))))
+            .state("s2")
             .build();
     }
 
@@ -599,19 +599,19 @@ public final class JavaDslSurface {
         return Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
-            .state("s1", s -> s
-                .transitionsTo("s2", "t", OrderCtx.class, t -> t
-                    .operation("op", c -> c
-                        .withCompensation((order, ctx) -> order.trail.add("-container"))
-                        .step("charge", step -> step
-                            .using(new RecordingAction())
-                            .withCompensation(new RollbackCompensation())
-                            .forException(IllegalStateException.class)
-                                .withCompensation((order, ctx) -> order.trail.add("-illegal"))
-                            .forException(RuntimeException.class)
-                                .matching(e -> e.getMessage() != null)
-                                .withCompensation(new RollbackCompensation())))))
-            .state("s2", s -> { })
+            .state("s1")
+            .transition("t", "s1", "s2", OrderCtx.class, t -> t
+                .operation("op", c -> c
+                    .withCompensation((order, ctx) -> order.trail.add("-container"))
+                    .step("charge", step -> step
+                        .using(new RecordingAction())
+                        .withCompensation(new RollbackCompensation())
+                        .forException(IllegalStateException.class)
+                            .withCompensation((order, ctx) -> order.trail.add("-illegal"))
+                        .forException(RuntimeException.class)
+                            .matching(e -> e.getMessage() != null)
+                            .withCompensation(new RollbackCompensation()))))
+            .state("s2")
             .build();
     }
 
@@ -630,14 +630,14 @@ public final class JavaDslSurface {
                                       .withTimings())
             .step("record", OrderCtx.class, new RecordingAction())
             .state("s1", s -> s
-                .onExit("log-exit", ExecutionLogging.defaults().stateListener())
-                .transitionsTo("s2", "t", OrderCtx.class, t -> t
-                    .onComplete("log-payment", ExecutionLogging.atLevel(Level.DEBUG)
-                        .withEntityLabel((Order o) -> o.label())
-                        .withContext()
-                        .transitionListener())
-                    .run("record")))
-            .state("s2", s -> { })
+                .onExit("log-exit", ExecutionLogging.defaults().stateListener()))
+            .transition("t", "s1", "s2", OrderCtx.class, t -> t
+                .onComplete("log-payment", ExecutionLogging.atLevel(Level.DEBUG)
+                    .withEntityLabel((Order o) -> o.label())
+                    .withContext()
+                    .transitionListener())
+                .run("record"))
+            .state("s2")
             .build();
     }
 
@@ -666,11 +666,11 @@ public final class JavaDslSurface {
                 .run("record"))
             .state("s1", s -> s
                 .disableGlobalListener("any-exit")
-                .disableGlobalListeners("any-exit", "any-entry")
-                .transitionsTo("s2", "t", OrderCtx.class, t -> t
-                    .disableGlobalListener("any-start")
-                    .disableGlobalListeners("any-start")
-                    .run("wrap")))
+                .disableGlobalListeners("any-exit", "any-entry"))
+            .transition("t", "s1", "s2", OrderCtx.class, t -> t
+                .disableGlobalListener("any-start")
+                .disableGlobalListeners("any-start")
+                .run("wrap"))
             .state("s2", s -> s.disableAllGlobalListeners())
             .build();
     }
@@ -695,9 +695,9 @@ public final class JavaDslSurface {
                 .onComplete("action-async", l -> l
                     .using((order, ctx, execution) -> order.trail.add("action-async"))
                     .withAsync(AsyncRejectionPolicy.BLOCK)))
-            .state("s1", s -> s
-                .transitionsTo("s2", "t", OrderCtx.class, t -> t
-                    .run("record")))
+            .state("s1")
+            .transition("t", "s1", "s2", OrderCtx.class, t -> t
+                .run("record"))
             .state("s2", s -> s
                 .onExit("state-exit-async", l -> l
                     .using((order, ctx, change) -> order.trail.add("state-exit-async"))
@@ -731,10 +731,10 @@ public final class JavaDslSurface {
             .step("notify", NotifyCtx.class, new NotifyAction())
             .mapper("notify-from-order", OrderCtx.class, NotifyCtx.class,
                     parent -> new NotifyCtx(parent.orderId))
-            .state("s1", s -> s
-                .transitionsTo("s2", "t", OrderCtx.class, t -> t
-                    .step("dispatch", dispatcher)))
-            .state("s2", s -> { })
+            .state("s1")
+            .transition("t", "s1", "s2", OrderCtx.class, t -> t
+                .step("dispatch", dispatcher))
+            .state("s2")
             .build();
     }
 
@@ -761,17 +761,17 @@ public final class JavaDslSurface {
             .step("notify", NotifyCtx.class, new NotifyAction())
             .mapper("notify-from-order", OrderCtx.class, NotifyCtx.class,
                     parent -> new NotifyCtx(parent.orderId))
-            .state("s1", s -> s
-                .transitionsTo("s2", "t", OrderCtx.class, t -> t
-                    .operation("op", c -> c
-                        .fork("record")
-                        .fork("notify-async")
-                        // the policy declared where the work is forked, in each by-id shape
-                        .fork("record", AsyncRejectionPolicy.CALLER_RUNS)
-                        .fork("notify", "notify-from-order", AsyncRejectionPolicy.DROP)
-                        .fork("notify", parent -> new NotifyCtx(parent.orderId),
-                              AsyncRejectionPolicy.DROP))))
-            .state("s2", s -> { })
+            .state("s1")
+            .transition("t", "s1", "s2", OrderCtx.class, t -> t
+                .operation("op", c -> c
+                    .fork("record")
+                    .fork("notify-async")
+                    // the policy declared where the work is forked, in each by-id shape
+                    .fork("record", AsyncRejectionPolicy.CALLER_RUNS)
+                    .fork("notify", "notify-from-order", AsyncRejectionPolicy.DROP)
+                    .fork("notify", parent -> new NotifyCtx(parent.orderId),
+                          AsyncRejectionPolicy.DROP)))
+            .state("s2")
             .build();
     }
 
@@ -791,42 +791,42 @@ public final class JavaDslSurface {
             .step("notify", NotifyCtx.class, new NotifyAction())
             .mapper("notify-from-order", OrderCtx.class, NotifyCtx.class,
                     parent -> new NotifyCtx(parent.orderId))
-            .state("s1", s -> s
-                .transitionsTo("s2", "t", OrderCtx.class, t -> t
-                    // several members in a row, which the single-action slot could not hold
-                    .run("record")
-                    .run("notify", "notify-from-order")
-                    .run("notify", parent -> new NotifyCtx(parent.orderId))
+            .state("s1")
+            .transition("t", "s1", "s2", OrderCtx.class, t -> t
+                // several members in a row, which the single-action slot could not hold
+                .run("record")
+                .run("notify", "notify-from-order")
+                .run("notify", parent -> new NotifyCtx(parent.orderId))
 
-                    // declarations, inheriting the transition's context
-                    .step("inline", (order, ctx, view) -> order.trail.add("inline:" + ctx.orderId))
-                    .step("configured", st -> st.using(new RecordingAction()).withName("Configured"))
-                    .operation("group", c -> c.step("grouped", new RecordingAction()))
-                    .choice("route", choice -> choice
-                        .branch("taken", b -> b
-                            .condition("always", (order, ctx) -> true)
-                            .step("branch-member", new RecordingAction())))
+                // declarations, inheriting the transition's context
+                .step("inline", (order, ctx, view) -> order.trail.add("inline:" + ctx.orderId))
+                .step("configured", st -> st.using(new RecordingAction()).withName("Configured"))
+                .operation("group", c -> c.step("grouped", new RecordingAction()))
+                .choice("route", choice -> choice
+                    .branch("taken", b -> b
+                        .condition("always", (order, ctx) -> true)
+                        .step("branch-member", new RecordingAction())))
 
-                    // declarations naming a context of their own, pass-through and mapped
-                    .step("widened", HasOrderId.class,
-                          (order, ctx, view) -> order.trail.add("widened:" + ctx.orderId()))
-                    .operation("mapped-group", NotifyCtx.class,
-                               parent -> new NotifyCtx(parent.orderId), inner -> inner
-                        .step("mapped-member", (order, ctx, view) ->
-                            order.trail.add("mapped:" + ctx.orderId)))
+                // declarations naming a context of their own, pass-through and mapped
+                .step("widened", HasOrderId.class,
+                      (order, ctx, view) -> order.trail.add("widened:" + ctx.orderId()))
+                .operation("mapped-group", NotifyCtx.class,
+                           parent -> new NotifyCtx(parent.orderId), inner -> inner
+                    .step("mapped-member", (order, ctx, view) ->
+                        order.trail.add("mapped:" + ctx.orderId)))
 
-                    // and fork, beside a synchronous member rather than inside a wrapper
-                    .fork("record")
-                    .fork("notify", "notify-from-order")
-                    .fork("notify", parent -> new NotifyCtx(parent.orderId))
-                    .forkStep("t-forked", (order, ctx, view) -> order.trail.add("t-forked"))
-                    .forkOperation("t-forked-group", g -> g
-                        .step("t-forked-member", new RecordingAction()))
-                    .forkChoice("t-forked-route", choice -> choice
-                        .branch("t-forked-taken", b -> b
-                            .condition("t-forked-always", (order, ctx) -> true)
-                            .run("record")))))
-            .state("s2", s -> { })
+                // and fork, beside a synchronous member rather than inside a wrapper
+                .fork("record")
+                .fork("notify", "notify-from-order")
+                .fork("notify", parent -> new NotifyCtx(parent.orderId))
+                .forkStep("t-forked", (order, ctx, view) -> order.trail.add("t-forked"))
+                .forkOperation("t-forked-group", g -> g
+                    .step("t-forked-member", new RecordingAction()))
+                .forkChoice("t-forked-route", choice -> choice
+                    .branch("t-forked-taken", b -> b
+                        .condition("t-forked-always", (order, ctx) -> true)
+                        .run("record"))))
+            .state("s2")
             .build();
     }
 
@@ -846,48 +846,48 @@ public final class JavaDslSurface {
             .withStateResolver(o -> o.state)
             .withStateApplier((o, s) -> o.state = s)
             .step("record", new RecordingAction())
-            .state("s1", s -> s
-                .transitionsTo("s2", "t", OrderCtx.class, t -> t
-                    .operation("op", c -> c
-                        // inheriting the enclosing context
-                        .forkStep("f-instance", (order, ctx, view) -> order.trail.add("f-instance"))
-                        .forkStep("f-configured", st -> st
-                            .using(new RecordingAction())
-                            .withName("Forked"))
-                        .forkOperation("f-group", g -> g.run("record"))
-                        .forkChoice("f-route", choice -> choice
-                            .branch("f-taken", b -> b
-                                .condition("f-always", (order, ctx) -> true)
-                                .run("record")))
+            .state("s1")
+            .transition("t", "s1", "s2", OrderCtx.class, t -> t
+                .operation("op", c -> c
+                    // inheriting the enclosing context
+                    .forkStep("f-instance", (order, ctx, view) -> order.trail.add("f-instance"))
+                    .forkStep("f-configured", st -> st
+                        .using(new RecordingAction())
+                        .withName("Forked"))
+                    .forkOperation("f-group", g -> g.run("record"))
+                    .forkChoice("f-route", choice -> choice
+                        .branch("f-taken", b -> b
+                            .condition("f-always", (order, ctx) -> true)
+                            .run("record")))
 
-                        // declaring a context of their own, pass-through
-                        .forkStep("f-pt-instance", HasOrderId.class,
-                                  (order, ctx, view) -> order.trail.add("f-pt:" + ctx.orderId()))
-                        .forkStep("f-pt-configured", HasOrderId.class,
-                                  st -> st.using(new IgnoresContext()).withName("Widened fork"))
-                        .forkOperation("f-pt-group", HasOrderId.class, g -> g
-                            .step("f-pt-member",
-                                  (order, ctx, view) -> order.trail.add("f-pt-member")))
-                        .forkChoice("f-pt-route", HasOrderId.class, choice -> choice
-                            .branch("f-pt-taken", b -> b
-                                .condition("f-pt-always", (order, ctx) -> true)
-                                .step("f-pt-branch-member", new IgnoresContext())))
+                    // declaring a context of their own, pass-through
+                    .forkStep("f-pt-instance", HasOrderId.class,
+                              (order, ctx, view) -> order.trail.add("f-pt:" + ctx.orderId()))
+                    .forkStep("f-pt-configured", HasOrderId.class,
+                              st -> st.using(new IgnoresContext()).withName("Widened fork"))
+                    .forkOperation("f-pt-group", HasOrderId.class, g -> g
+                        .step("f-pt-member",
+                              (order, ctx, view) -> order.trail.add("f-pt-member")))
+                    .forkChoice("f-pt-route", HasOrderId.class, choice -> choice
+                        .branch("f-pt-taken", b -> b
+                            .condition("f-pt-always", (order, ctx) -> true)
+                            .step("f-pt-branch-member", new IgnoresContext())))
 
-                        // declaring a context of their own, produced by a mapper written inline
-                        .forkStep("f-mapped-instance", NotifyCtx.class,
-                                  parent -> new NotifyCtx(parent.orderId), new NotifyAction())
-                        .forkStep("f-mapped-configured", NotifyCtx.class, new NotifyFromOrder(),
-                                  st -> st.using(new NotifyAction()).withName("Mapped fork"))
-                        .forkOperation("f-mapped-group", NotifyCtx.class,
-                                       parent -> new NotifyCtx(parent.orderId), g -> g
-                            .step("f-mapped-member",
-                                  (order, ctx, view) -> order.trail.add("f-mapped:" + ctx.orderId)))
-                        .forkChoice("f-mapped-route", NotifyCtx.class,
-                                    parent -> new NotifyCtx(parent.orderId), choice -> choice
-                            .branch("f-mapped-taken", b -> b
-                                .condition("f-mapped-always", (order, ctx) -> true)
-                                .step("f-mapped-branch-member", new NotifyAction()))))))
-            .state("s2", s -> { })
+                    // declaring a context of their own, produced by a mapper written inline
+                    .forkStep("f-mapped-instance", NotifyCtx.class,
+                              parent -> new NotifyCtx(parent.orderId), new NotifyAction())
+                    .forkStep("f-mapped-configured", NotifyCtx.class, new NotifyFromOrder(),
+                              st -> st.using(new NotifyAction()).withName("Mapped fork"))
+                    .forkOperation("f-mapped-group", NotifyCtx.class,
+                                   parent -> new NotifyCtx(parent.orderId), g -> g
+                        .step("f-mapped-member",
+                              (order, ctx, view) -> order.trail.add("f-mapped:" + ctx.orderId)))
+                    .forkChoice("f-mapped-route", NotifyCtx.class,
+                                parent -> new NotifyCtx(parent.orderId), choice -> choice
+                        .branch("f-mapped-taken", b -> b
+                            .condition("f-mapped-always", (order, ctx) -> true)
+                            .step("f-mapped-branch-member", new NotifyAction())))))
+            .state("s2")
             .build();
     }
 
@@ -1008,7 +1008,7 @@ public final class JavaDslSurface {
 
     /**
      * Every condition attachment form on a transition and every trigger declaration form, on the
-     * pass-through {@code transitionsTo} that declares no context. The condition family is the
+     * pass-through {@code transition} form that declares no context. The condition family is the
      * resolution-sensitive one: instance, two-argument lambda, one-argument lambda, method
      * reference and expression all live under one name.
      *
@@ -1023,49 +1023,49 @@ public final class JavaDslSurface {
             .condition("registered-open", o -> "s1".equals(o.state))
             .state("s1", s -> s
                 .withName("Open")
-                .withDescription("An order nobody has paid for")
-                .transitionsTo("s2", "t", t -> t
-                    .withName("Pay")
-                    .withDescription("Takes payment")
+                .withDescription("An order nobody has paid for"))
+            .transition("t", "s1", "s2", t -> t
+                .withName("Pay")
+                .withDescription("Takes payment")
+                .preCondition("registered-open")
+                .preCondition("pre-instance", new OrderIsOpen())
+                .preCondition("pre-bi", (order, ctx) -> order.label() != null)
+                .preCondition("pre-lambda", order -> order.label() != null)
+                .preCondition("pre-class", new OrderHasLabel())
+                .preCondition("pre-method-ref", JavaDslSurface::isOpen)
+                .preCondition("pre-expression", "state == 's1'")
+                .preConditionExpression("state == 's1'")
+                .postCondition("registered-open")
+                .postCondition("post-instance", new OrderIsOpen())
+                .postCondition("post-bi", (order, ctx) -> true)
+                .postCondition("post-lambda", order -> true)
+                .postCondition("post-expression", "state == 's1'")
+                .postConditionExpression("#transition.id == 't'")
+
+                .addManualTrigger("pay-now")
+                .addManualTrigger("pay-checked", mt -> mt
+                    .withDescription("A manual trigger with pre-conditions of its own")
                     .preCondition("registered-open")
-                    .preCondition("pre-instance", new OrderIsOpen())
-                    .preCondition("pre-bi", (order, ctx) -> order.label() != null)
-                    .preCondition("pre-lambda", order -> order.label() != null)
-                    .preCondition("pre-class", new OrderHasLabel())
-                    .preCondition("pre-method-ref", JavaDslSurface::isOpen)
-                    .preCondition("pre-expression", "state == 's1'")
-                    .preConditionExpression("state == 's1'")
-                    .postCondition("registered-open")
-                    .postCondition("post-instance", new OrderIsOpen())
-                    .postCondition("post-bi", (order, ctx) -> true)
-                    .postCondition("post-lambda", order -> true)
-                    .postCondition("post-expression", "state == 's1'")
-                    .postConditionExpression("#transition.id == 't'")
+                    .preCondition("mt-lambda", order -> true)
+                    .preConditionExpression("state == 's1'"))
+                .addEventTrigger("on-paid", "PAID")
+                .addEventTrigger("SETTLED")
+                .addEventTrigger("on-refund-expr", et -> et
+                    .onEvent("REFUND")
+                    .filterExpression("#event == 'full'"))
+                .addEventTrigger("on-refund-payload", et -> et
+                    .onEvent("REFUND")
+                    .filter(event -> "partial".equals(event)))
+                .addEventTrigger("on-refund-entity", et -> et
+                    .onEvent("REFUND")
+                    .filter((event, order) -> order.label().equals(event)))
+                .addDataTrigger("when-flagged", dt -> dt
+                    .condition("flagged", order -> order.trail.contains("flag")))
+                .addDataTrigger("when-registered", dt -> dt.condition("registered-open"))
+                .addDataTrigger("when-expression", dt -> dt.conditionExpression("state == 's1'"))
 
-                    .addManualTrigger("pay-now")
-                    .addManualTrigger("pay-checked", mt -> mt
-                        .withDescription("A manual trigger with pre-conditions of its own")
-                        .preCondition("registered-open")
-                        .preCondition("mt-lambda", order -> true)
-                        .preConditionExpression("state == 's1'"))
-                    .addEventTrigger("on-paid", "PAID")
-                    .addEventTrigger("SETTLED")
-                    .addEventTrigger("on-refund-expr", et -> et
-                        .onEvent("REFUND")
-                        .filterExpression("#event == 'full'"))
-                    .addEventTrigger("on-refund-payload", et -> et
-                        .onEvent("REFUND")
-                        .filter(event -> "partial".equals(event)))
-                    .addEventTrigger("on-refund-entity", et -> et
-                        .onEvent("REFUND")
-                        .filter((event, order) -> order.label().equals(event)))
-                    .addDataTrigger("when-flagged", dt -> dt
-                        .condition("flagged", order -> order.trail.contains("flag")))
-                    .addDataTrigger("when-registered", dt -> dt.condition("registered-open"))
-                    .addDataTrigger("when-expression", dt -> dt.conditionExpression("state == 's1'"))
-
-                    .step("pay", (order, ctx, view) -> order.trail.add("pay"))))
-            .state("s2", s -> { })
+                .step("pay", (order, ctx, view) -> order.trail.add("pay")))
+            .state("s2")
             .build();
     }
 
@@ -1110,19 +1110,19 @@ public final class JavaDslSurface {
                 .onEntry("s-entry", new StateAudit())
                 .onEntry("s-entry-lambda", (order, ctx, change) -> order.trail.add("s-entry-lambda"))
                 .onEntry("s-entry-cfg", l -> l.withName("Entry audit").using(new StateAudit()))
-                .onExit("s-exit", (order, ctx, change) -> order.trail.add("s-exit"))
-                .transitionsTo("s2", "t", OrderCtx.class, t -> t
-                    .onStart("t-start", new TransitionAudit())
-                    .onStart("t-start-cfg", l -> l.using(new TransitionAudit()))
-                    .onComplete("t-complete", (order, ctx, execution) -> order.trail.add("t-complete"))
-                    .onComplete("t-complete-cfg", l -> l.using(new TransitionAudit()))
-                    .onError("t-error", new TransitionAudit())
-                    .onError("t-error-cfg", l -> l
-                        .withDescription("Audits a failed transition")
-                        .using(new TransitionAudit()))
-                    .disableAllGlobalListeners()
-                    .run("record")))
-            .state("s2", s -> { })
+                .onExit("s-exit", (order, ctx, change) -> order.trail.add("s-exit")))
+            .transition("t", "s1", "s2", OrderCtx.class, t -> t
+                .onStart("t-start", new TransitionAudit())
+                .onStart("t-start-cfg", l -> l.using(new TransitionAudit()))
+                .onComplete("t-complete", (order, ctx, execution) -> order.trail.add("t-complete"))
+                .onComplete("t-complete-cfg", l -> l.using(new TransitionAudit()))
+                .onError("t-error", new TransitionAudit())
+                .onError("t-error-cfg", l -> l
+                    .withDescription("Audits a failed transition")
+                    .using(new TransitionAudit()))
+                .disableAllGlobalListeners()
+                .run("record"))
+            .state("s2")
             .build();
     }
 
@@ -1146,27 +1146,27 @@ public final class JavaDslSurface {
             .mapperDef("notify-def", OrderCtx.class, NotifyCtx.class, m -> m
                 .withName("Notification from order")
                 .using(new NotifyFromOrder()))
-            .state("s1", s -> s
-                .transitionsTo("s2", "t", OrderCtx.class, t -> t
-                    .step("self-compensating", new SelfCompensatingAction())
-                    .operation("guarded", op -> op
-                        .withDescription("A container with routes and a fallback")
-                        .forException(IllegalStateException.class)
-                            .matching(JavaDslSurface::hasMessage)
-                            .withCompensation((order, ctx) -> order.trail.add("-illegal"))
-                        .withCompensation((order, ctx) -> order.trail.add("-guarded"))
-                        .run("notify", "notify-instance")
-                        .run("notify", "notify-method-ref")
-                        .run("notify", "notify-def"))
-                    .choice("route", choice -> choice
-                        .onNoMatch(NoMatchBehavior.SILENT)
-                        .branch("labelled", b -> b
-                            .condition("is-labelled", new OrderHasLabel())
-                            .step("labelled-member", (order, ctx, view) -> order.trail.add("labelled")))
-                        .branch("open", b -> b
-                            .condition("is-open", order -> "s1".equals(order.state))
-                            .step("open-member", (order, ctx, view) -> order.trail.add("open"))))))
-            .state("s2", s -> { })
+            .state("s1")
+            .transition("t", "s1", "s2", OrderCtx.class, t -> t
+                .step("self-compensating", new SelfCompensatingAction())
+                .operation("guarded", op -> op
+                    .withDescription("A container with routes and a fallback")
+                    .forException(IllegalStateException.class)
+                        .matching(JavaDslSurface::hasMessage)
+                        .withCompensation((order, ctx) -> order.trail.add("-illegal"))
+                    .withCompensation((order, ctx) -> order.trail.add("-guarded"))
+                    .run("notify", "notify-instance")
+                    .run("notify", "notify-method-ref")
+                    .run("notify", "notify-def"))
+                .choice("route", choice -> choice
+                    .onNoMatch(NoMatchBehavior.SILENT)
+                    .branch("labelled", b -> b
+                        .condition("is-labelled", new OrderHasLabel())
+                        .step("labelled-member", (order, ctx, view) -> order.trail.add("labelled")))
+                    .branch("open", b -> b
+                        .condition("is-open", order -> "s1".equals(order.state))
+                        .step("open-member", (order, ctx, view) -> order.trail.add("open")))))
+            .state("s2")
             .build();
     }
 
@@ -1216,9 +1216,9 @@ public final class JavaDslSurface {
     public static String refusalIds() {
         try (StateMachine<Order> sm = Transflux.defineStateMachine(Order.class)
             .withStateResolver(o -> o.state)
-            .state("s1", s -> s
-                .transitionsTo("s2", "t", t -> t.preCondition("never", order -> false)))
-            .state("s2", s -> { })
+            .state("s1")
+            .transition("t", "s1", "s2", t -> t.preCondition("never", order -> false))
+            .state("s2")
             .build()) {
             return describeRefusal(sm.entity(new Order()).transitionTo("s2").getError());
         }
@@ -1268,18 +1268,18 @@ public final class JavaDslSurface {
             .onAnyTransitionStart("any-transition", new TrackedTransitionAudit())
             .onAnyActionStart("any-action", new TrackedActionAudit())
             .state("s1", s -> s
-                .onExit("on-exit", new TrackedStateAudit())
-                .transitionsTo("s2", "t", t -> t
-                    .preCondition("tracked")
-                    .preCondition("has-trail")
-                    .onStart("on-start", new TrackedTransitionAudit())
-                    .run("track")
-                    .step("inline-track", TRACK_STEP)
-                    .step("compensated", step -> step
-                        .using(TRACK_STEP)
-                        .withCompensation(new UntrackCompensation())
-                        .onStart("on-action", new TrackedActionAudit()))))
-            .state("s2", s -> { })
+                .onExit("on-exit", new TrackedStateAudit()))
+            .transition("t", "s1", "s2", t -> t
+                .preCondition("tracked")
+                .preCondition("has-trail")
+                .onStart("on-start", new TrackedTransitionAudit())
+                .run("track")
+                .step("inline-track", TRACK_STEP)
+                .step("compensated", step -> step
+                    .using(TRACK_STEP)
+                    .withCompensation(new UntrackCompensation())
+                    .onStart("on-action", new TrackedActionAudit())))
+            .state("s2")
             .build();
     }
 
@@ -1299,9 +1299,9 @@ public final class JavaDslSurface {
             .withStateResolver(o -> o.state)
             .withStateApplier((o, next) -> o.state = next)
             .condition("labelled", "T(org.transflux.dsl.JavaDslSurface).hasLabel(#entity)")
-            .state("s1", s -> s
-                .transitionsTo("s2", "t", t -> t.preCondition("labelled")))
-            .state("s2", s -> { })
+            .state("s1")
+            .transition("t", "s1", "s2", t -> t.preCondition("labelled"))
+            .state("s2")
             .build()) {
 
             boolean fired = sm.entity(new Order()).transitionTo("s2").isSuccess();
@@ -1345,11 +1345,12 @@ public final class JavaDslSurface {
             .withVersion(tag)
             .withStateResolver(o -> o.state)
             .withStateApplier((o, next) -> o.state = next)
-            .state("s1", s -> s
-                .transitionsTo(target, "t", t -> t
-                    .step("mark", (order, ctx, view) -> order.trail.add(tag))))
-            .state("s2", s -> s.transitionsTo("s1", "back", t -> { }))
-            .state("s3", s -> { });
+            .state("s1")
+            .transition("t", "s1", target, t -> t
+                .step("mark", (order, ctx, view) -> order.trail.add(tag)))
+            .state("s2")
+            .transition("back", "s2", "s1", t -> { })
+            .state("s3");
     }
 
     /** Reachable from SpEL by name, so {@code #entity} has somewhere to be passed whole. */
@@ -1380,14 +1381,14 @@ public final class JavaDslSurface {
                 .manualTrigger("scoped-manual", t -> t.withDescription("Scoped"))
                 .eventTrigger("scoped-event", t -> t.onEvent("SCOPED"))
                 .dataTrigger("scoped-data", t -> t.conditionExpression("state != null")))
-            .state("s1", s -> s
-                .transitionsTo("s2", "from-s1", OrderCtx.class, t -> t
-                    .addTrigger("cancel")
-                    .addTrigger("settled")
-                    .addTrigger("swept")))
-            .state("s2", s -> s
-                .transitionsTo("s3", "from-s2", t -> t.addTrigger("cancel")))
-            .state("s3", s -> { })
+            .state("s1")
+            .transition("from-s1", "s1", "s2", OrderCtx.class, t -> t
+                .addTrigger("cancel")
+                .addTrigger("settled")
+                .addTrigger("swept"))
+            .state("s2")
+            .transition("from-s2", "s2", "s3", t -> t.addTrigger("cancel"))
+            .state("s3")
             .build()) {
 
             Trigger shared = sm.getTrigger("cancel");
@@ -1428,17 +1429,17 @@ public final class JavaDslSurface {
             .onAnyStateEntry("state-audit")
             .state("s1", s -> s
                 .onExit("state-audit")
-                .onEntry("state-configured")
-                .transitionsTo("s2", "t", OrderCtx.class, t -> t
-                    .onStart("typed-transition")
-                    .onComplete("scoped-transition")
-                    .onError("configured-transition")
-                    .step("tracked", step -> step
-                        .using(new RecordingAction())
-                        .onStart("typed-action")
-                        .onComplete("scoped-action")
-                        .onError("configured-action"))))
-            .state("s2", s -> { })
+                .onEntry("state-configured"))
+            .transition("t", "s1", "s2", OrderCtx.class, t -> t
+                .onStart("typed-transition")
+                .onComplete("scoped-transition")
+                .onError("configured-transition")
+                .step("tracked", step -> step
+                    .using(new RecordingAction())
+                    .onStart("typed-action")
+                    .onComplete("scoped-action")
+                    .onError("configured-action")))
+            .state("s2")
             .build()) {
 
             sm.entity(order).transitionTo("s2", new OrderCtx());

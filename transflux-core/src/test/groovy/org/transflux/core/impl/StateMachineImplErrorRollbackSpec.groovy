@@ -61,8 +61,9 @@ class StateMachineImplErrorRollbackSpec extends Specification {
                 .using(noop())
                 .withCompensation({ e, c -> log << "release" } as Compensation) } as Consumer)
             .step("assert", failingWith(new AssertionError("boom")))
-            .state("s1", { st -> st.transitionsTo("s2", "t", { t -> t.run("reserve").run("assert") }) })
-            .state("s2", {} as Consumer) })
+            .state("s1")
+            .transition("t", "s1", "s2", { t -> t.run("reserve").run("assert") })
+            .state("s2") })
         def entity = new Entity("s1")
 
         when:
@@ -96,8 +97,9 @@ class StateMachineImplErrorRollbackSpec extends Specification {
                 .using(noop())
                 .withCompensation({ e, c -> log << "release" } as Compensation) } as Consumer)
             .step("die", failingWith(new InternalError("synthetic")))
-            .state("s1", { st -> st.transitionsTo("s2", "t", { t -> t.run("reserve").run("die") }) })
-            .state("s2", {} as Consumer) })
+            .state("s1")
+            .transition("t", "s1", "s2", { t -> t.run("reserve").run("die") })
+            .state("s2") })
 
         when:
         sm.entity(new Entity("s1")).transitionTo("s2")
@@ -117,8 +119,9 @@ class StateMachineImplErrorRollbackSpec extends Specification {
                 .forException(AssertionError)
                     .withCompensation({ e, c -> log << "routed" } as Compensation) } as Consumer)
             .step("assert", failingWith(new AssertionError("boom")))
-            .state("s1", { st -> st.transitionsTo("s2", "t", { t -> t.run("reserve").run("assert") }) })
-            .state("s2", {} as Consumer) })
+            .state("s1")
+            .transition("t", "s1", "s2", { t -> t.run("reserve").run("assert") })
+            .state("s2") })
 
         when:
         sm.entity(new Entity("s1")).transitionTo("s2")
@@ -151,8 +154,9 @@ class StateMachineImplErrorRollbackSpec extends Specification {
             .step("reserve", { StepDef s -> s
                 .using(noop())
                 .withCompensation({ e, c -> log << "release" } as Compensation) } as Consumer)
-            .state("s1", { st -> st.transitionsTo("s2", "t", { t -> t.run("reserve") }) })
-            .state("s2", {} as Consumer) })
+            .state("s1")
+            .transition("t", "s1", "s2", { t -> t.run("reserve") })
+            .state("s2") })
         def entity = new Entity("s1")
 
         when:
@@ -175,8 +179,9 @@ class StateMachineImplErrorRollbackSpec extends Specification {
                 .using(noop())
                 .withCompensation({ e, c -> throw new AssertionError("undo failed") } as Compensation) } as Consumer)
             .step("fail", failingWith(new IllegalStateException("boom")))
-            .state("s1", { st -> st.transitionsTo("s2", "t", { t -> t.run("first").run("second").run("fail") }) })
-            .state("s2", {} as Consumer) })
+            .state("s1")
+            .transition("t", "s1", "s2", { t -> t.run("first").run("second").run("fail") })
+            .state("s2") })
 
         when:
         def result = sm.entity(new Entity("s1")).transitionTo("s2")
@@ -198,8 +203,9 @@ class StateMachineImplErrorRollbackSpec extends Specification {
                     .matching({ throw new AssertionError("guard") })
                     .withCompensation({ e, c -> log << "routed" } as Compensation) } as Consumer)
             .step("fail", failingWith(new IllegalStateException("boom")))
-            .state("s1", { st -> st.transitionsTo("s2", "t", { t -> t.run("reserve").run("fail") }) })
-            .state("s2", {} as Consumer) })
+            .state("s1")
+            .transition("t", "s1", "s2", { t -> t.run("reserve").run("fail") })
+            .state("s2") })
 
         when:
         def result = sm.entity(new Entity("s1")).transitionTo("s2")
@@ -225,9 +231,10 @@ class StateMachineImplErrorRollbackSpec extends Specification {
                 .using(noop())
                 .withCompensation({ e, c -> released.countDown() } as Compensation) } as Consumer)
             .step("assert", failingWith(new AssertionError("boom")))
-            .state("s1", { st -> st.transitionsTo("s2", "t", { t -> t
-                .forkOperation("branch", { op -> op.run("reserve").run("assert") }) }) })
-            .state("s2", {} as Consumer) })
+            .state("s1")
+            .transition("t", "s1", "s2", { t -> t
+                .forkOperation("branch", { op -> op.run("reserve").run("assert") }) })
+            .state("s2") })
 
         when:
         def result = sm.entity(new Entity("s1")).transitionTo("s2")

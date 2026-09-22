@@ -42,8 +42,9 @@ class StateMachineDefImplConditionContextSpec extends Specification {
         when:
         build({ d -> d
             .condition('paid', OtherContext, { e, c -> true } as BiPredicate)
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, reference) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, reference)
+            .state('s2') })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -65,9 +66,10 @@ class StateMachineDefImplConditionContextSpec extends Specification {
         when:
         build({ d -> d
             .condition('paid', OtherContext, { e, c -> true } as BiPredicate)
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
-                t.addDataTrigger('ready', { dt -> dt.condition('paid') }) }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
+                t.addDataTrigger('ready', { dt -> dt.condition('paid') }) })
+            .state('s2') })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -78,9 +80,10 @@ class StateMachineDefImplConditionContextSpec extends Specification {
         when:
         def sm = build({ d -> d
             .condition('paid', TestContext, { e, c -> true } as BiPredicate)
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
-                t.addDataTrigger('dt', { dt -> dt.condition('paid') }) }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
+                t.addDataTrigger('dt', { dt -> dt.condition('paid') }) })
+            .state('s2') })
 
         then:
         sm != null
@@ -90,9 +93,10 @@ class StateMachineDefImplConditionContextSpec extends Specification {
         when:
         def sm = build({ d -> d
             .condition('paid', BaseContext, { e, c -> true } as BiPredicate)
-            .state('s1', { st -> st.transitionsTo('s2', 't', DerivedContext, { t ->
-                t.addDataTrigger('dt', { dt -> dt.condition('paid') }) }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', DerivedContext, { t ->
+                t.addDataTrigger('dt', { dt -> dt.condition('paid') }) })
+            .state('s2') })
 
         then:
         sm != null
@@ -102,9 +106,10 @@ class StateMachineDefImplConditionContextSpec extends Specification {
         when: 'the untyped registration overload leaves the condition untagged'
         def sm = build({ d -> d
             .condition('paid', { e -> true } as Predicate)
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
-                t.addDataTrigger('dt', { dt -> dt.condition('paid') }) }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
+                t.addDataTrigger('dt', { dt -> dt.condition('paid') }) })
+            .state('s2') })
 
         then: 'it still builds, so existing untyped definitions keep working'
         sm != null
@@ -114,9 +119,10 @@ class StateMachineDefImplConditionContextSpec extends Specification {
         when: 'the gate is declared inline against the transition own context'
         def sm = build({ d -> d
             .condition('paid', OtherContext, { e, c -> true } as BiPredicate)
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
-                t.addDataTrigger('dt', { dt -> dt.condition('inline', { e -> true } as Predicate) }) }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
+                t.addDataTrigger('dt', { dt -> dt.condition('inline', { e -> true } as Predicate) }) })
+            .state('s2') })
 
         then:
         sm != null

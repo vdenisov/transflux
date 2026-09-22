@@ -319,12 +319,11 @@ class OperationDefImplForkValidationSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
         builder.step('send', new NoopAction())
         registrations.call(builder)
-        builder.state('s1', { s ->
-            s.transitionsTo('s2', 't', ctxType, { t ->
+        builder.state('s1')
+            .transition('t', 's1', 's2', ctxType, { t ->
                 t.operation('op', { op -> members.call(op) } as Consumer)
             } as Consumer)
-        } as Consumer)
-        builder.state('s2', {} as Consumer)
+        builder.state('s2')
         smd.build()
     }
 }

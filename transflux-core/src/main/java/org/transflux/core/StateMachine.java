@@ -34,7 +34,7 @@ import java.util.Collection;
  * error handling, and compensations during state changes.
  *
  * <p>The state machine itself is not parameterized by a context type. Each transition declares
- * its own context type via {@code transitionsTo(target, id, Class<C>)}; the host supplies the
+ * its own context type via {@code transition(id, source, target, Class<C>, configurer)}; the host supplies the
  * firing-time context
  * to {@link EntityBinding#transitionTo(String, Object)} and the framework verifies the type
  * at the dispatch boundary.
@@ -51,15 +51,13 @@ import java.util.Collection;
  * <pre>{@code
  * StateMachine<Subscription> subscriptionSM = Transflux.defineStateMachine(Subscription.class)
  *     .withStateResolver(subscription -> subscription.getStatus().name())
- *     .state("trial", s -> s
- *         .withName("Trial Period")
- *         .transitionsTo("active", "upgrade-transition", t -> {})
- *         .transitionsTo("expired", "expire-transition", t -> {}))
- *     .state("active", s -> s
- *         .withName("Active Subscription")
- *         .transitionsTo("cancelled", "cancel-transition", t -> {}))
+ *     .state("trial", s -> s.withName("Trial Period"))
+ *     .state("active", s -> s.withName("Active Subscription"))
  *     .state("expired", s -> s.withName("Expired Subscription"))
  *     .state("cancelled", s -> s.withName("Cancelled Subscription"))
+ *     .transition("upgrade-transition", "trial", "active", t -> {})
+ *     .transition("expire-transition", "trial", "expired", t -> {})
+ *     .transition("cancel-transition", "active", "cancelled", t -> {})
  *     .build();
  * }</pre>
  *

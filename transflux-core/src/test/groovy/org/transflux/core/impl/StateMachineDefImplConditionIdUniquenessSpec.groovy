@@ -43,11 +43,11 @@ class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
     @Unroll
     def 'the same inline condition id declared twice with different payloads is rejected: #site'() {
         when:
-        build({ d -> d.state('s1', { st -> st
-            .transitionsTo('s2', 't1', first)
-            .transitionsTo('s3', 't2', second) })
-            .state('s2', {})
-            .state('s3', {}) })
+        build({ d -> d.state('s1')
+            .transition('t1', 's1', 's2', first)
+            .transition('t2', 's1', 's3', second)
+            .state('s2')
+            .state('s3') })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -67,9 +67,10 @@ class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
         when:
         build({ d -> d
             .step('shared', { e, c, tr -> } as Action)
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t ->
-                t.preCondition('shared', { e -> true } as Predicate) }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t ->
+                t.preCondition('shared', { e -> true } as Predicate) })
+            .state('s2') })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -81,9 +82,10 @@ class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
         when:
         build({ d -> d
             .condition('shared', { e -> true } as Predicate)
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t ->
-                t.preCondition('shared', { e -> false } as Predicate) }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t ->
+                t.preCondition('shared', { e -> false } as Predicate) })
+            .state('s2') })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -96,11 +98,11 @@ class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
         def shared = new AlwaysTrue()
 
         when:
-        def sm = build({ d -> d.state('s1', { st -> st
-            .transitionsTo('s2', 't1', { t -> t.preCondition('shared', shared) })
-            .transitionsTo('s3', 't2', { t -> t.preCondition('shared', shared) }) })
-            .state('s2', {})
-            .state('s3', {}) })
+        def sm = build({ d -> d.state('s1')
+            .transition('t1', 's1', 's2', { t -> t.preCondition('shared', shared) })
+            .transition('t2', 's1', 's3', { t -> t.preCondition('shared', shared) })
+            .state('s2')
+            .state('s3') })
 
         then:
         sm != null
@@ -111,11 +113,11 @@ class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
         def shared = new AlwaysTrue()
 
         when:
-        def sm = build({ d -> d.state('s1', { st -> st
-            .transitionsTo('s2', 't1', { t -> t.preCondition('shared', shared) })
-            .transitionsTo('s3', 't2', { t -> t.preCondition('shared', shared) }) })
-            .state('s2', {})
-            .state('s3', {}) })
+        def sm = build({ d -> d.state('s1')
+            .transition('t1', 's1', 's2', { t -> t.preCondition('shared', shared) })
+            .transition('t2', 's1', 's3', { t -> t.preCondition('shared', shared) })
+            .state('s2')
+            .state('s3') })
 
         then:
         sm != null
@@ -123,11 +125,11 @@ class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
 
     def 'the same expression under the same id is idempotent'() {
         when:
-        def sm = build({ d -> d.state('s1', { st -> st
-            .transitionsTo('s2', 't1', { t -> t.preCondition('shared', 'true') })
-            .transitionsTo('s3', 't2', { t -> t.preCondition('shared', 'true') }) })
-            .state('s2', {})
-            .state('s3', {}) })
+        def sm = build({ d -> d.state('s1')
+            .transition('t1', 's1', 's2', { t -> t.preCondition('shared', 'true') })
+            .transition('t2', 's1', 's3', { t -> t.preCondition('shared', 'true') })
+            .state('s2')
+            .state('s3') })
 
         then:
         sm != null
@@ -135,11 +137,11 @@ class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
 
     def 'a different expression under the same id is rejected'() {
         when:
-        build({ d -> d.state('s1', { st -> st
-            .transitionsTo('s2', 't1', { t -> t.preCondition('shared', 'true') })
-            .transitionsTo('s3', 't2', { t -> t.preCondition('shared', 'false') }) })
-            .state('s2', {})
-            .state('s3', {}) })
+        build({ d -> d.state('s1')
+            .transition('t1', 's1', 's2', { t -> t.preCondition('shared', 'true') })
+            .transition('t2', 's1', 's3', { t -> t.preCondition('shared', 'false') })
+            .state('s2')
+            .state('s3') })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -150,11 +152,11 @@ class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
         when: 'both transitions reference the same registered id rather than declaring it'
         def sm = build({ d -> d
             .condition('registered', { e -> true } as Predicate)
-            .state('s1', { st -> st
-                .transitionsTo('s2', 't1', { t -> t.preCondition('registered') })
-                .transitionsTo('s3', 't2', { t -> t.preCondition('registered') }) })
-            .state('s2', {})
-            .state('s3', {}) })
+            .state('s1')
+            .transition('t1', 's1', 's2', { t -> t.preCondition('registered') })
+            .transition('t2', 's1', 's3', { t -> t.preCondition('registered') })
+            .state('s2')
+            .state('s3') })
 
         then:
         sm != null
@@ -162,11 +164,11 @@ class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
 
     def 'id-less expression conditions never collide'() {
         when: 'two sites declare the same expression with no explicit id'
-        def sm = build({ d -> d.state('s1', { st -> st
-            .transitionsTo('s2', 't1', { t -> t.preConditionExpression('true') })
-            .transitionsTo('s3', 't2', { t -> t.preConditionExpression('true') }) })
-            .state('s2', {})
-            .state('s3', {}) })
+        def sm = build({ d -> d.state('s1')
+            .transition('t1', 's1', 's2', { t -> t.preConditionExpression('true') })
+            .transition('t2', 's1', 's3', { t -> t.preConditionExpression('true') })
+            .state('s2')
+            .state('s3') })
 
         then:
         sm != null
@@ -175,13 +177,14 @@ class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
     def 'branch conditions take part in id uniqueness'() {
         when:
         build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t ->
+            .state('s1')
+            .transition('t', 's1', 's2', { t ->
                 t.preCondition('shared', { e -> true } as Predicate)
                  .operation('comp', { c -> c.choice('cond', { cs -> cs
                      .branch('b1', { b -> b
                          .condition('shared', { e -> false } as Predicate)
-                         .step('s', { en, c2, tr -> } as Action) }) }) }) }) })
-            .state('s2', {}) })
+                         .step('s', { en, c2, tr -> } as Action) }) }) }) })
+            .state('s2') })
 
         then:
         def e = thrown(TransfluxValidationException)

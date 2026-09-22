@@ -227,11 +227,12 @@ class StateMachineImplTriggerSpec extends Specification {
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
                 t.step('op', op)
                 cfg.accept(t)
-            }) })
-            .state('s2', {})
+            })
+            .state('s2')
         return smd.build()
     }
 }

@@ -67,11 +67,12 @@ class StateMachineImplConditionEvaluationSpec extends Specification {
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> appliedStates.add(s); e.state = s } as StateApplier<Entity>)
-            .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, { t ->
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
                 t.step('op', operation)
                 extraConfig.accept(t)
-            }) })
-            .state('s2', {})
+            })
+            .state('s2')
         return smd.build()
     }
 
@@ -175,14 +176,15 @@ class StateMachineImplConditionEvaluationSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
             .condition('registered', { e -> e.value > 0 } as Predicate)
-            .state('s1', { state -> state.transitionsTo('s2', 't', TestContext, { t ->
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
                 t.step('op', operation)
                     .preCondition('pred', { Entity e -> e.value > 0 } as Predicate)
                     .preCondition('inst', new RegistryProbeCondition())
                     .preCondition('expr', 'value > 0')
                     .preCondition('registered')
-            }) })
-            .state('s2', {})
+            })
+            .state('s2')
         def sm = smd.build()
         def entity = new Entity('s1', 5)
 

@@ -54,10 +54,11 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
         def seen = []
         def sm = build({ d -> d
             .transitionListener('audit', { l -> l.using({ e, c, x -> seen << x.phase().toString() } as TransitionListener) })
-            .state('s1', { s -> s.transitionsTo('s2', 't', { t -> t
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t
                 .onStart('audit')
-                .onComplete('audit') }) })
-            .state('s2', {}) })
+                .onComplete('audit') })
+            .state('s2') })
 
         when:
         sm.entity(new Entity('s1')).transitionTo('s2')
@@ -70,10 +71,11 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
         given:
         def seen = []
         def sm = build({ d -> d
-            .state('s1', { s -> s.transitionsTo('s2', 't', { t -> t
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t
                 .onStart('own', { l -> l.using({ e, c, x -> seen << x.phase().toString() } as TransitionListener) })
-                .onComplete('own') }) })
-            .state('s2', {}) })
+                .onComplete('own') })
+            .state('s2') })
 
         when:
         sm.entity(new Entity('s1')).transitionTo('s2')
@@ -86,10 +88,11 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
         given: 'references resolve at build, so a hook may name one declared further down'
         def seen = []
         def sm = build({ d -> d
-            .state('s1', { s -> s.transitionsTo('s2', 't', { t -> t
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t
                 .onStart('later')
-                .onComplete('later', { l -> l.using({ e, c, x -> seen << x.phase().toString() } as TransitionListener) }) }) })
-            .state('s2', {}) })
+                .onComplete('later', { l -> l.using({ e, c, x -> seen << x.phase().toString() } as TransitionListener) }) })
+            .state('s2') })
 
         when:
         sm.entity(new Entity('s1')).transitionTo('s2')
@@ -101,8 +104,9 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
     def 'attaching an unregistered id fails the build'() {
         when:
         build({ d -> d
-            .state('s1', { s -> s.transitionsTo('s2', 't', { t -> t.onStart('ghost') }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t.onStart('ghost') })
+            .state('s2') })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -114,8 +118,8 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
         when:
         build({ d -> d
             .state('s1', { s -> s
-                .onEntry('local', { l -> l.using({ e, c, ch -> } as StateListener) })
-                .transitionsTo('s2', 't', { t -> }) })
+                .onEntry('local', { l -> l.using({ e, c, ch -> } as StateListener) }) })
+            .transition('t', 's1', 's2', { t -> })
             .state('s2', { s -> s.onEntry('local') }) })
 
         then:
@@ -128,8 +132,9 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
         when:
         build({ d -> d
             .actionListener('audit', { l -> l.using({ e, c, x -> } as ActionListener) })
-            .state('s1', { s -> s.transitionsTo('s2', 't', { t -> t.onStart('audit') }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t.onStart('audit') })
+            .state('s2') })
 
         then: 'it exists, just not in the category this hook reaches'
         def e = thrown(TransfluxValidationException)
@@ -140,8 +145,9 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
         when:
         build({ d -> d
             .transitionListener('audit', Ctx, { l -> l.using({ e, c, x -> } as TransitionListener) })
-            .state('s1', { s -> s.transitionsTo('s2', 't', OtherCtx, { t -> t.onStart('audit') }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', OtherCtx, { t -> t.onStart('audit') })
+            .state('s2') })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -154,8 +160,9 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
         def seen = []
         def sm = build({ d -> d
             .transitionListener('audit', { l -> l.using({ e, c, x -> seen << x.phase().toString() } as TransitionListener) })
-            .state('s1', { s -> s.transitionsTo('s2', 't', Ctx, { t -> t.onStart('audit') }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', Ctx, { t -> t.onStart('audit') })
+            .state('s2') })
 
         when:
         sm.entity(new Entity('s1')).transitionTo('s2', new Ctx())
@@ -169,7 +176,7 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
         build({ d -> d
             .transitionListener('audit', Ctx, { l -> l.using({ e, c, x -> } as TransitionListener) })
             .onAnyTransitionStart('audit')
-            .state('s1', {}) })
+            .state('s1') })
 
         then: 'a hook spanning every transition cannot promise one context'
         def e = thrown(TransfluxValidationException)
@@ -182,7 +189,7 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
         build({ d -> d
             .transitionListener('dup', { l -> l.using({ e, c, x -> } as TransitionListener) })
             .actionListener('dup', { l -> l.using({ e, c, x -> } as ActionListener) })
-            .state('s1', {}) })
+            .state('s1') })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -193,8 +200,9 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
         expect: 'a component library may register listeners a definition does not use'
         build({ d -> d
             .stateListener('unused', { l -> l.using({ e, c, ch -> } as StateListener) })
-            .state('s1', { s -> s.transitionsTo('s2', 't', { t -> }) })
-            .state('s2', {}) }) != null
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> })
+            .state('s2') }) != null
     }
 
     def 'one listener attached to an owner and globally is delivered twice, and a disable filters only the global'() {
@@ -204,13 +212,13 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
         def sm = build({ d -> d
             .transitionListener('audit', { l -> l.using(listener) })
             .onAnyTransitionStart('audit')
-            .state('s1', { s -> s
-                .transitionsTo('s2', 'both', { t -> t.onStart('audit') })
-                .transitionsTo('s3', 'disabled', { t -> t
-                    .onStart('audit')
-                    .disableGlobalListener('audit') }) })
-            .state('s2', {})
-            .state('s3', {}) })
+            .state('s1')
+            .transition('both', 's1', 's2', { t -> t.onStart('audit') })
+            .transition('disabled', 's1', 's3', { t -> t
+                .onStart('audit')
+                .disableGlobalListener('audit') })
+            .state('s2')
+            .state('s3') })
 
         when: 'the transition that disables nothing gets it from both places'
         sm.entity(new Entity('s1')).transitionTo('s2')
@@ -230,8 +238,9 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
         when:
         build({ d -> d
             .forContext(Ctx, { scope -> scope.transitionListener('scoped', { l -> l.using({ e, c, x -> } as TransitionListener) }) })
-            .state('s1', { s -> s.transitionsTo('s2', 't', OtherCtx, { t -> t.onStart('scoped') }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', OtherCtx, { t -> t.onStart('scoped') })
+            .state('s2') })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -242,11 +251,12 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
         when: 'the step declares no context, so it runs against the one the transition carries'
         build({ d -> d
             .actionListener('audit', Ctx, { l -> l.using({ e, c, x -> } as ActionListener) })
-            .state('s1', { s -> s.transitionsTo('s2', 't', OtherCtx, { t -> t
+            .state('s1')
+            .transition('t', 's1', 's2', OtherCtx, { t -> t
                 .step('tracked', { st -> st
                     .using({ e, c, v -> } as Action)
-                    .onStart('audit') }) }) })
-            .state('s2', {}) })
+                    .onStart('audit') }) })
+            .state('s2') })
 
         then: 'the Object sentinel the def reports is not the context it runs against'
         def e = thrown(TransfluxValidationException)
@@ -278,7 +288,7 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
         when: 'the configurer sets metadata but never calls using(...)'
         build({ d -> d
             .stateListener('audit', { l -> l.withName('Audit') })
-            .state('s1', {}) })
+            .state('s1') })
 
         then: 'reported here rather than when something eventually attaches it - or never'
         def e = thrown(TransfluxValidationException)
@@ -314,8 +324,9 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
         given: 'a listener written against a context, registered through the typed form'
         def sm = build({ d -> d
             .transitionListener('audit', Ctx, { l -> l.using({ e, c, x -> } as TransitionListener) })
-            .state('s1', { s -> s.transitionsTo('s2', 't', Ctx, { t -> t.onStart('audit') }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', Ctx, { t -> t.onStart('audit') })
+            .state('s2') })
 
         expect: 'the typed form is the only way in, and it is checked against every attachment'
         sm != null

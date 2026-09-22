@@ -267,12 +267,11 @@ class ExecutingTransitionForkSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
         builder.step('notify', { e, c, t -> } as Action)
-        builder.state('s1', { s ->
-            s.transitionsTo('s2', 't', { t ->
+        builder.state('s1')
+            .transition('t', 's1', 's2', { t ->
                 t.step('dispatch', { e, c, view -> view.fork('notify') } as Action)
             } as Consumer)
-        } as Consumer)
-        builder.state('s2', {} as Consumer)
+        builder.state('s2')
         sm = smd.build()
 
         when:
@@ -292,12 +291,11 @@ class ExecutingTransitionForkSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
         builder.step('notify', { e, c, t -> } as Action)
-        builder.state('s1', { s ->
-            s.transitionsTo('s2', 't', { t ->
+        builder.state('s1')
+            .transition('t', 's1', 's2', { t ->
                 t.step('dispatch', { e, c, view -> view.fork('notify') } as Action)
             } as Consumer)
-        } as Consumer)
-        builder.state('s2', {} as Consumer)
+        builder.state('s2')
         sm = smd.build()
         def ctx = new CountingForkCtx()
 
@@ -319,12 +317,11 @@ class ExecutingTransitionForkSpec extends Specification {
             .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
             .withAsyncPool(1, 4)
         builder.step('notify', { e, c, t -> done.countDown() } as Action)
-        builder.state('s1', { s ->
-            s.transitionsTo('s2', 't', { t ->
+        builder.state('s1')
+            .transition('t', 's1', 's2', { t ->
                 t.step('dispatch', { e, c, view -> view.fork('notify') } as Action)
             } as Consumer)
-        } as Consumer)
-        builder.state('s2', {} as Consumer)
+        builder.state('s2')
         sm = smd.build()
 
         when:
@@ -444,10 +441,9 @@ class ExecutingTransitionForkSpec extends Specification {
             .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
             .withAsyncExecutor(executor)
         registrations.call(builder)
-        builder.state('s1', { s ->
-            s.transitionsTo('s2', 't', { t -> body.call(t) } as Consumer)
-        } as Consumer)
-        builder.state('s2', {} as Consumer)
+        builder.state('s1')
+            .transition('t', 's1', 's2', { t -> body.call(t) } as Consumer)
+        builder.state('s2')
         return smd.build()
     }
 }

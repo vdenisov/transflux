@@ -40,8 +40,9 @@ class YamlDefinitionLoaderSpec extends Specification {
         def sm = def_
             .withStateResolver { Order o -> o.state }
             .withStateApplier { Order o, String s -> o.state = s }
-            .state('a') { it.transitionsTo('b', 't') { } }
-            .state('b') { }
+            .state('a')
+            .transition('t', 'a', 'b', { })
+            .state('b')
             .build()
         def order = new Order()
 

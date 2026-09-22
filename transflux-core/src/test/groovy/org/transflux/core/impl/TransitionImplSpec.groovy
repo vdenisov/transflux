@@ -73,12 +73,13 @@ class TransitionImplSpec extends Specification {
         def seen = []
         def entity = new Entity('s1')
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.addDataTrigger('gated', { dt -> dt
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t.addDataTrigger('gated', { dt -> dt
                 .condition('reads', { e, c, tr ->
                     seen << "${tr.id}:${tr.sourceStateId}->${tr.targetStateId}".toString()
                     true
-                } as Condition) }) }) })
-            .state('s2', {}) })
+                } as Condition) }) })
+            .state('s2') })
 
         when:
         def result = sm.entity(entity).processDataChange()
@@ -93,9 +94,10 @@ class TransitionImplSpec extends Specification {
         given:
         def entity = new Entity('s1')
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
-                .preConditionExpression("#transition.id == 't' and #transition.sourceStateId == 's1'") }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t
+                .preConditionExpression("#transition.id == 't' and #transition.sourceStateId == 's1'") })
+            .state('s2') })
 
         when:
         def result = sm.entity(entity).transitionTo('s2')
@@ -111,9 +113,10 @@ class TransitionImplSpec extends Specification {
         def entity = new Entity('s1')
         def sm = build({ d -> d
             .step('audit', { e, c, tr -> stepRuns << 'ran' } as Action)
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
-                .preConditionExpression("#transition.run('audit') == null") }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t
+                .preConditionExpression("#transition.run('audit') == null") })
+            .state('s2') })
 
         when:
         def result = sm.entity(entity).transitionTo('s2')
@@ -130,9 +133,10 @@ class TransitionImplSpec extends Specification {
         given:
         def entity = new Entity('s1')
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
-                .preConditionExpression('#transition.boundAction == null') }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t
+                .preConditionExpression('#transition.boundAction == null') })
+            .state('s2') })
 
         when:
         def result = sm.entity(entity).transitionTo('s2')
@@ -149,8 +153,9 @@ class TransitionImplSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, cfg) })
-            .state('s2', {})
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, cfg)
+            .state('s2')
         def sm = ((StateMachineImpl<Entity>) smd.build()).snapshot()
         return TransitionImpl.of(sm.getTransition('t'))
     }

@@ -42,8 +42,9 @@ class StateMachineDefImplSpec extends Specification {
     def "getTransition by id should return correct transition definition"() {
         given:
         def smd = Transflux.defineStateMachine()
-        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, "trial-to-active", {}) })
-        smd.state(ACTIVE.id, {})
+        smd.state(TRIAL.id)
+            .transition("trial-to-active", TRIAL.id, ACTIVE.id, {})
+        smd.state(ACTIVE.id)
 
         expect:
         smd.getTransition("trial-to-active").with {
@@ -55,8 +56,9 @@ class StateMachineDefImplSpec extends Specification {
     def "getTransition by id should error when transition not found"() {
         given:
         def smd = Transflux.defineStateMachine()
-        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, "trial-to-active", {}) })
-        smd.state(ACTIVE.id, {})
+        smd.state(TRIAL.id)
+            .transition("trial-to-active", TRIAL.id, ACTIVE.id, {})
+        smd.state(ACTIVE.id)
 
         when:
         smd.getTransition("NOPE")
@@ -69,10 +71,12 @@ class StateMachineDefImplSpec extends Specification {
     def "transition id must be unique"() {
         given:
         def smd = Transflux.defineStateMachine()
-        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, "DUP", {}) })
+        smd.state(TRIAL.id)
+            .transition("DUP", TRIAL.id, ACTIVE.id, {})
 
         when:
-        smd.state(ACTIVE.id, { s -> s.transitionsTo(EXPIRED.id, "DUP", {}) })
+        smd.state(ACTIVE.id)
+            .transition("DUP", ACTIVE.id, EXPIRED.id, {})
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -154,7 +158,7 @@ class StateMachineDefImplSpec extends Specification {
         given:
         def smd = Transflux.defineStateMachine(Object) as StateMachineDefImpl
         def applier = { e, s -> } as StateApplier<Object>
-        smd.withStateApplier(applier).state('s', {})
+        smd.withStateApplier(applier).state('s')
 
         when:
         def machine = (smd.build() as StateMachineImpl).snapshot()
@@ -166,7 +170,7 @@ class StateMachineDefImplSpec extends Specification {
     def "build should leave state applier null when not configured"() {
         given:
         def smd = Transflux.defineStateMachine(Object) as StateMachineDefImpl
-        smd.state('s', {})
+        smd.state('s')
 
         when:
         def machine = (smd.build() as StateMachineImpl).snapshot()
@@ -178,10 +182,10 @@ class StateMachineDefImplSpec extends Specification {
     def "state should reject duplicate state ID"() {
         given:
         def smd = Transflux.defineStateMachine()
-        smd.state('S1', {})
+        smd.state('S1')
 
         when:
-        smd.state('S1', {})
+        smd.state('S1')
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -191,7 +195,7 @@ class StateMachineDefImplSpec extends Specification {
     def "build should return StateMachine instance"() {
         given:
         def smd = Transflux.defineStateMachine(Object)
-        smd.state('S1', {})
+        smd.state('S1')
 
         when:
         def machine = smd.build()
@@ -203,7 +207,7 @@ class StateMachineDefImplSpec extends Specification {
     def "build should reject a definition that never declared an entity type"() {
         given:
         def smd = Transflux.defineStateMachine()
-        smd.state('S1', {})
+        smd.state('S1')
 
         when:
         smd.build()
@@ -217,7 +221,7 @@ class StateMachineDefImplSpec extends Specification {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
         smd.withName('N').withDescription('D').withVersion('1')
-        smd.state('S1', {})
+        smd.state('S1')
 
         expect:
         smd.getStates().keySet() == ['S1'] as Set
@@ -233,7 +237,7 @@ class StateMachineDefImplSpec extends Specification {
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
 
         when:
-        smd.registerTransition(sourceStateId, targetStateId, transitionId)
+        smd.registerTransition(sourceStateId, targetStateId, transitionId, Object)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -269,10 +273,11 @@ class StateMachineDefImplSpec extends Specification {
             captured = d
             d.withName('N').withDescription('D').using({ e, c, t -> ran << 'op' } as Action)
         })
-        smd.state(TRIAL.id, { s -> s.transitionsTo(ACTIVE.id, 't1', { t ->
-            t.operation('wrap', { c -> c.run('op') })
-        }) })
-        smd.state(ACTIVE.id, {})
+        smd.state(TRIAL.id)
+            .transition('t1', TRIAL.id, ACTIVE.id, { t ->
+                t.operation('wrap', { c -> c.run('op') })
+            })
+        smd.state(ACTIVE.id)
         def sm = smd.build()
 
         when:

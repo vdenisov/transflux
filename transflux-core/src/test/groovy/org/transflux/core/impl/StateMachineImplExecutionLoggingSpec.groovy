@@ -133,8 +133,9 @@ class StateMachineImplExecutionLoggingSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t -> t.step('act', new NoopStep()) }) })
-            .state('s2', {})
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t -> t.step('act', new NoopStep()) })
+            .state('s2')
 
         when:
         smd.build().entity(new Entity('s1', 1)).transitionTo('s2', new TestContext())
@@ -170,11 +171,12 @@ class StateMachineImplExecutionLoggingSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
             .step('child', ChildCtx, { Entity e, ChildCtx c, ExecutingTransition tr -> } as Action)
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
                 t.operation('op', { OperationDef<Entity, TestContext> op ->
                     op.run('child',
-                           { TestContext parent -> new ChildCtx(tag: 'secret-value') } as ContextMapper) }) }) })
-            .state('s2', {})
+                           { TestContext parent -> new ChildCtx(tag: 'secret-value') } as ContextMapper) }) })
+            .state('s2')
 
         when:
         smd.build().entity(new Entity('s1', 1)).transitionTo('s2', new TestContext())
@@ -210,14 +212,15 @@ class StateMachineImplExecutionLoggingSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
             .step('sm-level', TestContext, new NoopStep())
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
                 t.operation('op', { OperationDef<Entity, TestContext> op -> op
                     .step('inline', new NoopStep())
                     .step('dispatcher', { Entity e, TestContext c, ExecutingTransition tr ->
                         tr.run('inline')
                         tr.run('sm-level')
-                    } as Action) }) }) })
-            .state('s2', {})
+                    } as Action) }) })
+            .state('s2')
 
         when:
         smd.build().entity(new Entity('s1', 1)).transitionTo('s2', new TestContext())
@@ -235,11 +238,12 @@ class StateMachineImplExecutionLoggingSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
             .step('sm-level', TestContext, new NoopStep())
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
                 t.step('dispatcher', { Entity e, TestContext c, ExecutingTransition tr ->
                     tr.run('sm-level')
-                } as Action) }) })
-            .state('s2', {})
+                } as Action) })
+            .state('s2')
 
         when:
         smd.build().entity(new Entity('s1', 1)).transitionTo('s2', new TestContext())
@@ -291,10 +295,11 @@ class StateMachineImplExecutionLoggingSpec extends Specification {
         StateMachineDef<Entity> builder = smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
-        builder.state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
-            transitionConfig.accept(t)
-        }) })
-        builder.state('s2', {})
+        builder.state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
+                transitionConfig.accept(t)
+            })
+        builder.state('s2')
         return smd.build()
     }
 }

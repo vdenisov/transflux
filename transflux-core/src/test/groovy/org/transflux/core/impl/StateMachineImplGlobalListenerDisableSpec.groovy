@@ -50,7 +50,8 @@ class StateMachineImplGlobalListenerDisableSpec extends Specification {
         def sm = build({ d -> d
             .onAnyStateEntry('g-entry-1', stateRecorder(log, 'g1'))
             .onAnyStateEntry('g-entry-2', stateRecorder(log, 'g2'))
-            .state('s1', { st -> st.transitionsTo('s2', 't', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', {})
             .state('s2', { st -> st
                 .onEntry('own-entry', stateRecorder(log, 'own'))
                 .disableGlobalListener('g-entry-1') }) })
@@ -68,7 +69,8 @@ class StateMachineImplGlobalListenerDisableSpec extends Specification {
         def sm = build({ d -> d
             .onAnyStateExit('g-exit', stateRecorder(log, 'exit-global'))
             .onAnyStateEntry('g-entry', stateRecorder(log, 'entry-global'))
-            .state('s1', { st -> st.transitionsTo('s2', 't', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', {})
             .state('s2', { st -> st.disableGlobalListener('g-entry') }) })
 
         when:
@@ -85,7 +87,8 @@ class StateMachineImplGlobalListenerDisableSpec extends Specification {
         def sm = build({ d -> d
             .onAnyStateEntry('g-entry-1', stateRecorder(log, 'g1'))
             .onAnyStateEntry('g-entry-2', stateRecorder(log, 'g2'))
-            .state('s1', { st -> st.transitionsTo('s2', 't', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', {})
             .state('s2', { st ->
                 st.onEntry('own-entry', stateRecorder(log, 'own'))
                 declaration.call(st) }) })
@@ -107,7 +110,8 @@ class StateMachineImplGlobalListenerDisableSpec extends Specification {
         def log = []
         def sm = build({ d -> d
             .onAnyStateEntry('g-entry', stateRecorder(log, 'g'))
-            .state('s1', { st -> st.transitionsTo('s2', 't', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', {})
             .state('s2', { st -> st
                 .disableGlobalListener('g-entry')
                 .disableGlobalListener('g-entry') }) })
@@ -134,9 +138,10 @@ class StateMachineImplGlobalListenerDisableSpec extends Specification {
             .step('charge', { StepDef s -> s
                 .using(noop())
                 .disableGlobalListeners('g-action-1', 'g-action-2', 'g-action-3') } as Consumer)
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t
                 .disableGlobalListeners('g-start-1', 'g-complete-1')
-                .run('charge') }) })
+                .run('charge') })
             .state('s2', { st -> st.disableGlobalListeners('g-entry-1', 'g-entry-3') }) })
 
         when:
@@ -172,13 +177,13 @@ class StateMachineImplGlobalListenerDisableSpec extends Specification {
         def sm = build({ d -> d
             .onAnyTransitionStart('g-start-1', transitionRecorder(log, 'g1'))
             .onAnyTransitionStart('g-start-2', transitionRecorder(log, 'g2'))
-            .state('s1', { st -> st
-                .transitionsTo('s2', 'quiet', { t -> t
-                    .onStart('own-start', transitionRecorder(log, 'own'))
-                    .disableGlobalListener('g-start-1') })
-                .transitionsTo('s3', 'loud', {}) })
-            .state('s2', {} as Consumer)
-            .state('s3', {} as Consumer) })
+            .state('s1')
+            .transition('quiet', 's1', 's2', { t -> t
+                .onStart('own-start', transitionRecorder(log, 'own'))
+                .disableGlobalListener('g-start-1') })
+            .transition('loud', 's1', 's3', {})
+            .state('s2')
+            .state('s3') })
 
         when:
         sm.entity(new Entity('s1')).transitionTo('s2')
@@ -201,10 +206,11 @@ class StateMachineImplGlobalListenerDisableSpec extends Specification {
             .onAnyTransitionStart('g-transition', transitionRecorder(log, 'transition-global'))
             .onAnyStateEntry('g-state', stateRecorder(log, 'state-global'))
             .onAnyActionStart('g-action', actionRecorder(log, 'action-global'))
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t
                 .disableAllGlobalListeners()
-                .step('work', noop()) }) })
-            .state('s2', {} as Consumer) })
+                .step('work', noop()) })
+            .state('s2') })
 
         when:
         sm.entity(new Entity('s1')).transitionTo('s2')
@@ -223,11 +229,11 @@ class StateMachineImplGlobalListenerDisableSpec extends Specification {
                 .using(noop())
                 .onStart('own-action', actionRecorder(log, 'own'))
                 .disableGlobalListener('g-action-1') } as Consumer)
-            .state('s1', { st -> st
-                .transitionsTo('s2', 't1', { t -> t.run('charge') })
-                .transitionsTo('s3', 't2', { t -> t.run('charge') }) })
-            .state('s2', {} as Consumer)
-            .state('s3', {} as Consumer) })
+            .state('s1')
+            .transition('t1', 's1', 's2', { t -> t.run('charge') })
+            .transition('t2', 's1', 's3', { t -> t.run('charge') })
+            .state('s2')
+            .state('s3') })
 
         when:
         sm.entity(new Entity('s1')).transitionTo('s2')
@@ -251,8 +257,9 @@ class StateMachineImplGlobalListenerDisableSpec extends Specification {
             .operation('outer', Object, { OperationDef o -> o
                 .disableAllGlobalListeners()
                 .step('inner', noop()) } as Consumer)
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.run('outer') }) })
-            .state('s2', {} as Consumer) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t.run('outer') })
+            .state('s2') })
 
         when:
         sm.entity(new Entity('s1')).transitionTo('s2')

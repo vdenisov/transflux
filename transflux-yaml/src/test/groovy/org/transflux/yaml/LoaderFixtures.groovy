@@ -88,8 +88,9 @@ class LoaderFixtures {
         return definition
             .withStateResolver { Order o -> o.state }
             .withStateApplier { Order o, String s -> o.state = s }
-            .state('a') { it.transitionsTo('b', 't', context, transition) }
-            .state('b') { }
+            .state('a')
+            .transition('t', 'a', 'b', context, transition)
+            .state('b')
             .build()
     }
 

@@ -517,7 +517,8 @@ class ChoiceDefImplIntegrationSpec extends Specification {
             } as Action)
             .mapper('child-from-parent', TestContext, ChildCtx,
                     { TestContext p -> new ChildCtx(tag: p.tag + '-mapped') } as ContextMapper)
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
                 t.operation('op', { OperationDef<Entity, TestContext> c ->
                     c.choice('route', { ChoiceDef<Entity, TestContext> cs ->
                         cs.branch('only', { BranchDef<Entity, TestContext> b ->
@@ -526,8 +527,8 @@ class ChoiceDefImplIntegrationSpec extends Specification {
                         })
                     })
                 })
-            }) })
-            .state('s2', {})
+            })
+            .state('s2')
         def entity = new Entity('s1')
 
         when:
@@ -550,7 +551,8 @@ class ChoiceDefImplIntegrationSpec extends Specification {
             .step('child-step', ChildCtx, { Entity e, ChildCtx c, ExecutingTransition tr ->
                 seen << c.tag
             } as Action)
-            .state('s1', { st -> st.transitionsTo('s2', 't', TestContext, { t ->
+            .state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
                 t.operation('op', { OperationDef<Entity, TestContext> c ->
                     c.choice('route', { ChoiceDef<Entity, TestContext> cs ->
                         cs.branch('only', { BranchDef<Entity, TestContext> b ->
@@ -560,8 +562,8 @@ class ChoiceDefImplIntegrationSpec extends Specification {
                         })
                     })
                 })
-            }) })
-            .state('s2', {})
+            })
+            .state('s2')
 
         when:
         def result = smd.build().entity(new Entity('s1')).transitionTo('s2', new TestContext('parent-tag'))
@@ -739,20 +741,21 @@ class ChoiceDefImplIntegrationSpec extends Specification {
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
-        smd.state('s1', { s -> s.transitionsTo('s2', 't', TestContext, { t ->
-            t.operation('op', { OperationDef<Entity, TestContext> c ->
-                c.choice('route', { ChoiceDef<Entity, TestContext> cs -> cs
-                    .branch('other', { BranchDef<Entity, TestContext> b -> b
-                        .condition('no', { Entity e -> false } as Predicate)
-                        .step('leaf', new Recorder()) })
-                    .branch('taken', { BranchDef<Entity, TestContext> b -> b
-                        .condition('yes', { Entity e -> true } as Predicate)
-                        .step('dispatcher', { Entity e, TestContext ctx, ExecutingTransition view ->
-                            view.run('leaf')
-                        } as Action) }) })
+        smd.state('s1')
+            .transition('t', 's1', 's2', TestContext, { t ->
+                t.operation('op', { OperationDef<Entity, TestContext> c ->
+                    c.choice('route', { ChoiceDef<Entity, TestContext> cs -> cs
+                        .branch('other', { BranchDef<Entity, TestContext> b -> b
+                            .condition('no', { Entity e -> false } as Predicate)
+                            .step('leaf', new Recorder()) })
+                        .branch('taken', { BranchDef<Entity, TestContext> b -> b
+                            .condition('yes', { Entity e -> true } as Predicate)
+                            .step('dispatcher', { Entity e, TestContext ctx, ExecutingTransition view ->
+                                view.run('leaf')
+                            } as Action) }) })
+                })
             })
-        }) })
-        smd.state('s2', {})
+        smd.state('s2')
 
         def first = smd.build()
         def second = smd.build()
@@ -971,8 +974,9 @@ class ChoiceDefImplIntegrationSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> applied.add(s); e.state = s } as StateApplier<Entity>)
         smdRegistrations.accept(smd)
-        smd.state('s1', { s -> s.transitionsTo('s2', 't', TestContext, transitionConfigurer) })
-            .state('s2', {})
+        smd.state('s1')
+            .transition('t', 's1', 's2', TestContext, transitionConfigurer)
+            .state('s2')
         return smd.build()
     }
 }

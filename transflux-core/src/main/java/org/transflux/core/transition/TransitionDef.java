@@ -45,13 +45,13 @@ import java.util.function.Predicate;
  * may be a reference, a forked reference, or an action declared in place:
  *
  * <pre>{@code
- * .state("pending", s -> s.transitionsTo("active", "activate", ActivationCtx.class, t -> t
+ * .transition("activate", "pending", "active", ActivationCtx.class, t -> t
  *     .run("validate-payment-method")
  *     .step("activate", new ActivateAction())
  *     .operation("bill", op -> op
  *         .run("compute-total")
  *         .step("charge", new ChargeAction()))
- *     .fork("send-receipt")))
+ *     .fork("send-receipt"))
  * }</pre>
  *
  * <p>{@code fork(...)} is legal here for the same reason it is legal in any sequence: the members
@@ -131,7 +131,7 @@ public interface TransitionDef<T, C>
 
     /**
      * Returns the context class declared for this transition at
-     * {@code transitionsTo(target, id, Class, configurer)}. Defaults to {@code Object.class}
+     * {@code transition(id, source, target, Class, configurer)}. Defaults to {@code Object.class}
      * (accepts any non-{@code null} firing context, and also accepts {@code null}).
      *
      * @return the declared context class; never {@code null}

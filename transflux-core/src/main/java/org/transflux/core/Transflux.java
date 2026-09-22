@@ -47,15 +47,13 @@ import org.transflux.core.impl.StateMachineDefImpl;
  * StateMachine<Subscription> subscriptionSM = Transflux.defineStateMachine(Subscription.class)
  *     .withName("Subscription Lifecycle")
  *     .withStateResolver(subscription -> subscription.getStatus().name())
- *     .state("trial", s -> s
- *         .withName("Trial Period")
- *         .transitionsTo("active", "upgrade", t -> {})
- *         .transitionsTo("expired", "expire", t -> {}))
- *     .state("active", s -> s
- *         .withName("Active Subscription")
- *         .transitionsTo("cancelled", "cancel", t -> {}))
+ *     .state("trial", s -> s.withName("Trial Period"))
+ *     .state("active", s -> s.withName("Active Subscription"))
  *     .state("expired", s -> s.withName("Expired Subscription"))
  *     .state("cancelled", s -> s.withName("Cancelled Subscription"))
+ *     .transition("upgrade", "trial", "active", t -> {})
+ *     .transition("expire", "trial", "expired", t -> {})
+ *     .transition("cancel", "active", "cancelled", t -> {})
  *     .build();
  * }</pre>
  * 

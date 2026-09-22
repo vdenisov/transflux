@@ -180,8 +180,9 @@ class OperationDefImplNestedMappingSpec extends Specification {
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
         smdRegistrations.accept(smd)
-        smd.state('s1', { s -> s.transitionsTo('s2', 't', ParentCtx, transitionConfigurer) })
-            .state('s2', {})
+        smd.state('s1')
+            .transition('t', 's1', 's2', ParentCtx, transitionConfigurer)
+            .state('s2')
         return smd.build()
     }
 }

@@ -116,10 +116,9 @@ class StateMachineImplReplaceDefinitionSpec extends Specification {
         and: 'a definition that cannot build - a member naming an action nothing declares'
         def broken = new StateMachineDefImpl<Entity>()
         StateMachineDef<Entity> builder = accessors(broken)
-        builder.state('s1', { s ->
-            s.transitionsTo('s2', 't', { t -> t.run('nothing-declares-this') } as Consumer)
-        } as Consumer)
-        builder.state('s2', {} as Consumer)
+        builder.state('s1')
+            .transition('t', 's1', 's2', { t -> t.run('nothing-declares-this') } as Consumer)
+        builder.state('s2')
 
         when:
         sm.replaceDefinition(broken)
@@ -161,8 +160,9 @@ class StateMachineImplReplaceDefinitionSpec extends Specification {
         when: 'the replacement routes s1 somewhere else entirely'
         def rerouted = new StateMachineDefImpl<Entity>()
         StateMachineDef<Entity> builder = accessors(rerouted)
-        builder.state('s1', { s -> s.transitionsTo('s3', 't-other', {} as Consumer) } as Consumer)
-        builder.state('s3', {} as Consumer)
+        builder.state('s1')
+            .transition('t-other', 's1', 's3', {} as Consumer)
+        builder.state('s3')
         sm.replaceDefinition(rerouted)
         sm.entity(new Entity('s1')).transitionTo('s2')
 
@@ -292,8 +292,8 @@ class StateMachineImplReplaceDefinitionSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         StateMachineDef<Entity> builder = accessors(smd)
         builder.withAsyncPool(1, 4)
-        builder.state('s1', { s ->
-            s.transitionsTo('s2', 't', { t ->
+        builder.state('s1')
+            .transition('t', 's1', 's2', { t ->
                 t.forkStep('branch', { e, c, tr ->
                     swapped.await(WAIT_SECONDS, TimeUnit.SECONDS)
                     try {
@@ -305,8 +305,7 @@ class StateMachineImplReplaceDefinitionSpec extends Specification {
                     }
                 } as Action)
             } as Consumer)
-        } as Consumer)
-        builder.state('s2', {} as Consumer)
+        builder.state('s2')
         sm = smd.build()
 
         when:
@@ -476,15 +475,14 @@ class StateMachineImplReplaceDefinitionSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         StateMachineDef<Entity> builder = accessors(smd)
         builder.withVersion(tag)
-        builder.state('s1', { s ->
-            s.transitionsTo('s2', 't', { t ->
+        builder.state('s1')
+            .transition('t', 's1', 's2', { t ->
                 t.step('mark', { e, c, tr ->
                     trail << tag
                     body?.call()
                 } as Action)
             } as Consumer)
-        } as Consumer)
-        builder.state('s2', {} as Consumer)
+        builder.state('s2')
         return smd
     }
 
@@ -492,12 +490,11 @@ class StateMachineImplReplaceDefinitionSpec extends Specification {
         CountDownLatch done, Closure asyncConfig, StateMachineDefImpl<Entity> smd = new StateMachineDefImpl<>()) {
         StateMachineDef<Entity> builder = accessors(smd)
         asyncConfig.call(builder)
-        builder.state('s1', { s ->
-            s.transitionsTo('s2', 't', { t ->
+        builder.state('s1')
+            .transition('t', 's1', 's2', { t ->
                 t.forkStep('branch', { e, c, tr -> done.countDown() } as Action)
             } as Consumer)
-        } as Consumer)
-        builder.state('s2', {} as Consumer)
+        builder.state('s2')
         return smd
     }
 
@@ -512,7 +509,7 @@ class StateMachineImplReplaceDefinitionSpec extends Specification {
         def smd = new StateMachineDefImpl()
         smd.forEntityType(entityType)
            .withStateResolver({ e -> 's1' } as StateResolver)
-           .state('s1', {} as Consumer)
+           .state('s1')
         return smd
     }
 

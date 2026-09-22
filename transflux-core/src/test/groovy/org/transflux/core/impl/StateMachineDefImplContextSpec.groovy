@@ -436,7 +436,8 @@ class StateMachineDefImplContextSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1', { st -> st.transitionsTo('s2', 't', CtxA, { t ->
+            .state('s1')
+            .transition('t', 's1', 's2', CtxA, { t ->
                 t.operation('outer', { OperationDef<Entity, CtxA> c ->
                     c.operation('mid', Object, { OperationDef<Entity, Object> mid -> mid
                         .step('leaf', leaf)
@@ -447,8 +448,8 @@ class StateMachineDefImplContextSpec extends Specification {
                                 tr.run('leaf')
                             } as Action) }) })
                 })
-            }) })
-            .state('s2', {})
+            })
+            .state('s2')
 
         when:
         def result = smd.build().entity(new Entity('s1')).transitionTo('s2', new CtxA())
@@ -544,8 +545,9 @@ class StateMachineDefImplContextSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1', { s -> s.transitionsTo('s2', 't', {}) })
-            .state('s2', {})
+            .state('s1')
+            .transition('t', 's1', 's2', {})
+            .state('s2')
         smd.operation('a', CtxA, { OperationDef<Entity, CtxA> op -> op.step('dup', new StepA()).run('dup') })
         smd.operation('b', CtxB, { OperationDef<Entity, CtxB> op -> op.step('dup', new StepB()) })
 
@@ -565,11 +567,12 @@ class StateMachineDefImplContextSpec extends Specification {
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .step('legacy-step', new StepA())
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t ->
+            .state('s1')
+            .transition('t', 's1', 's2', { t ->
                 t.operation('legacy-composite',
                     { OperationDef<Entity, Object> c -> c.run('legacy-step') })
-            }) })
-            .state('s2', {})
+            })
+            .state('s2')
 
         when:
         def sm = smd.build()
@@ -584,8 +587,9 @@ class StateMachineDefImplContextSpec extends Specification {
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .step('narrow', CtxB, new StepB())
-        smd.state('s1', { s -> s.transitionsTo('s2', 't', CtxA, { t -> t.run('narrow') }) })
-        smd.state('s2', {})
+        smd.state('s1')
+            .transition('t', 's1', 's2', CtxA, { t -> t.run('narrow') })
+        smd.state('s2')
 
         when:
         smd.build()
@@ -604,8 +608,9 @@ class StateMachineDefImplContextSpec extends Specification {
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .step('narrow', CtxB, new StepB())
-        smd.state('s1', { s -> s.transitionsTo('s2', 't', CtxA, { t -> t.run('narrow', aToB()) }) })
-        smd.state('s2', {})
+        smd.state('s1')
+            .transition('t', 's1', 's2', CtxA, { t -> t.run('narrow', aToB()) })
+        smd.state('s2')
 
         when:
         smd.build()
@@ -619,12 +624,13 @@ class StateMachineDefImplContextSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-        smd.state('s1', { s -> s.transitionsTo('s2', 't', CtxA, { t -> t
-            .step('widened', Object, new AnyCtxStep())
-            .operation('mapped', CtxB, aToB(), { OperationDef<Entity, CtxB> n ->
-                n.step('inner', new StepB())
-            }) }) })
-        smd.state('s2', {})
+        smd.state('s1')
+            .transition('t', 's1', 's2', CtxA, { t -> t
+                .step('widened', Object, new AnyCtxStep())
+                .operation('mapped', CtxB, aToB(), { OperationDef<Entity, CtxB> n ->
+                    n.step('inner', new StepB())
+                }) })
+        smd.state('s2')
 
         when:
         smd.build()
@@ -637,8 +643,9 @@ class StateMachineDefImplContextSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-            .state('s1', { s -> s.transitionsTo('s2', 't', {}) })
-            .state('s2', {})
+            .state('s1')
+            .transition('t', 's1', 's2', {})
+            .state('s2')
         return smd
     }
 

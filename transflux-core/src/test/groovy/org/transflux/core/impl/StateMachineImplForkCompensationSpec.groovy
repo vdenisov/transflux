@@ -244,12 +244,11 @@ class StateMachineImplForkCompensationSpec extends Specification {
             .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
             .withAsyncExecutor(executor)
         registrations.call(builder)
-        builder.state('s1', { s ->
-            s.transitionsTo('s2', 't', { t ->
+        builder.state('s1')
+            .transition('t', 's1', 's2', { t ->
                 t.operation('op', { OperationDef<Entity, Object> op -> members.call(op) } as Consumer)
             } as Consumer)
-        } as Consumer)
-        builder.state('s2', {} as Consumer)
+        builder.state('s2')
         return smd.build()
     }
 }

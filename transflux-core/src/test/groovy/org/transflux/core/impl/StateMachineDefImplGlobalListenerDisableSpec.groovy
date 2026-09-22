@@ -58,27 +58,31 @@ class StateMachineDefImplGlobalListenerDisableSpec extends Specification {
         where:
         category     | owner            || declaration
         'state'      | "state 's2'"     || { d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', {})
             .state('s2', { st -> st.disableGlobalListener('no-such-listener') }) }
         'transition' | "transition 't'" || { d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t ->
-                t.disableGlobalListener('no-such-listener') }) })
-            .state('s2', {} as Consumer) }
+            .state('s1')
+            .transition('t', 's1', 's2', { t ->
+                t.disableGlobalListener('no-such-listener') })
+            .state('s2') }
         'action'     | "step 'charge'"  || { d -> d
             .step('charge', { StepDef s -> s
                 .using(noop())
                 .disableGlobalListener('no-such-listener') } as Consumer)
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.run('charge') }) })
-            .state('s2', {} as Consumer) }
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t.run('charge') })
+            .state('s2') }
     }
 
     def 'an id naming a global listener of another category fails the build'() {
         when:
         build({ d -> d
             .onAnyActionStart('g-action', { e, ctx, x -> } as ActionListener)
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t ->
-                t.disableGlobalListener('g-action') }) })
-            .state('s2', {} as Consumer) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t ->
+                t.disableGlobalListener('g-action') })
+            .state('s2') })
 
         then: 'the category follows the owner, so a transition cannot name an action listener'
         def e = thrown(TransfluxValidationException)
@@ -89,10 +93,11 @@ class StateMachineDefImplGlobalListenerDisableSpec extends Specification {
     def 'an id naming an owner-attached listener fails the build'() {
         when:
         build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t
                 .onStart('own-start', { e, ctx, x -> } as TransitionListener)
-                .disableGlobalListener('own-start') }) })
-            .state('s2', {} as Consumer) })
+                .disableGlobalListener('own-start') })
+            .state('s2') })
 
         then: "an owner's own listeners are the consent, and are never suppressed"
         def e = thrown(TransfluxValidationException)
@@ -107,8 +112,9 @@ class StateMachineDefImplGlobalListenerDisableSpec extends Specification {
                 .step('inner', { StepDef s -> s
                     .using(noop())
                     .disableGlobalListener('no-such-listener') } as Consumer) } as Consumer)
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.run('outer') }) })
-            .state('s2', {} as Consumer) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t.run('outer') })
+            .state('s2') })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -118,9 +124,10 @@ class StateMachineDefImplGlobalListenerDisableSpec extends Specification {
     def 'the blanket form needs no registered global at all'() {
         when:
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
-                .disableAllGlobalListeners() }) })
-            .state('s2', {} as Consumer) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t
+                .disableAllGlobalListeners() })
+            .state('s2') })
 
         then:
         sm != null
@@ -131,14 +138,14 @@ class StateMachineDefImplGlobalListenerDisableSpec extends Specification {
         def sm = build({ d -> d
             .withExecutionLogging(ExecutionLogging.defaults())
             .state('s1', { st -> st
-                .disableGlobalListener('transflux-log-state-exit')
-                .transitionsTo('s2', 't', { t -> t
-                    .disableGlobalListener('transflux-log-transition-start')
-                    .step('work', { StepDef s -> s
-                        .using(noop())
-                        .disableGlobalListener('transflux-log-action-start')
-                        .disableGlobalListener('transflux-log-action-complete') } as Consumer) }) })
-            .state('s2', {} as Consumer) })
+                .disableGlobalListener('transflux-log-state-exit') })
+            .transition('t', 's1', 's2', { t -> t
+                .disableGlobalListener('transflux-log-transition-start')
+                .step('work', { StepDef s -> s
+                    .using(noop())
+                    .disableGlobalListener('transflux-log-action-start')
+                    .disableGlobalListener('transflux-log-action-complete') } as Consumer) })
+            .state('s2') })
 
         then:
         sm != null

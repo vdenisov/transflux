@@ -46,12 +46,12 @@ class EventTriggerDefImplSpec extends Specification {
 
     def 'a configured event trigger surfaces its id, metadata, event id and transition in the catalog'() {
         given:
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', { t -> t.addEventTrigger('paid', { et -> et
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', { t -> t.addEventTrigger('paid', { et -> et
                 .onEvent('PAYMENT')
                 .withName('Payment received')
-                .withDescription('Fires on a confirmed payment') }) }) })
-            .state('s2', {}) })
+                .withDescription('Fires on a confirmed payment') }) })
+            .state('s2') })
 
         when:
         def trigger = (EventTrigger) sm.getTrigger('paid')
@@ -66,9 +66,9 @@ class EventTriggerDefImplSpec extends Specification {
 
     def 'the flat (id, eventId) form sets the event id'() {
         given:
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', { t -> t.addEventTrigger('paid', 'PAYMENT') }) })
-            .state('s2', {}) })
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', { t -> t.addEventTrigger('paid', 'PAYMENT') })
+            .state('s2') })
 
         expect:
         ((EventTrigger) sm.getTrigger('paid')).eventId == 'PAYMENT'
@@ -76,9 +76,9 @@ class EventTriggerDefImplSpec extends Specification {
 
     def 'the single-argument form uses the event id as the trigger id'() {
         given:
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', { t -> t.addEventTrigger('PAYMENT') }) })
-            .state('s2', {}) })
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', { t -> t.addEventTrigger('PAYMENT') })
+            .state('s2') })
 
         when:
         def trigger = (EventTrigger) sm.getTrigger('PAYMENT')
@@ -90,9 +90,9 @@ class EventTriggerDefImplSpec extends Specification {
 
     def 'a blank event id is rejected by the single-argument form'() {
         when:
-        build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', { t -> t.addEventTrigger('  ') }) })
-            .state('s2', {}) })
+        build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', { t -> t.addEventTrigger('  ') })
+            .state('s2') })
 
         then:
         thrown(TransfluxValidationException)
@@ -100,9 +100,9 @@ class EventTriggerDefImplSpec extends Specification {
 
     def 'an event trigger declaring no event id is rejected at build'() {
         when:
-        build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', { t -> t.addEventTrigger('paid', { et -> et.withName('No event') }) }) })
-            .state('s2', {}) })
+        build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', { t -> t.addEventTrigger('paid', { et -> et.withName('No event') }) })
+            .state('s2') })
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -114,15 +114,15 @@ class EventTriggerDefImplSpec extends Specification {
     def 'the last filter declared wins, overriding a previously declared #firstForm filter'() {
         given:
         def seen = []
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', { t -> t
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', { t -> t
                 .step('op', { e, c, tr -> seen << 'fired' } as Action)
                 .addEventTrigger('paid', { et -> et.onEvent('PAYMENT') })
                 .addEventTrigger('paid2', { et ->
                     et.onEvent('OTHER')
                     declareFirst.call(et)
-                    et.filter({ payload -> payload == 'accept' } as Predicate) }) }) })
-            .state('s2', {}) })
+                    et.filter({ payload -> payload == 'accept' } as Predicate) }) })
+            .state('s2') })
 
         when: 'the payload only the last-declared filter accepts is published'
         def accepted = sm.entity(new Entity('s1')).processEvent('OTHER', 'accept')
@@ -145,9 +145,9 @@ class EventTriggerDefImplSpec extends Specification {
 
     def 'a trigger declaring no filter fires on every published event of its id'() {
         given:
-        def sm = build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', { t -> t.addEventTrigger('paid', { et -> et.onEvent('PAYMENT') }) }) })
-            .state('s2', {}) })
+        def sm = build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', { t -> t.addEventTrigger('paid', { et -> et.onEvent('PAYMENT') }) })
+            .state('s2') })
 
         expect:
         sm.entity(new Entity('s1')).processEvent('PAYMENT', 'anything').fired()
@@ -158,11 +158,11 @@ class EventTriggerDefImplSpec extends Specification {
         EventTriggerDefImpl<Entity, TestContext> escaped = null
 
         when:
-        build({ d -> d.state('s1', { st ->
-            st.transitionsTo('s2', 't', TestContext, { t -> t.addEventTrigger('paid', { et ->
+        build({ d -> d.state('s1')
+            .transition('t', 's1', 's2', TestContext, { t -> t.addEventTrigger('paid', { et ->
                 escaped = (EventTriggerDefImpl<Entity, TestContext>) et
-                et.onEvent('PAYMENT') }) }) })
-            .state('s2', {}) })
+                et.onEvent('PAYMENT') }) })
+            .state('s2') })
         escaped.onEvent('LATE')
 
         then:

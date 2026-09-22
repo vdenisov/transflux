@@ -51,11 +51,12 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         def log = []
         def entity = new Entity('s1')
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t
                 .onStart('a', recorder(log, 'start'))
                 .onComplete('b', recorder(log, 'complete'))
-                .onError('c', recorder(log, 'error')) }) })
-            .state('s2', {}) })
+                .onError('c', recorder(log, 'error')) })
+            .state('s2') })
 
         when:
         def result = sm.entity(entity).transitionTo('s2')
@@ -71,12 +72,13 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         def log = []
         def entity = new Entity('s1')
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t
                 .onStart('a', recorder(log, 'start'))
                 .onComplete('b', recorder(log, 'complete'))
                 .onError('c', recorder(log, 'error'))
-                configure.call(t) }) })
-            .state('s2', {}) })
+                configure.call(t) })
+            .state('s2') })
 
         when:
         def result = sm.entity(entity).transitionTo('s2')
@@ -97,12 +99,13 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         def log = []
         def entity = new Entity('s1')
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t
                 .onStart('a', recorder(log, 'start'))
                 .onComplete('b', recorder(log, 'complete'))
                 .onError('c', recorder(log, 'error'))
-                .preCondition('gate', gate) }) })
-            .state('s2', {}) })
+                .preCondition('gate', gate) })
+            .state('s2') })
 
         when:
         def result = sm.entity(entity).transitionTo('s2')
@@ -122,10 +125,11 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         def log = []
         def entity = new Entity('s1')
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t
                 .onStart('own-1', recorder(log, 'own-1'))
-                .onStart('own-2', recorder(log, 'own-2')) }) })
-            .state('s2', {})
+                .onStart('own-2', recorder(log, 'own-2')) })
+            .state('s2')
             .onAnyTransitionStart('any-1', recorder(log, 'any-1'))
             .onAnyTransitionStart('any-2', recorder(log, 'any-2')) })
 
@@ -141,8 +145,9 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         def log = []
         def entity = new Entity('s1')
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', {}) })
-            .state('s2', {})
+            .state('s1')
+            .transition('t', 's1', 's2', {})
+            .state('s2')
             .onAnyTransitionStart('any-start', recorder(log, 'start'))
             .onAnyTransitionComplete('any-complete', recorder(log, 'complete')) })
 
@@ -159,11 +164,11 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         def entity = new Entity('s1')
         def sm = build({ d -> d
             .state('s1', { st -> st
-                .onExit('leave', stateRecorder(log, 'state-exit'))
-                .transitionsTo('s2', 't', { t -> t
-                    .onStart('a', recorder(log, 'transition-start'))
-                    .onComplete('b', recorder(log, 'transition-complete'))
-                    .step('op', { e, ctx, tr -> log << 'operation' } as Action) }) })
+                .onExit('leave', stateRecorder(log, 'state-exit')) })
+            .transition('t', 's1', 's2', { t -> t
+                .onStart('a', recorder(log, 'transition-start'))
+                .onComplete('b', recorder(log, 'transition-complete'))
+                .step('op', { e, ctx, tr -> log << 'operation' } as Action) })
             .state('s2', { st -> st.onEntry('enter', stateRecorder(log, 'state-entry')) }) })
 
         when:
@@ -178,9 +183,10 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         def captured = []
         def entity = new Entity('s1')
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
-                .onComplete('capture', capturing(captured)) }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t
+                .onComplete('capture', capturing(captured)) })
+            .state('s2') })
 
         when:
         def result = sm.entity(entity).transitionTo('s2')
@@ -203,9 +209,10 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         def captured = []
         def entity = new Entity('s1')
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
-                .onStart('capture', capturing(captured)) }) })
-            .state('s2', {}) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t
+                .onStart('capture', capturing(captured)) })
+            .state('s2') })
 
         when:
         sm.entity(entity).transitionTo('s2')
@@ -222,12 +229,13 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         def rolledBack = []
         def entity = new Entity('s1')
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t
                 .onError('capture', capturing(captured))
                 .operation('op', { c -> c
                     .step('undoable', compensatingStep(rolledBack))
-                    .step('boom', { e, ctx, tr -> throw new IllegalStateException('boom') } as Action) }) }) })
-            .state('s2', {}) })
+                    .step('boom', { e, ctx, tr -> throw new IllegalStateException('boom') } as Action) }) })
+            .state('s2') })
 
         when:
         def result = sm.entity(entity).transitionTo('s2')
@@ -287,7 +295,8 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         def entity = new Entity('s1')
         def sm = build({ d -> d
             .step('side-effect', { e, ctx, tr -> stepRuns << 'ran' } as Action)
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t
                 .onStart('meddler', { e, ctx, ex ->
                     try {
                         dispatchable << (ex.transition() instanceof ExecutingTransition)
@@ -295,8 +304,8 @@ class StateMachineImplTransitionListenerSpec extends Specification {
                     } catch (Exception caught) {
                         failures << caught.message
                     }
-                } as TransitionListener) }) })
-            .state('s2', {}) })
+                } as TransitionListener) })
+            .state('s2') })
 
         when:
         def result = sm.entity(entity).transitionTo('s2')
@@ -313,10 +322,11 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         given:
         def entity = new Entity('s1')
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t
                 .onStart('a', exploding(hook == 'onStart'))
-                .onComplete('b', exploding(hook == 'onComplete')) }) })
-            .state('s2', {}) })
+                .onComplete('b', exploding(hook == 'onComplete')) })
+            .state('s2') })
 
         when:
         def result = sm.entity(entity).transitionTo('s2')
@@ -336,10 +346,11 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         def log = []
         def entity = new Entity('s1')
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t
                 .onStart('boom', { e, ctx, ex -> throw new IllegalStateException('boom') } as TransitionListener)
-                .onStart('after', recorder(log, 'after')) }) })
-            .state('s2', {})
+                .onStart('after', recorder(log, 'after')) })
+            .state('s2')
             .onAnyTransitionStart('global-after', recorder(log, 'global-after')) })
 
         when:
@@ -356,10 +367,11 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         def context = new TypedContext('audit')
         def entity = new Entity('s1')
         def sm = build({ d -> d
-            .state('s1', { st -> st.transitionsTo('s2', 't', TypedContext, { t -> t
+            .state('s1')
+            .transition('t', 's1', 's2', TypedContext, { t -> t
                 .onComplete('capture', { Entity e, TypedContext ctx, TransitionExecution ex -> seen << ctx.tag }
-                    as TransitionListener) }) })
-            .state('s2', {}) })
+                    as TransitionListener) })
+            .state('s2') })
 
         when:
         sm.entity(entity).transitionTo('s2', context)
@@ -372,9 +384,9 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         when:
         build({ d -> d
             .state('s1', { st -> st
-                .onEntry('dup', stateRecorder([], 'x'))
-                .transitionsTo('s2', 't', { t -> t.onStart('dup', recorder([], 'y')) }) })
-            .state('s2', {}) })
+                .onEntry('dup', stateRecorder([], 'x')) })
+            .transition('t', 's1', 's2', { t -> t.onStart('dup', recorder([], 'y')) })
+            .state('s2') })
 
         then:
         def e = thrown(org.transflux.core.exception.TransfluxValidationException)
@@ -384,11 +396,11 @@ class StateMachineImplTransitionListenerSpec extends Specification {
     def 'a transition listener id reused on two transitions is rejected at build'() {
         when:
         build({ d -> d
-            .state('s1', { st -> st
-                .transitionsTo('s2', 't1', { t -> t.onStart('dup', recorder([], 'x')) })
-                .transitionsTo('s3', 't2', { t -> t.onComplete('dup', recorder([], 'y')) }) })
-            .state('s2', {})
-            .state('s3', {}) })
+            .state('s1')
+            .transition('t1', 's1', 's2', { t -> t.onStart('dup', recorder([], 'x')) })
+            .transition('t2', 's1', 's3', { t -> t.onComplete('dup', recorder([], 'y')) })
+            .state('s2')
+            .state('s3') })
 
         then: 'the message names the transition and hook that lost the race, since the stack points at build()'
         def e = thrown(org.transflux.core.exception.TransfluxValidationException)
@@ -400,8 +412,9 @@ class StateMachineImplTransitionListenerSpec extends Specification {
         def smd = new StateMachineDefImpl<Entity>()
         smd.forEntityType(Entity)
            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
-           .state('s1', { st -> st.transitionsTo('s2', 't', { t -> t.onStart('once', recorder([], 'x')) }) })
-           .state('s2', {})
+           .state('s1')
+           .transition('t', 's1', 's2', { t -> t.onStart('once', recorder([], 'x')) })
+           .state('s2')
 
         when:
         smd.build()
@@ -421,19 +434,19 @@ class StateMachineImplTransitionListenerSpec extends Specification {
 
     private static StateMachine<Entity> triggerMachine(List captured) {
         return build({ d -> d
-            .state('s1', { st -> st
-                .transitionsTo('s2', 't-manual', { t -> t
-                    .addManualTrigger('manual-go')
-                    .onStart('capture-manual', capturing(captured)) })
-                .transitionsTo('s3', 't-event', { t -> t
-                    .addEventTrigger('event-go', 'EVT')
-                    .onStart('capture-event', capturing(captured)) })
-                .transitionsTo('s4', 't-data', { t -> t
-                    .addDataTrigger('data-go', { dt -> dt.condition('always', { e -> true } as Predicate) })
-                    .onStart('capture-data', capturing(captured)) }) })
-            .state('s2', {})
-            .state('s3', {})
-            .state('s4', {}) })
+            .state('s1')
+            .transition('t-manual', 's1', 's2', { t -> t
+                .addManualTrigger('manual-go')
+                .onStart('capture-manual', capturing(captured)) })
+            .transition('t-event', 's1', 's3', { t -> t
+                .addEventTrigger('event-go', 'EVT')
+                .onStart('capture-event', capturing(captured)) })
+            .transition('t-data', 's1', 's4', { t -> t
+                .addDataTrigger('data-go', { dt -> dt.condition('always', { e -> true } as Predicate) })
+                .onStart('capture-data', capturing(captured)) })
+            .state('s2')
+            .state('s3')
+            .state('s4') })
     }
 
     private static TransitionListener<Entity, Object> recorder(List log, String label) {

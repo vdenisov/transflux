@@ -139,10 +139,9 @@ class StateMachineDefImplExecutionLoggingSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
             .step('work', { e, c, t -> } as Action)
-        builder.state('s1', { s ->
-            s.transitionsTo('s2', 't', { t -> t.run('work') } as Consumer)
-        } as Consumer)
-        builder.state('s2', {} as Consumer)
+        builder.state('s1')
+            .transition('t', 's1', 's2', { t -> t.run('work') } as Consumer)
+        builder.state('s2')
         return smd
     }
 }

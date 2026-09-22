@@ -19,7 +19,6 @@
 package org.transflux.core.state;
 
 import org.transflux.core.exception.TransfluxValidationException;
-import org.transflux.core.transition.TransitionDef;
 
 import java.util.function.Consumer;
 
@@ -30,8 +29,7 @@ import java.util.function.Consumer;
  * {@link org.transflux.core.StateMachineDef#state(String, Consumer)}. Inside the configurer
  * body, the user may set metadata ({@link #withName} / {@link #withDescription}), attach entry
  * and exit listeners ({@link #onEntry(String, StateListener)} / {@link #onExit(String, StateListener)}
- * and overloads), and declare outgoing transitions via
- * {@link #transitionsTo(String, String, Consumer)} and overloads.
+ * and overloads). Transitions are declared on the state machine, not on a state.
  *
  * <p>Once the configurer returns, the {@code StateDef} reference becomes inert: any subsequent
  * mutating call throws {@link TransfluxValidationException}. To declare another state or to
@@ -44,14 +42,13 @@ import java.util.function.Consumer;
  *     .withStateResolver(order -> order.getStatus().name())
  *     .state("pending", s -> s
  *         .withName("Pending Order")
- *         .withDescription("Order has been placed but not yet processed")
- *         .transitionsTo("processing", "start-processing", OrderContext.class, t -> {})
- *         .transitionsTo("cancelled", "cancel-order", CancelReason.class, t -> {}))
- *     .state("processing", s -> s
- *         .withName("Processing Order")
- *         .transitionsTo("shipped", "ship-order", t -> {}))
- *     .state("shipped", s -> {})
- *     .state("cancelled", s -> {})
+ *         .withDescription("Order has been placed but not yet processed"))
+ *     .state("processing", s -> s.withName("Processing Order"))
+ *     .state("shipped")
+ *     .state("cancelled")
+ *     .transition("start-processing", "pending", "processing", OrderContext.class, t -> {})
+ *     .transition("cancel-order", "pending", "cancelled", CancelReason.class, t -> {})
+ *     .transition("ship-order", "processing", "shipped", t -> {})
  *     .build();
  * }</pre>
  *
@@ -190,42 +187,6 @@ public interface StateDef<T> {
      *         declares no listener
      */
     StateDef<T> onExit(String listenerId, Consumer<StateListenerDef<T>> configurer);
-
-    /**
-     * Declares an outgoing transition from this state with pass-through ({@link Object}) context.
-     * The configurer is invoked synchronously against a freshly-constructed
-     * {@link TransitionDef}; the def is not exposed to the caller after the lambda returns.
-     *
-     * @param targetStateId the ID of the target state
-     * @param transitionId the unique identifier for this transition
-     * @param configurer callback that configures the transition; never {@code null}
-     *
-     * @return this StateDef instance for chaining inside the configurer body
-     *
-     * @throws TransfluxValidationException if any argument is {@code null} or blank
-     */
-    StateDef<T> transitionsTo(String targetStateId, String transitionId,
-                              Consumer<TransitionDef<T, Object>> configurer);
-
-    /**
-     * Declares an outgoing transition from this state with the supplied context class.
-     *
-     * <p>{@code Void.class} declares that the transition takes no context — fire calls with a
-     * non-null context are rejected at the dispatch boundary.
-     *
-     * @param targetStateId the ID of the target state
-     * @param transitionId the unique identifier for this transition
-     * @param contextType the transition's context class; use {@code Void.class} for a
-     *                    context-free transition
-     * @param configurer callback that configures the transition; never {@code null}
-     * @param <C> the transition context type
-     *
-     * @return this StateDef instance for chaining inside the configurer body
-     *
-     * @throws TransfluxValidationException if any argument is {@code null} or blank
-     */
-    <C> StateDef<T> transitionsTo(String targetStateId, String transitionId, Class<C> contextType,
-                                  Consumer<TransitionDef<T, C>> configurer);
 
     /**
      * Suppresses one state-machine-wide state listener for this state, leaving this state's own

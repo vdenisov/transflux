@@ -317,8 +317,9 @@ class StateMachineImplForkSpec extends Specification {
             .withStateResolver({ e -> e.state } as StateResolver<Entity>)
             .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
             .step('notify', { e, c, t -> done.countDown() } as Action)
-        smd.state('s1', { s -> s.transitionsTo('s2', 't', { t -> t.fork('notify') }) })
-        smd.state('s2', {})
+        smd.state('s1')
+            .transition('t', 's1', 's2', { t -> t.fork('notify') })
+        smd.state('s2')
 
         when: 'no executor is supplied, so the framework must have built a pool of its own'
         def sm = smd.build()
@@ -413,10 +414,9 @@ class StateMachineImplForkSpec extends Specification {
             .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
             .withAsyncExecutor(executor)
         registrations.call(builder)
-        builder.state('s1', { s ->
-            s.transitionsTo('s2', 't', { t -> members.call(t) } as Consumer)
-        } as Consumer)
-        builder.state('s2', {} as Consumer)
+        builder.state('s1')
+            .transition('t', 's1', 's2', { t -> members.call(t) } as Consumer)
+        builder.state('s2')
         return smd.build()
     }
 
@@ -427,12 +427,11 @@ class StateMachineImplForkSpec extends Specification {
             .withStateApplier({ e, s -> e.state = s } as StateApplier<Entity>)
             .withAsyncExecutor(executor)
         registrations.call(builder)
-        builder.state('s1', { s ->
-            s.transitionsTo('s2', 't', { t ->
+        builder.state('s1')
+            .transition('t', 's1', 's2', { t ->
                 t.operation('op', { OperationDef<Entity, Object> op -> members.call(op) } as Consumer)
             } as Consumer)
-        } as Consumer)
-        builder.state('s2', {} as Consumer)
+        builder.state('s2')
         return smd.build()
     }
 }

@@ -511,8 +511,9 @@ class StateMachineImplExceptionRoutingSpec extends Specification {
         if (registrations != null) {
             registrations.accept(smd)
         }
-        smd.state('s1', { state -> state.transitionsTo('s2', 't', TestContext, transitionConfigurer) })
-            .state('s2', {})
+        smd.state('s1')
+            .transition('t', 's1', 's2', TestContext, transitionConfigurer)
+            .state('s2')
         return smd.build()
     }
 }
