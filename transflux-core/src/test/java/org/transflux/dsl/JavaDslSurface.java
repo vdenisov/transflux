@@ -19,6 +19,7 @@
 package org.transflux.dsl;
 
 import org.slf4j.event.Level;
+import org.transflux.core.ComponentFactory;
 import org.transflux.core.StateMachine;
 import org.transflux.core.StateMachineDef;
 import org.transflux.core.Transflux;
@@ -1447,6 +1448,19 @@ public final class JavaDslSurface {
                               .map(line -> line.split(":")[0])
                               .collect(Collectors.joining(","));
         }
+    }
+
+    /**
+     * A component factory written as a lambda, beside the reflective default it would wrap.
+     *
+     * @return the class of what each factory created, joined
+     */
+    public static String componentFactoryShapes() {
+        ComponentFactory reflective = ComponentFactory.reflective();
+        ComponentFactory handOut = type -> type == TrackStep.class ? TRACK_STEP : reflective.create(type);
+        return handOut.create(TrackStep.class).getClass().getSimpleName() + ":"
+            + (handOut.create(TrackStep.class) == TRACK_STEP) + ":"
+            + handOut.create(OrderIsOpen.class).getClass().getSimpleName();
     }
 
     private static boolean isOpen(Order order) {

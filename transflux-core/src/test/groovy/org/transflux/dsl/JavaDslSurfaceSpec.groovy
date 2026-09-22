@@ -487,6 +487,11 @@ class JavaDslSurfaceSpec extends Specification {
             'START,any,EXIT,START,recording,COMPLETE,COMPLETE,ENTRY'
     }
 
+    def 'a component factory is a lambda, and may delegate to the reflective default'() {
+        expect:
+        JavaDslSurface.componentFactoryShapes() == 'TrackStep:true:OrderIsOpen'
+    }
+
     private static boolean waitFor(Closure<Boolean> condition) {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
         while (System.nanoTime() < deadline) {
