@@ -450,6 +450,8 @@ Every validation error raised against a definition loaded through a `DefinitionS
 git://main/root.yml -> imports/db://workflows/subscription -> condition 'foo': ...
 ```
 
+An error the loader raises is a `DefinitionLoadException`, a `TransfluxValidationException` whose message leads with where the problem is written — `identifier:line:column: declaration path: problem`, the source's location beside the identifier when it differs — and which carries each part as an accessor. A rejection thrown by a definition call the loader makes on behalf of an entry is reported at that entry's line. A failure raised later, by the host's `build()` or `replaceDefinition(...)`, carries the build's own message: the loader returns a definition and never builds one.
+
 #### 2.6.5 Caching
 
 The framework parses each loaded resource exactly once per `StateMachine` build. It does **not** cache parsed definitions across builds; a swap (§2.7) re-loads through the source on every call. Sources are free to cache bytes themselves; the framework treats every `open(...)` as a fresh request.
@@ -550,7 +552,9 @@ listeners: [ ... ]
 stateMachine: { ... }           # the root document only (§3.2)
 ```
 
-The document handed to the loader is the **root** and must carry `stateMachine:`; an imported document must not. Everything a state machine configures about itself — its global listeners (§3.7) and its `config:` (§3.8) included — sits inside `stateMachine:`, so a library has nothing to say about either. A library names no entity type: its classes are checked against the root's `entityType` when the root is loaded. Unknown keys are errors at every level; a document is documented with YAML comments.
+The document handed to the loader is the **root** and must carry `stateMachine:`; an imported document must not. Everything a state machine configures about itself — its global listeners (§3.7) and its `config:` (§3.8) included — sits inside `stateMachine:`, so a library has nothing to say about either. A library names no entity type: its classes are checked against the root's `entityType` when the root is loaded. Unknown keys are errors at every level, and name the keys allowed where they were found; a document is documented with YAML comments.
+
+A document is plain YAML: exactly one document per resource, no anchors or aliases, no merge keys (`<<`), no tags beyond the core schema's (`!!str`, `!!int` and the like), and no key written twice in one mapping. Each is refused at its line rather than interpreted. Reuse is what imports and registrations are for (§3.1.4); YAML-level templating is a Post-1.0 theme (§7.2).
 
 A library:
 
@@ -783,6 +787,19 @@ stateMachine:
 ```
 
 A library may import libraries. Each resource is read once per load, keyed by its identifier, so two import paths arriving at the same library are legal and declare its components once. A missing import, a circular import, and an imported document that carries `stateMachine:` are errors naming the import chain (§2.6.4).
+
+#### 3.1.5 Classes Named by a Document
+
+A class name in a document is loaded through the class loader the host gives the loader — the thread context class loader current when the loader was built, by default — and a class whose instance the definition needs is created through a `ComponentFactory` (§6.2): its accessible no-argument constructor, by default, or whatever the host's factory hands out. A class that cannot be loaded, is not of the type its position takes, or cannot be instantiated is an error at the line that named it.
+
+The loader then checks what javac would have checked for a Java host, as far as the class itself declares it:
+
+| The class declares | Checked |
+| --- | --- |
+| concrete type arguments on the position's interface, directly or through a superclass | at load: the entity argument is `entityType` or a supertype of it (§4.1); a context argument is exactly the context the position runs against; a mapper's are exactly its `parentType` and `childType` |
+| a type variable there — a generic class named raw | at runtime: the framework's context checks at dispatch; an entity mismatch surfaces as a `ClassCastException` from inside the component |
+
+A component registered without `context:` is registered against `Object`, as the untyped Java registration is, and its context argument is not checked.
 
 ### 3.2 State Machine Definition
 
@@ -2656,7 +2673,7 @@ Additional DI frameworks (Guice, CDI / Weld, Dagger 2) are deferred to a Post-1.
 
 ### 6.2 Class Instance Factory System
 
-A minimal component factory SPI that:
+A minimal component factory SPI, widening `ComponentFactory` (`org.transflux.core`) — the YAML loader's instantiation path (§3.1.5) — rather than adding a second one, that:
 - Resolves named components from the registry.
 - Falls back to reflection-based instantiation when no DI framework is available.
 - Allows registration of custom factory functions for specialized component creation.
