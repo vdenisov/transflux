@@ -83,6 +83,32 @@ class ClassesSpec extends Specification {
         noExceptionThrown()
     }
 
+    def 'an absent optional class is null, a present one is loaded'() {
+        given:
+        def classes = new Classes(getClass().classLoader, ComponentFactory.reflective())
+        def map = map("class: ${Step.name}\n")
+
+        expect:
+        classes.optionalClass(map, 'context', null) == null
+        classes.optionalClass(map, 'class', Action) == Step
+    }
+
+    def 'type arguments the position refuses are reported at the line naming the class, before instantiating'() {
+        given:
+        def created = 0
+        def classes = new Classes(getClass().classLoader, { created++; new Step() } as ComponentFactory)
+
+        when:
+        classes.instantiate(map("\nclass: ${Step.name}\n"), 'class', Action,
+            TypeArguments.Expected.superOf(Object), TypeArguments.Expected.exactly(String))
+
+        then:
+        def e = thrown(DefinitionLoadException)
+        e.line() == 2
+        e.problem() == "class ${Step.name} declares Action's C as java.lang.Object, where this position needs java.lang.String"
+        created == 0
+    }
+
     private static NodeMap map(String text) {
         def document = Document.parse('doc.yml', null, new StringReader(text))
         return NodeMap.of(document, document.root(), null, 'the document')

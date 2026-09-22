@@ -67,23 +67,66 @@ final class Classes {
     }
 
     /**
+     * Loads the class a key names, when the key is present.
+     *
+     * @param map the mapping holding the key
+     * @param key the key whose value is a class name
+     * @param position what the class must be assignable to at this position; {@code null} for any
+     *
+     * @return the class, or {@code null} when the key is absent
+     *
+     * @throws DefinitionLoadException when the class cannot be loaded or is not a {@code position}
+     */
+    Class<?> optionalClass(NodeMap map, String key, Class<?> position) {
+        return map.optionalNode(key) == null ? null : requiredClass(map, key, position);
+    }
+
+    /**
      * Creates an instance of the class a key names.
      *
      * @param map the mapping holding the key
      * @param key the key whose value is a class name
      * @param position what the class must be assignable to at this position
+     * @param expected what the class's type arguments on {@code position} must be, one per type
+     *        parameter; none to leave them unchecked
      * @param <X> the position's type
      *
      * @return the instance the component factory created
      *
-     * @throws DefinitionLoadException when the class cannot be loaded, is not a {@code position}, or
-     *         the factory fails or returns something else
+     * @throws DefinitionLoadException when the class cannot be loaded, is not a {@code position},
+     *         declares type arguments the position refuses, or the factory fails or returns
+     *         something else
      */
-    <X> X instantiate(NodeMap map, String key, Class<X> position) {
-        Class<?> type = requiredClass(map, key, position);
-        Node at = map.requiredNode(key);
-        Object instance;
+    <X> X instantiate(NodeMap map, String key, Class<X> position, TypeArguments.Expected... expected) {
+        return instantiate(map, key, requiredClass(map, key, position), position, expected);
+    }
 
+    /**
+     * Creates an instance of a class already loaded from a key.
+     *
+     * @param map the mapping holding the key
+     * @param key the key that named {@code type}
+     * @param type the class, already known to be a {@code position}
+     * @param position the interface the instance is used as
+     * @param expected what the class's type arguments on {@code position} must be, one per type
+     *        parameter; none to leave them unchecked
+     * @param <X> the position's type
+     *
+     * @return the instance the component factory created
+     *
+     * @throws DefinitionLoadException when the class declares type arguments the position refuses,
+     *         or the factory fails or returns something else
+     */
+    <X> X instantiate(NodeMap map, String key, Class<?> type, Class<X> position, TypeArguments.Expected... expected) {
+        Node at = map.requiredNode(key);
+        if (expected.length > 0) {
+            String mismatch = TypeArguments.mismatch(type, position, expected);
+            if (mismatch != null) {
+                throw map.error(at, mismatch);
+            }
+        }
+
+        Object instance;
         try {
             instance = componentFactory.create(type);
         } catch (TransfluxValidationException e) {

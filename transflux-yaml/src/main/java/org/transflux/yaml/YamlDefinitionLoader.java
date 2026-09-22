@@ -119,7 +119,6 @@ public final class YamlDefinitionLoader {
                 "apiVersion must be '" + API_VERSION + "', not '" + apiVersion + "'");
         }
         NodeMap stateMachine = root.requiredMap("stateMachine").within("state machine");
-        root.rejectUnknownKeys();
 
         Class<?> declared = classes.requiredClass(stateMachine, "entityType", null);
         if (declared != entityType) {
@@ -132,6 +131,8 @@ public final class YamlDefinitionLoader {
         StateMachineDef<T> def = Transflux.defineStateMachine(entityType);
         Loggers.YAML_BINDING.debug("State machine definition created, identifier={}, entityType={}",
             root.document().identifier(), entityType.getName());
+        ComponentSections.read(root, def, entityType, classes);
+        root.rejectUnknownKeys();
         return def;
     }
 

@@ -90,6 +90,33 @@ final class NodeMap {
         return document;
     }
 
+    String declarationPath() {
+        return declarationPath;
+    }
+
+    MappingNode node() {
+        return node;
+    }
+
+    /**
+     * Admits every key the mapping holds, for a mapping whose keys are data rather than grammar.
+     *
+     * @return the keys, in document order
+     */
+    List<String> keys() {
+        asked.addAll(entries.keySet());
+        return List.copyOf(entries.keySet());
+    }
+
+    /**
+     * @param key a key the mapping holds
+     *
+     * @return the node of the key itself, for a problem with the key rather than its value
+     */
+    Node keyNode(String key) {
+        return entries.get(key).getKeyNode();
+    }
+
     /**
      * @param key the key
      *
