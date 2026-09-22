@@ -54,6 +54,7 @@
         <logback.version>1.5.32</logback.version>
         <apache.commons.lang3.version>3.18.0</apache.commons.lang3.version>
         <spring.expression.version>6.2.13</spring.expression.version>
+        <snakeyaml.version>2.7</snakeyaml.version>
     </properties>
 
     <dependencyManagement>
@@ -82,6 +83,11 @@
                 <groupId>org.springframework</groupId>
                 <artifactId>spring-expression</artifactId>
                 <version>${spring.expression.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.yaml</groupId>
+                <artifactId>snakeyaml</artifactId>
+                <version>${snakeyaml.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
