@@ -42,8 +42,8 @@ import java.util.function.Consumer;
  * <p><b>Member context.</b> A context is declared where the action is declared. Every inline
  * declaration comes in three shapes: the plain one inherits the enclosing context {@code C}; one
  * taking a {@code Class<N>} declares its own and runs pass-through, which requires {@code N} to
- * accept {@code C}; and one taking a {@code Class<N>} and a {@link ContextMapper} declares its own
- * and crosses the boundary. A by-id reference reads its callee's context from the registry rather
+ * accept {@code C}; and one taking a {@code Class<N>} and a mapper - a {@link ContextMapper}, or
+ * the id of a registered {@link MapperDef} - declares its own and crosses the boundary. A by-id reference reads its callee's context from the registry rather
  * than restating it, so its mapper-bearing forms take the mapper alone - a registered
  * {@link MapperDef} by id, or an inline {@link ContextMapper}, which a lambda satisfies for the
  * read-only projection case. The build pipeline validates that pass-through crossings are
@@ -429,6 +429,40 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
                   Consumer<StepDef<T, N>> configurer);
 
     /**
+     * {@link #step(String, Class, ContextMapper, Action)} with the mapper registered on the state
+     * machine and named by id. The build checks that its parent type accepts the enclosing
+     * context and its child type is assignable to {@code contextType}.
+     *
+     * @param id the action id; must be unique across the state machine
+     * @param contextType the context the action runs against
+     * @param mapperId the registered mapper that produces the action's context
+     * @param action the action to invoke
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if either id is blank or any other argument is
+     *         {@code null}
+     */
+    <N> SELF step(String id, Class<N> contextType, String mapperId, Action<? super T, N> action);
+
+    /**
+     * Configurer form of {@link #step(String, Class, String, Action)}.
+     *
+     * @param id the action id; must be unique across the state machine
+     * @param contextType the context the action runs against
+     * @param mapperId the registered mapper that produces the action's context
+     * @param configurer callback that configures the member
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if either id is blank or any other argument is
+     *         {@code null}
+     */
+    <N> SELF step(String id, Class<N> contextType, String mapperId, Consumer<StepDef<T, N>> configurer);
+
+    /**
      * Declares a multi-branch choice against a context of its own, running pass-through. Its
      * branches, and everything they declare, run against {@code contextType}.
      *
@@ -461,6 +495,23 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      *         {@code null}
      */
     <N> SELF choice(String id, Class<N> contextType, ContextMapper<C, N> mapper, Consumer<ChoiceDef<T, N>> configurer);
+
+    /**
+     * {@link #choice(String, Class, ContextMapper, Consumer)} with the mapper registered on the
+     * state machine and named by id; see {@link #step(String, Class, String, Action)}.
+     *
+     * @param id the choice's id; must be unique across the state machine
+     * @param contextType the context the choice runs against
+     * @param mapperId the registered mapper that produces the choice's context
+     * @param configurer callback that declares the branches
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if either id is blank or any other argument is
+     *         {@code null}
+     */
+    <N> SELF choice(String id, Class<N> contextType, String mapperId, Consumer<ChoiceDef<T, N>> configurer);
 
     /**
      * Declares a nested sequence against a context of its own, running pass-through. Its members,
@@ -496,6 +547,23 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      */
     <N> SELF operation(String id, Class<N> contextType, ContextMapper<C, N> mapper,
                        Consumer<OperationDef<T, N>> configurer);
+
+    /**
+     * {@link #operation(String, Class, ContextMapper, Consumer)} with the mapper registered on the
+     * state machine and named by id; see {@link #step(String, Class, String, Action)}.
+     *
+     * @param id the operation's id; must be unique across the state machine
+     * @param contextType the context the operation runs against
+     * @param mapperId the registered mapper that produces the operation's context
+     * @param configurer callback that declares the members
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if either id is blank or any other argument is
+     *         {@code null}
+     */
+    <N> SELF operation(String id, Class<N> contextType, String mapperId, Consumer<OperationDef<T, N>> configurer);
 
     /**
      * Forked form of {@link #step(String, Class, Action)} - see {@link #fork(String)} for what
@@ -573,6 +641,40 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
                       Consumer<StepDef<T, N>> configurer);
 
     /**
+     * Forked form of {@link #step(String, Class, String, Action)} - the registered mapper produces
+     * the branch's context, and does not write back. See
+     * {@link #forkStep(String, Class, ContextMapper, Action)}.
+     *
+     * @param id the action id; must be unique across the state machine
+     * @param contextType the context the action runs against
+     * @param mapperId the registered mapper that produces the action's context
+     * @param action the action to invoke
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if either id is blank or any other argument is
+     *         {@code null}
+     */
+    <N> SELF forkStep(String id, Class<N> contextType, String mapperId, Action<? super T, N> action);
+
+    /**
+     * Configurer form of {@link #forkStep(String, Class, String, Action)}.
+     *
+     * @param id the action id; must be unique across the state machine
+     * @param contextType the context the action runs against
+     * @param mapperId the registered mapper that produces the action's context
+     * @param configurer callback that configures the member
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if either id is blank or any other argument is
+     *         {@code null}
+     */
+    <N> SELF forkStep(String id, Class<N> contextType, String mapperId, Consumer<StepDef<T, N>> configurer);
+
+    /**
      * Forked form of {@link #choice(String, Class, Consumer)} - see {@link #fork(String)} for
      * what forking changes. It runs pass-through, so the branch is handed the enclosing context
      * object; see {@link #forkStep(String, Class, Action)} for what that means for sharing.
@@ -610,6 +712,23 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
                         Consumer<ChoiceDef<T, N>> configurer);
 
     /**
+     * Forked form of {@link #choice(String, Class, String, Consumer)} - the registered mapper
+     * produces the branch's context, and does not write back.
+     *
+     * @param id the choice's id; must be unique across the state machine
+     * @param contextType the context the choice runs against
+     * @param mapperId the registered mapper that produces the choice's context
+     * @param configurer callback that declares the branches
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if either id is blank or any other argument is
+     *         {@code null}
+     */
+    <N> SELF forkChoice(String id, Class<N> contextType, String mapperId, Consumer<ChoiceDef<T, N>> configurer);
+
+    /**
      * Forked form of {@link #operation(String, Class, Consumer)} - see {@link #fork(String)} for
      * what forking changes. It runs pass-through, so the branch is handed the enclosing context
      * object; see {@link #forkStep(String, Class, Action)} for what that means for sharing.
@@ -645,5 +764,23 @@ public interface ActionSequence<T, C, SELF extends ActionSequence<T, C, SELF>> {
      *         {@code null}
      */
     <N> SELF forkOperation(String id, Class<N> contextType, ContextMapper<C, N> mapper,
+                           Consumer<OperationDef<T, N>> configurer);
+
+    /**
+     * Forked form of {@link #operation(String, Class, String, Consumer)} - the registered mapper
+     * produces the branch's context, and does not write back.
+     *
+     * @param id the operation's id; must be unique across the state machine
+     * @param contextType the context the operation runs against
+     * @param mapperId the registered mapper that produces the operation's context
+     * @param configurer callback that declares the members
+     * @param <N> the declared context type
+     *
+     * @return this def for chaining
+     *
+     * @throws TransfluxValidationException if either id is blank or any other argument is
+     *         {@code null}
+     */
+    <N> SELF forkOperation(String id, Class<N> contextType, String mapperId,
                            Consumer<OperationDef<T, N>> configurer);
 }

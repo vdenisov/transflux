@@ -73,7 +73,7 @@ class JavaDslSurfaceSpec extends Specification {
         order.trail.contains('pt-choice:o-1')
 
         and: 'a mapped declaration runs against the context its own mapper produced'
-        order.trail.count { it == 'notify:o-1' } == 4
+        order.trail.count { it == 'notify:o-1' } == 6
         order.trail.contains('mapped-op:o-1')
         order.trail.contains('mapped-choice:o-1')
 
@@ -81,8 +81,13 @@ class JavaDslSurfaceSpec extends Specification {
         order.trail.contains('lambda-op:o-1')
         order.trail.contains('lambda-choice:o-1')
 
+        and: 'a registered mapper named by id maps each of the four the same way'
+        order.trail.contains('registered-op:o-1')
+        order.trail.contains('registered-choice:o-1')
+
         and: "mapFrom writes back once the member completes, as at a mapped by-id call site"
-        ctx.receipt == 'r-1'
+        order.trail.contains('receipt:r-1')
+        ctx.receipt == 'r-2'
 
         and: 'a declared context changes nothing about the reported path'
         result.executedPath*.toString().contains('op/mapped-op/mapped-op-step')
@@ -357,7 +362,7 @@ class JavaDslSurfaceSpec extends Specification {
         when:
         def result = sm.entity(order).transitionTo('s2', new JavaDslSurface.OrderCtx())
 
-        then: 'only the container that holds them is on the path; twelve members are not'
+        then: 'only the container that holds them is on the path; sixteen members are not'
         result.success
         result.executedPath*.toString() == ['op']
 
@@ -365,6 +370,7 @@ class JavaDslSurfaceSpec extends Specification {
         waitFor { order.trail.contains('f-instance') }
         waitFor { order.trail.contains('f-pt:o-1') }
         waitFor { order.trail.contains('f-mapped:o-1') }
+        waitFor { order.trail.contains('f-registered:o-1') }
 
         cleanup:
         sm.close()

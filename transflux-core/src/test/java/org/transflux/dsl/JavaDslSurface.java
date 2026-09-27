@@ -526,7 +526,24 @@ public final class JavaDslSurface {
                         .branch("lambda-taken", b -> b
                             .condition("lambda-always", (order, ctx) -> true)
                             .step("lambda-choice-step",
-                                  (order, ctx, view) -> order.trail.add("lambda-choice:" + ctx.orderId))))))
+                                  (order, ctx, view) -> order.trail.add("lambda-choice:" + ctx.orderId))))
+                    .step("read-receipt", (order, ctx, view) -> order.trail.add("receipt:" + ctx.receipt))
+
+                    // the same four, through a mapper registered on the state machine
+                    .step("registered-instance", NotifyCtx.class, "notify-from-order", new NotifyAction())
+                    .step("registered-configured", NotifyCtx.class, "notify-from-order",
+                          st -> st.using(new NotifyAction()).withName("Registered-mapped"))
+                    .operation("registered-op", NotifyCtx.class, "notify-from-order", inner -> inner
+                        .step("registered-op-step", (order, ctx, view) -> {
+                            order.trail.add("registered-op:" + ctx.orderId);
+                            ctx.receipt = "r-2";
+                        }))
+                    .choice("registered-choice", NotifyCtx.class, "notify-from-order", choice -> choice
+                        .branch("registered-taken", b -> b
+                            .condition("registered-always", (order, ctx) -> true)
+                            .step("registered-choice-step",
+                                  (order, ctx, view) -> order.trail.add("registered-choice:" + ctx.orderId))))))
+            .mapper("notify-from-order", OrderCtx.class, NotifyCtx.class, new NotifyFromOrder())
             .state("s2")
             .build();
     }
@@ -886,7 +903,21 @@ public final class JavaDslSurface {
                                 parent -> new NotifyCtx(parent.orderId), choice -> choice
                         .branch("f-mapped-taken", b -> b
                             .condition("f-mapped-always", (order, ctx) -> true)
-                            .step("f-mapped-branch-member", new NotifyAction())))))
+                            .step("f-mapped-branch-member", new NotifyAction())))
+
+                    // declaring a context of their own, produced by a registered mapper
+                    .forkStep("f-registered-instance", NotifyCtx.class, "notify-from-order",
+                              new NotifyAction())
+                    .forkStep("f-registered-configured", NotifyCtx.class, "notify-from-order",
+                              st -> st.using(new NotifyAction()).withName("Registered fork"))
+                    .forkOperation("f-registered-group", NotifyCtx.class, "notify-from-order", g -> g
+                        .step("f-registered-member",
+                              (order, ctx, view) -> order.trail.add("f-registered:" + ctx.orderId)))
+                    .forkChoice("f-registered-route", NotifyCtx.class, "notify-from-order", choice -> choice
+                        .branch("f-registered-taken", b -> b
+                            .condition("f-registered-always", (order, ctx) -> true)
+                            .step("f-registered-branch-member", new NotifyAction())))))
+            .mapper("notify-from-order", OrderCtx.class, NotifyCtx.class, new NotifyFromOrder())
             .state("s2")
             .build();
     }

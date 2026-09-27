@@ -495,6 +495,62 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     @Override
+    public <N> TransitionDef<T, C> step(String id, Class<N> contextType, String mapperId,
+                                        Action<? super T, N> action) {
+        body.step(id, contextType, mapperId, action);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> step(String id, Class<N> contextType, String mapperId,
+                                        Consumer<StepDef<T, N>> configurer) {
+        body.step(id, contextType, mapperId, configurer);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> choice(String id, Class<N> contextType, String mapperId,
+                                          Consumer<ChoiceDef<T, N>> configurer) {
+        body.choice(id, contextType, mapperId, configurer);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> operation(String id, Class<N> contextType, String mapperId,
+                                             Consumer<OperationDef<T, N>> configurer) {
+        body.operation(id, contextType, mapperId, configurer);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> forkStep(String id, Class<N> contextType, String mapperId,
+                                            Action<? super T, N> action) {
+        body.forkStep(id, contextType, mapperId, action);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> forkStep(String id, Class<N> contextType, String mapperId,
+                                            Consumer<StepDef<T, N>> configurer) {
+        body.forkStep(id, contextType, mapperId, configurer);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> forkChoice(String id, Class<N> contextType, String mapperId,
+                                              Consumer<ChoiceDef<T, N>> configurer) {
+        body.forkChoice(id, contextType, mapperId, configurer);
+        return this;
+    }
+
+    @Override
+    public <N> TransitionDef<T, C> forkOperation(String id, Class<N> contextType, String mapperId,
+                                                 Consumer<OperationDef<T, N>> configurer) {
+        body.forkOperation(id, contextType, mapperId, configurer);
+        return this;
+    }
+
+    @Override
     public TransitionDef<T, C> preCondition(String registeredConditionId) {
         return preConditions.ref(registeredConditionId);
     }

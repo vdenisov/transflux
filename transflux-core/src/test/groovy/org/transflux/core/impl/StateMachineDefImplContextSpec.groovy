@@ -316,6 +316,80 @@ class StateMachineDefImplContextSpec extends Specification {
         'choice' | narrowChoice(aToB())
     }
 
+    @Unroll
+    def 'an inline #form declaring a narrower context through a registered mapper is accepted'() {
+        given: 'the mapper is named by id, so the build reads its types off the registration'
+        def smd = baseDef()
+        smd.mapper('b-from-a', CtxA, CtxB, aToB())
+        smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
+            scope.operation('outer', { OperationDef<Entity, CtxA> c -> declare.call(c) })
+        })
+
+        when:
+        smd.build()
+
+        then:
+        noExceptionThrown()
+
+        where:
+        form        | declare
+        'operation' | narrowOperation('b-from-a')
+        'step'      | narrowStep('b-from-a')
+        'choice'    | narrowChoice('b-from-a')
+    }
+
+    @Unroll
+    def 'an inline declaration through a registered mapper is rejected at build when #problem'() {
+        given:
+        def smd = baseDef()
+        smd.mapper('b-from-a', parent, child, { p -> null } as ContextMapper)
+        smd.forContext(CtxA, { ContextScope<Entity, CtxA> scope ->
+            scope.operation('outer', { OperationDef<Entity, CtxA> c -> narrowStep(mapperId).call(c) })
+        })
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.contains(message)
+
+        where:
+        problem                                    | mapperId   | parent | child || message
+        'the mapper is not registered'             | 'nope'     | CtxA   | CtxB  || "references unknown mapper 'nope' at action 'inner'"
+        'its parent does not accept the enclosing' | 'b-from-a' | CtxB   | CtxB  || "Mapper 'b-from-a' parent type ${CtxB.name}"
+        'its child is not the declared context'    | 'b-from-a' | CtxA   | CtxA  || "Mapper 'b-from-a' child type ${CtxA.name}"
+    }
+
+    def 'a registered mapper named at a declaration maps at every position that holds a sequence'() {
+        given: 'a transition body, a branch and a default branch, each declaring through the mapper'
+        def smd = new StateMachineDefImpl<Entity>()
+        smd.forEntityType(Entity)
+            .withStateResolver({ e -> e.state } as StateResolver<Entity>)
+            .mapper('b-from-a', CtxA, CtxB, new BFromA())
+            .state('s1')
+            .state('s2')
+            .transition('t', 's1', 's2', CtxA, { t -> t
+                .step('in-body', CtxB, 'b-from-a', new RecordAs('body'))
+                .choice('route', { ch -> ch
+                    .branch('taken', { b -> b
+                        .condition('always', { Entity e, CtxA c -> true } as BiPredicate)
+                        .step('in-branch', CtxB, 'b-from-a', new RecordAs('branch')) }) })
+                .choice('fallback', { ch -> ch
+                    .branch('skipped', { b -> b
+                        .condition('never', { Entity e, CtxA c -> false } as BiPredicate)
+                        .step('never-runs', new StepA()) })
+                    .defaultBranch({ d -> d.step('in-default', CtxB, 'b-from-a', new RecordAs('default')) }) }) })
+        def entity = new Entity('s1')
+
+        when:
+        def result = smd.build().entity(entity).transitionTo('s2', new CtxA())
+
+        then: 'each member ran against the context the mapper produced'
+        result.success
+        entity.trail == ["body:${CtxB.simpleName}", "branch:${CtxB.simpleName}", "default:${CtxB.simpleName}"]*.toString()
+    }
+
     def 'a by-id reference to an inline member declaring its own context is checked against it'() {
         given: 'an inline id reaches no registration, so nothing else could supply its context'
         def smd = baseDef()
@@ -663,20 +737,20 @@ class StateMachineDefImplContextSpec extends Specification {
         return { CtxA parent -> new CtxB() } as ContextMapper
     }
 
-    private static Closure narrowOperation(ContextMapper<CtxA, CtxB> mapper) {
+    private static Closure narrowOperation(Object mapper) {
         def body = { OperationDef<Entity, CtxB> n -> n.step('s', new StepB()) }
         return mapper == null
             ? { c -> c.operation('inner', CtxB, body) }
             : { c -> c.operation('inner', CtxB, mapper, body) }
     }
 
-    private static Closure narrowStep(ContextMapper<CtxA, CtxB> mapper) {
+    private static Closure narrowStep(Object mapper) {
         return mapper == null
             ? { c -> c.step('inner', CtxB, new StepB()) }
             : { c -> c.step('inner', CtxB, mapper, new StepB()) }
     }
 
-    private static Closure narrowChoice(ContextMapper<CtxA, CtxB> mapper) {
+    private static Closure narrowChoice(Object mapper) {
         def body = { ChoiceDef<Entity, CtxB> n ->
             n.branch('b', { b -> b.condition('always', alwaysTrue()).step('s', new StepB()) })
         }
@@ -695,6 +769,14 @@ class StateMachineDefImplContextSpec extends Specification {
         }
     }
 
+    // A class, not a coerced closure: `as ContextMapper` would override mapFrom with the one-argument body.
+    static class BFromA implements ContextMapper<CtxA, CtxB> {
+        @Override
+        CtxB mapTo(CtxA parent) {
+            return new CtxB()
+        }
+    }
+
     static class CtxA { }
 
     static class CtxB { }
@@ -710,6 +792,19 @@ class StateMachineDefImplContextSpec extends Specification {
         @Override
         void execute(Entity entity, CtxB context, ExecutingTransition<Entity, CtxB> transition) {
             entity.trail << 'step-b'
+        }
+    }
+
+    static class RecordAs implements Action<Entity, CtxB> {
+        private final String label
+
+        RecordAs(String label) {
+            this.label = label
+        }
+
+        @Override
+        void execute(Entity entity, CtxB context, ExecutingTransition<Entity, CtxB> transition) {
+            entity.trail << "${label}:${context.class.simpleName}".toString()
         }
     }
 

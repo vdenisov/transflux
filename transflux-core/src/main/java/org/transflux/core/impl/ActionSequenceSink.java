@@ -351,18 +351,18 @@ final class ActionSequenceSink<T, C, D> {
             ActionRef<T, C> ref = member.ref();
             if (ref instanceof ActionRef.ById<T, ?> byId) {
                 Class<?> componentCtx = smDef.componentContextTypeOrDefault(byId.id(),
-                                                                             visibleScopes);
+                                                                            visibleScopes);
                 byId.mapperRef().validateAgainst(effectiveScope, scopeLabel, "action",
-                    byId.id(), componentCtx, smDef.getMapperRegistrations());
+                                                 byId.id(), componentCtx, smDef.getMapperRegistrations());
             } else if (ref instanceof ActionRef.Choice<T, C> choice) {
-                Class<?> own = memberContext(ref, choice.def(), effectiveScope, scopeLabel);
+                Class<?> own = memberContext(ref, choice.def(), effectiveScope, scopeLabel, smDef);
                 String label = scopeLabel + " > " + choice.def().defLabel();
                 choice.def().checkRefs(own, label,
                                        ownerBeneath(ref.declaredContext(), own, contextOwner,
                                                     label),
                                        visibleScopes, smDef);
             } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
-                Class<?> own = memberContext(ref, nested.def(), effectiveScope, scopeLabel);
+                Class<?> own = memberContext(ref, nested.def(), effectiveScope, scopeLabel, smDef);
                 String label = scopeLabel + " > " + nested.def().defLabel();
                 nested.def().checkRefs(own, label,
                                        ownerBeneath(ref.declaredContext(), own, contextOwner,
@@ -370,7 +370,7 @@ final class ActionSequenceSink<T, C, D> {
                                        visibleScopes, smDef);
             } else if (ref instanceof ActionRef.InlineDef<T, C> step) {
                 // A step owns no members, so the boundary is all there is to check.
-                memberContext(ref, step.def(), effectiveScope, scopeLabel);
+                memberContext(ref, step.def(), effectiveScope, scopeLabel, smDef);
             }
 
             if (member.forked()) {
@@ -380,16 +380,23 @@ final class ActionSequenceSink<T, C, D> {
     }
 
     /**
-     * Resolves the context an inline declaration is handed, rejecting a boundary it cannot cross.
+     * Resolves the context an inline declaration is handed, rejecting a boundary it cannot cross
+     * and a registered mapper whose types do not line up with it.
      * <p>
      * The answer comes from {@link ActionDefImpl#handedDownContext}; this method adds only the
-     * rejection. It is the live object that matters here - what the declaration's own members are
+     * rejections. It is the live object that matters here - what the declaration's own members are
      * handed in turn, what a by-id reference from inside them can be given, and what a forked
      * member would share.
      */
     private Class<?> memberContext(ActionRef<T, C> ref, ActionDefImpl<T, ?, ?> def,
-                                   Class<?> effectiveScope, String scopeLabel) {
+                                   Class<?> effectiveScope, String scopeLabel,
+                                   StateMachineDefImpl<T> smDef) {
         boolean mapped = !(ref.mapperRef() instanceof MapperRef.PassThrough);
+        if (mapped) {
+            // A registered mapper's types are known here; an inline one's were proven by javac.
+            ref.mapperRef().validateAgainst(effectiveScope, scopeLabel, "action", def.getId(),
+                                            def.declaredContext(), smDef.getMapperRegistrations());
+        }
         if (!def.boundaryIsLegal(effectiveScope, mapped)) {
             throw new TransfluxValidationException(
                 "Context type mismatch: " + scopeLabel + " (context " + effectiveScope.getName()

@@ -18,15 +18,15 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.action.Action;
 import org.transflux.core.action.AsyncRejectionPolicy;
+import org.transflux.core.action.BranchDef;
+import org.transflux.core.action.ChoiceDef;
+import org.transflux.core.action.ContextMapper;
+import org.transflux.core.action.OperationDef;
+import org.transflux.core.action.StepDef;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
-import org.transflux.core.action.ChoiceDef;
-import org.transflux.core.action.OperationDef;
-import org.transflux.core.action.ContextMapper;
-import org.transflux.core.action.BranchDef;
-import org.transflux.core.action.Action;
-import org.transflux.core.action.StepDef;
 
 import java.util.List;
 import java.util.function.BiPredicate;
@@ -47,6 +47,7 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
         new ConditionDescriptorSink<>(this, this, "condition", Loggers.BUILD_VALIDATION);
     private final ActionSequenceSink<T, C, BranchDef<T, C>> members =
         new ActionSequenceSink<>(this, this);
+
     BranchDefImpl(String branchId) {
         requireNotBlank(branchId, "Branch ID");
         this.branchId = branchId;
@@ -219,7 +220,7 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
 
     @Override
     public <N> BranchDef<T, C> step(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                          Action<? super T, N> action) {
+                                    Action<? super T, N> action) {
         return members.step(id, contextType, MapperRef.inline(mapper), action, false);
     }
 
@@ -230,7 +231,7 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
 
     @Override
     public <N> BranchDef<T, C> step(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                          Consumer<StepDef<T, N>> configurer) {
+                                    Consumer<StepDef<T, N>> configurer) {
         return members.step(id, contextType, MapperRef.inline(mapper), configurer, false);
     }
 
@@ -241,19 +242,19 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
 
     @Override
     public <N> BranchDef<T, C> choice(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                                 Consumer<ChoiceDef<T, N>> configurer) {
+                                      Consumer<ChoiceDef<T, N>> configurer) {
         return members.choice(id, contextType, MapperRef.inline(mapper), configurer, false);
     }
 
     @Override
     public <N> BranchDef<T, C> operation(String id, Class<N> contextType,
-                               Consumer<OperationDef<T, N>> configurer) {
+                                         Consumer<OperationDef<T, N>> configurer) {
         return members.operation(id, contextType, MapperRef.passThrough(), configurer, false);
     }
 
     @Override
     public <N> BranchDef<T, C> operation(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                               Consumer<OperationDef<T, N>> configurer) {
+                                         Consumer<OperationDef<T, N>> configurer) {
         return members.operation(id, contextType, MapperRef.inline(mapper), configurer, false);
     }
 
@@ -304,5 +305,52 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
                                              ContextMapper<C, N> mapper,
                                              Consumer<OperationDef<T, N>> configurer) {
         return members.operation(id, contextType, MapperRef.inline(mapper), configurer, true);
+    }
+
+    @Override
+    public <N> BranchDef<T, C> step(String id, Class<N> contextType, String mapperId, Action<? super T, N> action) {
+        return members.step(id, contextType, MapperRef.byId(mapperId), action, false);
+    }
+
+    @Override
+    public <N> BranchDef<T, C> step(String id, Class<N> contextType, String mapperId,
+                                    Consumer<StepDef<T, N>> configurer) {
+        return members.step(id, contextType, MapperRef.byId(mapperId), configurer, false);
+    }
+
+    @Override
+    public <N> BranchDef<T, C> choice(String id, Class<N> contextType, String mapperId,
+                                      Consumer<ChoiceDef<T, N>> configurer) {
+        return members.choice(id, contextType, MapperRef.byId(mapperId), configurer, false);
+    }
+
+    @Override
+    public <N> BranchDef<T, C> operation(String id, Class<N> contextType, String mapperId,
+                                         Consumer<OperationDef<T, N>> configurer) {
+        return members.operation(id, contextType, MapperRef.byId(mapperId), configurer, false);
+    }
+
+    @Override
+    public <N> BranchDef<T, C> forkStep(String id, Class<N> contextType, String mapperId,
+                                        Action<? super T, N> action) {
+        return members.step(id, contextType, MapperRef.byId(mapperId), action, true);
+    }
+
+    @Override
+    public <N> BranchDef<T, C> forkStep(String id, Class<N> contextType, String mapperId,
+                                        Consumer<StepDef<T, N>> configurer) {
+        return members.step(id, contextType, MapperRef.byId(mapperId), configurer, true);
+    }
+
+    @Override
+    public <N> BranchDef<T, C> forkChoice(String id, Class<N> contextType, String mapperId,
+                                          Consumer<ChoiceDef<T, N>> configurer) {
+        return members.choice(id, contextType, MapperRef.byId(mapperId), configurer, true);
+    }
+
+    @Override
+    public <N> BranchDef<T, C> forkOperation(String id, Class<N> contextType, String mapperId,
+                                             Consumer<OperationDef<T, N>> configurer) {
+        return members.operation(id, contextType, MapperRef.byId(mapperId), configurer, true);
     }
 }
