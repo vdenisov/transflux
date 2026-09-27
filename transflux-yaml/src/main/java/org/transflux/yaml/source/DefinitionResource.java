@@ -41,7 +41,7 @@ public final class DefinitionResource implements AutoCloseable {
     /**
      * Creates a resource with no location and no change metadata.
      *
-     * @param identifier the identifier error messages and import deduplication name this document by
+     * @param identifier the identifier error messages name this document by
      * @param bytes the raw document, owned by this resource from here on
      *
      * @throws org.transflux.core.exception.TransfluxValidationException if either is {@code null},
@@ -54,7 +54,7 @@ public final class DefinitionResource implements AutoCloseable {
     /**
      * Creates a resource.
      *
-     * @param identifier the identifier error messages and import deduplication name this document by
+     * @param identifier the identifier error messages name this document by
      * @param bytes the raw document, owned by this resource from here on
      * @param location where the source found the document, for people reading an error; or {@code null}
      * @param lastModified when the document last changed, or {@code null} if the source cannot tell

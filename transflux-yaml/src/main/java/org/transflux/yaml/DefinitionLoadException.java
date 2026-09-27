@@ -20,13 +20,16 @@ package org.transflux.yaml;
 
 import org.transflux.core.exception.TransfluxValidationException;
 
+import java.util.List;
+
 /**
  * A definition document the loader refused, located in the document that declared the problem. The
- * message leads with the location, {@code identifier:line:column: declaration path: problem}, and
- * the parts are also available one by one.
+ * message leads with the location, {@code importer -> identifier:line:column: declaration path: problem},
+ * and the parts are also available one by one.
  */
 public class DefinitionLoadException extends TransfluxValidationException {
 
+    private final List<String> importChain;
     private final String identifier;
     private final String location;
     private final Integer line;
@@ -34,15 +37,24 @@ public class DefinitionLoadException extends TransfluxValidationException {
     private final String declarationPath;
     private final String problem;
 
-    DefinitionLoadException(String identifier, String location, Integer line, Integer column,
-                            String declarationPath, String problem, Throwable cause) {
-        super(format(identifier, location, line, column, declarationPath, problem), cause);
+    DefinitionLoadException(List<String> importChain, String identifier, String location, Integer line,
+                            Integer column, String declarationPath, String problem, Throwable cause) {
+        super(format(importChain, identifier, location, line, column, declarationPath, problem), cause);
+        this.importChain = List.copyOf(importChain);
         this.identifier = identifier;
         this.location = location;
         this.line = line;
         this.column = column;
         this.declarationPath = declarationPath;
         this.problem = problem;
+    }
+
+    /**
+     * @return the identifiers of the documents whose imports reached the one the problem is in, the
+     *         root first; empty when the problem is in the root
+     */
+    public List<String> importChain() {
+        return importChain;
     }
 
     /**
@@ -88,9 +100,11 @@ public class DefinitionLoadException extends TransfluxValidationException {
         return problem;
     }
 
-    private static String format(String identifier, String location, Integer line, Integer column,
-                                 String declarationPath, String problem) {
-        StringBuilder message = new StringBuilder(identifier);
+    private static String format(List<String> importChain, String identifier, String location, Integer line,
+                                 Integer column, String declarationPath, String problem) {
+        StringBuilder message = new StringBuilder();
+        importChain.forEach(importer -> message.append(importer).append(" -> "));
+        message.append(identifier);
         if (location != null && !location.equals(identifier)) {
             message.append(" (").append(location).append(')');
         }

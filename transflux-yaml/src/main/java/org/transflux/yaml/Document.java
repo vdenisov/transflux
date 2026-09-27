@@ -33,13 +33,14 @@ import org.yaml.snakeyaml.nodes.Tag;
 import java.io.Reader;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 
 /**
  * One parsed definition document: its node tree, with every node's position, and the identity
- * errors against it are reported under.
+ * errors against it are reported under - the imports that reached it included.
  */
-record Document(String identifier, String location, Node root) {
+record Document(List<String> importChain, String identifier, String location, Node root) {
 
     private static final Set<Tag> PLAIN_TAGS = Set.of(
         Tag.STR, Tag.INT, Tag.BOOL, Tag.NULL, Tag.FLOAT, Tag.TIMESTAMP, Tag.SEQ, Tag.MAP);
@@ -49,6 +50,8 @@ record Document(String identifier, String location, Node root) {
     /**
      * Parses exactly one document and refuses what the grammar does not use.
      *
+     * @param importChain the identifiers of the documents whose imports reached this one, the root
+     *        first; empty for the root
      * @param identifier the identifier the document was opened under
      * @param location where the source found it; nullable
      * @param reader the document's text
@@ -58,7 +61,7 @@ record Document(String identifier, String location, Node root) {
      * @throws DefinitionLoadException when the text is not YAML, holds other than one document, or
      *         uses an anchor, an alias, a merge key, a tag or a duplicate key
      */
-    static Document parse(String identifier, String location, Reader reader) {
+    static Document parse(List<String> importChain, String identifier, String location, Reader reader) {
         Iterator<Node> documents;
         Node root;
         try {
@@ -67,25 +70,25 @@ record Document(String identifier, String location, Node root) {
             options.setTagInspector(tag -> true);
             documents = new Yaml(options).composeAll(reader).iterator();
             if (!documents.hasNext()) {
-                throw new DefinitionLoadException(identifier, location, null, null, null,
+                throw new DefinitionLoadException(importChain, identifier, location, null, null, null,
                     "the document is empty", null);
             }
             root = documents.next();
             if (documents.hasNext()) {
                 Node second = documents.next();
-                throw new Document(identifier, location, root).error(second, null,
+                throw new Document(importChain, identifier, location, root).error(second, null,
                     "a definition is one YAML document; this is a second one");
             }
         } catch (MarkedYAMLException e) {
             Mark mark = e.getProblemMark() != null ? e.getProblemMark() : e.getContextMark();
-            throw new DefinitionLoadException(identifier, location,
+            throw new DefinitionLoadException(importChain, identifier, location,
                 mark == null ? null : mark.getLine() + 1, mark == null ? null : mark.getColumn() + 1,
                 null, "not valid YAML: " + e.getProblem(), e);
         } catch (YAMLException e) {
-            throw new DefinitionLoadException(identifier, location, null, null, null,
+            throw new DefinitionLoadException(importChain, identifier, location, null, null, null,
                 "cannot be read: " + e.getMessage(), e);
         }
-        Document document = new Document(identifier, location, root);
+        Document document = new Document(importChain, identifier, location, root);
         document.refuseUnsupported(root);
         return document;
     }
@@ -115,8 +118,8 @@ record Document(String identifier, String location, Node root) {
      */
     DefinitionLoadException error(Node node, String declarationPath, String problem, Throwable cause) {
         Mark mark = node.getStartMark();
-        return new DefinitionLoadException(identifier, location, mark.getLine() + 1, mark.getColumn() + 1,
-            declarationPath, problem, cause);
+        return new DefinitionLoadException(importChain, identifier, location, mark.getLine() + 1,
+            mark.getColumn() + 1, declarationPath, problem, cause);
     }
 
     private void refuseUnsupported(Node node) {

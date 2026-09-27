@@ -25,25 +25,28 @@ class DefinitionLoadExceptionSpec extends Specification {
 
     def 'the message leads with whatever of the location is known'() {
         given:
-        def e = new DefinitionLoadException(identifier, location, line, column, path, 'broken', null)
+        def e = new DefinitionLoadException(chain, identifier, location, line, column, path, 'broken', null)
 
         expect:
         e.message == message
         e instanceof TransfluxValidationException
 
         where:
-        identifier | location   | line | column | path                              || message
-        'a.yml'    | null       | null | null   | null                              || 'a.yml: broken'
-        'a.yml'    | 'a.yml'    | 3    | 5      | null                              || 'a.yml:3:5: broken'
-        'a.yml'    | '/x/a.yml' | 3    | 5      | "transition 't' > operation 'op'" || "a.yml (/x/a.yml):3:5: transition 't' > operation 'op': broken"
+        chain                 | identifier | location   | line | column | path                              || message
+        []                    | 'a.yml'    | null       | null | null   | null                              || 'a.yml: broken'
+        []                    | 'a.yml'    | 'a.yml'    | 3    | 5      | null                              || 'a.yml:3:5: broken'
+        []                    | 'a.yml'    | '/x/a.yml' | 3    | 5      | "transition 't' > operation 'op'" || "a.yml (/x/a.yml):3:5: transition 't' > operation 'op': broken"
+        ['root.yml']          | 'a.yml'    | null       | 3    | 5      | "condition 'c'"                   || "root.yml -> a.yml:3:5: condition 'c': broken"
+        ['root.yml', 'b.yml'] | 'a.yml'    | '/x/a.yml' | null | null   | null                              || 'root.yml -> b.yml -> a.yml (/x/a.yml): broken'
     }
 
     def 'every part is available on its own'() {
         given:
         def cause = new IllegalStateException()
-        def e = new DefinitionLoadException('a.yml', '/x/a.yml', 3, 5, "state 's'", 'broken', cause)
+        def e = new DefinitionLoadException(['root.yml'], 'a.yml', '/x/a.yml', 3, 5, "state 's'", 'broken', cause)
 
         expect:
+        e.importChain() == ['root.yml']
         e.identifier() == 'a.yml'
         e.location() == '/x/a.yml'
         e.line() == 3

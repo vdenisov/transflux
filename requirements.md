@@ -407,7 +407,7 @@ public final class DefinitionResource implements AutoCloseable {
     public DefinitionResource(String identifier, InputStream bytes,
                               String location, Instant lastModified, String etag);
 
-    String identifier();                // threaded into error messages; the key imports are deduplicated by
+    String identifier();                // what error messages name the document by
     InputStream bytes();                // the raw YAML, read once
     String location();                  // nullable; where the answering source found it, for people reading an error
     Instant lastModified();             // nullable; for Post-1.0 reload watchers

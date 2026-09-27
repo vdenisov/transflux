@@ -130,7 +130,7 @@ class NodeMapSpec extends Specification {
     def 'a load error from a call passes through unwrapped'() {
         given:
         def map = map('a: 1\n')
-        def own = new DefinitionLoadException('x', null, null, null, null, 'own', null)
+        def own = new DefinitionLoadException([], 'x', null, null, null, null, 'own', null)
 
         when:
         map.at(map.requiredNode('a'), { throw own })
@@ -141,7 +141,7 @@ class NodeMapSpec extends Specification {
     }
 
     private static NodeMap map(String text) {
-        def document = Document.parse('doc.yml', null, new StringReader(text))
+        def document = Document.parse([], 'doc.yml', null, new StringReader(text))
         return NodeMap.of(document, document.root(), null, 'the document')
     }
 }

@@ -23,9 +23,17 @@ import org.transflux.core.StateMachineDef;
 import org.transflux.core.Transflux;
 import org.transflux.yaml.source.DefinitionResource;
 import org.transflux.yaml.source.DefinitionSource;
+import org.yaml.snakeyaml.nodes.Node;
+import org.yaml.snakeyaml.nodes.ScalarNode;
+import org.yaml.snakeyaml.nodes.Tag;
 
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
@@ -65,7 +73,7 @@ public final class YamlDefinitionLoader {
     }
 
     /**
-     * Loads the definition a root document declares.
+     * Loads the definition a root document declares, together with every document it imports.
      *
      * @param identifier the root document's identifier, handed to the source as written
      * @param entityType the entity type the document's {@code entityType} must name
@@ -73,32 +81,34 @@ public final class YamlDefinitionLoader {
      *
      * @return the definition, not yet built
      *
-     * @throws DefinitionLoadException when the document is missing, is not valid, or declares an
-     *         entity type other than {@code entityType}
+     * @throws DefinitionLoadException when the document or an import is missing or is not valid, the
+     *         imports are circular, or the document declares an entity type other than
+     *         {@code entityType}
      * @throws org.transflux.core.exception.TransfluxValidationException if an argument is null or blank
      */
     public <T> StateMachineDef<T> load(String identifier, Class<T> entityType) {
         requireNotBlank(identifier, "Root identifier");
         requireNotNull(entityType, "Entity type");
 
-        Document document = read(identifier);
-        return bind(NodeMap.of(document, document.root(), null, "a definition document"), entityType);
+        DefinitionResource resource = source.open(identifier).orElseThrow(() ->
+            new DefinitionLoadException(List.of(), identifier, null, null, null, null, "no such document", null));
+        Document document = read(List.of(), resource);
+        return bind(NodeMap.of(document, document.root(), null, "a definition document"), identifier, entityType);
     }
 
-    private Document read(String identifier) {
-        DefinitionResource resource = source.open(identifier).orElseThrow(() ->
-            new DefinitionLoadException(identifier, null, null, null, null, "no such document", null));
+    private Document read(List<String> importChain, DefinitionResource resource) {
         Document document;
         try {
-            document = Document.parse(resource.identifier(), resource.location(),
+            document = Document.parse(importChain, resource.identifier(), resource.location(),
                 new InputStreamReader(resource.bytes(), StandardCharsets.UTF_8));
         } catch (RuntimeException e) {
             closeQuietly(resource);
             throw e;
         }
         closeQuietly(resource);
-        Loggers.YAML_PARSE.debug("Document parsed, identifier={}, location={}",
-            resource.identifier(), resource.location());
+        String importedBy = importChain.isEmpty() ? null : importChain.get(importChain.size() - 1);
+        Loggers.YAML_PARSE.debug("Document parsed, identifier={}, location={}, importedBy={}",
+            resource.identifier(), resource.location(), importedBy);
         return document;
     }
 
@@ -112,12 +122,8 @@ public final class YamlDefinitionLoader {
         }
     }
 
-    private <T> StateMachineDef<T> bind(NodeMap root, Class<T> entityType) {
-        String apiVersion = root.requiredString("apiVersion");
-        if (!API_VERSION.equals(apiVersion)) {
-            throw root.error(root.requiredNode("apiVersion"),
-                "apiVersion must be '" + API_VERSION + "', not '" + apiVersion + "'");
-        }
+    private <T> StateMachineDef<T> bind(NodeMap root, String identifier, Class<T> entityType) {
+        requireApiVersion(root);
         NodeMap stateMachine = root.requiredMap("stateMachine").within("state machine");
 
         Class<?> declared = classes.requiredClass(stateMachine, "entityType", null);
@@ -129,10 +135,84 @@ public final class YamlDefinitionLoader {
         StateMachineDef<T> def = Transflux.defineStateMachine(entityType);
         Loggers.YAML_BINDING.debug("State machine definition created, identifier={}, entityType={}",
             root.document().identifier(), entityType.getName());
+        // A library names no entity type, so its classes can only be checked once the root's is known.
+        imports(root, List.of(identifier), new HashSet<>(Set.of(identifier)), def, entityType);
         ComponentSections.read(root, def, entityType, classes);
         StateMachineSection.read(stateMachine, def, entityType, classes);
         root.rejectUnknownKeys();
         return def;
+    }
+
+    /**
+     * Reads what a document imports, depth first, each import's own imports before its sections.
+     *
+     * @param importer the importing document's root mapping
+     * @param asked the identifiers the documents from the root to {@code importer} were asked for
+     * @param seen the identifiers already asked for in this load, which a diamond import skips
+     * @param def the definition the imported components are registered on
+     * @param entityType the definition's entity type
+     */
+    private void imports(NodeMap importer, List<String> asked, Set<String> seen, StateMachineDef<?> def,
+                         Class<?> entityType) {
+        List<Node> entries = importer.optionalList("imports");
+        if (entries == null) {
+            return;
+        }
+        String importedBy = importer.document().identifier();
+        // Errors name each document by what its source reported; deduplication uses what was asked.
+        List<String> importChain = new ArrayList<>(importer.document().importChain());
+        importChain.add(importedBy);
+        for (Node entry : entries) {
+            if (!(entry instanceof ScalarNode scalar) || Tag.NULL.equals(scalar.getTag())
+                || scalar.getValue().isBlank()) {
+                throw importer.error(entry, "an import is the identifier of a document");
+            }
+            String identifier = scalar.getValue();
+            // Every document on the chain is also in seen, so the cycle has to be told apart first.
+            int cycle = asked.indexOf(identifier);
+            if (cycle >= 0) {
+                throw importer.error(entry, "circular import: "
+                    + String.join(" -> ", asked.subList(cycle, asked.size())) + " -> " + identifier);
+            }
+            if (!seen.add(identifier)) {
+                Loggers.YAML_PARSE.debug("Import already read, identifier={}, importedBy={}", identifier, importedBy);
+                continue;
+            }
+            Document document = read(List.copyOf(importChain), open(importer, entry, identifier));
+            NodeMap library = NodeMap.of(document, document.root(), null, "a definition document");
+            requireApiVersion(library);
+            if (library.holds("stateMachine")) {
+                throw library.error(library.keyNode("stateMachine"),
+                    "only the root document declares a state machine; this one is imported");
+            }
+            List<String> nested = new ArrayList<>(asked);
+            nested.add(identifier);
+            imports(library, nested, seen, def, entityType);
+            ComponentSections.read(library, def, entityType, classes);
+            library.rejectUnknownKeys();
+        }
+    }
+
+    /**
+     * Opens an import, attributing a miss and a refusal alike to the entry that named it.
+     */
+    private DefinitionResource open(NodeMap importer, Node entry, String identifier) {
+        Optional<DefinitionResource> resource;
+        try {
+            resource = source.open(identifier);
+        } catch (RuntimeException e) {
+            throw importer.error(entry, "import '" + identifier + "': "
+                + (e.getMessage() == null ? e.getClass().getName() : e.getMessage()), e);
+        }
+        return resource.orElseThrow(() -> importer.error(entry, "import '" + identifier + "': no such document"));
+    }
+
+    private static void requireApiVersion(NodeMap document) {
+        String apiVersion = document.requiredString("apiVersion");
+        if (!API_VERSION.equals(apiVersion)) {
+            throw document.error(document.requiredNode("apiVersion"),
+                "apiVersion must be '" + API_VERSION + "', not '" + apiVersion + "'");
+        }
     }
 
     /** Configures a {@link YamlDefinitionLoader}. */

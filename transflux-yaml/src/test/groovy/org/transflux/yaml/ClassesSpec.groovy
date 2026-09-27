@@ -110,7 +110,7 @@ class ClassesSpec extends Specification {
     }
 
     private static NodeMap map(String text) {
-        def document = Document.parse('doc.yml', null, new StringReader(text))
+        def document = Document.parse([], 'doc.yml', null, new StringReader(text))
         return NodeMap.of(document, document.root(), null, 'the document')
     }
 
