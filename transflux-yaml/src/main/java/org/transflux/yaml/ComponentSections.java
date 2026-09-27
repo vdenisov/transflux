@@ -19,10 +19,8 @@
 package org.transflux.yaml;
 
 import org.transflux.core.StateMachineDef;
-import org.transflux.core.action.Action;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.MapperDef;
-import org.transflux.core.action.StepDef;
 import org.transflux.core.condition.Condition;
 import org.transflux.yaml.TypeArguments.Expected;
 import org.yaml.snakeyaml.nodes.Node;
@@ -35,27 +33,25 @@ import java.util.function.Predicate;
 
 /**
  * The component sections of one document, each entry registered on the definition the document
- * contributes to: {@code steps}, {@code conditions}, {@code mappers}, {@code triggers} and
- * {@code listeners}.
+ * contributes to: {@code steps}, {@code operations}, {@code choices}, {@code conditions},
+ * {@code mappers}, {@code triggers} and {@code listeners}.
  */
 @SuppressWarnings({"unchecked", "rawtypes"})
 final class ComponentSections {
 
     private final Classes classes;
-    private final Class<?> entityType;
     private final StateMachineDef raw;
     private final ConditionDescriptors conditions;
     private final ListenerEntries listeners;
-    private final ActionKeys actionKeys;
+    private final ActionEntries actions;
     private final TriggerEntries triggers;
 
     private ComponentSections(Classes classes, Class<?> entityType, StateMachineDef<?> def) {
         this.classes = classes;
-        this.entityType = entityType;
         this.raw = def;
         this.conditions = new ConditionDescriptors(classes, entityType);
         this.listeners = new ListenerEntries(classes, entityType);
-        this.actionKeys = new ActionKeys(classes, entityType, listeners);
+        this.actions = new ActionEntries(classes, entityType, conditions, new ActionKeys(classes, entityType, listeners));
         this.triggers = new TriggerEntries(classes, entityType, conditions);
     }
 
@@ -71,7 +67,9 @@ final class ComponentSections {
      */
     static void read(NodeMap document, StateMachineDef<?> def, Class<?> entityType, Classes classes) {
         ComponentSections sections = new ComponentSections(classes, entityType, def);
-        int count = sections.section(document, "steps", "a step", sections::step)
+        int count = sections.section(document, "steps", "a step", sections.actions::registerStep)
+            + sections.section(document, "operations", "an operation", sections.actions::registerOperation)
+            + sections.section(document, "choices", "a choice", sections.actions::registerChoice)
             + sections.section(document, "conditions", "a condition", sections::condition)
             + sections.section(document, "mappers", "a mapper", sections::mapper)
             + sections.section(document, "triggers", "a trigger", sections.triggers::register)
@@ -87,23 +85,6 @@ final class ComponentSections {
         }
         entries.forEach(node -> entry.accept(NodeMap.of(document.document(), node, null, what), raw));
         return entries.size();
-    }
-
-    private void step(NodeMap entry, StateMachineDef<?> def) {
-        String id = entry.requiredString("id");
-        NodeMap within = entry.within("step '" + id + "'");
-        Class<?> context = classes.optionalClass(within, "context", null);
-        Consumer<StepDef> configurer = step -> {
-            Action action = classes.instantiate(within, "class", Action.class,
-                Expected.superOf(entityType), exactly(context));
-            within.at(within.requiredNode("class"), () -> step.using(action));
-            actionKeys.apply(within, step, context);
-        };
-        within.at(within.requiredNode("id"), () -> context == null
-            ? raw.step(id, (Consumer) configurer)
-            : raw.step(id, context, (Consumer) configurer));
-        within.rejectUnknownKeys();
-        Loggers.YAML_BINDING.debug("Step registered, id={}, context={}", id, name(context));
     }
 
     private void condition(NodeMap entry, StateMachineDef<?> def) {
@@ -174,17 +155,7 @@ final class ComponentSections {
         NodeMap within = entry.within("mapper '" + id + "'");
         Class<?> parentType = classes.requiredClass(within, "parentType", null);
         Class<?> childType = classes.requiredClass(within, "childType", null);
-        ContextMapper mapper;
-        if (within.exactlyOneOf("class", "mapTo").equals("class")) {
-            if (within.optionalNode("mapFrom") != null) {
-                throw within.error(within.keyNode("mapFrom"),
-                    "'mapFrom' needs 'mapTo' beside it; a class maps back itself");
-            }
-            mapper = classes.instantiate(within, "class", ContextMapper.class,
-                Expected.exactly(parentType), Expected.exactly(childType));
-        } else {
-            mapper = Expressions.mapper(within);
-        }
+        ContextMapper mapper = actions.mapper(within, Expected.exactly(parentType), Expected.exactly(childType));
         Consumer<MapperDef> configurer = mapperDef -> {
             metadata(within, mapperDef::withName, mapperDef::withDescription);
             mapperDef.using(mapper);
@@ -218,13 +189,5 @@ final class ComponentSections {
                 return null;
             });
         }
-    }
-
-    private static Expected exactly(Class<?> context) {
-        return context == null ? null : Expected.exactly(context);
-    }
-
-    private static String name(Class<?> type) {
-        return type == null ? null : type.getName();
     }
 }

@@ -297,15 +297,15 @@ class StateMachineSectionSpec extends Specification {
                       class: ${TransitionAudit.name}
                   onAnyActionStart:
                     - action-audit
-                """))
-        // The body the action rides in is Java's until the member grammar reaches a transition's actions: list.
-        def sm = definition.transition('t2', 'b', 'a', { it.run('record') }).build()
+                """,
+            transition: 'actions:\n  - run: record'))
+        def sm = definition.build()
 
         when:
-        sm.entity(new Order(state: 'b')).transitionTo('a')
+        sm.entity(new Order()).transitionTo('b')
 
         then:
-        TRAIL == ['action:START:record', 'step', 'transition:COMPLETE', 'state:ENTRY:a']
+        TRAIL == ['action:START:record', 'step', 'transition:COMPLETE', 'state:ENTRY:b']
 
         cleanup:
         sm?.close()
@@ -393,7 +393,6 @@ class StateMachineSectionSpec extends Specification {
         where:
         what                                 | parts                                                                                                    || path                                               | problem
         'a context on an inline trigger'     | [transition: "triggers:\n  - id: inline\n    type: manual\n    context: ${Ctx.name}"]                    || "state machine > transition 't' > trigger 'inline'" | "unknown key 'context'"
-        'an actions list, until the members' | [transition: 'actions:\n  - run: nothing']                                                               || "state machine > transition 't'"                    | "unknown key 'actions'"
         'a config block, until it is read'   | [listeners: 'config:\n  async:\n    threadPoolSize: 2']                                                  || 'state machine'                                     | "unknown key 'config'"
         'a resolver written as both forms'   | [accessors: "stateResolver:\n  class: ${OrderResolver.name}\n  expression: 'state'"]                     || 'state machine'                                     | "exactly one of 'class', 'expression' is allowed"
         'a resolver for another entity'      | [accessors: "stateResolver:\n  class: ${StringResolver.name}"]                                           || 'state machine'                                     | "class ${StringResolver.name} declares"

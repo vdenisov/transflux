@@ -226,6 +226,30 @@ final class NodeMap {
     }
 
     /**
+     * @param key the key
+     *
+     * @return the list's elements
+     *
+     * @throws DefinitionLoadException when the key is absent, null, or not a list
+     */
+    List<Node> requiredList(String key) {
+        requiredNode(key);
+        return optionalList(key);
+    }
+
+    /**
+     * Tells whether the mapping holds a key without admitting it, for a key a position refuses
+     * with an explanation rather than as unknown.
+     *
+     * @param key the key
+     *
+     * @return whether the key is written, whatever its value
+     */
+    boolean holds(String key) {
+        return entries.containsKey(key);
+    }
+
+    /**
      * @param keys the alternatives
      *
      * @return the one alternative present

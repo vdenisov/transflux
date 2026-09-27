@@ -45,6 +45,7 @@ final class StateMachineSection {
     private final ConditionDescriptors conditions;
     private final ListenerEntries listeners;
     private final TriggerEntries triggers;
+    private final ActionEntries actions;
 
     private StateMachineSection(Classes classes, Class<?> entityType, StateMachineDef<?> def) {
         this.classes = classes;
@@ -53,6 +54,7 @@ final class StateMachineSection {
         this.conditions = new ConditionDescriptors(classes, entityType);
         this.listeners = new ListenerEntries(classes, entityType);
         this.triggers = new TriggerEntries(classes, entityType, conditions);
+        this.actions = new ActionEntries(classes, entityType, conditions, new ActionKeys(classes, entityType, listeners));
     }
 
     /**
@@ -180,6 +182,7 @@ final class StateMachineSection {
 
         Consumer<TransitionDef> configurer = transition -> {
             ComponentSections.metadata(within, transition::withName, transition::withDescription);
+            actions.list(within, transition, context);
             conditions.list(within, "preConditions", context, Target.of(
                 transition::preCondition, transition::preConditionExpression, transition::preCondition,
                 transition::preCondition, transition::preCondition, transition::preCondition));
