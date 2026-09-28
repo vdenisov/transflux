@@ -24,6 +24,7 @@ import org.transflux.core.state.StateDef;
 import org.transflux.core.state.StateResolver;
 import org.transflux.core.transition.TransitionDef;
 import org.transflux.yaml.ConditionDescriptors.Target;
+import org.transflux.yaml.DeclarationSites.Namespace;
 import org.transflux.yaml.ListenerEntries.Category;
 import org.transflux.yaml.ListenerEntries.Hook;
 import org.transflux.yaml.TypeArguments.Expected;
@@ -46,15 +47,18 @@ final class StateMachineSection {
     private final ListenerEntries listeners;
     private final TriggerEntries triggers;
     private final ActionEntries actions;
+    private final DeclarationSites sites;
 
-    private StateMachineSection(Classes classes, Class<?> entityType, StateMachineDef<?> def) {
+    private StateMachineSection(Classes classes, Class<?> entityType, StateMachineDef<?> def, DeclarationSites sites) {
         this.classes = classes;
         this.entityType = entityType;
         this.raw = def;
+        this.sites = sites;
         this.conditions = new ConditionDescriptors(classes, entityType);
-        this.listeners = new ListenerEntries(classes, entityType);
-        this.triggers = new TriggerEntries(classes, entityType, conditions);
-        this.actions = new ActionEntries(classes, entityType, conditions, new ActionKeys(classes, entityType, listeners));
+        this.listeners = new ListenerEntries(classes, entityType, sites);
+        this.triggers = new TriggerEntries(classes, entityType, conditions, sites);
+        this.actions = new ActionEntries(classes, entityType, conditions,
+            new ActionKeys(classes, entityType, listeners), sites);
     }
 
     /**
@@ -64,18 +68,20 @@ final class StateMachineSection {
      * @param def the definition being built
      * @param entityType the definition's entity type, which each class is checked against
      * @param classes how the document's class names become classes and instances
+     * @param sites where this load's ids were first declared
      *
      * @throws DefinitionLoadException when an entry is not valid, or the definition refuses it
      */
-    static void read(NodeMap section, StateMachineDef<?> def, Class<?> entityType, Classes classes) {
-        new StateMachineSection(classes, entityType, def).read(section);
+    static void read(NodeMap section, StateMachineDef<?> def, Class<?> entityType, Classes classes,
+                     DeclarationSites sites) {
+        new StateMachineSection(classes, entityType, def, sites).read(section);
     }
 
     private void read(NodeMap section) {
         metadata(section);
         accessor(section, "stateResolver");
         accessor(section, "stateApplier");
-        listeners.hooks(section, null, globalHooks());
+        listeners.hooks(section, null, true, globalHooks());
 
         int states = each(section, "states", "a state", this::state);
         int transitions = each(section, "transitions", "a transition", this::transition);
@@ -161,12 +167,12 @@ final class StateMachineSection {
         Consumer<StateDef> configurer = state -> {
             ComponentSections.metadata(within, state::withName, state::withDescription);
             // A state listener is handed whichever context the transition carries, so it has none of its own.
-            listeners.hooks(within, null, List.of(
+            listeners.hooks(within, null, true, List.of(
                 new Hook("onEntry", Category.STATE, state::onEntry, (lid, cfg) -> state.onEntry(lid, cfg)),
                 new Hook("onExit", Category.STATE, state::onExit, (lid, cfg) -> state.onExit(lid, cfg))));
             ListenerEntries.disables(within, state::disableAllGlobalListeners, state::disableGlobalListeners);
         };
-        within.at(within.requiredNode("id"), () -> raw.state(id, configurer));
+        sites.declare(within, within.requiredNode("id"), Namespace.STATE, id, () -> raw.state(id, configurer));
         within.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("State declared, id={}", id);
     }
@@ -193,7 +199,7 @@ final class StateMachineSection {
             if (attached != null) {
                 attached.forEach(node -> triggers.attach(within, node, transition, context));
             }
-            listeners.hooks(within, declared, List.of(
+            listeners.hooks(within, declared, false, List.of(
                 new Hook("onStart", Category.TRANSITION, transition::onStart,
                          (lid, cfg) -> transition.onStart(lid, cfg)),
                 new Hook("onComplete", Category.TRANSITION, transition::onComplete,
@@ -203,7 +209,7 @@ final class StateMachineSection {
             ListenerEntries.disables(within, transition::disableAllGlobalListeners,
                                      transition::disableGlobalListeners);
         };
-        within.at(within.requiredNode("id"), () -> declared == null
+        sites.declare(within, within.requiredNode("id"), Namespace.TRANSITION, id, () -> declared == null
             ? raw.transition(id, from, to, configurer)
             : raw.transition(id, from, to, declared, configurer));
         within.rejectUnknownKeys();

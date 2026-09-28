@@ -30,6 +30,7 @@ import org.transflux.core.action.NoMatchBehavior;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.StepDef;
 import org.transflux.yaml.ConditionDescriptors.Target;
+import org.transflux.yaml.DeclarationSites.Namespace;
 import org.transflux.yaml.TypeArguments.Expected;
 import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.ScalarNode;
@@ -51,12 +52,15 @@ final class ActionEntries {
     private final Class<?> entityType;
     private final ConditionDescriptors conditions;
     private final ActionKeys actionKeys;
+    private final DeclarationSites sites;
 
-    ActionEntries(Classes classes, Class<?> entityType, ConditionDescriptors conditions, ActionKeys actionKeys) {
+    ActionEntries(Classes classes, Class<?> entityType, ConditionDescriptors conditions, ActionKeys actionKeys,
+                  DeclarationSites sites) {
         this.classes = classes;
         this.entityType = entityType;
         this.conditions = conditions;
         this.actionKeys = actionKeys;
+        this.sites = sites;
     }
 
     /**
@@ -72,7 +76,7 @@ final class ActionEntries {
         NodeMap within = entry.within("step '" + id + "'");
         Class<?> context = classes.optionalClass(within, "context", null);
         Consumer<StepDef> configurer = step -> step(within, step, context);
-        within.at(within.requiredNode("id"), () -> context == null
+        sites.declare(within, within.requiredNode("id"), Namespace.ACTION, id, () -> context == null
             ? def.step(id, (Consumer) configurer)
             : def.step(id, context, (Consumer) configurer));
         within.rejectUnknownKeys();
@@ -92,7 +96,8 @@ final class ActionEntries {
         NodeMap within = entry.within("operation '" + id + "'");
         Class<?> context = registeredContext(within);
         Consumer<OperationDef> configurer = operation -> operation(within, operation, context);
-        within.at(within.requiredNode("id"), () -> def.operation(id, context, (Consumer) configurer));
+        sites.declare(within, within.requiredNode("id"), Namespace.ACTION, id,
+            () -> def.operation(id, context, (Consumer) configurer));
         within.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("Operation registered, id={}, context={}", id, context.getName());
     }
@@ -110,7 +115,8 @@ final class ActionEntries {
         NodeMap within = entry.within("choice '" + id + "'");
         Class<?> context = registeredContext(within);
         Consumer<ChoiceDef> configurer = choice -> choice(within, id, choice, context);
-        within.at(within.requiredNode("id"), () -> def.choice(id, context, (Consumer) configurer));
+        sites.declare(within, within.requiredNode("id"), Namespace.ACTION, id,
+            () -> def.choice(id, context, (Consumer) configurer));
         within.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("Choice registered, id={}, context={}", id, context.getName());
     }

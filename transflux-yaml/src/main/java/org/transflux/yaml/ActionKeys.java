@@ -75,7 +75,7 @@ final class ActionKeys {
             routes.forEach(route -> route(map, route, def, context));
         }
 
-        listeners.hooks(map, context, List.of(
+        listeners.hooks(map, context, false, List.of(
             new Hook("onStart", Category.ACTION, def::onStart, (id, cfg) -> def.onStart(id, cfg)),
             new Hook("onComplete", Category.ACTION, def::onComplete, (id, cfg) -> def.onComplete(id, cfg)),
             new Hook("onError", Category.ACTION, def::onError, (id, cfg) -> def.onError(id, cfg))));

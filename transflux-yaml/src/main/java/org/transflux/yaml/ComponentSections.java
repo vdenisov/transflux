@@ -22,6 +22,7 @@ import org.transflux.core.StateMachineDef;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.MapperDef;
 import org.transflux.core.condition.Condition;
+import org.transflux.yaml.DeclarationSites.Namespace;
 import org.transflux.yaml.TypeArguments.Expected;
 import org.yaml.snakeyaml.nodes.Node;
 
@@ -30,6 +31,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 /**
  * The component sections of one document, each entry registered on the definition the document
@@ -45,14 +47,17 @@ final class ComponentSections {
     private final ListenerEntries listeners;
     private final ActionEntries actions;
     private final TriggerEntries triggers;
+    private final DeclarationSites sites;
 
-    private ComponentSections(Classes classes, Class<?> entityType, StateMachineDef<?> def) {
+    private ComponentSections(Classes classes, Class<?> entityType, StateMachineDef<?> def, DeclarationSites sites) {
         this.classes = classes;
         this.raw = def;
+        this.sites = sites;
         this.conditions = new ConditionDescriptors(classes, entityType);
-        this.listeners = new ListenerEntries(classes, entityType);
-        this.actions = new ActionEntries(classes, entityType, conditions, new ActionKeys(classes, entityType, listeners));
-        this.triggers = new TriggerEntries(classes, entityType, conditions);
+        this.listeners = new ListenerEntries(classes, entityType, sites);
+        this.actions = new ActionEntries(classes, entityType, conditions,
+            new ActionKeys(classes, entityType, listeners), sites);
+        this.triggers = new TriggerEntries(classes, entityType, conditions, sites);
     }
 
     /**
@@ -62,11 +67,13 @@ final class ComponentSections {
      * @param def the definition the components are registered on
      * @param entityType the definition's entity type, which each class is checked against
      * @param classes how the document's class names become classes and instances
+     * @param sites where this load's ids were first declared
      *
      * @throws DefinitionLoadException when an entry is not valid, or the definition refuses it
      */
-    static void read(NodeMap document, StateMachineDef<?> def, Class<?> entityType, Classes classes) {
-        ComponentSections sections = new ComponentSections(classes, entityType, def);
+    static void read(NodeMap document, StateMachineDef<?> def, Class<?> entityType, Classes classes,
+                     DeclarationSites sites) {
+        ComponentSections sections = new ComponentSections(classes, entityType, def, sites);
         int count = sections.section(document, "steps", "a step", sections.actions::registerStep)
             + sections.section(document, "operations", "an operation", sections.actions::registerOperation)
             + sections.section(document, "choices", "a choice", sections.actions::registerChoice)
@@ -117,35 +124,32 @@ final class ComponentSections {
 
             // One call per form, so each reaches the overload its static type selects.
             private void register(String id, String expression) {
-                if (context == null) {
-                    raw.condition(id, expression);
-                } else {
-                    raw.condition(id, context, expression);
-                }
+                declare(id, () -> context == null
+                    ? raw.condition(id, expression)
+                    : raw.condition(id, context, expression));
             }
 
             private void register(String id, Condition condition) {
-                if (context == null) {
-                    raw.condition(id, condition);
-                } else {
-                    raw.condition(id, context, condition);
-                }
+                declare(id, () -> context == null
+                    ? raw.condition(id, condition)
+                    : raw.condition(id, context, condition));
             }
 
             private void register(String id, BiPredicate predicate) {
-                if (context == null) {
-                    raw.condition(id, predicate);
-                } else {
-                    raw.condition(id, context, predicate);
-                }
+                declare(id, () -> context == null
+                    ? raw.condition(id, predicate)
+                    : raw.condition(id, context, predicate));
             }
 
             private void register(String id, Predicate predicate) {
-                if (context == null) {
-                    raw.condition(id, predicate);
-                } else {
-                    raw.condition(id, context, predicate);
-                }
+                declare(id, () -> context == null
+                    ? raw.condition(id, predicate)
+                    : raw.condition(id, context, predicate));
+            }
+
+            // The descriptor reader attributes a rejection to the condition's form, so only claim here.
+            private void declare(String id, Supplier<?> call) {
+                sites.claim(entry, entry.requiredNode("id"), Namespace.CONDITION, id, call);
             }
         });
     }
@@ -160,7 +164,8 @@ final class ComponentSections {
             metadata(within, mapperDef::withName, mapperDef::withDescription);
             mapperDef.using(mapper);
         };
-        within.at(within.requiredNode("id"), () -> raw.mapperDef(id, parentType, childType, (Consumer) configurer));
+        sites.declare(within, within.requiredNode("id"), Namespace.MAPPER, id,
+            () -> raw.mapperDef(id, parentType, childType, (Consumer) configurer));
         within.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("Mapper registered, id={}, parentType={}", id, parentType.getName());
     }

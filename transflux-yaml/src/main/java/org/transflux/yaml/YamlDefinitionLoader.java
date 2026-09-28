@@ -136,9 +136,10 @@ public final class YamlDefinitionLoader {
         Loggers.YAML_BINDING.debug("State machine definition created, identifier={}, entityType={}",
             root.document().identifier(), entityType.getName());
         // A library names no entity type, so its classes can only be checked once the root's is known.
-        imports(root, List.of(identifier), new HashSet<>(Set.of(identifier)), def, entityType);
-        ComponentSections.read(root, def, entityType, classes);
-        StateMachineSection.read(stateMachine, def, entityType, classes);
+        DeclarationSites sites = new DeclarationSites();
+        imports(root, List.of(identifier), new HashSet<>(Set.of(identifier)), def, entityType, sites);
+        ComponentSections.read(root, def, entityType, classes, sites);
+        StateMachineSection.read(stateMachine, def, entityType, classes, sites);
         root.rejectUnknownKeys();
         return def;
     }
@@ -151,9 +152,10 @@ public final class YamlDefinitionLoader {
      * @param seen the identifiers already asked for in this load, which a diamond import skips
      * @param def the definition the imported components are registered on
      * @param entityType the definition's entity type
+     * @param sites where this load's ids were first declared
      */
     private void imports(NodeMap importer, List<String> asked, Set<String> seen, StateMachineDef<?> def,
-                         Class<?> entityType) {
+                         Class<?> entityType, DeclarationSites sites) {
         List<Node> entries = importer.optionalList("imports");
         if (entries == null) {
             return;
@@ -187,8 +189,8 @@ public final class YamlDefinitionLoader {
             }
             List<String> nested = new ArrayList<>(asked);
             nested.add(identifier);
-            imports(library, nested, seen, def, entityType);
-            ComponentSections.read(library, def, entityType, classes);
+            imports(library, nested, seen, def, entityType, sites);
+            ComponentSections.read(library, def, entityType, classes, sites);
             library.rejectUnknownKeys();
         }
     }

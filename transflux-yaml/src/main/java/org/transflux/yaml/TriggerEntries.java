@@ -41,11 +41,13 @@ final class TriggerEntries {
     private final Classes classes;
     private final Class<?> entityType;
     private final ConditionDescriptors conditions;
+    private final DeclarationSites sites;
 
-    TriggerEntries(Classes classes, Class<?> entityType, ConditionDescriptors conditions) {
+    TriggerEntries(Classes classes, Class<?> entityType, ConditionDescriptors conditions, DeclarationSites sites) {
         this.classes = classes;
         this.entityType = entityType;
         this.conditions = conditions;
+        this.sites = sites;
     }
 
     /**
@@ -64,7 +66,7 @@ final class TriggerEntries {
         Class<?> contextType = context == null ? Object.class : context;
         Consumer configurer = configurer(within, type, contextType);
 
-        within.at(within.requiredNode("id"), () -> switch (type) {
+        sites.declare(within, within.requiredNode("id"), DeclarationSites.Namespace.TRIGGER, id, () -> switch (type) {
             case "manual" -> def.manualTrigger(id, contextType, configurer);
             case "event" -> def.eventTrigger(id, contextType, configurer);
             case "data" -> def.dataTrigger(id, contextType, configurer);

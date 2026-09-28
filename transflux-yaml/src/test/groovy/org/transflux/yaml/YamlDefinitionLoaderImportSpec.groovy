@@ -212,7 +212,103 @@ class YamlDefinitionLoaderImportSpec extends Specification {
         opens['./lib.yml'] == 1
         opens['lib.yml'] == 1
         def e = thrown(DefinitionLoadException)
-        e.message == "root.yml -> lib.yml:3:9: step 'record': Action ID 'record' is already registered"
+        e.message == "root.yml -> lib.yml:3:9: step 'record': Action ID 'record' is already registered;" +
+            ' first declared at lib.yml:3:9'
+    }
+
+    def 'an id registered twice names both declarations, whichever documents they sit in'() {
+        when:
+        loader(
+            'root.yml': "apiVersion: transflux/v1\nimports:\n  - lib.yml\n${section}\nstateMachine:\n  entityType: ${Order.name}\n",
+            'lib.yml' : "apiVersion: transflux/v1\n${section}\n")
+            .load('root.yml', Order)
+
+        then:
+        def e = thrown(DefinitionLoadException)
+        e.identifier() == 'root.yml'
+        e.line() == line
+        e.problem().endsWith('; first declared at lib.yml:3:9')
+
+        where:
+        kind        | section                                                                                                          || line
+        'step'      | "steps:\n  - id: dup\n    class: ${RecordingStep.name}"                                                        || 5
+        // A condition's rejection sits at its form, where core's own checks on it land too; and an
+        // equal expression under one id is accepted by core, so the duplicate is a class.
+        'condition' | "conditions:\n  - id: dup\n    class: ${PriorityCondition.name}"                                              || 6
+        'mapper'    | "mappers:\n  - id: dup\n    parentType: ${Ctx.name}\n    childType: ${ChildCtx.name}\n    class: ${ChildMapper.name}" || 5
+        'trigger'   | "triggers:\n  - id: dup\n    type: manual"                                                                     || 5
+        'listener'  | "listeners:\n  - id: dup\n    class: ${StateAudit.name}"                                                        || 5
+    }
+
+    def 'the first declaration named is one of the same kind'() {
+        when:
+        // A mapper and a step do not collide until the build, so the first step is what the second collides with.
+        loader(
+            'root.yml': """\
+                apiVersion: transflux/v1
+                imports:
+                  - lib.yml
+                steps:
+                  - id: x
+                    class: ${RecordingStep.name}
+                  - id: x
+                    class: ${RecordingStep.name}
+                stateMachine:
+                  entityType: ${Order.name}
+                """,
+            'lib.yml' : "apiVersion: transflux/v1\nmappers:\n  - id: x\n    parentType: ${Ctx.name}\n    childType: ${ChildCtx.name}\n    class: ${ChildMapper.name}\n")
+            .load('root.yml', Order)
+
+        then:
+        def e = thrown(DefinitionLoadException)
+        e.message == "root.yml:7:9: step 'x': Action ID 'x' is already registered; first declared at root.yml:5:9"
+    }
+
+    def 'a listener declared in place on a state or the state machine names a registration it collides with'() {
+        when:
+        loader(
+            'root.yml': "apiVersion: transflux/v1\nimports:\n  - lib.yml\nstateMachine:\n  entityType: ${Order.name}\n" + owner,
+            'lib.yml' : "apiVersion: transflux/v1\nlisteners:\n  - id: l\n    class: ${StateAudit.name}\n")
+            .load('root.yml', Order)
+
+        then:
+        def e = thrown(DefinitionLoadException)
+        e.identifier() == 'root.yml'
+        e.problem() == "Listener ID 'l' is already registered; first declared at lib.yml:3:9"
+
+        where:
+        owner << [
+            "  states:\n    - id: a\n      listeners:\n        onEntry:\n          - id: l\n            class: ${StateAudit.name}\n",
+            "  listeners:\n    onAnyStateEntry:\n      - id: l\n        class: ${StateAudit.name}\n"]
+    }
+
+    def 'a state or transition declared twice in one document names both lines'() {
+        when:
+        loader('root.yml': """\
+            apiVersion: transflux/v1
+            stateMachine:
+              entityType: ${Order.name}
+              states:
+                - id: a
+                - id: ${state}
+              transitions:
+                - id: t
+                  from: a
+                  to: a
+                - id: ${transition}
+                  from: a
+                  to: a
+            """).load('root.yml', Order)
+
+        then:
+        def e = thrown(DefinitionLoadException)
+        e.message.startsWith("root.yml:${line}:")
+        e.problem().endsWith("; first declared at root.yml:${first}")
+
+        where:
+        state | transition || line | first
+        'a'   | 'u'        || 6    | '5:11'
+        'b'   | 't'        || 11   | '8:11'
     }
 
     def 'an error deep in the imports carries every document between it and the root'() {

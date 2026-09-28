@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * Listeners as a document writes them: an entry in the {@code listeners:} pool, an owner's
@@ -74,10 +75,12 @@ final class ListenerEntries {
 
     private final Classes classes;
     private final Class<?> entityType;
+    private final DeclarationSites sites;
 
-    ListenerEntries(Classes classes, Class<?> entityType) {
+    ListenerEntries(Classes classes, Class<?> entityType, DeclarationSites sites) {
         this.classes = classes;
         this.entityType = entityType;
+        this.sites = sites;
     }
 
     /**
@@ -102,15 +105,16 @@ final class ListenerEntries {
 
         Consumer configurer = (Consumer<ListenerDef<?, ?>>) listener ->
             configure(within, listener, type, category, context);
-        within.at(within.requiredNode("id"), () -> switch (category) {
-            case STATE -> def.stateListener(id, configurer);
-            case TRANSITION -> context == null
-                ? def.transitionListener(id, configurer)
-                : def.transitionListener(id, context, configurer);
-            case ACTION -> context == null
-                ? def.actionListener(id, configurer)
-                : def.actionListener(id, context, configurer);
-        });
+        sites.declare(within, within.requiredNode("id"), DeclarationSites.Namespace.LISTENER, id, () ->
+            switch (category) {
+                case STATE -> def.stateListener(id, configurer);
+                case TRANSITION -> context == null
+                    ? def.transitionListener(id, configurer)
+                    : def.transitionListener(id, context, configurer);
+                case ACTION -> context == null
+                    ? def.actionListener(id, configurer)
+                    : def.actionListener(id, context, configurer);
+            });
         within.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("Listener registered, id={}, category={}", id, category.label());
     }
@@ -120,11 +124,13 @@ final class ListenerEntries {
      *
      * @param owner the owner's mapping
      * @param context the owner's context; {@code null} for {@code Object}
+     * @param claimsIds whether the owner claims a listener declared in place when it is declared,
+     *        as a state and the state machine do; a transition and an action claim theirs at build
      * @param hooks the owner's hooks, which are the keys the block allows
      *
      * @throws DefinitionLoadException when an entry is neither a reference nor a declaration
      */
-    void hooks(NodeMap owner, Class<?> context, List<Hook> hooks) {
+    void hooks(NodeMap owner, Class<?> context, boolean claimsIds, List<Hook> hooks) {
         NodeMap block = owner.optionalMap("listeners");
         if (block == null) {
             return;
@@ -132,7 +138,7 @@ final class ListenerEntries {
         for (Hook hook : hooks) {
             List<Node> entries = block.optionalList(hook.name());
             if (entries != null) {
-                entries.forEach(entry -> attach(block, entry, hook, context));
+                entries.forEach(entry -> attach(block, entry, hook, context, claimsIds));
             }
         }
         block.rejectUnknownKeys();
@@ -174,7 +180,7 @@ final class ListenerEntries {
         });
     }
 
-    private void attach(NodeMap block, Node entry, Hook hook, Class<?> context) {
+    private void attach(NodeMap block, Node entry, Hook hook, Class<?> context, boolean claimsIds) {
         Category category = hook.category();
         if (entry instanceof ScalarNode reference) {
             block.at(entry, () -> {
@@ -187,10 +193,17 @@ final class ListenerEntries {
         String id = declaration.requiredString("id");
         NodeMap within = declaration.within("listener '" + id + "'");
         Class<?> type = classes.requiredClass(within, "class", category.type);
-        within.at(within.requiredNode("id"), () -> {
+        Supplier<Object> declare = () -> {
             hook.declaration().accept(id, listener -> configure(within, listener, type, category, context));
             return null;
-        });
+        };
+        // Only an id core claims now can collide now; recording the others could point a later
+        // rejection at a declaration it did not collide with.
+        if (claimsIds) {
+            sites.declare(within, within.requiredNode("id"), DeclarationSites.Namespace.LISTENER, id, declare);
+        } else {
+            within.at(within.requiredNode("id"), declare);
+        }
         within.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("Listener declared, id={}, hook={}", id, hook.name());
     }
