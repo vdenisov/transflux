@@ -18,7 +18,10 @@
 
 package org.transflux.yaml;
 
+import org.slf4j.event.Level;
 import org.transflux.core.StateMachineDef;
+import org.transflux.core.action.AsyncRejectionPolicy;
+import org.transflux.core.logging.ExecutionLogging;
 import org.transflux.core.state.StateApplier;
 import org.transflux.core.state.StateDef;
 import org.transflux.core.state.StateResolver;
@@ -35,7 +38,7 @@ import java.util.function.Consumer;
 
 /**
  * The {@code stateMachine:} section of the root document: the machine's own metadata, its state
- * accessors, its state-machine-wide listeners, and its states and transitions.
+ * accessors, its state-machine-wide listeners, its {@code config:}, and its states and transitions.
  */
 @SuppressWarnings({"unchecked", "rawtypes"})
 final class StateMachineSection {
@@ -82,6 +85,7 @@ final class StateMachineSection {
         accessor(section, "stateResolver");
         accessor(section, "stateApplier");
         listeners.hooks(section, null, true, globalHooks());
+        config(section);
 
         int states = each(section, "states", "a state", this::state);
         int transitions = each(section, "transitions", "a transition", this::transition);
@@ -130,6 +134,88 @@ final class StateMachineSection {
             ? raw.withStateResolver((StateResolver) accessor)
             : raw.withStateApplier((StateApplier) accessor));
         Loggers.YAML_BINDING.debug("State accessor set, key={}, form={}", key, form);
+    }
+
+    /**
+     * Reads {@code config:}: the executor under {@code async:}, the shipped execution trace under
+     * {@code logging:}.
+     */
+    private void config(NodeMap section) {
+        NodeMap config = section.optionalMap("config");
+        if (config == null) {
+            return;
+        }
+        async(config);
+        logging(config);
+        config.rejectUnknownKeys();
+    }
+
+    private void async(NodeMap config) {
+        NodeMap async = block(config, "async", "the default pool");
+        if (async == null) {
+            return;
+        }
+        Integer threadPoolSize = async.optionalInt("threadPoolSize");
+        Integer queueCapacity = async.optionalInt("queueCapacity");
+        if ((threadPoolSize == null) != (queueCapacity == null)) {
+            throw async.error(async.keyNode(threadPoolSize == null ? "queueCapacity" : "threadPoolSize"),
+                "'threadPoolSize' and 'queueCapacity' are given together or not at all; omit both for the default"
+                    + " sizing");
+        }
+        // A block that sizes nothing still asks for a pool: a fork written in a Java body is invisible to the build.
+        config.at(config.requiredNode("async"), () -> threadPoolSize == null
+            ? raw.withAsyncPool()
+            : raw.withAsyncPool(threadPoolSize, queueCapacity));
+        AsyncRejectionPolicy onRejection = async.optionalEnum("onRejection", AsyncRejectionPolicy.class);
+        if (onRejection != null) {
+            async.at(async.requiredNode("onRejection"), () -> raw.withAsyncRejectionPolicy(onRejection));
+        }
+        async.rejectUnknownKeys();
+        Loggers.YAML_BINDING.debug("Async pool declared, threadPoolSize={}, queueCapacity={}, onRejection={}",
+            threadPoolSize, queueCapacity, onRejection);
+    }
+
+    private void logging(NodeMap config) {
+        NodeMap block = block(config, "logging", "the default trace");
+        if (block == null) {
+            return;
+        }
+        Level level = block.optionalEnum("level", Level.class);
+        boolean includeContext = Boolean.TRUE.equals(block.optionalBoolean("includeContext"));
+        boolean includeTimings = Boolean.TRUE.equals(block.optionalBoolean("includeTimings"));
+        ExecutionLogging<Object> logging = level == null
+            ? ExecutionLogging.defaults()
+            : ExecutionLogging.atLevel(level);
+        if (includeContext) {
+            logging = logging.withContext();
+        }
+        if (includeTimings) {
+            logging = logging.withTimings();
+        }
+        block.rejectUnknownKeys();
+
+        ExecutionLogging<Object> configured = logging;
+        config.at(config.requiredNode("logging"), () -> raw.withExecutionLogging(configured));
+        // A null level is the default one, which ExecutionLogging owns.
+        Loggers.YAML_BINDING.debug("Execution logging attached, level={}, includeContext={}, includeTimings={}",
+            level, includeContext, includeTimings);
+    }
+
+    /**
+     * Reads a {@code config:} block whose presence is itself the statement, so a key written with
+     * no value is refused rather than read as absent.
+     *
+     * @return the block, or {@code null} when the key is not written
+     */
+    private static NodeMap block(NodeMap config, String key, String empty) {
+        if (!config.holds(key)) {
+            return null;
+        }
+        if (config.optionalNode(key) == null) {
+            throw config.error(config.keyNode(key), "'" + key + "' requires a value; write '" + key + ": {}' for "
+                + empty);
+        }
+        return config.requiredMap(key);
     }
 
     private List<Hook> globalHooks() {

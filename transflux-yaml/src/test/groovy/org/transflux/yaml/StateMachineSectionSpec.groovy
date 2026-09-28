@@ -18,6 +18,11 @@
 
 package org.transflux.yaml
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
+import org.slf4j.LoggerFactory
 import org.transflux.core.trigger.DataTrigger
 import org.transflux.core.trigger.EventTrigger
 import org.transflux.core.trigger.ManualTrigger
@@ -381,6 +386,75 @@ class StateMachineSectionSpec extends Specification {
         e.message == "root.yml:7:7: state machine > state 'a': unknown key 'onEntry'; expected one of id, name, description, listeners, disableGlobalListeners"
     }
 
+    def 'config.async asks for a pool, sized or at the default, even when nothing forks'() {
+        given:
+        def events = capture('org.transflux.execution.async')
+
+        when:
+        def sm = loadDocument(document(listeners: "config:\n  async: ${async}")).build()
+
+        then:
+        events.appender.list*.formattedMessage.any { it.startsWith(created) }
+
+        cleanup:
+        sm?.close()
+        release(events)
+
+        where:
+        async                                           || created
+        '\n    threadPoolSize: 2\n    queueCapacity: 4' || 'Async pool created, threads=2, queueCapacity=4'
+        '{}'                                            || 'Async pool created, threads='
+        '\n    onRejection: CALLER_RUNS'                || 'Async pool created, threads='
+    }
+
+    def 'config.async.onRejection answers for a fork the executor refuses'() {
+        given:
+        def sm = loadDocument(document(
+            listeners: "config:\n  async: ${async}",
+            transition: "actions:\n  - step: forked\n    class: ${RecordingStep.name}\n    fork: true")).build()
+        // A closed pool refuses every submission, which leaves the policy to answer for it.
+        sm.close()
+
+        when:
+        def result = sm.entity(new Order()).transitionTo('b')
+
+        then:
+        result.success == success
+
+        where:
+        async                      || success
+        '{onRejection: FAIL}'      || false
+        '{}'                       || true
+    }
+
+    def 'config.logging attaches the shipped trace, at the level and with the details asked for'() {
+        given:
+        def events = capture('org.transflux.trace')
+        def sm = loadDocument(document(
+            listeners: "config:\n  logging:\n    level: INFO${flags}",
+            // Naming a global listener that is not there fails the build, so this builds only when the trace is attached.
+            states: 'states:\n  - id: a\n    disableGlobalListeners: [transflux-log-state-exit]\n  - id: b')).build()
+
+        when:
+        sm.entity(new Order()).transitionTo('b', new StringBuilder('trace-marker'))
+        def lines = events.appender.list*.formattedMessage
+
+        then:
+        !lines.isEmpty()
+        events.appender.list*.level.every { it == Level.INFO }
+        lines.any { it.contains('durationMs=') } == details
+        lines.any { it.contains('context=trace-marker') } == details
+
+        cleanup:
+        sm?.close()
+        release(events)
+
+        where:
+        flags                                                  || details
+        '\n    includeContext: true\n    includeTimings: true' || true
+        ''                                                     || false
+    }
+
     def 'refuses #what'() {
         when:
         loadDocument(document(parts))
@@ -393,9 +467,18 @@ class StateMachineSectionSpec extends Specification {
         where:
         what                                 | parts                                                                                                    || path                                               | problem
         'a context on an inline trigger'     | [transition: "triggers:\n  - id: inline\n    type: manual\n    context: ${Ctx.name}"]                    || "state machine > transition 't' > trigger 'inline'" | "unknown key 'context'"
-        'a config block, until it is read'   | [listeners: 'config:\n  async:\n    threadPoolSize: 2']                                                  || 'state machine'                                     | "unknown key 'config'"
         'a resolver written as both forms'   | [accessors: "stateResolver:\n  class: ${OrderResolver.name}\n  expression: 'state'"]                     || 'state machine'                                     | "exactly one of 'class', 'expression' is allowed"
         'a resolver for another entity'      | [accessors: "stateResolver:\n  class: ${StringResolver.name}"]                                           || 'state machine'                                     | "class ${StringResolver.name} declares"
+        'an async key with no value'         | [listeners: 'config:\n  async:']                                                                     || 'state machine'                                     | "'async' requires a value; write 'async: {}' for the default pool"
+        'a logging key with no value'        | [listeners: 'config:\n  logging:']                                                                   || 'state machine'                                     | "'logging' requires a value; write 'logging: {}' for the default trace"
+        'a pool sized by one number'         | [listeners: 'config:\n  async:\n    threadPoolSize: 2']                                                  || 'state machine'                                     | "'threadPoolSize' and 'queueCapacity' are given together or not at all"
+        'a pool sized by the other'          | [listeners: 'config:\n  async:\n    queueCapacity: 4']                                                   || 'state machine'                                     | "'threadPoolSize' and 'queueCapacity' are given together or not at all"
+        'a pool of no threads'               | [listeners: 'config:\n  async:\n    threadPoolSize: 0\n    queueCapacity: 4']                             || 'state machine'                                     | 'Async pool thread count must be positive'
+        'an unknown rejection policy'        | [listeners: 'config:\n  async:\n    onRejection: RETRY']                                                 || 'state machine'                                     | "'onRejection' must be one of DROP, FAIL, BLOCK, CALLER_RUNS"
+        'an unknown async key'               | [listeners: 'config:\n  async:\n    threads: 2']                                                         || 'state machine'                                     | "unknown key 'threads'"
+        'an unknown trace level'             | [listeners: 'config:\n  logging:\n    level: LOUD']                                                        || 'state machine'                                     | "'level' must be one of ERROR, WARN, INFO, DEBUG, TRACE"
+        'an unknown logging key'             | [listeners: 'config:\n  logging:\n    format: json']                                                       || 'state machine'                                     | "unknown key 'format'"
+        'metrics, which nothing reads'       | [listeners: 'config:\n  metrics:\n    enabled: true']                                                      || 'state machine'                                     | "unknown key 'metrics'"
         'a typed listener on a global hook'  | [listeners: "listeners:\n  onAnyTransitionComplete:\n    - id: typed\n      class: ${CtxTransitionAudit.name}"] || "state machine > listener 'typed'"             | "class ${CtxTransitionAudit.name} declares"
     }
 
@@ -421,6 +504,22 @@ class StateMachineSectionSpec extends Specification {
             indent(states, 2) + '\n' +
             '  transitions:\n    - id: t\n      from: a\n      to: b\n' +
             transition
+    }
+
+    /** Captures everything on {@code name} until {@link #release}, which restores the level it had. */
+    private static Map capture(String name) {
+        Logger logger = (Logger) LoggerFactory.getLogger(name)
+        ListAppender<ILoggingEvent> appender = new ListAppender<>()
+        appender.start()
+        logger.addAppender(appender)
+        Map captured = [logger: logger, appender: appender, level: logger.level]
+        logger.level = Level.TRACE
+        return captured
+    }
+
+    private static void release(Map captured) {
+        captured.logger.detachAppender(captured.appender)
+        captured.logger.level = captured.level
     }
 
     private static String indent(String text, int spaces) {

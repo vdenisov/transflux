@@ -78,7 +78,7 @@ class YamlDefinitionLoaderSpec extends Specification {
         'a missing entityType'   | 'apiVersion: transflux/v1\nstateMachine:\n  other: 1\n'                             || "root.yml:3:3: state machine: 'entityType' is required"
         'an unloadable entity'   | 'apiVersion: transflux/v1\nstateMachine:\n  entityType: com.nope.Order\n'           || 'root.yml:3:15: state machine: class com.nope.Order cannot be loaded'
         'another entity'         | "apiVersion: transflux/v1\nstateMachine:\n  entityType: ${String.name}\n"           || "root.yml:3:15: state machine: entityType is java.lang.String, but ${Order.name} was asked for"
-        'an unknown key inside'  | "apiVersion: transflux/v1\nstateMachine:\n  entityType: ${Order.name}\n  config: {}\n" || "root.yml:4:3: state machine: unknown key 'config'; expected one of entityType, name, description, id, version, stateResolver, stateApplier, listeners, states, transitions"
+        'an unknown key inside'  | "apiVersion: transflux/v1\nstateMachine:\n  entityType: ${Order.name}\n  extra: {}\n" || "root.yml:4:3: state machine: unknown key 'extra'; expected one of entityType, name, description, id, version, stateResolver, stateApplier, listeners, config, states, transitions"
     }
 
     def 'a document the source does not have is reported by its identifier'() {
