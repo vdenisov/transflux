@@ -1,0 +1,28 @@
+# requirements.md's data triggers example, as a library.
+apiVersion: transflux/v1
+
+triggers:
+  # Class-based — full Condition<T, C> implementation
+  - id: priority-change-class
+    type: data
+    condition:
+      id: priority-changed
+      class: com.example.triggers.SubscriptionPriorityChangedCondition
+
+  # Predicate-based — a lighter BiPredicate<T, C>-style class
+  - id: payment-failed
+    type: data
+    condition:
+      id: payment-has-failed
+      predicate: com.example.triggers.PaymentFailedPredicate
+
+  # Expression-based — inline SpEL; the one form that may omit its id
+  - id: priority-change-expression
+    type: data
+    condition:
+      expression: "status == 'READY_FOR_ACTIVATION' && priority > 5"
+
+  # Reference to a registered condition
+  - id: ready-and-high-priority
+    type: data
+    condition: ready-and-high-priority-condition

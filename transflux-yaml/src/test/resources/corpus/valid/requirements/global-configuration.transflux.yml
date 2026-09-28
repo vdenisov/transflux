@@ -1,0 +1,17 @@
+# requirements.md's global configuration example, with apiVersion and entityType added.
+apiVersion: transflux/v1
+
+stateMachine:
+  entityType: com.example.Subscription
+  config:
+    # Where forked members and async listeners run, and what happens when the queue is full
+    async:
+      threadPoolSize: 16       # both sizes or neither; neither is the current default:
+      queueCapacity: 160       # 2 x processors threads (at least 4), 10 slots per thread
+      onRejection: DROP        # OR: FAIL, BLOCK, CALLER_RUNS
+
+    # The shipped logging listeners, attached globally
+    logging:
+      level: INFO              # every trace line's level; DEBUG when omitted
+      includeContext: false    # true writes the context's toString() into the trace
+      includeTimings: true     # durations on transition and action outcome lines

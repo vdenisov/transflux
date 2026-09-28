@@ -1,0 +1,26 @@
+# requirements.md's mappers example, as a library.
+apiVersion: transflux/v1
+
+mappers:
+  # Class-based — a ContextMapper<P, N>, for a mapping that needs logic
+  - id: billing-from-activation
+    name: "Billing from Activation"
+    parentType: com.example.contexts.ActivationContext
+    childType: com.example.contexts.BillingContext
+    class: com.example.mappers.BillingFromActivationMapper
+
+  # Expression-based — a read-only projection
+  - id: notification-from-activation
+    parentType: com.example.contexts.ActivationContext
+    childType: com.example.contexts.NotificationContext
+    mapTo: "new com.example.contexts.NotificationContext(subscriptionId, activatedBy)"
+
+  # Expression-based, writing back when the callee returns
+  - id: payment-from-activation
+    parentType: com.example.contexts.ActivationContext
+    childType: com.example.contexts.PaymentContext
+    mapTo: "new com.example.contexts.PaymentContext(subscriptionId, paymentMethodId)"
+    mapFrom:
+      chargeId: "chargeId"                          # parent.chargeId          <-  child.chargeId
+      activationResult: "result.status"             # parent.activationResult  <-  child.result.status
+      chargedAt: "#parent.chargedAt ?: completedAt"

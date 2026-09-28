@@ -1,0 +1,17 @@
+# requirements.md's call site mappers example, as an operation's members.
+apiVersion: transflux/v1
+
+operations:
+  - id: call-sites
+    actions:
+      - run: charge-card
+        mapper: billing-from-activation                       # a registered mapper
+
+      - run: charge-card
+        mapper:
+          class: com.example.mappers.BillingFromActivationMapper
+
+      - run: send-receipt
+        mapper:
+          mapTo: "new com.example.contexts.ReceiptContext(subscriptionId)"
+          # mapFrom: { ... }                                  # accepted here too

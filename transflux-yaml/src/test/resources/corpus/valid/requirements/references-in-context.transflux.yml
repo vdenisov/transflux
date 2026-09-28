@@ -1,0 +1,37 @@
+# requirements.md's references in context example, with apiVersion and entityType added.
+apiVersion: transflux/v1
+
+operations:
+  - id: activation-operation
+    actions:
+      - run: prepare-event-actor      # a step
+      - run: validate-prerequisites   # a step
+      - run: notification-flow        # an operation — same spelling
+      - run: tier-routing             # a choice — same spelling
+
+stateMachine:
+  entityType: com.example.Subscription
+  transitions:
+    - id: draft-to-active
+      from: draft
+      to: active
+
+      actions:
+        - run: activation-operation
+
+      preConditions:
+        - checkout-fulfilled
+        - business-hours
+
+      postConditions:
+        - subscription-features-activated
+
+      triggers:
+        - checkout-event
+        - data-priority-change
+
+      listeners:
+        onStart:
+          - audit-start
+        onComplete:
+          - audit-complete

@@ -1,0 +1,13 @@
+# requirements.md's registered conditions example, as a library.
+apiVersion: transflux/v1
+
+conditions:
+  - id: checkout-fulfilled
+    class: com.example.conditions.CheckoutFulfilledCondition
+
+  - id: milestones-activated
+    class: com.example.conditions.MilestonesActivatedCondition
+    context: com.example.contexts.ActivationContext
+
+  - id: business-hours
+    expression: "T(java.time.LocalTime).now().isAfter(T(java.time.LocalTime).of(9, 0)) and T(java.time.LocalTime).now().isBefore(T(java.time.LocalTime).of(17, 0))"

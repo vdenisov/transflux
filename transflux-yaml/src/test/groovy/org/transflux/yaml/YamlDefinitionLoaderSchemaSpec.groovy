@@ -51,7 +51,10 @@ import java.nio.file.Path
  * definitions reaches that key - an action entry is one of four shapes - {@code # rule: <definition>
  * <JSON pointer>} names the one that must raise it, validated alone against the node at the pointer.
  * A document under an {@code imports/} folder is only reached through an import, so it is not a row
- * of its own.
+ * of its own. {@code valid/requirements/} holds a copy of every YAML example in {@code requirements.md},
+ * at the name the {@code <!-- corpus: name -->} line above the example gives - {@code none} for a
+ * sketch no document can hold - wrapped into a document where the example is a fragment, and naming
+ * classes stubbed under {@code com.example}.
  */
 class YamlDefinitionLoaderSchemaSpec extends Specification {
 
@@ -106,6 +109,32 @@ class YamlDefinitionLoaderSchemaSpec extends Specification {
         where:
         file << documents('loader-only')
         name = CORPUS.relativize(file).toString()
+    }
+
+    def 'every YAML example in requirements.md carries a corpus anchor, each name once'() {
+        expect:
+        examples().findAll { it.anchor == null }*.line == []
+        examples()*.anchor.findAll { it != null && it != 'none' }.countBy { it }.findAll { it.value > 1 }*.key == []
+    }
+
+    def 'the corpus copy #anchor holds its requirements example'() {
+        given:
+        Path copy = CORPUS.resolve("valid/requirements/${anchor}.transflux.yml")
+
+        expect:
+        Files.exists(copy)
+        holds(copy, example)
+
+        where:
+        [anchor, example] << examples().findAll { it.anchor != null && it.anchor != 'none' }
+            .collect { [it.anchor, it.text] }
+    }
+
+    def 'every example copy in the corpus has an anchor in requirements.md'() {
+        expect:
+        copies().collect { copy ->
+            CORPUS.resolve('valid/requirements').relativize(copy).toString().replace('\\', '/') - '.transflux.yml'
+        }.findAll { !(it in examples()*.anchor) } == []
     }
 
     private static List<Path> documents(String folder) {
@@ -256,6 +285,73 @@ class YamlDefinitionLoaderSchemaSpec extends Specification {
         String prefix = "# ${name}: "
         String line = Files.readAllLines(file).takeWhile { it.startsWith('#') }.find { it.startsWith(prefix) }
         return line?.substring(prefix.length())
+    }
+
+    /**
+     * @return every YAML example in {@code requirements.md}, in order: {@code line} (1-based, of its
+     *         fence), {@code anchor} (the name the {@code <!-- corpus: name -->} line above it gives, or
+     *         {@code null}) and {@code text}
+     */
+    private static List<Map<String, Object>> examples() {
+        // test-classes/corpus sits four levels below the repository root, in any build that runs this spec.
+        Path requirements = CORPUS.parent.parent.parent.parent.resolve('requirements.md')
+        assert Files.exists(requirements): "${requirements} not found"
+        List<String> lines = Files.readAllLines(requirements)
+        List<Map<String, Object>> examples = []
+        lines.eachWithIndex { line, index ->
+            if (line.startsWith('```yaml')) {
+                def anchor = index > 0 ? lines[index - 1] =~ /^<!-- corpus: (\S+) -->$/ : null
+                int end = (index + 1..<lines.size()).find { lines[it] == '```' }
+                examples << [line  : index + 1,
+                             anchor: anchor?.matches() ? anchor.group(1) : null,
+                             text  : lines.subList(index + 1, end).join('\n')]
+            }
+        }
+        return examples
+    }
+
+    /**
+     * @return the corpus's copies of those examples, less the empty libraries standing in for what
+     *         they import
+     */
+    private static List<Path> copies() {
+        return documents('valid/requirements').findAll { copy ->
+            contentLines(Files.readString(copy)).findAll { !it.startsWith('#') } != ['apiVersion: transflux/v1']
+        }
+    }
+
+    /**
+     * Tells whether a document holds an example, however the example was wrapped: each of its
+     * top-level blocks must appear line for line and in order, indentation aside, with the lines a
+     * wrapping added in between allowed.
+     *
+     * @param copy a corpus document
+     * @param example a YAML example
+     *
+     * @return whether the document holds it
+     */
+    private static boolean holds(Path copy, String example) {
+        List<String> document = contentLines(Files.readString(copy))
+        List<List<String>> blocks = []
+        example.readLines().findAll { !it.isBlank() }.each { line ->
+            if (!line.startsWith(' ') || blocks.isEmpty()) {
+                blocks << []
+            }
+            blocks.last() << line.trim()
+        }
+        return blocks.every { block ->
+            int next = 0
+            document.each { line ->
+                if (next < block.size() && line == block[next]) {
+                    next++
+                }
+            }
+            next == block.size()
+        }
+    }
+
+    private static List<String> contentLines(String text) {
+        return text.readLines().findAll { !it.isBlank() }*.trim()
     }
 
     private static String readSchema() {

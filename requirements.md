@@ -115,6 +115,7 @@ All components in Transflux (states, transitions, actions, conditions, triggers,
 **Conditions carry an id and nothing else.** A condition has no name and no description in either DSL: nothing at runtime represents a condition beyond its id — there is no condition catalog and no payload carrying one — so there is nowhere for either to be read from. A rejection is identified by the ids on `TransfluxConditionException`.
 
 **Example:**
+<!-- corpus: identification -->
 ```yaml
 states:
   - id: trial
@@ -536,11 +537,12 @@ Components are declared once and referenced wherever they are needed — across 
 
 Every document has one shape:
 
+<!-- corpus: none -->
 ```yaml
 apiVersion: transflux/v1        # required in every document
 
 imports:                        # optional (§3.1.4)
-  - components/shared-components.yml
+  - components/shared-components.transflux.yml
 
 steps: [ ... ]                  # seven component sections, each optional, in any document
 operations: [ ... ]
@@ -559,8 +561,9 @@ A document is plain YAML: exactly one document per resource, no anchors or alias
 
 A library:
 
+<!-- corpus: components/shared-components -->
 ```yaml
-# components/shared-components.yml
+# components/shared-components.transflux.yml
 apiVersion: transflux/v1
 
 steps:
@@ -665,6 +668,7 @@ Any position that expects a component accepts **either** a reference or a declar
 
 **1. Conditions, triggers and listeners — a string references, a block declares.**
 
+<!-- corpus: condition-and-trigger-references -->
 ```yaml
 preConditions:
   - payment-method-valid                  # reference
@@ -679,6 +683,7 @@ triggers:
 
 **2. Actions — a verb-keyed entry in an `actions:` list.** A bare string cannot carry the distinction where every entry is already a block, so each one is keyed by the verb that names what it does, and that key carries the id. The four verbs are the Java DSL's, unchanged:
 
+<!-- corpus: none -->
 ```yaml
 actions:
   - run: charge-card                # reference — the callee's form is its own business
@@ -721,6 +726,7 @@ A reference that reaches for an inline declaration from outside is an error that
 
 #### 3.1.3 Component References in Context
 
+<!-- corpus: references-in-context -->
 ```yaml
 operations:
   - id: activation-operation
@@ -761,13 +767,14 @@ stateMachine:
 
 Each entry is an **opaque identifier** handed verbatim to the configured `DefinitionSource` (§2.6). The framework does not interpret it as a filesystem path, classpath resource, or URI — that's the source's job. A filesystem-style example reads naturally and is the most common default (`ClasspathDefinitionSource` interprets such strings as classpath resources, `FileSystemDefinitionSource` interprets them as paths under a configured root), but any string the configured source understands is valid: `cp:components/shared.yml`, `db://workflows/subscription/imports/payment`, `git://main/operations.yml`, and so on.
 
+<!-- corpus: imports -->
 ```yaml
 apiVersion: transflux/v1
 
 imports:
-  - components/shared-components.yml
-  - components/subscription-specific-components.yml
-  - operations/subscription-operations.yml
+  - components/shared-components.transflux.yml
+  - components/subscription-specific-components.transflux.yml
+  - operations/subscription-operations.transflux.yml
 
 stateMachine:
   id: subscription-state-machine
@@ -808,14 +815,15 @@ A component registered without `context:` is registered against `Object`, as the
 
 > Note: a document defines at most one state machine, and only the root document defines one (§3.1.1).
 
+<!-- corpus: state-machine -->
 ```yaml
-# subscription-state-machine.yml
+# subscription-state-machine.transflux.yml
 apiVersion: transflux/v1
 
 imports:
-  - operations/subscription-operations.yml
-  - triggers/subscription-triggers.yml
-  - conditions/subscription-conditions.yml
+  - operations/subscription-operations.transflux.yml
+  - triggers/subscription-triggers.transflux.yml
+  - conditions/subscription-conditions.transflux.yml
 
 stateMachine:
   # All four are optional, and are what the built StateMachine reports
@@ -924,6 +932,7 @@ stateMachine:
 
 #### 3.2.2 State Configuration
 
+<!-- corpus: state -->
 ```yaml
 states:
   - id: active
@@ -943,6 +952,7 @@ states:
 
 #### 3.3.1 Basic Transition
 
+<!-- corpus: transition -->
 ```yaml
 transitions:
   - id: trial-to-active
@@ -989,6 +999,7 @@ A transition declares no compensation of its own (§2.2.11): rolling the body ba
 
 A `type: manual` trigger names an explicit invocation point. Even when a transition could be invoked through the bare `stateMachine.transitionTo(...)` API, defining a named manual trigger carries value: per-trigger metadata, descriptions, and trigger-specific pre-conditions can be attached to the named handle and discovered via the catalog API, and a transition listener can single the trigger out by reading it off its payload (§2.2.10). The trigger's name does **not** imply the library schedules anything — for example, `end-of-trial-cron` indicates that an external cron job invokes this trigger; the library does no scheduling itself (see §1.3 Non-Goals).
 
+<!-- corpus: manual-trigger -->
 ```yaml
 triggers:
   - id: manual-cancel
@@ -1004,6 +1015,7 @@ A trigger registered under the top-level `triggers:` may be attached to several 
 
 Event triggers fire in response to events that the host publishes into the state machine via `processEvent(...)`.
 
+<!-- corpus: event-trigger -->
 ```yaml
 triggers:
   - id: payment-method-validated-event
@@ -1024,6 +1036,7 @@ Data triggers fire when the host calls `entity(e).processDataChange()` and the t
 
 A data trigger's `condition:` follows the standard Condition Descriptor grammar (§3.6.1):
 
+<!-- corpus: data-triggers -->
 ```yaml
 triggers:
   # Class-based — full Condition<T, C> implementation
@@ -1064,6 +1077,7 @@ Whatever its form, an action's declaration — registered or in place — accept
 
 A step is declared under `steps:` and names a class. It binds no children, though its body is free to dispatch other actions by id while it runs.
 
+<!-- corpus: steps -->
 ```yaml
 steps:
   - id: activate-subscription
@@ -1082,6 +1096,7 @@ An operation is declared under `operations:` and carries an `actions:` list. Eac
 
 A reference says nothing about the form of the thing it names: `run: notification-flow` reaches an operation and `run: charge-card` reaches a step, spelled identically, because which form the callee was authored in is a property of *its* declaration rather than of the call.
 
+<!-- corpus: operations -->
 ```yaml
 operations:
   - id: complex-activation
@@ -1192,6 +1207,7 @@ operations:
 
 A choice allows for complex decision-making with multiple conditions and a default fallback branch. It evaluates its branches' conditions in declaration order and executes the **first matching** branch, or the default branch if none match. It is a declarative action like any other, so it may be declared in place with the `choice:` verb (as below) or registered under `choices:` and referenced with `run:`.
 
+<!-- corpus: choices -->
 ```yaml
 operations:
   - id: priority-based-routing
@@ -1274,6 +1290,7 @@ An inline declaration comes in three shapes, as it does in Java (§4.5.2). Witho
 
 A mapper turns the context at a call site into the one the callee runs against (`mapTo`), and may write results back when the callee returns (`mapFrom`). Mapping is a property of the call site, never of the callee (§4.5.2).
 
+<!-- corpus: mappers -->
 ```yaml
 mappers:
   # Class-based — a ContextMapper<P, N>, for a mapping that needs logic
@@ -1306,6 +1323,7 @@ A `mapTo:` expression is evaluated with the **parent context as root** and must 
 
 At a call site, `mapper:` takes any of three forms. The two block forms need no `parentType` / `childType`: the position already fixes both.
 
+<!-- corpus: call-site-mappers -->
 ```yaml
 actions:
   - run: charge-card
@@ -1348,6 +1366,7 @@ log.info("Activated subscription {} at {} with result {}",
 
 A condition appears at five positions: a transition's pre- and post-conditions, a manual trigger's pre-conditions, a choice's branch, and a data trigger's gate. They share a single grammar — the **Condition Descriptor** — with five authoring forms, three of which both DSLs express. The other two are each one DSL's way of naming a condition object: `InstanceBased` attaches a pre-built `Condition<T, C>` and is Java-only, since a live object has no YAML serialization; `ClassBased` names a class and is YAML-only, since the Java DSL holds the object already and the factory (§6.2) is what turns a class name into one.
 
+<!-- corpus: condition-descriptor -->
 ```yaml
 preConditions:
   # 1. Reference to a registered condition
@@ -1387,6 +1406,7 @@ Two keys look like conditions and are not, because neither judges `(entity, cont
 
 #### 3.6.2 Registered Conditions
 
+<!-- corpus: registered-conditions -->
 ```yaml
 conditions:
   - id: checkout-fulfilled
@@ -1411,6 +1431,7 @@ All three listener categories (§2.2.10) are written the same way: the owner car
 | an action's declaration — registered or inline, in any form | `onStart`, `onComplete`, `onError` |
 | the state machine | `onAnyStateEntry`, `onAnyStateExit`, `onAnyTransitionStart`, `onAnyTransitionComplete`, `onAnyTransitionError`, `onAnyActionStart`, `onAnyActionComplete`, `onAnyActionError` |
 
+<!-- corpus: listeners -->
 ```yaml
 listeners:                                # the pool (§3.1.1)
   - id: state-audit
@@ -1456,6 +1477,7 @@ stateMachine:
     - id: trial-to-active
       from: trial
       to: active
+      context: com.example.contexts.BillingContext    # the context charge-card is registered against
       listeners:
         onStart:
           - id: activation-audit
@@ -1476,6 +1498,7 @@ stateMachine:
 
 **Turning state-machine-wide listeners off.** A state, a transition and an action's declaration each accept `disableGlobalListeners:`, suppressing the state-machine-wide listeners of the owner's own category under the rules of §2.2.10:
 
+<!-- corpus: disabling-global-listeners -->
 ```yaml
 transitions:
   - id: cancel
@@ -1497,6 +1520,7 @@ steps:
 
 `config:` sits inside `stateMachine:` — it configures this state machine, and a library has none.
 
+<!-- corpus: global-configuration -->
 ```yaml
 stateMachine:
   config:
@@ -1541,6 +1565,7 @@ Transflux uses SpEL (Spring Expression Language) wherever a document says `expre
 
 **`@name` needs a resolver.** A bean reference such as `@checkoutService` resolves through the dependency-injection integration of §6.1. Without one, the expression still parses, and fails when it is first evaluated.
 
+<!-- corpus: expressions -->
 ```yaml
 conditions:
   # Simple field access

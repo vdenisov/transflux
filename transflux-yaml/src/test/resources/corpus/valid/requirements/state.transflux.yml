@@ -1,0 +1,17 @@
+# requirements.md's state example, as the state machine's states.
+apiVersion: transflux/v1
+
+stateMachine:
+  entityType: com.example.Subscription
+  states:
+    - id: active
+      name: "Active State"
+      description: "Active subscription state"
+      # State entry/exit listeners (see §3.7)
+      listeners:
+        onEntry:
+          - subscription-activated
+        onExit:
+          - subscription-deactivated
+      # Turn off state-machine-wide state listeners for this state (§3.7)
+      disableGlobalListeners: [state-audit]

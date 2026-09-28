@@ -1,0 +1,10 @@
+# requirements.md's identification example, as the state machine's states.
+apiVersion: transflux/v1
+
+stateMachine:
+  entityType: com.example.Subscription
+  states:
+    - id: trial
+      name: "Trial Subscription State"
+    - id: active
+      name: "Active Subscription State"

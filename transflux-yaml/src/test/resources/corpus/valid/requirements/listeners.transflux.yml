@@ -1,0 +1,59 @@
+# requirements.md's listeners example, with apiVersion and entityType added.
+apiVersion: transflux/v1
+
+listeners:                                # the pool (§3.1.1)
+  - id: state-audit
+    class: com.example.listeners.StateAuditListener
+  - id: subscription-activated
+    class: com.example.listeners.SubscriptionActivatedListener
+    async: true
+
+steps:
+  - id: charge-card
+    class: com.example.steps.ChargeCardStep
+    context: com.example.contexts.BillingContext
+    listeners:
+      onError:
+        - id: charge-audit                # declared in place
+          class: com.example.listeners.ChargeAuditListener
+
+stateMachine:
+  entityType: com.example.Subscription
+  # State-machine-wide listeners: they fire for every owner of their category,
+  # after that owner's own
+  listeners:
+    onAnyStateEntry:
+      - state-audit
+    onAnyTransitionComplete:
+      - id: transition-audit
+        class: com.example.listeners.TransitionAuditListener
+        async: true
+        onRejection: CALLER_RUNS
+    onAnyTransitionError:
+      - transition-audit                  # the same listener, reused by this owner's other hook
+    onAnyActionError:
+      - action-failure-audit
+
+  states:
+    - id: active
+      listeners:
+        onEntry:
+          - subscription-activated
+        onExit:
+          - subscription-deactivated
+
+  transitions:
+    - id: trial-to-active
+      from: trial
+      to: active
+      context: com.example.contexts.BillingContext    # the context charge-card is registered against
+      listeners:
+        onStart:
+          - id: activation-audit
+            class: com.example.listeners.ActivationAuditListener
+        onComplete:
+          - activation-audit
+        onError:
+          - activation-audit
+      actions:
+        - run: charge-card                # charge-audit fires here, and at every other call site

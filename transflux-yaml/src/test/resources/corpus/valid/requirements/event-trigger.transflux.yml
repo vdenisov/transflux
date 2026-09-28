@@ -1,0 +1,10 @@
+# requirements.md's event trigger example, as a library.
+apiVersion: transflux/v1
+
+triggers:
+  - id: payment-method-validated-event
+    type: event
+    event: PAYMENT_METHOD_VALIDATED
+    filter:
+      expression: "#event.validation == 'CONFIRMED'"
+      # OR  class: com.example.triggers.ConfirmedValidationFilter

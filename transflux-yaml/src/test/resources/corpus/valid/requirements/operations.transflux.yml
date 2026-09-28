@@ -1,0 +1,98 @@
+# requirements.md's operations example, as a library.
+apiVersion: transflux/v1
+
+operations:
+  - id: complex-activation
+    description: "Complex activation with several actions"
+    context: com.example.contexts.ComplexActivationContext
+
+    actions:
+      - run: prepare-event-actor
+      - run: validate-prerequisites
+
+      # A reference may carry a context mapper at the call site (§3.5.2)
+      - run: charge-card
+        mapper: billing-from-activation
+
+      # Declared in place; the `step:` verb makes this one imperative
+      - step: lock-resources
+        class: com.example.actions.LockResourcesStep
+        description: "Lock resources for activation"
+        listeners:
+          onError:
+            - lock-failure-audit
+
+      # Declared in place, against a context of its own, mapped into at this position (§3.5.1)
+      - operation: notify-flow
+        context: com.example.contexts.NotificationContext
+        mapper: notification-from-activation
+        actions:
+          - run: prepare-notifications
+          - run: send-notifications
+
+      - choice: priority-routing
+        branches:
+          - id: high-priority-branch
+            condition:
+              id: is-high-priority
+              predicate: com.example.predicates.HighPriorityPredicate
+            actions:
+              - step: high-priority-processing
+                class: com.example.actions.HighPriorityStep
+              - step: urgent-notification
+                class: com.example.actions.UrgentNotificationStep
+
+          - id: medium-priority-branch
+            condition:
+              expression: "priority >= 5 && priority < 8"
+            actions:
+              - step: medium-priority-processing
+                class: com.example.actions.MediumPriorityStep
+
+          - id: vip-customer-branch
+            condition: is-vip-customer          # a registered condition
+            actions:
+              - run: vip-processing
+              - step: account-manager-notification
+                class: com.example.actions.AccountManagerNotificationStep
+
+        default:
+          actions:
+            - step: standard-processing
+              class: com.example.actions.StandardProcessingStep
+            - step: standard-notification
+              class: com.example.actions.StandardNotificationStep
+
+      - step: finalize
+        class: com.example.actions.FinalizeActivationStep
+
+      # Forked members: submitted at this position, and not waited for
+      - run: async-notifications
+        fork: true
+
+      - run: external-integrations
+        fork: true
+        mapper: notification-from-activation
+        onRejection: CALLER_RUNS            # this position's answer to a refused submission (§3.8)
+
+      # The flag rides on a declaring entry too, so a one-off group can be
+      # declared where it is forked rather than registered and referenced
+      - operation: reconciliation-sweep
+        fork: true
+        actions:
+          - run: refresh-projections
+          - run: emit-audit-record
+
+    # Unconditional rollback for this operation — the fallback when no route below answers
+    compensation: com.example.compensations.GeneralCompensation
+
+    errorHandling:
+      - exception: com.example.exceptions.RecoverableException
+        guard:
+          class: com.example.predicates.RecoverableErrorPredicate
+        compensation: com.example.compensations.RecoverableCompensation
+
+      - exception: com.example.exceptions.GatewayException
+        guard:
+          expression: "statusCode == 503"
+        compensation: com.example.compensations.ReconcileLaterCompensation

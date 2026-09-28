@@ -1,0 +1,52 @@
+# requirements.md's choices example, as a library.
+apiVersion: transflux/v1
+
+operations:
+  - id: priority-based-routing
+    description: "Route processing based on multiple priority conditions"
+
+    actions:
+      - choice: multi-priority-routing
+        onNoMatch: ERROR                  # only consulted when there is no `default:`
+        branches:
+          - id: critical-priority
+            condition:
+              id: is-critical-priority
+              predicate: com.example.predicates.CriticalPriorityPredicate
+            actions:
+              - step: escalate-immediately
+                class: com.example.actions.EscalateStep
+              - step: notify-management
+                class: com.example.actions.ManagementNotificationStep
+              - step: expedited-processing
+                class: com.example.actions.ExpeditedProcessingStep
+
+          - id: high-priority
+            condition:
+              expression: "priority >= 8 && customerTier == 'PREMIUM'"
+            actions:
+              - step: priority-processing
+                class: com.example.actions.PriorityProcessingStep
+              - step: premium-notification
+                class: com.example.actions.PremiumNotificationStep
+
+          - id: vip-customer
+            condition: is-vip-customer
+            actions:
+              - step: vip-processing
+                class: com.example.actions.VipProcessingStep
+              - step: account-manager-alert
+                class: com.example.actions.AccountManagerAlertStep
+
+          - id: time-sensitive
+            condition:
+              expression: "deadline.isBefore(T(java.time.LocalDate).now().plusDays(1))"
+            actions:
+              - step: urgent-processing
+                class: com.example.actions.UrgentProcessingStep
+
+          - id: business-hours
+            condition: business-hours
+            actions:
+              - step: business-hours-processing
+                class: com.example.actions.BusinessHoursProcessingStep

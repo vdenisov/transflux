@@ -1,0 +1,94 @@
+# requirements.md's library example, verbatim.
+# components/shared-components.transflux.yml
+apiVersion: transflux/v1
+
+steps:
+  - id: prepare-notifications
+    name: "Prepare Notifications"
+    description: "Prepare notification messages"
+    class: com.example.steps.PrepareNotificationsStep
+
+  - id: send-notifications
+    class: com.example.steps.SendNotificationsStep
+
+  - id: charge-card
+    class: com.example.steps.ChargeCardStep
+    context: com.example.contexts.BillingContext
+    compensation: com.example.compensations.RefundCompensation
+    listeners:
+      onError:
+        - charge-audit
+
+  - id: validate-prerequisites
+    name: "Validate Prerequisites"
+    class: com.example.steps.ValidatePrerequisitesStep
+    compensation: com.example.compensations.ValidationCompensation
+
+# Declarative containers; members run in declaration order (§3.4.2)
+operations:
+  - id: notification-flow
+    name: "Notification Flow"
+    actions:
+      - run: prepare-notifications
+      - run: send-notifications
+
+# First-matching-branch actions (§3.4.3)
+choices:
+  - id: tier-routing
+    branches:
+      - id: premium
+        condition:
+          expression: "customerTier == 'PREMIUM'"
+        actions:
+          - run: notification-flow
+    onNoMatch: SILENT
+
+# A condition carries an id and nothing else — no name, no description (§2.2.1)
+conditions:
+  - id: payment-method-valid
+    class: com.example.conditions.PaymentMethodValidCondition
+
+  - id: high-priority
+    predicate: com.example.predicates.HighPriorityPredicate
+
+  - id: business-hours
+    expression: "T(java.time.LocalTime).now().hour >= 9 && T(java.time.LocalTime).now().hour < 17"
+
+mappers:
+  - id: billing-from-activation
+    parentType: com.example.contexts.ActivationContext
+    childType: com.example.contexts.BillingContext
+    class: com.example.mappers.BillingFromActivationMapper     # OR  mapTo: "<expression>" (§3.5)
+
+triggers:
+  - id: manual-cancel
+    name: "Manual Cancellation"
+    type: manual
+    preConditions:
+      - support-user-authorized
+
+  - id: payment-method-validated-event
+    type: event
+    event: PAYMENT_METHOD_VALIDATED
+    filter:
+      expression: "#event.validation == 'CONFIRMED'"
+
+  - id: data-priority-change
+    type: data
+    condition:
+      expression: "status == 'READY_FOR_ACTIVATION' && priority > 5"
+
+# One pool for all three listener categories. The category is read off the interface the class
+# implements; `type: state | transition | action` is required only when it implements several.
+listeners:
+  - id: audit-start
+    name: "Audit Start Listener"
+    class: com.example.listeners.TransitionStartListener
+
+  - id: charge-audit
+    class: com.example.listeners.ChargeAuditListener
+
+  - id: subscription-activated
+    class: com.example.listeners.SubscriptionActivatedListener
+    async: true
+    onRejection: CALLER_RUNS    # optional: DROP (default), BLOCK or CALLER_RUNS; FAIL is refused

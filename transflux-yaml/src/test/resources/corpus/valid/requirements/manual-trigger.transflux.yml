@@ -1,0 +1,9 @@
+# requirements.md's manual trigger example, as a library.
+apiVersion: transflux/v1
+
+triggers:
+  - id: manual-cancel
+    type: manual
+    description: "User-initiated cancellation through the support portal"
+    preConditions:
+      - support-user-authorized

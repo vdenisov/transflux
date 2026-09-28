@@ -1,0 +1,28 @@
+# requirements.md's condition descriptor example, as a transition's pre-conditions.
+apiVersion: transflux/v1
+
+stateMachine:
+  entityType: com.example.Subscription
+  transitions:
+    - id: example
+      from: a
+      to: b
+      preConditions:
+        # 1. Reference to a registered condition
+        - payment-method-valid
+
+        # 2. Inline class-based — a full Condition<T, C> implementation
+        - id: payment-method-present
+          class: com.example.conditions.PaymentMethodPresentCondition
+
+        # 3. Inline predicate-based — a BiPredicate<T, C>-style class (lighter than Condition<T, C>;
+        #    useful for stateless boolean tests over (entity, context)). A class implementing
+        #    Predicate<T> is accepted for entity-only tests; the context is then ignored. A class
+        #    implementing both is refused, as a Java call passing it would be ambiguous.
+        - id: payment-method-current
+          predicate: com.example.predicates.PaymentMethodCurrentPredicate
+
+        # 4. Inline expression — SpEL (§3.9); the one form that may omit its id
+        - expression: "paymentMethodId != null"
+
+        # 5. (Java DSL only) InstanceBased — attach a pre-built Condition<T, C> instance under an explicit id.

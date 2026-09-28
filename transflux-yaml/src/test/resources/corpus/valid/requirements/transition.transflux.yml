@@ -1,0 +1,42 @@
+# requirements.md's transition example, as the state machine's transitions.
+apiVersion: transflux/v1
+
+stateMachine:
+  entityType: com.example.Subscription
+  transitions:
+    - id: trial-to-active
+      name: "Trial to Active Transition"
+      description: "Activate trial subscription"
+      from: trial
+      to: active
+
+      # The context type a firing must supply. Omitted: any context, or none.
+      # java.lang.Void: the transition rejects a non-null context (§4.5).
+      context: com.example.contexts.ActivationContext
+
+      # The body: an ordered member list in the grammar of §3.1.2. Optional.
+      actions:
+        - run: activate-subscription
+        - run: send-welcome-email
+          fork: true
+
+      preConditions:
+        - payment-method-valid
+
+      postConditions:
+        - milestones-activated
+
+      triggers:
+        - end-of-trial-cron                 # a registered trigger, by id
+
+        - id: external-activation           # declared in place
+          type: data
+          condition:
+            id: subscription-activated-externally
+            class: com.example.triggers.SubscriptionActivatedCondition
+
+      listeners:
+        onStart:
+          - audit-start
+        onComplete:
+          - audit-complete

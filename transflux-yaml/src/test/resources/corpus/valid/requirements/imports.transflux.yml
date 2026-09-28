@@ -1,0 +1,24 @@
+# requirements.md's imports example, verbatim.
+apiVersion: transflux/v1
+
+imports:
+  - components/shared-components.transflux.yml
+  - components/subscription-specific-components.transflux.yml
+  - operations/subscription-operations.transflux.yml
+
+stateMachine:
+  id: subscription-state-machine
+  name: "Subscription State Machine"
+  entityType: com.example.Subscription
+
+  transitions:
+    - id: trial-to-active
+      from: trial
+      to: active
+      actions:
+        - run: activate-subscription
+      preConditions:
+        - payment-method-valid
+        - subscription-specific-validation
+      triggers:
+        - end-of-trial-cron

@@ -1,0 +1,12 @@
+# requirements.md's steps example, as a library.
+apiVersion: transflux/v1
+
+steps:
+  - id: activate-subscription
+    name: "Activate Subscription"
+    description: "Activate a trial subscription"
+    class: com.example.actions.ActivateSubscriptionStep
+    context: com.example.contexts.ActivationContext
+
+  - id: send-welcome-email
+    class: com.example.actions.SendWelcomeEmailStep

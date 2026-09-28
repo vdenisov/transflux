@@ -1,0 +1,18 @@
+# requirements.md's condition and trigger references example, as a transition's lists.
+apiVersion: transflux/v1
+
+stateMachine:
+  entityType: com.example.Subscription
+  transitions:
+    - id: example
+      from: a
+      to: b
+      preConditions:
+        - payment-method-valid                  # reference
+        - id: has-payment-method                # declaration
+          class: com.example.conditions.HasPaymentMethodCondition
+
+      triggers:
+        - manual-cancel                         # reference — the same trigger may sit on several transitions
+        - id: end-of-trial-cron                 # declaration
+          type: manual

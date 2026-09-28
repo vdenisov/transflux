@@ -1,0 +1,41 @@
+# requirements.md's expressions example, as a library.
+apiVersion: transflux/v1
+
+conditions:
+  # Simple field access
+  - id: status-ready
+    expression: "status == 'READY'"
+
+  # Method calls (with DI integration when available)
+  - id: checkout-fulfilled
+    expression: "@checkoutService.isCheckoutFulfilled(checkoutUid)"
+
+  # Date/time conditions
+  - id: business-hours
+    expression: |
+      T(java.time.LocalTime).now().isAfter(T(java.time.LocalTime).of(9, 0)) &&
+      T(java.time.LocalTime).now().isBefore(T(java.time.LocalTime).of(17, 0))
+
+  # Collection operations
+  - id: all-milestones-active
+    expression: "milestones.![state].contains('INACTIVE') == false"
+
+  # Conditional logic
+  - id: priority-based-validation
+    expression: |
+      priority > 8 ?
+        @validationService.strictValidation(#entity) :
+        @validationService.basicValidation(#entity)
+
+# Data-based triggers with SpEL expression evaluation
+triggers:
+  - id: ready-and-high-priority
+    type: data
+    condition:
+      expression: "status == 'PENDING' && priority > 5"
+
+  - id: pending-and-expedited
+    type: data
+    condition:
+      # Expedite if pending and the request is marked as expedited in context.
+      expression: "status == 'PENDING' && (#context?.expedited ?: false)"

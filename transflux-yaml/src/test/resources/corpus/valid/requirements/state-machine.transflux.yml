@@ -1,0 +1,108 @@
+# requirements.md's state machine example, verbatim.
+# subscription-state-machine.transflux.yml
+apiVersion: transflux/v1
+
+imports:
+  - operations/subscription-operations.transflux.yml
+  - triggers/subscription-triggers.transflux.yml
+  - conditions/subscription-conditions.transflux.yml
+
+stateMachine:
+  # All four are optional, and are what the built StateMachine reports
+  id: subscription-state-machine
+  name: "Subscription State Machine"
+  description: "State machine for subscription lifecycle management"
+  version: 1.0.0
+
+  entityType: com.example.Subscription    # required; must be the class the host loads the document for
+
+  # State resolver — read the current state
+  stateResolver:
+    class: com.example.resolvers.SubscriptionStateResolver
+    # OR  expression: "status"
+
+  # State applier — finalize the transition by writing the new state (optional, §2.2.12)
+  stateApplier:
+    class: com.example.appliers.SubscriptionStateApplier
+    # OR  expression: "status"            # an assignable property path
+
+  # listeners: { ... }                    # state-machine-wide listeners (§3.7)
+  # config: { ... }                       # executor and trace logging (§3.8)
+
+  states:
+    - id: trial
+      name: "Trial State"
+      description: "Initial trial state"
+
+    - id: active
+      description: "Active subscription state"
+
+    - id: suspended
+      description: "Suspended subscription state"
+
+    - id: cancelled
+      description: "Cancelled subscription state"
+
+    - id: expired
+      description: "Expired subscription state"
+
+  transitions:
+    - id: trial-to-active
+      name: "Trial to Active Transition"
+      from: trial
+      to: active
+      actions:
+        - run: activate-subscription
+      preConditions:
+        - payment-method-valid
+      triggers:
+        - id: end-of-trial-cron
+          type: manual
+          description: "Invoked manually by an external cron job"
+
+    - id: active-to-suspended
+      from: active
+      to: suspended
+      # The body is a member list like any other (§3.1.2): reference, declare, or mix
+      actions:
+        - run: evaluate-risk
+        - choice: branch-on-risk
+          branches:
+            - id: low-risk-retry
+              condition:
+                expression: "@riskService.isLowRisk(id)"
+              actions:
+                - run: schedule-retry-payment
+          default:
+            actions:
+              - step: notify-user
+                class: com.example.actions.NotifyPaymentIssueStep
+      triggers:
+        - id: payment-failed
+          type: data
+          condition:
+            id: payment-has-failed
+            predicate: com.example.triggers.PaymentFailedPredicate
+
+    - id: suspended-to-cancelled
+      from: suspended
+      to: cancelled
+      actions:
+        - step: cancel-subscription
+          description: "Cancel subscription with compensation"
+          class: com.example.actions.CancelSubscriptionStep
+          compensation: com.example.compensations.RefundPartialFeesCompensation
+      preConditions:
+        - no-recovery-7-days
+      triggers:
+        - manual-cancel                   # registered once, attached here and below (§3.3.2)
+
+    - id: active-to-cancelled
+      from: active
+      to: cancelled
+      triggers:
+        - manual-cancel
+
+    - id: active-to-expired
+      from: active
+      to: expired

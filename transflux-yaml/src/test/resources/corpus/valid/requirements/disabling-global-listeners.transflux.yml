@@ -1,0 +1,20 @@
+# requirements.md's disabling global listeners example, with the transition moved under the state machine.
+apiVersion: transflux/v1
+
+steps:
+  - id: capture-payment
+    class: com.example.steps.CapturePaymentStep
+    disableGlobalListeners: true                  # all of them
+    listeners:
+      onStart:
+        - id: capture-redacted
+          class: com.example.listeners.RedactedCaptureListener
+
+stateMachine:
+  entityType: com.example.Subscription
+  transitions:
+    - id: cancel
+      from: active
+      to: cancelled
+      disableGlobalListeners: [transition-audit]    # these; an empty list is an error
+
