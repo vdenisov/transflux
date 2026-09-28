@@ -445,17 +445,17 @@ The first resource found wins, and reports the whole identifier with the answeri
 
 #### 2.6.4 Error Reporting
 
-Every validation error raised against a definition loaded through a `DefinitionSource` carries the resource's identifier in the message — both the directly-failing resource and the import chain that reached it. A condition descriptor failing inside `db://workflows/subscription` imported by `git://main/root.yml` surfaces as:
+Every validation error raised against a definition loaded through a `DefinitionSource` names the resource it is in and the import chain that reached it. A condition descriptor failing inside `db://workflows/subscription`, imported by `git://main/shared.yml`, which the root `git://main/root.yml` imports, surfaces as:
 
 ```
-git://main/root.yml -> imports/db://workflows/subscription -> condition 'foo': ...
+git://main/root.yml -> git://main/shared.yml -> db://workflows/subscription:12:9: condition 'foo': ...
 ```
 
-An error the loader raises is a `DefinitionLoadException`, a `TransfluxValidationException` whose message leads with where the problem is written — `identifier:line:column: declaration path: problem`, the source's location beside the identifier when it differs — and which carries each part as an accessor. A rejection thrown by a definition call the loader makes on behalf of an entry is reported at that entry's line. A failure raised later, by the host's `build()` or `replaceDefinition(...)`, carries the build's own message: the loader returns a definition and never builds one.
+An error the loader raises is a `DefinitionLoadException`, a `TransfluxValidationException` whose message leads with where the problem is written — the importers, root first, then `identifier:line:column: declaration path: problem`, the source's location beside the identifier when it differs — and which carries each part as an accessor, the chain as `importChain()`. A rejection thrown by a definition call the loader makes on behalf of an entry is reported at that entry's line; one refusing an id as already taken also names where the load first declared it, anywhere in the import graph. A failure raised later, by the host's `build()` or `replaceDefinition(...)`, carries the build's own message: the loader returns a definition and never builds one.
 
 #### 2.6.5 Caching
 
-The framework parses each loaded resource exactly once per `StateMachine` build. It does **not** cache parsed definitions across builds; a swap (§2.7) re-loads through the source on every call. Sources are free to cache bytes themselves; the framework treats every `open(...)` as a fresh request.
+The loader parses each resource exactly once per load. It does **not** cache parsed definitions across loads; a swap (§2.7) re-loads through the source on every call. Sources are free to cache bytes themselves; the framework treats every `open(...)` as a fresh request.
 
 ### 2.7 State Machine Handle
 
@@ -787,7 +787,7 @@ stateMachine:
         - end-of-trial-cron
 ```
 
-A library may import libraries. Each resource is read once per load, keyed by its identifier, so two import paths arriving at the same library are legal and declare its components once. A missing import, a circular import, and an imported document that carries `stateMachine:` are errors naming the import chain (§2.6.4).
+A library may import libraries. Imports are read depth first, each before the document importing it. Each resource is read once per load, keyed by the identifier the `imports:` entry wrote, so two import paths arriving at the same library are legal and declare its components once; two identifiers a source resolves to one document are two documents to the loader, since identifiers are opaque. A missing import, one the source refuses, a circular import, and an imported document that carries `stateMachine:` are errors at the line that wrote them, naming the import chain (§2.6.4).
 
 #### 3.1.5 Classes Named by a Document
 
@@ -1502,8 +1502,8 @@ stateMachine:
   config:
     # Where forked members and async listeners run, and what happens when the queue is full
     async:
-      threadPoolSize: 16       # omit for the current default: 2 x processors, at least 4
-      queueCapacity: 160       # omit for the current default: 10 x threadPoolSize
+      threadPoolSize: 16       # both sizes or neither; neither is the current default:
+      queueCapacity: 160       # 2 x processors threads (at least 4), 10 slots per thread
       onRejection: DROP        # OR: FAIL, BLOCK, CALLER_RUNS
 
     # The shipped logging listeners, attached globally
@@ -1513,7 +1513,7 @@ stateMachine:
       includeTimings: true     # durations on transition and action outcome lines
 ```
 
-> **The `async` block configures this state machine's executor**, mapping to `withAsyncPool(...)` and `withAsyncRejectionPolicy(...)` on the Java `StateMachineDef` (§4.10.1); a block that sizes nothing is `withAsyncPool()`. The default sizing scales with the processors available to the JVM, because forked work mostly waits on I/O and a fixed number is wrong for both a two-vCPU container and a large host. The formula in the comments above is the current choice, not a contract: a pool logs the sizes it was built with, and a host that depends on specific numbers states them. It is per state machine rather than process-wide because the pool's lifecycle is the state machine's: `StateMachine.close()` shuts down a pool the framework built. A host that would rather share one executor across several machines supplies it in Java through `withAsyncExecutor(...)`; there is no YAML spelling for that, since a YAML document cannot name a live object. A definition that forks nothing and declares no async listener builds no pool, whatever this block says — with one exception, which is that declaring the block *is* such a statement. A fork written inside a Java body (§4.5.2.1) is invisible to every definition-time walk, so asking for a pool is how a definition whose only forks are imperative says that it forks at all.
+> **The `async` block configures this state machine's executor**, mapping to `withAsyncPool(...)` and `withAsyncRejectionPolicy(...)` on the Java `StateMachineDef` (§4.10.1); a block that sizes nothing — `async: {}` — is `withAsyncPool()`. The two sizes are given together or not at all, as the Java forms take them, and `async:` or `logging:` written with no value is refused rather than read as absent, since the block's presence is what it says. The default sizing scales with the processors available to the JVM, because forked work mostly waits on I/O and a fixed number is wrong for both a two-vCPU container and a large host. The formula in the comments above is the current choice, not a contract: a pool logs the sizes it was built with, and a host that depends on specific numbers states them. It is per state machine rather than process-wide because the pool's lifecycle is the state machine's: `StateMachine.close()` shuts down a pool the framework built. A host that would rather share one executor across several machines supplies it in Java through `withAsyncExecutor(...)`; there is no YAML spelling for that, since a YAML document cannot name a live object. A definition that forks nothing and declares no async listener builds no pool, whatever this block says — with one exception, which is that declaring the block *is* such a statement. A fork written inside a Java body (§4.5.2.1) is invisible to every definition-time walk, so asking for a pool is how a definition whose only forks are imperative says that it forks at all.
 
 > **The `logging` block attaches the shipped logging listeners; it is not framework logging.** It maps to `withExecutionLogging(...)` in Java, which attaches a state, a transition and an action listener to every owner, writing to the `org.transflux.trace.*` subtree at the level given. The framework's own diagnostics never log a payload and are configured through the logging backend alone (§4.7); this block is the host asking for a trace of its own execution, so `includeContext: true` is the host's call to put its own context in its own logs. It stays off by default, and the expected pattern for a flow that wants payloads in only a few places is to leave the global trace context-free and attach a context-logging listener to those owners. Java adds an entity label — `withEntityLabel(Order::getId)` — which YAML has no spelling for, since a document cannot supply a function.
 
