@@ -423,7 +423,7 @@ The identifier names what was asked for; the location names where it was found �
 
 Identifiers passed to `open(...)` are **opaque, source-defined strings**. The framework imposes no path semantics — no relative-path resolution, no implicit `.yml` suffix, no slash interpretation. An `imports:` entry (§3.1.4), and the root identifier a host passes to the loader, is handed verbatim to the configured source.
 
-Hosts can therefore choose URI-like schemes (`db://workflows/subscription`, `git://main/operations/payment.yml`), bare ids (`subscription`, `payment-flow`), or filesystem-style paths (`components/shared-components.yml`) — whichever fits the source.
+Hosts can therefore choose URI-like schemes (`db://workflows/subscription`, `git://main/operations/payment.transflux.yml`), bare ids (`subscription`, `payment-flow`), or filesystem-style paths (`components/shared-components.transflux.yml`) — whichever fits the source.
 
 #### 2.6.3 Ships-With Implementations
 
@@ -446,10 +446,10 @@ The first resource found wins, and reports the whole identifier with the answeri
 
 #### 2.6.4 Error Reporting
 
-Every validation error raised against a definition loaded through a `DefinitionSource` names the resource it is in and the import chain that reached it. A condition descriptor failing inside `db://workflows/subscription`, imported by `git://main/shared.yml`, which the root `git://main/root.yml` imports, surfaces as:
+Every validation error raised against a definition loaded through a `DefinitionSource` names the resource it is in and the import chain that reached it. A condition descriptor failing inside `db://workflows/subscription`, imported by `git://main/shared.transflux.yml`, which the root `git://main/root.transflux.yml` imports, surfaces as:
 
 ```
-git://main/root.yml -> git://main/shared.yml -> db://workflows/subscription:12:9: condition 'foo': ...
+git://main/root.transflux.yml -> git://main/shared.transflux.yml -> db://workflows/subscription:12:9: condition 'foo': ...
 ```
 
 An error the loader raises is a `DefinitionLoadException`, a `TransfluxValidationException` whose message leads with where the problem is written — the importers, root first, then `identifier:line:column: declaration path: problem`, the source's location beside the identifier when it differs — and which carries each part as an accessor, the chain as `importChain()`. A rejection thrown by a definition call the loader makes on behalf of an entry is reported at that entry's line; one refusing an id as already taken also names where the load first declared it, anywhere in the import graph. A failure raised later, by the host's `build()` or `replaceDefinition(...)`, carries the build's own message: the loader returns a definition and never builds one.
@@ -558,6 +558,8 @@ stateMachine: { ... }           # the root document only (§3.2)
 The document handed to the loader is the **root** and must carry `stateMachine:`; an imported document must not. Everything a state machine configures about itself — its global listeners (§3.7) and its `config:` (§3.8) included — sits inside `stateMachine:`, so a library has nothing to say about either. A library names no entity type: its classes are checked against the root's `entityType` when the root is loaded. Unknown keys are errors at every level, and name the keys allowed where they were found; a document is documented with YAML comments.
 
 A document is plain YAML: exactly one document per resource, no anchors or aliases, no merge keys (`<<`), no tags beyond the core schema's (`!!str`, `!!int` and the like), and no key written twice in one mapping. Each is refused at its line rather than interpreted. Reuse is what imports and registrations are for (§3.1.4); YAML-level templating is a Post-1.0 theme (§7.2).
+
+**Naming, and the schema editors read.** A document is named `*.transflux.yml` by convention. The loader reads any identifier (§2.6.2); the suffix is what lets an editor find the schema by file name. The format's JSON Schema — JSON Schema 2020-12 — is published at `https://vdenisov.github.io/transflux/schema/transflux-v1.schema.json` and ships in the `transflux-yaml` jar as `org/transflux/yaml/transflux-v1.schema.json`. An editor maps the `*.transflux.yml` pattern to it, or a document names it on its first line: `# yaml-language-server: $schema=https://vdenisov.github.io/transflux/schema/transflux-v1.schema.json`. The schema is for editing; the loader is the validator. The schema admits everything the loader accepts, with one exception: a bare `true` or `false` where text is expected, and a quoted boolean or number, are flagged although the loader reads them — no author writes one on purpose, and admitting them would put `true` / `false` into every id's autocomplete. It cannot see what only loading shows: a class that does not load or does not fit its position (§3.1.5), an expression that does not parse, an import that is missing or circular, an id declared twice, and the YAML features refused above.
 
 A library:
 
@@ -765,7 +767,7 @@ stateMachine:
 
 #### 3.1.4 Library Imports
 
-Each entry is an **opaque identifier** handed verbatim to the configured `DefinitionSource` (§2.6). The framework does not interpret it as a filesystem path, classpath resource, or URI — that's the source's job. A filesystem-style example reads naturally and is the most common default (`ClasspathDefinitionSource` interprets such strings as classpath resources, `FileSystemDefinitionSource` interprets them as paths under a configured root), but any string the configured source understands is valid: `cp:components/shared.yml`, `db://workflows/subscription/imports/payment`, `git://main/operations.yml`, and so on.
+Each entry is an **opaque identifier** handed verbatim to the configured `DefinitionSource` (§2.6). The framework does not interpret it as a filesystem path, classpath resource, or URI — that's the source's job. A filesystem-style example reads naturally and is the most common default (`ClasspathDefinitionSource` interprets such strings as classpath resources, `FileSystemDefinitionSource` interprets them as paths under a configured root), but any string the configured source understands is valid: `cp:components/shared.transflux.yml`, `db://workflows/subscription/imports/payment`, `git://main/operations.transflux.yml`, and so on.
 
 <!-- corpus: imports -->
 ```yaml

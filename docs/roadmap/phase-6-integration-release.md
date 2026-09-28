@@ -77,6 +77,7 @@ Phase 1.1 captured the dependency versions present in the repo when bootstrappin
 - [ ] Example application: the contracting sample, plain-Java and Spring Boot modules — tracked in [contracting-sample.md](contracting-sample.md), which runs interleaved with this phase.
 
 ### 6.8 Release Engineering
+- [ ] Register the YAML schema with SchemaStore as a self-hosted catalog entry: `fileMatch` `*.transflux.yml`, `url` the Pages address the schema's `$id` names. Hosting it in SchemaStore's repository instead would mean draft-07 and open objects, which the loader contradicts.
 - [ ] Semantic versioning policy document.
 - [ ] Backward-compatibility policy.
 - [ ] Release notes template.
