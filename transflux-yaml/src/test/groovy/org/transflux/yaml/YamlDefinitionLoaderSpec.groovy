@@ -26,11 +26,7 @@ import spock.lang.Specification
 
 class YamlDefinitionLoaderSpec extends Specification {
 
-    private static final String ENVELOPE = """\
-        apiVersion: transflux/v1
-        stateMachine:
-          entityType: ${Order.name}
-        """.stripIndent()
+    private static final String ENVELOPE = LoaderFixtures.resource('loader/envelope.transflux.yml')
 
     def 'an envelope loads into a definition for the entity type, which the host completes and builds'() {
         given:
@@ -57,7 +53,7 @@ class YamlDefinitionLoaderSpec extends Specification {
     def 'reads through a real source'() {
         expect:
         YamlDefinitionLoader.builder(new ClasspathDefinitionSource()).build()
-            .load('definitions/envelope.yml', Order) != null
+            .load('corpus/valid/loader/envelope.transflux.yml', Order) != null
     }
 
     def 'refuses #what'() {

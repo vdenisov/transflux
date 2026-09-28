@@ -73,6 +73,26 @@ class LoaderFixtures {
     }
 
     /**
+     * @param id a document's path under the valid corpus
+     *
+     * @return its text
+     */
+    static String resource(String id) {
+        URL url = LoaderFixtures.getResource("/corpus/valid/${id}")
+        assert url != null: "corpus/valid/${id} is not on the test classpath"
+        return url.getText('UTF-8')
+    }
+
+    /**
+     * @param id a root document's path under the valid corpus
+     *
+     * @return the definition it loads to
+     */
+    static StateMachineDef<Order> loadResource(String id) {
+        return loadDocument(resource(id))
+    }
+
+    /**
      * Completes a loaded definition with states {@code a} and {@code b} and a transition {@code t}
      * between them.
      *

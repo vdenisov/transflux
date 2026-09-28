@@ -1,3 +1,4 @@
+# The least a root document declares.
 apiVersion: transflux/v1
 stateMachine:
   entityType: org.transflux.yaml.YamlDefinitionLoaderSpec$Order

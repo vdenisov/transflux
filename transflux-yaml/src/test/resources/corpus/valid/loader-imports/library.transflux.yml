@@ -1,0 +1,11 @@
+# The library the import specs read through every graph they build.
+apiVersion: transflux/v1
+steps:
+  - id: record
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+conditions:
+  - id: always
+    expression: 'true'
+triggers:
+  - id: go
+    type: manual

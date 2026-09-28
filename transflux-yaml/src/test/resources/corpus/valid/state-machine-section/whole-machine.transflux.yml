@@ -1,0 +1,31 @@
+# A whole state machine: metadata, accessors, states, transitions, listeners.
+apiVersion: transflux/v1
+
+stateMachine:
+  id: orders
+  name: Order Lifecycle
+  description: What an order does
+  version: 1.0.0
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  stateResolver:
+    expression: 'state'
+  stateApplier:
+    expression: 'state'
+  states:
+    - id: a
+      name: Start
+      description: Where an order starts
+      listeners:
+        onExit:
+          - id: state-name
+            class: org.transflux.yaml.LoaderFixtures$StateNameAudit
+    - id: b
+  transitions:
+    - id: t
+      name: Start to end
+      from: a
+      to: b
+      listeners:
+        onComplete:
+          - id: transition-name
+            class: org.transflux.yaml.LoaderFixtures$TransitionNameAudit

@@ -28,18 +28,7 @@ import static org.transflux.yaml.LoaderFixtures.*
 
 class YamlDefinitionLoaderImportSpec extends Specification {
 
-    private static final String LIBRARY = """\
-        apiVersion: transflux/v1
-        steps:
-          - id: record
-            class: ${RecordingStep.name}
-        conditions:
-          - id: always
-            expression: 'true'
-        triggers:
-          - id: go
-            type: manual
-        """
+    private static final String LIBRARY = resource('loader-imports/library.transflux.yml')
 
     private final Map<String, Integer> opens = [:].withDefault { 0 }
 
@@ -212,8 +201,8 @@ class YamlDefinitionLoaderImportSpec extends Specification {
         opens['./lib.yml'] == 1
         opens['lib.yml'] == 1
         def e = thrown(DefinitionLoadException)
-        e.message == "root.yml -> lib.yml:3:9: step 'record': Action ID 'record' is already registered;" +
-            ' first declared at lib.yml:3:9'
+        e.message == "root.yml -> lib.yml:4:9: step 'record': Action ID 'record' is already registered;" +
+            ' first declared at lib.yml:4:9'
     }
 
     def 'an id registered twice names both declarations, whichever documents they sit in'() {

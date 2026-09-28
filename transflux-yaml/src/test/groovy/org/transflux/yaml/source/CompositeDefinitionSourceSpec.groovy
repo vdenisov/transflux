@@ -45,7 +45,7 @@ class CompositeDefinitionSourceSpec extends Specification {
             fake('db', ['db:'], ['definition.yaml', 'only-in-db.yaml']))
 
         expect:
-        read(source, 'definitions/sample.yml') == 'apiVersion: transflux/v1\n'
+        read(source, 'definitions/sample.transflux.yml') == 'apiVersion: transflux/v1\n'
         read(source, 'definition.yaml') == 'from config'
         read(source, 'personal.yaml') == 'from home'
         read(source, 'only-in-db.yaml') == 'db:only-in-db.yaml'

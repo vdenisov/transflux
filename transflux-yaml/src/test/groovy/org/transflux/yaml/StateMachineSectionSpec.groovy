@@ -38,38 +38,7 @@ class StateMachineSectionSpec extends Specification {
 
     def 'a whole state machine loads, builds and runs'() {
         given:
-        def sm = loadDocument("""\
-            apiVersion: transflux/v1
-
-            stateMachine:
-              id: orders
-              name: Order Lifecycle
-              description: What an order does
-              version: 1.0.0
-              entityType: ${Order.name}
-              stateResolver:
-                expression: 'state'
-              stateApplier:
-                expression: 'state'
-              states:
-                - id: a
-                  name: Start
-                  description: Where an order starts
-                  listeners:
-                    onExit:
-                      - id: state-name
-                        class: ${StateNameAudit.name}
-                - id: b
-              transitions:
-                - id: t
-                  name: Start to end
-                  from: a
-                  to: b
-                  listeners:
-                    onComplete:
-                      - id: transition-name
-                        class: ${TransitionNameAudit.name}
-            """).build()
+        def sm = loadResource('state-machine-section/whole-machine.transflux.yml').build()
         def order = new Order()
 
         when:
@@ -204,33 +173,7 @@ class StateMachineSectionSpec extends Specification {
 
     def 'one registered manual trigger sits on two transitions leaving different states'() {
         given:
-        def sm = loadDocument("""\
-            apiVersion: transflux/v1
-
-            triggers:
-              - id: cancel
-                type: manual
-
-            stateMachine:
-              entityType: ${Order.name}
-              stateResolver:
-                expression: 'state'
-              stateApplier:
-                expression: 'state'
-              states:
-                - id: a
-                - id: b
-                - id: cancelled
-              transitions:
-                - id: a-to-cancelled
-                  from: a
-                  to: cancelled
-                  triggers: [cancel]
-                - id: b-to-cancelled
-                  from: b
-                  to: cancelled
-                  triggers: [cancel]
-            """).build()
+        def sm = loadResource('state-machine-section/shared-manual-trigger.transflux.yml').build()
 
         expect:
         sm.getTrigger('cancel').transitionIds == ['a-to-cancelled', 'b-to-cancelled']

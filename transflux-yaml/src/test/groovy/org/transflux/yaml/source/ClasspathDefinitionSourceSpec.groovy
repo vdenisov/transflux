@@ -25,13 +25,13 @@ class ClasspathDefinitionSourceSpec extends Specification {
 
     def 'opens a classpath resource by its name'() {
         when:
-        def resource = new ClasspathDefinitionSource().open('definitions/sample.yml')
+        def resource = new ClasspathDefinitionSource().open('definitions/sample.transflux.yml')
 
         then:
         resource.present
-        resource.get().identifier() == 'definitions/sample.yml'
+        resource.get().identifier() == 'definitions/sample.transflux.yml'
         resource.get().withCloseable { it.bytes().text } == 'apiVersion: transflux/v1\n'
-        resource.get().location().endsWith('definitions/sample.yml')
+        resource.get().location().endsWith('definitions/sample.transflux.yml')
         resource.get().lastModified() == null
     }
 
@@ -43,12 +43,12 @@ class ClasspathDefinitionSourceSpec extends Specification {
         source.prefixes() == ['cp:'] as Set
         source.withPrefixes('classpath:', 'cp:').prefixes() == ['classpath:', 'cp:'] as Set
         source.withPrefixes().prefixes().empty
-        source.withPrefixes('lib:').open('definitions/sample.yml').present
+        source.withPrefixes('lib:').open('definitions/sample.transflux.yml').present
     }
 
     def 'a missing resource is empty'() {
         expect:
-        new ClasspathDefinitionSource().open('definitions/missing.yml').empty
+        new ClasspathDefinitionSource().open('definitions/missing.transflux.yml').empty
     }
 
     def 'reads through the class loader it was given'() {
@@ -56,22 +56,22 @@ class ClasspathDefinitionSourceSpec extends Specification {
         def loader = new URLClassLoader(new URL[0], (ClassLoader) null)
 
         expect:
-        new ClasspathDefinitionSource(loader).open('definitions/sample.yml').empty
+        new ClasspathDefinitionSource(loader).open('definitions/sample.transflux.yml').empty
     }
 
     def 'a resource that exists but cannot be opened is a failure, not a miss'() {
         given: 'a loader naming a resource whose URL no longer opens'
         def loader = new ClassLoader(null) {
             @Override
-            URL getResource(String name) { new File('does-not-exist/sample.yml').toURI().toURL() }
+            URL getResource(String name) { new File('does-not-exist/sample.transflux.yml').toURI().toURL() }
         }
 
         when:
-        new ClasspathDefinitionSource(loader).open('definitions/sample.yml')
+        new ClasspathDefinitionSource(loader).open('definitions/sample.transflux.yml')
 
         then:
         def e = thrown(UncheckedIOException)
-        e.message.contains("'definitions/sample.yml'")
+        e.message.contains("'definitions/sample.transflux.yml'")
     }
 
     def 'rejects a blank identifier and a null class loader'() {
