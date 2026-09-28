@@ -1,0 +1,7 @@
+# error: 'logging' requires a value; write 'logging: {}'
+# schema: /stateMachine/config/logging
+apiVersion: transflux/v1
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  config:
+    logging:

@@ -1,0 +1,6 @@
+# error: a state listener takes no context
+apiVersion: transflux/v1
+listeners:
+  - id: l
+    class: org.transflux.yaml.LoaderFixtures$StateAudit
+    context: org.transflux.yaml.LoaderFixtures$Ctx

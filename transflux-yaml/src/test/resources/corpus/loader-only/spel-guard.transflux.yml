@@ -1,0 +1,10 @@
+# error: invalid SpEL expression 'a +'
+apiVersion: transflux/v1
+steps:
+  - id: s
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+    errorHandling:
+      - exception: java.lang.RuntimeException
+        guard:
+          expression: 'a +'
+        compensation: org.transflux.yaml.LoaderFixtures$Undo

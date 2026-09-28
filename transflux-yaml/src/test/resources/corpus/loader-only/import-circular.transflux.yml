@@ -1,0 +1,4 @@
+# error: circular import
+apiVersion: transflux/v1
+imports:
+  - imports/cycle-a.transflux.yml

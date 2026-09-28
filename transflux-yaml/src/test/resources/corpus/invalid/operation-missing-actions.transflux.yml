@@ -1,0 +1,5 @@
+# error: 'actions' is required
+# schema: /operations/0/actions
+apiVersion: transflux/v1
+operations:
+  - id: o

@@ -1,0 +1,5 @@
+# error: 'type' is required
+# schema: /triggers/0/type
+apiVersion: transflux/v1
+triggers:
+  - id: g

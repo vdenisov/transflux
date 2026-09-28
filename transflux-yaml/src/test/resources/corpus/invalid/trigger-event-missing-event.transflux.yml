@@ -1,0 +1,6 @@
+# error: 'event' is required
+# schema: /triggers/0/event
+apiVersion: transflux/v1
+triggers:
+  - id: g
+    type: event

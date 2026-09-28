@@ -1,0 +1,12 @@
+# error: unknown key 'context'
+# schema: /steps/0/listeners/onStart/0/context
+# rule: inlineListener /steps/0/listeners/onStart/0
+apiVersion: transflux/v1
+steps:
+  - id: s
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+    listeners:
+      onStart:
+        - id: l
+          class: org.transflux.yaml.LoaderFixtures$ActionAudit
+          context: org.transflux.yaml.LoaderFixtures$Ctx

@@ -1,0 +1,13 @@
+# error: unknown key 'actions'
+# schema: /operations/0/actions/0/actions
+# rule: stepEntry /operations/0/actions/0
+apiVersion: transflux/v1
+steps:
+  - id: s
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+operations:
+  - id: o
+    actions:
+      - step: t
+        class: org.transflux.yaml.LoaderFixtures$RecordingStep
+        actions: []

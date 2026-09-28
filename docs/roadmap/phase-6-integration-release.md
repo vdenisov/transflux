@@ -37,7 +37,7 @@
 
 Phase 1.1 captured the dependency versions present in the repo when bootstrapping. Before 1.0, bump to the target 1.0 baseline:
 
-- [ ] **Jackson Core** 2.18.0 → **2.20.x** (staying on the 2.x line; Jackson 3 migration is queued as a Post-1.0 / 2.x theme).
+- [x] **Jackson** 2.18.0 → **2.22.x**, every module aligned through `jackson-bom` - done in §5.12, when the schema validator brought `jackson-databind` in and core dropped the `jackson-core` it never used (staying on the 2.x line; Jackson 3 migration is queued as a Post-1.0 / 2.x theme).
 - [ ] **Spock** 2.3-groovy-4.0 → **2.4-groovy-4.0**.
 - [ ] **Groovy** 4.0.28 → latest 4.0.x.
 - [ ] **SLF4J** 2.0.17 → latest 2.0.x.

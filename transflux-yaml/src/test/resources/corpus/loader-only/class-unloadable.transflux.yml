@@ -1,0 +1,5 @@
+# error: class com.example.Missing cannot be loaded
+apiVersion: transflux/v1
+steps:
+  - id: s
+    class: com.example.Missing

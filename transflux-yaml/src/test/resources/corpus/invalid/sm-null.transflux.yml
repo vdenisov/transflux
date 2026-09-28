@@ -1,0 +1,4 @@
+# error: 'stateMachine' requires a value
+# schema: /stateMachine
+apiVersion: transflux/v1
+stateMachine:

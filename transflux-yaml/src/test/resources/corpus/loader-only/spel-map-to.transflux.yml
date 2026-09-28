@@ -1,0 +1,7 @@
+# error: invalid SpEL expression 'new ('
+apiVersion: transflux/v1
+mappers:
+  - id: m
+    parentType: org.transflux.yaml.LoaderFixtures$Ctx
+    childType: org.transflux.yaml.LoaderFixtures$ChildCtx
+    mapTo: 'new ('

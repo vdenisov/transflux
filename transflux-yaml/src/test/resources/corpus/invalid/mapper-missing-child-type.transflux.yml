@@ -1,0 +1,7 @@
+# error: 'childType' is required
+# schema: /mappers/0/childType
+apiVersion: transflux/v1
+mappers:
+  - id: m
+    parentType: org.transflux.yaml.LoaderFixtures$Ctx
+    mapTo: "#this"

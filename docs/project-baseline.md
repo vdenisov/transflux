@@ -15,7 +15,7 @@
 
 ### Core Dependencies (1.0 Target Baseline)
 - **SLF4J 2.0.x** (latest) — logging.
-- **Jackson 2.20.x** — JSON / YAML data binding (staying on the 2.x line for 1.0; Jackson 3 migration is a 2.x post-1.0 item).
+- **Jackson 2.22.x** — not a runtime dependency: no module uses it, and it reaches the build only through the test-scope schema validator below (staying on the 2.x line for 1.0; Jackson 3 migration is a 2.x post-1.0 item).
 - **SnakeYAML 2.4** — YAML parsing (Phase 5).
 - **Spring Expression Language 6.2.x** — SpEL for conditions, applier paths, expression-based conditions. Pin the exact SpEL JAR patch version during the Phase 6.4 dependency refresh.
 
@@ -25,6 +25,7 @@
 ### Testing (1.0)
 - **Spock Framework 2.4-groovy-4.0** + **Groovy 4.0.x** — BDD-style specifications.
 - **Logback 1.5.x** (test scope).
+- **networknt json-schema-validator 2.0.x** (test scope, `transflux-yaml`) — checks the YAML format's JSON Schema against the loader; its 2.x line keeps the build on Jackson 2.
 
 ### Build & Quality
 - **Maven 3.9.x**.

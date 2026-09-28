@@ -1,0 +1,5 @@
+# error: 'entityType' is required
+# schema: /stateMachine/entityType
+apiVersion: transflux/v1
+stateMachine:
+  id: m

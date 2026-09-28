@@ -1,0 +1,333 @@
+# Every key the grammar has, in every shape that takes it, written at least once.
+apiVersion: transflux/v1
+
+imports:
+  - library.transflux.yml
+
+steps:
+  - id: record
+    name: Record
+    description: Records what ran
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+    compensation: org.transflux.yaml.LoaderFixtures$Undo
+    errorHandling:
+      - exception: java.lang.IllegalStateException
+        guard:
+          class: org.transflux.yaml.LoaderFixtures$BoomGuard
+        compensation: org.transflux.yaml.LoaderFixtures$RouteUndo
+      - exception: java.lang.RuntimeException
+        guard:
+          expression: "message != null"
+        compensation: org.transflux.yaml.LoaderFixtures$Undo
+    onRejection: CALLER_RUNS
+    listeners:
+      onStart:
+        - action-audit
+      onComplete:
+        - id: record-audit
+          name: Record audit
+          description: Audits record
+          class: org.transflux.yaml.LoaderFixtures$ActionAudit
+          async: true
+          onRejection: DROP
+      onError:
+        - record-audit
+    disableGlobalListeners: [every-action]
+
+  - id: ctx-step
+    class: org.transflux.yaml.LoaderFixtures$CtxStep
+    context: org.transflux.yaml.LoaderFixtures$Ctx
+    disableGlobalListeners: true
+
+  - id: child
+    class: org.transflux.yaml.LoaderFixtures$ChildStep
+    context: org.transflux.yaml.LoaderFixtures$ChildCtx
+
+operations:
+  - id: flow
+    name: Flow
+    description: Runs every member form
+    context: org.transflux.yaml.LoaderFixtures$Ctx
+    compensation: org.transflux.yaml.LoaderFixtures$CtxUndo
+    errorHandling:
+      - exception: java.lang.RuntimeException
+        compensation: org.transflux.yaml.LoaderFixtures$CtxUndo
+    onRejection: DROP
+    listeners:
+      onStart: [action-audit]
+    disableGlobalListeners: true
+    actions:
+      - run: ctx-step
+      - run: child
+        mapper: child-from-ctx
+      - run: child
+        fork: true
+        onRejection: BLOCK
+        mapper:
+          class: org.transflux.yaml.LoaderFixtures$ChildMapper
+      - run: record
+        mapper:
+          mapTo: "#this"
+          mapFrom:
+            note: "note"
+      - step: inline-step
+        class: org.transflux.yaml.LoaderFixtures$ChildStep
+        context: org.transflux.yaml.LoaderFixtures$ChildCtx
+        mapper: child-from-ctx
+        fork: true
+        onRejection: DROP
+      - operation: nested
+        actions:
+          - run: ctx-step
+      - choice: nested-choice
+        context: org.transflux.yaml.LoaderFixtures$Ctx
+        branches:
+          - id: when-ready
+            condition: ready
+            actions:
+              - run: ctx-step
+        onNoMatch: WARN
+      - step: audited-step
+        name: Audited step
+        description: Carries every action key
+        class: org.transflux.yaml.LoaderFixtures$CtxStep
+        compensation: org.transflux.yaml.LoaderFixtures$CtxUndo
+        errorHandling:
+          - exception: java.lang.RuntimeException
+            guard:
+              expression: "message != null"
+            compensation: org.transflux.yaml.LoaderFixtures$CtxUndo
+        onRejection: DROP
+        listeners:
+          onStart: [action-audit]
+          onComplete: [action-audit]
+          onError: [action-audit]
+        disableGlobalListeners: [every-action]
+      - operation: mapped-group
+        context: org.transflux.yaml.LoaderFixtures$ChildCtx
+        mapper:
+          class: org.transflux.yaml.LoaderFixtures$ChildMapper
+        fork: true
+        actions:
+          - run: child
+      - operation: audited-group
+        name: Audited group
+        description: Carries every action key
+        compensation: org.transflux.yaml.LoaderFixtures$CtxUndo
+        errorHandling:
+          - exception: java.lang.RuntimeException
+            compensation: org.transflux.yaml.LoaderFixtures$CtxUndo
+        onRejection: BLOCK
+        listeners:
+          onStart: [action-audit]
+        disableGlobalListeners: true
+        actions:
+          - run: ctx-step
+      - choice: mapped-choice
+        context: org.transflux.yaml.LoaderFixtures$ChildCtx
+        mapper: child-from-ctx
+        fork: true
+        branches:
+          - id: mapped-branch
+            condition: ready
+            actions:
+              - run: child
+        default:
+          actions:
+            - run: child
+      - choice: audited-choice
+        name: Audited choice
+        description: Carries every action key
+        compensation: org.transflux.yaml.LoaderFixtures$CtxUndo
+        errorHandling:
+          - exception: java.lang.RuntimeException
+            compensation: org.transflux.yaml.LoaderFixtures$CtxUndo
+        onRejection: CALLER_RUNS
+        listeners:
+          onError: [action-audit]
+        disableGlobalListeners: [every-action]
+        branches:
+          - id: audited-branch
+            condition:
+              id: inline-expression-with-id
+              expression: "priority > 2"
+            actions:
+              - run: ctx-step
+
+choices:
+  - id: route
+    branches:
+      - id: high
+        condition:
+          id: high-priority
+          predicate: org.transflux.yaml.LoaderFixtures$PriorityPredicate
+        actions:
+          - run: record
+      - id: classy
+        condition:
+          id: inline-class
+          class: org.transflux.yaml.LoaderFixtures$PriorityCondition
+        actions:
+          - run: record
+    default:
+      actions:
+        - run: record
+    onNoMatch: SILENT
+
+  - id: ctx-route
+    name: Context route
+    description: Carries context and every action key
+    context: org.transflux.yaml.LoaderFixtures$Ctx
+    compensation: org.transflux.yaml.LoaderFixtures$CtxUndo
+    errorHandling:
+      - exception: java.lang.RuntimeException
+        compensation: org.transflux.yaml.LoaderFixtures$CtxUndo
+    onRejection: BLOCK
+    listeners:
+      onComplete: [action-audit]
+    disableGlobalListeners: [every-action]
+    branches:
+      - id: ctx-branch
+        condition: ctx-bi
+        actions:
+          - run: ctx-step
+
+conditions:
+  - id: priority
+    class: org.transflux.yaml.LoaderFixtures$PriorityCondition
+  - id: ctx-bi
+    context: org.transflux.yaml.LoaderFixtures$Ctx
+    predicate: org.transflux.yaml.LoaderFixtures$CtxBi
+  - id: ready
+    expression: "priority > 5"
+
+mappers:
+  - id: child-from-ctx
+    name: Child from context
+    description: Maps Ctx to ChildCtx
+    parentType: org.transflux.yaml.LoaderFixtures$Ctx
+    childType: org.transflux.yaml.LoaderFixtures$ChildCtx
+    class: org.transflux.yaml.LoaderFixtures$ChildMapper
+  - id: child-from-ctx-expression
+    parentType: org.transflux.yaml.LoaderFixtures$Ctx
+    childType: org.transflux.yaml.LoaderFixtures$ChildCtx
+    mapTo: "#this"
+    mapFrom:
+      chargeId: "chargeId"
+
+triggers:
+  - id: manual-go
+    type: manual
+    name: Go
+    description: Goes
+    preConditions:
+      - priority
+      - expression: "priority > 0"
+  - id: confirmed
+    type: event
+    event: CONFIRMED
+    filter:
+      class: org.transflux.yaml.LoaderFixtures$ConfirmedEvent
+  - id: ready-data
+    type: data
+    context: org.transflux.yaml.LoaderFixtures$Ctx
+    condition: ctx-bi
+
+listeners:
+  - id: action-audit
+    class: org.transflux.yaml.LoaderFixtures$ActionAudit
+  - id: every-action
+    name: Every action
+    description: Audits every action
+    class: org.transflux.yaml.LoaderFixtures$EveryAudit
+    type: action
+    async: true
+    onRejection: CALLER_RUNS
+  - id: state-audit
+    class: org.transflux.yaml.LoaderFixtures$StateAudit
+  - id: ctx-transition-audit
+    class: org.transflux.yaml.LoaderFixtures$CtxTransitionAudit
+    context: org.transflux.yaml.LoaderFixtures$Ctx
+
+stateMachine:
+  id: orders
+  name: Orders
+  description: Every key, once
+  version: 1.0.0
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  stateResolver:
+    class: org.transflux.yaml.LoaderFixtures$OrderResolver
+  stateApplier:
+    expression: state
+  listeners:
+    onAnyStateEntry: [state-audit]
+    onAnyStateExit: [state-audit]
+    onAnyTransitionStart:
+      - id: global-transition-audit
+        class: org.transflux.yaml.LoaderFixtures$TransitionAudit
+    onAnyTransitionComplete: [global-transition-audit]
+    onAnyTransitionError: [global-transition-audit]
+    onAnyActionStart: [every-action]
+    onAnyActionComplete: [every-action]
+    onAnyActionError: [every-action]
+  config:
+    async:
+      threadPoolSize: 2
+      queueCapacity: 4
+      onRejection: DROP
+    logging:
+      level: INFO
+      includeContext: false
+      includeTimings: true
+  states:
+    - id: a
+      name: A
+      description: Start
+      listeners:
+        onEntry: [state-audit]
+        onExit:
+          - id: a-exit
+            class: org.transflux.yaml.LoaderFixtures$StateNameAudit
+      disableGlobalListeners: [state-audit]
+    - id: b
+  transitions:
+    - id: t
+      from: a
+      to: b
+      name: T
+      description: From a to b
+      context: org.transflux.yaml.LoaderFixtures$Ctx
+      actions:
+        - run: flow
+      preConditions:
+        - ctx-bi
+        - expression: "priority >= 0"
+      postConditions:
+        - id: post
+          predicate: org.transflux.yaml.LoaderFixtures$CtxBi
+      triggers:
+        - ready-data
+        - id: t-manual
+          type: manual
+          name: T manual
+          description: Declared in place
+          preConditions:
+            - ready
+            - id: t-manual-pre
+              predicate: org.transflux.yaml.LoaderFixtures$CtxBi
+        - id: t-event
+          type: event
+          event: GO
+          filter:
+            expression: "#event != null"
+        - id: t-data
+          type: data
+          condition:
+            expression: "priority > 1"
+      listeners:
+        onStart: [ctx-transition-audit]
+        onComplete:
+          - id: t-audit
+            class: org.transflux.yaml.LoaderFixtures$CtxTransitionAudit
+        onError: [t-audit]
+      disableGlobalListeners: true

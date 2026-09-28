@@ -1,0 +1,8 @@
+# error: 'threadPoolSize' and 'queueCapacity' are given together or not at all
+# schema: /stateMachine/config/async/queueCapacity
+apiVersion: transflux/v1
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  config:
+    async:
+      threadPoolSize: 4

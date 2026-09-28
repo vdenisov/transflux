@@ -1,0 +1,9 @@
+# error: unknown key 'onStart'
+# schema: /stateMachine/states/0/listeners/onStart
+apiVersion: transflux/v1
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  states:
+    - id: a
+      listeners:
+        onStart: []

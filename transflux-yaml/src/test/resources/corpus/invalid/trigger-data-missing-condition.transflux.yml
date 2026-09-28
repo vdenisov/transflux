@@ -1,0 +1,6 @@
+# error: 'condition' is required
+# schema: /triggers/0/condition
+apiVersion: transflux/v1
+triggers:
+  - id: g
+    type: data

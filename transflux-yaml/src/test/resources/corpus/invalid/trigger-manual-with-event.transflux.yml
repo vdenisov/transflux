@@ -1,0 +1,7 @@
+# error: unknown key 'event'
+# schema: /triggers/0
+apiVersion: transflux/v1
+triggers:
+  - id: g
+    type: manual
+    event: GO

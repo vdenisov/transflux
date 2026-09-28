@@ -1,0 +1,6 @@
+# A library, loaded both on its own and as every-key.transflux.yml's import.
+apiVersion: transflux/v1
+
+steps:
+  - id: imported-step
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep

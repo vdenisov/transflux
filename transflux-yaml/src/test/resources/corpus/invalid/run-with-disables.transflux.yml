@@ -1,0 +1,12 @@
+# error: 'disableGlobalListeners' belongs on the declaration of action 's'
+# schema: /operations/0/actions/0/disableGlobalListeners
+# rule: runEntry /operations/0/actions/0
+apiVersion: transflux/v1
+steps:
+  - id: s
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+operations:
+  - id: o
+    actions:
+      - run: s
+        disableGlobalListeners: true

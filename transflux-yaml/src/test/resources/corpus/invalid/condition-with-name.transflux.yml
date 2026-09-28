@@ -1,0 +1,7 @@
+# error: unknown key 'name'
+# schema: /conditions/0/name
+apiVersion: transflux/v1
+conditions:
+  - id: c
+    name: C
+    expression: "priority > 0"

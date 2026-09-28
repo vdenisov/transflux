@@ -1,0 +1,6 @@
+# error: duplicate key 'id'
+apiVersion: transflux/v1
+steps:
+  - id: s
+    id: t
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep

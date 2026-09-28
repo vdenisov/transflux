@@ -53,5 +53,28 @@
             <groupId>org.springframework</groupId>
             <artifactId>spring-expression</artifactId>
         </dependency>
+
+        <!-- Checks the JSON Schema against the loader; editors are its only runtime consumer -->
+        <dependency>
+            <groupId>com.networknt</groupId>
+            <artifactId>json-schema-validator</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <!-- The schema is published from docs/ as well, so the jar takes the same file rather than a copy -->
+            <resource>
+                <directory>${project.basedir}/../docs/schema</directory>
+                <targetPath>org/transflux/yaml</targetPath>
+                <includes>
+                    <include>transflux-v1.schema.json</include>
+                </includes>
+            </resource>
+        </resources>
+    </build>
 </project>

@@ -1,0 +1,4 @@
+# error: 'steps' must be a list
+# schema: /steps
+apiVersion: transflux/v1
+steps: {}

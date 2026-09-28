@@ -1,0 +1,7 @@
+# error: names no listener
+# schema: /steps/0/disableGlobalListeners
+apiVersion: transflux/v1
+steps:
+  - id: s
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+    disableGlobalListeners: []

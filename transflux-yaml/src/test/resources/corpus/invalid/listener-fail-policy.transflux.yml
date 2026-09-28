@@ -1,0 +1,8 @@
+# error: Async rejection policy FAIL is not available
+# schema: /listeners/0/onRejection
+apiVersion: transflux/v1
+listeners:
+  - id: l
+    class: org.transflux.yaml.LoaderFixtures$ActionAudit
+    async: true
+    onRejection: FAIL

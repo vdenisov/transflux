@@ -1,0 +1,5 @@
+# error: is not a org.transflux.core.action.Action
+apiVersion: transflux/v1
+steps:
+  - id: s
+    class: java.lang.String

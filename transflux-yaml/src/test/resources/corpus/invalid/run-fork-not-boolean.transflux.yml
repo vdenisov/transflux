@@ -1,0 +1,12 @@
+# error: 'fork' must be true or false, not 'yes'
+# schema: /operations/0/actions/0/fork
+# rule: runEntry /operations/0/actions/0
+apiVersion: transflux/v1
+steps:
+  - id: s
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+operations:
+  - id: o
+    actions:
+      - run: s
+        fork: yes

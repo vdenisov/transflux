@@ -1,0 +1,5 @@
+# error: tag '!custom' is not supported
+apiVersion: transflux/v1
+steps:
+  - id: !custom s
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep

@@ -1,0 +1,7 @@
+# error: exactly one of 'class', 'predicate', 'expression' is allowed; found both 'class' and 'predicate'
+# schema: /conditions/0/predicate
+apiVersion: transflux/v1
+conditions:
+  - id: c
+    class: org.transflux.yaml.LoaderFixtures$PriorityCondition
+    predicate: org.transflux.yaml.LoaderFixtures$PriorityPredicate

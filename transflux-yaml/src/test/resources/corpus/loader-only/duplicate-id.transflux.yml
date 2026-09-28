@@ -1,0 +1,7 @@
+# error: Action ID 's' is already registered; first declared at
+apiVersion: transflux/v1
+steps:
+  - id: s
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+  - id: s
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep

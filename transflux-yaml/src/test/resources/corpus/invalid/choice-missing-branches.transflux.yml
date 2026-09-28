@@ -1,0 +1,5 @@
+# error: 'branches' is required
+# schema: /choices/0/branches
+apiVersion: transflux/v1
+choices:
+  - id: c

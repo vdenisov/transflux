@@ -1,0 +1,4 @@
+# error: only the root document declares a state machine; this one is imported
+apiVersion: transflux/v1
+imports:
+  - imports/with-state-machine.transflux.yml

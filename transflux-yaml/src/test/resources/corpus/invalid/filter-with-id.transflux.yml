@@ -1,0 +1,10 @@
+# error: unknown key 'id'
+# schema: /triggers/0/filter/id
+apiVersion: transflux/v1
+triggers:
+  - id: g
+    type: event
+    event: GO
+    filter:
+      id: f
+      expression: "#event != null"

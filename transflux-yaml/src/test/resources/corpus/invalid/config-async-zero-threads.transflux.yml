@@ -1,0 +1,9 @@
+# error: Async pool thread count must be positive
+# schema: /stateMachine/config/async/threadPoolSize
+apiVersion: transflux/v1
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  config:
+    async:
+      threadPoolSize: 0
+      queueCapacity: 4

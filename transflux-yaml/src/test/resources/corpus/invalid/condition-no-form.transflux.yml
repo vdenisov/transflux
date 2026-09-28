@@ -1,0 +1,5 @@
+# error: exactly one of 'class', 'predicate', 'expression' is required
+# schema: /conditions/0/expression
+apiVersion: transflux/v1
+conditions:
+  - id: c

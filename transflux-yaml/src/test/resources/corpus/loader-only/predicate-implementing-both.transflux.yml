@@ -1,0 +1,5 @@
+# error: implements both BiPredicate and Predicate
+apiVersion: transflux/v1
+conditions:
+  - id: c
+    predicate: org.transflux.yaml.LoaderFixtures$BothPredicates

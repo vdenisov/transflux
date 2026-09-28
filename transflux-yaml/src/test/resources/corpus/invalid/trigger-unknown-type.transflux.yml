@@ -1,0 +1,6 @@
+# error: 'type' must be one of manual, event, data, not 'cron'
+# schema: /triggers/0/type
+apiVersion: transflux/v1
+triggers:
+  - id: g
+    type: cron

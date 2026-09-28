@@ -1,0 +1,9 @@
+# error: unknown key 'fork'
+# schema: /mappers/0/fork
+apiVersion: transflux/v1
+mappers:
+  - id: m
+    parentType: org.transflux.yaml.LoaderFixtures$Ctx
+    childType: org.transflux.yaml.LoaderFixtures$ChildCtx
+    mapTo: "#this"
+    fork: true

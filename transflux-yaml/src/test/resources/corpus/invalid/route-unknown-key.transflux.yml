@@ -1,0 +1,10 @@
+# error: unknown key 'when'
+# schema: /steps/0/errorHandling/0/when
+apiVersion: transflux/v1
+steps:
+  - id: s
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+    errorHandling:
+      - exception: java.lang.RuntimeException
+        compensation: org.transflux.yaml.LoaderFixtures$Undo
+        when: always

@@ -1,0 +1,6 @@
+# error: anchors and aliases are not supported
+apiVersion: transflux/v1
+steps:
+  - &record
+    id: s
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep

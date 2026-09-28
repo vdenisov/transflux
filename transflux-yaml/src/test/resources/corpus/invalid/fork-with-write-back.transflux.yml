@@ -1,0 +1,16 @@
+# error: 'mapFrom' never runs at a forked call site
+# schema: /operations/0/actions/0/mapper
+# rule: runEntry /operations/0/actions/0
+apiVersion: transflux/v1
+steps:
+  - id: s
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+operations:
+  - id: o
+    actions:
+      - run: s
+        fork: true
+        mapper:
+          mapTo: "#this"
+          mapFrom:
+            note: "note"

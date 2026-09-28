@@ -1,0 +1,10 @@
+# error: unknown key 'compensation'
+# schema: /stateMachine/transitions/0/compensation
+apiVersion: transflux/v1
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  transitions:
+    - id: t
+      from: a
+      to: b
+      compensation: org.transflux.yaml.LoaderFixtures$Undo

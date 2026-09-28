@@ -1,0 +1,14 @@
+# error: unknown key 'parentType'
+# schema: /operations/0/actions/0/mapper/parentType
+# rule: mapperBlock /operations/0/actions/0/mapper
+apiVersion: transflux/v1
+steps:
+  - id: s
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+operations:
+  - id: o
+    actions:
+      - run: s
+        mapper:
+          mapTo: "#this"
+          parentType: org.transflux.yaml.LoaderFixtures$Ctx

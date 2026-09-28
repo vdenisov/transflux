@@ -1,0 +1,5 @@
+# error: 'class' is required
+# schema: /listeners/0/class
+apiVersion: transflux/v1
+listeners:
+  - id: l

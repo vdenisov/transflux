@@ -1,0 +1,8 @@
+# error: exactly one of 'class', 'expression' is allowed; found both 'class' and 'expression'
+# schema: /stateMachine/stateResolver/expression
+apiVersion: transflux/v1
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  stateResolver:
+    class: org.transflux.yaml.LoaderFixtures$OrderResolver
+    expression: state

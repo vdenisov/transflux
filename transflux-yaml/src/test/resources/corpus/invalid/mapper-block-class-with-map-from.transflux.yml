@@ -1,0 +1,15 @@
+# error: 'mapFrom' needs 'mapTo' beside it
+# schema: /operations/0/actions/0/mapper/mapFrom
+# rule: mapperBlock /operations/0/actions/0/mapper
+apiVersion: transflux/v1
+steps:
+  - id: s
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+operations:
+  - id: o
+    actions:
+      - run: s
+        mapper:
+          class: org.transflux.yaml.LoaderFixtures$ChildMapper
+          mapFrom:
+            note: "note"

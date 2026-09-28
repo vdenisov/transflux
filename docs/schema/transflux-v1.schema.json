@@ -1,0 +1,627 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vdenisov.github.io/transflux/schema/transflux-v1.schema.json",
+  "title": "Transflux definition document",
+  "description": "A Transflux YAML definition, apiVersion transflux/v1: a library, or a root declaring the state machine. For editors; the loader is the validator, and this schema admits what it accepts - a string or a number where it reads text, and null wherever a key is optional, which it reads as absent - except a bare true or false where text is expected, or a quoted boolean or number, which the loader would read but no author writes on purpose.",
+  "type": "object",
+  "properties": {
+    "apiVersion": {"description": "The document format version.", "const": "transflux/v1"},
+    "imports": {
+      "description": "Identifiers of the libraries this document imports, handed to the definition source as written.",
+      "type": ["array", "null"],
+      "items": {"type": ["string", "number"], "pattern": "\\S"}
+    },
+    "steps": {"description": "Imperative actions.", "type": ["array", "null"], "items": {"$ref": "#/$defs/stepRegistration"}},
+    "operations": {
+      "description": "Declarative actions.",
+      "type": ["array", "null"],
+      "items": {"$ref": "#/$defs/operationRegistration"}
+    },
+    "choices": {
+      "description": "First-matching-branch actions.",
+      "type": ["array", "null"],
+      "items": {"$ref": "#/$defs/choiceRegistration"}
+    },
+    "conditions": {
+      "description": "Registered conditions.",
+      "type": ["array", "null"],
+      "items": {"$ref": "#/$defs/conditionRegistration"}
+    },
+    "mappers": {
+      "description": "Registered context mappers.",
+      "type": ["array", "null"],
+      "items": {"$ref": "#/$defs/mapperRegistration"}
+    },
+    "triggers": {
+      "description": "Registered triggers.",
+      "type": ["array", "null"],
+      "items": {"$ref": "#/$defs/triggerRegistration"}
+    },
+    "listeners": {
+      "description": "Registered listeners, all three categories.",
+      "type": ["array", "null"],
+      "items": {"$ref": "#/$defs/listenerRegistration"}
+    },
+    "stateMachine": {"description": "The state machine; the root document only.", "$ref": "#/$defs/stateMachine"}
+  },
+  "required": ["apiVersion"],
+  "additionalProperties": false,
+  "$defs": {
+    "text": {"description": "A scalar the loader reads as text.", "type": ["string", "number"]},
+    "optionalText": {"type": ["string", "number", "null"]},
+    "className": {"description": "A fully qualified (binary) class name.", "type": "string"},
+    "optionalClassName": {"description": "A fully qualified (binary) class name.", "type": ["string", "null"]},
+    "flag": {"type": ["boolean", "null"]},
+    "positiveInt": {
+      "description": "A positive whole number; the loader reads it with Integer.valueOf.",
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "rejectionPolicy": {"enum": ["DROP", "FAIL", "BLOCK", "CALLER_RUNS", null]},
+    "disables": {
+      "description": "true for all of them, or a list of listener ids.",
+      "anyOf": [{"enum": [true, null]}, {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/text"}}]
+    },
+    "classOrExpression": {
+      "description": "A class, or a SpEL expression.",
+      "type": "object",
+      "properties": {
+        "class": {"$ref": "#/$defs/optionalClassName"},
+        "expression": {"description": "The SpEL expression.", "$ref": "#/$defs/optionalText"}
+      },
+      "oneOf": [
+        {"required": ["class"], "properties": {"class": {"not": {"type": "null"}}, "expression": {"type": "null"}}},
+        {"required": ["expression"], "properties": {"expression": {"not": {"type": "null"}}, "class": {"type": "null"}}}
+      ],
+      "additionalProperties": false
+    },
+
+    "actions": {"description": "Members, run in order.", "type": "array", "items": {"$ref": "#/$defs/actionEntry"}},
+    "actionKeys": {
+      "description": "The keys every action declaration accepts, whatever its form.",
+      "properties": {
+        "name": {"description": "A display name.", "$ref": "#/$defs/optionalText"},
+        "description": {"description": "A description.", "$ref": "#/$defs/optionalText"},
+        "onRejection": {
+          "description": "What a refused submission does when this action is reached through a fork.",
+          "$ref": "#/$defs/rejectionPolicy"
+        },
+        "compensation": {
+          "description": "The compensation class run when no errorHandling route answers.",
+          "$ref": "#/$defs/optionalClassName"
+        },
+        "errorHandling": {
+          "description": "Compensation routes, tried in order; the first match wins.",
+          "type": ["array", "null"],
+          "items": {"$ref": "#/$defs/route"}
+        },
+        "listeners": {"description": "Action listeners, by hook.", "anyOf": [{"$ref": "#/$defs/executionHooks"}, {"type": "null"}]},
+        "disableGlobalListeners": {
+          "description": "State-machine-wide action listeners to suppress for this action.",
+          "$ref": "#/$defs/disables"
+        }
+      }
+    },
+    "route": {
+      "description": "One compensation route.",
+      "type": "object",
+      "properties": {
+        "exception": {"description": "The failure type this route answers for.", "$ref": "#/$defs/className"},
+        "guard": {
+          "description": "Narrows the route: a Predicate class over the failure, or an expression with the failure as root.",
+          "anyOf": [{"$ref": "#/$defs/classOrExpression"}, {"type": "null"}]
+        },
+        "compensation": {"description": "The compensation class this route runs.", "$ref": "#/$defs/className"}
+      },
+      "required": ["exception", "compensation"],
+      "additionalProperties": false
+    },
+    "declarationKeys": {
+      "description": "The keys an action declared in an actions list adds: the context it runs against, and the fork flag.",
+      "properties": {
+        "context": {
+          "description": "The context this declaration runs against; the enclosing one when omitted.",
+          "$ref": "#/$defs/optionalClassName"
+        },
+        "mapper": {
+          "description": "Produces the declared context at this position; needs 'context'.",
+          "anyOf": [{"$ref": "#/$defs/callSiteMapper"}, {"type": "null"}]
+        },
+        "fork": {"description": "Submit this member and do not wait for it.", "$ref": "#/$defs/flag"}
+      },
+      "allOf": [
+        {
+          "if": {"required": ["mapper"], "properties": {"mapper": {"not": {"type": "null"}}}},
+          "then": {"required": ["context"], "properties": {"context": {"not": {"type": "null"}}}}
+        },
+        {"$ref": "#/$defs/forkNoWriteBack"}
+      ]
+    },
+    "forkNoWriteBack": {
+      "description": "A forked member never writes back, so a mapper declared beside the fork may not carry mapFrom.",
+      "if": {"required": ["fork"], "properties": {"fork": {"const": true}}},
+      "then": {
+        "properties": {
+          "mapper": {"not": {"type": "object", "required": ["mapFrom"], "properties": {"mapFrom": {"not": {"type": "null"}}}}}
+        }
+      }
+    },
+    "choiceBody": {
+      "description": "What a choice holds besides the keys every action has.",
+      "properties": {
+        "branches": {"description": "The branches, tried in order.", "type": "array", "items": {"$ref": "#/$defs/branch"}},
+        "default": {"description": "Runs when no branch matches.", "anyOf": [{"$ref": "#/$defs/defaultBranch"}, {"type": "null"}]},
+        "onNoMatch": {
+          "description": "What happens when nothing matches and there is no default.",
+          "enum": ["WARN", "SILENT", "ERROR", null]
+        }
+      },
+      "required": ["branches"]
+    },
+    "branch": {
+      "description": "A choice's branch.",
+      "type": "object",
+      "properties": {
+        "id": {"description": "The branch's id.", "$ref": "#/$defs/text"},
+        "condition": {"description": "Selects the branch.", "$ref": "#/$defs/conditionDescriptor"},
+        "actions": {"$ref": "#/$defs/actions"}
+      },
+      "required": ["id", "condition", "actions"],
+      "additionalProperties": false
+    },
+    "defaultBranch": {
+      "description": "A choice's default branch.",
+      "type": "object",
+      "properties": {"actions": {"$ref": "#/$defs/actions"}},
+      "required": ["actions"],
+      "additionalProperties": false
+    },
+
+    "stepRegistration": {
+      "description": "A step: an imperative action, a class implementing Action.",
+      "type": "object",
+      "properties": {
+        "id": {"description": "The step's id.", "$ref": "#/$defs/text"},
+        "class": {"description": "The Action class.", "$ref": "#/$defs/className"},
+        "context": {"description": "The context class this runs against.", "$ref": "#/$defs/optionalClassName"}
+      },
+      "required": ["id", "class"],
+      "$ref": "#/$defs/actionKeys",
+      "unevaluatedProperties": false
+    },
+    "operationRegistration": {
+      "description": "An operation: a declarative action running its members in order.",
+      "type": "object",
+      "properties": {
+        "id": {"description": "The operation's id.", "$ref": "#/$defs/text"},
+        "context": {"description": "The context class this runs against.", "$ref": "#/$defs/optionalClassName"},
+        "actions": {"$ref": "#/$defs/actions"}
+      },
+      "required": ["id", "actions"],
+      "$ref": "#/$defs/actionKeys",
+      "unevaluatedProperties": false
+    },
+    "choiceRegistration": {
+      "description": "A choice: runs its first matching branch.",
+      "type": "object",
+      "properties": {
+        "id": {"description": "The choice's id.", "$ref": "#/$defs/text"},
+        "context": {"description": "The context class this runs against.", "$ref": "#/$defs/optionalClassName"}
+      },
+      "required": ["id"],
+      "allOf": [{"$ref": "#/$defs/actionKeys"}, {"$ref": "#/$defs/choiceBody"}],
+      "unevaluatedProperties": false
+    },
+
+    "actionEntry": {
+      "description": "A member: run: references an action; step:, operation: or choice: declares one here.",
+      "oneOf": [
+        {"$ref": "#/$defs/runEntry"},
+        {"$ref": "#/$defs/stepEntry"},
+        {"$ref": "#/$defs/operationEntry"},
+        {"$ref": "#/$defs/choiceEntry"}
+      ]
+    },
+    "runEntry": {
+      "description": "References an action declared elsewhere.",
+      "type": "object",
+      "properties": {
+        "run": {"description": "The id of the action run here.", "$ref": "#/$defs/text"},
+        "fork": {"description": "Submit this member and do not wait for it.", "$ref": "#/$defs/flag"},
+        "mapper": {"description": "Maps the context at this call site.", "anyOf": [{"$ref": "#/$defs/callSiteMapper"}, {"type": "null"}]},
+        "onRejection": {
+          "description": "What a refused submission does at this position; needs fork: true.",
+          "$ref": "#/$defs/rejectionPolicy"
+        },
+        "step": {"type": "null"},
+        "operation": {"type": "null"},
+        "choice": {"type": "null"}
+      },
+      "required": ["run"],
+      "allOf": [
+        {
+          "if": {"not": {"required": ["fork"], "properties": {"fork": {"const": true}}}},
+          "then": {"properties": {"onRejection": {"type": "null"}}}
+        },
+        {"$ref": "#/$defs/forkNoWriteBack"}
+      ],
+      "additionalProperties": false
+    },
+    "stepEntry": {
+      "description": "Declares a step in place.",
+      "type": "object",
+      "properties": {
+        "step": {"description": "The id this step claims.", "$ref": "#/$defs/text"},
+        "class": {"description": "The Action class.", "$ref": "#/$defs/className"},
+        "run": {"type": "null"},
+        "operation": {"type": "null"},
+        "choice": {"type": "null"}
+      },
+      "required": ["step", "class"],
+      "allOf": [{"$ref": "#/$defs/actionKeys"}, {"$ref": "#/$defs/declarationKeys"}],
+      "unevaluatedProperties": false
+    },
+    "operationEntry": {
+      "description": "Declares an operation in place.",
+      "type": "object",
+      "properties": {
+        "operation": {"description": "The id this operation claims.", "$ref": "#/$defs/text"},
+        "actions": {"$ref": "#/$defs/actions"},
+        "run": {"type": "null"},
+        "step": {"type": "null"},
+        "choice": {"type": "null"}
+      },
+      "required": ["operation", "actions"],
+      "allOf": [{"$ref": "#/$defs/actionKeys"}, {"$ref": "#/$defs/declarationKeys"}],
+      "unevaluatedProperties": false
+    },
+    "choiceEntry": {
+      "description": "Declares a choice in place.",
+      "type": "object",
+      "properties": {
+        "choice": {"description": "The id this choice claims.", "$ref": "#/$defs/text"},
+        "run": {"type": "null"},
+        "step": {"type": "null"},
+        "operation": {"type": "null"}
+      },
+      "required": ["choice"],
+      "allOf": [{"$ref": "#/$defs/actionKeys"}, {"$ref": "#/$defs/declarationKeys"}, {"$ref": "#/$defs/choiceBody"}],
+      "unevaluatedProperties": false
+    },
+
+    "mapperForms": {
+      "description": "A ContextMapper class, or mapTo with an optional mapFrom.",
+      "properties": {
+        "class": {"description": "A ContextMapper class.", "$ref": "#/$defs/optionalClassName"},
+        "mapTo": {"description": "A SpEL expression over the parent context producing the child.", "$ref": "#/$defs/optionalText"},
+        "mapFrom": {
+          "description": "Write-back assignments: parent property path -> SpEL over the child context, #parent bound.",
+          "type": ["object", "null"],
+          "additionalProperties": {"$ref": "#/$defs/text"}
+        }
+      },
+      "oneOf": [
+        {
+          "required": ["class"],
+          "properties": {"class": {"not": {"type": "null"}}, "mapTo": {"type": "null"}, "mapFrom": {"type": "null"}}
+        },
+        {"required": ["mapTo"], "properties": {"mapTo": {"not": {"type": "null"}}, "class": {"type": "null"}}}
+      ]
+    },
+    "callSiteMapper": {
+      "description": "A registered mapper's id, or a mapper declared at this call site.",
+      "anyOf": [{"$ref": "#/$defs/text"}, {"$ref": "#/$defs/mapperBlock"}]
+    },
+    "mapperBlock": {
+      "description": "A mapper declared at a call site; the position fixes both context types.",
+      "type": "object",
+      "$ref": "#/$defs/mapperForms",
+      "unevaluatedProperties": false
+    },
+    "mapperRegistration": {
+      "description": "A mapper registered once and named by id at call sites.",
+      "type": "object",
+      "properties": {
+        "id": {"description": "The mapper's id.", "$ref": "#/$defs/text"},
+        "name": {"description": "A display name.", "$ref": "#/$defs/optionalText"},
+        "description": {"description": "A description.", "$ref": "#/$defs/optionalText"},
+        "parentType": {"description": "The context class mapped from.", "$ref": "#/$defs/className"},
+        "childType": {"description": "The context class mapped to.", "$ref": "#/$defs/className"}
+      },
+      "required": ["id", "parentType", "childType"],
+      "$ref": "#/$defs/mapperForms",
+      "unevaluatedProperties": false
+    },
+
+    "conditions": {"type": ["array", "null"], "items": {"$ref": "#/$defs/conditionDescriptor"}},
+    "conditionDescriptor": {
+      "description": "A registered condition's id, or a condition declared in place.",
+      "anyOf": [{"$ref": "#/$defs/text"}, {"$ref": "#/$defs/conditionBlock"}]
+    },
+    "conditionForms": {
+      "description": "Exactly one of class, predicate or expression.",
+      "properties": {
+        "class": {"description": "A Condition class.", "$ref": "#/$defs/optionalClassName"},
+        "predicate": {
+          "description": "A BiPredicate over (entity, context) or a Predicate over the entity.",
+          "$ref": "#/$defs/optionalClassName"
+        },
+        "expression": {"description": "A SpEL expression with the entity as root.", "$ref": "#/$defs/optionalText"}
+      },
+      "oneOf": [
+        {
+          "required": ["class"],
+          "properties": {"class": {"not": {"type": "null"}}, "predicate": {"type": "null"}, "expression": {"type": "null"}}
+        },
+        {
+          "required": ["predicate"],
+          "properties": {"predicate": {"not": {"type": "null"}}, "class": {"type": "null"}, "expression": {"type": "null"}}
+        },
+        {
+          "required": ["expression"],
+          "properties": {"expression": {"not": {"type": "null"}}, "class": {"type": "null"}, "predicate": {"type": "null"}}
+        }
+      ]
+    },
+    "conditionBlock": {
+      "description": "A condition declared in place.",
+      "type": "object",
+      "properties": {"id": {"description": "The condition's id; only an expression may omit it.", "$ref": "#/$defs/optionalText"}},
+      "$ref": "#/$defs/conditionForms",
+      "if": {"not": {"required": ["expression"], "properties": {"expression": {"not": {"type": "null"}}}}},
+      "then": {"required": ["id"], "properties": {"id": {"not": {"type": "null"}}}},
+      "unevaluatedProperties": false
+    },
+    "conditionRegistration": {
+      "description": "A registered condition; it carries an id and nothing else, no name or description.",
+      "type": "object",
+      "properties": {
+        "id": {"description": "The condition's id.", "$ref": "#/$defs/text"},
+        "context": {"description": "The context class the condition is evaluated with.", "$ref": "#/$defs/optionalClassName"}
+      },
+      "required": ["id"],
+      "$ref": "#/$defs/conditionForms",
+      "unevaluatedProperties": false
+    },
+
+    "triggerBody": {
+      "description": "A trigger of one kind, with that kind's keys only.",
+      "properties": {
+        "id": {"description": "The trigger's id.", "$ref": "#/$defs/text"},
+        "type": {"description": "The trigger kind.", "enum": ["manual", "event", "data"]},
+        "name": {"description": "A display name.", "$ref": "#/$defs/optionalText"},
+        "description": {"description": "A description.", "$ref": "#/$defs/optionalText"},
+        "preConditions": {"description": "Manual: conditions the trigger requires.", "$ref": "#/$defs/conditions"},
+        "event": {"description": "Event: the event id it fires on.", "$ref": "#/$defs/optionalText"},
+        "filter": {
+          "description": "Event: judges the event - a BiPredicate<Object, T> or Predicate<Object> class, or an expression with the event as #event.",
+          "anyOf": [{"$ref": "#/$defs/classOrExpression"}, {"type": "null"}]
+        },
+        "condition": {"description": "Data: the gate that fires it.", "anyOf": [{"$ref": "#/$defs/conditionDescriptor"}, {"type": "null"}]}
+      },
+      "required": ["id", "type"],
+      "allOf": [
+        {
+          "if": {"required": ["type"], "properties": {"type": {"const": "manual"}}},
+          "then": {"not": {"anyOf": [{"required": ["event"]}, {"required": ["filter"]}, {"required": ["condition"]}]}}
+        },
+        {
+          "if": {"required": ["type"], "properties": {"type": {"const": "event"}}},
+          "then": {
+            "required": ["event"],
+            "properties": {"event": {"not": {"type": "null"}}},
+            "not": {"anyOf": [{"required": ["preConditions"]}, {"required": ["condition"]}]}
+          }
+        },
+        {
+          "if": {"required": ["type"], "properties": {"type": {"const": "data"}}},
+          "then": {
+            "required": ["condition"],
+            "properties": {"condition": {"not": {"type": "null"}}},
+            "not": {"anyOf": [{"required": ["preConditions"]}, {"required": ["event"]}, {"required": ["filter"]}]}
+          }
+        }
+      ]
+    },
+    "triggerRegistration": {
+      "description": "A trigger registered once and attached to transitions by id.",
+      "type": "object",
+      "properties": {
+        "context": {"description": "The context class of the transitions it attaches to.", "$ref": "#/$defs/optionalClassName"}
+      },
+      "$ref": "#/$defs/triggerBody",
+      "unevaluatedProperties": false
+    },
+    "inlineTrigger": {
+      "description": "A trigger declared in place; it takes its transition's context.",
+      "type": "object",
+      "$ref": "#/$defs/triggerBody",
+      "unevaluatedProperties": false
+    },
+
+    "listenerBody": {
+      "description": "A listener: its class, and whether it is delivered asynchronously.",
+      "properties": {
+        "id": {"description": "The listener's id.", "$ref": "#/$defs/text"},
+        "class": {"description": "The listener class.", "$ref": "#/$defs/className"},
+        "name": {"description": "A display name.", "$ref": "#/$defs/optionalText"},
+        "description": {"description": "A description.", "$ref": "#/$defs/optionalText"},
+        "async": {"description": "Deliver on the state machine's executor rather than in line.", "$ref": "#/$defs/flag"},
+        "onRejection": {
+          "description": "What a refused async delivery does; needs async: true.",
+          "enum": ["DROP", "BLOCK", "CALLER_RUNS", null]
+        }
+      },
+      "required": ["id", "class"],
+      "if": {"not": {"required": ["async"], "properties": {"async": {"const": true}}}},
+      "then": {"properties": {"onRejection": {"type": "null"}}}
+    },
+    "listenerRegistration": {
+      "description": "A listener registered once and attached by id; its category is read off its class.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "description": "The category, when the class implements several listener interfaces.",
+          "enum": ["state", "transition", "action", null]
+        },
+        "context": {"description": "The context class; not for a state listener.", "$ref": "#/$defs/optionalClassName"}
+      },
+      "$ref": "#/$defs/listenerBody",
+      "if": {"required": ["type"], "properties": {"type": {"const": "state"}}},
+      "then": {"properties": {"context": {"type": "null"}}},
+      "unevaluatedProperties": false
+    },
+    "inlineListener": {
+      "description": "A listener declared in place; visible to this owner's other hooks, and its context is the owner's.",
+      "type": "object",
+      "$ref": "#/$defs/listenerBody",
+      "unevaluatedProperties": false
+    },
+    "listenerEntries": {
+      "description": "Each a registered listener's id, or a listener declared in place.",
+      "type": ["array", "null"],
+      "items": {"anyOf": [{"$ref": "#/$defs/text"}, {"$ref": "#/$defs/inlineListener"}]}
+    },
+    "executionHooks": {
+      "description": "A transition's or an action's listeners.",
+      "type": "object",
+      "properties": {
+        "onStart": {"$ref": "#/$defs/listenerEntries"},
+        "onComplete": {"$ref": "#/$defs/listenerEntries"},
+        "onError": {"$ref": "#/$defs/listenerEntries"}
+      },
+      "additionalProperties": false
+    },
+    "stateHooks": {
+      "description": "A state's listeners.",
+      "type": "object",
+      "properties": {"onEntry": {"$ref": "#/$defs/listenerEntries"}, "onExit": {"$ref": "#/$defs/listenerEntries"}},
+      "additionalProperties": false
+    },
+    "globalHooks": {
+      "description": "State-machine-wide listeners; they fire for every owner of their category, after its own.",
+      "type": "object",
+      "properties": {
+        "onAnyStateEntry": {"$ref": "#/$defs/listenerEntries"},
+        "onAnyStateExit": {"$ref": "#/$defs/listenerEntries"},
+        "onAnyTransitionStart": {"$ref": "#/$defs/listenerEntries"},
+        "onAnyTransitionComplete": {"$ref": "#/$defs/listenerEntries"},
+        "onAnyTransitionError": {"$ref": "#/$defs/listenerEntries"},
+        "onAnyActionStart": {"$ref": "#/$defs/listenerEntries"},
+        "onAnyActionComplete": {"$ref": "#/$defs/listenerEntries"},
+        "onAnyActionError": {"$ref": "#/$defs/listenerEntries"}
+      },
+      "additionalProperties": false
+    },
+
+    "stateMachine": {
+      "description": "The state machine; the root document only.",
+      "type": "object",
+      "properties": {
+        "id": {"description": "Reported by the built StateMachine.", "$ref": "#/$defs/optionalText"},
+        "name": {"description": "A display name.", "$ref": "#/$defs/optionalText"},
+        "description": {"description": "A description.", "$ref": "#/$defs/optionalText"},
+        "version": {"description": "An opaque version reported by the built StateMachine.", "$ref": "#/$defs/optionalText"},
+        "entityType": {"description": "The entity class; must be the class the host loads the document for.", "$ref": "#/$defs/className"},
+        "stateResolver": {
+          "description": "Reads the entity's state: a StateResolver class, or an expression over the entity.",
+          "anyOf": [{"$ref": "#/$defs/classOrExpression"}, {"type": "null"}]
+        },
+        "stateApplier": {
+          "description": "Writes the entity's state: a StateApplier class, or an assignable property path.",
+          "anyOf": [{"$ref": "#/$defs/classOrExpression"}, {"type": "null"}]
+        },
+        "listeners": {"description": "State-machine-wide listeners, by hook.", "anyOf": [{"$ref": "#/$defs/globalHooks"}, {"type": "null"}]},
+        "config": {"description": "Executor and trace logging.", "anyOf": [{"$ref": "#/$defs/config"}, {"type": "null"}]},
+        "states": {"description": "The states.", "type": ["array", "null"], "items": {"$ref": "#/$defs/state"}},
+        "transitions": {"description": "The transitions.", "type": ["array", "null"], "items": {"$ref": "#/$defs/transition"}}
+      },
+      "required": ["entityType"],
+      "additionalProperties": false
+    },
+    "config": {
+      "description": "State machine configuration. A block written with no value is refused: its presence is the statement.",
+      "type": "object",
+      "properties": {
+        "async": {"description": "The executor; async: {} asks for the default pool.", "$ref": "#/$defs/asyncConfig"},
+        "logging": {"description": "Attaches the shipped trace listeners; logging: {} for the defaults.", "$ref": "#/$defs/loggingConfig"}
+      },
+      "additionalProperties": false
+    },
+    "asyncConfig": {
+      "description": "The state machine's executor.",
+      "type": "object",
+      "properties": {
+        "threadPoolSize": {"description": "Pool threads; given together with queueCapacity.", "$ref": "#/$defs/positiveInt"},
+        "queueCapacity": {"description": "Queue slots; given together with threadPoolSize.", "$ref": "#/$defs/positiveInt"},
+        "onRejection": {"description": "The default for async work that declares none.", "$ref": "#/$defs/rejectionPolicy"}
+      },
+      "allOf": [
+        {
+          "if": {"required": ["threadPoolSize"], "properties": {"threadPoolSize": {"not": {"type": "null"}}}},
+          "then": {"required": ["queueCapacity"], "properties": {"queueCapacity": {"not": {"type": "null"}}}}
+        },
+        {
+          "if": {"required": ["queueCapacity"], "properties": {"queueCapacity": {"not": {"type": "null"}}}},
+          "then": {"required": ["threadPoolSize"], "properties": {"threadPoolSize": {"not": {"type": "null"}}}}
+        }
+      ],
+      "additionalProperties": false
+    },
+    "loggingConfig": {
+      "description": "The shipped execution-trace listeners, attached globally.",
+      "type": "object",
+      "properties": {
+        "level": {"description": "Every trace line's level; DEBUG when omitted.", "enum": ["ERROR", "WARN", "INFO", "DEBUG", "TRACE", null]},
+        "includeContext": {"description": "Write the context's toString() into the trace.", "$ref": "#/$defs/flag"},
+        "includeTimings": {"description": "Durations on outcome lines.", "$ref": "#/$defs/flag"}
+      },
+      "additionalProperties": false
+    },
+    "state": {
+      "description": "A state.",
+      "type": "object",
+      "properties": {
+        "id": {"description": "The state's id.", "$ref": "#/$defs/text"},
+        "name": {"description": "A display name.", "$ref": "#/$defs/optionalText"},
+        "description": {"description": "A description.", "$ref": "#/$defs/optionalText"},
+        "listeners": {"description": "State listeners, by hook.", "anyOf": [{"$ref": "#/$defs/stateHooks"}, {"type": "null"}]},
+        "disableGlobalListeners": {"description": "State-machine-wide state listeners to suppress here.", "$ref": "#/$defs/disables"}
+      },
+      "required": ["id"],
+      "additionalProperties": false
+    },
+    "transition": {
+      "description": "A transition between two declared states.",
+      "type": "object",
+      "properties": {
+        "id": {"description": "The transition's id.", "$ref": "#/$defs/text"},
+        "from": {"description": "The source state's id.", "$ref": "#/$defs/text"},
+        "to": {"description": "The target state's id.", "$ref": "#/$defs/text"},
+        "name": {"description": "A display name.", "$ref": "#/$defs/optionalText"},
+        "description": {"description": "A description.", "$ref": "#/$defs/optionalText"},
+        "context": {
+          "description": "The context class a firing must supply; java.lang.Void rejects any.",
+          "$ref": "#/$defs/optionalClassName"
+        },
+        "actions": {
+          "description": "The body: members run in order.",
+          "type": ["array", "null"],
+          "items": {"$ref": "#/$defs/actionEntry"}
+        },
+        "preConditions": {"description": "Checked before the body runs.", "$ref": "#/$defs/conditions"},
+        "postConditions": {"description": "Checked after the body ran; a rejection rolls it back.", "$ref": "#/$defs/conditions"},
+        "triggers": {
+          "description": "Each a registered trigger's id, or a trigger declared in place.",
+          "type": ["array", "null"],
+          "items": {"anyOf": [{"$ref": "#/$defs/text"}, {"$ref": "#/$defs/inlineTrigger"}]}
+        },
+        "listeners": {"description": "Transition listeners, by hook.", "anyOf": [{"$ref": "#/$defs/executionHooks"}, {"type": "null"}]},
+        "disableGlobalListeners": {"description": "State-machine-wide transition listeners to suppress here.", "$ref": "#/$defs/disables"}
+      },
+      "required": ["id", "from", "to"],
+      "additionalProperties": false
+    }
+  }
+}

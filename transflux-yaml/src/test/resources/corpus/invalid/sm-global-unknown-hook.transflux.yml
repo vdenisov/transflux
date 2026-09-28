@@ -1,0 +1,7 @@
+# error: unknown key 'onAnyEntry'
+# schema: /stateMachine/listeners/onAnyEntry
+apiVersion: transflux/v1
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  listeners:
+    onAnyEntry: []

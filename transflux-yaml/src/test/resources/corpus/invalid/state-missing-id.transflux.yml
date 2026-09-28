@@ -1,0 +1,7 @@
+# error: 'id' is required
+# schema: /stateMachine/states/0/id
+apiVersion: transflux/v1
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  states:
+    - name: A

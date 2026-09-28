@@ -1,0 +1,7 @@
+# error: unknown key 'fork'
+# schema: /choices/0/fork
+apiVersion: transflux/v1
+choices:
+  - id: c
+    fork: true
+    branches: []

@@ -1,0 +1,8 @@
+# error: unknown key 'transitions'
+# schema: /stateMachine/states/0/transitions
+apiVersion: transflux/v1
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  states:
+    - id: a
+      transitions: []

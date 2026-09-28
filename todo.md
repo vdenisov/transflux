@@ -162,7 +162,7 @@ These themes alter the core operation/context contract enough that they cannot r
 - [ ] Failure handling and recovery in distributed environments.
 
 ### Jackson 3 Migration
-- [ ] Migrate from Jackson 2.20.x to Jackson 3.x.
+- [ ] Migrate from Jackson 2.22.x to Jackson 3.x.
 - [ ] Package rename: `com.fasterxml.jackson.*` → `tools.jackson.*` across all parsing code.
 - [ ] Verify SnakeYAML / Jackson YAML 3.x interoperability.
 - [ ] Audit all `ObjectMapper` and `YAMLMapper` usages for API changes.

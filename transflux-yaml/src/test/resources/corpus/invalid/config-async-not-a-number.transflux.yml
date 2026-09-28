@@ -1,0 +1,9 @@
+# error: 'threadPoolSize' must be a whole number, not 'many'
+# schema: /stateMachine/config/async/threadPoolSize
+apiVersion: transflux/v1
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  config:
+    async:
+      threadPoolSize: many
+      queueCapacity: 4

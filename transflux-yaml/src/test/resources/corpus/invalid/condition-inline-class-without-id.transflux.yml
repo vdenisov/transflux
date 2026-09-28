@@ -1,0 +1,12 @@
+# error: 'id' is required
+# schema: /stateMachine/transitions/0/preConditions/0/id
+# rule: conditionBlock /stateMachine/transitions/0/preConditions/0
+apiVersion: transflux/v1
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  transitions:
+    - id: t
+      from: a
+      to: b
+      preConditions:
+        - class: org.transflux.yaml.LoaderFixtures$PriorityCondition

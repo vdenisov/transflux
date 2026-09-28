@@ -1,0 +1,12 @@
+# error: 'condition' is required
+# schema: /choices/0/branches/0/condition
+apiVersion: transflux/v1
+steps:
+  - id: s
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+choices:
+  - id: c
+    branches:
+      - id: b
+        actions:
+          - run: s

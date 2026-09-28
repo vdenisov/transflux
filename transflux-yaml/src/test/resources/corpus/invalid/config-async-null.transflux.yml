@@ -1,0 +1,7 @@
+# error: 'async' requires a value; write 'async: {}'
+# schema: /stateMachine/config/async
+apiVersion: transflux/v1
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  config:
+    async:

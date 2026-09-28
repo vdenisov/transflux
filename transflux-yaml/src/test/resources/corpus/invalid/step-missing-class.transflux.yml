@@ -1,0 +1,5 @@
+# error: 'class' is required
+# schema: /steps/0/class
+apiVersion: transflux/v1
+steps:
+  - id: s

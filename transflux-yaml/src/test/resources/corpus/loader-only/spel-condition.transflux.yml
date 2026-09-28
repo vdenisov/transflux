@@ -1,0 +1,5 @@
+# error: priority >
+apiVersion: transflux/v1
+conditions:
+  - id: c
+    expression: "priority >"

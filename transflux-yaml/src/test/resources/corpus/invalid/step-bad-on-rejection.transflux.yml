@@ -1,0 +1,7 @@
+# error: 'onRejection' must be one of DROP, FAIL, BLOCK, CALLER_RUNS, not 'RETRY'
+# schema: /steps/0/onRejection
+apiVersion: transflux/v1
+steps:
+  - id: s
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+    onRejection: RETRY

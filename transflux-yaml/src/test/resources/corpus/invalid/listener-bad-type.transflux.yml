@@ -1,0 +1,7 @@
+# error: 'type' must be one of state, transition, action, not 'observer'
+# schema: /listeners/0/type
+apiVersion: transflux/v1
+listeners:
+  - id: l
+    class: org.transflux.yaml.LoaderFixtures$EveryAudit
+    type: observer

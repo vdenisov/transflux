@@ -1,0 +1,7 @@
+# error: 'states' must be a list
+# schema: /stateMachine/states
+apiVersion: transflux/v1
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  states:
+    a: {}

@@ -1,0 +1,41 @@
+# What the schema admits because the loader reads a number as text and a null value as absent.
+apiVersion: transflux/v1
+
+imports:
+
+steps:
+  - id: 42
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+    name:
+    description: ~
+    onRejection: Null
+    listeners:
+      onStart:
+        - id: quoted-async
+          class: org.transflux.yaml.LoaderFixtures$ActionAudit
+          async: true
+
+conditions:
+  - id: nullable-class
+    class:
+    expression: "priority > 0"
+
+stateMachine:
+  version: 2
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  config:
+    async:
+      threadPoolSize: 4
+      queueCapacity: 8
+    logging: {}
+  transitions:
+    - id: 7
+      from: a
+      to: b
+      actions:
+        - run: 42
+          fork: true
+          onRejection: DROP
+        - run: 42
+          mapper:
+          fork: false

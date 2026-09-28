@@ -1,0 +1,7 @@
+# error: 'onRejection' applies to an async listener; add 'async: true'
+# schema: /listeners/0/onRejection
+apiVersion: transflux/v1
+listeners:
+  - id: l
+    class: org.transflux.yaml.LoaderFixtures$ActionAudit
+    onRejection: DROP

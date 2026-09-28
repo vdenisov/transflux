@@ -1,0 +1,8 @@
+# error: 'includeContext' must be true or false, not '1'
+# schema: /stateMachine/config/logging/includeContext
+apiVersion: transflux/v1
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  config:
+    logging:
+      includeContext: 1

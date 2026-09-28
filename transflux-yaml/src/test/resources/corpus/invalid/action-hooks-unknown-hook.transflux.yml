@@ -1,0 +1,8 @@
+# error: unknown key 'onFinish'
+# schema: /steps/0/listeners/onFinish
+apiVersion: transflux/v1
+steps:
+  - id: s
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+    listeners:
+      onFinish: []

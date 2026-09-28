@@ -1,0 +1,11 @@
+# error: unknown key 'onEntry'
+# schema: /stateMachine/transitions/0/listeners/onEntry
+apiVersion: transflux/v1
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  transitions:
+    - id: t
+      from: a
+      to: b
+      listeners:
+        onEntry: []

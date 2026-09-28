@@ -1,0 +1,5 @@
+# error: say which this registration is with 'type'
+apiVersion: transflux/v1
+listeners:
+  - id: l
+    class: org.transflux.yaml.LoaderFixtures$EveryAudit

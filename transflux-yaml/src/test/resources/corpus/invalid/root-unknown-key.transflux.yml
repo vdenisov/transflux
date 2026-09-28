@@ -1,0 +1,4 @@
+# error: unknown key 'metadata'
+# schema: /metadata
+apiVersion: transflux/v1
+metadata: {}

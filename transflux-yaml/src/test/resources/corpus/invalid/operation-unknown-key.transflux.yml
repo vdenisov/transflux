@@ -1,0 +1,7 @@
+# error: unknown key 'class'
+# schema: /operations/0/class
+apiVersion: transflux/v1
+operations:
+  - id: o
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+    actions: []

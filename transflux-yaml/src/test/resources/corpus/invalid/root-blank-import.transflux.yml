@@ -1,0 +1,5 @@
+# error: an import is the identifier of a document
+# schema: /imports/0
+apiVersion: transflux/v1
+imports:
+  - ''

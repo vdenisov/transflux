@@ -1,0 +1,13 @@
+# error: unknown key 'context'
+# schema: /stateMachine/transitions/0/preConditions/0/context
+# rule: conditionBlock /stateMachine/transitions/0/preConditions/0
+apiVersion: transflux/v1
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  transitions:
+    - id: t
+      from: a
+      to: b
+      preConditions:
+        - expression: "priority > 0"
+          context: org.transflux.yaml.LoaderFixtures$Ctx

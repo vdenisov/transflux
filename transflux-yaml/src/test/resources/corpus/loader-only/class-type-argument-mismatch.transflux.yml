@@ -1,0 +1,6 @@
+# error: declares Action's
+apiVersion: transflux/v1
+steps:
+  - id: s
+    class: org.transflux.yaml.LoaderFixtures$CtxStep
+    context: org.transflux.yaml.LoaderFixtures$ChildCtx

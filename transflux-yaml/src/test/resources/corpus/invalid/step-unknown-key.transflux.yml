@@ -1,0 +1,7 @@
+# error: unknown key 'fork'
+# schema: /steps/0/fork
+apiVersion: transflux/v1
+steps:
+  - id: s
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+    fork: true

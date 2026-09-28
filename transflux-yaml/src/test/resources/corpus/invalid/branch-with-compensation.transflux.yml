@@ -1,0 +1,14 @@
+# error: unknown key 'compensation'
+# schema: /choices/0/branches/0/compensation
+apiVersion: transflux/v1
+steps:
+  - id: s
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+choices:
+  - id: c
+    branches:
+      - id: b
+        condition: x
+        compensation: org.transflux.yaml.LoaderFixtures$Undo
+        actions:
+          - run: s

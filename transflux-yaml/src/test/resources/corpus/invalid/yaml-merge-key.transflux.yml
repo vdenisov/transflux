@@ -1,0 +1,6 @@
+# error: merge keys ('<<') are not supported
+# schema: /steps/0/<<
+apiVersion: transflux/v1
+steps:
+  - <<: {id: s}
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep

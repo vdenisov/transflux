@@ -1,0 +1,7 @@
+# error: 'disableGlobalListeners' must be true or a list of listener ids
+# schema: /steps/0/disableGlobalListeners
+apiVersion: transflux/v1
+steps:
+  - id: s
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+    disableGlobalListeners: false
