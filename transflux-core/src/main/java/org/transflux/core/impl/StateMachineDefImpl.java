@@ -55,6 +55,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.function.BiFunction;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -121,6 +122,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private final Map<String, TriggerDefImpl<T, ?, ?>> triggerRegistrations = new LinkedHashMap<>();
 
     private final Map<String, MapperDefImpl<?, ?>> mapperRegistrations = new LinkedHashMap<>();
+
+    /**
+     * Every registered action, condition and mapper id, claimed as it is registered. The kinds are
+     * kept in maps of their own, which the build reads at different points, but they share this one
+     * namespace; each build copies it and claims the inline declarations on top.
+     */
+    private final Map<String, CanonicalClaim> componentIds = new LinkedHashMap<>();
 
     private final Map<String, Class<?>> componentContextTypes = new LinkedHashMap<>();
 
@@ -311,39 +319,14 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     private void registerStepDef(StepDefImpl<T, ?> def) {
-        String id = def.getId();
-        if (actionRegistrations.containsKey(id)) {
-            throw new TransfluxValidationException("Action ID '" + id + "' is already registered");
-        }
-        checkIdNotRegisteredAsContainer(id);
-        actionRegistrations.put(id, ActionRegistration.ofDef(def));
+        claimCanonical(componentIds, def.getId(), def, "Step");
+        actionRegistrations.put(def.getId(), ActionRegistration.ofDef(def));
     }
 
     private void registerStepInstance(String id, Action<? super T, ?> action) {
-        ActionRegistration<T> existing = actionRegistrations.get(id);
-        if (existing == null) {
-            checkIdNotRegisteredAsContainer(id);
-            actionRegistrations.put(id, ActionRegistration.ofInstance(action));
-            return;
-        }
-
-        if (existing.instance != null && existing.instance == action) {
-            return;
-        }
-
-        throw new TransfluxValidationException("Action ID '" + id + "' is already registered");
-    }
-
-    /**
-     * Imperative actions and declarative containers live in separate maps because the build
-     * resolves them at different points, but they share one id namespace, so a collision across
-     * the two is still a collision.
-     */
-    private void checkIdNotRegisteredAsContainer(String id) {
-        if (smCompositeOperations.containsKey(id)) {
-            throw new TransfluxValidationException(
-                "ID '" + id + "' is already registered as an operation");
-        }
+        // The same instance registered again is one registration; the claim says so.
+        claimCanonical(componentIds, id, action, "Step");
+        actionRegistrations.putIfAbsent(id, ActionRegistration.ofInstance(action));
     }
 
     /**
@@ -354,30 +337,17 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * registry, so by-id refs from inside a composite first check the composite-local entries
      * and fall back to root.
      *
-     * <p>This pass also enforces SM-wide id uniqueness: every composite-local id is added to the
-     * same {@code globalIds} set that already holds SM-level ids; a collision anywhere fails the
-     * build with a {@link TransfluxValidationException}.
+     * <p>This pass also enforces SM-wide id uniqueness for inline declarations: each is claimed in
+     * a copy of the registrations' id table, and a collision anywhere fails the build with a
+     * {@link TransfluxValidationException}.
      *
      * @param rootRegistry the state-machine's root registry — the parent of every composite scope
      * @param conditionRegistry the resolved SM-wide condition registry
      */
     void bindCompositeScopes(RegistryImpl<T> rootRegistry,
                                     Map<String, BoundCondition<T, ?>> conditionRegistry) {
-        Map<String, Object> canonical = new HashMap<>();
-
-        for (Map.Entry<String, ActionRegistration<T>> e : actionRegistrations.entrySet()) {
-            canonical.put(e.getKey(), payloadOf(e.getValue()));
-        }
-
-        canonical.putAll(conditionRegistrations);
-
-        for (String id : smCompositeOperations.keySet()) {
-            canonical.put(id, smCompositeOperations.get(id));
-        }
-
-        for (String id : mapperRegistrations.keySet()) {
-            canonical.put(id, mapperRegistrations.get(id));
-        }
+        // Registrations claimed their ids as they were made; inline declarations claim theirs here.
+        Map<String, CanonicalClaim> canonical = new HashMap<>(componentIds);
 
         claimRegisteredTriggerConditions(canonical);
 
@@ -429,10 +399,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         return Optional.empty();
     }
 
-    private static <T> Object payloadOf(ActionRegistration<T> reg) {
-        return reg.def != null ? reg.def : reg.instance;
-    }
-
     /**
      * Flattens the scope registry of every composite operation declared on this state-machine
      * def. Called after every component has been bound into its appropriate registry so each
@@ -452,43 +418,45 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
-     * Records the canonical payload for {@code id} in the per-build global table. Idempotent for
-     * an existing identical payload — the same instance reference, or an equal {@link String}
-     * expression — mirroring the idempotency rule of the SM-level {@code registerStepInstance} and
-     * friends. A different payload under the same id raises {@link TransfluxValidationException},
-     * enforcing SM-wide id uniqueness.
+     * Claims {@code id} in an id table - the definition's registrations, or a build's copy of them
+     * that inline declarations extend. The same payload claimed again - the same instance, or an
+     * equal expression - is one declaration seen twice.
+     *
+     * @param canonical the table
+     * @param id the id
+     * @param payload what is declared under it
+     * @param kind the declaring kind, capitalised as it leads the message
+     *
+     * @throws TransfluxValidationException if the id is taken by anything else
      */
-    static void claimCanonical(Map<String, Object> canonical, String id, Object payload, String kind) {
-        Object existing = canonical.get(id);
+    static void claimCanonical(Map<String, CanonicalClaim> canonical, String id, Object payload, String kind) {
+        CanonicalClaim existing = canonical.get(id);
 
         if (existing == null) {
-            canonical.put(id, payload);
+            canonical.put(id, new CanonicalClaim(payload, kind));
             return;
         }
 
-        if (existing == payload) {
+        if (existing.payload() == payload) {
             return;
         }
 
-        if (existing instanceof String && payload instanceof String && existing.equals(payload)) {
+        if (existing.payload() instanceof String && payload instanceof String && existing.payload().equals(payload)) {
             return;
         }
 
-        String existingName = payloadClassName(existing);
-        String incomingName = payloadClassName(payload);
-
-        // Two declarations of the same type under one id is the common shape, and naming that type
-        // on both sides of "cannot re-register with" reads as a framework fault rather than as the
-        // duplicate id it is. Say "a different X" there instead, and advise either way.
-        String clash = existingName.equals(incomingName)
-            ? "is already registered with a different " + existingName
-            : "is already registered with payload '" + existingName
-                + "'; cannot re-register with '" + incomingName + "'";
+        String clash = existing.kind().equals(kind)
+            ? "is already registered by another " + kind.toLowerCase(Locale.ROOT)
+            : "is already registered as " + article(existing.kind()) + " " + existing.kind().toLowerCase(Locale.ROOT);
 
         throw new TransfluxValidationException(
             kind + " id '" + id + "' " + clash + ". Ids are unique across the state machine"
                 + " wherever they are declared, so give one of them another id, or declare it once"
                 + " and reference it by id.");
+    }
+
+    private static String article(String kind) {
+        return "AEIOU".indexOf(kind.charAt(0)) >= 0 ? "an" : "a";
     }
 
     /**
@@ -506,7 +474,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      *
      * @param canonical the per-build id table
      */
-    private void claimRegisteredTriggerConditions(Map<String, Object> canonical) {
+    private void claimRegisteredTriggerConditions(Map<String, CanonicalClaim> canonical) {
         for (TriggerDefImpl<T, ?, ?> registered : triggerRegistrations.values()) {
             if (registered instanceof ManualTriggerDefImpl<?, ?> manual) {
                 for (ConditionDescriptor descriptor : manual.getPreConditionDescriptors()) {
@@ -518,7 +486,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
     }
 
-    private void claimInlineConditions(Map<String, Object> canonical, TransitionDefImpl<T, ?> td) {
+    private void claimInlineConditions(Map<String, CanonicalClaim> canonical, TransitionDefImpl<T, ?> td) {
         for (ConditionDescriptor descriptor : td.getPreConditionDescriptors()) {
             claimInlineCondition(canonical, descriptor);
         }
@@ -549,7 +517,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      *
      * @throws TransfluxValidationException if the id is already held by a different payload
      */
-    static void claimInlineCondition(Map<String, Object> canonical, ConditionDescriptor descriptor) {
+    static void claimInlineCondition(Map<String, CanonicalClaim> canonical, ConditionDescriptor descriptor) {
         if (descriptor == null || descriptor.id() == null) {
             return;
         }
@@ -566,10 +534,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
 
         claimCanonical(canonical, descriptor.id(), payload, "Condition");
-    }
-
-    private static String payloadClassName(Object payload) {
-        return payload.getClass().getName();
     }
 
     @Override
@@ -723,10 +687,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     private void registerMapper(MapperDefImpl<?, ?> def) {
-        MapperDefImpl<?, ?> existing = mapperRegistrations.get(def.getId());
-        if (existing != null && existing != def) {
-            throw new TransfluxValidationException("Mapper ID '" + def.getId() + "' is already registered");
-        }
+        claimCanonical(componentIds, def.getId(), def, "Mapper");
         mapperRegistrations.put(def.getId(), def);
     }
 
@@ -743,30 +704,18 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     private void registerConditionInstance(String id, Condition<? super T, ?> condition) {
         ConditionRegistration<T> existing = conditionRegistrations.get(id);
-        if (existing == null) {
-            conditionRegistrations.put(id, ConditionRegistration.ofInstance(condition));
+        if (existing != null && existing.instance != null && existing.instance == condition) {
             return;
         }
-
-        if (existing.instance != null && existing.instance == condition) {
-            return;
-        }
-
-        throw new TransfluxValidationException("Condition ID '" + id + "' is already registered");
+        claimCondition(id, ConditionRegistration.ofInstance(condition));
     }
 
     private void registerConditionPredicate(String id, BiPredicate<? super T, ?> predicate) {
         ConditionRegistration<T> existing = conditionRegistrations.get(id);
-        if (existing == null) {
-            conditionRegistrations.put(id, ConditionRegistration.ofPredicate(predicate));
+        if (existing != null && existing.predicate != null && existing.predicate == predicate) {
             return;
         }
-
-        if (existing.predicate != null && existing.predicate == predicate) {
-            return;
-        }
-
-        throw new TransfluxValidationException("Condition ID '" + id + "' is already registered");
+        claimCondition(id, ConditionRegistration.ofPredicate(predicate));
     }
 
     private static <T> BiPredicate<T, Object> adaptEntityPredicate(Predicate<? super T> predicate) {
@@ -776,16 +725,25 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private void registerConditionExpression(String id, String expression) {
         SpelConditionEvaluator.shared().validate(expression);
         ConditionRegistration<T> existing = conditionRegistrations.get(id);
-        if (existing == null) {
-            conditionRegistrations.put(id, ConditionRegistration.ofExpression(expression));
+        if (existing != null && existing.expression != null && existing.expression.equals(expression)) {
             return;
         }
+        claimCondition(id, ConditionRegistration.ofExpression(expression));
+    }
 
-        if (existing.expression != null && existing.expression.equals(expression)) {
-            return;
-        }
-
-        throw new TransfluxValidationException("Condition ID '" + id + "' is already registered");
+    /**
+     * Claims a condition registration's id and records it. The table holds the registration record
+     * rather than what it wraps, so an inline condition never matches it: the inline copy binds on
+     * its own, possibly against another context, and one id would then name two conditions.
+     *
+     * @param id the condition's id
+     * @param registration what is registered under it
+     *
+     * @throws TransfluxValidationException if the id is already taken
+     */
+    private void claimCondition(String id, ConditionRegistration<T> registration) {
+        claimCanonical(componentIds, id, registration, "Condition");
+        conditionRegistrations.put(id, registration);
     }
 
     /**
@@ -1056,10 +1014,10 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotBlank(id, "Composite operation ID");
         requireNotNull(contextType, "Context type");
         requireNotNull(configurer, "Composite operation configurer");
-        claimSmLevelActionId(id);
-
         OperationDefImpl<T, C> composite = new OperationDefImpl<>(id, contextType);
         ConfigurableDefImpl.runConfigurer(composite, configurer);
+        // Claimed once the configurer returned, so one that throws leaves the id free for a retry.
+        claimCanonical(componentIds, id, composite, "Operation");
         smCompositeOperations.put(id, composite);
         tagContextType(id, contextType);
     }
@@ -1243,24 +1201,14 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotBlank(id, "Choice ID");
         requireNotNull(contextType, "Context type");
         requireNotNull(configurer, "Choice configurer");
-        claimSmLevelActionId(id);
-
         ChoiceDefImpl<T, C> choice = new ChoiceDefImpl<>(id, contextType);
         ConfigurableDefImpl.runConfigurer(choice, configurer);
+        // Claimed once the configurer returned, so one that throws leaves the id free for a retry.
+        claimCanonical(componentIds, id, choice, "Choice");
         smCompositeOperations.put(id, choice);
         tagContextType(id, contextType);
     }
 
-    private void claimSmLevelActionId(String id) {
-        if (smCompositeOperations.containsKey(id)) {
-            throw new TransfluxValidationException(
-                "Composite operation id '" + id + "' is already registered at SM level");
-        }
-        if (actionRegistrations.containsKey(id) || conditionRegistrations.containsKey(id)) {
-            throw new TransfluxValidationException(
-                "Component id '" + id + "' is already registered");
-        }
-    }
 
     @Override
     public StateMachineDef<T> withStateApplier(StateApplier<? super T> stateApplier) {
@@ -2680,6 +2628,18 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             }
             return BoundAction.of(id, (Action) instance, ActionKind.STEP);
         }
+    }
+
+    /**
+     * One id's entry in the per-build table: what declared it, and as which kind, so a clash can
+     * name both sides.
+     *
+     * @param payload the declared instance, def or expression; compared by identity, or by equality
+     *        for an expression
+     * @param kind the declaring kind, capitalised as it leads a message: {@code Step},
+     *        {@code Operation}, {@code Choice}, {@code Condition} or {@code Mapper}
+     */
+    record CanonicalClaim(Object payload, String kind) {
     }
 
     private record ConditionRegistration<T>(Condition<? super T, ?> instance, BiPredicate<? super T, ?> predicate,

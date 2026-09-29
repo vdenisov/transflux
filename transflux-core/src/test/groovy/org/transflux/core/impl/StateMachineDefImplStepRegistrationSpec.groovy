@@ -170,11 +170,8 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def e = thrown(TransfluxValidationException)
         e.message.contains("'clash'")
         e.message.contains('already registered')
-        // Both payloads are StepA, so naming the class on each side of "cannot re-register with"
-        // would say nothing; the message reports a different instance of it instead.
-        e.message.startsWith('Step id')
-        e.message.contains('a different ' + StepA.class.name)
-        !e.message.contains('cannot re-register')
+        e.message.startsWith("Step id 'clash' is already registered by another step.")
+        !e.message.contains(StepA.class.name)
         e.message.contains('unique across the state machine')
     }
 

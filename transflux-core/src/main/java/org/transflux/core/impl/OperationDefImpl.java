@@ -18,6 +18,7 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.impl.StateMachineDefImpl.CanonicalClaim;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.ActionKind;
 import org.transflux.core.action.AsyncRejectionPolicy;
@@ -361,7 +362,7 @@ final class OperationDefImpl<T, C>
 
     @Override
     void bindScope(RegistryImpl<T> rootRegistry,
-                   Map<String, Object> canonical,
+                   Map<String, CanonicalClaim> canonical,
                    Map<String, BoundCondition<T, ?>> conditionRegistry,
                    Class<?> inheritedContext) {
         @SuppressWarnings("unchecked")
@@ -388,7 +389,7 @@ final class OperationDefImpl<T, C>
      *                         honest without the def itself being rewritten
      */
     void bindScopeUnder(RegistryImpl<T> parentRegistry,
-                        Map<String, Object> canonical,
+                        Map<String, CanonicalClaim> canonical,
                         Map<String, BoundCondition<T, C>> conditionRegistry,
                         Class<?> inheritedContext) {
         Class<C> tagged = effectiveContext(inheritedContext);

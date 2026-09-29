@@ -18,6 +18,7 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.impl.StateMachineDefImpl.CanonicalClaim;
 import java.util.function.Predicate;
 import org.transflux.core.action.ActionKind;
 import org.transflux.core.exception.TransfluxValidationException;
@@ -110,7 +111,7 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
 
     @Override
     void bindScope(RegistryImpl<T> rootRegistry,
-                   Map<String, Object> canonical,
+                   Map<String, CanonicalClaim> canonical,
                    Map<String, BoundCondition<T, ?>> conditionRegistry,
                    Class<?> inheritedContext) {
         // An imperative action owns no lexical scope.

@@ -18,6 +18,7 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.impl.StateMachineDefImpl.CanonicalClaim;
 import java.util.function.Predicate;
 import org.transflux.core.action.ActionDef;
 import org.transflux.core.action.ActionListener;
@@ -470,7 +471,7 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      *                         {@code null} when it is registered rather than attached
      */
     abstract void bindScope(RegistryImpl<T> rootRegistry,
-                            Map<String, Object> canonical,
+                            Map<String, CanonicalClaim> canonical,
                             Map<String, BoundCondition<T, ?>> conditionRegistry,
                             Class<?> inheritedContext);
 

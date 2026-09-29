@@ -18,6 +18,7 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.impl.StateMachineDefImpl.CanonicalClaim;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.ActionKind;
 import org.transflux.core.condition.ConditionDescriptor;
@@ -39,12 +40,12 @@ import static org.transflux.core.impl.StateMachineDefImpl.claimInlineCondition;
 final class InlineRegistrationSink<T, C> {
 
     private final RegistryImpl<T> scope;
-    private final Map<String, Object> canonical;
+    private final Map<String, CanonicalClaim> canonical;
     private final Class<C> contextType;
     private final Map<String, BoundCondition<T, C>> conditionRegistry;
 
     InlineRegistrationSink(RegistryImpl<T> scope,
-                           Map<String, Object> canonical,
+                           Map<String, CanonicalClaim> canonical,
                            Class<C> contextType,
                            Map<String, BoundCondition<T, C>> conditionRegistry) {
         this.scope = scope;

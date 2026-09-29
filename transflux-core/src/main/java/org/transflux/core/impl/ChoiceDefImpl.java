@@ -18,6 +18,7 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.impl.StateMachineDefImpl.CanonicalClaim;
 import java.util.function.Predicate;
 import org.transflux.core.action.ActionKind;
 import org.transflux.core.exception.TransfluxNoMatchException;
@@ -388,7 +389,7 @@ final class ChoiceDefImpl<T, C>
 
     @Override
     void bindScope(RegistryImpl<T> rootRegistry,
-                   Map<String, Object> canonical,
+                   Map<String, CanonicalClaim> canonical,
                    Map<String, BoundCondition<T, ?>> conditionRegistry,
                    Class<?> inheritedContext) {
         @SuppressWarnings("unchecked")
@@ -415,7 +416,7 @@ final class ChoiceDefImpl<T, C>
      *                         choice registers; {@code null} at a root
      */
     void bindScopeUnder(RegistryImpl<T> parentRegistry,
-                        Map<String, Object> canonical,
+                        Map<String, CanonicalClaim> canonical,
                         Map<String, BoundCondition<T, C>> conditionRegistry,
                         Class<?> inheritedContext) {
         this.boundConditions = conditionRegistry;

@@ -149,7 +149,7 @@ final class ComponentSections {
 
             // The descriptor reader attributes a rejection to the condition's form, so only claim here.
             private void declare(String id, Supplier<?> call) {
-                sites.claim(entry, entry.requiredNode("id"), Namespace.CONDITION, id, call);
+                sites.claim(entry, entry.requiredNode("id"), Namespace.COMPONENT, id, call);
             }
         });
     }
@@ -164,7 +164,7 @@ final class ComponentSections {
             metadata(within, mapperDef::withName, mapperDef::withDescription);
             mapperDef.using(mapper);
         };
-        sites.declare(within, within.requiredNode("id"), Namespace.MAPPER, id,
+        sites.declare(within, within.requiredNode("id"), Namespace.COMPONENT, id,
             () -> raw.mapperDef(id, parentType, childType, (Consumer) configurer));
         within.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("Mapper registered, id={}, parentType={}", id, parentType.getName());

@@ -76,7 +76,7 @@ final class ActionEntries {
         NodeMap within = entry.within("step '" + id + "'");
         Class<?> context = classes.optionalClass(within, "context", null);
         Consumer<StepDef> configurer = step -> step(within, step, context);
-        sites.declare(within, within.requiredNode("id"), Namespace.ACTION, id, () -> context == null
+        sites.declare(within, within.requiredNode("id"), Namespace.COMPONENT, id, () -> context == null
             ? def.step(id, (Consumer) configurer)
             : def.step(id, context, (Consumer) configurer));
         within.rejectUnknownKeys();
@@ -96,7 +96,7 @@ final class ActionEntries {
         NodeMap within = entry.within("operation '" + id + "'");
         Class<?> context = registeredContext(within);
         Consumer<OperationDef> configurer = operation -> operation(within, operation, context);
-        sites.declare(within, within.requiredNode("id"), Namespace.ACTION, id,
+        sites.declare(within, within.requiredNode("id"), Namespace.COMPONENT, id,
             () -> def.operation(id, context, (Consumer) configurer));
         within.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("Operation registered, id={}, context={}", id, context.getName());
@@ -115,7 +115,7 @@ final class ActionEntries {
         NodeMap within = entry.within("choice '" + id + "'");
         Class<?> context = registeredContext(within);
         Consumer<ChoiceDef> configurer = choice -> choice(within, id, choice, context);
-        sites.declare(within, within.requiredNode("id"), Namespace.ACTION, id,
+        sites.declare(within, within.requiredNode("id"), Namespace.COMPONENT, id,
             () -> def.choice(id, context, (Consumer) configurer));
         within.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("Choice registered, id={}, context={}", id, context.getName());

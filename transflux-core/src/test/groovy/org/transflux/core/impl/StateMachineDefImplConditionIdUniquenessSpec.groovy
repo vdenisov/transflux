@@ -24,6 +24,7 @@ import org.transflux.core.TestContext
 import org.transflux.core.condition.Condition
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.Action
+import org.transflux.core.action.ContextMapper
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.Transition
@@ -39,6 +40,14 @@ import java.util.function.Predicate
  * operations and choices.
  */
 class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
+
+    static final Action STEP = { en, c, tr -> } as Action
+
+    static final ContextMapper MAPPER = { p -> p } as ContextMapper
+
+    static final AlwaysTrue ALWAYS = new AlwaysTrue()
+
+    static final Predicate PREDICATE = { en -> true } as Predicate
 
     @Unroll
     def 'the same inline condition id declared twice with different payloads is rejected: #site'() {
@@ -190,6 +199,47 @@ class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
         def e = thrown(TransfluxValidationException)
         e.message.contains("'shared'")
         e.message.contains('already registered')
+    }
+
+    def 'a registered condition and an inline one never share an id, whatever they declare: #form'() {
+        when: 'the inline copy would bind on its own, so one id would name two conditions'
+        build({ d -> register(d)
+            .state('s1')
+            .transition('t', 's1', 's2', inline)
+            .state('s2') })
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.startsWith("Condition id 'shared' is already registered by another condition.")
+
+        where:
+        form         | register                                  | inline
+        'expression' | { d -> d.condition('shared', 'true') }    | { t -> t.preCondition('shared', 'true') }
+        'instance'   | { d -> d.condition('shared', ALWAYS) }    | { t -> t.preCondition('shared', ALWAYS) }
+        'predicate'  | { d -> d.condition('shared', PREDICATE) } | { t -> t.preCondition('shared', PREDICATE) }
+    }
+
+    def 'a clash names both kinds, not the classes behind them: #clash'() {
+        when:
+        build({ d -> cfg(d)
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> })
+            .state('s2') })
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.startsWith(message)
+        !e.message.contains('org.transflux')
+
+        where:
+        clash                                  | cfg                                                                                                                          || message
+        'registered step and condition'        | { d -> d.step('shared', STEP).condition('shared', 'true') }                                                                  || "Condition id 'shared' is already registered as a step."
+        'registered step and mapper'           | { d -> d.step('shared', STEP).mapper('shared', Object, Object, MAPPER) }                                                     || "Mapper id 'shared' is already registered as a step."
+        'registered condition and mapper'      | { d -> d.condition('shared', 'true').mapper('shared', Object, Object, MAPPER) }                                              || "Mapper id 'shared' is already registered as a condition."
+        'registered mapper and operation'      | { d -> d.step('leaf', STEP).mapper('shared', Object, Object, MAPPER).operation('shared', Object, { op -> op.run('leaf') }) } || "Operation id 'shared' is already registered as a mapper."
+        'registered operation and step'        | { d -> d.step('leaf', STEP).operation('shared', Object, { op -> op.run('leaf') }).step('shared', STEP) }                     || "Step id 'shared' is already registered as an operation."
+        'registered step and inline step'      | { d -> d.step('shared', STEP).transition('x', 's1', 's2', { t -> t.step('shared', { en, c, tr -> } as Action) }) }           || "Step id 'shared' is already registered by another step."
+        'inline step and registered condition' | { d -> d.condition('shared', 'true').transition('x', 's1', 's2', { t -> t.step('shared', STEP) }) }                          || "Step id 'shared' is already registered as a condition."
     }
 
     private static StateMachine<Entity> build(Consumer<StateMachineDef<Entity>> cfg) {

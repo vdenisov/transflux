@@ -201,8 +201,8 @@ class YamlDefinitionLoaderImportSpec extends Specification {
         opens['./lib.yml'] == 1
         opens['lib.yml'] == 1
         def e = thrown(DefinitionLoadException)
-        e.message == "root.yml -> lib.yml:4:9: step 'record': Action ID 'record' is already registered;" +
-            ' first declared at lib.yml:4:9'
+        e.message == "root.yml -> lib.yml:4:9: step 'record': Step id 'record' is already registered by another step." +
+            " Ids are unique across the state machine wherever they are declared, so give one of them another id, or declare it once and reference it by id; first declared at lib.yml:4:9"
     }
 
     def 'an id registered twice names both declarations, whichever documents they sit in'() {
@@ -229,17 +229,13 @@ class YamlDefinitionLoaderImportSpec extends Specification {
         'listener'  | "listeners:\n  - id: dup\n    class: ${StateAudit.name}"                                                        || 5
     }
 
-    def 'the first declaration named is one of the same kind'() {
+    def 'a step colliding with a mapper names the mapper as the first declaration'() {
         when:
-        // A mapper and a step do not collide until the build, so the first step is what the second collides with.
         loader(
-            'root.yml': """\
-                apiVersion: transflux/v1
+            'root.yml': """                apiVersion: transflux/v1
                 imports:
                   - lib.yml
                 steps:
-                  - id: x
-                    class: ${RecordingStep.name}
                   - id: x
                     class: ${RecordingStep.name}
                 stateMachine:
@@ -250,7 +246,8 @@ class YamlDefinitionLoaderImportSpec extends Specification {
 
         then:
         def e = thrown(DefinitionLoadException)
-        e.message == "root.yml:7:9: step 'x': Action ID 'x' is already registered; first declared at root.yml:5:9"
+        e.message == "root.yml:5:9: step 'x': Step id 'x' is already registered as a mapper." +
+            " Ids are unique across the state machine wherever they are declared, so give one of them another id, or declare it once and reference it by id; first declared at lib.yml:3:9"
     }
 
     def 'a listener declared in place on a state or the state machine names a registration it collides with'() {

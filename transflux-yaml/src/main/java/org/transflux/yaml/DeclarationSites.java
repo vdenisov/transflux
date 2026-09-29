@@ -36,10 +36,9 @@ final class DeclarationSites {
 
     /**
      * The id sets core checks a declaration against when it is made. Actions, conditions and
-     * mappers share one namespace, but only the build compares the three, so a site recorded for
-     * one of them must not answer for another.
+     * mappers share one: a registration of any of the three is refused against the other two.
      */
-    enum Namespace { ACTION, CONDITION, MAPPER, TRIGGER, LISTENER, STATE, TRANSITION }
+    enum Namespace { COMPONENT, TRIGGER, LISTENER, STATE, TRANSITION }
 
     private final Map<Namespace, Map<String, String>> sites = new EnumMap<>(Namespace.class);
 
@@ -90,7 +89,10 @@ final class DeclarationSites {
             if (first == null) {
                 throw e;
             }
-            throw new TransfluxValidationException(e.getMessage() + "; first declared at " + first, e);
+            String message = e.getMessage();
+            // Core's rejection may end a sentence; the site continues it.
+            message = message.endsWith(".") ? message.substring(0, message.length() - 1) : message;
+            throw new TransfluxValidationException(message + "; first declared at " + first, e);
         }
         Mark mark = at.getStartMark();
         declared.putIfAbsent(id,

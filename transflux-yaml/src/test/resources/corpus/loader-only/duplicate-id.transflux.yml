@@ -1,4 +1,4 @@
-# error: Action ID 's' is already registered; first declared at
+# error: Step id 's' is already registered by another step.
 apiVersion: transflux/v1
 steps:
   - id: s
