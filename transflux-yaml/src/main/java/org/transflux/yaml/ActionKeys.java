@@ -72,7 +72,9 @@ final class ActionKeys {
 
         List<Node> routes = map.optionalList("errorHandling");
         if (routes != null) {
-            routes.forEach(route -> route(map, route, def, context));
+            for (int i = 0; i < routes.size(); i++) {
+                route(map, routes.get(i), i + 1, def, context);
+            }
         }
 
         listeners.hooks(map, context, false, List.of(
@@ -83,19 +85,21 @@ final class ActionKeys {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private void route(NodeMap owner, Node node, ActionDef def, Class<?> context) {
-        NodeMap route = NodeMap.of(owner.document(), node, owner.declarationPath(), "an errorHandling entry");
-        Class<? extends Throwable> exception = (Class<? extends Throwable>) classes.requiredClass(route, "exception",
+    private void route(NodeMap owner, Node node, int position, ActionDef def, Class<?> context) {
+        NodeMap entry = NodeMap.of(owner.document(), node, owner.declarationPath(), "an errorHandling entry");
+        Class<? extends Throwable> exception = (Class<? extends Throwable>) classes.requiredClass(entry, "exception",
             Throwable.class);
+        // Two routes may name one exception, told apart by their guards; the position is what is unique.
+        NodeMap route = entry.within("route " + position + " (" + exception.getName() + ")");
         CompensationRouteDef opened = route.at(route.requiredNode("exception"), () -> def.forException(exception));
 
-        NodeMap guard = route.optionalMap("guard");
+        NodeMap guard = route.optionalMap("guard", "guard");
         if (guard != null) {
             Predicate<?> predicate = guard.exactlyOneOf("class", "expression").equals("class")
                 ? classes.instantiate(guard, "class", Predicate.class, Expected.exactly(exception))
                 : Expressions.guard(guard);
             guard.rejectUnknownKeys();
-            route.at(route.requiredNode("guard"), () -> opened.matching(predicate));
+            guard.at(route.requiredNode("guard"), () -> opened.matching(predicate));
         }
 
         Compensation compensation = compensation(route, context);

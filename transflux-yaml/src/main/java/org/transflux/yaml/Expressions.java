@@ -60,7 +60,7 @@ final class Expressions {
         Expression parsedMapTo = parse(map, map.requiredNode("mapTo"), mapTo);
 
         List<Assignment> mapFrom = new ArrayList<>();
-        NodeMap entries = map.optionalMap("mapFrom");
+        NodeMap entries = map.optionalMap("mapFrom", "mapFrom");
         if (entries != null) {
             for (String target : entries.keys()) {
                 String value = entries.requiredString(target);

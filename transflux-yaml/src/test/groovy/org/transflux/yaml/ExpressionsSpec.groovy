@@ -184,8 +184,8 @@ class ExpressionsSpec extends Specification {
         where:
         what                     | text                                           | read                                || message
         'a malformed mapTo'      | "mapTo: 'a +'\n"                               | { Expressions.mapper(it) }          || "doc.yml:1:8: invalid SpEL expression 'a +': "
-        'a malformed target'     | "mapTo: 'a'\nmapFrom:\n  'a +': 'b'\n"         | { Expressions.mapper(it) }          || "doc.yml:3:3: invalid SpEL expression 'a +': "
-        'a malformed value'      | "mapTo: 'a'\nmapFrom:\n  a: 'b +'\n"           | { Expressions.mapper(it) }          || "doc.yml:3:6: invalid SpEL expression 'b +': "
+        'a malformed target'     | "mapTo: 'a'\nmapFrom:\n  'a +': 'b'\n"         | { Expressions.mapper(it) }          || "doc.yml:3:3: mapFrom: invalid SpEL expression 'a +': "
+        'a malformed value'      | "mapTo: 'a'\nmapFrom:\n  a: 'b +'\n"           | { Expressions.mapper(it) }          || "doc.yml:3:6: mapFrom: invalid SpEL expression 'b +': "
         'a mapFrom not a map'    | "mapTo: 'a'\nmapFrom: [a]\n"                   | { Expressions.mapper(it) }          || "doc.yml:2:10: 'mapFrom' must be a mapping"
         'a malformed guard'      | "expression: 'a +'\n"                          | { Expressions.guard(it) }           || "doc.yml:1:13: invalid SpEL expression 'a +': "
     }

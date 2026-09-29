@@ -144,7 +144,7 @@ final class TriggerEntries {
     }
 
     private void filter(NodeMap trigger, EventTriggerDef def) {
-        NodeMap filter = trigger.optionalMap("filter");
+        NodeMap filter = trigger.optionalMap("filter", "filter");
         if (filter == null) {
             return;
         }
@@ -153,7 +153,7 @@ final class TriggerEntries {
             Object predicate = conditions.predicate(filter, "class",
                 new Expected[] {Expected.exactly(Object.class), Expected.superOf(entityType)},
                 Expected.exactly(Object.class));
-            trigger.at(at, () -> predicate instanceof BiPredicate bi
+            filter.at(at, () -> predicate instanceof BiPredicate bi
                 ? def.filter(bi)
                 : def.filter((Predicate) predicate));
         } else {

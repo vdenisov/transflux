@@ -114,11 +114,11 @@ final class StateMachineSection {
      * writes as a lambda.
      */
     private void accessor(NodeMap section, String key) {
-        NodeMap block = section.optionalMap(key);
+        boolean resolver = key.equals("stateResolver");
+        NodeMap block = section.optionalMap(key, resolver ? "state resolver" : "state applier");
         if (block == null) {
             return;
         }
-        boolean resolver = key.equals("stateResolver");
         String form = block.exactlyOneOf("class", "expression");
         Object accessor;
         if (form.equals("class")) {

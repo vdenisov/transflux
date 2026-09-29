@@ -209,6 +209,19 @@ final class NodeMap {
 
     /**
      * @param key the key
+     * @param label what the block is, appended to its declaration path as {@link #within} does
+     *
+     * @return the key's value as a mapping, labelled, or {@code null} when the key is absent
+     *
+     * @throws DefinitionLoadException when the value is not a mapping
+     */
+    NodeMap optionalMap(String key, String label) {
+        NodeMap map = optionalMap(key);
+        return map == null ? null : map.within(label);
+    }
+
+    /**
+     * @param key the key
      *
      * @return the list's elements, or {@code null} when the key is absent
      *

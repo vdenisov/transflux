@@ -251,7 +251,7 @@ final class ActionEntries {
         if (mapper instanceof ScalarNode) {
             return within.requiredString("mapper");
         }
-        NodeMap block = within.requiredMap("mapper");
+        NodeMap block = within.requiredMap("mapper").within("mapper");
         // A registered or class mapper's write-back is invisible here; one written beside the fork is not.
         if (forked && block.optionalNode("mapFrom") != null) {
             throw block.error(block.keyNode("mapFrom"),

@@ -314,7 +314,7 @@ class ComponentSectionsSpec extends Specification {
         'another kind\'s key'           | 'triggers:\n  - id: t\n    type: manual\n    event: E\n'                            || "root.yml:7:5: trigger 't': unknown key 'event'; expected one of id, type, context, name, description, preConditions"
         'an event trigger with no event'| 'triggers:\n  - id: t\n    type: event\n'                                            || "root.yml:5:5: trigger 't': 'event' is required"
         'a data trigger with no gate'   | 'triggers:\n  - id: t\n    type: data\n'                                             || "root.yml:5:5: trigger 't': 'condition' is required"
-        'a filter implementing both'    | "triggers:\n  - id: t\n    type: event\n    event: E\n    filter:\n      class: ${BothPredicates.name}\n" || "root.yml:9:14: trigger 't': class ${BothPredicates.name} implements both BiPredicate and Predicate; implement one"
-        'a filter over another event'   | "triggers:\n  - id: t\n    type: event\n    event: E\n    filter:\n      class: ${PriorityBi.name}\n" || "root.yml:9:14: trigger 't': class ${PriorityBi.name} declares BiPredicate's T as ${Order.name}, where this position needs java.lang.Object"
+        'a filter implementing both'    | "triggers:\n  - id: t\n    type: event\n    event: E\n    filter:\n      class: ${BothPredicates.name}\n" || "root.yml:9:14: trigger 't' > filter: class ${BothPredicates.name} implements both BiPredicate and Predicate; implement one"
+        'a filter over another event'   | "triggers:\n  - id: t\n    type: event\n    event: E\n    filter:\n      class: ${PriorityBi.name}\n" || "root.yml:9:14: trigger 't' > filter: class ${PriorityBi.name} declares BiPredicate's T as ${Order.name}, where this position needs java.lang.Object"
     }
 }
