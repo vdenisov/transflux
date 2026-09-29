@@ -1,4 +1,4 @@
-# error: implements both BiPredicate and Predicate
+# error: root.transflux.yml -> predicate-implementing-both.transflux.yml:5:16: condition 'c': class org.transflux.yaml.LoaderFixtures$BothPredicates implements both BiPredicate and Predicate; implement one
 apiVersion: transflux/v1
 conditions:
   - id: c

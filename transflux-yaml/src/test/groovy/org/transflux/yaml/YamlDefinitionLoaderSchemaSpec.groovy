@@ -26,7 +26,6 @@ import com.networknt.schema.SchemaLocation
 import com.networknt.schema.SchemaRegistry
 import com.networknt.schema.SpecificationVersion
 import org.transflux.yaml.LoaderFixtures.Order
-import org.transflux.yaml.source.ClasspathDefinitionSource
 import org.transflux.yaml.source.DefinitionResource
 import org.transflux.yaml.source.DefinitionSource
 import org.yaml.snakeyaml.DumperOptions.ScalarStyle
@@ -46,7 +45,8 @@ import java.nio.file.Path
  * Runs every document of the corpus through the JSON Schema and the loader. A document under
  * {@code valid/} both accept; under {@code invalid/} both refuse; under {@code loader-only/} the
  * schema accepts what only the loader can see is wrong. A refused document opens with
- * {@code # error: <text>}, which the loader's message must contain; an invalid one adds
+ * {@code # error: <message>}, the loader's whole message - or, ending in {@code …}, how it starts,
+ * for a message ending in text the module does not own, such as the SpEL parser's; an invalid one adds
  * {@code # schema: <JSON pointer>}, where the schema must report an error. Where a union of
  * definitions reaches that key - an action entry is one of four shapes - {@code # rule: <definition>
  * <JSON pointer>} names the one that must raise it, validated alone against the node at the pointer.
@@ -60,7 +60,7 @@ class YamlDefinitionLoaderSchemaSpec extends Specification {
 
     static final Path CORPUS = Path.of(YamlDefinitionLoaderSchemaSpec.getResource('/corpus').toURI())
 
-    static final String SYNTHETIC_ROOT = '__root__.transflux.yml'
+    static final String SYNTHETIC_ROOT = 'root.transflux.yml'
 
     static final JsonNodeFactory JSON = JsonNodeFactory.instance
 
@@ -94,7 +94,7 @@ class YamlDefinitionLoaderSchemaSpec extends Specification {
         expect:
         schemaErrors(file).any { at(it, header(file, 'schema')) }
         ruleErrors(file).any { at(it, header(file, 'schema')) }
-        loaderMessage(file)?.contains(header(file, 'error'))
+        pinned(loaderMessage(file), header(file, 'error'))
 
         where:
         file << documents('invalid')
@@ -104,7 +104,7 @@ class YamlDefinitionLoaderSchemaSpec extends Specification {
     def 'only the loader refuses #name'() {
         expect:
         schemaErrors(file) == []
-        loaderMessage(file)?.contains(header(file, 'error'))
+        pinned(loaderMessage(file), header(file, 'error'))
 
         where:
         file << documents('loader-only')
@@ -174,6 +174,10 @@ class YamlDefinitionLoaderSchemaSpec extends Specification {
             .collect { pointer + it.instanceLocation + (it.property == null ? '' : '/' + it.property) }
     }
 
+    private static boolean pinned(String message, String header) {
+        return header.endsWith('…') ? message?.startsWith(header[0..-2]) : message == header
+    }
+
     private static boolean at(String location, String pointer) {
         return location == pointer || location.startsWith(pointer + '/')
     }
@@ -190,15 +194,16 @@ class YamlDefinitionLoaderSchemaSpec extends Specification {
         JsonNode document = tree(file)
         String entityType = document.path('stateMachine').path('entityType').asText(Order.name)
         String identifier = document.has('stateMachine') ? file.fileName.toString() : SYNTHETIC_ROOT
-        String base = CORPUS.parent.relativize(file.parent).toString().replace('\\', '/') + '/'
         String synthetic = "apiVersion: transflux/v1\nimports:\n  - ${file.fileName}\nstateMachine:\n" +
             "  entityType: ${Order.name}\n"
 
-        def classpath = new ClasspathDefinitionSource()
+        assert !Files.exists(file.parent.resolve(SYNTHETIC_ROOT)): "${SYNTHETIC_ROOT} is the synthetic root's name"
+        // Reports the identifier alone, as a host's own source might: a resource URL names this machine.
         def source = { String id ->
+            Path path = file.parent.resolve(id)
             id == SYNTHETIC_ROOT
                 ? Optional.of(new DefinitionResource(id, new ByteArrayInputStream(synthetic.bytes)))
-                : classpath.open(base + id)
+                : Files.exists(path) ? Optional.of(new DefinitionResource(id, Files.newInputStream(path))) : Optional.empty()
         }
         try {
             YamlDefinitionLoader.builder(source as DefinitionSource).build().load(identifier, entity(entityType))

@@ -1,3 +1,3 @@
-# error: apiVersion must be 'transflux/v1', not 'transflux/v2'
+# error: root.transflux.yml -> root-wrong-api-version.transflux.yml:3:13: 'apiVersion' must be 'transflux/v1', not 'transflux/v2'
 # schema: /apiVersion
 apiVersion: transflux/v2

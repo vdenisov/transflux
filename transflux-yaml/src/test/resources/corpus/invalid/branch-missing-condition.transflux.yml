@@ -1,4 +1,4 @@
-# error: 'condition' is required
+# error: root.transflux.yml -> branch-missing-condition.transflux.yml:10:9: choice 'c' > branch 'b': 'condition' is required
 # schema: /choices/0/branches/0/condition
 apiVersion: transflux/v1
 steps:

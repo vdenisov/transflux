@@ -1,4 +1,4 @@
-# error: unknown key 'context'
+# error: root.transflux.yml -> listener-inline-with-context.transflux.yml:12:11: step 's' > listener 'l': unknown key 'context'; expected one of id, class, name, description, async, onRejection
 # schema: /steps/0/listeners/onStart/0/context
 # rule: inlineListener /steps/0/listeners/onStart/0
 apiVersion: transflux/v1

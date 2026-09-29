@@ -1,4 +1,4 @@
-# error: unknown key 'type'
+# error: root.transflux.yml -> listener-inline-with-type.transflux.yml:12:11: step 's' > listener 'l': unknown key 'type'; expected one of id, class, name, description, async, onRejection
 # schema: /steps/0/listeners/onStart/0/type
 # rule: inlineListener /steps/0/listeners/onStart/0
 apiVersion: transflux/v1

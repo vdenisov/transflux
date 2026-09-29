@@ -1,4 +1,4 @@
-# error: 'entityType' is required
+# error: sm-missing-entity-type.transflux.yml:5:3: state machine: 'entityType' is required
 # schema: /stateMachine/entityType
 apiVersion: transflux/v1
 stateMachine:

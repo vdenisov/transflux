@@ -1,4 +1,4 @@
-# error: 'threadPoolSize' must be a whole number, not 'many'
+# error: config-async-not-a-number.transflux.yml:8:23: state machine: 'threadPoolSize' must be a whole number, not 'many'
 # schema: /stateMachine/config/async/threadPoolSize
 apiVersion: transflux/v1
 stateMachine:

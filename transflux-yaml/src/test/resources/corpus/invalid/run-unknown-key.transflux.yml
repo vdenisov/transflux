@@ -1,4 +1,4 @@
-# error: unknown key 'context'
+# error: root.transflux.yml -> run-unknown-key.transflux.yml:12:9: operation 'o' > run 's': unknown key 'context'; expected one of run, fork, mapper, onRejection
 # schema: /operations/0/actions/0/context
 # rule: runEntry /operations/0/actions/0
 apiVersion: transflux/v1

@@ -72,7 +72,7 @@ final class ActionEntries {
      * @throws DefinitionLoadException when the entry is not a step registration
      */
     void registerStep(NodeMap entry, StateMachineDef def) {
-        String id = entry.requiredString("id");
+        String id = entry.requiredId("step");
         NodeMap within = entry.within("step '" + id + "'");
         Class<?> context = classes.optionalClass(within, "context", null);
         Consumer<StepDef> configurer = step -> step(within, step, context);
@@ -92,7 +92,7 @@ final class ActionEntries {
      * @throws DefinitionLoadException when the entry is not an operation registration
      */
     void registerOperation(NodeMap entry, StateMachineDef def) {
-        String id = entry.requiredString("id");
+        String id = entry.requiredId("operation");
         NodeMap within = entry.within("operation '" + id + "'");
         Class<?> context = registeredContext(within);
         Consumer<OperationDef> configurer = operation -> operation(within, operation, context);
@@ -111,7 +111,7 @@ final class ActionEntries {
      * @throws DefinitionLoadException when the entry is not a choice registration
      */
     void registerChoice(NodeMap entry, StateMachineDef def) {
-        String id = entry.requiredString("id");
+        String id = entry.requiredId("choice");
         NodeMap within = entry.within("choice '" + id + "'");
         Class<?> context = registeredContext(within);
         Consumer<ChoiceDef> configurer = choice -> choice(within, id, choice, context);
@@ -290,7 +290,7 @@ final class ActionEntries {
         actionKeys.apply(within, choice, context);
         for (Node node : within.requiredList("branches")) {
             NodeMap entry = NodeMap.of(within.document(), node, within.declarationPath(), "a branch");
-            String id = entry.requiredString("id");
+            String id = entry.requiredId("branch");
             NodeMap branch = entry.within("branch '" + id + "'");
             Consumer<BranchDef> configurer = def -> {
                 conditions.descriptor(branch, branch.requiredNode("condition"), context, Target.of(

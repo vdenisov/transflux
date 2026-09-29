@@ -1,4 +1,4 @@
-# error: 'condition' is required
+# error: root.transflux.yml -> trigger-data-missing-condition.transflux.yml:5:5: trigger 'g': 'condition' is required
 # schema: /triggers/0/condition
 apiVersion: transflux/v1
 triggers:

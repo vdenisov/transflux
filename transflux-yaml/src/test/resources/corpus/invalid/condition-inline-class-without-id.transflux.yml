@@ -1,4 +1,4 @@
-# error: 'id' is required
+# error: condition-inline-class-without-id.transflux.yml:12:11: state machine > transition 't' > condition: 'id' is required; only a condition written as an expression may omit it
 # schema: /stateMachine/transitions/0/preConditions/0/id
 # rule: conditionBlock /stateMachine/transitions/0/preConditions/0
 apiVersion: transflux/v1

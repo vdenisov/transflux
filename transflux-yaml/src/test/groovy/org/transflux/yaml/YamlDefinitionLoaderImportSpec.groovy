@@ -138,7 +138,7 @@ class YamlDefinitionLoaderImportSpec extends Specification {
         library                                                                  || message
         "apiVersion: transflux/v1\nstateMachine:\n  entityType: ${Order.name}\n" || 'root.yml -> lib.yml:2:1: only the root document declares a state machine; this one is imported'
         'steps: []\n'                                                            || "root.yml -> lib.yml:1:1: 'apiVersion' is required"
-        'apiVersion: transflux/v0\n'                                             || "root.yml -> lib.yml:1:13: apiVersion must be 'transflux/v1', not 'transflux/v0'"
+        'apiVersion: transflux/v0\n'                                             || "root.yml -> lib.yml:1:13: 'apiVersion' must be 'transflux/v1', not 'transflux/v0'"
         'apiVersion: transflux/v1\nstats: []\n'                                  || "root.yml -> lib.yml:2:1: unknown key 'stats'; expected one of apiVersion, imports, steps, operations, choices, conditions, mappers, triggers, listeners"
         'a: [1\n'                                                                || "root.yml -> lib.yml:2:1: not valid YAML: expected ',' or ']', but got <stream end>"
     }
@@ -154,10 +154,10 @@ class YamlDefinitionLoaderImportSpec extends Specification {
 
         where:
         imports        || message
-        '\n  - {a: b}' || 'root.yml:3:5: an import is the identifier of a document'
-        "\n  - ''"     || 'root.yml:3:5: an import is the identifier of a document'
-        '\n  - ~'      || 'root.yml:3:5: an import is the identifier of a document'
-        '\n  - null'   || 'root.yml:3:5: an import is the identifier of a document'
+        '\n  - {a: b}' || 'root.yml:3:5: an import names a document by its identifier; this entry names none'
+        "\n  - ''"     || 'root.yml:3:5: an import names a document by its identifier; this entry names none'
+        '\n  - ~'      || 'root.yml:3:5: an import names a document by its identifier; this entry names none'
+        '\n  - null'   || 'root.yml:3:5: an import names a document by its identifier; this entry names none'
         ' lib.yml'     || "root.yml:2:10: 'imports' must be a list"
         // Identifiers are opaque, so a number is one: it reaches the source as written.
         '\n  - 42'     || "root.yml:3:5: import '42': no such document"

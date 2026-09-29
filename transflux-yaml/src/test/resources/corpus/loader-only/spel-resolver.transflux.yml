@@ -1,4 +1,4 @@
-# error: invalid SpEL expression 'a +'
+# error: spel-resolver.transflux.yml:6:17: state machine > state resolver: invalid SpEL expression 'a +'…
 apiVersion: transflux/v1
 stateMachine:
   entityType: org.transflux.yaml.LoaderFixtures$Order

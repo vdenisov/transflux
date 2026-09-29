@@ -1,4 +1,4 @@
-# error: unknown key 'onFinish'
+# error: root.transflux.yml -> action-hooks-unknown-hook.transflux.yml:8:7: step 's': unknown key 'onFinish'; expected one of onStart, onComplete, onError
 # schema: /steps/0/listeners/onFinish
 apiVersion: transflux/v1
 steps:

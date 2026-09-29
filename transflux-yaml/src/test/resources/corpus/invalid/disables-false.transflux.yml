@@ -1,4 +1,4 @@
-# error: 'disableGlobalListeners' must be true or a list of listener ids
+# error: root.transflux.yml -> disables-false.transflux.yml:7:29: step 's': 'disableGlobalListeners' must be true or a list of listener ids
 # schema: /steps/0/disableGlobalListeners
 apiVersion: transflux/v1
 steps:

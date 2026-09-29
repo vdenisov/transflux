@@ -1,4 +1,4 @@
-# error: 'class' is required
+# error: root.transflux.yml -> step-entry-missing-class.transflux.yml:11:9: operation 'o' > step 't': 'class' is required
 # schema: /operations/0/actions/0/class
 # rule: stepEntry /operations/0/actions/0
 apiVersion: transflux/v1

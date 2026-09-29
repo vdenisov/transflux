@@ -1,4 +1,4 @@
-# error: unknown key 'event'
+# error: root.transflux.yml -> trigger-manual-with-event.transflux.yml:7:5: trigger 'g': unknown key 'event'; expected one of id, type, context, name, description, preConditions
 # schema: /triggers/0
 apiVersion: transflux/v1
 triggers:

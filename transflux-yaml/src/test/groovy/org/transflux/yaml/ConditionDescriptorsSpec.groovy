@@ -74,10 +74,12 @@ class ConditionDescriptorsSpec extends Specification {
         where:
         what                             | descriptor                                                || message
         'a list for a descriptor'        | '[a]'                                                     || "root.yml:9:9: trigger 't': a condition must be a mapping"
-        'no form'                        | '{ id: c }'                                               || "root.yml:9:9: trigger 't': exactly one of 'class', 'predicate', 'expression' is required"
-        'a class without an id'          | "{ class: ${PriorityCondition.name} }"                    || "root.yml:9:9: trigger 't': 'id' is required"
-        'a name'                         | "{ id: c, expression: 'true', name: C }"                  || "root.yml:9:38: trigger 't' > condition 'c': unknown key 'name'; expected one of class, predicate, expression, id"
-        'a class of another kind'        | "{ id: c, class: ${PriorityBi.name} }"                    || "root.yml:9:25: trigger 't' > condition 'c': class ${PriorityBi.name} is not a org.transflux.core.condition.Condition"
+        'no form'                        | '{ id: c }'                                               || "root.yml:9:9: trigger 't' > condition 'c': exactly one of 'class', 'predicate', 'expression' is required"
+        'a class without an id'          | "{ class: ${PriorityCondition.name} }"                    || "root.yml:9:9: trigger 't' > condition: 'id' is required; only a condition written as an expression may omit it"
+        'an id that is not a string'     | "{ id: [x], expression: 'true' }"                         || "root.yml:9:15: trigger 't' > condition: 'id' must be a string"
+        'a null id on a class'           | "{ id: ~, class: ${PriorityCondition.name} }"             || "root.yml:9:11: trigger 't' > condition: 'id' requires a value"
+        'a name'                         | "{ id: c, expression: 'true', name: C }"                  || "root.yml:9:38: trigger 't' > condition 'c': unknown key 'name'; expected one of id, expression"
+        'a class of another kind'        | "{ id: c, class: ${PriorityBi.name} }"                    || "root.yml:9:25: trigger 't' > condition 'c': class ${PriorityBi.name} is not a subtype of org.transflux.core.condition.Condition"
         'another context'                | "{ id: c, class: ${PriorityCondition.name} }"             || "root.yml:9:25: trigger 't' > condition 'c': class ${PriorityCondition.name} declares Condition's C as java.lang.Object, where this position needs ${Ctx.name}"
         'a predicate of another context' | "{ id: c, predicate: ${PriorityBi.name} }"                || "root.yml:9:29: trigger 't' > condition 'c': class ${PriorityBi.name} declares BiPredicate's U as java.lang.Object, where this position needs ${Ctx.name}"
         'a predicate implementing both'  | "{ id: c, predicate: ${BothPredicates.name} }"            || "root.yml:9:29: trigger 't' > condition 'c': class ${BothPredicates.name} implements both BiPredicate and Predicate; implement one"

@@ -1,4 +1,4 @@
-# error: unknown key 'when'
+# error: root.transflux.yml -> route-unknown-key.transflux.yml:10:9: step 's' > route 1 (java.lang.RuntimeException): unknown key 'when'; expected one of exception, guard, compensation
 # schema: /steps/0/errorHandling/0/when
 apiVersion: transflux/v1
 steps:

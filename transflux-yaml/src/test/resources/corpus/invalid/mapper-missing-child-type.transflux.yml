@@ -1,4 +1,4 @@
-# error: 'childType' is required
+# error: root.transflux.yml -> mapper-missing-child-type.transflux.yml:5:5: mapper 'm': 'childType' is required
 # schema: /mappers/0/childType
 apiVersion: transflux/v1
 mappers:

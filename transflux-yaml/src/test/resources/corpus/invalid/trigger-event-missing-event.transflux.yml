@@ -1,4 +1,4 @@
-# error: 'event' is required
+# error: root.transflux.yml -> trigger-event-missing-event.transflux.yml:5:5: trigger 'g': 'event' is required
 # schema: /triggers/0/event
 apiVersion: transflux/v1
 triggers:

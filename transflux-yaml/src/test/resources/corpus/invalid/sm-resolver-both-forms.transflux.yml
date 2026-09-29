@@ -1,4 +1,4 @@
-# error: exactly one of 'class', 'expression' is allowed; found both 'class' and 'expression'
+# error: sm-resolver-both-forms.transflux.yml:8:5: state machine > state resolver: exactly one of 'class', 'expression' is allowed; found both 'class' and 'expression'
 # schema: /stateMachine/stateResolver/expression
 apiVersion: transflux/v1
 stateMachine:

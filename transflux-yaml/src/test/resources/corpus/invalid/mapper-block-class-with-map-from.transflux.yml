@@ -1,4 +1,4 @@
-# error: 'mapFrom' needs 'mapTo' beside it
+# error: root.transflux.yml -> mapper-block-class-with-map-from.transflux.yml:14:11: operation 'o' > run 's' > mapper: 'mapFrom' needs 'mapTo' beside it; a class maps back itself
 # schema: /operations/0/actions/0/mapper/mapFrom
 # rule: mapperBlock /operations/0/actions/0/mapper
 apiVersion: transflux/v1

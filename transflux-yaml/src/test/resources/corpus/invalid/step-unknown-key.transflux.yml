@@ -1,4 +1,4 @@
-# error: unknown key 'fork'
+# error: root.transflux.yml -> step-unknown-key.transflux.yml:7:5: step 's': unknown key 'fork'; expected one of id, context, class, name, description, onRejection, compensation, errorHandling, listeners, disableGlobalListeners
 # schema: /steps/0/fork
 apiVersion: transflux/v1
 steps:

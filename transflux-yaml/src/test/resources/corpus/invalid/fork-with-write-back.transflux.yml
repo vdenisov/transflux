@@ -1,4 +1,4 @@
-# error: 'mapFrom' never runs at a forked call site
+# error: root.transflux.yml -> fork-with-write-back.transflux.yml:15:11: operation 'o' > run 's' > mapper: 'mapFrom' never runs at a forked call site; a forked member cannot write back
 # schema: /operations/0/actions/0/mapper
 # rule: runEntry /operations/0/actions/0
 apiVersion: transflux/v1

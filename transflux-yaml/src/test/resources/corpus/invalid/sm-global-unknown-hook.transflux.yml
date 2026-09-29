@@ -1,4 +1,4 @@
-# error: unknown key 'onAnyEntry'
+# error: sm-global-unknown-hook.transflux.yml:7:5: state machine: unknown key 'onAnyEntry'; expected one of onAnyStateEntry, onAnyStateExit, onAnyTransitionStart, onAnyTransitionComplete, onAnyTransitionError, onAnyActionStart, onAnyActionComplete, onAnyActionError
 # schema: /stateMachine/listeners/onAnyEntry
 apiVersion: transflux/v1
 stateMachine:

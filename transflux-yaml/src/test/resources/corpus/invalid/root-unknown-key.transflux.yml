@@ -1,4 +1,4 @@
-# error: unknown key 'metadata'
+# error: root.transflux.yml -> root-unknown-key.transflux.yml:4:1: unknown key 'metadata'; expected one of apiVersion, imports, steps, operations, choices, conditions, mappers, triggers, listeners
 # schema: /metadata
 apiVersion: transflux/v1
 metadata: {}

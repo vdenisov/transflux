@@ -1,4 +1,4 @@
-# error: anchors and aliases are not supported
+# error: root.transflux.yml -> yaml-anchor.transflux.yml:4:5: anchors and aliases are not supported ('&record')
 apiVersion: transflux/v1
 steps:
   - &record

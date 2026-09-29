@@ -1,4 +1,4 @@
-# error: 'type' is required
+# error: root.transflux.yml -> trigger-missing-type.transflux.yml:5:5: trigger 'g': 'type' is required
 # schema: /triggers/0/type
 apiVersion: transflux/v1
 triggers:

@@ -1,4 +1,4 @@
-# error: 'type' must be one of state, transition, action, not 'observer'
+# error: root.transflux.yml -> listener-bad-type.transflux.yml:7:11: listener 'l': 'type' must be one of state, transition, action, not 'observer'
 # schema: /listeners/0/type
 apiVersion: transflux/v1
 listeners:

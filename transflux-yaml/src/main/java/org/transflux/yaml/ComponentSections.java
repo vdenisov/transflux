@@ -155,7 +155,7 @@ final class ComponentSections {
     }
 
     private void mapper(NodeMap entry, StateMachineDef<?> def) {
-        String id = entry.requiredString("id");
+        String id = entry.requiredId("mapper");
         NodeMap within = entry.within("mapper '" + id + "'");
         Class<?> parentType = classes.requiredClass(within, "parentType", null);
         Class<?> childType = classes.requiredClass(within, "childType", null);

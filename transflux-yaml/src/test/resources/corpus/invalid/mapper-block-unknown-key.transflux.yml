@@ -1,4 +1,4 @@
-# error: unknown key 'parentType'
+# error: root.transflux.yml -> mapper-block-unknown-key.transflux.yml:14:11: operation 'o' > run 's' > mapper: unknown key 'parentType'; expected one of mapTo, mapFrom
 # schema: /operations/0/actions/0/mapper/parentType
 # rule: mapperBlock /operations/0/actions/0/mapper
 apiVersion: transflux/v1

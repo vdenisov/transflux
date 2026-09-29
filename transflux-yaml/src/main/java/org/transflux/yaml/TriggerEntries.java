@@ -59,7 +59,7 @@ final class TriggerEntries {
      * @throws DefinitionLoadException when the entry is not a trigger registration
      */
     void register(NodeMap entry, StateMachineDef<?> def) {
-        String id = entry.requiredString("id");
+        String id = entry.requiredId("trigger");
         NodeMap within = entry.within("trigger '" + id + "'");
         String type = within.requiredString("type");
         Class<?> context = classes.optionalClass(within, "context", null);
@@ -93,7 +93,7 @@ final class TriggerEntries {
             return;
         }
         NodeMap declaration = NodeMap.of(owner.document(), entry, owner.declarationPath(), "a trigger");
-        String id = declaration.requiredString("id");
+        String id = declaration.requiredId("trigger");
         NodeMap within = declaration.within("trigger '" + id + "'");
         String type = within.requiredString("type");
         Consumer configurer = configurer(within, type, context);

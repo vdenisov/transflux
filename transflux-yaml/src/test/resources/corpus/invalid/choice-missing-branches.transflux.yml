@@ -1,4 +1,4 @@
-# error: 'branches' is required
+# error: root.transflux.yml -> choice-missing-branches.transflux.yml:5:5: choice 'c': 'branches' is required
 # schema: /choices/0/branches
 apiVersion: transflux/v1
 choices:

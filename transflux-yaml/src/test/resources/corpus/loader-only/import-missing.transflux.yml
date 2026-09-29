@@ -1,4 +1,4 @@
-# error: import 'imports/absent.transflux.yml': no such document
+# error: root.transflux.yml -> import-missing.transflux.yml:4:5: import 'imports/absent.transflux.yml': no such document
 apiVersion: transflux/v1
 imports:
   - imports/absent.transflux.yml

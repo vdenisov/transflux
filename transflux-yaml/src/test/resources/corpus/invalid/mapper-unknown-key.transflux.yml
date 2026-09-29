@@ -1,4 +1,4 @@
-# error: unknown key 'fork'
+# error: root.transflux.yml -> mapper-unknown-key.transflux.yml:9:5: mapper 'm': unknown key 'fork'; expected one of id, parentType, childType, mapTo, mapFrom, name, description
 # schema: /mappers/0/fork
 apiVersion: transflux/v1
 mappers:

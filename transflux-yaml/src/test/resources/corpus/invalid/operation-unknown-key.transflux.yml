@@ -1,4 +1,4 @@
-# error: unknown key 'class'
+# error: root.transflux.yml -> operation-unknown-key.transflux.yml:6:5: operation 'o': unknown key 'class'; expected one of id, context, name, description, onRejection, compensation, errorHandling, listeners, disableGlobalListeners, actions
 # schema: /operations/0/class
 apiVersion: transflux/v1
 operations:

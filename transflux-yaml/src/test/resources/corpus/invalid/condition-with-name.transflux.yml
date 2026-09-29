@@ -1,4 +1,4 @@
-# error: unknown key 'name'
+# error: root.transflux.yml -> condition-with-name.transflux.yml:6:5: condition 'c': unknown key 'name'; expected one of context, id, expression
 # schema: /conditions/0/name
 apiVersion: transflux/v1
 conditions:

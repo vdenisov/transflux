@@ -1,4 +1,4 @@
-# error: 'stateMachine' requires a value
+# error: sm-null.transflux.yml:4:1: 'stateMachine' requires a value
 # schema: /stateMachine
 apiVersion: transflux/v1
 stateMachine:

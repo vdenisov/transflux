@@ -1,4 +1,4 @@
-# error: unknown key 'onStart'
+# error: state-unknown-hook.transflux.yml:9:9: state machine > state 'a': unknown key 'onStart'; expected one of onEntry, onExit
 # schema: /stateMachine/states/0/listeners/onStart
 apiVersion: transflux/v1
 stateMachine:

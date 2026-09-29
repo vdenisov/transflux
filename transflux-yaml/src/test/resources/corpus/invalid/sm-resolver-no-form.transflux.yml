@@ -1,4 +1,4 @@
-# error: exactly one of 'class', 'expression' is required
+# error: sm-resolver-no-form.transflux.yml:6:18: state machine > state resolver: exactly one of 'class', 'expression' is required
 # schema: /stateMachine/stateResolver/class
 apiVersion: transflux/v1
 stateMachine:

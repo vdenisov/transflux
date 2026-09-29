@@ -1,4 +1,4 @@
-# error: 'logging' requires a value; write 'logging: {}'
+# error: config-logging-null.transflux.yml:7:5: state machine: 'logging' requires a value; write 'logging: {}' for the default trace
 # schema: /stateMachine/config/logging
 apiVersion: transflux/v1
 stateMachine:

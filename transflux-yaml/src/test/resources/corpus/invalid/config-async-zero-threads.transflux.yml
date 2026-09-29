@@ -1,4 +1,4 @@
-# error: Async pool thread count must be positive
+# error: config-async-zero-threads.transflux.yml:8:7: state machine: Async pool thread count must be positive; got 0
 # schema: /stateMachine/config/async/threadPoolSize
 apiVersion: transflux/v1
 stateMachine:

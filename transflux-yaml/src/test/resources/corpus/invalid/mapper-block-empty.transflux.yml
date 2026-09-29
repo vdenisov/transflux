@@ -1,4 +1,4 @@
-# error: exactly one of 'class', 'mapTo' is required
+# error: root.transflux.yml -> mapper-block-empty.transflux.yml:12:17: operation 'o' > run 's' > mapper: exactly one of 'class', 'mapTo' is required
 # schema: /operations/0/actions/0/mapper/mapTo
 # rule: mapperBlock /operations/0/actions/0/mapper
 apiVersion: transflux/v1

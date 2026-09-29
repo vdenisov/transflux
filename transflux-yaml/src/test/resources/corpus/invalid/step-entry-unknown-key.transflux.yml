@@ -1,4 +1,4 @@
-# error: unknown key 'actions'
+# error: root.transflux.yml -> step-entry-unknown-key.transflux.yml:13:9: operation 'o' > step 't': unknown key 'actions'; expected one of step, context, mapper, fork, class, name, description, onRejection, compensation, errorHandling, listeners, disableGlobalListeners
 # schema: /operations/0/actions/0/actions
 # rule: stepEntry /operations/0/actions/0
 apiVersion: transflux/v1

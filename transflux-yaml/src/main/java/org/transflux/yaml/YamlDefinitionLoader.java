@@ -167,7 +167,7 @@ public final class YamlDefinitionLoader {
         for (Node entry : entries) {
             if (!(entry instanceof ScalarNode scalar) || Tag.NULL.equals(scalar.getTag())
                 || scalar.getValue().isBlank()) {
-                throw importer.error(entry, "an import is the identifier of a document");
+                throw importer.error(entry, "an import names a document by its identifier; this entry names none");
             }
             String identifier = scalar.getValue();
             // Every document on the chain is also in seen, so the cycle has to be told apart first.
@@ -213,7 +213,7 @@ public final class YamlDefinitionLoader {
         String apiVersion = document.requiredString("apiVersion");
         if (!API_VERSION.equals(apiVersion)) {
             throw document.error(document.requiredNode("apiVersion"),
-                "apiVersion must be '" + API_VERSION + "', not '" + apiVersion + "'");
+                "'apiVersion' must be '" + API_VERSION + "', not '" + apiVersion + "'");
         }
     }
 

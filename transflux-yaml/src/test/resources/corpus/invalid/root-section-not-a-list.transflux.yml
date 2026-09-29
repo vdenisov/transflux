@@ -1,4 +1,4 @@
-# error: 'steps' must be a list
+# error: root.transflux.yml -> root-section-not-a-list.transflux.yml:4:8: 'steps' must be a list
 # schema: /steps
 apiVersion: transflux/v1
 steps: {}

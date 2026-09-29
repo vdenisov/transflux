@@ -1,4 +1,4 @@
-# error: class com.example.Missing cannot be loaded
+# error: root.transflux.yml -> class-unloadable.transflux.yml:5:12: step 's': class com.example.Missing cannot be loaded
 apiVersion: transflux/v1
 steps:
   - id: s

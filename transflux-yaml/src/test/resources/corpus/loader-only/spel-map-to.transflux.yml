@@ -1,4 +1,4 @@
-# error: invalid SpEL expression 'new ('
+# error: root.transflux.yml -> spel-map-to.transflux.yml:7:12: mapper 'm': invalid SpEL expression 'new ('…
 apiVersion: transflux/v1
 mappers:
   - id: m

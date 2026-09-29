@@ -1,4 +1,4 @@
-# error: duplicate key 'id'
+# error: root.transflux.yml -> yaml-duplicate-key.transflux.yml:5:5: duplicate key 'id'
 apiVersion: transflux/v1
 steps:
   - id: s

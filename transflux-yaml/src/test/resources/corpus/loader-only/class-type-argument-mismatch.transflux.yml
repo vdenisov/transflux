@@ -1,4 +1,4 @@
-# error: declares Action's
+# error: root.transflux.yml -> class-type-argument-mismatch.transflux.yml:5:12: step 's': class org.transflux.yaml.LoaderFixtures$CtxStep declares Action's C as org.transflux.yaml.LoaderFixtures$Ctx, where this position needs org.transflux.yaml.LoaderFixtures$ChildCtx
 apiVersion: transflux/v1
 steps:
   - id: s

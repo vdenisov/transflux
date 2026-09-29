@@ -68,7 +68,7 @@ class YamlDefinitionLoaderSpec extends Specification {
         what                     | text                                                                                || message
         'a list for a document'  | '- a\n'                                                                             || 'root.yml:1:1: a definition document must be a mapping'
         'a missing apiVersion'   | "stateMachine:\n  entityType: ${Order.name}\n"                                      || "root.yml:1:1: 'apiVersion' is required"
-        'another apiVersion'     | "apiVersion: transflux/v2\nstateMachine:\n  entityType: ${Order.name}\n"            || "root.yml:1:13: apiVersion must be 'transflux/v1', not 'transflux/v2'"
+        'another apiVersion'     | "apiVersion: transflux/v2\nstateMachine:\n  entityType: ${Order.name}\n"            || "root.yml:1:13: 'apiVersion' must be 'transflux/v1', not 'transflux/v2'"
         'a missing stateMachine' | 'apiVersion: transflux/v1\n'                                                        || "root.yml:1:1: 'stateMachine' is required"
         'an unknown root key'    | "apiVersion: transflux/v1\nextra: 1\nstateMachine:\n  entityType: ${Order.name}\n"  || "root.yml:2:1: unknown key 'extra'; expected one of apiVersion, stateMachine, imports, steps, operations, choices, conditions, mappers, triggers, listeners"
         'a missing entityType'   | 'apiVersion: transflux/v1\nstateMachine:\n  other: 1\n'                             || "root.yml:3:3: state machine: 'entityType' is required"

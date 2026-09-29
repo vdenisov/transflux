@@ -1,4 +1,4 @@
-# error: merge keys ('<<') are not supported
+# error: root.transflux.yml -> yaml-merge-key.transflux.yml:5:5: merge keys ('<<') are not supported
 # schema: /steps/0/<<
 apiVersion: transflux/v1
 steps:

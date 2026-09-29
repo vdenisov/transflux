@@ -52,7 +52,7 @@ class ClassesSpec extends Specification {
         where:
         what                      | name            | factory                                || problem
         'an unknown class'        | 'com.nope.Step' | ComponentFactory.reflective()          || 'class com.nope.Step cannot be loaded'
-        'the wrong type'          | String.name     | ComponentFactory.reflective()          || "class java.lang.String is not a ${Action.name}"
+        'the wrong type'          | String.name     | ComponentFactory.reflective()          || "class java.lang.String is not a subtype of ${Action.name}"
         'no usable constructor'   | NoDefault.name  | ComponentFactory.reflective()          || "Cannot instantiate ${NoDefault.name}: it declares no no-argument constructor"
         'a factory failure'       | Step.name       | { throw new TransfluxValidationException('no bean') } as ComponentFactory || 'no bean'
         'a null from the factory' | Step.name       | { null } as ComponentFactory           || "the component factory returned null for class ${Step.name}"

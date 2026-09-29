@@ -60,7 +60,7 @@ final class Classes {
         }
 
         if (position != null && !position.isAssignableFrom(type)) {
-            throw map.error(at, "class " + name + " is not a " + position.getName());
+            throw map.error(at, "class " + name + " is not a subtype of " + position.getName());
         }
 
         return type;

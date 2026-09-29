@@ -1,4 +1,4 @@
-# error: 'states' must be a list
+# error: states-not-a-list.transflux.yml:7:5: state machine: 'states' must be a list
 # schema: /stateMachine/states
 apiVersion: transflux/v1
 stateMachine:

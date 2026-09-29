@@ -1,4 +1,4 @@
-# error: 'disableGlobalListeners' belongs on the declaration of action 's'
+# error: root.transflux.yml -> run-with-disables.transflux.yml:12:9: operation 'o' > run 's': 'disableGlobalListeners' belongs on the declaration of action 's'; a run: entry carries its callee's listeners with it
 # schema: /operations/0/actions/0/disableGlobalListeners
 # rule: runEntry /operations/0/actions/0
 apiVersion: transflux/v1

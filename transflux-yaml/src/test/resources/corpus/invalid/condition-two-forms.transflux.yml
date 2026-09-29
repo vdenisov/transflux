@@ -1,4 +1,4 @@
-# error: exactly one of 'class', 'predicate', 'expression' is allowed; found both 'class' and 'predicate'
+# error: root.transflux.yml -> condition-two-forms.transflux.yml:7:5: condition 'c': exactly one of 'class', 'predicate', 'expression' is allowed; found both 'class' and 'predicate'
 # schema: /conditions/0/predicate
 apiVersion: transflux/v1
 conditions:

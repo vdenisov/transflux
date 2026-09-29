@@ -1,4 +1,4 @@
-# error: priority >
+# error: root.transflux.yml -> spel-condition.transflux.yml:5:17: condition 'c': Invalid SpEL expression 'priority >'…
 apiVersion: transflux/v1
 conditions:
   - id: c

@@ -208,10 +208,12 @@ final class StateMachineSection {
      * @return the block, or {@code null} when the key is not written
      */
     private static NodeMap block(NodeMap config, String key, String empty) {
+        // Asked before holds() is, so an unknown-key error lists the key whether or not it is written.
+        Node value = config.optionalNode(key);
         if (!config.holds(key)) {
             return null;
         }
-        if (config.optionalNode(key) == null) {
+        if (value == null) {
             throw config.error(config.keyNode(key), "'" + key + "' requires a value; write '" + key + ": {}' for "
                 + empty);
         }
@@ -248,7 +250,7 @@ final class StateMachineSection {
     }
 
     private void state(NodeMap entry) {
-        String id = entry.requiredString("id");
+        String id = entry.requiredId("state");
         NodeMap within = entry.within("state '" + id + "'");
         Consumer<StateDef> configurer = state -> {
             ComponentSections.metadata(within, state::withName, state::withDescription);
@@ -264,7 +266,7 @@ final class StateMachineSection {
     }
 
     private void transition(NodeMap entry) {
-        String id = entry.requiredString("id");
+        String id = entry.requiredId("transition");
         NodeMap within = entry.within("transition '" + id + "'");
         String from = within.requiredString("from");
         String to = within.requiredString("to");

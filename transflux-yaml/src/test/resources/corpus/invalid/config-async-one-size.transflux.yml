@@ -1,4 +1,4 @@
-# error: 'threadPoolSize' and 'queueCapacity' are given together or not at all
+# error: config-async-one-size.transflux.yml:8:7: state machine: 'threadPoolSize' and 'queueCapacity' are given together or not at all; omit both for the default sizing
 # schema: /stateMachine/config/async/queueCapacity
 apiVersion: transflux/v1
 stateMachine:

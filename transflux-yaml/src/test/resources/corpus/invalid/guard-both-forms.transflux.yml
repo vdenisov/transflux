@@ -1,4 +1,4 @@
-# error: exactly one of 'class', 'expression' is allowed; found both 'class' and 'expression'
+# error: root.transflux.yml -> guard-both-forms.transflux.yml:11:11: step 's' > route 1 (java.lang.IllegalStateException) > guard: exactly one of 'class', 'expression' is allowed; found both 'class' and 'expression'
 # schema: /steps/0/errorHandling/0/guard/expression
 apiVersion: transflux/v1
 steps:

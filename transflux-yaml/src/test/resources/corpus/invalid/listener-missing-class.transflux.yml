@@ -1,4 +1,4 @@
-# error: 'class' is required
+# error: root.transflux.yml -> listener-missing-class.transflux.yml:5:5: listener 'l': 'class' is required
 # schema: /listeners/0/class
 apiVersion: transflux/v1
 listeners:

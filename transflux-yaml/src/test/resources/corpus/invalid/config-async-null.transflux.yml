@@ -1,4 +1,4 @@
-# error: 'async' requires a value; write 'async: {}'
+# error: config-async-null.transflux.yml:7:5: state machine: 'async' requires a value; write 'async: {}' for the default pool
 # schema: /stateMachine/config/async
 apiVersion: transflux/v1
 stateMachine:

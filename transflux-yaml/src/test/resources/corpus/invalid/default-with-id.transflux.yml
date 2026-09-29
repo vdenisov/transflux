@@ -1,4 +1,4 @@
-# error: unknown key 'id'
+# error: root.transflux.yml -> default-with-id.transflux.yml:11:7: choice 'c' > default branch: unknown key 'id'; expected only actions
 # schema: /choices/0/default/id
 apiVersion: transflux/v1
 steps:

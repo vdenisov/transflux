@@ -1,4 +1,4 @@
-# error: unknown key 'onEntry'
+# error: transition-unknown-hook.transflux.yml:11:9: state machine > transition 't': unknown key 'onEntry'; expected one of onStart, onComplete, onError
 # schema: /stateMachine/transitions/0/listeners/onEntry
 apiVersion: transflux/v1
 stateMachine:

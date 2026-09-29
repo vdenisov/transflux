@@ -1,4 +1,4 @@
-# error: exactly one of 'run', 'step', 'operation', 'choice' is allowed; found both 'run' and 'step'
+# error: root.transflux.yml -> entry-two-verbs.transflux.yml:12:9: operation 'o': exactly one of 'run', 'step', 'operation', 'choice' is allowed; found both 'run' and 'step'
 # schema: /operations/0/actions/0/step
 # rule: runEntry /operations/0/actions/0
 apiVersion: transflux/v1

@@ -1,4 +1,4 @@
-# error: 'fork' must be true or false, not 'yes'
+# error: root.transflux.yml -> run-fork-not-boolean.transflux.yml:12:15: operation 'o' > run 's': 'fork' must be true or false, not 'yes'
 # schema: /operations/0/actions/0/fork
 # rule: runEntry /operations/0/actions/0
 apiVersion: transflux/v1

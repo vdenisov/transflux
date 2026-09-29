@@ -1,4 +1,4 @@
-# error: circular import
+# error: root.transflux.yml -> import-circular.transflux.yml -> imports/cycle-a.transflux.yml -> imports/cycle-b.transflux.yml:3:5: circular import: imports/cycle-a.transflux.yml -> imports/cycle-b.transflux.yml -> imports/cycle-a.transflux.yml
 apiVersion: transflux/v1
 imports:
   - imports/cycle-a.transflux.yml

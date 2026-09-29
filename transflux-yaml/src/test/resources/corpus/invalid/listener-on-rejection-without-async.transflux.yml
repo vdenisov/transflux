@@ -1,4 +1,4 @@
-# error: 'onRejection' applies to an async listener; add 'async: true'
+# error: root.transflux.yml -> listener-on-rejection-without-async.transflux.yml:7:18: listener 'l': 'onRejection' applies to an async listener; add 'async: true'
 # schema: /listeners/0/onRejection
 apiVersion: transflux/v1
 listeners:

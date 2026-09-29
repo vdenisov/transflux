@@ -1,4 +1,4 @@
-# error: 'threadPoolSize' must be a whole number, not '99999999999'
+# error: config-async-overflow.transflux.yml:8:23: state machine: 'threadPoolSize' must be a whole number, not '99999999999'
 # schema: /stateMachine/config/async/threadPoolSize
 apiVersion: transflux/v1
 stateMachine:

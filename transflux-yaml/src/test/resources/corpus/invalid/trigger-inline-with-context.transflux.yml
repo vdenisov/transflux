@@ -1,4 +1,4 @@
-# error: unknown key 'context'
+# error: trigger-inline-with-context.transflux.yml:14:11: state machine > transition 't' > trigger 'g': unknown key 'context'; expected one of id, type, name, description, preConditions
 # schema: /stateMachine/transitions/0/triggers/0/context
 # rule: inlineTrigger /stateMachine/transitions/0/triggers/0
 apiVersion: transflux/v1

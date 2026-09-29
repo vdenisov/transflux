@@ -1,4 +1,4 @@
-# error: 'mapper' produces the context this declaration runs against; name it with 'context'
+# error: root.transflux.yml -> declaration-mapper-without-context.transflux.yml:13:9: operation 'o' > step 't': 'mapper' produces the context this declaration runs against; name it with 'context'
 # schema: /operations/0/actions/0/context
 # rule: stepEntry /operations/0/actions/0
 apiVersion: transflux/v1

@@ -1,4 +1,4 @@
-# error: exactly one of 'class', 'predicate', 'expression' is required
+# error: root.transflux.yml -> condition-no-form.transflux.yml:5:5: condition 'c': exactly one of 'class', 'predicate', 'expression' is required
 # schema: /conditions/0/expression
 apiVersion: transflux/v1
 conditions:

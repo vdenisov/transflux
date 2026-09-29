@@ -1,4 +1,4 @@
-# error: unknown key 'id'
+# error: root.transflux.yml -> filter-with-id.transflux.yml:9:7: trigger 'g' > filter: unknown key 'id'; expected only expression
 # schema: /triggers/0/filter/id
 apiVersion: transflux/v1
 triggers:

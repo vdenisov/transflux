@@ -1,4 +1,4 @@
-# error: 'actions' is required
+# error: root.transflux.yml -> operation-entry-missing-actions.transflux.yml:11:9: operation 'o' > operation 'n': 'actions' is required
 # schema: /operations/0/actions/0/actions
 # rule: operationEntry /operations/0/actions/0
 apiVersion: transflux/v1

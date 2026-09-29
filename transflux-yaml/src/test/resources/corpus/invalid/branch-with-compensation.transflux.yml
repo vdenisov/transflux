@@ -1,4 +1,4 @@
-# error: unknown key 'compensation'
+# error: root.transflux.yml -> branch-with-compensation.transflux.yml:12:9: choice 'c' > branch 'b': unknown key 'compensation'; expected one of id, condition, actions
 # schema: /choices/0/branches/0/compensation
 apiVersion: transflux/v1
 steps:

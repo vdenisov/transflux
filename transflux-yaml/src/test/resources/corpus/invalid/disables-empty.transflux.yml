@@ -1,4 +1,4 @@
-# error: names no listener
+# error: root.transflux.yml -> disables-empty.transflux.yml:7:29: step 's': 'disableGlobalListeners' names no listener; write 'true' to disable every global listener
 # schema: /steps/0/disableGlobalListeners
 apiVersion: transflux/v1
 steps:

@@ -1,4 +1,4 @@
-# error: Async rejection policy FAIL is not available
+# error: root.transflux.yml -> listener-fail-policy.transflux.yml:8:18: listener 'l': Async rejection policy FAIL is not available on action listener 'l'; a listener cannot fail the transition it observes, so choose DROP, BLOCK or CALLER_RUNS
 # schema: /listeners/0/onRejection
 apiVersion: transflux/v1
 listeners:

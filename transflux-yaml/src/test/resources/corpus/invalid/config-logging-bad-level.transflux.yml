@@ -1,4 +1,4 @@
-# error: 'level' must be one of ERROR, WARN, INFO, DEBUG, TRACE, not 'VERBOSE'
+# error: config-logging-bad-level.transflux.yml:8:14: state machine: 'level' must be one of ERROR, WARN, INFO, DEBUG, TRACE, not 'VERBOSE'
 # schema: /stateMachine/config/logging/level
 apiVersion: transflux/v1
 stateMachine:

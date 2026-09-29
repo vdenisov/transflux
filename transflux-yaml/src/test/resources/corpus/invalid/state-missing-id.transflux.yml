@@ -1,4 +1,4 @@
-# error: 'id' is required
+# error: state-missing-id.transflux.yml:7:7: state machine > state: 'id' is required
 # schema: /stateMachine/states/0/id
 apiVersion: transflux/v1
 stateMachine:

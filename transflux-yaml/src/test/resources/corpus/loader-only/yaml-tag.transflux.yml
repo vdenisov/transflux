@@ -1,4 +1,4 @@
-# error: tag '!custom' is not supported
+# error: root.transflux.yml -> yaml-tag.transflux.yml:4:9: tag '!custom' is not supported
 apiVersion: transflux/v1
 steps:
   - id: !custom s

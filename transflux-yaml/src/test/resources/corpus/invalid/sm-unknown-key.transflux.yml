@@ -1,4 +1,4 @@
-# error: unknown key 'initialState'
+# error: sm-unknown-key.transflux.yml:6:3: state machine: unknown key 'initialState'; expected one of entityType, name, description, id, version, stateResolver, stateApplier, listeners, config, states, transitions
 # schema: /stateMachine/initialState
 apiVersion: transflux/v1
 stateMachine:

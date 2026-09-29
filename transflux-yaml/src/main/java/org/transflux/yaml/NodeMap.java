@@ -149,6 +149,23 @@ final class NodeMap {
         return value;
     }
 
+    /**
+     * Reads a declaration's id, so that a missing one is reported under what is being declared.
+     *
+     * @param kind what the mapping declares, such as {@code step}
+     *
+     * @return the id
+     *
+     * @throws DefinitionLoadException when the id is absent or null
+     */
+    String requiredId(String kind) {
+        // Asked here as well as read, so the key is allowed in this mapping and not only in the label's copy.
+        if (optionalNode("id") instanceof ScalarNode scalar) {
+            return scalar.getValue();
+        }
+        return within(kind).requiredString("id");
+    }
+
     String requiredString(String key) {
         return scalar(key, requiredNode(key), "a string");
     }
@@ -272,6 +289,8 @@ final class NodeMap {
     String exactlyOneOf(String... keys) {
         List<String> present = Arrays.stream(keys).filter(key -> optionalNode(key) != null).toList();
         if (present.size() == 1) {
+            // The alternatives not taken are not allowed beside it, so no unknown-key error may list them.
+            Arrays.stream(keys).filter(key -> !entries.containsKey(key)).forEach(asked::remove);
             return present.get(0);
         }
         String alternatives = Arrays.stream(keys).map(key -> "'" + key + "'").collect(Collectors.joining(", "));
@@ -292,7 +311,8 @@ final class NodeMap {
         for (Map.Entry<String, NodeTuple> entry : entries.entrySet()) {
             if (!asked.contains(entry.getKey())) {
                 throw error(entry.getValue().getKeyNode(), "unknown key '" + entry.getKey() + "'; expected "
-                    + (asked.isEmpty() ? "none" : "one of " + String.join(", ", asked)));
+                    + (asked.isEmpty() ? "none" : asked.size() == 1 ? "only " + asked.iterator().next()
+                    : "one of " + String.join(", ", asked)));
             }
         }
     }

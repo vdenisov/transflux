@@ -1,4 +1,4 @@
-# error: unknown key 'fork'
+# error: root.transflux.yml -> choice-registration-fork.transflux.yml:6:5: choice 'c': unknown key 'fork'; expected one of id, context, name, description, onRejection, compensation, errorHandling, listeners, disableGlobalListeners, branches, default, onNoMatch
 # schema: /choices/0/fork
 apiVersion: transflux/v1
 choices:

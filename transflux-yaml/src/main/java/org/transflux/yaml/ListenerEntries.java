@@ -93,7 +93,7 @@ final class ListenerEntries {
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
     void register(NodeMap entry, StateMachineDef<?> def) {
-        String id = entry.requiredString("id");
+        String id = entry.requiredId("listener");
         NodeMap within = entry.within("listener '" + id + "'");
         Class<?> type = classes.requiredClass(within, "class", null);
         Category category = category(within, type);
@@ -168,6 +168,11 @@ final class ListenerEntries {
         if (!(node instanceof SequenceNode sequence)) {
             throw owner.error(node, "'" + DISABLE_KEY + "' must be true or a list of listener ids");
         }
+        if (sequence.getValue().isEmpty()) {
+            // Core's own refusal names the Java call; a document spells the same intent 'true'.
+            throw owner.error(node, "'" + DISABLE_KEY + "' names no listener; write 'true' to disable every global"
+                + " listener");
+        }
         String[] ids = sequence.getValue().stream().map(id -> {
             if (!(id instanceof ScalarNode scalar)) {
                 throw owner.error(id, "'" + DISABLE_KEY + "' must list listener ids");
@@ -190,7 +195,7 @@ final class ListenerEntries {
             return;
         }
         NodeMap declaration = NodeMap.of(block.document(), entry, block.declarationPath(), "a listener");
-        String id = declaration.requiredString("id");
+        String id = declaration.requiredId("listener");
         NodeMap within = declaration.within("listener '" + id + "'");
         Class<?> type = classes.requiredClass(within, "class", category.type);
         Supplier<Object> declare = () -> {

@@ -1,4 +1,4 @@
-# error: unknown key 'metrics'
+# error: config-unknown-key.transflux.yml:7:5: state machine: unknown key 'metrics'; expected one of async, logging
 # schema: /stateMachine/config/metrics
 apiVersion: transflux/v1
 stateMachine:

@@ -1,4 +1,4 @@
-# error: 'id' is required
+# error: root.transflux.yml -> condition-registration-without-id.transflux.yml:5:5: condition: 'id' is required
 # schema: /conditions/0/id
 apiVersion: transflux/v1
 conditions:

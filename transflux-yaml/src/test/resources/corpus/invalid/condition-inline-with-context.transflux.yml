@@ -1,4 +1,4 @@
-# error: unknown key 'context'
+# error: condition-inline-with-context.transflux.yml:13:11: state machine > transition 't' > condition: unknown key 'context'; expected one of id, expression
 # schema: /stateMachine/transitions/0/preConditions/0/context
 # rule: conditionBlock /stateMachine/transitions/0/preConditions/0
 apiVersion: transflux/v1

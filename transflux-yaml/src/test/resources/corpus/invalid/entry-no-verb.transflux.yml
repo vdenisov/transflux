@@ -1,4 +1,4 @@
-# error: exactly one of 'run', 'step', 'operation', 'choice' is required
+# error: root.transflux.yml -> entry-no-verb.transflux.yml:10:9: operation 'o': exactly one of 'run', 'step', 'operation', 'choice' is required
 # schema: /operations/0/actions/0/run
 apiVersion: transflux/v1
 steps:

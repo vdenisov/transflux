@@ -1,4 +1,4 @@
-# error: 'to' is required
+# error: transition-missing-to.transflux.yml:7:7: state machine > transition 't': 'to' is required
 # schema: /stateMachine/transitions/0/to
 apiVersion: transflux/v1
 stateMachine:

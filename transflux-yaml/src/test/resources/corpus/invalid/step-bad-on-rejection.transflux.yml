@@ -1,4 +1,4 @@
-# error: 'onRejection' must be one of DROP, FAIL, BLOCK, CALLER_RUNS, not 'RETRY'
+# error: root.transflux.yml -> step-bad-on-rejection.transflux.yml:7:18: step 's': 'onRejection' must be one of DROP, FAIL, BLOCK, CALLER_RUNS, not 'RETRY'
 # schema: /steps/0/onRejection
 apiVersion: transflux/v1
 steps:

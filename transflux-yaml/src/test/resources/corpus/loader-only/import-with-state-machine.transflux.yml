@@ -1,4 +1,4 @@
-# error: only the root document declares a state machine; this one is imported
+# error: root.transflux.yml -> import-with-state-machine.transflux.yml -> imports/with-state-machine.transflux.yml:2:1: only the root document declares a state machine; this one is imported
 apiVersion: transflux/v1
 imports:
   - imports/with-state-machine.transflux.yml

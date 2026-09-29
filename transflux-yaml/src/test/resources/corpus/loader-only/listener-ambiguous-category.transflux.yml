@@ -1,4 +1,4 @@
-# error: say which this registration is with 'type'
+# error: root.transflux.yml -> listener-ambiguous-category.transflux.yml:5:12: listener 'l': class org.transflux.yaml.LoaderFixtures$EveryAudit implements the state, transition and action listener interfaces; say which this registration is with 'type'
 apiVersion: transflux/v1
 listeners:
   - id: l

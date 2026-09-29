@@ -1,4 +1,4 @@
-# error: an import is the identifier of a document
+# error: root.transflux.yml -> root-blank-import.transflux.yml:5:5: an import names a document by its identifier; this entry names none
 # schema: /imports/0
 apiVersion: transflux/v1
 imports:

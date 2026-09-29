@@ -163,9 +163,19 @@ final class ConditionDescriptors {
      * @throws DefinitionLoadException when the block does not declare a condition
      */
     void declaration(NodeMap block, Class<?> context, boolean idRequired, Target target) {
-        String form = block.exactlyOneOf("class", "predicate", "expression");
-        String id = form.equals("expression") && !idRequired ? block.optionalString("id") : block.requiredString("id");
+        // Asked here too, so the labelled copy below allows the key; read under the label, so a bad id is reported there.
+        block.optionalNode("id");
+        String id = block.within("condition").optionalString("id");
         NodeMap within = block.within(id == null ? "condition" : "condition '" + id + "'");
+        String form = within.exactlyOneOf("class", "predicate", "expression");
+        if (id == null && (idRequired || !form.equals("expression"))) {
+            if (within.holds("id")) {
+                throw within.error(within.keyNode("id"), "'id' requires a value");
+            }
+            throw within.error(within.node(), idRequired
+                ? "'id' is required"
+                : "'id' is required; only a condition written as an expression may omit it");
+        }
         Node at = within.requiredNode(form);
 
         switch (form) {

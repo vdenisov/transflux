@@ -1,4 +1,4 @@
-# error: a state listener takes no context
+# error: root.transflux.yml -> listener-state-class-with-context.transflux.yml:6:14: listener 'l': a state listener takes no context: it is handed whichever context the transition carries
 apiVersion: transflux/v1
 listeners:
   - id: l

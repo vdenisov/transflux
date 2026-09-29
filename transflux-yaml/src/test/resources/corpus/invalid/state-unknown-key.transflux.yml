@@ -1,4 +1,4 @@
-# error: unknown key 'transitions'
+# error: state-unknown-key.transflux.yml:8:7: state machine > state 'a': unknown key 'transitions'; expected one of id, name, description, listeners, disableGlobalListeners
 # schema: /stateMachine/states/0/transitions
 apiVersion: transflux/v1
 stateMachine:

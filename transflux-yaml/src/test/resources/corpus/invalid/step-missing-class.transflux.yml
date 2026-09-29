@@ -1,4 +1,4 @@
-# error: 'class' is required
+# error: root.transflux.yml -> step-missing-class.transflux.yml:5:5: step 's': 'class' is required
 # schema: /steps/0/class
 apiVersion: transflux/v1
 steps:
