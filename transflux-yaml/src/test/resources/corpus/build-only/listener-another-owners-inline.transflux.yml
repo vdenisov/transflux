@@ -1,0 +1,26 @@
+# error: transition 'u' attaches listener 'l', which is declared on transition 't'; a listener declared in place is visible to its own owner alone, so register it to attach it elsewhere
+apiVersion: transflux/v1
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  stateResolver:
+    expression: state
+  stateApplier:
+    expression: state
+  states:
+    - id: a
+    - id: b
+    - id: c
+  transitions:
+    - id: t
+      from: a
+      to: b
+      listeners:
+        onStart:
+          - id: l
+            class: org.transflux.yaml.LoaderFixtures$TransitionAudit
+    - id: u
+      from: a
+      to: c
+      listeners:
+        onStart:
+          - l

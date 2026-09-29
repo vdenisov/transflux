@@ -1,0 +1,21 @@
+# error: Step id 'c' is already registered as a condition. Ids are unique across the state machine wherever they are declared, so give one of them another id, or declare it once and reference it by id.
+apiVersion: transflux/v1
+conditions:
+  - id: c
+    expression: 'true'
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  stateResolver:
+    expression: state
+  stateApplier:
+    expression: state
+  states:
+    - id: a
+    - id: b
+  transitions:
+    - id: t
+      from: a
+      to: b
+      actions:
+        - step: c
+          class: org.transflux.yaml.LoaderFixtures$RecordingStep

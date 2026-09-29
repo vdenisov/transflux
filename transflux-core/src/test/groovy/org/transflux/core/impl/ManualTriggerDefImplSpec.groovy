@@ -108,8 +108,7 @@ class ManualTriggerDefImplSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message.contains("'dup'")
-        e.message.contains('already registered')
+        e.message.startsWith("Trigger id 'dup' is declared twice on transition ")
     }
 
     def 'null configurer is rejected'() {

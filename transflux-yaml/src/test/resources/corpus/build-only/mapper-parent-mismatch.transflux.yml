@@ -1,0 +1,27 @@
+# error: Mapper 'm' parent type org.transflux.yaml.LoaderFixtures$Ctx is not assignable from transition 't' context java.lang.Object
+apiVersion: transflux/v1
+steps:
+  - id: s
+    context: org.transflux.yaml.LoaderFixtures$ChildCtx
+    class: org.transflux.yaml.LoaderFixtures$ChildStep
+mappers:
+  - id: m
+    parentType: org.transflux.yaml.LoaderFixtures$Ctx
+    childType: org.transflux.yaml.LoaderFixtures$ChildCtx
+    class: org.transflux.yaml.LoaderFixtures$ChildMapper
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  stateResolver:
+    expression: state
+  stateApplier:
+    expression: state
+  states:
+    - id: a
+    - id: b
+  transitions:
+    - id: t
+      from: a
+      to: b
+      actions:
+        - run: s
+          mapper: m

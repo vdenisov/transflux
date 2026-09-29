@@ -48,12 +48,12 @@ class ConditionResolverSpec extends Specification {
         resolved.is(bound)
     }
 
-    def "should throw when a Reference descriptor points at an unregistered id"() {
+    def "a reference to an unregistered id is a build that skipped its check, not a validation error"() {
         when:
         ConditionResolver.resolve(ConditionDescriptor.ref('missing'), [:], 'path')
 
         then:
-        def e = thrown(TransfluxValidationException)
+        def e = thrown(IllegalStateException)
         e.message.contains("'missing'")
     }
 

@@ -962,7 +962,7 @@ class ChoiceDefImplIntegrationSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message.startsWith("SM-level choice 'route' > branch 'critical'"
+        e.message.startsWith("choice 'route' > branch 'critical'"
                                  + " references unknown action id 'ghost'")
     }
 

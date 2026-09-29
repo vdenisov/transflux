@@ -65,4 +65,11 @@ sealed abstract class TriggerDefImpl<T, C, SELF extends TriggerDefImpl<T, C, SEL
     public Class<C> getContextType() {
         return owner == null ? registeredContext : owner.getContextType();
     }
+
+    /**
+     * @return the transition declaring this trigger in place, or {@code null} for a registration
+     */
+    TransitionDefImpl<T, C> getOwner() {
+        return owner;
+    }
 }

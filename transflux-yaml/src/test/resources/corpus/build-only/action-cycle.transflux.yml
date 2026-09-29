@@ -1,0 +1,24 @@
+# error: Action cycle detected: o1 -> o2 -> o1
+apiVersion: transflux/v1
+operations:
+  - id: o1
+    actions:
+      - run: o2
+  - id: o2
+    actions:
+      - run: o1
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  stateResolver:
+    expression: state
+  stateApplier:
+    expression: state
+  states:
+    - id: a
+    - id: b
+  transitions:
+    - id: t
+      from: a
+      to: b
+      actions:
+        - run: o1

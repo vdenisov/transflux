@@ -25,6 +25,8 @@ import com.networknt.schema.Schema
 import com.networknt.schema.SchemaLocation
 import com.networknt.schema.SchemaRegistry
 import com.networknt.schema.SpecificationVersion
+import org.transflux.core.StateMachineDef
+import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.yaml.LoaderFixtures.Order
 import org.transflux.yaml.source.DefinitionResource
 import org.transflux.yaml.source.DefinitionSource
@@ -43,12 +45,14 @@ import java.nio.file.Path
 
 /**
  * Runs every document of the corpus through the JSON Schema and the loader. A document under
- * {@code valid/} both accept; under {@code invalid/} both refuse; under {@code loader-only/} the
- * schema accepts what only the loader can see is wrong. A refused document opens with
- * {@code # error: <message>}, the loader's whole message - or, ending in {@code …}, how it starts,
- * for a message ending in text the module does not own, such as the SpEL parser's; an invalid one adds
- * {@code # schema: <JSON pointer>}, where the schema must report an error. Where a union of
- * definitions reaches that key - an action entry is one of four shapes - {@code # rule: <definition>
+ * {@code valid/} both accept, and it builds - a library as the root importing it - unless it
+ * copies an example; under {@code invalid/} both refuse; under {@code loader-only/} the schema
+ * accepts what only the loader can see is wrong; under {@code build-only/} both accept what only
+ * the host's {@code build()} refuses. A refused document opens with {@code # error: <message>},
+ * the whole message - the loader's, or the build's under {@code build-only/} - or, ending in
+ * {@code …}, how it starts, for a message ending in text the module does not own, such as the
+ * SpEL parser's; an invalid one adds {@code # schema: <JSON pointer>}, where the schema must
+ * report an error. Where a union of definitions reaches that key - an action entry is one of four shapes - {@code # rule: <definition>
  * <JSON pointer>} names the one that must raise it, validated alone against the node at the pointer.
  * A document under an {@code imports/} folder is only reached through an import, so it is not a row
  * of its own. {@code valid/requirements/} holds a copy of every YAML example in {@code requirements.md},
@@ -81,9 +85,14 @@ class YamlDefinitionLoaderSchemaSpec extends Specification {
     Schema schema = registry.getSchema(SchemaLocation.of(schemaId))
 
     def 'both accept #name'() {
+        given:
+        Loaded loaded = attempt(file)
+
         expect:
         schemaErrors(file) == []
-        loaderMessage(file) == null
+        loaded.refusal == null
+        // Not '!builds(file) || ...': Spock would then report the build's message as a bare 'false'.
+        (builds(file) ? buildMessage(loaded.definition) : null) == null
 
         where:
         file << documents('valid')
@@ -94,7 +103,7 @@ class YamlDefinitionLoaderSchemaSpec extends Specification {
         expect:
         schemaErrors(file).any { at(it, header(file, 'schema')) }
         ruleErrors(file).any { at(it, header(file, 'schema')) }
-        pinned(loaderMessage(file), header(file, 'error'))
+        pinned(attempt(file).refusal, header(file, 'error'))
 
         where:
         file << documents('invalid')
@@ -104,10 +113,24 @@ class YamlDefinitionLoaderSchemaSpec extends Specification {
     def 'only the loader refuses #name'() {
         expect:
         schemaErrors(file) == []
-        pinned(loaderMessage(file), header(file, 'error'))
+        pinned(attempt(file).refusal, header(file, 'error'))
 
         where:
         file << documents('loader-only')
+        name = CORPUS.relativize(file).toString()
+    }
+
+    def 'only the build refuses #name'() {
+        given:
+        Loaded loaded = attempt(file)
+
+        expect:
+        schemaErrors(file) == []
+        loaded.refusal == null
+        pinned(buildMessage(loaded.definition), header(file, 'error'))
+
+        where:
+        file << documents('build-only')
         name = CORPUS.relativize(file).toString()
     }
 
@@ -174,6 +197,16 @@ class YamlDefinitionLoaderSchemaSpec extends Specification {
             .collect { pointer + it.instanceLocation + (it.property == null ? '' : '/' + it.property) }
     }
 
+    /**
+     * @param file a valid corpus document
+     *
+     * @return whether it is expected to build: it is not a copy of a {@code requirements.md}
+     *         example, which leaves out the states and components it assumes
+     */
+    private static boolean builds(Path file) {
+        return !CORPUS.relativize(file).startsWith(Path.of('valid', 'requirements'))
+    }
+
     private static boolean pinned(String message, String header) {
         return header.endsWith('…') ? message?.startsWith(header[0..-2]) : message == header
     }
@@ -183,14 +216,43 @@ class YamlDefinitionLoaderSchemaSpec extends Specification {
     }
 
     /**
+     * @param file a corpus document
+     *
+     * @return what loading it gave: the definition, or the loader's refusal
+     */
+    private static Loaded attempt(Path file) {
+        try {
+            return new Loaded(load(file), null)
+        } catch (DefinitionLoadException e) {
+            return new Loaded(null, e.message)
+        }
+    }
+
+    /**
+     * @param definition a definition the loader returned
+     *
+     * @return the build's refusal, or {@code null} when it built
+     */
+    private static String buildMessage(StateMachineDef<?> definition) {
+        try {
+            definition.build().close()
+            return null
+        } catch (TransfluxValidationException e) {
+            return e.message
+        }
+    }
+
+    /**
      * Loads a document as the root when it declares a state machine, and otherwise as a library
      * imported by a root that declares nothing else. Imports resolve against the document's folder.
      *
      * @param file a corpus document
      *
-     * @return the loader's refusal, or {@code null} when it accepted the document
+     * @return the definition it loads to
+     *
+     * @throws DefinitionLoadException when the loader refuses it
      */
-    private static String loaderMessage(Path file) {
+    private static StateMachineDef<?> load(Path file) {
         JsonNode document = tree(file)
         String entityType = document.path('stateMachine').path('entityType').asText(Order.name)
         String identifier = document.has('stateMachine') ? file.fileName.toString() : SYNTHETIC_ROOT
@@ -205,12 +267,7 @@ class YamlDefinitionLoaderSchemaSpec extends Specification {
                 ? Optional.of(new DefinitionResource(id, new ByteArrayInputStream(synthetic.bytes)))
                 : Files.exists(path) ? Optional.of(new DefinitionResource(id, Files.newInputStream(path))) : Optional.empty()
         }
-        try {
-            YamlDefinitionLoader.builder(source as DefinitionSource).build().load(identifier, entity(entityType))
-            return null
-        } catch (DefinitionLoadException e) {
-            return e.message
-        }
+        return YamlDefinitionLoader.builder(source as DefinitionSource).build().load(identifier, entity(entityType))
     }
 
     /**
@@ -364,5 +421,9 @@ class YamlDefinitionLoaderSchemaSpec extends Specification {
         // The pom copies it from docs/schema; a build that skips its resources leaves it out.
         assert resource != null: "${SCHEMA_RESOURCE} is not on the test classpath"
         return resource.getText('UTF-8')
+    }
+
+    /** A document's load: the definition, or the loader's refusal. */
+    static record Loaded(StateMachineDef<?> definition, String refusal) {
     }
 }

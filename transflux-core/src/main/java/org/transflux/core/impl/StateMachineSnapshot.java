@@ -532,14 +532,29 @@ class StateMachineSnapshot<T> {
      *
      * @param defsById the ids claimed so far
      * @param triggerDef the def claiming its id
+     *
+     * @throws TransfluxValidationException if another def claimed the id
      */
-    private void claimTriggerId(Map<String, TriggerDefImpl<T, ?, ?>> defsById,
-                                TriggerDefImpl<T, ?, ?> triggerDef) {
-        TriggerDefImpl<T, ?, ?> prior = defsById.putIfAbsent(triggerDef.getId(), triggerDef);
-        if (prior != null && prior != triggerDef) {
-            throw new TransfluxValidationException(
-                "Trigger id '" + triggerDef.getId() + "' is already registered");
+    private void claimTriggerId(Map<String, TriggerDefImpl<T, ?, ?>> defsById, TriggerDefImpl<T, ?, ?> triggerDef) {
+        String id = triggerDef.getId();
+        TriggerDefImpl<T, ?, ?> prior = defsById.putIfAbsent(id, triggerDef);
+        if (prior == null || prior == triggerDef) {
+            return;
         }
+        String first = prior.getOwner() == null ? null : prior.getOwner().getId();
+        String second = triggerDef.getOwner() == null ? null : triggerDef.getOwner().getId();
+        String where;
+        if (first != null && first.equals(second)) {
+            where = "declared twice on transition '" + first + "'";
+        } else if (first != null && second != null) {
+            where = "declared on transition '" + first + "' and on transition '" + second + "'";
+        } else {
+            // Exactly one is a registration: a second registration under one id is refused when it is made.
+            where = "registered on the state machine and declared on transition '"
+                + (first != null ? first : second) + "'";
+        }
+        throw new TransfluxValidationException(
+            "Trigger id '" + id + "' is " + where + "; ids are unique across this state machine's triggers");
     }
 
     /** The triggers a transition declares in place, in the order dispatch scans them. */

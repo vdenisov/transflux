@@ -99,8 +99,7 @@ class StateMachineImplTriggerKindSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message.contains("'dup'")
-        e.message.contains('already registered')
+        e.message.startsWith("Trigger id 'dup' is declared on transition 't1' and on transition 't2'")
     }
 
     @Unroll

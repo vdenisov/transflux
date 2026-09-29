@@ -390,7 +390,7 @@ class StateMachineImplTransitionListenerSpec extends Specification {
 
         then:
         def e = thrown(org.transflux.core.exception.TransfluxValidationException)
-        e.message == "Listener ID 'dup' is already registered (declared on transition 't' via onStart)"
+        e.message == "Listener ID 'dup', declared on transition 't' via onStart, is already registered"
     }
 
     def 'a transition listener id reused on two transitions is rejected at build'() {
@@ -402,9 +402,9 @@ class StateMachineImplTransitionListenerSpec extends Specification {
             .state('s2')
             .state('s3') })
 
-        then: 'the message names the transition and hook that lost the race, since the stack points at build()'
+        then: 'the message names both transitions and hooks, since the stack points at build()'
         def e = thrown(org.transflux.core.exception.TransfluxValidationException)
-        e.message == "Listener ID 'dup' is already registered (declared on transition 't2' via onComplete)"
+        e.message == "Listener ID 'dup' is declared on transition 't1' via onStart and on transition 't2' via onComplete; listener ids are unique across the state machine"
     }
 
     def 'building the same definition twice does not report its own listeners as duplicates'() {

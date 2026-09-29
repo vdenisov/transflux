@@ -1540,7 +1540,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * definition twice does not report the second build's own listeners as duplicates.
      */
     private void checkOwnedListenerIds() {
-        Set<String> claimed = new HashSet<>(listenerIds);
+        // Where each id was declared, for a message naming both; null for one claimed at declaration.
+        Map<String, String> claimed = new HashMap<>();
+        listenerIds.forEach(id -> claimed.put(id, null));
 
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             claimTransitionListenerIds(ListenerRegistrations.declaredOf(td.getStartListeners()), td.getId(), "onStart", claimed);
@@ -1548,13 +1550,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             claimTransitionListenerIds(ListenerRegistrations.declaredOf(td.getErrorListeners()), td.getId(), "onError", claimed);
         }
 
-        BiConsumer<String, String> actionListenerIds = (listenerId, ownerLabel) -> {
-            if (!claimed.add(listenerId)) {
-                throw new TransfluxValidationException(
-                    "Listener ID '" + listenerId + "' is already registered (declared on "
-                        + ownerLabel + ")");
-            }
-        };
+        BiConsumer<String, String> actionListenerIds =
+            (listenerId, ownerLabel) -> claimOwnedListenerId(claimed, listenerId, ownerLabel);
 
         visitActionDefs(def -> def.emitOwnListenerIds(actionListenerIds));
     }
@@ -1770,14 +1767,31 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * trace points at {@code build()} and cannot locate the duplicate on its own.
      */
     private void claimTransitionListenerIds(List<? extends TransitionListenerDefImpl<T, ?>> listeners,
-                                            String transitionId, String hook, Set<String> claimed) {
+                                            String transitionId, String hook, Map<String, String> claimed) {
         for (TransitionListenerDefImpl<T, ?> ld : listeners) {
-            if (!claimed.add(ld.getId())) {
-                throw new TransfluxValidationException(
-                    "Listener ID '" + ld.getId() + "' is already registered (declared on transition '"
-                        + transitionId + "' via " + hook + ")");
-            }
+            claimOwnedListenerId(claimed, ld.getId(), "transition '" + transitionId + "' via " + hook);
         }
+    }
+
+    /**
+     * Claims a listener id declared on an owner, naming both declarations when both are known.
+     *
+     * @param claimed where each claimed id was declared; {@code null} for one claimed at declaration
+     * @param listenerId the id
+     * @param site where it is declared, such as {@code transition 't' via onStart}
+     *
+     * @throws TransfluxValidationException if the id is already claimed
+     */
+    private static void claimOwnedListenerId(Map<String, String> claimed, String listenerId, String site) {
+        if (!claimed.containsKey(listenerId)) {
+            claimed.put(listenerId, site);
+            return;
+        }
+        String first = claimed.get(listenerId);
+        throw new TransfluxValidationException(first == null
+            ? "Listener ID '" + listenerId + "', declared on " + site + ", is already registered"
+            : "Listener ID '" + listenerId + "' is declared on " + first + " and on " + site
+                + "; listener ids are unique across the state machine");
     }
 
     private ListenerEntry<StateListenerDefImpl<T>> declareStateListener(String listenerId,
@@ -1912,15 +1926,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
-     * Names a state-machine-level registration as a position in the definition tree. It uses the
-     * def's own label, so a registered choice reads as one rather than as a "composite" -
-     * the same phrasing the transition-attached path produces for the same def.
-     */
-    private static String smLevelLabel(ActionDefImpl<?, ?, ?> def) {
-        return "SM-level " + def.defLabel();
-    }
-
-    /**
      * Names a transition's body as a position in the definition tree. The body labels itself as
      * the transition, so this is its own label and not a composition - it is a root, exactly as an
      * SM-level container is.
@@ -1952,7 +1957,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
 
         for (Map.Entry<String, ActionDefImpl<T, ?, ?>> e : smCompositeOperations.entrySet()) {
-            e.getValue().bindMembers(stateMachine, smLevelLabel(e.getValue()));
+            e.getValue().bindMembers(stateMachine, e.getValue().defLabel());
         }
     }
 
@@ -2052,8 +2057,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         checkRegisteredTriggerConditionRefs();
         for (Map.Entry<String, ActionDefImpl<T, ?, ?>> e : smCompositeOperations.entrySet()) {
             Class<?> scopeContext = componentContextTypes.get(e.getKey());
-            e.getValue().checkRefs(scopeContext, smLevelLabel(e.getValue()),
-                                   smLevelLabel(e.getValue()), List.of(), this);
+            e.getValue().checkRefs(scopeContext, e.getValue().defLabel(),
+                                   e.getValue().defLabel(), List.of(), this);
         }
         detectCompositeCycles();
     }
@@ -2375,8 +2380,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      *
      * @param td the transition to walk
      *
-     * @throws TransfluxValidationException if a referenced condition declares an incompatible
-     *         context type
+     * @throws TransfluxValidationException if a referenced condition is not registered, or
+     *         declares an incompatible context type
      */
     private void checkConditionRefs(TransitionDefImpl<T, ?> td) {
         Class<?> context = td.getContextType() != null ? td.getContextType() : Object.class;
@@ -2387,11 +2392,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
         for (ManualTriggerDefImpl<T, ?> mt : td.getManualTriggers()) {
             checkConditionRefs(mt.getPreConditionDescriptors(), context,
-                "manual trigger '" + mt.getId() + "'", "pre-condition");
+                label + " > manual trigger '" + mt.getId() + "'", "pre-condition");
         }
         for (DataTriggerDefImpl<T, ?> dt : td.getDataTriggers()) {
             checkConditionRef(dt.getGateDescriptor(), context,
-                "data trigger '" + dt.getId() + "'", "gate condition");
+                label + " > data trigger '" + dt.getId() + "'", "gate condition");
         }
     }
 
@@ -2403,8 +2408,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * separately: what has to hold here is that the trigger's own gate can run against the context
      * the trigger says it runs against.
      *
-     * @throws TransfluxValidationException if a referenced condition declares an incompatible
-     *         context type
+     * @throws TransfluxValidationException if a referenced condition is not registered, or
+     *         declares an incompatible context type
      */
     private void checkRegisteredTriggerConditionRefs() {
         for (TriggerDefImpl<T, ?, ?> registered : triggerRegistrations.values()) {
@@ -2427,10 +2432,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
-     * Rejects a reference to a registered condition whose declared context type cannot accept the
-     * referencing site's context. Only the reference form is checkable — the inline forms are typed
-     * against the referencing def's own context by the compiler, and expressions are dynamic.
-     * Conditions registered through the untyped overloads carry no declared type and are skipped.
+     * Rejects a reference to no registered condition, and one to a registered condition whose
+     * declared context type cannot accept the referencing site's context. Only the reference form is
+     * checkable — the inline forms are typed against the referencing def's own context by the
+     * compiler, and expressions are dynamic. Conditions registered through the untyped overloads
+     * carry no declared type, so their context is not checked.
      * <p>
      * A choice's branch calls this too, which is not merely for symmetry: a choice may
      * declare a context of its own, so a branch's gate can sit on the far side of a boundary its
@@ -2440,6 +2446,10 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
                            String scopeLabel, String kind) {
         if (!(descriptor instanceof ConditionDescriptor.Reference ref)) {
             return;
+        }
+        if (!conditionRegistrations.containsKey(ref.id())) {
+            throw new TransfluxValidationException(
+                scopeLabel + " references " + kind + " '" + ref.id() + "', which is not a registered condition");
         }
         Class<?> componentContext = componentContextTypes.get(ref.id());
         if (componentContext == null
@@ -2532,7 +2542,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             Collections.reverse(path);
             path.add(id);
             throw new TransfluxValidationException(
-                "Composite operation cycle detected: "
+                "Action cycle detected: "
                     + String.join(" -> ", path.subList(path.indexOf(id), path.size())));
         }
         if (visited.contains(id)) {

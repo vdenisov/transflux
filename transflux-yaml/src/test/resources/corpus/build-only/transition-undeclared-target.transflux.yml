@@ -1,0 +1,15 @@
+# error: Transition 't' targets state 'x', which is not declared
+apiVersion: transflux/v1
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  stateResolver:
+    expression: state
+  stateApplier:
+    expression: state
+  states:
+    - id: a
+    - id: b
+  transitions:
+    - id: t
+      from: a
+      to: x

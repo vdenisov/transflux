@@ -28,6 +28,9 @@ stateMachine:
       threadPoolSize: 4
       queueCapacity: 8
     logging: {}
+  states:
+    - id: a
+    - id: b
   transitions:
     - id: 7
       from: a

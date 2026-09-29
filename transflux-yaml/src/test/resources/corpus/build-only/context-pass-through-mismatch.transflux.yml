@@ -1,0 +1,21 @@
+# error: Context type mismatch: transition 't' (context java.lang.Object) references action 's' declared for context org.transflux.yaml.LoaderFixtures$Ctx without a mapper; supply a mapper to bridge the boundary
+apiVersion: transflux/v1
+steps:
+  - id: s
+    context: org.transflux.yaml.LoaderFixtures$Ctx
+    class: org.transflux.yaml.LoaderFixtures$CtxStep
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  stateResolver:
+    expression: state
+  stateApplier:
+    expression: state
+  states:
+    - id: a
+    - id: b
+  transitions:
+    - id: t
+      from: a
+      to: b
+      actions:
+        - run: s

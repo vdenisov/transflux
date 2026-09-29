@@ -250,7 +250,7 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message.contains('already registered')
+        e.message.startsWith("Trigger id 'clash' is registered on the state machine and declared on transition 't'")
     }
 
     def 'a shared event trigger fires from whichever state the entity is in'() {

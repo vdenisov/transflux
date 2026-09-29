@@ -20,6 +20,7 @@ package org.transflux.core.impl
 
 import org.transflux.core.TestContext
 import org.transflux.core.Transflux
+import org.transflux.core.action.Action
 import org.transflux.core.condition.Condition
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.transition.Transition
@@ -29,6 +30,8 @@ import spock.lang.Unroll
 import java.util.function.Predicate
 
 class StateMachineDefImplConditionRegistrationSpec extends Specification {
+
+    static final Action STEP = { en, ctx, tr -> } as Action
 
     static class TestEntity {
         int value
@@ -153,5 +156,31 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
         def exprBound = map['expr'].condition
         exprBound.test(new TestEntity(value: 1), null, null)
         !exprBound.test(new TestEntity(value: 0), null, null)
+    }
+
+    def "a reference to no registered condition names where it is written: #position"() {
+        given:
+        def smd = Transflux.defineStateMachine(TestEntity)
+            .withStateResolver({ e -> 's1' })
+            .state('s1')
+            .state('s2')
+        cfg(smd)
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == message
+
+        where:
+        position               | cfg                                                                                                                                     || message
+        'pre-condition'        | { d -> d.transition('t', 's1', 's2', { t -> t.preCondition('nothing') }) }                                                              || "transition 't' references pre-condition 'nothing', which is not a registered condition"
+        'post-condition'       | { d -> d.transition('t', 's1', 's2', { t -> t.postCondition('nothing') }) }                                                             || "transition 't' references post-condition 'nothing', which is not a registered condition"
+        'an inline trigger'    | { d -> d.transition('t', 's1', 's2', { t -> t.addManualTrigger('m', { m -> m.preCondition('nothing') }) }) }                            || "transition 't' > manual trigger 'm' references pre-condition 'nothing', which is not a registered condition"
+        'an inline gate'       | { d -> d.transition('t', 's1', 's2', { t -> t.addDataTrigger('d', { g -> g.condition('nothing') }) }) }                                 || "transition 't' > data trigger 'd' references gate condition 'nothing', which is not a registered condition"
+        'a registered trigger' | { d -> d.manualTrigger('m', { m -> m.preCondition('nothing') }) }                                                                       || "manual trigger 'm' references pre-condition 'nothing', which is not a registered condition"
+        'a branch'             | { d -> d.transition('t', 's1', 's2', { t -> t.choice('c', { c -> c.branch('b', { b -> b.condition('nothing').step('x', STEP) }) }) }) } || "transition 't' > choice 'c' > branch 'b' references branch condition 'nothing', which is not a registered condition"
+        'a registered choice'  | { d -> d.choice('c', Object, { c -> c.branch('b', { b -> b.condition('nothing').step('x', STEP) }) }) }                                 || "choice 'c' > branch 'b' references branch condition 'nothing', which is not a registered condition"
     }
 }

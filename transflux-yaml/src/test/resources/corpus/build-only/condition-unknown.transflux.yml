@@ -1,0 +1,17 @@
+# error: transition 't' references pre-condition 'nothing', which is not a registered condition
+apiVersion: transflux/v1
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  stateResolver:
+    expression: state
+  stateApplier:
+    expression: state
+  states:
+    - id: a
+    - id: b
+  transitions:
+    - id: t
+      from: a
+      to: b
+      preConditions:
+        - nothing

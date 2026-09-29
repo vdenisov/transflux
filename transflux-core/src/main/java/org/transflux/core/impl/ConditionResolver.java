@@ -58,8 +58,9 @@ final class ConditionResolver {
      *
      * @return the bound condition
      *
-     * @throws TransfluxValidationException if a reference points at an unregistered id, or if
-     *         any other input is invalid
+     * @throws TransfluxValidationException if an input is invalid
+     * @throws IllegalStateException if a reference points at an unregistered id, which the build
+     *         refuses before resolving
      */
     static <T, C> BoundCondition<T, C> resolve(ConditionDescriptor descriptor,
                                                       Map<String, BoundCondition<T, C>> registry,
@@ -93,8 +94,9 @@ final class ConditionResolver {
         BoundCondition<T, C> bound = registry.get(descriptor.id());
 
         if (bound == null) {
-            throw new TransfluxValidationException(
-                "No condition registered with id '" + descriptor.id() + "'");
+            // The build checks every reference position first and names it; reaching here means one was missed.
+            throw new IllegalStateException("Condition reference '" + descriptor.id()
+                + "' was not checked at build: no condition is registered under it");
         }
 
         return bound;

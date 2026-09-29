@@ -547,7 +547,7 @@ class StateMachineImplActionListenerSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message == "Listener ID 'dup' is already registered (declared on step 'act' via onStart)"
+        e.message == "Listener ID 'dup', declared on step 'act' via onStart, is already registered"
     }
 
     def 'a duplicate id across two actions is rejected at build'() {
@@ -571,7 +571,7 @@ class StateMachineImplActionListenerSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message == "Listener ID 'dup' is already registered (declared on step 'leaf' via onError)"
+        e.message == "Listener ID 'dup' is declared on operation 'outer' via onStart and on step 'leaf' via onError; listener ids are unique across the state machine"
     }
 
     def 'building the same definition twice does not report its own action listeners as duplicates'() {
