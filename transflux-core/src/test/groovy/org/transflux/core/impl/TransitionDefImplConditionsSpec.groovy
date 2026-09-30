@@ -37,7 +37,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'preCondition with single-arg id appends a Reference descriptor'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:
@@ -52,7 +52,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'preConditionExpression appends an ExpressionBased descriptor with auto-derived id'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:
@@ -68,7 +68,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'preCondition with id + Condition appends an InstanceBased descriptor'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
         Condition<Entity, TestContext> condition = { e, c, t -> true } as Condition
 
@@ -85,7 +85,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'preCondition with id + BiPredicate appends a PredicateBased descriptor'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
         BiPredicate<Entity, TestContext> predicate = { e, c -> true } as BiPredicate
 
@@ -102,7 +102,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'preCondition with id + Predicate appends a PredicateBased descriptor that ignores the context'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
         def calls = []
         Predicate<Entity> predicate = { e -> calls << e; true } as Predicate
@@ -128,7 +128,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'preCondition with id + expression appends an ExpressionBased descriptor'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:
@@ -144,7 +144,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'postCondition with single-arg id appends a Reference descriptor'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:
@@ -159,7 +159,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'postConditionExpression appends an ExpressionBased descriptor with auto-derived id'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:
@@ -175,7 +175,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'postCondition with id + Condition appends an InstanceBased descriptor'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
         Condition<Entity, TestContext> condition = { e, c, t -> true } as Condition
 
@@ -192,7 +192,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'postCondition with id + BiPredicate appends a PredicateBased descriptor'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
         BiPredicate<Entity, TestContext> predicate = { e, c -> true } as BiPredicate
 
@@ -209,7 +209,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'postCondition with id + Predicate appends a PredicateBased descriptor that ignores the context'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
         def calls = []
         Predicate<Entity> predicate = { e -> calls << e; true } as Predicate
@@ -235,7 +235,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'postCondition with id + expression appends an ExpressionBased descriptor'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:
@@ -251,7 +251,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'preCondition single-arg rejects blank registered id'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:
@@ -270,7 +270,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'preConditionExpression rejects blank expression'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:
@@ -289,7 +289,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'preCondition rejects blank id with Condition'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:
@@ -302,7 +302,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'preCondition rejects null Condition'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:
@@ -315,7 +315,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'preCondition rejects null Predicate'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:
@@ -328,7 +328,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'preCondition rejects blank expression'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:
@@ -341,7 +341,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'postCondition single-arg rejects blank registered id'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:
@@ -360,7 +360,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'postConditionExpression rejects blank expression'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:
@@ -379,7 +379,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'postCondition rejects blank id with Condition'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:
@@ -392,7 +392,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'multiple preConditions are stored in declaration order'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:
@@ -406,7 +406,7 @@ class TransitionDefImplConditionsSpec extends Specification {
 
     def 'multiple postConditions are stored in declaration order'() {
         given:
-        def td = new TransitionDefImpl<Entity, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Entity, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:

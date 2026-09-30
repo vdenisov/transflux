@@ -1,4 +1,4 @@
-# error: Listener ID 'l' is declared on transition 't' via onStart and on transition 'u' via onStart; listener ids are unique across the state machine
+# error: listener-inline-twice.transflux.yml:26:17: state machine > transition 'u' > listener 'l': Listener ID 'l' is declared on transition 't' via onStart and on transition 'u' via onStart; listener ids are unique across the state machine. 'l' was first declared at listener-inline-twice.transflux.yml:19:17
 apiVersion: transflux/v1
 stateMachine:
   entityType: org.transflux.yaml.LoaderFixtures$Order

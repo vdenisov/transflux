@@ -49,6 +49,20 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
 
     static class OtherCtx {}
 
+    // One listener attached twice at one hook, per kind of owner.
+    static final Closure TRANSITION_TWICE = { d -> d.transition('t', 's1', 's2', { t -> t.onStart('audit').onStart('audit') }) }
+    static final Closure TRANSITION_OWN_TWICE = { d ->
+        d.transition('t', 's1', 's2', { t -> t.onStart('own', { en, c, x -> } as TransitionListener).onStart('own') })
+    }
+    static final Closure STATE_TWICE = { d -> d.state('s3', { s -> s.onEntry('seen').onEntry('seen') }) }
+    static final Closure ACTION_TWICE = { d ->
+        d.transition('t', 's1', 's2', { t ->
+            t.step('a', { a -> a.using({ en, c, x -> } as Action).onError('act').onError('act') }) })
+    }
+    static final Closure GLOBAL_TWICE = { d ->
+        d.onAnyTransitionStart('g', { en, c, x -> } as TransitionListener).onAnyTransitionStart('g')
+    }
+
     def 'one registered listener serves several hooks and stays one listener'() {
         given:
         def seen = []
@@ -336,6 +350,60 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
                        .genericParameterTypes[1].typeName.endsWith('<? super T, java.lang.Object>')
         StateMachineDef.getMethod('actionListener', String, ActionListener)
                        .genericParameterTypes[1].typeName.endsWith('<? super T, java.lang.Object>')
+    }
+
+    def 'one listener attached twice at one hook is refused at #owner, since attaching is not additive'() {
+        when:
+        build({ d -> attach.call(d
+            .transitionListener('audit', { l -> l.using({ en, c, x -> } as TransitionListener) })
+            .stateListener('seen', { l -> l.using({ en, c, x -> } as StateListener) })
+            .actionListener('act', { l -> l.using({ en, c, x -> } as ActionListener) })
+            .state('s1')
+            .state('s2')) })
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == message
+
+        where:
+        owner                         | attach                   || message
+        'a transition, by reference'  | TRANSITION_TWICE         || "transition 't' attaches listener 'audit' more than once at onStart; attaching is not additive"
+        'a transition, by its own id' | TRANSITION_OWN_TWICE     || "transition 't' attaches listener 'own' more than once at onStart; attaching is not additive"
+        'a state'                     | STATE_TWICE              || "state 's3' attaches listener 'seen' more than once at onEntry; attaching is not additive"
+        'an action'                   | ACTION_TWICE             || "step 'a' attaches listener 'act' more than once at onError; attaching is not additive"
+        'a state-machine-wide hook'   | GLOBAL_TWICE             || "the state machine attaches listener 'g' more than once at onAnyTransitionStart; attaching is not additive"
+    }
+
+    def "a transition's in-place listener ids stay free when its configurer throws"() {
+        given:
+        def smd = new StateMachineDefImpl<Entity>()
+
+        when:
+        smd.transition('t', 's1', 's2', { t ->
+            t.onStart('audit', { en, c, x -> } as TransitionListener)
+            throw new IllegalStateException('bad configurer')
+        })
+
+        then:
+        thrown(IllegalStateException)
+
+        when:
+        smd.onAnyTransitionStart('audit', { en, c, x -> } as TransitionListener)
+
+        then:
+        noExceptionThrown()
+    }
+
+    def 'one listener at two hooks of one owner is still legal'() {
+        when:
+        build({ d -> d
+            .transitionListener('audit', { l -> l.using({ e, c, x -> } as TransitionListener) })
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> t.onStart('audit').onComplete('audit').onError('audit') })
+            .state('s2') })
+
+        then:
+        noExceptionThrown()
     }
 
     private static StateMachine<Entity> build(Consumer<StateMachineDef<Entity>> cfg) {

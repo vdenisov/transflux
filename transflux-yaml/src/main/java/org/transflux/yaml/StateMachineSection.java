@@ -84,7 +84,7 @@ final class StateMachineSection {
         metadata(section);
         accessor(section, "stateResolver");
         accessor(section, "stateApplier");
-        listeners.hooks(section, null, true, globalHooks());
+        listeners.hooks(section, null, globalHooks());
         config(section);
 
         int states = each(section, "states", "a state", this::state);
@@ -255,7 +255,7 @@ final class StateMachineSection {
         Consumer<StateDef> configurer = state -> {
             ComponentSections.metadata(within, state::withName, state::withDescription);
             // A state listener is handed whichever context the transition carries, so it has none of its own.
-            listeners.hooks(within, null, true, List.of(
+            listeners.hooks(within, null, List.of(
                 new Hook("onEntry", Category.STATE, state::onEntry, (lid, cfg) -> state.onEntry(lid, cfg)),
                 new Hook("onExit", Category.STATE, state::onExit, (lid, cfg) -> state.onExit(lid, cfg))));
             ListenerEntries.disables(within, state::disableAllGlobalListeners, state::disableGlobalListeners);
@@ -287,7 +287,7 @@ final class StateMachineSection {
             if (attached != null) {
                 attached.forEach(node -> triggers.attach(within, node, transition, context));
             }
-            listeners.hooks(within, declared, false, List.of(
+            listeners.hooks(within, declared, List.of(
                 new Hook("onStart", Category.TRANSITION, transition::onStart,
                          (lid, cfg) -> transition.onStart(lid, cfg)),
                 new Hook("onComplete", Category.TRANSITION, transition::onComplete,

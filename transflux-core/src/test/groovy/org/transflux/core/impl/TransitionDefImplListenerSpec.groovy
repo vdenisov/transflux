@@ -135,7 +135,7 @@ class TransitionDefImplListenerSpec extends Specification {
     }
 
     private static TransitionDefImpl<Object, Object> transition() {
-        def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Object, Object>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
         return td
     }

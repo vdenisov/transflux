@@ -22,10 +22,8 @@ import org.transflux.core.exception.TransfluxValidationException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
 
 /**
@@ -122,29 +120,6 @@ final class ListenerRegistrations<T> {
         }
 
         return scope;
-    }
-
-    /**
-     * The ids an owner declared across its own hooks. Ids rather than defs, because the checking
-     * pass spans hooks whose def types capture differently and only ever asks whether an id is
-     * one of the owner's own.
-     *
-     * @param hooks the owner's hook lists
-     *
-     * @return the declared ids
-     */
-    @SafeVarargs
-    static Set<String> ownIds(List<? extends ListenerEntry<?>>... hooks) {
-        Set<String> ids = new HashSet<>();
-        for (List<? extends ListenerEntry<?>> hook : hooks) {
-            for (ListenerEntry<?> entry : hook) {
-                if (!entry.isReference()) {
-                    ids.add(entry.id());
-                }
-            }
-        }
-
-        return ids;
     }
 
     /** The declarations among a hook's entries, for the passes that only look at what is new. */

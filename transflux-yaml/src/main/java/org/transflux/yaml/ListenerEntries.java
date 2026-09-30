@@ -120,17 +120,33 @@ final class ListenerEntries {
     }
 
     /**
-     * Reads an owner's {@code listeners:} block.
+     * Reads the {@code listeners:} block of a state, a transition or the state machine, whose
+     * hooks refuse a taken listener id where it is declared.
      *
      * @param owner the owner's mapping
      * @param context the owner's context; {@code null} for {@code Object}
-     * @param claimsIds whether core refuses a taken listener id where the owner declares it, as a
-     *        state's and the state machine's hooks do; a transition's and an action's are refused at build
      * @param hooks the owner's hooks, which are the keys the block allows
      *
      * @throws DefinitionLoadException when an entry is neither a reference nor a declaration
      */
-    void hooks(NodeMap owner, Class<?> context, boolean claimsIds, List<Hook> hooks) {
+    void hooks(NodeMap owner, Class<?> context, List<Hook> hooks) {
+        hooks(owner, context, true, hooks);
+    }
+
+    /**
+     * Reads an action's {@code listeners:} block, whose listener ids core claims at build.
+     *
+     * @param owner the action's mapping
+     * @param context the action's context
+     * @param hooks the action's hooks, which are the keys the block allows
+     *
+     * @throws DefinitionLoadException when an entry is neither a reference nor a declaration
+     */
+    void actionHooks(NodeMap owner, Class<?> context, List<Hook> hooks) {
+        hooks(owner, context, false, hooks);
+    }
+
+    private void hooks(NodeMap owner, Class<?> context, boolean claimsIds, List<Hook> hooks) {
         NodeMap block = owner.optionalMap("listeners");
         if (block == null) {
             return;

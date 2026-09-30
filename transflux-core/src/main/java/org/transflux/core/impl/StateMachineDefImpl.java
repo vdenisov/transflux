@@ -47,6 +47,7 @@ import org.transflux.core.transition.TransitionListenerDef;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
@@ -182,8 +183,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     /**
      * Listener ids claimed so far, each with where it was declared - {@code state 's' via onEntry}
      * - or {@code null} for a registration or a state-machine-wide hook, so a collision can name
-     * both declarations. A state's own listeners are claimed when the state registers; a
-     * transition's and an action's are claimed when the definition is built.
+     * both declarations. A state's and a transition's own listeners are claimed when the owner
+     * registers; an action's are claimed when the definition is built.
      */
     private final Map<String, String> listenerIds = new HashMap<>();
 
@@ -1565,6 +1566,19 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
+     * Claims the listener ids a registering owner declared in place, checking all of them before
+     * writing any, since the owner's configurer may have claimed one on this definition meanwhile.
+     *
+     * @param ids the owner's ids
+     *
+     * @throws TransfluxValidationException if one of them is already claimed
+     */
+    private void claimListenerIds(InPlaceListenerIds ids) {
+        ids.sites().forEach(this::requireListenerIdFree);
+        listenerIds.putAll(ids.sites());
+    }
+
+    /**
      * Words a listener id declared twice.
      *
      * @param listenerId the id
@@ -1582,19 +1596,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
-     * Checks the listener ids owned by transitions and by actions against the shared namespace.
+     * Checks the listener ids owned by actions against the shared namespace.
      * Runs per build over a throwaway copy of the eagerly-claimed ids, so building the same
      * definition twice does not report the second build's own listeners as duplicates.
      */
     private void checkOwnedListenerIds() {
         // Where each id was declared, for a message naming both; null for a registration or a state-machine-wide hook.
         Map<String, String> claimed = new HashMap<>(listenerIds);
-
-        for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
-            claimTransitionListenerIds(ListenerRegistrations.declaredOf(td.getStartListeners()), td.getId(), "onStart", claimed);
-            claimTransitionListenerIds(ListenerRegistrations.declaredOf(td.getCompleteListeners()), td.getId(), "onComplete", claimed);
-            claimTransitionListenerIds(ListenerRegistrations.declaredOf(td.getErrorListeners()), td.getId(), "onError", claimed);
-        }
 
         BiConsumer<String, String> actionListenerIds =
             (listenerId, ownerLabel) -> claimOwnedListenerId(claimed, listenerId, ownerLabel);
@@ -1808,18 +1816,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
-     * Claims one hook's listener ids, naming the owning transition and hook on a collision. A
-     * transition's listeners are claimed at build time rather than at declaration, so the stack
-     * trace points at {@code build()} and cannot locate the duplicate on its own.
-     */
-    private void claimTransitionListenerIds(List<? extends TransitionListenerDefImpl<T, ?>> listeners,
-                                            String transitionId, String hook, Map<String, String> claimed) {
-        for (TransitionListenerDefImpl<T, ?> ld : listeners) {
-            claimOwnedListenerId(claimed, ld.getId(), "transition '" + transitionId + "' via " + hook);
-        }
-    }
-
-    /**
      * Claims a listener id declared on an owner, naming both declarations when both are known.
      *
      * @param claimed where each claimed id was declared; {@code null} for one claimed at declaration
@@ -1888,10 +1884,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         // Checked again: the configurer may have declared the same id on the state machine it captured,
         // as a transition's or a trigger registration's may.
         requireStateIdFree(stateDef.getId());
-        Map<String, String> sites = stateDef.declaredListenerSites();
-        sites.forEach(this::requireListenerIdFree);
+        claimListenerIds(stateDef.getInPlaceListenerIds());
         states.put(stateDef.getId(), stateDef);
-        listenerIds.putAll(sites);
     }
 
     /**
@@ -1915,11 +1909,12 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotBlank(transitionId, "Transition ID");
         requireNotNull(contextType, "Context type");
         requireTransitionIdFree(transitionId);
-        return new TransitionDefImpl<>(transitionId, sourceStateId, targetStateId, contextType);
+        return new TransitionDefImpl<>(this, transitionId, sourceStateId, targetStateId, contextType);
     }
 
     private void registerTransition(TransitionDefImpl<T, ?> td) {
         requireTransitionIdFree(td.getId());
+        claimListenerIds(td.getInPlaceListenerIds());
         transitionsById.put(td.getId(), td);
     }
 
@@ -2174,27 +2169,22 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         for (StateDefImpl<T> sd : states.values()) {
             checkReferences("state '" + sd.getId() + "'", Object.class, declaredElsewhere,
                             stateListenerRegistrations, "state",
-                            ListenerRegistrations.ownIds(sd.getEntryListeners(), sd.getExitListeners()),
-                            sd.getEntryListeners(), sd.getExitListeners());
+                            new Hook("onEntry", sd.getEntryListeners()), new Hook("onExit", sd.getExitListeners()));
         }
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             Class<?> context = td.getContextType() == null ? Object.class : td.getContextType();
             checkReferences("transition '" + td.getId() + "'", context, declaredElsewhere,
                             transitionListenerRegistrations, "transition",
-                            ListenerRegistrations.ownIds(td.getStartListeners(),
-                                                         td.getCompleteListeners(),
-                                                         td.getErrorListeners()),
-                            td.getStartListeners(), td.getCompleteListeners(), td.getErrorListeners());
+                            new Hook("onStart", td.getStartListeners()),
+                            new Hook("onComplete", td.getCompleteListeners()),
+                            new Hook("onError", td.getErrorListeners()));
         }
         visitActionDefs(ad -> checkReferences(ad.defLabel(), actionContext(ad), declaredElsewhere,
                                               actionListenerRegistrations, "action",
-                                              ListenerRegistrations.ownIds(
-                                                  ad.getListeners(ActionPhase.START),
-                                                  ad.getListeners(ActionPhase.COMPLETE),
-                                                  ad.getListeners(ActionPhase.ERROR)),
-                                              ad.getListeners(ActionPhase.START),
-                                              ad.getListeners(ActionPhase.COMPLETE),
-                                              ad.getListeners(ActionPhase.ERROR)));
+                                              Arrays.stream(ActionPhase.values())
+                                                  .map(phase -> new Hook(ActionListenerSink.hook(phase),
+                                                                         ad.getListeners(phase)))
+                                                  .toArray(Hook[]::new)));
 
         checkGlobalReferences(declaredElsewhere);
     }
@@ -2243,24 +2233,34 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
-     * Checks one owner's references, where {@code ownIds} is what that owner itself declared and
-     * is reached before any registration.
+     * Checks one owner's references, what the owner itself declared at any of its hooks being
+     * reached before any registration, and refuses one listener attached twice at one hook.
      *
      * @param ownerLabel names the owner in a rejection
      * @param ownerContext the context the owner runs against
      * @param declaredElsewhere every inline declaration in the definition, by owner
      * @param registrations the registrations of this hook's category
      * @param category the category name, for the rejection
-     * @param ownIds the ids this owner declared at any of its hooks
-     * @param hooks the owner's hook lists
+     * @param hooks the owner's hooks
      */
-    @SafeVarargs
     private void checkReferences(
             String ownerLabel, Class<?> ownerContext, Map<String, String> declaredElsewhere,
-            Map<String, ? extends ListenerDefImpl<?>> registrations, String category,
-            Set<String> ownIds, List<? extends ListenerEntry<?>>... hooks) {
-        for (List<? extends ListenerEntry<?>> hook : hooks) {
-            for (ListenerEntry<?> entry : hook) {
+            Map<String, ? extends ListenerDefImpl<?>> registrations, String category, Hook... hooks) {
+        Set<String> ownIds = new HashSet<>();
+        for (Hook hook : hooks) {
+            for (ListenerEntry<?> entry : hook.entries()) {
+                if (!entry.isReference()) {
+                    ownIds.add(entry.id());
+                }
+            }
+        }
+        for (Hook hook : hooks) {
+            Set<String> attached = new HashSet<>();
+            for (ListenerEntry<?> entry : hook.entries()) {
+                if (!attached.add(entry.id())) {
+                    throw new TransfluxValidationException(ownerLabel + " attaches listener '" + entry.id()
+                        + "' more than once at " + hook.name() + "; attaching is not additive");
+                }
                 if (!entry.isReference() || ownIds.contains(entry.id())) {
                     continue;
                 }
@@ -2336,19 +2336,16 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      */
     private void checkGlobalReferences(Map<String, String> declaredElsewhere) {
         checkReferences("the state machine", Object.class, declaredElsewhere, stateListenerRegistrations,
-                        "state", ListenerRegistrations.ownIds(globalEntryListeners, globalExitListeners),
-                        globalEntryListeners, globalExitListeners);
+                        "state", new Hook("onAnyStateEntry", globalEntryListeners),
+                        new Hook("onAnyStateExit", globalExitListeners));
         checkReferences("the state machine", Object.class, declaredElsewhere, transitionListenerRegistrations,
-                        "transition", ListenerRegistrations.ownIds(globalStartListeners,
-                                                                   globalCompleteListeners,
-                                                                   globalErrorListeners),
-                        globalStartListeners, globalCompleteListeners, globalErrorListeners);
+                        "transition", new Hook("onAnyTransitionStart", globalStartListeners),
+                        new Hook("onAnyTransitionComplete", globalCompleteListeners),
+                        new Hook("onAnyTransitionError", globalErrorListeners));
         checkReferences("the state machine", Object.class, declaredElsewhere, actionListenerRegistrations,
-                        "action", ListenerRegistrations.ownIds(globalActionStartListeners,
-                                                               globalActionCompleteListeners,
-                                                               globalActionErrorListeners),
-                        globalActionStartListeners, globalActionCompleteListeners,
-                        globalActionErrorListeners);
+                        "action", new Hook("onAnyActionStart", globalActionStartListeners),
+                        new Hook("onAnyActionComplete", globalActionCompleteListeners),
+                        new Hook("onAnyActionError", globalActionErrorListeners));
     }
 
     /**
@@ -2701,6 +2698,15 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             }
             return BoundAction.of(id, (Action) instance, ActionKind.STEP);
         }
+    }
+
+    /**
+     * One listener hook of an owner, named for a rejection.
+     *
+     * @param name the hook's DSL method, such as {@code onStart}
+     * @param entries what the hook holds, in declaration order
+     */
+    private record Hook(String name, List<? extends ListenerEntry<?>> entries) {
     }
 
     /**

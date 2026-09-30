@@ -27,7 +27,7 @@ class BoundTransitionSpec extends Specification {
 
     def 'from() builds a record populated from the def'() {
         given:
-        def transitionDef = new TransitionDefImpl('t1', 'state1', 'state2')
+        def transitionDef = new TransitionDefImpl(new StateMachineDefImpl(), 't1', 'state1', 'state2', Object)
 
         when:
         def transition = BoundTransition.from(transitionDef, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none())
@@ -47,7 +47,7 @@ class BoundTransitionSpec extends Specification {
 
     def 'from() rejects null listeners'() {
         given:
-        def transitionDef = new TransitionDefImpl('t1', 'state1', 'state2')
+        def transitionDef = new TransitionDefImpl(new StateMachineDefImpl(), 't1', 'state1', 'state2', Object)
 
         when:
         BoundTransition.from(transitionDef, [:] as Map<String, BoundCondition>, null)
@@ -68,7 +68,7 @@ class BoundTransitionSpec extends Specification {
 
     def 'from() rejects a null condition registry'() {
         given:
-        def transitionDef = new TransitionDefImpl('t1', 'state1', 'state2')
+        def transitionDef = new TransitionDefImpl(new StateMachineDefImpl(), 't1', 'state1', 'state2', Object)
 
         when:
         BoundTransition.from(transitionDef, null, BoundTransitionListeners.none())
@@ -81,7 +81,7 @@ class BoundTransitionSpec extends Specification {
     @Unroll
     def 'accessor #accessor returns #expected'() {
         given:
-        def transitionDef = new TransitionDefImpl(id, sourceId, targetId)
+        def transitionDef = new TransitionDefImpl(new StateMachineDefImpl(), id, sourceId, targetId, Object)
         def transition = BoundTransition.from(transitionDef, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none())
 
         expect:
@@ -96,8 +96,8 @@ class BoundTransitionSpec extends Specification {
 
     def 'records built from equivalent defs are equal'() {
         given:
-        def defA = new TransitionDefImpl('t1', 'source', 'target')
-        def defB = new TransitionDefImpl('t1', 'source', 'target')
+        def defA = new TransitionDefImpl(new StateMachineDefImpl(), 't1', 'source', 'target', Object)
+        def defB = new TransitionDefImpl(new StateMachineDefImpl(), 't1', 'source', 'target', Object)
         def a = BoundTransition.from(defA, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none())
         def b = BoundTransition.from(defB, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none())
 
@@ -108,8 +108,8 @@ class BoundTransitionSpec extends Specification {
 
     def 'records with different source/target are not equal even when ids match'() {
         given:
-        def defA = new TransitionDefImpl('same-id', 'source1', 'target1')
-        def defB = new TransitionDefImpl('same-id', 'source2', 'target2')
+        def defA = new TransitionDefImpl(new StateMachineDefImpl(), 'same-id', 'source1', 'target1', Object)
+        def defB = new TransitionDefImpl(new StateMachineDefImpl(), 'same-id', 'source2', 'target2', Object)
         def a = BoundTransition.from(defA, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none())
         def b = BoundTransition.from(defB, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none())
 

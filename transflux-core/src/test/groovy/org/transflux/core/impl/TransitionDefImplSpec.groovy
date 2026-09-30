@@ -38,7 +38,7 @@ class TransitionDefImplSpec extends Specification {
 
     def 'constructor should create TransitionDef with valid parameters'() {
         when:
-        def transitionDef = new TransitionDefImpl('t1', 'source', 'target')
+        def transitionDef = new TransitionDefImpl(new StateMachineDefImpl(), 't1', 'source', 'target', Object)
 
         then:
         transitionDef.id == 't1'
@@ -50,7 +50,7 @@ class TransitionDefImplSpec extends Specification {
 
     def 'withName stores the supplied name and returns the def for chaining'() {
         given:
-        def td = new TransitionDefImpl<Object, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Object, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:
@@ -63,7 +63,7 @@ class TransitionDefImplSpec extends Specification {
 
     def 'withDescription stores the supplied description and returns the def for chaining'() {
         given:
-        def td = new TransitionDefImpl<Object, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Object, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:
@@ -76,7 +76,7 @@ class TransitionDefImplSpec extends Specification {
 
     def 'withName overrides a previously stored name'() {
         given:
-        def td = new TransitionDefImpl<Object, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Object, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
         td.withName('first')
 
@@ -89,7 +89,7 @@ class TransitionDefImplSpec extends Specification {
 
     def 'withDescription overrides a previously stored description'() {
         given:
-        def td = new TransitionDefImpl<Object, TestContext>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Object, TestContext>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
         td.withDescription('first')
 
@@ -103,7 +103,7 @@ class TransitionDefImplSpec extends Specification {
     @Unroll
     def 'constructor should validate parameters: #scenario'() {
         when:
-        new TransitionDefImpl(id, sourceStateId, targetStateId)
+        new TransitionDefImpl(new StateMachineDefImpl(), id, sourceStateId, targetStateId, Object)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -125,7 +125,7 @@ class TransitionDefImplSpec extends Specification {
     @Unroll
     def 'getter #getter should return #expected'() {
         given:
-        def transitionDef = new TransitionDefImpl(id, sourceStateId, targetStateId)
+        def transitionDef = new TransitionDefImpl(new StateMachineDefImpl(), id, sourceStateId, targetStateId, Object)
 
         when:
         def result = transitionDef."$getter"()
@@ -142,7 +142,7 @@ class TransitionDefImplSpec extends Specification {
 
     def 'step(id, Action instance) declares a member on the body'() {
         given:
-        def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
+        def transitionDef = new TransitionDefImpl<Object, Object>(new StateMachineDefImpl(), 't1', 'source', 'target', Object)
         transitionDef.beginConfigurer()
 
         when:
@@ -156,7 +156,7 @@ class TransitionDefImplSpec extends Specification {
 
     def 'step(id, Consumer) declares a configured member on the body'() {
         given:
-        def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
+        def transitionDef = new TransitionDefImpl<Object, Object>(new StateMachineDefImpl(), 't1', 'source', 'target', Object)
         transitionDef.beginConfigurer()
 
         when:
@@ -176,7 +176,7 @@ class TransitionDefImplSpec extends Specification {
 
     def 'step(id, Consumer) should reject null configurer'() {
         given:
-        def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
+        def transitionDef = new TransitionDefImpl<Object, Object>(new StateMachineDefImpl(), 't1', 'source', 'target', Object)
         transitionDef.beginConfigurer()
 
         when:
@@ -188,7 +188,7 @@ class TransitionDefImplSpec extends Specification {
 
     def 'operation(id, Consumer) declares a container member on the body'() {
         given:
-        def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
+        def transitionDef = new TransitionDefImpl<Object, Object>(new StateMachineDefImpl(), 't1', 'source', 'target', Object)
         transitionDef.beginConfigurer()
 
         when:
@@ -204,7 +204,7 @@ class TransitionDefImplSpec extends Specification {
 
     def 'operation(id, Consumer) should reject null configurer'() {
         given:
-        def transitionDef = new TransitionDefImpl<Object, Object>('t1', 'source', 'target')
+        def transitionDef = new TransitionDefImpl<Object, Object>(new StateMachineDefImpl(), 't1', 'source', 'target', Object)
         transitionDef.beginConfigurer()
 
         when:
@@ -216,7 +216,7 @@ class TransitionDefImplSpec extends Specification {
 
     def 'toString should include all fields'() {
         given:
-        def transitionDef = new TransitionDefImpl('t1', 'source', 'target')
+        def transitionDef = new TransitionDefImpl(new StateMachineDefImpl(), 't1', 'source', 'target', Object)
 
         when:
         def result = transitionDef.toString()
@@ -227,7 +227,7 @@ class TransitionDefImplSpec extends Specification {
 
     def 'TransitionDef defaults to Object context when none is declared'() {
         given:
-        def td = new TransitionDefImpl<UsingCtxEntity, Object>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<UsingCtxEntity, Object>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
 
         expect:
         td.getContextType() == Object
@@ -253,7 +253,7 @@ class TransitionDefImplSpec extends Specification {
 
     def 'a transition declaring nothing has no body to run'() {
         given: 'an empty body reads as absent, which is what every build pass skips on'
-        def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Object, Object>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
 
         expect:
         td.getActionDef() == null
@@ -262,7 +262,7 @@ class TransitionDefImplSpec extends Specification {
 
     def 'run(id) declares a by-id member on the body'() {
         given:
-        def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Object, Object>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:
@@ -275,7 +275,7 @@ class TransitionDefImplSpec extends Specification {
 
     def 'run(null) and run(blank) are rejected'() {
         given:
-        def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Object, Object>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:
@@ -290,7 +290,7 @@ class TransitionDefImplSpec extends Specification {
 
     def 'a second declaration appends rather than replacing the first'() {
         given: 'a transition holds an ordered list, so both members run, in the order written'
-        def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Object, Object>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:
@@ -303,7 +303,7 @@ class TransitionDefImplSpec extends Specification {
 
     def 'declaration order is preserved whichever forms are mixed'() {
         given:
-        def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Object, Object>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:
@@ -318,7 +318,7 @@ class TransitionDefImplSpec extends Specification {
 
     def 'a member declared after the configurer returns is rejected, naming the transition'() {
         given: "the body's guard follows the transition's, so one rule covers both"
-        def td = new TransitionDefImpl<Object, Object>('t1', 's1', 's2')
+        def td = new TransitionDefImpl<Object, Object>(new StateMachineDefImpl(), 't1', 's1', 's2', Object)
         td.beginConfigurer()
         td.endConfigurer()
 
@@ -334,7 +334,7 @@ class TransitionDefImplSpec extends Specification {
     @Unroll
     def 'trigger declaration rejects a null second argument: #variant'() {
         given:
-        def td = new TransitionDefImpl<Object, Object>('t', 's1', 's2')
+        def td = new TransitionDefImpl<Object, Object>(new StateMachineDefImpl(), 't', 's1', 's2', Object)
         td.beginConfigurer()
 
         when:

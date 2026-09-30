@@ -88,25 +88,23 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
 
     private final GlobalListenerDisables disabledGlobals = new GlobalListenerDisables(this);
 
+    private final InPlaceListenerIds inPlaceListenerIds;
+
     /**
-     * Constructs a new TransitionDefImpl with the specified parameters.
-     * <p>
-     * This package-private constructor is used internally by the framework
-     * to create transition definitions during state machine construction.
+     * Constructs a transition belonging to a definition.
      *
+     * @param smd the definition it belongs to
      * @param id the unique identifier for this transition
      * @param sourceStateId the ID of the source state
      * @param targetStateId the ID of the target state
+     * @param contextType the transition's context class
      *
      * @throws TransfluxValidationException if any parameter is null or blank
      */
-    @SuppressWarnings("unchecked")
-    TransitionDefImpl(String id, String sourceStateId, String targetStateId) {
-        this(id, sourceStateId, targetStateId, (Class<C>) Object.class);
-    }
-
-    TransitionDefImpl(String id, String sourceStateId, String targetStateId, Class<C> contextType) {
+    TransitionDefImpl(StateMachineDefImpl<T> smd, String id, String sourceStateId, String targetStateId,
+                      Class<C> contextType) {
         super(id, "transition", "Transition ID");
+        requireNotNull(smd, "State machine definition");
         requireNotBlank(sourceStateId, "Source state ID");
         requireNotBlank(targetStateId, "Target state ID");
         requireNotNull(contextType, "Transition context type");
@@ -114,6 +112,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         this.sourceStateId = sourceStateId;
         this.targetStateId = targetStateId;
         this.contextType = contextType;
+        this.inPlaceListenerIds = new InPlaceListenerIds(smd, "transition '" + id + "'");
         this.body = OperationDefImpl.transitionBody(id);
     }
 
@@ -704,7 +703,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         requireConfigurerActive("onStart");
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(listener, "Transition listener");
-        startListeners.add(declare(listenerId, l -> l.using(listener)));
+        startListeners.add(declare(listenerId, "onStart", l -> l.using(listener)));
         return this;
     }
 
@@ -713,7 +712,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         requireConfigurerActive("onStart");
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(configurer, "Transition listener configurer");
-        startListeners.add(declare(listenerId, configurer));
+        startListeners.add(declare(listenerId, "onStart", configurer));
         return this;
     }
 
@@ -722,7 +721,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         requireConfigurerActive("onComplete");
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(listener, "Transition listener");
-        completeListeners.add(declare(listenerId, l -> l.using(listener)));
+        completeListeners.add(declare(listenerId, "onComplete", l -> l.using(listener)));
         return this;
     }
 
@@ -731,7 +730,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         requireConfigurerActive("onComplete");
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(configurer, "Transition listener configurer");
-        completeListeners.add(declare(listenerId, configurer));
+        completeListeners.add(declare(listenerId, "onComplete", configurer));
         return this;
     }
 
@@ -740,7 +739,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         requireConfigurerActive("onError");
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(listener, "Transition listener");
-        errorListeners.add(declare(listenerId, l -> l.using(listener)));
+        errorListeners.add(declare(listenerId, "onError", l -> l.using(listener)));
         return this;
     }
 
@@ -749,7 +748,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         requireConfigurerActive("onError");
         requireNotBlank(listenerId, "Transition listener ID");
         requireNotNull(configurer, "Transition listener configurer");
-        errorListeners.add(declare(listenerId, configurer));
+        errorListeners.add(declare(listenerId, "onError", configurer));
         return this;
     }
 
@@ -808,14 +807,20 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     /**
-     * Builds a listener def and runs its configurer. Unlike a state listener, the id is not
-     * claimed here: a transition def holds no reference to the enclosing state machine def, so
-     * the shared listener namespace is checked once the definition is built.
+     * Returns the listener ids this transition declares in place, for the state machine to claim
+     * when the transition registers.
+     *
+     * @return the ids, with where each is declared
      */
+    InPlaceListenerIds getInPlaceListenerIds() {
+        return inPlaceListenerIds;
+    }
+
     private ListenerEntry<TransitionListenerDefImpl<T, C>> declare(
-            String listenerId, Consumer<TransitionListenerDef<T, C>> configurer) {
+            String listenerId, String hook, Consumer<TransitionListenerDef<T, C>> configurer) {
         TransitionListenerDefImpl<T, C> listenerDef = new TransitionListenerDefImpl<>(listenerId);
         ConfigurableDefImpl.runConfigurer(listenerDef, configurer);
+        inPlaceListenerIds.declare(listenerId, hook);
         return ListenerEntry.declared(listenerId, listenerDef);
     }
 

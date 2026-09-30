@@ -204,7 +204,7 @@ class ActionSequenceSinkSpec extends Specification {
          open    : { def d = new DefaultBranchDefImpl<Object, Object>(); d.beginConfigurer(); d },
          members : { it.getMembers() }],
         [name    : 'transition body',
-         open    : { def d = new TransitionDefImpl<Object, Object>('t1', 's1', 's2'); d.beginConfigurer(); d },
+         open    : { def d = new TransitionDefImpl<Object, Object>(new StateMachineDefImpl(), 't1', 's1', 's2', Object); d.beginConfigurer(); d },
          members : { it.getActionDef().getMembers() }],
     ]
 

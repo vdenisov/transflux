@@ -1,0 +1,22 @@
+# error: transition 't' attaches listener 'audit' more than once at onStart; attaching is not additive
+apiVersion: transflux/v1
+listeners:
+  - id: audit
+    class: org.transflux.yaml.LoaderFixtures$TransitionAudit
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  stateResolver:
+    expression: state
+  stateApplier:
+    expression: state
+  states:
+    - id: a
+    - id: b
+  transitions:
+    - id: t
+      from: a
+      to: b
+      listeners:
+        onStart:
+          - audit
+          - audit

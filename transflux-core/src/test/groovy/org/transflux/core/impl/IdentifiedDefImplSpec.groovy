@@ -140,7 +140,7 @@ class IdentifiedDefImplSpec extends Specification {
         where:
         subclass            | factory                                                                                                || expectedIdLabel
         'StateDefImpl'      | ({ id -> new StateDefImpl(Transflux.defineStateMachine() as StateMachineDefImpl, id) } as Function) || 'State ID'
-        'TransitionDefImpl' | ({ id -> new TransitionDefImpl(id, 'src', 'tgt') } as Function)                                     || 'Transition ID'
+        'TransitionDefImpl' | ({ id -> new TransitionDefImpl(new StateMachineDefImpl(), id, 'src', 'tgt', Object) } as Function)                                     || 'Transition ID'
     }
 
     @Unroll
@@ -159,7 +159,7 @@ class IdentifiedDefImplSpec extends Specification {
         where:
         subclass            | factory                                                                                                || expectedKind
         'StateDefImpl'      | ({ id -> new StateDefImpl(Transflux.defineStateMachine() as StateMachineDefImpl, id) } as Function) || 'state'
-        'TransitionDefImpl' | ({ id -> new TransitionDefImpl(id, 'src', 'tgt') } as Function)                                     || 'transition'
+        'TransitionDefImpl' | ({ id -> new TransitionDefImpl(new StateMachineDefImpl(), id, 'src', 'tgt', Object) } as Function)                                     || 'transition'
     }
 
     @Unroll
@@ -179,7 +179,7 @@ class IdentifiedDefImplSpec extends Specification {
         where:
         subclass                        | factory
         'StateDefImpl'                  | ({ id -> new StateDefImpl(Transflux.defineStateMachine() as StateMachineDefImpl, id) } as Function)
-        'TransitionDefImpl'             | ({ id -> new TransitionDefImpl(id, 'src', 'tgt') } as Function)
+        'TransitionDefImpl'             | ({ id -> new TransitionDefImpl(new StateMachineDefImpl(), id, 'src', 'tgt', Object) } as Function)
         'ChoiceDefImpl'   | ({ id -> new ChoiceDefImpl(id) } as Function)
     }
 
