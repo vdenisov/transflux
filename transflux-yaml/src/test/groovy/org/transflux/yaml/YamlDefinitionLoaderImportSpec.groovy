@@ -260,12 +260,12 @@ class YamlDefinitionLoaderImportSpec extends Specification {
         then:
         def e = thrown(DefinitionLoadException)
         e.identifier() == 'root.yml'
-        e.problem() == "Listener ID 'l' is already registered. 'l' was first declared at lib.yml:3:9"
+        e.problem() == "Listener ID 'l'${site} is already registered. 'l' was first declared at lib.yml:3:9"
 
         where:
-        owner << [
-            "  states:\n    - id: a\n      listeners:\n        onEntry:\n          - id: l\n            class: ${StateAudit.name}\n",
-            "  listeners:\n    onAnyStateEntry:\n      - id: l\n        class: ${StateAudit.name}\n"]
+        owner                                                                                                         || site
+        "  states:\n    - id: a\n      listeners:\n        onEntry:\n          - id: l\n            class: ${StateAudit.name}\n" || ", declared on state 'a' via onEntry,"
+        "  listeners:\n    onAnyStateEntry:\n      - id: l\n        class: ${StateAudit.name}\n"                        || ''
     }
 
     def 'a state or transition declared twice in one document names both lines'() {

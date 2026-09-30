@@ -240,6 +240,19 @@ class StateMachineDefImplTriggerRegistrationSpec extends Specification {
         e.message.contains("Trigger id 'dup' is already registered")
     }
 
+    def 'a registration cannot reuse an id its own configurer registered meanwhile'() {
+        given:
+        def smd = new StateMachineDefImpl<Object>()
+
+        when:
+        smd.manualTrigger('dup', { t -> smd.manualTrigger('dup', { inner -> }) })
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == "Trigger id 'dup' is already registered as a manual trigger 'dup'; ids are unique across" +
+            " this state machine's triggers"
+    }
+
     def 'an inline trigger cannot reuse a registered id'() {
         when:
         build({ d -> d

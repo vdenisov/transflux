@@ -399,8 +399,7 @@ class StateMachineImplStateListenerSpec extends Specification {
 
         then:
         def e = thrown(org.transflux.core.exception.TransfluxValidationException)
-        e.message.contains("'dup'")
-        e.message.contains('already registered')
+        e.message == "Listener ID 'dup' is already declared on state 's1' via onEntry"
     }
 
 

@@ -390,7 +390,7 @@ class StateMachineImplTransitionListenerSpec extends Specification {
 
         then:
         def e = thrown(org.transflux.core.exception.TransfluxValidationException)
-        e.message == "Listener ID 'dup', declared on transition 't' via onStart, is already registered"
+        e.message == "Listener ID 'dup' is declared on state 's1' via onEntry and on transition 't' via onStart; listener ids are unique across the state machine"
     }
 
     def 'a transition listener id reused on two transitions is rejected at build'() {

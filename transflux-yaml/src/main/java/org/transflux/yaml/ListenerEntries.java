@@ -124,8 +124,8 @@ final class ListenerEntries {
      *
      * @param owner the owner's mapping
      * @param context the owner's context; {@code null} for {@code Object}
-     * @param claimsIds whether the owner claims a listener declared in place when it is declared,
-     *        as a state and the state machine do; a transition and an action claim theirs at build
+     * @param claimsIds whether core refuses a taken listener id where the owner declares it, as a
+     *        state's and the state machine's hooks do; a transition's and an action's are refused at build
      * @param hooks the owner's hooks, which are the keys the block allows
      *
      * @throws DefinitionLoadException when an entry is neither a reference nor a declaration

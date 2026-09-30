@@ -180,13 +180,12 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private final List<ListenerEntry<ActionListenerDefImpl<T, Object>>> globalActionErrorListeners = new ArrayList<>();
 
     /**
-     * Listener ids claimed so far. Listeners form one state-machine-wide namespace across both
-     * kinds — they are not reachable through the component registry — so state and transition
-     * listeners, per-owner and global alike, are checked against this one set. State listeners and
-     * the global registrations claim eagerly; a transition's own listeners are claimed when the
-     * definition is built, because a transition def holds no reference back to this def.
+     * Listener ids claimed so far, each with where it was declared - {@code state 's' via onEntry}
+     * - or {@code null} for a registration or a state-machine-wide hook, so a collision can name
+     * both declarations. A state's own listeners are claimed when the state registers; a
+     * transition's and an action's are claimed when the definition is built.
      */
-    private final Set<String> listenerIds = new HashSet<>();
+    private final Map<String, String> listenerIds = new HashMap<>();
 
     /** Creates an empty definition. */
     public StateMachineDefImpl() {
@@ -1167,18 +1166,22 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotNull(contextType, "Trigger context type");
         requireNotNull(configurer, "Trigger configurer");
 
-        TriggerDefImpl<T, C, ?> existing = (TriggerDefImpl<T, C, ?>) triggerRegistrations.get(id);
+        requireTriggerIdFree(id);
+        TriggerDefImpl<T, C, ?> def = factory.apply(id, contextType);
+        ConfigurableDefImpl.runConfigurer(def, (Consumer) configurer);
+        requireTriggerIdFree(id);
+        triggerRegistrations.put(id, def);
+        Loggers.BUILD_REGISTRY.debug("Trigger registered, triggerId={}, kind={}, contextType={}",
+                                     new Object[] {id, kind, contextType.getName()});
+    }
+
+    private void requireTriggerIdFree(String id) {
+        TriggerDefImpl<T, ?, ?> existing = triggerRegistrations.get(id);
         if (existing != null) {
             throw new TransfluxValidationException(
                 "Trigger id '" + id + "' is already registered as a " + existing.defLabel()
                     + "; ids are unique across this state machine's triggers");
         }
-
-        TriggerDefImpl<T, C, ?> def = factory.apply(id, contextType);
-        ConfigurableDefImpl.runConfigurer(def, (Consumer) configurer);
-        triggerRegistrations.put(id, def);
-        Loggers.BUILD_REGISTRY.debug("Trigger registered, triggerId={}, kind={}, contextType={}",
-                                     new Object[] {id, kind, contextType.getName()});
     }
 
     /**
@@ -1235,15 +1238,18 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     public StateMachineDef<T> state(String stateId, Consumer<StateDef<T>> configurer) {
         requireNotBlank(stateId, "State ID");
         requireNotNull(configurer, "State configurer");
-        StateDefImpl<T> stateDef = registerState(stateId);
+        requireStateIdFree(stateId);
+        StateDefImpl<T> stateDef = new StateDefImpl<>(this, stateId);
+        // Registered only once the configurer has returned, so one that throws leaves the id free for a retry.
         ConfigurableDefImpl.runConfigurer(stateDef, configurer);
+        registerState(stateDef);
         return this;
     }
 
     @Override
     public StateMachineDef<T> state(String stateId) {
         requireNotBlank(stateId, "State ID");
-        registerState(stateId);
+        registerState(new StateDefImpl<>(this, stateId));
         return this;
     }
 
@@ -1257,8 +1263,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     public <C> StateMachineDef<T> transition(String transitionId, String sourceStateId, String targetStateId,
                                              Class<C> contextType, Consumer<TransitionDef<T, C>> configurer) {
         requireNotNull(configurer, "Transition configurer");
-        TransitionDefImpl<T, C> td = registerTransition(sourceStateId, targetStateId, transitionId, contextType);
+        TransitionDefImpl<T, C> td = newTransition(sourceStateId, targetStateId, transitionId, contextType);
         ConfigurableDefImpl.runConfigurer(td, configurer);
+        registerTransition(td);
         return this;
     }
 
@@ -1525,8 +1532,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
-     * Reserves a listener id in the state-machine-wide listener namespace shared by state and
-     * transition listeners.
+     * Claims the id of a listener registered on this definition or declared at a
+     * state-machine-wide hook, in the namespace every listener category shares.
      *
      * @param listenerId the id to claim; never {@code null} or blank
      *
@@ -1534,10 +1541,44 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      */
     void claimListenerId(String listenerId) {
         requireNotBlank(listenerId, "Listener ID");
-        if (!listenerIds.add(listenerId)) {
-            throw new TransfluxValidationException(
-                "Listener ID '" + listenerId + "' is already registered");
+        if (listenerIds.containsKey(listenerId)) {
+            String first = listenerIds.get(listenerId);
+            throw new TransfluxValidationException("Listener ID '" + listenerId + "' is already "
+                + (first == null ? "registered" : "declared on " + first));
         }
+        listenerIds.put(listenerId, null);
+    }
+
+    /**
+     * Refuses a listener id an owner is declaring in place when the state machine has already
+     * claimed it, without claiming it: the owner claims its ids once it registers.
+     *
+     * @param listenerId the id
+     * @param site where it is being declared, such as {@code state 's' via onEntry}
+     *
+     * @throws TransfluxValidationException if the id is already claimed
+     */
+    void requireListenerIdFree(String listenerId, String site) {
+        if (listenerIds.containsKey(listenerId)) {
+            throw new TransfluxValidationException(duplicateListener(listenerId, listenerIds.get(listenerId), site));
+        }
+    }
+
+    /**
+     * Words a listener id declared twice.
+     *
+     * @param listenerId the id
+     * @param first where it was first declared; {@code null} for a registration or a
+     *        state-machine-wide hook
+     * @param site where it is declared again
+     *
+     * @return the message
+     */
+    static String duplicateListener(String listenerId, String first, String site) {
+        return first == null
+            ? "Listener ID '" + listenerId + "', declared on " + site + ", is already registered"
+            : "Listener ID '" + listenerId + "' is declared on " + first + " and on " + site
+                + "; listener ids are unique across the state machine";
     }
 
     /**
@@ -1546,9 +1587,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * definition twice does not report the second build's own listeners as duplicates.
      */
     private void checkOwnedListenerIds() {
-        // Where each id was declared, for a message naming both; null for one claimed at declaration.
-        Map<String, String> claimed = new HashMap<>();
-        listenerIds.forEach(id -> claimed.put(id, null));
+        // Where each id was declared, for a message naming both; null for a registration or a state-machine-wide hook.
+        Map<String, String> claimed = new HashMap<>(listenerIds);
 
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             claimTransitionListenerIds(ListenerRegistrations.declaredOf(td.getStartListeners()), td.getId(), "onStart", claimed);
@@ -1789,15 +1829,10 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @throws TransfluxValidationException if the id is already claimed
      */
     private static void claimOwnedListenerId(Map<String, String> claimed, String listenerId, String site) {
-        if (!claimed.containsKey(listenerId)) {
-            claimed.put(listenerId, site);
-            return;
+        if (claimed.containsKey(listenerId)) {
+            throw new TransfluxValidationException(duplicateListener(listenerId, claimed.get(listenerId), site));
         }
-        String first = claimed.get(listenerId);
-        throw new TransfluxValidationException(first == null
-            ? "Listener ID '" + listenerId + "', declared on " + site + ", is already registered"
-            : "Listener ID '" + listenerId + "' is declared on " + first + " and on " + site
-                + "; listener ids are unique across the state machine");
+        claimed.put(listenerId, site);
     }
 
     private ListenerEntry<StateListenerDefImpl<T>> declareStateListener(String listenerId,
@@ -1836,17 +1871,32 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         return ListenerEntry.declared(listenerId, listenerDef);
     }
 
-    private StateDefImpl<T> registerState(String stateId) {
+    private void requireStateIdFree(String stateId) {
         if (states.containsKey(stateId)) {
             throw new TransfluxValidationException("State ID " + stateId + " already defined");
         }
-        var stateDef = new StateDefImpl<>(this, stateId);
-        states.put(stateDef.getId(), stateDef);
-        return stateDef;
     }
 
     /**
-     * Registers a transition between two states tagged with the supplied context type.
+     * Registers a configured state and claims the listener ids it declared in place, all or none.
+     *
+     * @param stateDef the state, its configurer returned
+     *
+     * @throws TransfluxValidationException if the state id or one of the listener ids is taken
+     */
+    private void registerState(StateDefImpl<T> stateDef) {
+        // Checked again: the configurer may have declared the same id on the state machine it captured,
+        // as a transition's or a trigger registration's may.
+        requireStateIdFree(stateDef.getId());
+        Map<String, String> sites = stateDef.declaredListenerSites();
+        sites.forEach(this::requireListenerIdFree);
+        states.put(stateDef.getId(), stateDef);
+        listenerIds.putAll(sites);
+    }
+
+    /**
+     * Creates a transition between two states tagged with the supplied context type, once its id
+     * is known to be free; it is registered by {@link #registerTransition} after its configurer.
      *
      * @param sourceStateId the ID of the source state
      * @param targetStateId the ID of the target state
@@ -1854,22 +1904,29 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @param contextType the transition's context class; never {@code null}
      * @param <C> the context type
      *
-     * @return the newly registered transition def
+     * @return the new transition def, not yet registered
+     *
+     * @throws TransfluxValidationException if an argument is null or blank, or the id is taken
      */
-    <C> TransitionDefImpl<T, C> registerTransition(String sourceStateId, String targetStateId,
-                                                          String transitionId, Class<C> contextType) {
+    <C> TransitionDefImpl<T, C> newTransition(String sourceStateId, String targetStateId,
+                                              String transitionId, Class<C> contextType) {
         requireNotBlank(sourceStateId, "Source state ID");
         requireNotBlank(targetStateId, "Target state ID");
         requireNotBlank(transitionId, "Transition ID");
         requireNotNull(contextType, "Context type");
+        requireTransitionIdFree(transitionId);
+        return new TransitionDefImpl<>(transitionId, sourceStateId, targetStateId, contextType);
+    }
 
+    private void registerTransition(TransitionDefImpl<T, ?> td) {
+        requireTransitionIdFree(td.getId());
+        transitionsById.put(td.getId(), td);
+    }
+
+    private void requireTransitionIdFree(String transitionId) {
         if (transitionsById.containsKey(transitionId)) {
             throw new TransfluxValidationException("Transition ID " + transitionId + " already defined");
         }
-
-        TransitionDefImpl<T, C> def = new TransitionDefImpl<>(transitionId, sourceStateId, targetStateId, contextType);
-        transitionsById.put(transitionId, def);
-        return def;
     }
 
     @Override

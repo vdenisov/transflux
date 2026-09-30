@@ -18,12 +18,16 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.state.StateDef;
 import org.transflux.core.state.StateListener;
 import org.transflux.core.state.StateListenerDef;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
@@ -43,6 +47,9 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
 
     private final GlobalListenerDisables disabledGlobals = new GlobalListenerDisables(this);
 
+    /** Where each listener declared in place here is declared, in declaration order. */
+    private final Map<String, String> listenerSites = new LinkedHashMap<>();
+
     StateDefImpl(StateMachineDefImpl<T> smd, String id) {
         super(id, "state", "State ID");
         requireNotNull(smd, "State machine definition");
@@ -55,7 +62,7 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
         requireConfigurerActive("onEntry");
         requireNotBlank(listenerId, "State listener ID");
         requireNotNull(listener, "State listener");
-        entryListeners.add(declare(listenerId, l -> l.using(listener)));
+        entryListeners.add(declare(listenerId, "onEntry", l -> l.using(listener)));
         return this;
     }
 
@@ -64,7 +71,7 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
         requireConfigurerActive("onEntry");
         requireNotBlank(listenerId, "State listener ID");
         requireNotNull(configurer, "State listener configurer");
-        entryListeners.add(declare(listenerId, configurer));
+        entryListeners.add(declare(listenerId, "onEntry", configurer));
         return this;
     }
 
@@ -89,7 +96,7 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
         requireConfigurerActive("onExit");
         requireNotBlank(listenerId, "State listener ID");
         requireNotNull(listener, "State listener");
-        exitListeners.add(declare(listenerId, l -> l.using(listener)));
+        exitListeners.add(declare(listenerId, "onExit", l -> l.using(listener)));
         return this;
     }
 
@@ -98,7 +105,7 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
         requireConfigurerActive("onExit");
         requireNotBlank(listenerId, "State listener ID");
         requireNotNull(configurer, "State listener configurer");
-        exitListeners.add(declare(listenerId, configurer));
+        exitListeners.add(declare(listenerId, "onExit", configurer));
         return this;
     }
 
@@ -147,14 +154,33 @@ class StateDefImpl<T> extends IdentifiedDefImpl<StateDefImpl<T>> implements Stat
         return exitListeners;
     }
 
-    private ListenerEntry<StateListenerDefImpl<T>> declare(String listenerId,
+    /**
+     * Returns where each listener this state declares in place is declared, for the state machine
+     * to claim when the state registers.
+     *
+     * @return listener id to {@code state 's' via onEntry}, in declaration order
+     */
+    Map<String, String> declaredListenerSites() {
+        return Collections.unmodifiableMap(listenerSites);
+    }
+
+    private ListenerEntry<StateListenerDefImpl<T>> declare(String listenerId, String hook,
                                                            Consumer<StateListenerDef<T>> configurer) {
         StateListenerDefImpl<T> listenerDef = new StateListenerDefImpl<>(listenerId);
-        // Claimed only once the configurer has returned, so a configurer that throws leaves the id
-        // free for the caller's corrected retry.
         ConfigurableDefImpl.runConfigurer(listenerDef, configurer);
-        stateMachineDef.claimListenerId(listenerId);
+        // Checked here so the refusal points at this call; claimed when the state registers.
+        String site = site(hook);
+        stateMachineDef.requireListenerIdFree(listenerId, site);
+        String first = listenerSites.get(listenerId);
+        if (first != null) {
+            throw new TransfluxValidationException(StateMachineDefImpl.duplicateListener(listenerId, first, site));
+        }
+        listenerSites.put(listenerId, site);
         return ListenerEntry.declared(listenerId, listenerDef);
+    }
+
+    private String site(String hook) {
+        return "state '" + getId() + "' via " + hook;
     }
 
     @Override

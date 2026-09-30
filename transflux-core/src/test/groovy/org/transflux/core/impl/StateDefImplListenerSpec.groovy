@@ -112,7 +112,7 @@ class StateDefImplListenerSpec extends Specification {
 
         then:
         def e = thrown(TransfluxValidationException)
-        e.message == "Listener ID 'dup' is already registered"
+        e.message == "Listener ID 'dup' is declared on state 'active' via onEntry and on state 'active' via onEntry; listener ids are unique across the state machine"
     }
 
     def 'a configurer that throws leaves the listener id free for a retry'() {
@@ -145,22 +145,92 @@ class StateDefImplListenerSpec extends Specification {
         thrown(TransfluxValidationException)
     }
 
-    def 'a listener id reused across two states is rejected'() {
+    def 'a listener id reused across two states is rejected where the second declares it'() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
-        def first = new StateDefImpl<Object>(smd, 'active')
-        first.beginConfigurer()
-        first.onEntry('dup', new NoopListener())
-
-        and:
-        def second = new StateDefImpl<Object>(smd, 'expired')
-        second.beginConfigurer()
+        smd.state('active', { s -> s.onEntry('dup', new NoopListener()) })
 
         when:
-        second.onEntry('dup', new NoopListener())
+        smd.state('expired', { s -> s.onExit('dup', new NoopListener()) })
 
         then:
-        thrown(TransfluxValidationException)
+        def e = thrown(TransfluxValidationException)
+        e.message == "Listener ID 'dup' is declared on state 'active' via onEntry and on state 'expired' via onExit;" +
+            " listener ids are unique across the state machine"
+    }
+
+    def 'a state-machine-wide listener colliding with a registered state listener names the state'() {
+        given:
+        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
+        smd.state('active', { s -> s.onEntry('dup', new NoopListener()) })
+
+        when:
+        smd.onAnyStateEntry('dup', new NoopListener())
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == "Listener ID 'dup' is already declared on state 'active' via onEntry"
+    }
+
+    def 'several colliding ids are reported in the order the state declared them'() {
+        given:
+        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
+
+        when:
+        smd.state('active', { s ->
+            s.onExit('first', new NoopListener())
+            s.onEntry('second', new NoopListener())
+            smd.onAnyStateEntry('second', new NoopListener())
+            smd.onAnyStateExit('first', new NoopListener())
+        })
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == "Listener ID 'first', declared on state 'active' via onExit, is already registered"
+    }
+
+    def 'a state declares no listener id until it registers, so a configurer that throws leaves both ids free'() {
+        given:
+        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
+
+        when:
+        smd.state('active', { s ->
+            s.onEntry('audit', new NoopListener())
+            throw new IllegalStateException('bad configurer')
+        })
+
+        then:
+        thrown(IllegalStateException)
+
+        when: 'the caller fixes the configurer and retries under the same ids'
+        smd.state('active', { s -> s.onEntry('audit', new NoopListener()) })
+
+        then:
+        noExceptionThrown()
+        smd.getStates().keySet() == ['active'] as Set
+    }
+
+    def 'a listener id claimed state-machine-wide from inside the configurer fails the state, claiming none of its ids'() {
+        given:
+        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
+
+        when:
+        smd.state('active', { s ->
+            s.onEntry('first', new NoopListener())
+            s.onExit('second', new NoopListener())
+            smd.onAnyStateEntry('second', new NoopListener())
+        })
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == "Listener ID 'second', declared on state 'active' via onExit, is already registered"
+        smd.getStates().isEmpty()
+
+        when: "the state's other id stayed free"
+        smd.onAnyStateExit('first', new NoopListener())
+
+        then:
+        noExceptionThrown()
     }
 
     @Unroll

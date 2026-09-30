@@ -84,6 +84,48 @@ class StateMachineDefImplSpec extends Specification {
     }
 
     @Unroll
+    def "a #kind whose configurer throws is not registered, so a corrected retry under its id succeeds"() {
+        given:
+        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
+
+        when:
+        declare.call(smd, { throw new IllegalStateException('bad configurer') })
+
+        then:
+        thrown(IllegalStateException)
+        registered.call(smd).isEmpty()
+
+        when:
+        declare.call(smd, { })
+
+        then:
+        registered.call(smd).keySet() == ['x'] as Set
+
+        where:
+        kind         | declare                                          || registered
+        'state'      | { d, cfg -> d.state('x', cfg) }                  || { d -> d.getStates() }
+        'transition' | { d, cfg -> d.transition('x', 'a', 'b', cfg) }   || { d -> d.getTransitionsById() }
+    }
+
+    @Unroll
+    def "a #kind declared again from inside its own configurer is refused"() {
+        given:
+        def smd = Transflux.defineStateMachine() as StateMachineDefImpl
+
+        when:
+        declare.call(smd, { declare.call(smd, { }) })
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == message
+
+        where:
+        kind         | declare                                          || message
+        'state'      | { d, cfg -> d.state('x', cfg) }                  || 'State ID x already defined'
+        'transition' | { d, cfg -> d.transition('x', 'a', 'b', cfg) }   || 'Transition ID x already defined'
+    }
+
+    @Unroll
     def "#method should override previous value"() {
         given:
         def smd = Transflux.defineStateMachine()
@@ -232,12 +274,12 @@ class StateMachineDefImplSpec extends Specification {
     }
 
     @Unroll
-    def "registerTransition should validate arguments: #scenario"() {
+    def "newTransition should validate arguments: #scenario"() {
         given:
         def smd = Transflux.defineStateMachine() as StateMachineDefImpl
 
         when:
-        smd.registerTransition(sourceStateId, targetStateId, transitionId, Object)
+        smd.newTransition(sourceStateId, targetStateId, transitionId, Object)
 
         then:
         def e = thrown(TransfluxValidationException)
