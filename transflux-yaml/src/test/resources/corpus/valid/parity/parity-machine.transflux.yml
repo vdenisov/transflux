@@ -1,0 +1,170 @@
+# ParityMachine.definition(), declared in YAML over the same classes; YamlDefinitionLoaderParitySpec drives both.
+apiVersion: transflux/v1
+
+steps:
+  - id: prepare
+    class: org.transflux.yaml.ParityMachine$Prepare
+  - id: charge
+    context: org.transflux.yaml.ParityMachine$Billing
+    class: org.transflux.yaml.ParityMachine$Charge
+  - id: audit
+    class: org.transflux.yaml.ParityMachine$Audit
+  - id: explode
+    class: org.transflux.yaml.ParityMachine$Explode
+    listeners:
+      onError:
+        - id: explode-error
+          class: org.transflux.yaml.ParityMachine$ExplodeError
+
+conditions:
+  - id: priority-high
+    predicate: org.transflux.yaml.ParityMachine$PriorityHigh
+
+mappers:
+  - id: billing-from-activation
+    parentType: org.transflux.yaml.ParityMachine$Activation
+    childType: org.transflux.yaml.ParityMachine$Billing
+    class: org.transflux.yaml.ParityMachine$BillingFromActivation
+
+operations:
+  - id: notification-flow
+    context: org.transflux.yaml.ParityMachine$Activation
+    actions:
+      - operation: render
+        actions:
+          - step: render-body
+            class: org.transflux.yaml.ParityMachine$RenderBody
+      - choice: tier
+        branches:
+          - id: premium
+            condition: priority-high
+            actions:
+              - step: premium-notice
+                class: org.transflux.yaml.ParityMachine$PremiumNotice
+          - id: standard
+            condition:
+              id: standard-priority
+              expression: "priority >= 3"
+            actions:
+              - step: standard-notice
+                class: org.transflux.yaml.ParityMachine$StandardNotice
+        default:
+          actions:
+            - step: basic-notice
+              class: org.transflux.yaml.ParityMachine$BasicNotice
+
+triggers:
+  - id: manual-activate
+    name: Manual activation
+    description: An operator activates the account
+    type: manual
+    context: org.transflux.yaml.ParityMachine$Activation
+
+listeners:
+  - id: state-audit
+    class: org.transflux.yaml.ParityMachine$StateAudit
+  - id: transition-audit
+    class: org.transflux.yaml.ParityMachine$TransitionAudit
+
+stateMachine:
+  id: accounts
+  name: Accounts
+  description: An account from draft to closed
+  version: "1"
+  entityType: org.transflux.yaml.ParityMachine$Account
+  stateResolver:
+    class: org.transflux.yaml.ParityMachine$AccountResolver
+  stateApplier:
+    class: org.transflux.yaml.ParityMachine$AccountApplier
+  config:
+    async:
+      threadPoolSize: 2
+      queueCapacity: 16
+
+  listeners:
+    onAnyStateExit:
+      - id: exit-audit
+        class: org.transflux.yaml.ParityMachine$ExitAudit
+    onAnyActionStart:
+      - id: action-audit
+        class: org.transflux.yaml.ParityMachine$ActionAudit
+    onAnyActionComplete: [action-audit]
+    onAnyActionError: [action-audit]
+
+  states:
+    - id: draft
+      name: Draft
+    - id: active
+      name: Active
+      description: Billed and notified
+      listeners:
+        onEntry: [state-audit]
+    - id: suspended
+    - id: closed
+      listeners:
+        onEntry: [state-audit]
+
+  transitions:
+    - id: activate
+      name: Activate
+      from: draft
+      to: active
+      context: org.transflux.yaml.ParityMachine$Activation
+      triggers: [manual-activate]
+      listeners:
+        onStart: [transition-audit]
+        onComplete: [transition-audit]
+      actions:
+        - run: prepare
+        - run: charge
+          mapper: billing-from-activation
+        - run: notification-flow
+        - run: audit
+          fork: true
+
+    - id: suspend
+      from: active
+      to: suspended
+      triggers:
+        - id: overdue
+          name: Payment overdue
+          type: event
+          event: OVERDUE
+          filter:
+            expression: "#event == 'LATE'"
+
+    - id: reactivate
+      from: suspended
+      to: active
+      context: org.transflux.yaml.ParityMachine$Activation
+      triggers: [manual-activate]
+      actions:
+        - run: prepare
+
+    - id: close
+      from: suspended
+      to: closed
+      triggers:
+        - id: closing
+          type: data
+          condition:
+            expression: "priority < 0"
+
+    - id: terminate
+      from: active
+      to: closed
+      listeners:
+        onStart: [transition-audit]
+        onError: [transition-audit]
+      actions:
+        - step: reserve
+          class: org.transflux.yaml.ParityMachine$Reserve
+          compensation: org.transflux.yaml.ParityMachine$Release
+          errorHandling:
+            - exception: java.lang.IllegalStateException
+              guard:
+                class: org.transflux.yaml.ParityMachine$BoomGuard
+              compensation: org.transflux.yaml.ParityMachine$RouteUndo
+            - exception: java.lang.IllegalArgumentException
+              compensation: org.transflux.yaml.ParityMachine$ArgumentUndo
+        - run: explode

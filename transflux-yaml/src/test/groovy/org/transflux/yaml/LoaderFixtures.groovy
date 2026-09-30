@@ -63,13 +63,14 @@ class LoaderFixtures {
 
     /**
      * @param document a whole root document
+     * @param entityType the entity type the document declares
      *
      * @return the definition it loads to
      */
-    static StateMachineDef<Order> loadDocument(String document) {
+    static <T> StateMachineDef<T> loadDocument(String document, Class<T> entityType = Order) {
         String text = document.stripIndent()
         def source = { String id -> Optional.of(new DefinitionResource(id, new ByteArrayInputStream(text.bytes))) }
-        return YamlDefinitionLoader.builder(source as DefinitionSource).build().load('root.yml', Order)
+        return YamlDefinitionLoader.builder(source as DefinitionSource).build().load('root.yml', entityType)
     }
 
     /**
@@ -85,11 +86,12 @@ class LoaderFixtures {
 
     /**
      * @param id a root document's path under the valid corpus
+     * @param entityType the entity type the document declares
      *
      * @return the definition it loads to
      */
-    static StateMachineDef<Order> loadResource(String id) {
-        return loadDocument(resource(id))
+    static <T> StateMachineDef<T> loadResource(String id, Class<T> entityType = Order) {
+        return loadDocument(resource(id), entityType)
     }
 
     /**
