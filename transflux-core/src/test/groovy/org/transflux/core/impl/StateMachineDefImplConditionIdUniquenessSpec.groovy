@@ -49,6 +49,10 @@ class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
 
     static final Predicate PREDICATE = { en -> true } as Predicate
 
+    static final String REFERENCE = 'give one of them another id, or declare it once and reference it by id.'
+
+    static final String RENAME = 'give one of them another id.'
+
     @Unroll
     def 'the same inline condition id declared twice with different payloads is rejected: #site'() {
         when:
@@ -240,6 +244,26 @@ class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
         'registered operation and step'        | { d -> d.step('leaf', STEP).operation('shared', Object, { op -> op.run('leaf') }).step('shared', STEP) }                     || "Step id 'shared' is already registered as an operation."
         'registered step and inline step'      | { d -> d.step('shared', STEP).transition('x', 's1', 's2', { t -> t.step('shared', { en, c, tr -> } as Action) }) }           || "Step id 'shared' is already registered by another step."
         'inline step and registered condition' | { d -> d.condition('shared', 'true').transition('x', 's1', 's2', { t -> t.step('shared', STEP) }) }                          || "Step id 'shared' is already registered as a condition."
+    }
+
+    def 'a clash advises referencing one declaration only where one could serve both: #clash'() {
+        when:
+        build({ d -> cfg(d)
+            .state('s1')
+            .transition('t', 's1', 's2', { t -> })
+            .state('s2') })
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.endsWith(advice)
+
+        where:
+        clash                      | cfg                                                                                                                || advice
+        'two steps'                | { d -> d.step('shared', STEP).transition('x', 's1', 's2', { t -> t.step('shared', { en, c, tr -> } as Action) }) } || REFERENCE
+        'a step and an operation'  | { d -> d.step('leaf', STEP).operation('shared', Object, { op -> op.run('leaf') }).step('shared', STEP) }           || REFERENCE
+        'two conditions'           | { d -> d.condition('shared', 'true').transition('x', 's1', 's2', { t -> t.preCondition('shared', 'false') }) }     || REFERENCE
+        'a step and a condition'   | { d -> d.step('shared', STEP).condition('shared', 'true') }                                                        || RENAME
+        'a condition and a mapper' | { d -> d.condition('shared', 'true').mapper('shared', Object, Object, MAPPER) }                                    || RENAME
     }
 
     private static StateMachine<Entity> build(Consumer<StateMachineDef<Entity>> cfg) {

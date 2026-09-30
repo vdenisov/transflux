@@ -90,9 +90,9 @@ final class DeclarationSites {
                 throw e;
             }
             String message = e.getMessage();
-            // Core's rejection may end a sentence; the site continues it.
+            // Naming the id keeps the site from reading as the cause of a rejection about something else.
             message = message.endsWith(".") ? message.substring(0, message.length() - 1) : message;
-            throw new TransfluxValidationException(message + "; first declared at " + first, e);
+            throw new TransfluxValidationException(message + ". '" + id + "' was first declared at " + first, e);
         }
         Mark mark = at.getStartMark();
         declared.putIfAbsent(id,

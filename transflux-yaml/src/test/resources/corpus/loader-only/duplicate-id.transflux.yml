@@ -1,4 +1,4 @@
-# error: root.transflux.yml -> duplicate-id.transflux.yml:6:9: step 's': Step id 's' is already registered by another step. Ids are unique across the state machine wherever they are declared, so give one of them another id, or declare it once and reference it by id; first declared at duplicate-id.transflux.yml:4:9
+# error: root.transflux.yml -> duplicate-id.transflux.yml:6:9: step 's': Step id 's' is already registered by another step. Ids are unique across the state machine wherever they are declared, so give one of them another id, or declare it once and reference it by id. 's' was first declared at duplicate-id.transflux.yml:4:9
 apiVersion: transflux/v1
 steps:
   - id: s

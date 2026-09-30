@@ -18,8 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.impl.StateMachineDefImpl.CanonicalClaim;
-import java.util.function.Predicate;
 import org.transflux.core.action.ActionDef;
 import org.transflux.core.action.ActionListener;
 import org.transflux.core.action.ActionListenerDef;
@@ -27,6 +25,7 @@ import org.transflux.core.action.ActionPhase;
 import org.transflux.core.action.AsyncRejectionPolicy;
 import org.transflux.core.action.Compensation;
 import org.transflux.core.action.CompensationRouteDef;
+import org.transflux.core.impl.StateMachineDefImpl.CanonicalClaim;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,6 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import static org.transflux.core.Preconditions.requireNotNull;
 import static org.transflux.core.impl.ValidationUtils.warnIfSet;

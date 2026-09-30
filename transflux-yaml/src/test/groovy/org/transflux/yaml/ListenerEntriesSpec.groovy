@@ -148,6 +148,6 @@ class ListenerEntriesSpec extends Specification {
         'onRejection without async'         | "listeners:\n  - id: l\n    class: ${StateAudit.name}\n    onRejection: DROP\n"          || "root.yml:7:18: listener 'l': 'onRejection' applies to an async listener; add 'async: true'"
         'FAIL'                              | "listeners:\n  - id: l\n    class: ${StateAudit.name}\n    async: true\n    onRejection: FAIL\n" || "root.yml:8:18: listener 'l': Async rejection policy FAIL is not available on state listener 'l'; a listener cannot fail the transition it observes, so choose DROP, BLOCK or CALLER_RUNS"
         'an async that is not a boolean'    | "listeners:\n  - id: l\n    class: ${StateAudit.name}\n    async: yes\n"                 || "root.yml:7:12: listener 'l': 'async' must be true or false, not 'yes'"
-        'an id claimed twice'               | "listeners:\n  - id: l\n    class: ${StateAudit.name}\n  - id: l\n    class: ${StateAudit.name}\n" || "root.yml:7:9: listener 'l': Listener ID 'l' is already registered; first declared at root.yml:5:9"
+        'an id claimed twice'               | "listeners:\n  - id: l\n    class: ${StateAudit.name}\n  - id: l\n    class: ${StateAudit.name}\n" || "root.yml:7:9: listener 'l': Listener ID 'l' is already registered. 'l' was first declared at root.yml:5:9"
     }
 }

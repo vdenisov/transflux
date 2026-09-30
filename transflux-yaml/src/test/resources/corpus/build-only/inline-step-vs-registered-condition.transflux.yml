@@ -1,4 +1,4 @@
-# error: Step id 'c' is already registered as a condition. Ids are unique across the state machine wherever they are declared, so give one of them another id, or declare it once and reference it by id.
+# error: Step id 'c' is already registered as a condition. Ids are unique across the state machine wherever they are declared, so give one of them another id.
 apiVersion: transflux/v1
 conditions:
   - id: c

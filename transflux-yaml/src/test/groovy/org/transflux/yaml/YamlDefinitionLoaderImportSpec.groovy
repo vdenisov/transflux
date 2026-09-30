@@ -202,7 +202,7 @@ class YamlDefinitionLoaderImportSpec extends Specification {
         opens['lib.yml'] == 1
         def e = thrown(DefinitionLoadException)
         e.message == "root.yml -> lib.yml:4:9: step 'record': Step id 'record' is already registered by another step." +
-            " Ids are unique across the state machine wherever they are declared, so give one of them another id, or declare it once and reference it by id; first declared at lib.yml:4:9"
+            " Ids are unique across the state machine wherever they are declared, so give one of them another id, or declare it once and reference it by id. 'record' was first declared at lib.yml:4:9"
     }
 
     def 'an id registered twice names both declarations, whichever documents they sit in'() {
@@ -216,7 +216,7 @@ class YamlDefinitionLoaderImportSpec extends Specification {
         def e = thrown(DefinitionLoadException)
         e.identifier() == 'root.yml'
         e.line() == line
-        e.problem().endsWith('; first declared at lib.yml:3:9')
+        e.problem().endsWith(". 'dup' was first declared at lib.yml:3:9")
 
         where:
         kind        | section                                                                                                          || line
@@ -247,7 +247,7 @@ class YamlDefinitionLoaderImportSpec extends Specification {
         then:
         def e = thrown(DefinitionLoadException)
         e.message == "root.yml:5:9: step 'x': Step id 'x' is already registered as a mapper." +
-            " Ids are unique across the state machine wherever they are declared, so give one of them another id, or declare it once and reference it by id; first declared at lib.yml:3:9"
+            " Ids are unique across the state machine wherever they are declared, so give one of them another id. 'x' was first declared at lib.yml:3:9"
     }
 
     def 'a listener declared in place on a state or the state machine names a registration it collides with'() {
@@ -260,7 +260,7 @@ class YamlDefinitionLoaderImportSpec extends Specification {
         then:
         def e = thrown(DefinitionLoadException)
         e.identifier() == 'root.yml'
-        e.problem() == "Listener ID 'l' is already registered; first declared at lib.yml:3:9"
+        e.problem() == "Listener ID 'l' is already registered. 'l' was first declared at lib.yml:3:9"
 
         where:
         owner << [
@@ -289,7 +289,7 @@ class YamlDefinitionLoaderImportSpec extends Specification {
         then:
         def e = thrown(DefinitionLoadException)
         e.message.startsWith("root.yml:${line}:")
-        e.problem().endsWith("; first declared at root.yml:${first}")
+        e.problem().endsWith(" was first declared at root.yml:${first}")
 
         where:
         state | transition || line | first

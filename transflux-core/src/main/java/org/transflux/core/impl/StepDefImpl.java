@@ -18,17 +18,17 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.impl.StateMachineDefImpl.CanonicalClaim;
-import java.util.function.Predicate;
 import org.transflux.core.action.ActionKind;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.StepDef;
+import org.transflux.core.impl.StateMachineDefImpl.CanonicalClaim;
 
 import java.util.Map;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import static org.transflux.core.Preconditions.requireNotNull;
 

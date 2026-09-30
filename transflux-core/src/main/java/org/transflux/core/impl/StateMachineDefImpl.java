@@ -448,11 +448,17 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         String clash = existing.kind().equals(kind)
             ? "is already registered by another " + kind.toLowerCase(Locale.ROOT)
             : "is already registered as " + article(existing.kind()) + " " + existing.kind().toLowerCase(Locale.ROOT);
+        // One declaration referenced from both places helps within a kind or between actions, not across kinds.
+        String reference = existing.kind().equals(kind) || isAction(existing.kind()) && isAction(kind)
+            ? ", or declare it once and reference it by id"
+            : "";
 
-        throw new TransfluxValidationException(
-            kind + " id '" + id + "' " + clash + ". Ids are unique across the state machine"
-                + " wherever they are declared, so give one of them another id, or declare it once"
-                + " and reference it by id.");
+        throw new TransfluxValidationException(kind + " id '" + id + "' " + clash + ". Ids are unique across the"
+            + " state machine wherever they are declared, so give one of them another id" + reference + ".");
+    }
+
+    private static boolean isAction(String kind) {
+        return kind.equals("Step") || kind.equals("Operation") || kind.equals("Choice");
     }
 
     private static String article(String kind) {

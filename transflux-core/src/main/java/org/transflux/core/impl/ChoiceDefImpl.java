@@ -18,8 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.impl.StateMachineDefImpl.CanonicalClaim;
-import java.util.function.Predicate;
 import org.transflux.core.action.ActionKind;
 import org.transflux.core.exception.TransfluxNoMatchException;
 import org.transflux.core.exception.TransfluxValidationException;
@@ -28,6 +26,7 @@ import org.transflux.core.action.ChoiceDef;
 import org.transflux.core.action.DefaultBranchDef;
 import org.transflux.core.action.NoMatchBehavior;
 import org.transflux.core.action.Action;
+import org.transflux.core.impl.StateMachineDefImpl.CanonicalClaim;
 import org.transflux.core.transition.ExecutingTransition;
 
 import java.util.ArrayList;
@@ -38,6 +37,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;

@@ -18,7 +18,6 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.impl.StateMachineDefImpl.CanonicalClaim;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.ActionKind;
 import org.transflux.core.action.AsyncRejectionPolicy;
@@ -27,6 +26,7 @@ import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.StepDef;
 import org.transflux.core.exception.TransfluxValidationException;
+import org.transflux.core.impl.StateMachineDefImpl.CanonicalClaim;
 import org.transflux.core.transition.ExecutingTransition;
 
 import java.util.ArrayList;

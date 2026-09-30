@@ -18,10 +18,10 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.impl.StateMachineDefImpl.CanonicalClaim;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.ActionKind;
 import org.transflux.core.condition.ConditionDescriptor;
+import org.transflux.core.impl.StateMachineDefImpl.CanonicalClaim;
 
 import java.util.Map;
 
