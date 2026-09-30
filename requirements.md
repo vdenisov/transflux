@@ -464,7 +464,7 @@ The loader parses each resource exactly once per load. It does **not** cache par
 
 #### 2.7.1 Snapshot Semantics
 
-- **Every external entry point** (`entity(...)`, `executeTransition(...)`, `processEvent(...)`, `processDataChange(...)`, `getTransition(...)`, `getState(...)`, `resolveCurrentState(...)`, catalog lookups) captures the current snapshot at the top of the call and runs against that snapshot for the duration of the call. A swap mid-call does not affect the in-flight call.
+- **Every external entry point** (`entity(...)`, `executeTransition(...)`, `resolveCurrentState(...)`, the trigger catalog's `getTriggers(...)` / `getTrigger(...)`, and the metadata getters) captures the current snapshot at the top of the call and runs against that snapshot for the duration of the call. The `EntityBinding` that `entity(...)` returns is such a capture: its `transitionTo(...)`, `fire(...)`, `processEvent(...)` and `processDataChange(...)` run against the snapshot `entity(...)` captured. A swap mid-call does not affect the in-flight call.
 - **The executing transition** holds the snapshot it was constructed with; every callback into it — `run(...)` dispatch, compensation drains, condition evaluations — resolves against that snapshot. An execution that started before the swap finishes against the pre-swap topology.
 - **New invocations** after the swap see the new snapshot.
 

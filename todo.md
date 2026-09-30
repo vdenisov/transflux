@@ -21,15 +21,15 @@ Status legend: ✅ done · 🚧 active · ⬜ next / planned · 🔮 post-1.0
 | 3 — Triggers & Listeners | v0.3.0 | ✅ done | [history](docs/history/phase-3-triggers-listeners.md) |
 | 4 — Async Operations & Error Handling | v0.4.0 | ✅ done | [history](docs/history/phase-4-async-compensation.md) |
 | 4b — Action Sequence Grammar | v0.4.0 | ✅ done | [history](docs/history/phase-4b-action-sequence-grammar.md) |
-| 5 — YAML DSL & Component System | v0.5.0 | ⬜ planned | [phase 5](docs/roadmap/phase-5-yaml-dsl.md) |
+| 5 — YAML DSL & Component System | v0.5.0 | ✅ done | [history](docs/history/phase-5-yaml-dsl.md) |
 | 6 — Integration, Polish & Release Prep | v0.6.0 → v1.0.0 | ⬜ planned | [phase 6](docs/roadmap/phase-6-integration-release.md) |
 | Contracting sample application | alongside Phase 6 | ⬜ planned | [sample](docs/roadmap/contracting-sample.md) · [design](docs/design/contracting-sample.md) |
 | Post-1.0 — Additive & Breaking themes | 1.x / 2.x | 🔮 future | [below](#post-10--additive-themes-1x-line) |
 
 ## Document Map
 
-- **[docs/roadmap/](docs/roadmap/)** — one file per **remaining** phase (5, 6), plus the contracting sample's track, which runs alongside Phase 6. A phase moves to `docs/history/` when it ships.
-- **[docs/history/](docs/history/)** — one file per **shipped** phase (1, 2, 2.5, 2.6, 3, 4b), verbatim, nothing compressed.
+- **[docs/roadmap/](docs/roadmap/)** — one file per **remaining** phase (6), plus the contracting sample's track, which runs alongside Phase 6. A phase moves to `docs/history/` when it ships.
+- **[docs/history/](docs/history/)** — one file per **shipped** phase (1, 2, 2.5, 2.6, 3, 4, 4b, 5), verbatim, nothing compressed.
 - **[docs/design/](docs/design/)** - design notes for individual changes large enough to want one before they become a plan. Written against the model at the time; reconciled into `requirements.md` when the change lands.
 - **[docs/project-baseline.md](docs/project-baseline.md)** — Java baseline, dependency versions, release cadence.
 - **`requirements.md`** — the canonical high-level spec.

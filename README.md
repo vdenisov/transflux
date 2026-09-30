@@ -12,7 +12,7 @@ Transflux is a lightweight microflow orchestration library designed to automate 
 See requirements.md for the full vision and scope.
 
 ## Project Status
-Phases 1 through 4 are complete: the programmatic builder, paired `StateResolver` / `StateApplier`, `TransitionResult` with executed/compensated action paths and timing metadata, actions with conditions and compensations, manual / event / data triggers, and state, transition and action listeners are all in place. Phase 4 added the compensation engine with exception-specific routing (`forException(...)`), forked members (`fork(...)`, fire-and-forget, with per-branch rollback), async listeners on the same executor, the framework's logging baseline together with the shipped `ExecutionLogging` listeners, and per-owner disabling of global listeners. Phase 4b interrupted it and shipped first: every position that holds an ordered list of actions — a declarative container, a choice's branch, its default branch, and a transition's body — now admits one member grammar, so a member may carry a call-site mapper, be declared in place as a step, an operation or a choice, and be forked in any of those forms. The YAML DSL and Spring integration are upcoming phases.
+Phases 1 through 5 are complete: the programmatic builder, paired `StateResolver` / `StateApplier`, `TransitionResult` with executed/compensated action paths and timing metadata, actions with conditions and compensations, manual / event / data triggers, and state, transition and action listeners are all in place. Phase 4 added the compensation engine with exception-specific routing (`forException(...)`), forked members (`fork(...)`, fire-and-forget, with per-branch rollback), async listeners on the same executor, the framework's logging baseline together with the shipped `ExecutionLogging` listeners, and per-owner disabling of global listeners. Phase 4b interrupted it and shipped first: every position that holds an ordered list of actions — a declarative container, a choice's branch, its default branch, and a transition's body — now admits one member grammar, so a member may carry a call-site mapper, be declared in place as a step, an operation or a choice, and be forked in any of those forms. Phase 5 added the YAML DSL: a definition written in YAML, split into documents that import each other and read through a `DefinitionSource` the host chooses, loads to the same `StateMachineDef` the Java builder produces, and a running state machine can be handed a new definition with `replaceDefinition(...)`. Spring integration and release preparation are Phase 6.
 
 The project is in active design and the public API is unstable. **No releases are published before v1.0** — see `todo.md` for the phased roadmap.
 
@@ -20,7 +20,33 @@ The project is in active design and the public API is unstable. **No releases ar
 - Prerequisites: JDK 17+ to build (enforced via Maven toolchains); the library compiles to Java 17 bytecode and is compatible with Java 17+ runtimes. Maven 3.9+.
 - Run tests: `mvn -q clean test`
 - Run a single spec: `mvn -q test -pl transflux-core -Dtest=StateMachineImplSpec`
-- Coverage report: `transflux-core/target/site/jacoco/index.html`
+- Coverage report, per module: `transflux-core/target/site/jacoco/index.html` and `transflux-yaml/target/site/jacoco/index.html`
+
+## YAML Definitions
+The YAML DSL lives in its own module, `org.transflux:transflux-yaml`, which depends on `transflux-core` (nothing is published before 1.0, so for now it is built from this repository). The only dependency it adds on top of the core module's is SnakeYAML.
+
+A loader reads a root document and everything it imports through a `DefinitionSource`, and returns a definition that is not built yet - the host can complete it in Java before `build()`:
+
+```java
+YamlDefinitionLoader loader = YamlDefinitionLoader.builder(new ClasspathDefinitionSource()).build();
+StateMachine<Subscription> sm = loader.load("subscription.transflux.yml", Subscription.class).build();
+```
+
+The loader caches nothing, so reloading is loading again and replacing the definition. A document the loader refuses throws `DefinitionLoadException` (naming the file, line and declaration), and a definition that does not build throws from `replaceDefinition`; in both cases the running definition stays as it was:
+
+```java
+long generation = sm.replaceDefinition(loader.load("subscription.transflux.yml", Subscription.class));
+```
+
+`ClasspathDefinitionSource`, `FileSystemDefinitionSource` and `CompositeDefinitionSource` ship with the module; a database or a Git repository is a `DefinitionSource` the host writes itself (`requirements.md` §2.6).
+
+**Editor support.** The format has a JSON Schema, published at `https://vdenisov.github.io/transflux/schema/transflux-v1.schema.json` and shipped in the jar as `org/transflux/yaml/transflux-v1.schema.json`. Name your documents `*.transflux.yml` and map that pattern to the schema in the editor, or put the schema on the document's first line:
+
+```yaml
+# yaml-language-server: $schema=https://vdenisov.github.io/transflux/schema/transflux-v1.schema.json
+```
+
+The schema is for autocomplete and early feedback only; the loader is the validator, and it also checks what a schema cannot see - classes, expressions, imports and duplicate ids.
 
 ## Package Structure
 - `org.transflux.core` — entry point (`Transflux`), `StateMachine` / `StateMachineDef`, `ContextScope`, `ListenerDef` (the surface shared by the three listener defs), `ComponentFactory` (how a class a definition names becomes an instance), and the `Preconditions` argument-precondition helpers.
