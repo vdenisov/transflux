@@ -1,0 +1,8 @@
+# error: root.transflux.yml -> condition-retyped.transflux.yml:8:17: condition 'c': Condition 'c' is registered without a context; registering it again against org.transflux.yaml.LoaderFixtures$Ctx would re-type it. 'c' was first declared at condition-retyped.transflux.yml:4:9
+apiVersion: transflux/v1
+conditions:
+  - id: c
+    expression: "true"
+  - id: c
+    context: org.transflux.yaml.LoaderFixtures$Ctx
+    expression: "true"

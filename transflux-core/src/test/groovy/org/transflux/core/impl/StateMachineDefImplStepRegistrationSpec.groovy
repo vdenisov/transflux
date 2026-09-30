@@ -107,6 +107,27 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         map['shared'].action.is(instance)
     }
 
+    @Unroll
+    def "a step instance registered again may not re-type the first registration: #scenario"() {
+        given:
+        def instance = new StepA()
+        def smd = new StateMachineDefImpl<TestEntity>()
+        first.call(smd, instance)
+
+        when:
+        second.call(smd, instance)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == message
+
+        where:
+        scenario                 | first                                         | second                                                             || message
+        'untyped, then typed'    | { d, a -> d.step('s', a) }                    | { d, a -> d.step('s', TestContext, a) }                            || "Step 's' is registered without a context; registering it again against ${TestContext.name} would re-type it"
+        'untyped, then scoped'   | { d, a -> d.step('s', a) }                    | { d, a -> d.forContext(TestContext, { sc -> sc.step('s', a) }) }   || "Step 's' is registered without a context; registering it again against ${TestContext.name} would re-type it"
+        'typed, then untyped'    | { d, a -> d.step('s', TestContext, a) }       | { d, a -> d.step('s', a) }                                         || "Step 's' is registered against ${TestContext.name}; registering it again without one would re-type it"
+    }
+
     def "inline instance reference inside a composite is lexically scoped to that composite and not visible at SM root"() {
         given:
         def stepInstance = new StepA()

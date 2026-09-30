@@ -53,6 +53,10 @@ class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
 
     static final String RENAME = 'give one of them another id.'
 
+    static final Closure IN_TEST_CONTEXT_SCOPE = { d -> d.forContext(TestContext, { sc -> sc.condition('c', 'true') }) }
+
+    static class OtherContext {}
+
     @Unroll
     def 'the same inline condition id declared twice with different payloads is rejected: #site'() {
         when:
@@ -264,6 +268,39 @@ class StateMachineDefImplConditionIdUniquenessSpec extends Specification {
         'two conditions'           | { d -> d.condition('shared', 'true').transition('x', 's1', 's2', { t -> t.preCondition('shared', 'false') }) }     || REFERENCE
         'a step and a condition'   | { d -> d.step('shared', STEP).condition('shared', 'true') }                                                        || RENAME
         'a condition and a mapper' | { d -> d.condition('shared', 'true').mapper('shared', Object, Object, MAPPER) }                                    || RENAME
+    }
+
+    def 'a condition registered again may not re-type the first registration: #scenario'() {
+        given:
+        def smd = new StateMachineDefImpl<Entity>()
+        first.call(smd)
+
+        when:
+        second.call(smd)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == message
+
+        where:
+        scenario                  | first                                              | second                                         || message
+        'untyped, then typed'     | { d -> d.condition('c', ALWAYS) }                  | { d -> d.condition('c', TestContext, ALWAYS) } || "Condition 'c' is registered without a context; registering it again against ${TestContext.name} would re-type it"
+        'typed, then untyped'     | { d -> d.condition('c', TestContext, ALWAYS) }     | { d -> d.condition('c', ALWAYS) }              || "Condition 'c' is registered against ${TestContext.name}; registering it again without one would re-type it"
+        'expression, then typed'  | { d -> d.condition('c', 'true') }                  | { d -> d.condition('c', TestContext, 'true') } || "Condition 'c' is registered without a context; registering it again against ${TestContext.name} would re-type it"
+        'typed, then forContext'  | { d -> d.condition('c', OtherContext, 'true') }    | IN_TEST_CONTEXT_SCOPE                          || "Condition 'c' is registered against ${OtherContext.name}; registering it again against ${TestContext.name} would re-type it"
+    }
+
+    def 'a condition registered again with the same context stays one registration, none being Object'() {
+        given:
+        def smd = new StateMachineDefImpl<Entity>()
+
+        when:
+        smd.condition('typed', TestContext, ALWAYS).condition('typed', TestContext, ALWAYS)
+        smd.condition('untyped', 'true').condition('untyped', 'true')
+        smd.condition('object', 'true').condition('object', Object, 'true')
+
+        then:
+        noExceptionThrown()
     }
 
     private static StateMachine<Entity> build(Consumer<StateMachineDef<Entity>> cfg) {

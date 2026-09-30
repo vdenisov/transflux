@@ -133,6 +133,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     private final Map<String, Class<?>> componentContextTypes = new LinkedHashMap<>();
 
+    /** The step and condition ids registered without a context, which a typed re-registration may not re-type. */
+    private final Set<String> untypedComponentIds = new HashSet<>();
+
     /**
      * The context each inline-declared action runs against, keyed by the scope that declares it
      * and then by id, collected per build. Inline ids never reach {@link #componentContextTypes},
@@ -286,6 +289,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotBlank(id, "Step ID");
         requireNotNull(step, "Step");
         registerStepInstance(id, step);
+        tagContextType(id, null, "Step");
         return this;
     }
 
@@ -296,6 +300,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         StepDefImpl<T, Object> def = new StepDefImpl<>(id);
         ConfigurableDefImpl.runConfigurer(def, configurer);
         registerStepDef(def);
+        tagContextType(id, null, "Step");
         return this;
     }
 
@@ -305,7 +310,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotNull(contextType, "Context type");
         requireNotNull(step, "Step");
         registerStepInstance(id, step);
-        tagContextType(id, contextType);
+        tagContextType(id, contextType, "Step");
         return this;
     }
 
@@ -547,6 +552,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotBlank(id, "Condition ID");
         requireNotNull(condition, "Condition");
         registerConditionInstance(id, condition);
+        tagContextType(id, null, "Condition");
         return this;
     }
 
@@ -555,6 +561,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotBlank(id, "Condition ID");
         requireNotNull(predicate, "Predicate");
         registerConditionPredicate(id, predicate);
+        tagContextType(id, null, "Condition");
         return this;
     }
 
@@ -569,6 +576,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotBlank(id, "Condition ID");
         requireNotBlank(spelExpression, "SpEL expression");
         registerConditionExpression(id, spelExpression);
+        tagContextType(id, null, "Condition");
         return this;
     }
 
@@ -578,7 +586,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotNull(contextType, "Context type");
         requireNotNull(condition, "Condition");
         registerConditionInstance(id, condition);
-        tagContextType(id, contextType);
+        tagContextType(id, contextType, "Condition");
         return this;
     }
 
@@ -588,7 +596,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotNull(contextType, "Context type");
         requireNotNull(predicate, "Predicate");
         registerConditionPredicate(id, predicate);
-        tagContextType(id, contextType);
+        tagContextType(id, contextType, "Condition");
         return this;
     }
 
@@ -606,7 +614,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         requireNotNull(contextType, "Context type");
         requireNotBlank(spelExpression, "SpEL expression");
         registerConditionExpression(id, spelExpression);
-        tagContextType(id, contextType);
+        tagContextType(id, contextType, "Condition");
         return this;
     }
 
@@ -805,14 +813,32 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         return this;
     }
 
-    private void tagContextType(String id, Class<?> contextType) {
+    /**
+     * Records the context a registration declared. An id registered again - the same instance or
+     * expression, which the id claim takes as one registration - must declare the same context,
+     * so a second registration cannot re-type the first; declaring none is declaring {@code Object}.
+     *
+     * @param id the registered id
+     * @param contextType the declared context; {@code null} for an untyped registration
+     * @param kind the registration's kind, capitalised as it leads a message
+     *
+     * @throws TransfluxValidationException if the id was registered with another context, or none
+     */
+    private void tagContextType(String id, Class<?> contextType, String kind) {
         Class<?> existing = componentContextTypes.get(id);
-        if (existing != null && existing != contextType) {
-            throw new TransfluxValidationException(
-                "Component id '" + id + "' is registered against context type "
-                    + existing.getName() + "; cannot re-register against " + contextType.getName());
+        boolean untyped = untypedComponentIds.contains(id);
+        Class<?> effective = contextType == null ? Object.class : contextType;
+        if ((existing != null || untyped) && (untyped ? Object.class : existing) != effective) {
+            throw new TransfluxValidationException(kind + " '" + id + "' is registered "
+                + (untyped ? "without a context" : "against " + existing.getName())
+                + "; registering it again " + (contextType == null ? "without one" : "against " + contextType.getName())
+                + " would re-type it");
         }
-        componentContextTypes.put(id, contextType);
+        if (contextType == null) {
+            untypedComponentIds.add(id);
+        } else {
+            componentContextTypes.put(id, contextType);
+        }
     }
 
     Class<?> getComponentContextType(String id) {
@@ -989,29 +1015,29 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     <C> void registerScopedStep(String id, Action<? super T, C> step, Class<C> contextType) {
         registerStepInstance(id, step);
-        tagContextType(id, contextType);
+        tagContextType(id, contextType, "Step");
     }
 
     <C> void registerScopedStep(String id, Consumer<StepDef<T, C>> configurer, Class<C> contextType) {
         StepDefImpl<T, C> def = new StepDefImpl<>(id, contextType);
         ConfigurableDefImpl.runConfigurer(def, configurer);
         registerStepDef(def);
-        tagContextType(id, contextType);
+        tagContextType(id, contextType, "Step");
     }
 
     <C> void registerScopedCondition(String id, Condition<? super T, C> condition, Class<C> contextType) {
         registerConditionInstance(id, condition);
-        tagContextType(id, contextType);
+        tagContextType(id, contextType, "Condition");
     }
 
     <C> void registerScopedCondition(String id, BiPredicate<? super T, C> predicate, Class<C> contextType) {
         registerConditionPredicate(id, predicate);
-        tagContextType(id, contextType);
+        tagContextType(id, contextType, "Condition");
     }
 
     <C> void registerScopedCondition(String id, String expression, Class<C> contextType) {
         registerConditionExpression(id, expression);
-        tagContextType(id, contextType);
+        tagContextType(id, contextType, "Condition");
     }
 
     <C> void registerScopedCompositeOperation(String id,
@@ -1025,7 +1051,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         // Claimed once the configurer returned, so one that throws leaves the id free for a retry.
         claimCanonical(componentIds, id, composite, "Operation");
         smCompositeOperations.put(id, composite);
-        tagContextType(id, contextType);
+        tagContextType(id, contextType, "Operation");
     }
 
     @Override
@@ -1216,7 +1242,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         // Claimed once the configurer returned, so one that throws leaves the id free for a retry.
         claimCanonical(componentIds, id, choice, "Choice");
         smCompositeOperations.put(id, choice);
-        tagContextType(id, contextType);
+        tagContextType(id, contextType, "Choice");
     }
 
 

@@ -2128,7 +2128,7 @@ For every by-id reference declared inside a container - including inside a choic
 
 ##### 4.5.2.5 Identity, Uniqueness, and Visibility
 
-Component identifiers are unique **across the entire state machine** — uniqueness is a global property regardless of nesting depth. Two sibling containers cannot independently host an inline component with the same id under two different payloads; one must be renamed. The same instance or the same class registered under the same id in multiple places is treated idempotently and does not trigger a collision.
+Component identifiers are unique **across the entire state machine** — uniqueness is a global property regardless of nesting depth. Two sibling containers cannot independently host an inline component with the same id under two different payloads; one must be renamed. The same instance or the same class registered under the same id in multiple places is treated idempotently and does not trigger a collision, provided each registration declares the same context type, none counting as `Object`: a second registration may not re-type the first.
 
 **Visibility, however, is lexical.** A component inline-declared inside a container (`op.step("foo", new FooAction())` and friends) is reachable only from inside that container's lexical subtree — its own member references, its choice branches, and any `view.run("foo")` issued while that container is on the call stack. Sibling containers cannot resolve another's inline ids by reference: doing so raises a build-time error ("unknown action id in scope"). SM-level (root) registrations are reachable from every container via the parent-chain walk.
 
