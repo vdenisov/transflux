@@ -32,7 +32,7 @@ interface InlineContextSink {
     /**
      * @param id the declared id
      * @param context the context the declaration runs against
-     * @param declaringScope the id of the container or choice whose scope holds it
+     * @param declaringScope the {@code scopeId()} key of the container or choice whose scope holds it
      * @param def the declaration's def; {@code null} for a step declared from an instance
      */
     void accept(String id, Class<?> context, String declaringScope, ActionDefImpl<?, ?, ?> def);

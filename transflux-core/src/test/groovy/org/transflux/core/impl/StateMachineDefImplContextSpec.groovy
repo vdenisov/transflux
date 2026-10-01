@@ -551,7 +551,7 @@ class StateMachineDefImplContextSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains("unknown action id 'buried'")
-        e.message.contains("composite 'inner'")
+        e.message.contains("registered in operation 'inner'")
         !e.message.contains('Context type mismatch')
     }
 

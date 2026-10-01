@@ -302,7 +302,7 @@ final class ActionSequenceSink<T, C, D> {
      *
      * @param scopeContext the context type this sequence's members are written against;
      *                     {@code null} is read as {@code Object}
-     * @param declaringScope the id of the scope these declarations register into - the enclosing
+     * @param declaringScope the key of the scope these declarations register into - the enclosing
      *                       container's, or the choice's when this is one of its branches
      * @param sink receives each inline declaration, with the scope that holds it
      */
@@ -339,7 +339,7 @@ final class ActionSequenceSink<T, C, D> {
      * @param contextOwner names the position whose context the members run against, which is not
      *                     always this sequence: a declaration that names no context of its own
      *                     inherits the enclosing one, and so does every branch of a choice
-     * @param visibleScopes the ids of the scopes a reference from here resolves through, innermost
+     * @param visibleScopes the keys of the scopes a reference from here resolves through, innermost
      *                      first
      * @param smDef the state-machine def whose component registrations the check consults
      */

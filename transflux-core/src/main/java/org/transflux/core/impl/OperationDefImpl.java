@@ -79,9 +79,7 @@ final class OperationDefImpl<T, C>
      * <p>The body claims no id of its own: it is registered in no registry and never enters the
      * canonical table, exactly as the attached action it replaces did not, so nothing can name it
      * and it can lie on no cycle. Its id is not therefore unique - a transition and an action may
-     * share a name, and then both key the inline-context table under it, which can make a
-     * diagnostic name the wrong declaration. The build fails either way, since the reference does
-     * not resolve.
+     * share a name - which is why scopes are keyed by {@link #scopeId()}, the label, and not by id.
      *
      * @param transitionId the enclosing transition's id
      * @param <T> the entity type the surrounding state machine manages
@@ -309,7 +307,7 @@ final class OperationDefImpl<T, C>
     @Override
     void checkRefs(Class<?> scopeContext, String scopeLabel, String contextOwner,
                    List<String> visibleScopes, StateMachineDefImpl<T> smDef) {
-        members.checkRefs(scopeContext, scopeLabel, contextOwner, inside(visibleScopes, getId()),
+        members.checkRefs(scopeContext, scopeLabel, contextOwner, inside(visibleScopes, scopeId()),
                           smDef);
     }
 
@@ -334,7 +332,7 @@ final class OperationDefImpl<T, C>
         List<CompositeMember<T, C>> bound = new ArrayList<>(members.members().size());
         for (ActionSequenceSink.DeclaredMember<T, C> member : members.members()) {
             ActionRef<T, C> ref = member.ref();
-            Component.Action<T, ?> action = ref.resolve(stateMachine, ownScope(), positionLabel, getId());
+            Component.Action<T, ?> action = ref.resolve(stateMachine, ownScope(), positionLabel, scopeId());
             ResolvedContextMapping mapping = ref.mapperRef().resolve(stateMachine, getId());
             bound.add(CompositeMember.of(action, mapping, member));
 
@@ -344,8 +342,7 @@ final class OperationDefImpl<T, C>
                 // The choice owns the scope its branches bind against, so it is what a failure
                 // inside them has to name - not the container that happens to hold it.
                 choice.def().bindBranchMembers(
-                    stateMachine, positionLabel + " > " + choice.def().defLabel(),
-                    choice.id());
+                    stateMachine, positionLabel + " > " + choice.def().defLabel());
             } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
                 nested.def().bindMembers(stateMachine,
                                          positionLabel + " > " + nested.def().defLabel());
@@ -357,7 +354,7 @@ final class OperationDefImpl<T, C>
 
     @Override
     void collectMemberContexts(Class<?> scopeContext, InlineContextSink sink) {
-        members.collectMemberContexts(scopeContext, getId(), sink);
+        members.collectMemberContexts(scopeContext, scopeId(), sink);
     }
 
     @Override
@@ -394,7 +391,7 @@ final class OperationDefImpl<T, C>
                         Class<?> inheritedContext) {
         Class<C> tagged = effectiveContext(inheritedContext);
 
-        RegistryImpl<T> scope = new RegistryImpl<>(parentRegistry, getId());
+        RegistryImpl<T> scope = new RegistryImpl<>(parentRegistry, scopeId());
         setScopeRegistry(scope);
 
 

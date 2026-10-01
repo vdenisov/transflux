@@ -208,7 +208,7 @@ final class ChoiceDefImpl<T, C>
     void checkRefs(Class<?> scopeContext, String ownLabel, String contextOwner,
                    List<String> visibleScopes, StateMachineDefImpl<T> smDef) {
         Class<?> effectiveScope = scopeContext != null ? scopeContext : Object.class;
-        List<String> inside = inside(visibleScopes, getId());
+        List<String> inside = inside(visibleScopes, scopeId());
 
         for (BranchDefImpl<T, C> branch : branches) {
             branch.checkRefs(effectiveScope,
@@ -234,13 +234,11 @@ final class ChoiceDefImpl<T, C>
      * @param stateMachine the state machine under construction, whose mapper registry and
      *                     diagnostics the resolution consults
      * @param ownLabel this choice's own full position label; each branch label extends it
-     * @param owningChoiceId the id of the choice owning these branches
      *
      * @throws TransfluxValidationException if a branch names an id that no action in scope
      *         carries, or if no executor was built for this choice
      */
-    void bindBranchMembers(StateMachineSnapshot<T> stateMachine,
-                           String ownLabel, String owningChoiceId) {
+    void bindBranchMembers(StateMachineSnapshot<T> stateMachine, String ownLabel) {
         if (executor == null) {
             throw new TransfluxValidationException(
                 "Choice '" + getId()
@@ -254,13 +252,12 @@ final class ChoiceDefImpl<T, C>
                 branch.getBranchId(),
                 executor.conditions.get(i),
                 bindMembers(branch.getMembers(), stateMachine,
-                            branchLabel(ownLabel, "branch '" + branch.getBranchId() + "'"),
-                            owningChoiceId)));
+                            branchLabel(ownLabel, "branch '" + branch.getBranchId() + "'"))));
         }
 
         List<CompositeMember<T, C>> defaultMembers = defaultBranch == null ? null
             : bindMembers(defaultBranch.getMembers(), stateMachine,
-                          branchLabel(ownLabel, "default branch"), owningChoiceId);
+                          branchLabel(ownLabel, "default branch"));
 
         executor.bind(resolved, defaultMembers);
     }
@@ -329,15 +326,14 @@ final class ChoiceDefImpl<T, C>
 
     private List<CompositeMember<T, C>> bindMembers(List<ActionSequenceSink.DeclaredMember<T, C>> declared,
                                                     StateMachineSnapshot<T> stateMachine,
-                                                    String ownerLabel,
-                                                    String owningChoiceId) {
+                                                    String ownerLabel) {
         Registry<T> scope = ownScope();
         List<CompositeMember<T, C>> bound = new ArrayList<>(declared.size());
         for (ActionSequenceSink.DeclaredMember<T, C> member : declared) {
             ActionRef<T, C> ref = member.ref();
             bound.add(CompositeMember.of(
-                ref.resolve(stateMachine, scope, ownerLabel, owningChoiceId),
-                ref.mapperRef().resolve(stateMachine, owningChoiceId),
+                ref.resolve(stateMachine, scope, ownerLabel, scopeId()),
+                ref.mapperRef().resolve(stateMachine, getId()),
                 member));
 
             // Each nested form binds against its own scope. Recursing after the member is built
@@ -346,7 +342,7 @@ final class ChoiceDefImpl<T, C>
                 // The nested choice owns the scope its own branches bind against, so it is
                 // what a failure inside them has to name - not whatever encloses this one.
                 nested.def().bindBranchMembers(
-                    stateMachine, ownerLabel + " > " + nested.def().defLabel(), nested.id());
+                    stateMachine, ownerLabel + " > " + nested.def().defLabel());
             } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
                 // A container declared in a branch does own a scope, and binds against its own.
                 nested.def().bindMembers(stateMachine, ownerLabel + " > " + nested.def().defLabel());
@@ -380,10 +376,10 @@ final class ChoiceDefImpl<T, C>
         // A choice owns one scope and every branch registers into it, so the branches all
         // report the same declaring scope - which is what lets one branch reach another's ids.
         for (BranchDefImpl<T, C> branch : branches) {
-            branch.collectMemberContexts(effectiveScope, getId(), sink);
+            branch.collectMemberContexts(effectiveScope, scopeId(), sink);
         }
         if (defaultBranch != null) {
-            defaultBranch.collectMemberContexts(effectiveScope, getId(), sink);
+            defaultBranch.collectMemberContexts(effectiveScope, scopeId(), sink);
         }
     }
 
@@ -424,7 +420,7 @@ final class ChoiceDefImpl<T, C>
         @SuppressWarnings("unchecked")
         Class<C> tagged = effectiveContext(inheritedContext);
 
-        RegistryImpl<T> scope = new RegistryImpl<>(parentRegistry, getId());
+        RegistryImpl<T> scope = new RegistryImpl<>(parentRegistry, scopeId());
         setScopeRegistry(scope);
 
         collectInlineRegistrations(
@@ -433,7 +429,7 @@ final class ChoiceDefImpl<T, C>
 
     @Override
     void bindMembers(StateMachineSnapshot<T> stateMachine, String positionLabel) {
-        bindBranchMembers(stateMachine, positionLabel, getId());
+        bindBranchMembers(stateMachine, positionLabel);
     }
 
     @Override

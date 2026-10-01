@@ -226,7 +226,7 @@ class StateMachineImplExecutionLoggingSpec extends Specification {
         smd.build().entity(new Entity('s1', 1)).transitionTo('s2', new TestContext())
 
         then: 'the container reaches both, and the line separates its own inline id from the inherited one'
-        capture.messages().contains('Action id resolved, id=inline, scope=op')
+        capture.messages().contains("Action id resolved, id=inline, scope=operation 'op'")
         capture.messages().contains('Action id resolved, id=sm-level, scope=root')
     }
 

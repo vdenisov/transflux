@@ -287,7 +287,7 @@ class OperationDefImplSpec extends Specification {
         then: 'the hint names the branch-nested container, as it does a direct one'
         def e = thrown(TransfluxValidationException)
         e.message.contains("unknown action id 'buried'")
-        e.message.contains("composite 'nested'")
+        e.message.contains("registered in operation 'nested'")
     }
 
     def 'mapTo failure surfaces as parent member failure — nested op never starts'() {

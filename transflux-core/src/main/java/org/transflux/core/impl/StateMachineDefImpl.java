@@ -377,8 +377,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     /**
      * Walks every known composite operation def — both transition-attached top-level composites
-     * and SM-level registered composites — and returns the id of the first composite whose
-     * <em>local</em> scope registry contains an entry under {@code id}, excluding the composite
+     * and SM-level registered composites — and returns the label of the first composite whose
+     * <em>local</em> scope registry contains an entry under {@code id}, excluding the scope
      * that originated the search. Used by {@link ActionRef} resolution to enrich "unknown id"
      * diagnostics with the composite that does hold the id.
      *
@@ -387,11 +387,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      *
      * <p>Returns {@link Optional#empty()} when nothing holds the id inline.
      */
-    Optional<String> findInlineScopeHolding(String id, String excludingCompositeId) {
+    Optional<String> findInlineScopeHolding(String id, String excludingScopeId) {
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             ActionDefImpl<T, ?, ?> op = td.getActionDef();
             if (op != null) {
-                Optional<String> hit = op.scanScopeFor(id, excludingCompositeId);
+                Optional<String> hit = op.scanScopeFor(id, excludingScopeId);
                 if (hit.isPresent()) {
                     return hit;
                 }
@@ -399,7 +399,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
 
         for (ActionDefImpl<T, ?, ?> composite : smCompositeOperations.values()) {
-            Optional<String> hit = composite.scanScopeFor(id, excludingCompositeId);
+            Optional<String> hit = composite.scanScopeFor(id, excludingScopeId);
             if (hit.isPresent()) {
                 return hit;
             }
@@ -858,7 +858,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * parent chain to the root.
      *
      * @param id the referenced id
-     * @param visibleScopes the ids of the scopes the referencing position can resolve through,
+     * @param visibleScopes the keys of the scopes the referencing position can resolve through,
      *                      innermost first
      *
      * @return the callee's context, or {@code Object} when nothing here can answer - an untyped

@@ -178,7 +178,7 @@ class StateMachineDefImplBuildLoggingSpec extends Specification {
 
         then: 'an inline id resolves from inside its container only, so the line has to name it'
         capture.messages().contains(
-            "Component bound, id=inline-member, kind=step, contextType=${TestContext.name}, scope=sm-op".toString())
+            "Component bound, id=inline-member, kind=step, contextType=${TestContext.name}, scope=operation 'sm-op'".toString())
     }
 
     def "a registered choice's branch members report the registration's context"() {
@@ -194,7 +194,7 @@ class StateMachineDefImplBuildLoggingSpec extends Specification {
 
         then: 'a choice has no way to restate its context, so it must inherit the registration'
         capture.messages().contains(
-            "Component bound, id=branch-member, kind=step, contextType=${TestContext.name}, scope=sm-cond".toString())
+            "Component bound, id=branch-member, kind=step, contextType=${TestContext.name}, scope=choice 'sm-cond'".toString())
     }
 
     def "an attached container's inline members report the transition's context"() {
@@ -213,7 +213,7 @@ class StateMachineDefImplBuildLoggingSpec extends Specification {
 
         then: 'an attached action declares no context of its own, so it runs against the transition'
         capture.messages().contains(
-            "Component bound, id=attached-member, kind=step, contextType=${TestContext.name}, scope=attached".toString())
+            "Component bound, id=attached-member, kind=step, contextType=${TestContext.name}, scope=operation 'attached'".toString())
     }
 
     def 'registry population and flattening bracket the binding phase'() {

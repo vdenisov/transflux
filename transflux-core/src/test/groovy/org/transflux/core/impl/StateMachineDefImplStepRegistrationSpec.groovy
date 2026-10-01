@@ -38,6 +38,20 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         String state
     }
 
+    // An action and a transition both called t, one declaring x inline and the other referencing it.
+    static final Closure OPERATION_REFERS = { d -> d
+        .transition('t', TRIAL.id, ACTIVE.id, TestContext, { t -> t.step('x', new StepA()) })
+        .operation('t', Object, { c -> c.run('x') })
+    }
+    static final Closure CHOICE_REFERS = { d -> d
+        .transition('t', TRIAL.id, ACTIVE.id, TestContext, { t -> t.step('x', new StepA()) })
+        .choice('t', Object, { cs -> cs.branch('b', { b -> b.conditionExpression('true').run('x') }) })
+    }
+    static final Closure TRANSITION_REFERS = { d -> d
+        .operation('t', TestContext, { c -> c.step('x', new StepA()) })
+        .transition('t', TRIAL.id, ACTIVE.id, { t -> t.run('x') })
+    }
+
     static class StepA implements Action<TestEntity, TestContext> {
         @Override
         void execute(TestEntity entity, TestContext context, ExecutingTransition<TestEntity, TestContext> transition) {
@@ -319,10 +333,35 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         def e = thrown(TransfluxValidationException)
         e.message.contains("'via-inline'")
         e.message.contains('unknown action id')
-        // The enrichment names the composite that does hold the id inline.
-        e.message.contains("composite 'op-provider'")
+        // The enrichment names the operation that does hold the id inline.
+        e.message.contains("registered in operation 'op-provider'")
         e.message.contains('inline registrations are only visible inside')
         e.message.contains('Declare it in a scope that encloses both positions')
+    }
+
+    @Unroll
+    def "#referrer sharing an id with #holder cannot reach its inline actions, and is told where they are"() {
+        given: 'transitions and actions are separate namespaces, so both may be called t'
+        def smd = Transflux.<TestEntity> defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+        smd.state(TRIAL.id)
+        declare.call(smd)
+        smd.state(ACTIVE.id)
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.startsWith("${position} references unknown action id 'x' in its scope. An inline action with this id"
+            + " is registered in ${holder}")
+
+        where:
+        referrer        | holder           | declare            || position
+        'an operation'  | "transition 't'" | OPERATION_REFERS   || "operation 't'"
+        'a choice'      | "transition 't'" | CHOICE_REFERS      || "choice 't' > branch 'b'"
+        'a transition'  | "operation 't'"  | TRANSITION_REFERS  || "transition 't'"
     }
 
     def "the holder named for a nested container is not called a sibling"() {
@@ -346,7 +385,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains("unknown action id 'buried'")
-        e.message.contains("composite 'inner'")
+        e.message.contains("registered in operation 'inner'")
         !e.message.contains('sibling')
         !e.message.contains('SM root')
     }
@@ -370,7 +409,7 @@ class StateMachineDefImplStepRegistrationSpec extends Specification {
         e.message.contains("'truly-missing'")
         e.message.contains('unknown action id')
         e.message.contains("'op-consumer'")
-        !e.message.contains('is registered in composite')
+        !e.message.contains('is registered in')
     }
 
     def "getBoundAction should return null for unknown id"() {

@@ -128,7 +128,7 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      * {@code Registry} follows at runtime.
      *
      * @param enclosing the chain as seen by the enclosing position
-     * @param ownScopeId the id of the scope this action owns
+     * @param ownScopeId the {@code scopeId()} key of the scope this action owns
      *
      * @return a new chain; the argument is left alone, since siblings share it
      */
@@ -417,7 +417,7 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      * @param contextOwner names the position {@code scopeContext} was declared on, which is not
      *                     always the call site: a member that declares no context of its own is
      *                     handed the enclosing one, so the position to fix is further out
-     * @param visibleScopes the ids of the scopes a reference from here resolves through, innermost
+     * @param visibleScopes the keys of the scopes a reference from here resolves through, innermost
      *                      first - an inline id outside them is not this position's to judge
      * @param smDef the state-machine def whose registries the check consults
      */
@@ -538,31 +538,43 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     }
 
     /**
+     * Names the scope this action owns, as the build's scope chains and the inline-context table
+     * key it. It is the action's label rather than its id, because a transition's body owns a
+     * scope under its transition's id, which an action of its own may share.
+     *
+     * @return the scope's key, such as {@code operation 'x'} or {@code transition 't'}
+     */
+    final String scopeId() {
+        return defLabel();
+    }
+
+    /**
      * Build-time diagnostic: reports which action in this subtree holds {@code id} in its own
      * scope, so an "unknown id" message can say where the id does live. Ids are unique, so at
      * most one scope can answer.
      *
      * @param id the id being scanned for
-     * @param excludingId the id of the action originating the search, excluded from the scan
+     * @param excludingScopeId the {@link #scopeId()} of the position originating the search,
+     *        excluded from the scan
      *
-     * @return the holder's id, or empty
+     * @return the holder's label, such as {@code operation 'x'}, or empty
      */
-    final Optional<String> scanScopeFor(String id, String excludingId) {
-        if (holdsInScope(id, excludingId)) {
-            return Optional.of(getId());
+    final Optional<String> scanScopeFor(String id, String excludingScopeId) {
+        if (holdsInScope(id, excludingScopeId)) {
+            return Optional.of(defLabel());
         }
 
         String[] hit = {null};
         visitScopeOwners(owner -> {
-            if (hit[0] == null && owner.holdsInScope(id, excludingId)) {
-                hit[0] = owner.getId();
+            if (hit[0] == null && owner.holdsInScope(id, excludingScopeId)) {
+                hit[0] = owner.defLabel();
             }
         });
         return Optional.ofNullable(hit[0]);
     }
 
-    private boolean holdsInScope(String id, String excludingId) {
-        return !getId().equals(excludingId) && scopeRegistry != null
+    private boolean holdsInScope(String id, String excludingScopeId) {
+        return !scopeId().equals(excludingScopeId) && scopeRegistry != null
             && scopeRegistry.get(id).isPresent();
     }
 

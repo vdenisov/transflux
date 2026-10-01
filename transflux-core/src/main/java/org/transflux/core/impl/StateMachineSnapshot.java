@@ -269,8 +269,8 @@ class StateMachineSnapshot<T> {
             .orElse(null);
     }
 
-    Optional<String> findInlineScopeHolding(String id, String excludingCompositeId) {
-        return def.findInlineScopeHolding(id, excludingCompositeId);
+    Optional<String> findInlineScopeHolding(String id, String excludingScopeId) {
+        return def.findInlineScopeHolding(id, excludingScopeId);
     }
 
     /**

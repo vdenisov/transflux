@@ -97,7 +97,7 @@ sealed interface ActionRef<T, C>
      * @param ownerLabel names the position that declared this reference (a container, or one
      *                   branch of a choice), surfaced in the error message when it does
      *                   not resolve
-     * @param excludingCompositeId the id of the composite whose own scope the diagnostic
+     * @param excludingScopeId the scope key of the position whose own scope the diagnostic
      *                             enrichment must skip
      *
      * @return the resolved component; never {@code null}
@@ -106,11 +106,11 @@ sealed interface ActionRef<T, C>
      *         the scope chain, or the matched entry is not an action
      */
     default Component.Action<T, ?> resolve(StateMachineSnapshot<T> stateMachine, Registry<T> scopeRegistry,
-                                           String ownerLabel, String excludingCompositeId) {
+                                           String ownerLabel, String excludingScopeId) {
         Optional<Component<T>> resolved = scopeRegistry.resolve(id());
         if (resolved.isEmpty()) {
             throw new TransfluxValidationException(
-                unknownIdMessage(id(), stateMachine, ownerLabel, excludingCompositeId));
+                unknownIdMessage(id(), stateMachine, ownerLabel, excludingScopeId));
         }
 
         Component<T> component = resolved.get();
@@ -167,11 +167,11 @@ sealed interface ActionRef<T, C>
      * different remedies. Naming an enclosing scope covers both.
      */
     static String unknownIdMessage(String id, StateMachineSnapshot<?> stateMachine,
-                                   String ownerLabel, String excludingCompositeId) {
+                                   String ownerLabel, String excludingScopeId) {
         String base = ownerLabel + " references unknown action id '" + id + "' in its scope";
-        return stateMachine.findInlineScopeHolding(id, excludingCompositeId)
-            .map(holderId -> base + ". An inline action with this id is registered in composite '"
-                + holderId + "', whose inline registrations are only visible inside its own subtree."
+        return stateMachine.findInlineScopeHolding(id, excludingScopeId)
+            .map(holder -> base + ". An inline action with this id is registered in " + holder
+                + ", whose inline registrations are only visible inside its own subtree."
                 + " Declare it in a scope that encloses both positions if shared use is intended.")
             .orElse(base);
     }

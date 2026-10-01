@@ -705,7 +705,7 @@ class ChoiceDefImplIntegrationSpec extends Specification {
         then: 'and the diagnostic says where the id does live'
         def e = thrown(TransfluxValidationException)
         e.message.contains("unknown action id 'buried'")
-        e.message.contains("composite 'route'")
+        e.message.contains("registered in choice 'route'")
     }
 
     def "an action dispatched from a branch member's body resolves in the choice's scope"() {
