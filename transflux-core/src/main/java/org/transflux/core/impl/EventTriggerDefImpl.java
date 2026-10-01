@@ -18,10 +18,12 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.condition.ConditionDescriptor;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.trigger.EventTriggerDef;
 
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -36,9 +38,9 @@ import static org.transflux.core.impl.ValidationUtils.warnIfSet;
  * <p>
  * Captures the listened-for event id and the optional payload filter during configuration, then
  * resolves them into a runtime {@link EventTriggerImpl} at build time through
- * {@link #buildBoundTrigger(List)}. The transitions it is attached to are supplied at build time, since a
+ * {@link #buildBound(Map, List)}. The transitions it is attached to are supplied at build time, since a
  * registered trigger may sit on several. The event id is mandatory; its absence is
- * reported when {@link #buildBoundTrigger(List)} runs.
+ * reported when {@link #buildBound(Map, List)} runs.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
@@ -98,14 +100,23 @@ final class EventTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, EventTriggerD
         return eventId;
     }
 
+    @Override
+    List<ConditionDescriptor> conditionDescriptors() {
+        return List.of();
+    }
+
     /**
      * Resolves this trigger's event id and filter into a runtime {@link EventTriggerImpl}.
+     *
+     * @param registry unused: an event trigger carries no condition to resolve
+     * @param transitionIds the transitions it is attached to
      *
      * @return the runtime trigger
      *
      * @throws TransfluxValidationException if no event id was declared
      */
-    EventTriggerImpl<T> buildBoundTrigger(List<String> transitionIds) {
+    @Override
+    EventTriggerImpl<T> buildBound(Map<String, BoundCondition<T, C>> registry, List<String> transitionIds) {
         if (eventId == null) {
             throw new TransfluxValidationException(
                 "Event trigger '" + getId() + "' declares no event id; call onEvent(...) in its configurer");

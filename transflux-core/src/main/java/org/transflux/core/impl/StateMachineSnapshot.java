@@ -465,7 +465,7 @@ class StateMachineSnapshot<T> {
         Map<String, TriggerDefImpl<T, ?, ?>> defsById = new LinkedHashMap<>();
 
         for (TransitionDefImpl<T, ?> td : def.getTransitionsById().values()) {
-            for (TriggerDefImpl<T, ?, ?> declared : declaredTriggers(td)) {
+            for (TriggerDefImpl<T, ?, ?> declared : td.getDeclaredTriggers()) {
                 claimTriggerId(defsById, declared);
                 attachments.computeIfAbsent(declared.getId(), k -> new ArrayList<>()).add(td);
             }
@@ -494,7 +494,7 @@ class StateMachineSnapshot<T> {
         // attached by an earlier transition must not drag a later one's attachment up with it.
         for (TransitionDefImpl<T, ?> td : def.getTransitionsById().values()) {
             BoundTransition<T, ?> transition = getTransition(td.getId());
-            for (TriggerDefImpl<T, ?, ?> declared : declaredTriggers(td)) {
+            for (TriggerDefImpl<T, ?, ?> declared : td.getDeclaredTriggers()) {
                 indexAttachment(triggers.get(declared.getId()), transition);
             }
             for (String ref : td.getTriggerRefs()) {
@@ -541,26 +541,10 @@ class StateMachineSnapshot<T> {
             "Trigger id '" + id + "' is " + where + "; ids are unique across this state machine's triggers" + advice);
     }
 
-    /** The triggers a transition declares in place, in the order dispatch scans them. */
-    private List<TriggerDefImpl<T, ?, ?>> declaredTriggers(TransitionDefImpl<T, ?> td) {
-        List<TriggerDefImpl<T, ?, ?>> declared = new ArrayList<>();
-        declared.addAll(td.getManualTriggers());
-        declared.addAll(td.getEventTriggers());
-        declared.addAll(td.getDataTriggers());
-        return declared;
-    }
-
     @SuppressWarnings({"unchecked", "rawtypes"})
     private TriggerImpl buildTrigger(TriggerDefImpl<T, ?, ?> triggerDef, List<String> transitionIds,
                                      Map<String, BoundCondition<T, ?>> conditionRegistry) {
-        if (triggerDef instanceof ManualTriggerDefImpl manual) {
-            return manual.buildBoundTrigger((Map) conditionRegistry, transitionIds);
-        }
-        if (triggerDef instanceof EventTriggerDefImpl event) {
-            return event.buildBoundTrigger(transitionIds);
-        }
-        return ((DataTriggerDefImpl) triggerDef).buildBoundTrigger((Map) conditionRegistry,
-                                                                   transitionIds);
+        return triggerDef.buildBound((Map) conditionRegistry, transitionIds);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})

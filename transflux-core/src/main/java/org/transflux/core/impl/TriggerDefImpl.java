@@ -18,6 +18,12 @@
 
 package org.transflux.core.impl;
 
+import org.transflux.core.condition.ConditionDescriptor;
+import org.transflux.core.exception.TransfluxValidationException;
+
+import java.util.List;
+import java.util.Map;
+
 import static org.transflux.core.Preconditions.requireNotNull;
 
 /**
@@ -72,4 +78,34 @@ sealed abstract class TriggerDefImpl<T, C, SELF extends TriggerDefImpl<T, C, SEL
     TransitionDefImpl<T, C> getOwner() {
         return owner;
     }
+
+    /**
+     * Returns the conditions this trigger carries, which the build claims and checks like any
+     * other inline condition.
+     *
+     * @return the descriptors, in declaration order; possibly empty
+     */
+    abstract List<ConditionDescriptor> conditionDescriptors();
+
+    /**
+     * Names what {@link #conditionDescriptors()} are, as a rejection of one of them names it; a
+     * kind that carries conditions names its own.
+     *
+     * @return such as {@code pre-condition}
+     */
+    String conditionRole() {
+        return "condition";
+    }
+
+    /**
+     * Resolves this definition into the runtime trigger.
+     *
+     * @param registry the state machine's resolved conditions
+     * @param transitionIds the transitions it is attached to
+     *
+     * @return the runtime trigger
+     *
+     * @throws TransfluxValidationException if the definition is incomplete
+     */
+    abstract TriggerImpl buildBound(Map<String, BoundCondition<T, C>> registry, List<String> transitionIds);
 }

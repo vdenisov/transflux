@@ -453,15 +453,6 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
-     * Claims every inline condition id a transition carries — its own pre- and post-conditions
-     * plus those of the triggers attached to it — in the per-build table.
-     *
-     * @param canonical the per-build canonical payload table
-     * @param td the transition to walk
-     *
-     * @throws TransfluxValidationException if any id is already held by a different payload
-     */
-    /**
      * Claims the inline condition ids a registered trigger declares, which no transition walk
      * reaches: a registration is not owned by one.
      *
@@ -469,16 +460,19 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      */
     private void claimRegisteredTriggerConditions(Map<String, CanonicalClaim> canonical) {
         for (TriggerDefImpl<T, ?, ?> registered : triggerRegistrations.values()) {
-            if (registered instanceof ManualTriggerDefImpl<?, ?> manual) {
-                for (ConditionDescriptor descriptor : manual.getPreConditionDescriptors()) {
-                    claimInlineCondition(canonical, descriptor);
-                }
-            } else if (registered instanceof DataTriggerDefImpl<?, ?> data) {
-                claimInlineCondition(canonical, data.getGateDescriptor());
-            }
+            registered.conditionDescriptors().forEach(descriptor -> claimInlineCondition(canonical, descriptor));
         }
     }
 
+    /**
+     * Claims every inline condition id a transition carries — its own pre- and post-conditions
+     * plus those of the triggers declared on it — in the per-build table.
+     *
+     * @param canonical the per-build canonical payload table
+     * @param td the transition to walk
+     *
+     * @throws TransfluxValidationException if any id is already held by a different payload
+     */
     private void claimInlineConditions(Map<String, CanonicalClaim> canonical, TransitionDefImpl<T, ?> td) {
         for (ConditionDescriptor descriptor : td.getPreConditionDescriptors()) {
             claimInlineCondition(canonical, descriptor);
@@ -486,13 +480,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         for (ConditionDescriptor descriptor : td.getPostConditionDescriptors()) {
             claimInlineCondition(canonical, descriptor);
         }
-        for (ManualTriggerDefImpl<T, ?> mt : td.getManualTriggers()) {
-            for (ConditionDescriptor descriptor : mt.getPreConditionDescriptors()) {
-                claimInlineCondition(canonical, descriptor);
-            }
-        }
-        for (DataTriggerDefImpl<T, ?> dt : td.getDataTriggers()) {
-            claimInlineCondition(canonical, dt.getGateDescriptor());
+        for (TriggerDefImpl<T, ?, ?> trigger : td.getDeclaredTriggers()) {
+            trigger.conditionDescriptors().forEach(descriptor -> claimInlineCondition(canonical, descriptor));
         }
     }
 
@@ -2460,13 +2449,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         checkConditionRefs(td.getPreConditionDescriptors(), context, label, "pre-condition");
         checkConditionRefs(td.getPostConditionDescriptors(), context, label, "post-condition");
 
-        for (ManualTriggerDefImpl<T, ?> mt : td.getManualTriggers()) {
-            checkConditionRefs(mt.getPreConditionDescriptors(), context,
-                label + " > manual trigger '" + mt.getId() + "'", "pre-condition");
-        }
-        for (DataTriggerDefImpl<T, ?> dt : td.getDataTriggers()) {
-            checkConditionRef(dt.getGateDescriptor(), context,
-                label + " > data trigger '" + dt.getId() + "'", "gate condition");
+        for (TriggerDefImpl<T, ?, ?> trigger : td.getDeclaredTriggers()) {
+            checkConditionRefs(trigger.conditionDescriptors(), context, label + " > " + trigger.defLabel(),
+                               trigger.conditionRole());
         }
     }
 
@@ -2483,14 +2468,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      */
     private void checkRegisteredTriggerConditionRefs() {
         for (TriggerDefImpl<T, ?, ?> registered : triggerRegistrations.values()) {
-            Class<?> context = registered.getContextType();
-            String label = registered.defLabel();
-            if (registered instanceof ManualTriggerDefImpl<?, ?> manual) {
-                checkConditionRefs(manual.getPreConditionDescriptors(), context, label,
-                                   "pre-condition");
-            } else if (registered instanceof DataTriggerDefImpl<?, ?> data) {
-                checkConditionRef(data.getGateDescriptor(), context, label, "gate condition");
-            }
+            checkConditionRefs(registered.conditionDescriptors(), registered.getContextType(),
+                               registered.defLabel(), registered.conditionRole());
         }
     }
 

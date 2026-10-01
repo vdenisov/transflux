@@ -231,6 +231,19 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     /**
+     * Returns every trigger declared on this transition, in the order dispatch scans them: manual,
+     * then event, then data, each in declaration order.
+     *
+     * @return the trigger defs
+     */
+    List<TriggerDefImpl<T, C, ?>> getDeclaredTriggers() {
+        List<TriggerDefImpl<T, C, ?>> declared = new ArrayList<>(manualTriggers);
+        declared.addAll(eventTriggers);
+        declared.addAll(dataTriggers);
+        return declared;
+    }
+
+    /**
      * Returns the manual triggers declared on this transition, in declaration order.
      *
      * @return the manual trigger defs

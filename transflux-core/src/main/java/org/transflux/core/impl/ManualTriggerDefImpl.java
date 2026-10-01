@@ -35,7 +35,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * Default {@link ManualTriggerDef} implementation.
  * <p>
  * Accumulates the trigger's pre-condition descriptors during configuration and resolves them into
- * {@link BoundCondition} instances at build time through {@link #buildBoundTrigger(Map, List)}, producing
+ * {@link BoundCondition} instances at build time through {@link #buildBound(Map, List)}, producing
  * a runtime {@link ManualTriggerImpl}. The transitions it is attached to are supplied at build time,
  * since a registered trigger may sit on several.
  *
@@ -95,16 +95,28 @@ final class ManualTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, ManualTrigge
         return preConditions.descriptors();
     }
 
+    @Override
+    List<ConditionDescriptor> conditionDescriptors() {
+        return getPreConditionDescriptors();
+    }
+
+    @Override
+    String conditionRole() {
+        return "pre-condition";
+    }
+
     /**
      * Resolves this trigger's pre-condition descriptors into a runtime {@link ManualTriggerImpl}.
      *
      * @param registry the state machine's resolved condition registry, keyed by id
+     * @param transitionIds the transitions it is attached to
      *
      * @return the runtime trigger
      *
      * @throws TransfluxValidationException if any descriptor cannot be resolved
      */
-    ManualTriggerImpl<T, C> buildBoundTrigger(Map<String, BoundCondition<T, C>> registry, List<String> transitionIds) {
+    @Override
+    ManualTriggerImpl<T, C> buildBound(Map<String, BoundCondition<T, C>> registry, List<String> transitionIds) {
         requireNotNull(registry, "Condition registry");
         List<ConditionDescriptor> descriptors = preConditions.descriptors();
         List<BoundCondition<T, C>> bound = new ArrayList<>(descriptors.size());
