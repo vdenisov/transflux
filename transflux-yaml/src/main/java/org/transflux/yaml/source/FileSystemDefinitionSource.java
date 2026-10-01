@@ -104,7 +104,8 @@ public final class FileSystemDefinitionSource implements DefinitionSource {
      *
      * @param identifier a path relative to the root
      *
-     * @return the file, or empty when nothing exists at that path or it is no regular file
+     * @return the file, or empty when nothing exists at that path, it is no regular file, or the
+     *         identifier is no path this platform can spell
      *
      * @throws TransfluxValidationException if the identifier is blank, is not a relative path
      *         staying under the root, or breaks the symlink policy
@@ -114,6 +115,12 @@ public final class FileSystemDefinitionSource implements DefinitionSource {
     @Override
     public Optional<DefinitionResource> open(String identifier) {
         Path relative = toRelativePath(requireNotBlank(identifier, "identifier"));
+        if (relative == null) {
+            // A name no file can have is no document here, and a composite goes on to its next source.
+            Loggers.YAML_SOURCE.debug("File definition not found, identifier={}, reason={}", identifier,
+                "not a path on this platform");
+            return Optional.empty();
+        }
         Path resolved = root.resolve(relative).normalize();
         try {
             // ponytail: checked, then opened - a link swapped in between slips past; the filesystem is the host's
@@ -171,12 +178,21 @@ public final class FileSystemDefinitionSource implements DefinitionSource {
         }
     }
 
+    /**
+     * Reads an identifier as a path under the root.
+     *
+     * @param identifier the identifier
+     *
+     * @return the relative path, or {@code null} when the platform cannot spell the identifier as one
+     *
+     * @throws TransfluxValidationException if the path is absolute, drive-rooted or has a {@code ..} segment
+     */
     private Path toRelativePath(String identifier) {
         Path path;
         try {
             path = root.getFileSystem().getPath(identifier);
         } catch (InvalidPathException e) {
-            throw new TransfluxValidationException("Definition identifier '" + identifier + "' is not a valid path", e);
+            return null;
         }
         if (path.isAbsolute() || path.getRoot() != null) {
             throw new TransfluxValidationException(

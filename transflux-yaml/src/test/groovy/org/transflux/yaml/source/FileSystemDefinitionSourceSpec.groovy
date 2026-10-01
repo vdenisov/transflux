@@ -226,6 +226,24 @@ class FileSystemDefinitionSourceSpec extends Specification {
         'escape/outside.yml' | SymlinkPolicy.WITHIN_ROOT
     }
 
+    def 'an identifier no path on any platform can spell is a miss'() {
+        expect: 'NUL is refused by every filesystem'
+        new FileSystemDefinitionSource(root).open('a\u0000b.yml').empty
+    }
+
+    @Requires({ System.getProperty('os.name').startsWith('Windows') })
+    def "an identifier no Windows path can spell is a miss, so a composite asks its next source: '#identifier'"() {
+        given:
+        DefinitionSource later = { id -> Optional.of(new DefinitionResource(id, new ByteArrayInputStream('later'.bytes))) }
+
+        expect:
+        new FileSystemDefinitionSource(root).open(identifier).empty
+        read(CompositeDefinitionSource.of(new FileSystemDefinitionSource(root), later), identifier) == 'later'
+
+        where:
+        identifier << ['db://workflows/subscription', 'urn:x:y', 'orders:v2', 'payment?v=2']
+    }
+
     @Requires({ System.getProperty('os.name').startsWith('Windows') })
     def 'another spelling of a plain path is no link to REJECT: #spelling'() {
         expect:
