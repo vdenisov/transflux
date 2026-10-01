@@ -52,16 +52,15 @@ final class StateMachineSection {
     private final ActionEntries actions;
     private final DeclarationSites sites;
 
-    private StateMachineSection(Classes classes, Class<?> entityType, StateMachineDef<?> def, DeclarationSites sites) {
-        this.classes = classes;
-        this.entityType = entityType;
+    private StateMachineSection(Readers readers, StateMachineDef<?> def) {
+        this.classes = readers.classes();
+        this.entityType = readers.entityType();
         this.raw = def;
-        this.sites = sites;
-        this.conditions = new ConditionDescriptors(classes, entityType);
-        this.listeners = new ListenerEntries(classes, entityType, sites);
-        this.triggers = new TriggerEntries(classes, entityType, conditions, sites);
-        this.actions = new ActionEntries(classes, entityType, conditions,
-            new ActionKeys(classes, entityType, listeners), sites);
+        this.sites = readers.sites();
+        this.conditions = readers.conditions();
+        this.listeners = readers.listeners();
+        this.triggers = readers.triggers();
+        this.actions = readers.actions();
     }
 
     /**
@@ -69,15 +68,12 @@ final class StateMachineSection {
      *
      * @param section the {@code stateMachine:} mapping, with {@code entityType} already read
      * @param def the definition being built
-     * @param entityType the definition's entity type, which each class is checked against
-     * @param classes how the document's class names become classes and instances
-     * @param sites where this load's ids were first declared
+     * @param readers the readers this load shares
      *
      * @throws DefinitionLoadException when an entry is not valid, or the definition refuses it
      */
-    static void read(NodeMap section, StateMachineDef<?> def, Class<?> entityType, Classes classes,
-                     DeclarationSites sites) {
-        new StateMachineSection(classes, entityType, def, sites).read(section);
+    static void read(NodeMap section, StateMachineDef<?> def, Readers readers) {
+        new StateMachineSection(readers, def).read(section);
     }
 
     private void read(NodeMap section) {

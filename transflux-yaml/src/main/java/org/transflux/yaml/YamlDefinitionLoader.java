@@ -137,10 +137,10 @@ public final class YamlDefinitionLoader {
         Loggers.YAML_BINDING.debug("State machine definition created, identifier={}, entityType={}",
             root.document().identifier(), entityType.getName());
         // A library names no entity type, so its classes can only be checked once the root's is known.
-        DeclarationSites sites = new DeclarationSites();
-        imports(root, List.of(identifier), new HashSet<>(Set.of(identifier)), def, entityType, sites);
-        ComponentSections.read(root, def, entityType, classes, sites);
-        StateMachineSection.read(stateMachine, def, entityType, classes, sites);
+        Readers readers = Readers.of(classes, entityType, new DeclarationSites());
+        imports(root, List.of(identifier), new HashSet<>(Set.of(identifier)), def, readers);
+        ComponentSections.read(root, def, readers);
+        StateMachineSection.read(stateMachine, def, readers);
         root.rejectUnknownKeys();
         return def;
     }
@@ -152,11 +152,10 @@ public final class YamlDefinitionLoader {
      * @param asked the identifiers the documents from the root to {@code importer} were asked for
      * @param seen the identifiers already asked for in this load, which a diamond import skips
      * @param def the definition the imported components are registered on
-     * @param entityType the definition's entity type
-     * @param sites where this load's ids were first declared
+     * @param readers the readers this load shares
      */
     private void imports(NodeMap importer, List<String> asked, Set<String> seen, StateMachineDef<?> def,
-                         Class<?> entityType, DeclarationSites sites) {
+                         Readers readers) {
         List<Node> entries = importer.optionalList("imports");
         if (entries == null) {
             return;
@@ -190,8 +189,8 @@ public final class YamlDefinitionLoader {
             }
             List<String> nested = new ArrayList<>(asked);
             nested.add(identifier);
-            imports(library, nested, seen, def, entityType, sites);
-            ComponentSections.read(library, def, entityType, classes, sites);
+            imports(library, nested, seen, def, readers);
+            ComponentSections.read(library, def, readers);
             library.rejectUnknownKeys();
         }
     }

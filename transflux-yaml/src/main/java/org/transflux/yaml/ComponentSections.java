@@ -49,15 +49,14 @@ final class ComponentSections {
     private final TriggerEntries triggers;
     private final DeclarationSites sites;
 
-    private ComponentSections(Classes classes, Class<?> entityType, StateMachineDef<?> def, DeclarationSites sites) {
-        this.classes = classes;
+    private ComponentSections(Readers readers, StateMachineDef<?> def) {
+        this.classes = readers.classes();
         this.raw = def;
-        this.sites = sites;
-        this.conditions = new ConditionDescriptors(classes, entityType);
-        this.listeners = new ListenerEntries(classes, entityType, sites);
-        this.actions = new ActionEntries(classes, entityType, conditions,
-            new ActionKeys(classes, entityType, listeners), sites);
-        this.triggers = new TriggerEntries(classes, entityType, conditions, sites);
+        this.sites = readers.sites();
+        this.conditions = readers.conditions();
+        this.listeners = readers.listeners();
+        this.actions = readers.actions();
+        this.triggers = readers.triggers();
     }
 
     /**
@@ -65,15 +64,12 @@ final class ComponentSections {
      *
      * @param document the document's root mapping
      * @param def the definition the components are registered on
-     * @param entityType the definition's entity type, which each class is checked against
-     * @param classes how the document's class names become classes and instances
-     * @param sites where this load's ids were first declared
+     * @param readers the readers this load shares
      *
      * @throws DefinitionLoadException when an entry is not valid, or the definition refuses it
      */
-    static void read(NodeMap document, StateMachineDef<?> def, Class<?> entityType, Classes classes,
-                     DeclarationSites sites) {
-        ComponentSections sections = new ComponentSections(classes, entityType, def, sites);
+    static void read(NodeMap document, StateMachineDef<?> def, Readers readers) {
+        ComponentSections sections = new ComponentSections(readers, def);
         int count = sections.section(document, "steps", "a step", sections.actions::registerStep)
             + sections.section(document, "operations", "an operation", sections.actions::registerOperation)
             + sections.section(document, "choices", "a choice", sections.actions::registerChoice)
