@@ -350,6 +350,8 @@ class ExecutingTransitionForkSpec extends Specification {
         result.error instanceof TransfluxValidationException
         result.error.message.contains('BLOCK')
         result.error.message.contains('notify')
+        result.error.message.endsWith('either choose another policy, or build the state machine on a pool the'
+            + ' framework builds (withAsyncPool(...)) rather than withAsyncExecutor(...)')
     }
 
     def 'the policy at the call site beats the one on the action def'() {

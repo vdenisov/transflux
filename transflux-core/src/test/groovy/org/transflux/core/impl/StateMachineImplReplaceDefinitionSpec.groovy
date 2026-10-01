@@ -27,6 +27,7 @@ import org.transflux.core.exception.TransfluxReentrancyException
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
+import org.transflux.core.transition.TransitionListener
 import spock.lang.Specification
 
 import java.util.concurrent.Callable
@@ -395,8 +396,61 @@ class StateMachineImplReplaceDefinitionSpec extends Specification {
         }))
 
         then:
-        thrown(TransfluxValidationException)
+        def e = thrown(TransfluxValidationException)
+        e.message.startsWith(('Async rejection policy BLOCK is declared on StateMachineDef, but the executor in force'
+            + ' is host-supplied and a replacement keeps it'))
         sm.generation() == 1
+    }
+
+    def 'a replacement blocking on one of its actions names the action, and advises what a replacement can do'() {
+        given:
+        hostExecutor = Executors.newSingleThreadExecutor()
+        sm = forking(new CountDownLatch(1), { builder -> builder.withAsyncExecutor(hostExecutor) }).build()
+        def replacement = new StateMachineDefImpl<Entity>()
+        accessors(replacement)
+            .state('s1')
+            .transition('t', 's1', 's2', { t ->
+                t.forkStep('notify', { s -> s
+                    .using({ e, c, tr -> } as Action)
+                    .withAsyncRejectionPolicy(AsyncRejectionPolicy.BLOCK) } as Consumer)
+            } as Consumer)
+            .state('s2')
+
+        when: 'the executor in force came from generation 1, so dropping withAsyncExecutor would change nothing'
+        sm.replaceDefinition(replacement)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == ("Async rejection policy BLOCK is declared on step 'notify', but the executor in force is"
+            + " host-supplied and a replacement keeps it; waiting for capacity needs the rejection handler the"
+            + " framework installs on a pool it builds itself, so choose another policy")
+        sm.generation() == 1
+    }
+
+    def 'a replacement blocking where it cannot is refused with what a replacement can do: #scenario'() {
+        given:
+        hostExecutor = Executors.newSingleThreadExecutor()
+        sm = forking(new CountDownLatch(1), firstConfig.curry(hostExecutor)).build()
+        def other = Executors.newSingleThreadExecutor()
+
+        when:
+        sm.replaceDefinition(forking(new CountDownLatch(1), replacementConfig.curry(other)))
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == ("Async rejection policy BLOCK is declared on " + declaredOn + ", but " + because
+            + "; waiting for capacity needs the rejection handler the framework installs on a pool it builds"
+            + " itself, so " + remedy)
+        sm.generation() == 1
+
+        cleanup:
+        other.shutdownNow()
+
+        where:
+        scenario                                 | firstConfig | replacementConfig      || declaredOn                    | because                                                                          | remedy
+        'host in force, replacement brings one'  | ON_HOST     | ANOTHER_HOST_AND_BLOCK || 'StateMachineDef'             | 'the executor in force is host-supplied and a replacement keeps it'              | 'choose another policy'
+        'pool in force, replacement brings host' | ON_POOL     | ANOTHER_HOST_AND_BLOCK || 'StateMachineDef'             | 'this definition declares a host-supplied executor, which a replacement ignores' | 'either drop withAsyncExecutor(...), or choose another policy'
+        'host in force, a listener blocks'       | ON_HOST     | BLOCKING_LISTENER      || "transition listener 'audit'" | 'the executor in force is host-supplied and a replacement keeps it'              | 'choose another policy'
     }
 
     def 'a closed state machine refuses a replacement'() {
@@ -484,6 +538,18 @@ class StateMachineImplReplaceDefinitionSpec extends Specification {
             } as Consumer)
         builder.state('s2')
         return smd
+    }
+
+    // Async configurations for the BLOCK replacement cases, each taking the host executor to use.
+    static final Closure ON_HOST = { ExecutorService host, builder -> builder.withAsyncExecutor(host) }
+    static final Closure ON_POOL = { ExecutorService host, builder -> builder.withAsyncPool(1, 4) }
+    static final Closure ANOTHER_HOST_AND_BLOCK = { ExecutorService host, builder ->
+        builder.withAsyncExecutor(host).withAsyncRejectionPolicy(AsyncRejectionPolicy.BLOCK)
+    }
+    static final Closure BLOCKING_LISTENER = { ExecutorService host, builder ->
+        builder.onAnyTransitionComplete('audit', { l ->
+            l.using({ e, c, x -> } as TransitionListener).withAsync(AsyncRejectionPolicy.BLOCK)
+        } as Consumer)
     }
 
     private static StateMachineDefImpl<Entity> forking(

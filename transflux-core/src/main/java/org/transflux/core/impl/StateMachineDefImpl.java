@@ -941,18 +941,11 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * chosen inside an action body waits on an unfair queue. That costs ordering under contention,
      * never correctness.
      *
-     * @return {@code true} if the machine default or any action declares
+     * @return {@code true} if the machine default, an action, a listener or a by-id fork declares
      *         {@link AsyncRejectionPolicy#BLOCK}
      */
     boolean declaresBlockingRejection() {
-        if (getAsyncRejectionPolicy() == AsyncRejectionPolicy.BLOCK) {
-            return true;
-        }
-
-        boolean[] blocks = {false};
-        visitActionDefs(def -> blocks[0] |= def.getAsyncRejectionPolicy() == AsyncRejectionPolicy.BLOCK);
-        visitListenerDefs(listener -> blocks[0] |= listener.getAsync() == AsyncRejectionPolicy.BLOCK);
-        return blocks[0] || anyMember(member -> member.policy() == AsyncRejectionPolicy.BLOCK);
+        return firstBlockingDeclaration() != null;
     }
 
     /**
@@ -1762,6 +1755,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         }
     }
 
+    /** Why a definition declaring {@code BLOCK} and a host-supplied executor cannot honour it. */
+    static final String DECLARES_HOST_EXECUTOR = "this definition declares a host-supplied executor";
+
+    /** What a definition built on a host-supplied executor can do about a {@code BLOCK} declaration. */
+    private static final String USE_A_FRAMEWORK_POOL =
+        "either drop withAsyncExecutor(...) and size the pool with withAsyncPool(...), or choose another policy";
+
     /**
      * Rejects {@link AsyncRejectionPolicy#BLOCK} where nothing can be waited on.
      * <p>
@@ -1779,38 +1779,45 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * A policy chosen from inside a Java body at runtime is not visible here and is refused at the
      * submission instead.
      */
-    private static final String DECLARES_HOST_EXECUTOR =
-        "this definition declares a host-supplied executor";
-
     private void checkBlockingIsPossible() {
-        if (asyncExecutor == null) {
-            return;
-        }
-
-        if (asyncRejectionPolicy == AsyncRejectionPolicy.BLOCK) {
+        String declaredOn = asyncExecutor == null ? null : firstBlockingDeclaration();
+        if (declaredOn != null) {
             throw new TransfluxValidationException(
-                blockUnavailable("StateMachineDef", DECLARES_HOST_EXECUTOR));
+                blockUnavailable(declaredOn, DECLARES_HOST_EXECUTOR, USE_A_FRAMEWORK_POOL));
         }
+    }
+
+    /**
+     * Finds the first position declaring {@link AsyncRejectionPolicy#BLOCK}: the machine default,
+     * an action, a listener, or a by-id fork.
+     *
+     * @return the position's label, such as {@code step 'notify'}, or {@code null} when none declares it
+     */
+    String firstBlockingDeclaration() {
+        if (asyncRejectionPolicy == AsyncRejectionPolicy.BLOCK) {
+            return "StateMachineDef";
+        }
+        String[] found = {null};
         visitActionDefs(def -> {
-            if (def.getAsyncRejectionPolicy() == AsyncRejectionPolicy.BLOCK) {
-                throw new TransfluxValidationException(
-                    blockUnavailable(def.defLabel(), DECLARES_HOST_EXECUTOR));
+            if (found[0] == null && def.getAsyncRejectionPolicy() == AsyncRejectionPolicy.BLOCK) {
+                found[0] = def.defLabel();
             }
         });
         visitListenerDefs(listener -> {
-            if (listener.getAsync() == AsyncRejectionPolicy.BLOCK) {
-                throw new TransfluxValidationException(
-                    blockUnavailable(listener.defLabel(), DECLARES_HOST_EXECUTOR));
+            if (found[0] == null && listener.getAsync() == AsyncRejectionPolicy.BLOCK) {
+                found[0] = listener.defLabel();
             }
         });
-        anyMember(member -> {
-            if (member.policy() == AsyncRejectionPolicy.BLOCK) {
-                throw new TransfluxValidationException(
-                    blockUnavailable("a fork of action '" + member.ref().id() + "'",
-                                     DECLARES_HOST_EXECUTOR));
-            }
-            return false;
-        });
+        if (found[0] == null) {
+            anyMember(member -> {
+                if (member.policy() == AsyncRejectionPolicy.BLOCK) {
+                    found[0] = "a fork of action '" + member.ref().id() + "'";
+                    return true;
+                }
+                return false;
+            });
+        }
+        return found[0];
     }
 
     /**
@@ -1823,25 +1830,28 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @return the rejection message
      */
     static String blockUnavailable(String ownerLabel) {
-        return blockUnavailable(ownerLabel, "this state machine runs on a host-supplied executor");
+        // The executor in force may have come from an earlier definition, so the remedy names a new handle.
+        return blockUnavailable(ownerLabel, "this state machine runs on a host-supplied executor",
+            "either choose another policy, or build the state machine on a pool the framework builds"
+                + " (withAsyncPool(...)) rather than withAsyncExecutor(...)");
     }
 
     /**
-     * The same message with the reason spelled out by the caller. The build check speaks about what
-     * the definition <i>declares</i>, because under handle ownership a definition's own executor is
-     * not necessarily the one that would run its forks; the runtime refusals speak about the
-     * executor actually in force.
+     * The same message with the reason and the remedy spelled out by the caller. The build check
+     * speaks about what the definition <i>declares</i>, because under handle ownership a
+     * definition's own executor is not necessarily the one that would run its forks; a replacement
+     * and the runtime refusals speak about the executor actually in force.
      *
      * @param ownerLabel what declared the policy
      * @param because why nothing can honour it
+     * @param remedy what the author can do about it
      *
      * @return the rejection message
      */
-    static String blockUnavailable(String ownerLabel, String because) {
+    static String blockUnavailable(String ownerLabel, String because, String remedy) {
         return "Async rejection policy BLOCK is declared on " + ownerLabel + ", but " + because
             + "; waiting for capacity needs the rejection handler the framework installs on a pool"
-            + " it builds itself, so either drop withAsyncExecutor(...) and size the pool with"
-            + " withAsyncPool(...), or choose another policy";
+            + " it builds itself, so " + remedy;
     }
 
     /**

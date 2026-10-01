@@ -506,15 +506,32 @@ class StateMachineImpl<T> implements StateMachine<T> {
     }
 
     /**
-     * Keeps "BLOCK against a host-supplied executor fails the build" true across a replacement.
-     * A definition's own build check only sees the executor that definition declares, and under
-     * handle ownership the executor in force may have come from an earlier one.
+     * Keeps "BLOCK against a host-supplied executor fails the build" true across a replacement,
+     * advising what a replacement can do. A definition's own build check only sees the executor
+     * that definition declares, and under handle ownership the executor in force may have come from
+     * an earlier one; a handle without one yet leaves the definition to its own build check.
+     *
+     * @param def the replacement
+     *
+     * @throws TransfluxValidationException if the replacement declares {@code BLOCK} where it
+     *         cannot be honoured
      */
     private void requireBlockingPossible(StateMachineDefImpl<T> def) {
-        if (asyncExecutor != null && !ownsAsyncExecutor && def.getAsyncExecutor() == null
-            && def.declaresBlockingRejection()) {
-            throw new TransfluxValidationException(
-                StateMachineDefImpl.blockUnavailable("the new definition"));
+        if (asyncExecutor == null) {
+            return;
+        }
+        String declaredOn = def.firstBlockingDeclaration();
+        if (declaredOn == null) {
+            return;
+        }
+        if (!ownsAsyncExecutor) {
+            throw new TransfluxValidationException(StateMachineDefImpl.blockUnavailable(declaredOn,
+                "the executor in force is host-supplied and a replacement keeps it", "choose another policy"));
+        }
+        if (def.getAsyncExecutor() != null) {
+            throw new TransfluxValidationException(StateMachineDefImpl.blockUnavailable(declaredOn,
+                StateMachineDefImpl.DECLARES_HOST_EXECUTOR + ", which a replacement ignores",
+                "either drop withAsyncExecutor(...), or choose another policy"));
         }
     }
 
