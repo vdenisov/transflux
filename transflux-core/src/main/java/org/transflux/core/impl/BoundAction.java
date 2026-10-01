@@ -59,6 +59,8 @@ record BoundAction<T, C>(String id, Action<? super T, C> action, ActionKind kind
         requireNotNull(kind, "Bound action kind");
         requireNotNull(listeners, "Bound action listeners");
         requireNotNull(disabledGlobals, "Bound action global-listener disables");
+        // The declaration's frozen copy, which holds no reference back to the def that made it.
+        disabledGlobals = disabledGlobals.frozen();
     }
 
     /**

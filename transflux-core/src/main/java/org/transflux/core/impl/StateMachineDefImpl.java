@@ -799,12 +799,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * later, by {@link #bindDeferredMembers}. Framework-internal.
      */
     void buildBoundOperations(Consumer<BoundAction<T, ?>> afterBuild) {
-        for (Map.Entry<String, ActionDefImpl<T, ?, ?>> e : smCompositeOperations.entrySet()) {
-            if (actionRegistrations.containsKey(e.getKey())) {
-                throw new TransfluxValidationException(
-                    "Operation ID '" + e.getKey() + "' is already registered");
-            }
-            afterBuild.accept(e.getValue().buildBound());
+        for (ActionDefImpl<T, ?, ?> composite : smCompositeOperations.values()) {
+            afterBuild.accept(composite.buildBound());
         }
     }
 
@@ -2049,12 +2045,12 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             ActionDefImpl<T, ?, ?> op = td.getActionDef();
             if (op != null) {
-                op.bindMembers(stateMachine, bodyLabel(op));
+                op.bindMembers(stateMachine, this, bodyLabel(op));
             }
         }
 
         for (Map.Entry<String, ActionDefImpl<T, ?, ?>> e : smCompositeOperations.entrySet()) {
-            e.getValue().bindMembers(stateMachine, e.getValue().defLabel());
+            e.getValue().bindMembers(stateMachine, this, e.getValue().defLabel());
         }
     }
 

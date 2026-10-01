@@ -231,14 +231,16 @@ final class ChoiceDefImpl<T, C>
      * identity is therefore fixed while the scopes are still being populated, and only the
      * members can wait until every scope is complete and the state machine exists.
      *
-     * @param stateMachine the state machine under construction, whose mapper registry and
-     *                     diagnostics the resolution consults
+     * @param stateMachine the state machine under construction, whose mapper registry the
+     *                     resolution consults
+     * @param definition the definition being built, searched for where an unresolved id does live
      * @param ownLabel this choice's own full position label; each branch label extends it
      *
      * @throws TransfluxValidationException if a branch names an id that no action in scope
      *         carries, or if no executor was built for this choice
      */
-    void bindBranchMembers(StateMachineSnapshot<T> stateMachine, String ownLabel) {
+    void bindBranchMembers(StateMachineSnapshot<T> stateMachine, StateMachineDefImpl<T> definition,
+                           String ownLabel) {
         if (executor == null) {
             throw new TransfluxValidationException(
                 "Choice '" + getId()
@@ -251,12 +253,12 @@ final class ChoiceDefImpl<T, C>
             resolved.add(new ResolvedBranch<>(
                 branch.getBranchId(),
                 executor.conditions.get(i),
-                bindMembers(branch.getMembers(), stateMachine,
+                bindMembers(branch.getMembers(), stateMachine, definition,
                             branchLabel(ownLabel, "branch '" + branch.getBranchId() + "'"))));
         }
 
         List<CompositeMember<T, C>> defaultMembers = defaultBranch == null ? null
-            : bindMembers(defaultBranch.getMembers(), stateMachine,
+            : bindMembers(defaultBranch.getMembers(), stateMachine, definition,
                           branchLabel(ownLabel, "default branch"));
 
         executor.bind(resolved, defaultMembers);
@@ -326,13 +328,14 @@ final class ChoiceDefImpl<T, C>
 
     private List<CompositeMember<T, C>> bindMembers(List<ActionSequenceSink.DeclaredMember<T, C>> declared,
                                                     StateMachineSnapshot<T> stateMachine,
+                                                    StateMachineDefImpl<T> definition,
                                                     String ownerLabel) {
         Registry<T> scope = ownScope();
         List<CompositeMember<T, C>> bound = new ArrayList<>(declared.size());
         for (ActionSequenceSink.DeclaredMember<T, C> member : declared) {
             ActionRef<T, C> ref = member.ref();
             bound.add(CompositeMember.of(
-                ref.resolve(stateMachine, scope, ownerLabel, scopeId()),
+                ref.resolve(definition, scope, ownerLabel, scopeId()),
                 ref.mapperRef().resolve(stateMachine, getId()),
                 member));
 
@@ -342,10 +345,10 @@ final class ChoiceDefImpl<T, C>
                 // The nested choice owns the scope its own branches bind against, so it is
                 // what a failure inside them has to name - not whatever encloses this one.
                 nested.def().bindBranchMembers(
-                    stateMachine, ownerLabel + " > " + nested.def().defLabel());
+                    stateMachine, definition, ownerLabel + " > " + nested.def().defLabel());
             } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
                 // A container declared in a branch does own a scope, and binds against its own.
-                nested.def().bindMembers(stateMachine, ownerLabel + " > " + nested.def().defLabel());
+                nested.def().bindMembers(stateMachine, definition, ownerLabel + " > " + nested.def().defLabel());
             }
         }
         return Collections.unmodifiableList(bound);
@@ -428,8 +431,8 @@ final class ChoiceDefImpl<T, C>
     }
 
     @Override
-    void bindMembers(StateMachineSnapshot<T> stateMachine, String positionLabel) {
-        bindBranchMembers(stateMachine, positionLabel);
+    void bindMembers(StateMachineSnapshot<T> stateMachine, StateMachineDefImpl<T> definition, String positionLabel) {
+        bindBranchMembers(stateMachine, definition, positionLabel);
     }
 
     @Override

@@ -51,7 +51,6 @@ import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -120,8 +119,9 @@ class StateMachineSnapshot<T> {
     private final BoundActionListeners<T, Object> globalActionListeners;
 
     /**
-     * The global action listeners left after each disabling action's declaration, keyed by that
-     * declaration's identity. Filled once at build, so notification never filters.
+     * The global action listeners left after each disabling action's declaration, keyed by the
+     * identity of the declaration's frozen copy, which is what a bound action carries. Filled once
+     * at build, so notification never filters.
      */
     private final Map<GlobalListenerDisables, BoundActionListeners<T, Object>> filteredActionGlobals =
         new IdentityHashMap<>();
@@ -133,7 +133,6 @@ class StateMachineSnapshot<T> {
     private final Map<String, ContextMapper<Object, Object>> mappers = new LinkedHashMap<>();
 
     private final Registry<T> componentRegistry;
-    private final StateMachineDefImpl<T> def;
 
     /**
      * Copied rather than read back off the def, which nothing freezes at build: the same
@@ -149,7 +148,6 @@ class StateMachineSnapshot<T> {
     @SuppressWarnings({"unchecked", "rawtypes"})
     StateMachineSnapshot(StateMachineDefImpl<T> def, StateMachineImpl<T> handle) {
         this.handle = handle;
-        this.def = def;
         this.id = def.getId();
         this.name = def.getName();
         this.description = def.getDescription();
@@ -204,7 +202,8 @@ class StateMachineSnapshot<T> {
 
         BoundTransitionListeners<T, Object> globalTransitionListeners = bindGlobalTransitionListeners(def);
         for (TransitionDefImpl<T, ?> td : def.getTransitionsById().values()) {
-            BoundTransition<T, ?> transition = buildTransition(td, conditionRegistry, globalTransitionListeners);
+            BoundTransition<T, ?> transition = buildTransition(td, conditionRegistry, globalTransitionListeners,
+                                                               def.listenerBinder());
             this.transitions.put(td.getId(), transition);
             this.transitionsBySource.computeIfAbsent(transition.sourceStateId(), s -> new ArrayList<>())
                                     .add(transition);
@@ -213,7 +212,7 @@ class StateMachineSnapshot<T> {
         registerTriggers(def, conditionRegistry);
 
         def.bindDeferredMembers(this);
-        def.visitActionDefs(actionDef -> indexFilteredActionGlobals(actionDef.getDisabledGlobals()));
+        def.visitActionDefs(actionDef -> indexFilteredActionGlobals(actionDef.getDisabledGlobals().frozen()));
 
         registry.flatten();
         def.flattenCompositeScopes();
@@ -252,25 +251,12 @@ class StateMachineSnapshot<T> {
         return componentRegistry.ids().size();
     }
 
-    /**
-     * Returns the {@link StateMachineDefImpl} this state machine was built from.
-     *
-     * @return the def
-     */
-    StateMachineDefImpl<T> getDef() {
-        return def;
-    }
-
     @SuppressWarnings({"unchecked", "rawtypes"})
     BoundAction<T, ?> getBoundAction(String id) {
         return componentRegistry.resolve(id)
             .filter(Component.Action.class::isInstance)
             .map(c -> ((Component.Action) c).bound())
             .orElse(null);
-    }
-
-    Optional<String> findInlineScopeHolding(String id, String excludingScopeId) {
-        return def.findInlineScopeHolding(id, excludingScopeId);
     }
 
     /**
@@ -373,14 +359,6 @@ class StateMachineSnapshot<T> {
     StateMachine.EntityBinding<T> entity(T entity) {
         requireNotNull(entity, "Entity");
         return new EntityBindingImpl(entity);
-    }
-
-    TransitionResult<T> executeTransition(T entity, String targetStateId) {
-        return entity(entity).transitionTo(targetStateId);
-    }
-
-    TransitionResult<T> executeTransition(T entity, String targetStateId, String transitionId) {
-        return entity(entity).transitionTo(targetStateId, transitionId);
     }
 
     String resolveCurrentState(T entity) {
@@ -631,10 +609,7 @@ class StateMachineSnapshot<T> {
     }
 
     private void putTrigger(TriggerImpl trigger) {
-        if (triggers.containsKey(trigger.getId())) {
-            throw new TransfluxValidationException(
-                "Trigger id '" + trigger.getId() + "' is already registered");
-        }
+        // Ids are unique by now: every def reached here was claimed by claimTriggerId.
         triggers.put(trigger.getId(), trigger);
     }
 
@@ -914,9 +889,9 @@ class StateMachineSnapshot<T> {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private <C> BoundTransition<T, C> buildTransition(TransitionDefImpl<T, C> td,
                                                       Map<String, BoundCondition<T, ?>> conditionRegistry,
-                                                      BoundTransitionListeners<T, Object> globals) {
+                                                      BoundTransitionListeners<T, Object> globals,
+                                                      ListenerRegistrations<T> binder) {
         GlobalListenerDisables disabled = td.getDisabledGlobals();
-        ListenerRegistrations<T> binder = def.listenerBinder();
         Map<String, TransitionListenerDefImpl<T, C>> ownScope = ListenerRegistrations.ownScope(
             td.getStartListeners(), td.getCompleteListeners(), td.getErrorListeners());
         BoundTransitionListeners<T, C> listeners = new BoundTransitionListeners<>(

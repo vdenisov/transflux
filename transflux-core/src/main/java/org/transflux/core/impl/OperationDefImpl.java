@@ -42,9 +42,10 @@ import java.util.function.Predicate;
  * <p>
  * Holds the composite's member references in declaration order. Building is two passes:
  * {@link #buildBound()} produces the {@link BoundAction} that goes into the enclosing scope, and
- * {@link #bindMembers(StateMachineSnapshot, String)} resolves the members afterwards. They cannot be one pass
- * - a sibling member may reference this container by id, and such a reference captures the bound
- * action by value, so it must already be in the scope its own members resolve against.
+ * {@link #bindMembers(StateMachineSnapshot, StateMachineDefImpl, String)} resolves the members
+ * afterwards. They cannot be one pass - a sibling member may reference this container by id, and
+ * such a reference captures the bound action by value, so it must already be in the scope its own
+ * members resolve against.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
@@ -267,7 +268,7 @@ final class OperationDefImpl<T, C>
     /**
      * Produces the {@link BoundAction} carrying this container's executor, listeners and
      * compensation table. The members it will iterate are installed by
-     * {@link #bindMembers(StateMachineSnapshot, String)}; until then the executor holds none.
+     * {@link #bindMembers(StateMachineSnapshot, StateMachineDefImpl, String)}; until then the executor holds none.
      *
      * @return the bound operation
      *
@@ -316,13 +317,14 @@ final class OperationDefImpl<T, C>
      * bound members on the executor, then descends into any choice a member declares.
      *
      * @param stateMachine the state machine under construction
+     * @param definition the definition being built, searched for where an unresolved id does live
      * @param positionLabel names this container's position in the definition tree
      *
      * @throws TransfluxValidationException if a referenced id resolves to nothing, or to
      *         something that is not an action
      */
     @Override
-    void bindMembers(StateMachineSnapshot<T> stateMachine, String positionLabel) {
+    void bindMembers(StateMachineSnapshot<T> stateMachine, StateMachineDefImpl<T> definition, String positionLabel) {
         if (executor == null) {
             throw new TransfluxValidationException(
                 "OperationDef '" + getId()
@@ -332,7 +334,7 @@ final class OperationDefImpl<T, C>
         List<CompositeMember<T, C>> bound = new ArrayList<>(members.members().size());
         for (ActionSequenceSink.DeclaredMember<T, C> member : members.members()) {
             ActionRef<T, C> ref = member.ref();
-            Component.Action<T, ?> action = ref.resolve(stateMachine, ownScope(), positionLabel, scopeId());
+            Component.Action<T, ?> action = ref.resolve(definition, ownScope(), positionLabel, scopeId());
             ResolvedContextMapping mapping = ref.mapperRef().resolve(stateMachine, getId());
             bound.add(CompositeMember.of(action, mapping, member));
 
@@ -342,9 +344,9 @@ final class OperationDefImpl<T, C>
                 // The choice owns the scope its branches bind against, so it is what a failure
                 // inside them has to name - not the container that happens to hold it.
                 choice.def().bindBranchMembers(
-                    stateMachine, positionLabel + " > " + choice.def().defLabel());
+                    stateMachine, definition, positionLabel + " > " + choice.def().defLabel());
             } else if (ref instanceof ActionRef.InlineOperation<T, C> nested) {
-                nested.def().bindMembers(stateMachine,
+                nested.def().bindMembers(stateMachine, definition,
                                          positionLabel + " > " + nested.def().defLabel());
             }
         }

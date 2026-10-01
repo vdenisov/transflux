@@ -433,10 +433,13 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      * may name a container declared after it. The simple variant no-ops.
      *
      * @param stateMachine the state machine under construction
+     * @param definition the definition it is built from, which a failed resolution searches for
+     *                   where the id does live
      * @param positionLabel names this action's position in the definition tree, extended by every
      *                      position nested beneath it and surfaced when a member fails to resolve
      */
-    abstract void bindMembers(StateMachineSnapshot<T> stateMachine, String positionLabel);
+    abstract void bindMembers(StateMachineSnapshot<T> stateMachine, StateMachineDefImpl<T> definition,
+                              String positionLabel);
 
     /**
      * Records the context type every action declared inline beneath this one is written against,

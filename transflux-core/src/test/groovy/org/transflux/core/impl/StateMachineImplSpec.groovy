@@ -23,6 +23,7 @@ import org.transflux.core.TestContext
 import org.transflux.core.Transflux
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.Action
+import org.transflux.core.action.ActionListener
 import org.transflux.core.state.StateApplier
 import org.transflux.core.state.StateResolver
 import org.transflux.core.transition.ExecutingTransition
@@ -75,13 +76,34 @@ class StateMachineImplSpec extends Specification {
             .state(ACTIVE.id)
             .build()
 
-        expect:
+        expect: 'the machine answers from what it was built with'
         sm != null
-        ((StateMachineImpl) sm).snapshot().getDef().getName() == "Test SM"
-        ((StateMachineImpl) sm).snapshot().getDef().getEntityType() == TestEntity
-        ((StateMachineImpl) sm).snapshot().getDef().getStates().size() == 2
-        ((StateMachineImpl) sm).snapshot().getDef().getTransitionsById().size() == 1
-        ((StateMachineImpl) sm).snapshot().getDef().getStateResolver() != null
+        sm.getName() == "Test SM"
+        ((StateMachineImpl) sm).entityType == TestEntity
+        ((StateMachineImpl) sm).snapshot().stateCount() == 2
+        ((StateMachineImpl) sm).snapshot().transitionCount() == 1
+        sm.resolveCurrentState(new TestEntity('e1', TRIAL.id)) == TRIAL.id
+    }
+
+    def "a built machine keeps no reference to its definition or to an action's def"() {
+        given: 'a step disabling a global listener, whose declaration a bound action has to carry'
+        def sm = Transflux.defineStateMachine()
+            .forEntityType(TestEntity)
+            .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
+            .onAnyActionStart('g', { e, c, x -> } as ActionListener)
+            .step('s', { d -> d.using({ e, c, v -> } as Action).disableGlobalListener('g') } as Consumer)
+            .state(TRIAL.id)
+            .transition('t', TRIAL.id, ACTIVE.id, { t -> t.run('s') })
+            .state(ACTIVE.id)
+            .build()
+
+        expect: 'the snapshot has no field a definition could sit in'
+        !StateMachineSnapshot.declaredFields.any { StateMachineDefImpl.isAssignableFrom(it.type) }
+
+        and: "the bound action's disables are a copy holding no owner"
+        def disables = ((StateMachineImpl) sm).snapshot().getBoundAction('s').disabledGlobals()
+        disables.ids() == ['g'] as Set
+        disables.@owner == null
     }
 
     def "resolveCurrentState should return entity's current state"() {

@@ -101,7 +101,7 @@ class OperationDefImplSpec extends Specification {
 
     def "build should iterate steps in declaration order"() {
         given:
-        def sm = Transflux.<TestEntity> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('a-id', new AppendStep('a'))
@@ -110,7 +110,7 @@ class OperationDefImplSpec extends Specification {
             .state(TRIAL.id)
             .transition('t1', TRIAL.id, ACTIVE.id, {})
             .state(ACTIVE.id)
-            .build()
+        def sm = smd.build()
 
         def composite = new OperationDefImpl<TestEntity, TestContext>('op1').tap { beginConfigurer() }
             .run('c-id').run('a-id').run('b-id')
@@ -127,7 +127,7 @@ class OperationDefImplSpec extends Specification {
 
         when:
         def bound = composite.buildBound()
-        composite.bindMembers(((StateMachineImpl<TestEntity>) sm).snapshot(), "operation 'op1'")
+        composite.bindMembers(((StateMachineImpl<TestEntity>) sm).snapshot(), smd as StateMachineDefImpl<TestEntity>, "operation 'op1'")
         bound.action.execute(entity, view.context, view)
 
         then:
@@ -159,14 +159,14 @@ class OperationDefImplSpec extends Specification {
 
     def "build should reject reference to unknown step id"() {
         given:
-        def sm = Transflux.<TestEntity> defineStateMachine()
+        def smd = Transflux.<TestEntity> defineStateMachine()
             .forEntityType(TestEntity)
             .withStateResolver({ e -> e.state } as StateResolver<TestEntity>)
             .step('known', new FooStep())
             .state(TRIAL.id)
             .transition('t1', TRIAL.id, ACTIVE.id, {})
             .state(ACTIVE.id)
-            .build()
+        def sm = smd.build()
 
         def composite = new OperationDefImpl<TestEntity, TestContext>('op1').tap { beginConfigurer() }
             .run('known').run('missing')
@@ -175,7 +175,7 @@ class OperationDefImplSpec extends Specification {
 
         when:
         composite.buildBound()
-        composite.bindMembers(((StateMachineImpl<TestEntity>) sm).snapshot(), "operation 'op1'")
+        composite.bindMembers(((StateMachineImpl<TestEntity>) sm).snapshot(), smd as StateMachineDefImpl<TestEntity>, "operation 'op1'")
 
         then:
         def e = thrown(TransfluxValidationException)

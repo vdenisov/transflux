@@ -58,6 +58,9 @@ final class GlobalListenerDisables {
     private final Set<String> ids = new LinkedHashSet<>();
     private boolean all;
 
+    /** This declaration as a built machine keeps it, made once so every bound action shares it. */
+    private GlobalListenerDisables frozen;
+
     /**
      * Creates a sink for one owner def.
      *
@@ -80,6 +83,7 @@ final class GlobalListenerDisables {
         owner.requireConfigurerActive("disableGlobalListener");
         requireNotBlank(listenerId, "Listener ID");
         ids.add(listenerId);
+        frozen = null;
     }
 
     void disable(String... listenerIds) {
@@ -95,11 +99,36 @@ final class GlobalListenerDisables {
             requireNotBlank(listenerId, "Listener ID");
         }
         ids.addAll(Arrays.asList(listenerIds));
+        frozen = null;
     }
 
     void disableAll() {
         owner.requireConfigurerActive("disableAllGlobalListeners");
         all = true;
+        frozen = null;
+    }
+
+    /**
+     * Returns this declaration as something a built machine may keep: the same ids and blanket
+     * flag, with no owner, so it holds no reference back to the definition. The copy is made once,
+     * once the owner's configurer has returned, and the same instance is returned thereafter, which
+     * is what lets a machine key what it derives from a declaration by the copy's identity.
+     *
+     * @return the frozen copy; the shared empty declaration when nothing is disabled
+     */
+    GlobalListenerDisables frozen() {
+        if (disablesNothing()) {
+            return NONE;
+        }
+        if (owner == null) {
+            return this;
+        }
+        if (frozen == null) {
+            frozen = new GlobalListenerDisables(null);
+            frozen.ids.addAll(ids);
+            frozen.all = all;
+        }
+        return frozen;
     }
 
     /**

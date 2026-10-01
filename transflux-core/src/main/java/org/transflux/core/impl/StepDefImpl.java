@@ -100,7 +100,7 @@ final class StepDefImpl<T, C> extends ActionDefImpl<T, C, StepDefImpl<T, C>> imp
     }
 
     @Override
-    void bindMembers(StateMachineSnapshot<T> stateMachine, String positionLabel) {
+    void bindMembers(StateMachineSnapshot<T> stateMachine, StateMachineDefImpl<T> definition, String positionLabel) {
         // An imperative action declares no members.
     }
 

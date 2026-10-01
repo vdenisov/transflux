@@ -91,7 +91,7 @@ sealed interface ActionRef<T, C>
      * and returns the matching action component - the bound action, tagged with the context type
      * it was declared against.
      *
-     * @param stateMachine the enclosing state machine, retained for error reporting
+     * @param definition the definition being built, searched for where an unresolved id does live
      * @param scopeRegistry the enclosing composite's scope registry; resolution walks the
      *                      parent chain up to the state-machine root
      * @param ownerLabel names the position that declared this reference (a container, or one
@@ -105,12 +105,12 @@ sealed interface ActionRef<T, C>
      * @throws TransfluxValidationException if no entry is registered under {@link #id()} in
      *         the scope chain, or the matched entry is not an action
      */
-    default Component.Action<T, ?> resolve(StateMachineSnapshot<T> stateMachine, Registry<T> scopeRegistry,
+    default Component.Action<T, ?> resolve(StateMachineDefImpl<T> definition, Registry<T> scopeRegistry,
                                            String ownerLabel, String excludingScopeId) {
         Optional<Component<T>> resolved = scopeRegistry.resolve(id());
         if (resolved.isEmpty()) {
             throw new TransfluxValidationException(
-                unknownIdMessage(id(), stateMachine, ownerLabel, excludingScopeId));
+                unknownIdMessage(id(), definition, ownerLabel, excludingScopeId));
         }
 
         Component<T> component = resolved.get();
@@ -166,10 +166,10 @@ sealed interface ActionRef<T, C>
      * transitive, so it reaches a nested composite as readily as a sibling, and the two want
      * different remedies. Naming an enclosing scope covers both.
      */
-    static String unknownIdMessage(String id, StateMachineSnapshot<?> stateMachine,
+    static String unknownIdMessage(String id, StateMachineDefImpl<?> definition,
                                    String ownerLabel, String excludingScopeId) {
         String base = ownerLabel + " references unknown action id '" + id + "' in its scope";
-        return stateMachine.findInlineScopeHolding(id, excludingScopeId)
+        return definition.findInlineScopeHolding(id, excludingScopeId)
             .map(holder -> base + ". An inline action with this id is registered in " + holder
                 + ", whose inline registrations are only visible inside its own subtree."
                 + " Declare it in a scope that encloses both positions if shared use is intended.")
