@@ -40,12 +40,11 @@ import java.util.function.Consumer;
  * The {@code stateMachine:} section of the root document: the machine's own metadata, its state
  * accessors, its state-machine-wide listeners, its {@code config:}, and its states and transitions.
  */
-@SuppressWarnings({"unchecked", "rawtypes"})
 final class StateMachineSection {
 
     private final Classes classes;
     private final Class<?> entityType;
-    private final StateMachineDef raw;
+    private final StateMachineDef<Object> machine;
     private final ConditionDescriptors conditions;
     private final ListenerEntries listeners;
     private final TriggerEntries triggers;
@@ -55,7 +54,7 @@ final class StateMachineSection {
     private StateMachineSection(Readers readers, StateMachineDef<?> def) {
         this.classes = readers.classes();
         this.entityType = readers.entityType();
-        this.raw = def;
+        this.machine = TypeArguments.overObjects(def);
         this.sites = readers.sites();
         this.conditions = readers.conditions();
         this.listeners = readers.listeners();
@@ -90,9 +89,9 @@ final class StateMachineSection {
     }
 
     private void metadata(NodeMap section) {
-        ComponentSections.metadata(section, raw::withName, raw::withDescription);
-        apply(section, "id", raw::withId);
-        apply(section, "version", raw::withVersion);
+        ComponentSections.metadata(section, machine::withName, machine::withDescription);
+        apply(section, "id", machine::withId);
+        apply(section, "version", machine::withVersion);
     }
 
     private void apply(NodeMap section, String key, Consumer<String> setter) {
@@ -132,8 +131,8 @@ final class StateMachineSection {
         block.rejectUnknownKeys();
 
         section.at(section.requiredNode(key), () -> resolver
-            ? raw.withStateResolver((StateResolver) accessor)
-            : raw.withStateApplier((StateApplier) accessor));
+            ? machine.withStateResolver(TypeArguments.overObjects(accessor))
+            : machine.withStateApplier(TypeArguments.overObjects(accessor)));
         Loggers.YAML_BINDING.debug("State accessor set, key={}, form={}", key, form);
     }
 
@@ -169,11 +168,11 @@ final class StateMachineSection {
         }
         // A block that sizes nothing still asks for a pool: a fork written in a Java body is invisible to the build.
         config.at(config.requiredNode("async"), () -> threadPoolSize == null
-            ? raw.withAsyncPool()
-            : raw.withAsyncPool(threadPoolSize, queueCapacity));
+            ? machine.withAsyncPool()
+            : machine.withAsyncPool(threadPoolSize, queueCapacity));
         AsyncRejectionPolicy onRejection = async.optionalEnum("onRejection", AsyncRejectionPolicy.class);
         if (onRejection != null) {
-            async.at(async.requiredNode("onRejection"), () -> raw.withAsyncRejectionPolicy(onRejection));
+            async.at(async.requiredNode("onRejection"), () -> machine.withAsyncRejectionPolicy(onRejection));
         }
         async.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("Async pool declared, threadPoolSize={}, queueCapacity={}, onRejection={}",
@@ -200,7 +199,7 @@ final class StateMachineSection {
         block.rejectUnknownKeys();
 
         ExecutionLogging<Object> configured = logging;
-        config.at(config.requiredNode("logging"), () -> raw.withExecutionLogging(configured));
+        config.at(config.requiredNode("logging"), () -> machine.withExecutionLogging(configured));
         // A null level is the default one, which ExecutionLogging owns.
         Loggers.YAML_BINDING.debug("Execution logging attached, level={}, includeContext={}, includeTimings={}",
             level, includeContext, includeTimings);
@@ -233,22 +232,22 @@ final class StateMachineSection {
 
     private List<Hook> globalHooks() {
         return List.of(
-            new Hook("onAnyStateEntry", Category.STATE, raw::onAnyStateEntry,
-                     (id, cfg) -> raw.onAnyStateEntry(id, cfg)),
-            new Hook("onAnyStateExit", Category.STATE, raw::onAnyStateExit,
-                     (id, cfg) -> raw.onAnyStateExit(id, cfg)),
-            new Hook("onAnyTransitionStart", Category.TRANSITION, raw::onAnyTransitionStart,
-                     (id, cfg) -> raw.onAnyTransitionStart(id, cfg)),
-            new Hook("onAnyTransitionComplete", Category.TRANSITION, raw::onAnyTransitionComplete,
-                     (id, cfg) -> raw.onAnyTransitionComplete(id, cfg)),
-            new Hook("onAnyTransitionError", Category.TRANSITION, raw::onAnyTransitionError,
-                     (id, cfg) -> raw.onAnyTransitionError(id, cfg)),
-            new Hook("onAnyActionStart", Category.ACTION, raw::onAnyActionStart,
-                     (id, cfg) -> raw.onAnyActionStart(id, cfg)),
-            new Hook("onAnyActionComplete", Category.ACTION, raw::onAnyActionComplete,
-                     (id, cfg) -> raw.onAnyActionComplete(id, cfg)),
-            new Hook("onAnyActionError", Category.ACTION, raw::onAnyActionError,
-                     (id, cfg) -> raw.onAnyActionError(id, cfg)));
+            new Hook("onAnyStateEntry", Category.STATE, machine::onAnyStateEntry,
+                     (id, cfg) -> machine.onAnyStateEntry(id, cfg::accept)),
+            new Hook("onAnyStateExit", Category.STATE, machine::onAnyStateExit,
+                     (id, cfg) -> machine.onAnyStateExit(id, cfg::accept)),
+            new Hook("onAnyTransitionStart", Category.TRANSITION, machine::onAnyTransitionStart,
+                     (id, cfg) -> machine.onAnyTransitionStart(id, cfg::accept)),
+            new Hook("onAnyTransitionComplete", Category.TRANSITION, machine::onAnyTransitionComplete,
+                     (id, cfg) -> machine.onAnyTransitionComplete(id, cfg::accept)),
+            new Hook("onAnyTransitionError", Category.TRANSITION, machine::onAnyTransitionError,
+                     (id, cfg) -> machine.onAnyTransitionError(id, cfg::accept)),
+            new Hook("onAnyActionStart", Category.ACTION, machine::onAnyActionStart,
+                     (id, cfg) -> machine.onAnyActionStart(id, cfg::accept)),
+            new Hook("onAnyActionComplete", Category.ACTION, machine::onAnyActionComplete,
+                     (id, cfg) -> machine.onAnyActionComplete(id, cfg::accept)),
+            new Hook("onAnyActionError", Category.ACTION, machine::onAnyActionError,
+                     (id, cfg) -> machine.onAnyActionError(id, cfg::accept)));
     }
 
     private int each(NodeMap section, String key, String what, Consumer<NodeMap> entry) {
@@ -263,15 +262,15 @@ final class StateMachineSection {
     private void state(NodeMap entry) {
         String id = entry.requiredId("state");
         NodeMap within = entry.within("state '" + id + "'");
-        Consumer<StateDef> configurer = state -> {
+        Consumer<StateDef<Object>> configurer = state -> {
             ComponentSections.metadata(within, state::withName, state::withDescription);
             // A state listener is handed whichever context the transition carries, so it has none of its own.
             listeners.hooks(within, null, List.of(
-                new Hook("onEntry", Category.STATE, state::onEntry, (lid, cfg) -> state.onEntry(lid, cfg)),
-                new Hook("onExit", Category.STATE, state::onExit, (lid, cfg) -> state.onExit(lid, cfg))));
+                new Hook("onEntry", Category.STATE, state::onEntry, (lid, cfg) -> state.onEntry(lid, cfg::accept)),
+                new Hook("onExit", Category.STATE, state::onExit, (lid, cfg) -> state.onExit(lid, cfg::accept))));
             ListenerEntries.disables(within, state::disableAllGlobalListeners, state::disableGlobalListeners);
         };
-        sites.declare(within, within.requiredNode("id"), Namespace.STATE, id, () -> raw.state(id, configurer));
+        sites.declare(within, within.requiredNode("id"), Namespace.STATE, id, () -> machine.state(id, configurer));
         within.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("State declared, id={}", id);
     }
@@ -285,7 +284,7 @@ final class StateMachineSection {
         // What a transition declares runs against its context, which is Object when it declared none.
         Class<?> context = declared == null ? Object.class : declared;
 
-        Consumer<TransitionDef> configurer = transition -> {
+        Consumer<TransitionDef<Object, Object>> configurer = transition -> {
             ComponentSections.metadata(within, transition::withName, transition::withDescription);
             actions.list(within, transition, context);
             conditions.list(within, "preConditions", context, Target.of(
@@ -300,17 +299,17 @@ final class StateMachineSection {
             }
             listeners.hooks(within, declared, List.of(
                 new Hook("onStart", Category.TRANSITION, transition::onStart,
-                         (lid, cfg) -> transition.onStart(lid, cfg)),
+                         (lid, cfg) -> transition.onStart(lid, cfg::accept)),
                 new Hook("onComplete", Category.TRANSITION, transition::onComplete,
-                         (lid, cfg) -> transition.onComplete(lid, cfg)),
+                         (lid, cfg) -> transition.onComplete(lid, cfg::accept)),
                 new Hook("onError", Category.TRANSITION, transition::onError,
-                         (lid, cfg) -> transition.onError(lid, cfg))));
+                         (lid, cfg) -> transition.onError(lid, cfg::accept))));
             ListenerEntries.disables(within, transition::disableAllGlobalListeners,
                                      transition::disableGlobalListeners);
         };
         sites.declare(within, within.requiredNode("id"), Namespace.TRANSITION, id, () -> declared == null
-            ? raw.transition(id, from, to, configurer)
-            : raw.transition(id, from, to, declared, configurer));
+            ? machine.transition(id, from, to, configurer)
+            : machine.transition(id, from, to, TypeArguments.<Class<Object>>overObjects(declared), configurer));
         within.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("Transition declared, id={}, context={}", id, context.getName());
     }

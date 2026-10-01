@@ -69,10 +69,9 @@ final class ConditionDescriptors {
          *
          * @return the target
          */
-        @SuppressWarnings("rawtypes")
         static Target of(Consumer<String> reference, Consumer<String> anonymous, BiConsumer<String, String> expression,
-                         BiConsumer<String, Condition> condition, BiConsumer<String, BiPredicate> bi,
-                         BiConsumer<String, Predicate> mono) {
+                         BiConsumer<String, Condition<Object, Object>> condition,
+                         BiConsumer<String, BiPredicate<Object, Object>> bi, BiConsumer<String, Predicate<Object>> mono) {
             return new Target() {
                 @Override
                 public void reference(String id) {
@@ -90,17 +89,17 @@ final class ConditionDescriptors {
 
                 @Override
                 public void condition(String id, Condition<?, ?> instance) {
-                    condition.accept(id, instance);
+                    condition.accept(id, TypeArguments.overObjects(instance));
                 }
 
                 @Override
                 public void predicate(String id, BiPredicate<?, ?> predicate) {
-                    bi.accept(id, predicate);
+                    bi.accept(id, TypeArguments.overObjects(predicate));
                 }
 
                 @Override
                 public void predicate(String id, Predicate<?> predicate) {
-                    mono.accept(id, predicate);
+                    mono.accept(id, TypeArguments.overObjects(predicate));
                 }
             };
         }

@@ -27,6 +27,7 @@ import org.transflux.yaml.TypeArguments.Expected;
 import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.ScalarNode;
 
+import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -35,8 +36,17 @@ import java.util.function.Predicate;
  * Triggers as a document writes them: an entry in the {@code triggers:} pool, and an entry in a
  * transition's {@code triggers:} list, which references one or declares one in place.
  */
-@SuppressWarnings({"unchecked", "rawtypes"})
 final class TriggerEntries {
+
+    /**
+     * One trigger kind's two declarations, each taking the configurer the entry's keys became.
+     *
+     * @param register registers the trigger on the state machine, under an id
+     * @param declare declares the trigger in place on a transition, under an id
+     */
+    private record Kind(BiFunction<StateMachineDef<Object>, String, ?> register,
+                        BiFunction<TransitionDef<Object, Object>, String, ?> declare) {
+    }
 
     private final Classes classes;
     private final Class<?> entityType;
@@ -63,15 +73,10 @@ final class TriggerEntries {
         NodeMap within = entry.within("trigger '" + id + "'");
         String type = within.requiredString("type");
         Class<?> context = classes.optionalClass(within, "context", null);
-        Class<?> contextType = context == null ? Object.class : context;
-        Consumer configurer = configurer(within, type, contextType);
+        Kind kind = kind(within, type, context == null ? Object.class : context);
 
-        sites.declare(within, within.requiredNode("id"), DeclarationSites.Namespace.TRIGGER, id, () -> switch (type) {
-            case "manual" -> def.manualTrigger(id, contextType, configurer);
-            case "event" -> def.eventTrigger(id, contextType, configurer);
-            case "data" -> def.dataTrigger(id, contextType, configurer);
-            default -> throw unknownType(type);
-        });
+        sites.declare(within, within.requiredNode("id"), DeclarationSites.Namespace.TRIGGER, id,
+            () -> kind.register().apply(TypeArguments.overObjects(def), id));
         within.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("Trigger registered, id={}, type={}", id, type);
     }
@@ -96,54 +101,63 @@ final class TriggerEntries {
         String id = declaration.requiredId("trigger");
         NodeMap within = declaration.within("trigger '" + id + "'");
         String type = within.requiredString("type");
-        Consumer configurer = configurer(within, type, context);
+        Kind kind = kind(within, type, context);
 
-        within.at(within.requiredNode("id"), () -> switch (type) {
-            case "manual" -> def.addManualTrigger(id, configurer);
-            case "event" -> def.addEventTrigger(id, configurer);
-            case "data" -> def.addDataTrigger(id, configurer);
-            default -> throw unknownType(type);
-        });
+        within.at(within.requiredNode("id"), () -> kind.declare().apply(TypeArguments.overObjects(def), id));
         within.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("Trigger declared, id={}, type={}", id, type);
     }
 
-    private Consumer<?> configurer(NodeMap within, String type, Class<?> context) {
-        return switch (type) {
-            case "manual" -> (Consumer<ManualTriggerDef>) trigger -> {
-                ComponentSections.metadata(within, trigger::withName, trigger::withDescription);
-                conditions.list(within, "preConditions", context, ConditionDescriptors.Target.of(
-                    trigger::preCondition, trigger::preConditionExpression, trigger::preCondition,
-                    trigger::preCondition, trigger::preCondition, trigger::preCondition));
-            };
-            case "event" -> (Consumer<EventTriggerDef>) trigger -> {
-                ComponentSections.metadata(within, trigger::withName, trigger::withDescription);
-                String event = within.requiredString("event");
-                within.at(within.requiredNode("event"), () -> trigger.onEvent(event));
-                filter(within, trigger);
-            };
-            case "data" -> (Consumer<DataTriggerDef>) trigger -> {
-                ComponentSections.metadata(within, trigger::withName, trigger::withDescription);
-                conditions.descriptor(within, within.requiredNode("condition"), context, ConditionDescriptors.Target.of(
-                    trigger::condition, trigger::conditionExpression, trigger::condition,
-                    trigger::condition, trigger::condition, trigger::condition));
-            };
+    /**
+     * Resolves a trigger entry's {@code type} into its kind, whose configurer reads the entry's keys.
+     *
+     * @param within the trigger's mapping
+     * @param type the type the entry names
+     * @param context the trigger's context, which its conditions are typed against
+     *
+     * @return the kind
+     *
+     * @throws DefinitionLoadException when the type is not a trigger kind
+     */
+    private Kind kind(NodeMap within, String type, Class<?> context) {
+        Class<Object> typed = TypeArguments.overObjects(context);
+        switch (type) {
+            case "manual" -> {
+                Consumer<ManualTriggerDef<Object, Object>> configurer = trigger -> {
+                    ComponentSections.metadata(within, trigger::withName, trigger::withDescription);
+                    conditions.list(within, "preConditions", context, ConditionDescriptors.Target.of(
+                        trigger::preCondition, trigger::preConditionExpression, trigger::preCondition,
+                        trigger::preCondition, trigger::preCondition, trigger::preCondition));
+                };
+                return new Kind((def, id) -> def.manualTrigger(id, typed, configurer),
+                    (def, id) -> def.addManualTrigger(id, configurer));
+            }
+            case "event" -> {
+                Consumer<EventTriggerDef<Object, Object>> configurer = trigger -> {
+                    ComponentSections.metadata(within, trigger::withName, trigger::withDescription);
+                    String event = within.requiredString("event");
+                    within.at(within.requiredNode("event"), () -> trigger.onEvent(event));
+                    filter(within, trigger);
+                };
+                return new Kind((def, id) -> def.eventTrigger(id, typed, configurer),
+                    (def, id) -> def.addEventTrigger(id, configurer));
+            }
+            case "data" -> {
+                Consumer<DataTriggerDef<Object, Object>> configurer = trigger -> {
+                    ComponentSections.metadata(within, trigger::withName, trigger::withDescription);
+                    conditions.descriptor(within, within.requiredNode("condition"), context,
+                        ConditionDescriptors.Target.of(trigger::condition, trigger::conditionExpression,
+                            trigger::condition, trigger::condition, trigger::condition, trigger::condition));
+                };
+                return new Kind((def, id) -> def.dataTrigger(id, typed, configurer),
+                    (def, id) -> def.addDataTrigger(id, configurer));
+            }
             default -> throw within.error(within.requiredNode("type"),
                 "'type' must be one of manual, event, data, not '" + type + "'");
-        };
+        }
     }
 
-    /**
-     * @param type the type the document named
-     *
-     * @return the failure for a type {@link #configurer} did not already refuse, which is the
-     *         kind's dispatch and its configurer disagreeing rather than anything a document did
-     */
-    private static IllegalStateException unknownType(String type) {
-        return new IllegalStateException("Trigger type '" + type + "' has a configurer but no declaration");
-    }
-
-    private void filter(NodeMap trigger, EventTriggerDef def) {
+    private void filter(NodeMap trigger, EventTriggerDef<Object, Object> def) {
         NodeMap filter = trigger.optionalMap("filter", "filter");
         if (filter == null) {
             return;
@@ -153,9 +167,9 @@ final class TriggerEntries {
             Object predicate = conditions.predicate(filter, "class",
                 new Expected[] {Expected.exactly(Object.class), Expected.superOf(entityType)},
                 Expected.exactly(Object.class));
-            filter.at(at, () -> predicate instanceof BiPredicate bi
-                ? def.filter(bi)
-                : def.filter((Predicate) predicate));
+            filter.at(at, () -> predicate instanceof BiPredicate<?, ?> bi
+                ? def.filter(TypeArguments.<BiPredicate<Object, Object>>overObjects(bi))
+                : def.filter(TypeArguments.<Predicate<Object>>overObjects(predicate)));
         } else {
             String expression = filter.requiredString("expression");
             filter.at(filter.requiredNode("expression"), () -> def.filterExpression(expression));

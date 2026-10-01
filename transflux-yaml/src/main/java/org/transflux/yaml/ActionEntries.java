@@ -43,7 +43,6 @@ import java.util.function.Consumer;
  * {@code choices:} pool, and an entry in an {@code actions:} list, which references an action with
  * {@code run:} or declares one in place with {@code step:}, {@code operation:} or {@code choice:}.
  */
-@SuppressWarnings({"unchecked", "rawtypes"})
 final class ActionEntries {
 
     private static final List<String> VERBS = List.of("run", "step", "operation", "choice");
@@ -71,14 +70,15 @@ final class ActionEntries {
      *
      * @throws DefinitionLoadException when the entry is not a step registration
      */
-    void registerStep(NodeMap entry, StateMachineDef def) {
+    void registerStep(NodeMap entry, StateMachineDef<?> def) {
         String id = entry.requiredId("step");
         NodeMap within = entry.within("step '" + id + "'");
         Class<?> context = classes.optionalClass(within, "context", null);
-        Consumer<StepDef> configurer = step -> step(within, step, context);
+        StateMachineDef<Object> machine = TypeArguments.overObjects(def);
+        Consumer<StepDef<Object, Object>> configurer = step -> step(within, step, context);
         sites.declare(within, within.requiredNode("id"), Namespace.COMPONENT, id, () -> context == null
-            ? def.step(id, (Consumer) configurer)
-            : def.step(id, context, (Consumer) configurer));
+            ? machine.step(id, configurer)
+            : machine.step(id, TypeArguments.<Class<Object>>overObjects(context), configurer));
         within.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("Step registered, id={}, context={}", id, name(context));
     }
@@ -91,13 +91,14 @@ final class ActionEntries {
      *
      * @throws DefinitionLoadException when the entry is not an operation registration
      */
-    void registerOperation(NodeMap entry, StateMachineDef def) {
+    void registerOperation(NodeMap entry, StateMachineDef<?> def) {
         String id = entry.requiredId("operation");
         NodeMap within = entry.within("operation '" + id + "'");
-        Class<?> context = registeredContext(within);
-        Consumer<OperationDef> configurer = operation -> operation(within, operation, context);
+        Class<Object> context = TypeArguments.overObjects(registeredContext(within));
+        StateMachineDef<Object> machine = TypeArguments.overObjects(def);
+        Consumer<OperationDef<Object, Object>> configurer = operation -> operation(within, operation, context);
         sites.declare(within, within.requiredNode("id"), Namespace.COMPONENT, id,
-            () -> def.operation(id, context, (Consumer) configurer));
+            () -> machine.operation(id, context, configurer));
         within.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("Operation registered, id={}, context={}", id, context.getName());
     }
@@ -110,13 +111,14 @@ final class ActionEntries {
      *
      * @throws DefinitionLoadException when the entry is not a choice registration
      */
-    void registerChoice(NodeMap entry, StateMachineDef def) {
+    void registerChoice(NodeMap entry, StateMachineDef<?> def) {
         String id = entry.requiredId("choice");
         NodeMap within = entry.within("choice '" + id + "'");
-        Class<?> context = registeredContext(within);
-        Consumer<ChoiceDef> configurer = choice -> choice(within, id, choice, context);
+        Class<Object> context = TypeArguments.overObjects(registeredContext(within));
+        StateMachineDef<Object> machine = TypeArguments.overObjects(def);
+        Consumer<ChoiceDef<Object, Object>> configurer = choice -> choice(within, id, choice, context);
         sites.declare(within, within.requiredNode("id"), Namespace.COMPONENT, id,
-            () -> def.choice(id, context, (Consumer) configurer));
+            () -> machine.choice(id, context, configurer));
         within.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("Choice registered, id={}, context={}", id, context.getName());
     }
@@ -160,20 +162,21 @@ final class ActionEntries {
         return Expressions.mapper(block);
     }
 
-    private void member(NodeMap owner, Node node, ActionSequence sequence, Class<?> context) {
+    private void member(NodeMap owner, Node node, ActionSequence<?, ?, ?> sequence, Class<?> context) {
         NodeMap entry = NodeMap.of(owner.document(), node, owner.declarationPath(), "an action entry");
         String verb = entry.exactlyOneOf(VERBS.toArray(String[]::new));
         String id = entry.requiredString(verb);
         NodeMap within = entry.within(verb + " '" + id + "'");
+        ActionSequence<Object, Object, ?> typed = TypeArguments.overObjects(sequence);
         if (verb.equals("run")) {
-            reference(within, sequence, id, context);
+            reference(within, typed, id, context);
         } else {
-            declaration(within, verb, sequence, id, context);
+            declaration(within, verb, typed, id, context);
         }
         within.rejectUnknownKeys();
     }
 
-    private void reference(NodeMap within, ActionSequence sequence, String id, Class<?> context) {
+    private void reference(NodeMap within, ActionSequence<Object, Object, ?> sequence, String id, Class<?> context) {
         // A reference carries its callee's listeners, so the keys belong on the callee's declaration.
         for (String key : List.of("listeners", "disableGlobalListeners")) {
             if (within.holds(key)) {
@@ -204,8 +207,9 @@ final class ActionEntries {
         Loggers.YAML_BINDING.debug("Action referenced, id={}, forked={}, mapper={}", id, forked, mapperLabel(resolved));
     }
 
-    private void declaration(NodeMap within, String verb, ActionSequence sequence, String id, Class<?> enclosing) {
-        Class<?> declared = classes.optionalClass(within, "context", null);
+    private void declaration(NodeMap within, String verb, ActionSequence<Object, Object, ?> sequence, String id,
+                             Class<?> enclosing) {
+        Class<Object> declared = TypeArguments.overObjects(classes.optionalClass(within, "context", null));
         Node mapper = within.optionalNode("mapper");
         if (mapper != null && declared == null) {
             throw within.error(within.keyNode("mapper"),
@@ -220,11 +224,11 @@ final class ActionEntries {
         within.at(within.requiredNode(verb), () -> {
             switch (verb) {
                 case "step" -> declareStep(sequence, forked, id, declared, resolved,
-                    (Consumer<StepDef>) step -> step(within, step, context));
+                    step -> step(within, step, context));
                 case "operation" -> declareOperation(sequence, forked, id, declared, resolved,
-                    (Consumer<OperationDef>) operation -> operation(within, operation, context));
+                    operation -> operation(within, operation, context));
                 default -> declareChoice(sequence, forked, id, declared, resolved,
-                    (Consumer<ChoiceDef>) choice -> choice(within, id, choice, context));
+                    choice -> choice(within, id, choice, context));
             }
             return null;
         });
@@ -274,31 +278,31 @@ final class ActionEntries {
         return mapper instanceof String mapperId ? mapperId : "inline";
     }
 
-    private void step(NodeMap within, StepDef step, Class<?> context) {
-        Action action = classes.instantiate(within, "class", Action.class,
-            Expected.superOf(entityType), context == null ? null : Expected.exactly(context));
+    private void step(NodeMap within, StepDef<Object, Object> step, Class<?> context) {
+        Action<Object, Object> action = TypeArguments.overObjects(classes.instantiate(within, "class", Action.class,
+            Expected.superOf(entityType), context == null ? null : Expected.exactly(context)));
         within.at(within.requiredNode("class"), () -> step.using(action));
         actionKeys.apply(within, step, context);
     }
 
-    private void operation(NodeMap within, OperationDef operation, Class<?> context) {
+    private void operation(NodeMap within, OperationDef<Object, Object> operation, Class<?> context) {
         actionKeys.apply(within, operation, context);
         members(within, operation, context);
     }
 
-    private void choice(NodeMap within, String choiceId, ChoiceDef choice, Class<?> context) {
+    private void choice(NodeMap within, String choiceId, ChoiceDef<Object, Object> choice, Class<?> context) {
         actionKeys.apply(within, choice, context);
         for (Node node : within.requiredList("branches")) {
             NodeMap entry = NodeMap.of(within.document(), node, within.declarationPath(), "a branch");
             String id = entry.requiredId("branch");
             NodeMap branch = entry.within("branch '" + id + "'");
-            Consumer<BranchDef> configurer = def -> {
+            Consumer<BranchDef<Object, Object>> configurer = def -> {
                 conditions.descriptor(branch, branch.requiredNode("condition"), context, Target.of(
                     def::condition, def::conditionExpression, def::condition,
                     def::condition, def::condition, def::condition));
                 members(branch, def, context);
             };
-            branch.at(branch.requiredNode("id"), () -> choice.branch(id, (Consumer) configurer));
+            branch.at(branch.requiredNode("id"), () -> choice.branch(id, configurer));
             branch.rejectUnknownKeys();
             Loggers.YAML_BINDING.debug("Branch declared, choiceId={}, branchId={}", choiceId, id);
         }
@@ -306,8 +310,8 @@ final class ActionEntries {
         NodeMap fallback = within.optionalMap("default");
         if (fallback != null) {
             NodeMap branch = fallback.within("default branch");
-            Consumer<DefaultBranchDef> configurer = def -> members(branch, def, context);
-            within.at(within.requiredNode("default"), () -> choice.defaultBranch((Consumer) configurer));
+            Consumer<DefaultBranchDef<Object, Object>> configurer = def -> members(branch, def, context);
+            within.at(within.requiredNode("default"), () -> choice.defaultBranch(configurer));
             branch.rejectUnknownKeys();
             Loggers.YAML_BINDING.debug("Default branch declared, choiceId={}", choiceId);
         }
@@ -327,7 +331,7 @@ final class ActionEntries {
      *
      * @throws DefinitionLoadException when the list is absent or an entry is not valid
      */
-    private void members(NodeMap owner, ActionSequence sequence, Class<?> context) {
+    private void members(NodeMap owner, ActionSequence<?, ?, ?> sequence, Class<?> context) {
         owner.requiredList("actions").forEach(entry -> member(owner, entry, sequence, context));
     }
 
@@ -339,38 +343,39 @@ final class ActionEntries {
 
     // One call per shape below, so each reaches the overload its static types select.
 
-    private static void run(ActionSequence sequence, String id, Object mapper) {
+    private static void run(ActionSequence<Object, Object, ?> sequence, String id, Object mapper) {
         if (mapper == null) {
             sequence.run(id);
         } else if (mapper instanceof String mapperId) {
             sequence.run(id, mapperId);
         } else {
-            sequence.run(id, (ContextMapper) mapper);
+            sequence.run(id, TypeArguments.<ContextMapper<Object, ?>>overObjects(mapper));
         }
     }
 
-    private static void fork(ActionSequence sequence, String id, Object mapper) {
+    private static void fork(ActionSequence<Object, Object, ?> sequence, String id, Object mapper) {
         if (mapper == null) {
             sequence.fork(id);
         } else if (mapper instanceof String mapperId) {
             sequence.fork(id, mapperId);
         } else {
-            sequence.fork(id, (ContextMapper) mapper);
+            sequence.fork(id, TypeArguments.<ContextMapper<Object, ?>>overObjects(mapper));
         }
     }
 
-    private static void fork(ActionSequence sequence, String id, Object mapper, AsyncRejectionPolicy policy) {
+    private static void fork(ActionSequence<Object, Object, ?> sequence, String id, Object mapper,
+                             AsyncRejectionPolicy policy) {
         if (mapper == null) {
             sequence.fork(id, policy);
         } else if (mapper instanceof String mapperId) {
             sequence.fork(id, mapperId, policy);
         } else {
-            sequence.fork(id, (ContextMapper) mapper, policy);
+            sequence.fork(id, TypeArguments.<ContextMapper<Object, ?>>overObjects(mapper), policy);
         }
     }
 
-    private static void declareStep(ActionSequence sequence, boolean forked, String id, Class<?> context,
-                                    Object mapper, Consumer body) {
+    private static void declareStep(ActionSequence<Object, Object, ?> sequence, boolean forked, String id,
+                                    Class<Object> context, Object mapper, Consumer<StepDef<Object, Object>> body) {
         if (context == null) {
             if (forked) {
                 sequence.forkStep(id, body);
@@ -390,14 +395,14 @@ final class ActionEntries {
                 sequence.step(id, context, mapperId, body);
             }
         } else if (forked) {
-            sequence.forkStep(id, context, (ContextMapper) mapper, body);
+            sequence.forkStep(id, context, TypeArguments.<ContextMapper<Object, Object>>overObjects(mapper), body);
         } else {
-            sequence.step(id, context, (ContextMapper) mapper, body);
+            sequence.step(id, context, TypeArguments.<ContextMapper<Object, Object>>overObjects(mapper), body);
         }
     }
 
-    private static void declareOperation(ActionSequence sequence, boolean forked, String id, Class<?> context,
-                                         Object mapper, Consumer body) {
+    private static void declareOperation(ActionSequence<Object, Object, ?> sequence, boolean forked, String id,
+                                         Class<Object> context, Object mapper, Consumer<OperationDef<Object, Object>> body) {
         if (context == null) {
             if (forked) {
                 sequence.forkOperation(id, body);
@@ -417,14 +422,14 @@ final class ActionEntries {
                 sequence.operation(id, context, mapperId, body);
             }
         } else if (forked) {
-            sequence.forkOperation(id, context, (ContextMapper) mapper, body);
+            sequence.forkOperation(id, context, TypeArguments.<ContextMapper<Object, Object>>overObjects(mapper), body);
         } else {
-            sequence.operation(id, context, (ContextMapper) mapper, body);
+            sequence.operation(id, context, TypeArguments.<ContextMapper<Object, Object>>overObjects(mapper), body);
         }
     }
 
-    private static void declareChoice(ActionSequence sequence, boolean forked, String id, Class<?> context,
-                                      Object mapper, Consumer body) {
+    private static void declareChoice(ActionSequence<Object, Object, ?> sequence, boolean forked, String id,
+                                      Class<Object> context, Object mapper, Consumer<ChoiceDef<Object, Object>> body) {
         if (context == null) {
             if (forked) {
                 sequence.forkChoice(id, body);
@@ -444,9 +449,9 @@ final class ActionEntries {
                 sequence.choice(id, context, mapperId, body);
             }
         } else if (forked) {
-            sequence.forkChoice(id, context, (ContextMapper) mapper, body);
+            sequence.forkChoice(id, context, TypeArguments.<ContextMapper<Object, Object>>overObjects(mapper), body);
         } else {
-            sequence.choice(id, context, (ContextMapper) mapper, body);
+            sequence.choice(id, context, TypeArguments.<ContextMapper<Object, Object>>overObjects(mapper), body);
         }
     }
 

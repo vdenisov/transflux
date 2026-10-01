@@ -91,7 +91,6 @@ final class ListenerEntries {
      *
      * @throws DefinitionLoadException when the entry is not a listener registration
      */
-    @SuppressWarnings({"unchecked", "rawtypes"})
     void register(NodeMap entry, StateMachineDef<?> def) {
         String id = entry.requiredId("listener");
         NodeMap within = entry.within("listener '" + id + "'");
@@ -103,17 +102,18 @@ final class ListenerEntries {
                 "a state listener takes no context: it is handed whichever context the transition carries");
         }
 
-        Consumer configurer = (Consumer<ListenerDef<?, ?>>) listener ->
-            configure(within, listener, type, category, context);
+        StateMachineDef<Object> machine = TypeArguments.overObjects(def);
+        Class<Object> typed = TypeArguments.overObjects(context);
+        Consumer<ListenerDef<?, ?>> configurer = listener -> configure(within, listener, type, category, context);
         sites.declare(within, within.requiredNode("id"), DeclarationSites.Namespace.LISTENER, id, () ->
             switch (category) {
-                case STATE -> def.stateListener(id, configurer);
-                case TRANSITION -> context == null
-                    ? def.transitionListener(id, configurer)
-                    : def.transitionListener(id, context, configurer);
-                case ACTION -> context == null
-                    ? def.actionListener(id, configurer)
-                    : def.actionListener(id, context, configurer);
+                case STATE -> machine.stateListener(id, configurer::accept);
+                case TRANSITION -> typed == null
+                    ? machine.transitionListener(id, configurer::accept)
+                    : machine.transitionListener(id, typed, configurer::accept);
+                case ACTION -> typed == null
+                    ? machine.actionListener(id, configurer::accept)
+                    : machine.actionListener(id, typed, configurer::accept);
             });
         within.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("Listener registered, id={}, category={}", id, category.label());

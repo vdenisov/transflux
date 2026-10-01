@@ -55,8 +55,7 @@ final class ActionKeys {
      *
      * @throws DefinitionLoadException when a key is not valid
      */
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    void apply(NodeMap map, ActionDef def, Class<?> declared) {
+    void apply(NodeMap map, ActionDef<Object, Object> def, Class<?> declared) {
         // What is declared on an action is typed against its def's context, which is Object when none was declared.
         Class<?> context = declared == null ? Object.class : declared;
         ComponentSections.metadata(map, def::withName, def::withDescription);
@@ -66,7 +65,7 @@ final class ActionKeys {
         }
 
         if (map.optionalNode("compensation") != null) {
-            Compensation compensation = compensation(map, context);
+            Compensation<Object, Object> compensation = compensation(map, context);
             map.at(map.requiredNode("compensation"), () -> def.withCompensation(compensation));
         }
 
@@ -78,37 +77,41 @@ final class ActionKeys {
         }
 
         listeners.actionHooks(map, context, List.of(
-            new Hook("onStart", Category.ACTION, def::onStart, (id, cfg) -> def.onStart(id, cfg)),
-            new Hook("onComplete", Category.ACTION, def::onComplete, (id, cfg) -> def.onComplete(id, cfg)),
-            new Hook("onError", Category.ACTION, def::onError, (id, cfg) -> def.onError(id, cfg))));
+            new Hook("onStart", Category.ACTION, def::onStart, (id, cfg) -> def.onStart(id, cfg::accept)),
+            new Hook("onComplete", Category.ACTION, def::onComplete, (id, cfg) -> def.onComplete(id, cfg::accept)),
+            new Hook("onError", Category.ACTION, def::onError, (id, cfg) -> def.onError(id, cfg::accept))));
         ListenerEntries.disables(map, def::disableAllGlobalListeners, def::disableGlobalListeners);
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private void route(NodeMap owner, Node node, int position, ActionDef def, Class<?> context) {
+    private void route(NodeMap owner, Node node, int position, ActionDef<Object, Object> def, Class<?> context) {
         NodeMap entry = NodeMap.of(owner.document(), node, owner.declarationPath(), "an errorHandling entry");
-        Class<? extends Throwable> exception = (Class<? extends Throwable>) classes.requiredClass(entry, "exception",
-            Throwable.class);
+        route(entry, position, def, classes.requiredClass(entry, "exception", Throwable.class)
+            .asSubclass(Throwable.class), context);
+    }
+
+    private <X extends Throwable> void route(NodeMap entry, int position, ActionDef<Object, Object> def,
+                                             Class<X> exception, Class<?> context) {
         // Two routes may name one exception, told apart by their guards; the position is what is unique.
         NodeMap route = entry.within("route " + position + " (" + exception.getName() + ")");
-        CompensationRouteDef opened = route.at(route.requiredNode("exception"), () -> def.forException(exception));
+        CompensationRouteDef<Object, Object, X, ?> opened =
+            route.at(route.requiredNode("exception"), () -> def.forException(exception));
 
         NodeMap guard = route.optionalMap("guard", "guard");
         if (guard != null) {
-            Predicate<?> predicate = guard.exactlyOneOf("class", "expression").equals("class")
+            Predicate<X> predicate = TypeArguments.overObjects(guard.exactlyOneOf("class", "expression").equals("class")
                 ? classes.instantiate(guard, "class", Predicate.class, Expected.exactly(exception))
-                : Expressions.guard(guard);
+                : Expressions.guard(guard));
             guard.rejectUnknownKeys();
             guard.at(route.requiredNode("guard"), () -> opened.matching(predicate));
         }
 
-        Compensation compensation = compensation(route, context);
+        Compensation<Object, Object> compensation = compensation(route, context);
         route.at(route.requiredNode("compensation"), () -> opened.withCompensation(compensation));
         route.rejectUnknownKeys();
     }
 
-    private Compensation<?, ?> compensation(NodeMap map, Class<?> context) {
-        return classes.instantiate(map, "compensation", Compensation.class,
-            Expected.superOf(entityType), Expected.exactly(context));
+    private Compensation<Object, Object> compensation(NodeMap map, Class<?> context) {
+        return TypeArguments.overObjects(classes.instantiate(map, "compensation", Compensation.class,
+            Expected.superOf(entityType), Expected.exactly(context)));
     }
 }

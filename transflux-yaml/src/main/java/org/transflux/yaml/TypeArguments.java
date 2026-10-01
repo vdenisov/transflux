@@ -91,6 +91,23 @@ final class TypeArguments {
         return null;
     }
 
+    /**
+     * Retypes a def, or a value handed to one, over {@code Object}, checking nothing: the loader
+     * learns its entity and context types only at run time, so it drives every def as
+     * {@code Object}-typed, and javac still checks which overload each call reaches. What makes
+     * the cast safe is elsewhere - every def is built over the one entity type, and a class is
+     * checked against its position by {@link #mismatch} when it is instantiated.
+     *
+     * @param typed the value
+     * @param <X> the value's type with its type arguments replaced by {@code Object}
+     *
+     * @return the value, unchanged
+     */
+    @SuppressWarnings("unchecked")
+    static <X> X overObjects(Object typed) {
+        return (X) typed;
+    }
+
     private static Class<?> declaredClass(Type argument) {
         if (argument instanceof Class<?> declared) {
             return declared;

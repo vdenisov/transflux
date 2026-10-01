@@ -18,10 +18,16 @@
 
 package org.transflux.yaml
 
+import org.transflux.core.ComponentFactory
+import org.transflux.core.action.ActionSequence
 import org.transflux.core.exception.TransfluxNoMatchException
 import org.transflux.core.exception.TransfluxValidationException
 import spock.lang.Specification
 import spock.util.concurrent.PollingConditions
+
+import java.lang.reflect.InvocationHandler
+import java.lang.reflect.Method
+import java.lang.reflect.Proxy
 
 import static org.transflux.yaml.LoaderFixtures.*
 
@@ -433,6 +439,37 @@ class ActionEntriesSpec extends Specification {
         sm?.close()
     }
 
+    // ---- dispatch ----
+
+    def "a run entry #entry reaches #overload"() {
+        expect:
+        dispatched("{run: a${entry}}") == [overload]
+
+        where:
+        entry                                                                   || overload
+        ''                                                                      || 'run(String)'
+        ', mapper: m'                                                           || 'run(String, String)'
+        ", mapper: {class: ${ChildMapper.name}}"                                || 'run(String, ContextMapper)'
+        ', fork: true'                                                          || 'fork(String)'
+        ', fork: true, mapper: m'                                               || 'fork(String, String)'
+        ", fork: true, mapper: {class: ${ChildMapper.name}}"                    || 'fork(String, ContextMapper)'
+        ', fork: true, onRejection: DROP'                                       || 'fork(String, AsyncRejectionPolicy)'
+        ', fork: true, onRejection: DROP, mapper: m'                            || 'fork(String, String, AsyncRejectionPolicy)'
+        ", fork: true, onRejection: DROP, mapper: {class: ${ChildMapper.name}}" || 'fork(String, ContextMapper, AsyncRejectionPolicy)'
+    }
+
+    def "a '#verb:' entry #shape, forked: #forked, reaches #overload"() {
+        given:
+        def entry = "{${verb}: d" + (forked ? ', fork: true' : '') + SHAPES[shape].entry + '}'
+
+        expect:
+        dispatched(entry) == [overload]
+
+        where:
+        [verb, shape, forked] << [['step', 'operation', 'choice'], SHAPES.keySet(), [false, true]].combinations()
+        overload = (forked ? 'fork' + verb.capitalize() : verb) + '(' + SHAPES[shape].parameters + ')'
+    }
+
     // ---- refusals ----
 
     def 'refuses #what'() {
@@ -464,6 +501,38 @@ class ActionEntriesSpec extends Specification {
         'a branch with no condition'          | '- choice: c\n  branches: [{id: b, actions: [{run: a}]}]'                                                             || " > choice 'c' > branch 'b'"     | "'condition' is required"
         'a branch with a compensation'        | '- choice: c\n  branches: [{id: b, condition: x, actions: [{run: a}], compensation: x}]'                              || " > choice 'c' > branch 'b'"     | "unknown key 'compensation'"
         'a default with a context'            | '- choice: c\n  branches: [{id: b, condition: x, actions: [{run: a}]}]\n  default: {context: x, actions: [{run: a}]}' || " > choice 'c' > default branch" | "unknown key 'context'"
+    }
+
+    /** How a declaration's context is written, and the parameters of the overload each shape reaches. */
+    private static final Map<String, Map<String, String>> SHAPES = [
+        'inheriting its context'             : [entry: '', parameters: 'String, Consumer'],
+        'declaring a context'                : [entry: ", context: ${ChildCtx.name}", parameters: 'String, Class, Consumer'],
+        'mapping by a registered id'         : [entry: ", context: ${ChildCtx.name}, mapper: m",
+                                                parameters: 'String, Class, String, Consumer'],
+        'mapping through a class'            : [entry: ", context: ${ChildCtx.name}, mapper: {class: ${ChildMapper.name}}",
+                                                parameters: 'String, Class, ContextMapper, Consumer']]
+
+    /**
+     * Reads one {@code actions:} entry onto a sequence that records each call it receives, the
+     * enclosing context being {@code Ctx}. A declaration's configurer never runs, so an entry
+     * carries only the keys read before the call.
+     *
+     * @param entry the entry, in flow style
+     *
+     * @return each call, as the method's name and its parameter types
+     */
+    private List<String> dispatched(String entry) {
+        def calls = []
+        def sequence = Proxy.newProxyInstance(getClass().classLoader, [ActionSequence] as Class[],
+            { proxy, Method method, Object[] args ->
+                calls << "${method.name}(${method.parameterTypes*.simpleName.join(', ')})".toString()
+                proxy
+            } as InvocationHandler) as ActionSequence
+        def readers = Readers.of(new Classes(getClass().classLoader, ComponentFactory.reflective()), Order,
+            new DeclarationSites())
+        def document = Document.parse([], 'doc.yml', null, new StringReader("actions:\n  - ${entry}\n"))
+        readers.actions().list(NodeMap.of(document, document.root(), null, 'the document'), sequence, Ctx)
+        return calls
     }
 
     /**

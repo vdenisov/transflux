@@ -38,11 +38,10 @@ import java.util.function.Supplier;
  * contributes to: {@code steps}, {@code operations}, {@code choices}, {@code conditions},
  * {@code mappers}, {@code triggers} and {@code listeners}.
  */
-@SuppressWarnings({"unchecked", "rawtypes"})
 final class ComponentSections {
 
     private final Classes classes;
-    private final StateMachineDef raw;
+    private final StateMachineDef<Object> machine;
     private final ConditionDescriptors conditions;
     private final ListenerEntries listeners;
     private final ActionEntries actions;
@@ -51,7 +50,7 @@ final class ComponentSections {
 
     private ComponentSections(Readers readers, StateMachineDef<?> def) {
         this.classes = readers.classes();
-        this.raw = def;
+        this.machine = TypeArguments.overObjects(def);
         this.sites = readers.sites();
         this.conditions = readers.conditions();
         this.listeners = readers.listeners();
@@ -86,61 +85,48 @@ final class ComponentSections {
         if (entries == null) {
             return 0;
         }
-        entries.forEach(node -> entry.accept(NodeMap.of(document.document(), node, null, what), raw));
+        entries.forEach(node -> entry.accept(NodeMap.of(document.document(), node, null, what), machine));
         return entries.size();
     }
 
     private void condition(NodeMap entry, StateMachineDef<?> def) {
-        Class<?> context = classes.optionalClass(entry, "context", null);
+        Class<Object> context = TypeArguments.overObjects(classes.optionalClass(entry, "context", null));
         conditions.declaration(entry, context, true, new ConditionDescriptors.Target() {
             @Override
             public void reference(String id) {
                 throw new IllegalStateException("A registration is never a reference");
             }
 
+            // One call per form, so each reaches the overload its static type selects.
             @Override
             public void expression(String id, String expression) {
-                register(id, expression);
+                declare(id, () -> context == null
+                    ? machine.condition(id, expression)
+                    : machine.condition(id, context, expression));
             }
 
             @Override
             public void condition(String id, Condition<?, ?> condition) {
-                register(id, condition);
+                Condition<Object, Object> typed = TypeArguments.overObjects(condition);
+                declare(id, () -> context == null
+                    ? machine.condition(id, typed)
+                    : machine.condition(id, context, typed));
             }
 
             @Override
             public void predicate(String id, BiPredicate<?, ?> predicate) {
-                register(id, predicate);
+                BiPredicate<Object, Object> typed = TypeArguments.overObjects(predicate);
+                declare(id, () -> context == null
+                    ? machine.condition(id, typed)
+                    : machine.condition(id, context, typed));
             }
 
             @Override
             public void predicate(String id, Predicate<?> predicate) {
-                register(id, predicate);
-            }
-
-            // One call per form, so each reaches the overload its static type selects.
-            private void register(String id, String expression) {
+                Predicate<Object> typed = TypeArguments.overObjects(predicate);
                 declare(id, () -> context == null
-                    ? raw.condition(id, expression)
-                    : raw.condition(id, context, expression));
-            }
-
-            private void register(String id, Condition condition) {
-                declare(id, () -> context == null
-                    ? raw.condition(id, condition)
-                    : raw.condition(id, context, condition));
-            }
-
-            private void register(String id, BiPredicate predicate) {
-                declare(id, () -> context == null
-                    ? raw.condition(id, predicate)
-                    : raw.condition(id, context, predicate));
-            }
-
-            private void register(String id, Predicate predicate) {
-                declare(id, () -> context == null
-                    ? raw.condition(id, predicate)
-                    : raw.condition(id, context, predicate));
+                    ? machine.condition(id, typed)
+                    : machine.condition(id, context, typed));
             }
 
             // The descriptor reader attributes a rejection to the condition's form, so only claim here.
@@ -153,15 +139,16 @@ final class ComponentSections {
     private void mapper(NodeMap entry, StateMachineDef<?> def) {
         String id = entry.requiredId("mapper");
         NodeMap within = entry.within("mapper '" + id + "'");
-        Class<?> parentType = classes.requiredClass(within, "parentType", null);
-        Class<?> childType = classes.requiredClass(within, "childType", null);
-        ContextMapper mapper = actions.mapper(within, Expected.exactly(parentType), Expected.exactly(childType));
-        Consumer<MapperDef> configurer = mapperDef -> {
+        Class<Object> parentType = TypeArguments.overObjects(classes.requiredClass(within, "parentType", null));
+        Class<Object> childType = TypeArguments.overObjects(classes.requiredClass(within, "childType", null));
+        ContextMapper<Object, Object> mapper = TypeArguments.overObjects(
+            actions.mapper(within, Expected.exactly(parentType), Expected.exactly(childType)));
+        Consumer<MapperDef<Object, Object>> configurer = mapperDef -> {
             metadata(within, mapperDef::withName, mapperDef::withDescription);
             mapperDef.using(mapper);
         };
         sites.declare(within, within.requiredNode("id"), Namespace.COMPONENT, id,
-            () -> raw.mapperDef(id, parentType, childType, (Consumer) configurer));
+            () -> machine.mapperDef(id, parentType, childType, configurer));
         within.rejectUnknownKeys();
         Loggers.YAML_BINDING.debug("Mapper registered, id={}, parentType={}", id, parentType.getName());
     }
