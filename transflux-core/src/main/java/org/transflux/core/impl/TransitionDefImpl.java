@@ -239,33 +239,6 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
     }
 
     /**
-     * Returns the manual triggers declared on this transition, in declaration order.
-     *
-     * @return the manual trigger defs
-     */
-    List<ManualTriggerDefImpl<T, C>> getManualTriggers() {
-        return manualTriggers;
-    }
-
-    /**
-     * Returns the event triggers declared on this transition, in declaration order.
-     *
-     * @return the event trigger defs
-     */
-    List<EventTriggerDefImpl<T, C>> getEventTriggers() {
-        return eventTriggers;
-    }
-
-    /**
-     * Returns the data triggers declared on this transition, in declaration order.
-     *
-     * @return the data trigger defs
-     */
-    List<DataTriggerDefImpl<T, C>> getDataTriggers() {
-        return dataTriggers;
-    }
-
-    /**
      * Returns the ids of the registered triggers this transition attaches, in declaration order.
      * Dispatch scans a transition's own declarations before these.
      *

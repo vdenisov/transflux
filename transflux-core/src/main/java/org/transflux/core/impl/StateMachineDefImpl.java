@@ -2363,11 +2363,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private void checkTriggerAttachments() {
         Map<String, String> declaredInline = new HashMap<>();
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
-            for (TriggerDefImpl<T, ?, ?> declared : List.copyOf(td.getManualTriggers())) {
-                declaredInline.put(declared.getId(), td.getId());
-            }
-            td.getEventTriggers().forEach(t -> declaredInline.put(t.getId(), td.getId()));
-            td.getDataTriggers().forEach(t -> declaredInline.put(t.getId(), td.getId()));
+            td.getDeclaredTriggers().forEach(t -> declaredInline.put(t.getId(), td.getId()));
         }
 
         Map<String, Map<String, String>> attachedBySource = new HashMap<>();

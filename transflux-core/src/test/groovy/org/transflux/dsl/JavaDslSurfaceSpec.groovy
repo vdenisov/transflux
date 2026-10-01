@@ -484,13 +484,17 @@ class JavaDslSurfaceSpec extends Specification {
 
     def 'one registered trigger sits on two transitions and fires from either state'() {
         expect:
-        JavaDslSurface.sharedTriggerShapes() == '[from-s1, from-s2]:from-s1:from-s2'
+        JavaDslSurface.sharedTriggerShapes() == '[from-s1, from-s2]:from-s1:from-s2:[from-s1]:[from-s1]'
     }
 
     def 'every listener registration form attaches by id, across categories and scopes'() {
-        expect: 'each attachment delivered - a dropped one changes the sequence, not just its length'
+        expect: 'each attachment that fires delivered - a dropped one changes the sequence, not just its length'
+        // The error hooks never fire on this success path; the build resolving their by-id references is their proof.
         JavaDslSurface.listenerRegistrationShapes() ==
-            'START,any,EXIT,START,recording,COMPLETE,scoped-action-instance,COMPLETE,scoped-transition-instance,ENTRY'
+            ('START,typed-transition-cfg,any,EXIT,exit-audit,START,untyped-action,recording,COMPLETE,scoped-action-instance,'
+                + 'typed-action-cfg,untyped-action,untyped-action,recording,typed-action-cfg,'
+                + 'typed-action-cfg,untyped-action,untyped-action,recording,typed-action-cfg,'
+                + 'COMPLETE,scoped-transition-instance,any,ENTRY')
     }
 
     def 'a component factory is a lambda, and may delegate to the reflective default'() {

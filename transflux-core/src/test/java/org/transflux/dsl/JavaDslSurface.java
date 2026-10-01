@@ -1345,7 +1345,7 @@ public final class JavaDslSurface {
      * One manual trigger sits on two transitions leaving different states, so {@code fire(id)}
      * picks between them by the entity's current state.
      *
-     * @return the shared trigger's attachments and the two transitions it fired, joined
+     * @return the attachments of three registrations and the two transitions one fired, joined
      */
     public static String sharedTriggerShapes() {
         try (StateMachine<Order> sm = Transflux.defineStateMachine(Order.class)
@@ -1358,6 +1358,8 @@ public final class JavaDslSurface {
                 .onEvent("SETTLED")
                 .filterExpression("#event == 'ok'"))
             .dataTrigger("swept", t -> t.conditionExpression("state == 's1'"))
+            .eventTrigger("untyped-event", t -> t.onEvent("ANY"))
+            .dataTrigger("typed-data", OrderCtx.class, t -> t.conditionExpression("state == 's1'"))
             // and the same three under a forContext block
             .forContext(OrderCtx.class, scope -> scope
                 .manualTrigger("scoped-manual", t -> t.withDescription("Scoped"))
@@ -1367,7 +1369,9 @@ public final class JavaDslSurface {
             .transition("from-s1", "s1", "s2", OrderCtx.class, t -> t
                 .addTrigger("cancel")
                 .addTrigger("settled")
-                .addTrigger("swept"))
+                .addTrigger("swept")
+                .addTrigger("untyped-event")
+                .addTrigger("typed-data"))
             .state("s2")
             .transition("from-s2", "s2", "s3", t -> t.addTrigger("cancel"))
             .state("s3")
@@ -1378,7 +1382,9 @@ public final class JavaDslSurface {
             String first = sm.entity(order).fire("cancel", new OrderCtx()).getTransitionId();
             String second = sm.entity(order).fire("cancel").getTransitionId();
 
-            return shared.getTransitionIds() + ":" + first + ":" + second;
+            return shared.getTransitionIds() + ":" + first + ":" + second
+                + ":" + sm.getTrigger("untyped-event").getTransitionIds()
+                + ":" + sm.getTrigger("typed-data").getTransitionIds();
         }
     }
 
@@ -1402,6 +1408,12 @@ public final class JavaDslSurface {
             .transitionListener("configured-transition", l -> l.using(new AnyTransitionAudit()))
             .actionListener("typed-action", OrderCtx.class, new ActionAudit())
             .actionListener("configured-action", l -> l.withAsync().using((o, ctx, x) -> { }))
+            .transitionListener("typed-transition-cfg", OrderCtx.class,
+                                l -> l.using((o, ctx, x) -> o.trail.add("typed-transition-cfg")))
+            .actionListener("untyped-action", (o, ctx, x) -> o.trail.add("untyped-action"))
+            .actionListener("typed-action-cfg", OrderCtx.class,
+                            l -> l.using((o, ctx, x) -> o.trail.add("typed-action-cfg")))
+            .stateListener("exit-audit", (o, ctx, change) -> o.trail.add("exit-audit"))
             // and the same two categories under a forContext block
             .forContext(OrderCtx.class, scope -> scope
                 .transitionListener("scoped-transition", l -> l.using(new TransitionAudit()))
@@ -1410,12 +1422,17 @@ public final class JavaDslSurface {
                 .actionListener("scoped-action-instance", (o, ctx, x) -> o.trail.add("scoped-action-instance")))
             // attached state-machine-wide by id
             .onAnyTransitionStart("any-transition")
+            .onAnyTransitionComplete("any-transition")
+            .onAnyTransitionError("any-transition")
             .onAnyStateEntry("state-audit")
+            .onAnyStateExit("exit-audit")
+            .onAnyActionStart("untyped-action")
             .state("s1", s -> s
                 .onExit("state-audit")
                 .onEntry("state-configured"))
             .transition("t", "s1", "s2", OrderCtx.class, t -> t
                 .onStart("typed-transition")
+                .onStart("typed-transition-cfg")
                 .onComplete("scoped-transition")
                 .onComplete("scoped-transition-instance")
                 .onError("configured-transition")
@@ -1424,7 +1441,18 @@ public final class JavaDslSurface {
                     .onStart("typed-action")
                     .onComplete("scoped-action")
                     .onComplete("scoped-action-instance")
-                    .onError("configured-action")))
+                    .onError("configured-action"))
+                // the by-id hooks narrowed on an operation and a choice keep the chain on their own type
+                .operation("audited", op -> op
+                    .onStart("typed-action-cfg")
+                    .onComplete("typed-action-cfg")
+                    .onError("typed-action-cfg")
+                    .run("record"))
+                .choice("routed", cs -> cs
+                    .onStart("typed-action-cfg")
+                    .onComplete("typed-action-cfg")
+                    .onError("typed-action-cfg")
+                    .branch("always", b -> b.conditionExpression("true").run("record"))))
             .state("s2")
             .build()) {
 
