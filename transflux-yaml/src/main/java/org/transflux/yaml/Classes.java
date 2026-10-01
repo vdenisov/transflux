@@ -22,6 +22,8 @@ import org.transflux.core.ComponentFactory;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.yaml.snakeyaml.nodes.Node;
 
+import java.lang.reflect.MalformedParameterizedTypeException;
+
 /**
  * The one way a document's class names become classes and instances: through the host's class
  * loader and component factory, with every failure reported at the line that named the class.
@@ -94,8 +96,8 @@ final class Classes {
      * @return the instance the component factory created
      *
      * @throws DefinitionLoadException when the class cannot be loaded, is not a {@code position},
-     *         declares type arguments the position refuses, or the factory fails or returns
-     *         something else
+     *         declares type arguments the position refuses, refers to a class that cannot be
+     *         loaded, or the factory fails or returns something unusable at the position
      */
     <X> X instantiate(NodeMap map, String key, Class<X> position, TypeArguments.Expected... expected) {
         return instantiate(map, key, requiredClass(map, key, position), position, expected);
@@ -115,12 +117,18 @@ final class Classes {
      * @return the instance the component factory created
      *
      * @throws DefinitionLoadException when the class declares type arguments the position refuses,
-     *         or the factory fails or returns something else
+     *         refers to a class that cannot be loaded, or the factory fails or returns something
+     *         unusable at the position
      */
     <X> X instantiate(NodeMap map, String key, Class<?> type, Class<X> position, TypeArguments.Expected... expected) {
         Node at = map.requiredNode(key);
         if (expected.length > 0) {
-            String mismatch = TypeArguments.mismatch(type, position, expected);
+            String mismatch;
+            try {
+                mismatch = TypeArguments.mismatch(type, position, expected);
+            } catch (TypeNotPresentException | MalformedParameterizedTypeException | LinkageError e) {
+                throw unloadable(map, at, type, e);
+            }
             if (mismatch != null) {
                 throw map.error(at, mismatch);
             }
@@ -136,7 +144,8 @@ final class Classes {
                 + e.getClass().getName(), e);
         }
 
-        if (!type.isInstance(instance)) {
+        // The position, not the class: a container may hand back a proxy implementing the same interfaces.
+        if (!position.isInstance(instance)) {
             throw map.error(at, "the component factory returned "
                 + (instance == null ? "null" : "a " + instance.getClass().getName()) + " for class " + type.getName());
         }
@@ -144,5 +153,19 @@ final class Classes {
         Loggers.YAML_BINDING.trace("Component instantiated, class={}", type.getName());
 
         return position.cast(instance);
+    }
+
+    /**
+     * @param map the mapping holding the key
+     * @param at the key's value
+     * @param type the class it named
+     * @param failure what reflection threw resolving a type argument the class declares
+     *
+     * @return the failure, at the line that named the class
+     */
+    private static DefinitionLoadException unloadable(NodeMap map, Node at, Class<?> type, Throwable failure) {
+        // Reflection resolves a type argument lazily, so an absent optional dependency surfaces here.
+        return map.error(at, "class " + type.getName() + " refers to a class that cannot be loaded (" + failure + ")",
+            failure);
     }
 }

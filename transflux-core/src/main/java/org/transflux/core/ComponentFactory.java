@@ -38,7 +38,8 @@ public interface ComponentFactory {
      *
      * @param type the class a definition named
      *
-     * @return an instance of {@code type}, never {@code null}
+     * @return an instance usable at the position the class was named at, such as a container's
+     *         proxy for it; never {@code null}
      *
      * @throws TransfluxValidationException when no instance can be created
      */
@@ -62,6 +63,11 @@ public interface ComponentFactory {
             } catch (NoSuchMethodException e) {
                 throw new TransfluxValidationException(
                     "Cannot instantiate " + type.getName() + ": it declares no no-argument constructor", e);
+            } catch (LinkageError e) {
+                // Every constructor's parameter types are resolved here, the one this needs or not.
+                throw new TransfluxValidationException(
+                    "Cannot instantiate " + type.getName() + ": a constructor mentions a class that cannot be loaded ("
+                        + e.getMessage() + ")", e);
             }
 
             try {
@@ -72,6 +78,11 @@ public interface ComponentFactory {
                         + ": its no-argument constructor is not accessible; make the class and the constructor public",
                     e);
             } catch (InvocationTargetException e) {
+                // The JVM can no longer be trusted, so this is not a definition's fault to report; the
+                // framework's fatal rule, mirrored here because the public API cannot reach its own.
+                if (e.getCause() instanceof VirtualMachineError fatal) {
+                    throw fatal;
+                }
                 throw new TransfluxValidationException(
                     "Cannot instantiate " + type.getName() + ": its constructor threw " + e.getCause().getClass().getName(),
                     e.getCause());

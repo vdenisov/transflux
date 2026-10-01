@@ -23,8 +23,19 @@ import org.transflux.core.action.Action
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.transition.ExecutingTransition
 import spock.lang.Specification
+import spock.lang.TempDir
+
+import javax.tools.ToolProvider
+import java.lang.reflect.InvocationHandler
+import java.lang.reflect.Proxy
+import java.nio.file.Files
+import java.nio.file.Path
+import java.util.function.Predicate
 
 class ClassesSpec extends Specification {
+
+    @TempDir
+    Path compiled
 
     def 'loads and instantiates a class named at a position'() {
         given:
@@ -107,6 +118,59 @@ class ClassesSpec extends Specification {
         e.line() == 2
         e.problem() == "class ${Step.name} declares Action's C as java.lang.Object, where this position needs java.lang.String"
         created == 0
+    }
+
+    def 'a factory may return a proxy usable at the position rather than an instance of the class'() {
+        given:
+        def proxy = Proxy.newProxyInstance(getClass().classLoader, [Action] as Class[],
+            { p, method, args -> null } as InvocationHandler)
+        def classes = new Classes(getClass().classLoader, { proxy } as ComponentFactory)
+
+        expect:
+        classes.instantiate(map("class: ${Step.name}\n"), 'class', Action).is(proxy)
+    }
+
+    def 'a class referring to an absent class through #where is reported at the line naming it'() {
+        given:
+        def classes = new Classes(loaderWithoutMissing(), ComponentFactory.reflective())
+
+        when:
+        classes.instantiate(map("\nclass: pkg.${name}\n"), 'class', Predicate, expected as TypeArguments.Expected[])
+
+        then:
+        def e = thrown(DefinitionLoadException)
+        e.line() == 2
+        e.problem() == problem
+
+        where:
+        where             | name          | expected                                 || problem
+        'a type argument' | 'Typed'       | [TypeArguments.Expected.exactly(Object)] || 'class pkg.Typed refers to a class that cannot be loaded (java.lang.TypeNotPresentException: Type pkg.Missing not present)'
+        'a constructor'   | 'Constructed' | []                                       || 'Cannot instantiate pkg.Constructed: a constructor mentions a class that cannot be loaded (pkg/Missing)'
+    }
+
+    /**
+     * Compiles two classes mentioning {@code pkg.Missing} - one as its type argument, one as a
+     * constructor parameter - and loads them with {@code pkg.Missing} itself deleted.
+     *
+     * @return a loader that sees the two classes but not the one they mention
+     */
+    private ClassLoader loaderWithoutMissing() {
+        def sources = [
+            Missing    : 'public class Missing {}',
+            Typed      : 'public class Typed implements java.util.function.Predicate<Missing> {'
+                + ' public boolean test(Missing m) { return true; } }',
+            Constructed: 'public class Constructed implements java.util.function.Predicate<Object> {'
+                + ' public Constructed() {} public Constructed(Missing m) {}'
+                + ' public boolean test(Object o) { return true; } }']
+        def files = sources.collect { name, body ->
+            Files.writeString(Files.createDirectories(compiled.resolve('src/pkg')).resolve("${name}.java"),
+                "package pkg; ${body}").toString()
+        }
+        def out = compiled.resolve('classes')
+        assert ToolProvider.systemJavaCompiler.run(null, null, null,
+            (['--release', '17', '-d', out.toString()] + files) as String[]) == 0
+        Files.delete(out.resolve('pkg/Missing.class'))
+        return new URLClassLoader([out.toUri().toURL()] as URL[], getClass().classLoader)
     }
 
     private static NodeMap map(String text) {

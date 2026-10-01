@@ -70,6 +70,15 @@ class ComponentFactorySpec extends Specification {
         retry.message == "Cannot instantiate ${FailingInitializer.name}: its static initialisation failed with java.lang.ExceptionInInitializerError"
     }
 
+    def 'a VirtualMachineError from a constructor propagates untouched'() {
+        when:
+        ComponentFactory.reflective().create(Exhausted)
+
+        then:
+        def e = thrown(OutOfMemoryError)
+        e.message == 'constructor'
+    }
+
     static class Plain {
     }
 
@@ -91,6 +100,12 @@ class ComponentFactorySpec extends Specification {
             if (true) {
                 throw new IllegalStateException('initialised')
             }
+        }
+    }
+
+    static class Exhausted {
+        Exhausted() {
+            throw new OutOfMemoryError('constructor')
         }
     }
 
