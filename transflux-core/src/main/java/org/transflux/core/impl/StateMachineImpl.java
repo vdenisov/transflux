@@ -87,23 +87,16 @@ class StateMachineImpl<T> implements StateMachine<T> {
     private volatile long generation;
 
     /**
-     * Where forked members run, and whether shutting it down is this state machine's business.
-     * Both are {@code null} / {@code false} until a definition needs an executor, which may be the
-     * one built at {@code build()} or a later one installed by a replacement.
+     * Where forked members run, and whether shutting it down is this state machine's business;
+     * {@code null} until a definition needs an executor, which may be the one built at
+     * {@code build()} or a later one installed by a replacement. Set once, never replaced.
      *
      * <p>The executor belongs to the handle rather than to a snapshot, and the first definition that
      * needs one configures it for the handle's lifetime. A snapshot is never explicitly retired, so
      * a per-snapshot pool would either be shut down while an in-flight pre-swap transition could
      * still fork into it - losing that branch - or be retained per generation forever.
      */
-    private volatile ExecutorService asyncExecutor;
-    private volatile boolean ownsAsyncExecutor;
-
-    /** What configured {@link #asyncExecutor}, or {@code null} when the host supplied one. */
-    private volatile AsyncPoolSpec asyncPoolSpec;
-
-    /** Whether the pool in force was built with a fair queue, which only {@code BLOCK} needs. */
-    private volatile boolean asyncPoolFair;
+    private volatile AsyncExecution async;
 
     private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -171,27 +164,26 @@ class StateMachineImpl<T> implements StateMachine<T> {
 
     @Override
     public void close() {
-        ExecutorService executor;
-        boolean owned;
+        AsyncExecution current;
         // Under the swap lock, so a replacement in progress finishes first: otherwise it could adopt
-        // an executor after this read, or be seen between recording the executor and its owner.
-        // The lock is released before the drain, so a swap never waits out the shutdown timeout.
+        // an executor after this read. The lock is released before the drain, so a swap never waits
+        // out the shutdown timeout.
         synchronized (swapLock) {
             if (!closed.compareAndSet(false, true)) {
                 return;
             }
-            executor = asyncExecutor;
-            owned = ownsAsyncExecutor;
+            current = async;
         }
 
-        if (executor == null) {
+        if (current == null) {
             return;
         }
-        if (!owned) {
+        if (!current.owned()) {
             Loggers.EXECUTION_ASYNC.debug("Async close ignored, executor is host-supplied");
             return;
         }
 
+        ExecutorService executor = current.executor();
         executor.shutdown();
         boolean terminated;
         try {
@@ -282,28 +274,23 @@ class StateMachineImpl<T> implements StateMachine<T> {
      * @param def the definition being built or installed; never {@code null}
      */
     void adoptExecutorIfNeeded(StateMachineDefImpl<T> def) {
-        if (asyncExecutor != null) {
-            warnIfAsyncConfigDiffers(def);
+        AsyncExecution current = async;
+        if (current != null) {
+            warnIfAsyncConfigDiffers(def, current);
             return;
         }
 
         ExecutorService supplied = def.getAsyncExecutor();
         if (supplied != null) {
-            this.asyncExecutor = supplied;
-            this.ownsAsyncExecutor = false;
-            this.asyncPoolSpec = null;
-            this.asyncPoolFair = false;
+            this.async = new AsyncExecution(supplied, null, false);
             Loggers.EXECUTION_ASYNC.info("Async executor supplied by host, executorType={}",
                                          supplied.getClass().getName());
         } else if (def.definitionForks() || def.declaresAsyncPool() || def.declaresAsyncListener()) {
             AsyncPoolSpec spec = def.getAsyncPoolSpec();
             // A fair queue only earns its lock where something actually waits on it.
             boolean blocks = def.declaresBlockingRejection();
-            this.asyncExecutor = spec.newPool(new AsyncRejectionHandler(this::insideOwnAsyncBranch),
-                                              blocks);
-            this.ownsAsyncExecutor = true;
-            this.asyncPoolSpec = spec;
-            this.asyncPoolFair = blocks;
+            this.async = new AsyncExecution(
+                spec.newPool(new AsyncRejectionHandler(this::insideOwnAsyncBranch), blocks), spec, blocks);
             Loggers.EXECUTION_ASYNC.info("Async pool created, threads={}, queueCapacity={}",
                                          spec.threads(), spec.queueCapacity());
         }
@@ -352,10 +339,10 @@ class StateMachineImpl<T> implements StateMachine<T> {
      *         {@link AsyncRejectionPolicy#BLOCK} when no wait could free a slot
      */
     String submitAsync(Runnable task, AsyncRejectionPolicy policy, Object subject) {
-        requireAsyncAccepted(policy, subject);
+        ExecutorService executor = accepted(policy, subject).executor();
 
         try {
-            asyncExecutor.execute(new AsyncWork(task, policy, subject));
+            executor.execute(new AsyncWork(task, policy, subject));
         } catch (RejectedExecutionException e) {
             return refuse(task, policy, subject, e);
         }
@@ -373,7 +360,23 @@ class StateMachineImpl<T> implements StateMachine<T> {
      *         {@link AsyncRejectionPolicy#BLOCK} is asked for against a host-supplied one
      */
     void requireAsyncAccepted(AsyncRejectionPolicy policy, Object subject) {
-        if (asyncExecutor == null) {
+        accepted(policy, subject);
+    }
+
+    /**
+     * {@link #requireAsyncAccepted}, returning the executor configuration it checked, so a caller
+     * submits to exactly what was validated.
+     *
+     * @param policy the resolved rejection policy; never {@code null}
+     * @param subject what the work is, for the message
+     *
+     * @return the configuration in force
+     *
+     * @throws TransfluxValidationException as {@link #requireAsyncAccepted} does
+     */
+    private AsyncExecution accepted(AsyncRejectionPolicy policy, Object subject) {
+        AsyncExecution current = async;
+        if (current == null) {
             throw new TransfluxValidationException(
                 "No async executor is configured, yet async work was reached at '" + subject
                     + "'; a fork written inside an action body is invisible to the build, so a"
@@ -385,10 +388,11 @@ class StateMachineImpl<T> implements StateMachine<T> {
         // it cannot see one chosen inside a Java body. Refusing at every submission rather than
         // only at a rejection keeps the two answers the same: a policy that could never be honoured
         // fails the first time it is used, not the first time the queue happens to be full.
-        if (policy == AsyncRejectionPolicy.BLOCK && !ownsAsyncExecutor) {
+        if (policy == AsyncRejectionPolicy.BLOCK && !current.owned()) {
             throw new TransfluxValidationException(
                 StateMachineDefImpl.blockUnavailable("the fork of '" + subject + "'"));
         }
+        return current;
     }
 
     /**
@@ -517,14 +521,15 @@ class StateMachineImpl<T> implements StateMachine<T> {
      *         cannot be honoured
      */
     private void requireBlockingPossible(StateMachineDefImpl<T> def) {
-        if (asyncExecutor == null) {
+        AsyncExecution current = async;
+        if (current == null) {
             return;
         }
         String declaredOn = def.firstBlockingDeclaration();
         if (declaredOn == null) {
             return;
         }
-        if (!ownsAsyncExecutor) {
+        if (!current.owned()) {
             throw new TransfluxValidationException(StateMachineDefImpl.blockUnavailable(declaredOn,
                 "the executor in force is host-supplied and a replacement keeps it", "choose another policy"));
         }
@@ -540,21 +545,22 @@ class StateMachineImpl<T> implements StateMachine<T> {
      * running. Sizes rather than record equality: {@link AsyncPoolSpec} carries a
      * {@link java.util.concurrent.ThreadFactory}, so two default specs are never equal.
      */
-    private void warnIfAsyncConfigDiffers(StateMachineDefImpl<T> def) {
+    private void warnIfAsyncConfigDiffers(StateMachineDefImpl<T> def, AsyncExecution current) {
+        AsyncPoolSpec poolSpec = current.poolSpec();
         // The fair queue is chosen when the pool is built, from the definition that built it, so a
         // definition that introduces BLOCK later gets the waiting it asked for on a queue that does
         // not order the waiters - which is the starvation the flag exists to prevent.
-        if (ownsAsyncExecutor && !asyncPoolFair && def.declaresBlockingRejection()) {
+        if (current.owned() && !current.fair() && def.declaresBlockingRejection()) {
             Loggers.EXECUTION_ASYNC.warn(
                 "Async rejection policy BLOCK declared by the new definition waits on a pool whose"
                     + " queue was not built fair, because the definition that created it declared"
                     + " no BLOCK, threads={}, queueCapacity={}",
-                asyncPoolSpec.threads(), asyncPoolSpec.queueCapacity());
+                poolSpec.threads(), poolSpec.queueCapacity());
         }
 
         ExecutorService supplied = def.getAsyncExecutor();
         if (supplied != null) {
-            if (supplied != asyncExecutor) {
+            if (supplied != current.executor()) {
                 Loggers.EXECUTION_ASYNC.warn(
                     "Async executor declared by the new definition is ignored, the one in force was"
                         + " configured by an earlier definition, executorType={}",
@@ -568,7 +574,7 @@ class StateMachineImpl<T> implements StateMachine<T> {
         }
 
         AsyncPoolSpec declared = def.getAsyncPoolSpec();
-        if (asyncPoolSpec == null) {
+        if (poolSpec == null) {
             Loggers.EXECUTION_ASYNC.warn(
                 "Async pool declared by the new definition is ignored, the executor in force is"
                     + " host-supplied, declaredThreads={}, declaredQueueCapacity={}",
@@ -576,13 +582,13 @@ class StateMachineImpl<T> implements StateMachine<T> {
             return;
         }
 
-        if (declared.threads() != asyncPoolSpec.threads()
-            || declared.queueCapacity() != asyncPoolSpec.queueCapacity()) {
+        if (declared.threads() != poolSpec.threads()
+            || declared.queueCapacity() != poolSpec.queueCapacity()) {
             Loggers.EXECUTION_ASYNC.warn(
                 "Async pool declared by the new definition is ignored, declaredThreads={},"
                     + " declaredQueueCapacity={}, threads={}, queueCapacity={}",
                 new Object[] {declared.threads(), declared.queueCapacity(),
-                              asyncPoolSpec.threads(), asyncPoolSpec.queueCapacity()});
+                              poolSpec.threads(), poolSpec.queueCapacity()});
         }
     }
 
@@ -663,6 +669,26 @@ class StateMachineImpl<T> implements StateMachine<T> {
         @Override
         public int hashCode() {
             return System.identityHashCode(sm) * 31 + System.identityHashCode(entity);
+        }
+    }
+
+    /**
+     * The executor in force and how it came to be, written once as a whole so no reader can see
+     * part of a configuration.
+     *
+     * @param executor the executor forked members and async listeners run on
+     * @param poolSpec what built it, or {@code null} when the host supplied it
+     * @param fair whether the pool was built with a fair queue, which only {@code BLOCK} needs
+     */
+    private record AsyncExecution(ExecutorService executor, AsyncPoolSpec poolSpec, boolean fair) {
+
+        /**
+         * Reports whether the framework built the executor, and so owns its shutdown.
+         *
+         * @return {@code true} for a pool the framework built
+         */
+        boolean owned() {
+            return poolSpec != null;
         }
     }
 }

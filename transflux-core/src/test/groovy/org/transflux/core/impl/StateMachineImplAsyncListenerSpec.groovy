@@ -418,7 +418,7 @@ class StateMachineImplAsyncListenerSpec extends Specification {
                .step('after', { e, c, t -> } as Action)
                .step('slow', { e, c, view ->
                    branchThread.add(Thread.currentThread().name)
-                   waitFor { sm.@asyncExecutor.isShutdown() }
+                   waitFor { sm.@async.executor().isShutdown() }
                    view.run('after')
                } as Action)
                .onAnyActionComplete('audit', { l ->
