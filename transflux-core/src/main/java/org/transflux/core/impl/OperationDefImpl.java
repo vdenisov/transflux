@@ -20,11 +20,7 @@ package org.transflux.core.impl;
 
 import org.transflux.core.action.Action;
 import org.transflux.core.action.ActionKind;
-import org.transflux.core.action.AsyncRejectionPolicy;
-import org.transflux.core.action.ChoiceDef;
-import org.transflux.core.action.ContextMapper;
 import org.transflux.core.action.OperationDef;
-import org.transflux.core.action.StepDef;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.impl.StateMachineDefImpl.CanonicalClaim;
 import org.transflux.core.transition.ExecutingTransition;
@@ -51,10 +47,11 @@ import java.util.function.Predicate;
  * @param <C> the host-supplied context type carried through transition execution
  */
 final class OperationDefImpl<T, C>
-    extends ActionDefImpl<T, C, OperationDefImpl<T, C>> implements OperationDef<T, C> {
+    extends ActionDefImpl<T, C, OperationDefImpl<T, C>>
+    implements OperationDef<T, C>, ActionSequenceDelegate<T, C, OperationDef<T, C>> {
 
-    private final ActionSequenceSink<T, C, OperationDefImpl<T, C>> members =
-        new ActionSequenceSink<>(this, this);
+    private final ActionSequenceSink<T, C> members =
+        new ActionSequenceSink<>(this);
 
     private CompositeOperationExecutor<T, C> executor;
 
@@ -103,90 +100,13 @@ final class OperationDefImpl<T, C>
     }
 
     @Override
-    public OperationDefImpl<T, C> run(String id) {
-        return members.run(id);
+    public ActionSequenceSink<T, C> sequenceSink() {
+        return members;
     }
 
     @Override
-    public OperationDefImpl<T, C> run(String id, String mapperId) {
-        return members.run(id, mapperId);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> run(String id, ContextMapper<C, ?> inlineMapper) {
-        return members.run(id, inlineMapper);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> fork(String id) {
-        return members.fork(id);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> fork(String id, String mapperId) {
-        return members.fork(id, mapperId);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> fork(String id, ContextMapper<C, ?> inlineMapper) {
-        return members.fork(id, inlineMapper);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> fork(String id, AsyncRejectionPolicy policy) {
-        return members.fork(id, policy);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> fork(String id, String mapperId, AsyncRejectionPolicy policy) {
-        return members.fork(id, mapperId, policy);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> fork(String id, ContextMapper<C, ?> inlineMapper, AsyncRejectionPolicy policy) {
-        return members.fork(id, inlineMapper, policy);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> step(String id, Action<? super T, C> action) {
-        return members.step(id, action, false);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> step(String id, Consumer<StepDef<T, C>> configurer) {
-        return members.step(id, configurer, false);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> choice(String id, Consumer<ChoiceDef<T, C>> configurer) {
-        return members.choice(id, configurer, false);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> operation(String id, Consumer<OperationDef<T, C>> configurer) {
-        return members.operation(id, configurer, false);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> forkStep(String id, Action<? super T, C> action) {
-        return members.step(id, action, true);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> forkStep(String id, Consumer<StepDef<T, C>> configurer) {
-        return members.step(id, configurer, true);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> forkChoice(String id,
-                                             Consumer<ChoiceDef<T, C>> configurer) {
-        return members.choice(id, configurer, true);
-    }
-
-    @Override
-    public OperationDefImpl<T, C> forkOperation(String id,
-                                                Consumer<OperationDef<T, C>> configurer) {
-        return members.operation(id, configurer, true);
+    public OperationDef<T, C> sequenceSelf() {
+        return this;
     }
 
     /**
@@ -468,146 +388,4 @@ final class OperationDefImpl<T, C>
         }
     }
 
-    @Override
-    public <N> OperationDefImpl<T, C> step(String id, Class<N> contextType, Action<? super T, N> action) {
-        return members.step(id, contextType, MapperRef.passThrough(), action, false);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> step(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                                           Action<? super T, N> action) {
-        return members.step(id, contextType, MapperRef.inline(mapper), action, false);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> step(String id, Class<N> contextType, Consumer<StepDef<T, N>> configurer) {
-        return members.step(id, contextType, MapperRef.passThrough(), configurer, false);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> step(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                                           Consumer<StepDef<T, N>> configurer) {
-        return members.step(id, contextType, MapperRef.inline(mapper), configurer, false);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> choice(String id, Class<N> contextType, Consumer<ChoiceDef<T, N>> configurer) {
-        return members.choice(id, contextType, MapperRef.passThrough(), configurer, false);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> choice(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                                             Consumer<ChoiceDef<T, N>> configurer) {
-        return members.choice(id, contextType, MapperRef.inline(mapper), configurer, false);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> operation(String id, Class<N> contextType,
-                                                Consumer<OperationDef<T, N>> configurer) {
-        return members.operation(id, contextType, MapperRef.passThrough(), configurer, false);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> operation(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                                                Consumer<OperationDef<T, N>> configurer) {
-        return members.operation(id, contextType, MapperRef.inline(mapper), configurer, false);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> forkStep(String id, Class<N> contextType,
-                                               Action<? super T, N> action) {
-        return members.step(id, contextType, MapperRef.passThrough(), action, true);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> forkStep(String id, Class<N> contextType,
-                                               ContextMapper<C, N> mapper, Action<? super T, N> action) {
-        return members.step(id, contextType, MapperRef.inline(mapper), action, true);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> forkStep(String id, Class<N> contextType,
-                                               Consumer<StepDef<T, N>> configurer) {
-        return members.step(id, contextType, MapperRef.passThrough(), configurer, true);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> forkStep(String id, Class<N> contextType,
-                                               ContextMapper<C, N> mapper,
-                                               Consumer<StepDef<T, N>> configurer) {
-        return members.step(id, contextType, MapperRef.inline(mapper), configurer, true);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> forkChoice(String id, Class<N> contextType,
-                                                 Consumer<ChoiceDef<T, N>> configurer) {
-        return members.choice(id, contextType, MapperRef.passThrough(), configurer, true);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> forkChoice(String id, Class<N> contextType,
-                                                 ContextMapper<C, N> mapper,
-                                                 Consumer<ChoiceDef<T, N>> configurer) {
-        return members.choice(id, contextType, MapperRef.inline(mapper), configurer, true);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> forkOperation(String id, Class<N> contextType,
-                                                    Consumer<OperationDef<T, N>> configurer) {
-        return members.operation(id, contextType, MapperRef.passThrough(), configurer, true);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> forkOperation(String id, Class<N> contextType,
-                                                    ContextMapper<C, N> mapper,
-                                                    Consumer<OperationDef<T, N>> configurer) {
-        return members.operation(id, contextType, MapperRef.inline(mapper), configurer, true);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> step(String id, Class<N> contextType, String mapperId, Action<? super T, N> action) {
-        return members.step(id, contextType, MapperRef.byId(mapperId), action, false);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> step(String id, Class<N> contextType, String mapperId,
-                                           Consumer<StepDef<T, N>> configurer) {
-        return members.step(id, contextType, MapperRef.byId(mapperId), configurer, false);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> choice(String id, Class<N> contextType, String mapperId,
-                                             Consumer<ChoiceDef<T, N>> configurer) {
-        return members.choice(id, contextType, MapperRef.byId(mapperId), configurer, false);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> operation(String id, Class<N> contextType, String mapperId,
-                                                Consumer<OperationDef<T, N>> configurer) {
-        return members.operation(id, contextType, MapperRef.byId(mapperId), configurer, false);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> forkStep(String id, Class<N> contextType, String mapperId,
-                                               Action<? super T, N> action) {
-        return members.step(id, contextType, MapperRef.byId(mapperId), action, true);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> forkStep(String id, Class<N> contextType, String mapperId,
-                                               Consumer<StepDef<T, N>> configurer) {
-        return members.step(id, contextType, MapperRef.byId(mapperId), configurer, true);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> forkChoice(String id, Class<N> contextType, String mapperId,
-                                                 Consumer<ChoiceDef<T, N>> configurer) {
-        return members.choice(id, contextType, MapperRef.byId(mapperId), configurer, true);
-    }
-
-    @Override
-    public <N> OperationDefImpl<T, C> forkOperation(String id, Class<N> contextType, String mapperId,
-                                                    Consumer<OperationDef<T, N>> configurer) {
-        return members.operation(id, contextType, MapperRef.byId(mapperId), configurer, true);
-    }
 }

@@ -18,13 +18,7 @@
 
 package org.transflux.core.impl;
 
-import org.transflux.core.action.Action;
-import org.transflux.core.action.AsyncRejectionPolicy;
 import org.transflux.core.action.BranchDef;
-import org.transflux.core.action.ChoiceDef;
-import org.transflux.core.action.ContextMapper;
-import org.transflux.core.action.OperationDef;
-import org.transflux.core.action.StepDef;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.condition.ConditionDescriptor;
 
@@ -41,12 +35,13 @@ import static org.transflux.core.Preconditions.requireNotBlank;
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
  */
-final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef<T, C> {
+final class BranchDefImpl<T, C> extends ConfigurableDefImpl
+    implements BranchDef<T, C>, ActionSequenceDelegate<T, C, BranchDef<T, C>> {
     private final String branchId;
     private final ConditionDescriptorSink<T, C, BranchDef<T, C>> branchCondition =
         new ConditionDescriptorSink<>(this, this, "condition", Loggers.BUILD_VALIDATION);
-    private final ActionSequenceSink<T, C, BranchDef<T, C>> members =
-        new ActionSequenceSink<>(this, this);
+    private final ActionSequenceSink<T, C> members =
+        new ActionSequenceSink<>(this);
 
     BranchDefImpl(String branchId) {
         requireNotBlank(branchId, "Branch ID");
@@ -128,229 +123,13 @@ final class BranchDefImpl<T, C> extends ConfigurableDefImpl implements BranchDef
     }
 
     @Override
-    public BranchDef<T, C> run(String id) {
-        return members.run(id);
+    public ActionSequenceSink<T, C> sequenceSink() {
+        return members;
     }
 
     @Override
-    public BranchDef<T, C> run(String id, String mapperId) {
-        return members.run(id, mapperId);
+    public BranchDef<T, C> sequenceSelf() {
+        return this;
     }
 
-    @Override
-    public BranchDef<T, C> run(String id, ContextMapper<C, ?> inlineMapper) {
-        return members.run(id, inlineMapper);
-    }
-
-    @Override
-    public BranchDef<T, C> fork(String id) {
-        return members.fork(id);
-    }
-
-    @Override
-    public BranchDef<T, C> fork(String id, String mapperId) {
-        return members.fork(id, mapperId);
-    }
-
-    @Override
-    public BranchDef<T, C> fork(String id, ContextMapper<C, ?> inlineMapper) {
-        return members.fork(id, inlineMapper);
-    }
-
-    @Override
-    public BranchDef<T, C> fork(String id, AsyncRejectionPolicy policy) {
-        return members.fork(id, policy);
-    }
-
-    @Override
-    public BranchDef<T, C> fork(String id, String mapperId, AsyncRejectionPolicy policy) {
-        return members.fork(id, mapperId, policy);
-    }
-
-    @Override
-    public BranchDef<T, C> fork(String id, ContextMapper<C, ?> inlineMapper, AsyncRejectionPolicy policy) {
-        return members.fork(id, inlineMapper, policy);
-    }
-
-    @Override
-    public BranchDef<T, C> choice(String id, Consumer<ChoiceDef<T, C>> configurer) {
-        return members.choice(id, configurer, false);
-    }
-
-    @Override
-    public BranchDef<T, C> operation(String id, Consumer<OperationDef<T, C>> configurer) {
-        return members.operation(id, configurer, false);
-    }
-
-    @Override
-    public BranchDef<T, C> step(String id, Action<? super T, C> step) {
-        return members.step(id, step, false);
-    }
-
-    @Override
-    public BranchDef<T, C> step(String id, Consumer<StepDef<T, C>> configurer) {
-        return members.step(id, configurer, false);
-    }
-
-    @Override
-    public BranchDef<T, C> forkStep(String id, Action<? super T, C> action) {
-        return members.step(id, action, true);
-    }
-
-    @Override
-    public BranchDef<T, C> forkStep(String id, Consumer<StepDef<T, C>> configurer) {
-        return members.step(id, configurer, true);
-    }
-
-    @Override
-    public BranchDef<T, C> forkChoice(String id,
-                                      Consumer<ChoiceDef<T, C>> configurer) {
-        return members.choice(id, configurer, true);
-    }
-
-    @Override
-    public BranchDef<T, C> forkOperation(String id, Consumer<OperationDef<T, C>> configurer) {
-        return members.operation(id, configurer, true);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> step(String id, Class<N> contextType, Action<? super T, N> action) {
-        return members.step(id, contextType, MapperRef.passThrough(), action, false);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> step(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                                    Action<? super T, N> action) {
-        return members.step(id, contextType, MapperRef.inline(mapper), action, false);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> step(String id, Class<N> contextType, Consumer<StepDef<T, N>> configurer) {
-        return members.step(id, contextType, MapperRef.passThrough(), configurer, false);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> step(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                                    Consumer<StepDef<T, N>> configurer) {
-        return members.step(id, contextType, MapperRef.inline(mapper), configurer, false);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> choice(String id, Class<N> contextType, Consumer<ChoiceDef<T, N>> configurer) {
-        return members.choice(id, contextType, MapperRef.passThrough(), configurer, false);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> choice(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                                      Consumer<ChoiceDef<T, N>> configurer) {
-        return members.choice(id, contextType, MapperRef.inline(mapper), configurer, false);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> operation(String id, Class<N> contextType,
-                                         Consumer<OperationDef<T, N>> configurer) {
-        return members.operation(id, contextType, MapperRef.passThrough(), configurer, false);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> operation(String id, Class<N> contextType, ContextMapper<C, N> mapper,
-                                         Consumer<OperationDef<T, N>> configurer) {
-        return members.operation(id, contextType, MapperRef.inline(mapper), configurer, false);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> forkStep(String id, Class<N> contextType, Action<? super T, N> action) {
-        return members.step(id, contextType, MapperRef.passThrough(), action, true);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> forkStep(String id, Class<N> contextType,
-                                        ContextMapper<C, N> mapper, Action<? super T, N> action) {
-        return members.step(id, contextType, MapperRef.inline(mapper), action, true);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> forkStep(String id, Class<N> contextType,
-                                        Consumer<StepDef<T, N>> configurer) {
-        return members.step(id, contextType, MapperRef.passThrough(), configurer, true);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> forkStep(String id, Class<N> contextType,
-                                        ContextMapper<C, N> mapper,
-                                        Consumer<StepDef<T, N>> configurer) {
-        return members.step(id, contextType, MapperRef.inline(mapper), configurer, true);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> forkChoice(String id, Class<N> contextType, Consumer<ChoiceDef<T, N>> configurer) {
-        return members.choice(id, contextType, MapperRef.passThrough(), configurer, true);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> forkChoice(String id, Class<N> contextType,
-                                          ContextMapper<C, N> mapper,
-                                          Consumer<ChoiceDef<T, N>> configurer) {
-        return members.choice(id, contextType, MapperRef.inline(mapper), configurer, true);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> forkOperation(String id, Class<N> contextType,
-                                             Consumer<OperationDef<T, N>> configurer) {
-        return members.operation(id, contextType, MapperRef.passThrough(), configurer, true);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> forkOperation(String id, Class<N> contextType,
-                                             ContextMapper<C, N> mapper,
-                                             Consumer<OperationDef<T, N>> configurer) {
-        return members.operation(id, contextType, MapperRef.inline(mapper), configurer, true);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> step(String id, Class<N> contextType, String mapperId, Action<? super T, N> action) {
-        return members.step(id, contextType, MapperRef.byId(mapperId), action, false);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> step(String id, Class<N> contextType, String mapperId,
-                                    Consumer<StepDef<T, N>> configurer) {
-        return members.step(id, contextType, MapperRef.byId(mapperId), configurer, false);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> choice(String id, Class<N> contextType, String mapperId,
-                                      Consumer<ChoiceDef<T, N>> configurer) {
-        return members.choice(id, contextType, MapperRef.byId(mapperId), configurer, false);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> operation(String id, Class<N> contextType, String mapperId,
-                                         Consumer<OperationDef<T, N>> configurer) {
-        return members.operation(id, contextType, MapperRef.byId(mapperId), configurer, false);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> forkStep(String id, Class<N> contextType, String mapperId,
-                                        Action<? super T, N> action) {
-        return members.step(id, contextType, MapperRef.byId(mapperId), action, true);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> forkStep(String id, Class<N> contextType, String mapperId,
-                                        Consumer<StepDef<T, N>> configurer) {
-        return members.step(id, contextType, MapperRef.byId(mapperId), configurer, true);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> forkChoice(String id, Class<N> contextType, String mapperId,
-                                          Consumer<ChoiceDef<T, N>> configurer) {
-        return members.choice(id, contextType, MapperRef.byId(mapperId), configurer, true);
-    }
-
-    @Override
-    public <N> BranchDef<T, C> forkOperation(String id, Class<N> contextType, String mapperId,
-                                             Consumer<OperationDef<T, N>> configurer) {
-        return members.operation(id, contextType, MapperRef.byId(mapperId), configurer, true);
-    }
 }

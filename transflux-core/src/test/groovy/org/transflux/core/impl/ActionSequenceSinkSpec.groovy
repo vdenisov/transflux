@@ -52,7 +52,7 @@ class ActionSequenceSinkSpec extends Specification {
     def 'members are kept in declaration order, whatever the verb'() {
         given:
         def owner = openOwner()
-        def sink = new ActionSequenceSink<Object, Object, Object>(owner, owner)
+        def sink = new ActionSequenceSink<Object, Object>(owner)
 
         when:
         sink.run('a')
@@ -69,7 +69,7 @@ class ActionSequenceSinkSpec extends Specification {
     def 'only a fork-declared member carries the flag'() {
         given:
         def owner = openOwner()
-        def sink = new ActionSequenceSink<Object, Object, Object>(owner, owner)
+        def sink = new ActionSequenceSink<Object, Object>(owner)
 
         when: 'a reference and a declaration of each disposition'
         sink.run('a')
@@ -85,7 +85,7 @@ class ActionSequenceSinkSpec extends Specification {
     def 'the member view is unmodifiable'() {
         given:
         def owner = openOwner()
-        def sink = new ActionSequenceSink<Object, Object, Object>(owner, owner)
+        def sink = new ActionSequenceSink<Object, Object>(owner)
         sink.run('a')
 
         when:
@@ -98,7 +98,7 @@ class ActionSequenceSinkSpec extends Specification {
     def 'a call-site mapper rides on the member reference: #verb'() {
         given:
         def owner = openOwner()
-        def sink = new ActionSequenceSink<Object, Object, Object>(owner, owner)
+        def sink = new ActionSequenceSink<Object, Object>(owner)
 
         when:
         sink."$verb"('a', 'mapper-id')
@@ -116,7 +116,7 @@ class ActionSequenceSinkSpec extends Specification {
         def owner = new Owner()
 
         when:
-        call(new ActionSequenceSink<Object, Object, Object>(owner, owner))
+        call(new ActionSequenceSink<Object, Object>(owner))
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -139,7 +139,7 @@ class ActionSequenceSinkSpec extends Specification {
     def 'the instance-form step names the argument it rejected: #bad'() {
         given: 'every other verb labels its own arguments; this one used to let the ref do it'
         def owner = openOwner()
-        def sink = new ActionSequenceSink<Object, Object, Object>(owner, owner)
+        def sink = new ActionSequenceSink<Object, Object>(owner)
 
         when:
         call.call(sink)
