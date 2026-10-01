@@ -30,6 +30,9 @@ public enum SymlinkPolicy {
     /** Follow every link, wherever it leads. */
     FOLLOW,
 
-    /** Refuse any identifier whose path passes through a link, a Windows junction included. */
+    /**
+     * Refuse any identifier whose path passes through a link, a Windows junction included, or any
+     * other special entry - another reparse point such as a cloud placeholder, a device, a pipe.
+     */
     REJECT
 }

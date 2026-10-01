@@ -227,6 +227,27 @@ class FileSystemDefinitionSourceSpec extends Specification {
     }
 
     @Requires({ System.getProperty('os.name').startsWith('Windows') })
+    def 'another spelling of a plain path is no link to REJECT: #spelling'() {
+        expect:
+        read(new FileSystemDefinitionSource(root, SymlinkPolicy.REJECT), spelling) == 'shared'
+
+        where:
+        spelling << ['components/shared.yml.', 'components./shared.yml']
+    }
+
+    @Requires({ shortNamesSupported() })
+    def 'an 8.3 short name is no link to REJECT'() {
+        given:
+        def directory = Files.createDirectories(root.resolve('components-library'))
+        write(directory.resolve('shared.transflux.yml'), 'library')
+        def spelling = shortName(directory) + '/' + shortName(directory.resolve('shared.transflux.yml'))
+
+        expect: 'the short spelling really differs from the long one'
+        spelling != 'components-library/shared.transflux.yml'
+        read(new FileSystemDefinitionSource(root, SymlinkPolicy.REJECT), spelling) == 'library'
+    }
+
+    @Requires({ System.getProperty('os.name').startsWith('Windows') })
     def 'a file the source may not examine is a failure, not a miss, under #policy'() {
         given: 'a deny entry on the file and its directory, so its attributes cannot be read'
         def file = root.resolve('components/shared.yml')
@@ -296,6 +317,36 @@ class FileSystemDefinitionSourceSpec extends Specification {
             Files.deleteIfExists(probeDir.resolve('link'))
             Files.delete(probeDir)
         }
+    }
+
+    /** 8.3 names exist on Windows only, and only on volumes that generate them. */
+    static boolean shortNamesSupported() {
+        if (!System.getProperty('os.name').startsWith('Windows')) {
+            return false
+        }
+        def probeDir = Files.createTempDirectory('transflux-short-name-probe')
+        def longName = Files.createDirectory(probeDir.resolve('long-directory-name'))
+        try {
+            return shortName(longName) != 'long-directory-name'
+        } catch (IOException ignored) {
+            return false
+        } finally {
+            Files.delete(longName)
+            Files.delete(probeDir)
+        }
+    }
+
+    private static String shortName(Path path) {
+        def quoted = path.toString().replace("'", "''")
+        def command = "\$f = New-Object -ComObject Scripting.FileSystemObject; " +
+            (Files.isDirectory(path) ? "\$f.GetFolder('$quoted').ShortName" : "\$f.GetFile('$quoted').ShortName")
+        def process = new ProcessBuilder('powershell', '-NoProfile', '-NonInteractive', '-Command', command)
+            .redirectErrorStream(true).start()
+        def name = process.inputStream.text.trim()
+        if (process.waitFor() != 0 || !name) {
+            throw new IOException("no short name for $path: $name")
+        }
+        return name
     }
 
     private static void junction(Path link, Path target) {

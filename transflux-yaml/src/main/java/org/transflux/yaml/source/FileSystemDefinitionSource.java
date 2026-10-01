@@ -118,7 +118,10 @@ public final class FileSystemDefinitionSource implements DefinitionSource {
         try {
             // ponytail: checked, then opened - a link swapped in between slips past; the filesystem is the host's
             // trust boundary, and closing the window needs a NOFOLLOW_LINKS open per path element
-            Path target = symlinkPolicy == SymlinkPolicy.REJECT ? requireNoLinks(identifier, relative) : resolved;
+            if (symlinkPolicy == SymlinkPolicy.REJECT) {
+                requireNoLinks(identifier, relative);
+            }
+            Path target = resolved;
             LinkOption[] linkOptions = symlinkPolicy == SymlinkPolicy.REJECT
                 ? new LinkOption[] {LinkOption.NOFOLLOW_LINKS}
                 : new LinkOption[0];
@@ -197,24 +200,19 @@ public final class FileSystemDefinitionSource implements DefinitionSource {
         return real;
     }
 
-    private Path requireNoLinks(String identifier, Path relative) throws IOException {
+    private void requireNoLinks(String identifier, Path relative) throws IOException {
         Path current = root;
-        Path expectedReal = null;
         for (Path element : relative.normalize()) {
             current = current.resolve(element);
-            if (!Files.exists(current, LinkOption.NOFOLLOW_LINKS)) {
+            BasicFileAttributes attributes = attributesOrNull(current, LinkOption.NOFOLLOW_LINKS);
+            if (attributes == null) {
                 break;
             }
-            if (expectedReal == null) {
-                expectedReal = root.toRealPath();
-            }
-            expectedReal = expectedReal.resolve(element);
-            // a Windows junction is no symbolic link to isSymbolicLink, but it still moves the real path
-            if (Files.isSymbolicLink(current) || !current.toRealPath().equals(expectedReal)) {
-                throw new TransfluxValidationException(
-                    "Definition identifier '" + identifier + "' passes through a symbolic link or junction, which this source rejects");
+            // A junction, like any other reparse point or special file, reads as "other".
+            if (attributes.isSymbolicLink() || attributes.isOther()) {
+                throw new TransfluxValidationException("Definition identifier '" + identifier
+                    + "' passes through a symbolic link, junction or other special entry, which this source rejects");
             }
         }
-        return current;
     }
 }
