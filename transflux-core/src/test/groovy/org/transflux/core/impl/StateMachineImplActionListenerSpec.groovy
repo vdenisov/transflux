@@ -317,11 +317,11 @@ class StateMachineImplActionListenerSpec extends Specification {
         seen*.toString() == [expectedPath]
 
         where:
-        callSite                        | source | target || expectedPath
-        'as a transition attachment'    | 's1'   | 's2'   || 'charge'
-        'as a container member'         | 's2'   | 's3'   || 'wrap/charge'
-        'from inside an action body'    | 's3'   | 's4'   || 'caller/charge'
-        'as a choice branch member'| 's4'   | 's5'   || 'router/pick/charge'
+        callSite                     | source | target || expectedPath
+        'as a transition attachment' | 's1'   | 's2'   || 'charge'
+        'as a container member'      | 's2'   | 's3'   || 'wrap/charge'
+        'from inside an action body' | 's3'   | 's4'   || 'caller/charge'
+        'as a choice branch member'  | 's4'   | 's5'   || 'router/pick/charge'
     }
 
     def 'a throwing listener leaves the transition successful and does not suppress the ones after it'() {

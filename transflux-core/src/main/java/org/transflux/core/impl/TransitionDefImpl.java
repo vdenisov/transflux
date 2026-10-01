@@ -561,6 +561,17 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         return inPlaceListenerIds;
     }
 
+    /**
+     * Declares a listener in place at one of this transition's hooks.
+     *
+     * @param listenerId the listener's id
+     * @param hook the hook's DSL method, such as {@code onStart}
+     * @param configurer what declares the listener
+     *
+     * @return the hook entry
+     *
+     * @throws TransfluxValidationException if the id is already taken
+     */
     private ListenerEntry<TransitionListenerDefImpl<T, C>> declare(
             String listenerId, String hook, Consumer<TransitionListenerDef<T, C>> configurer) {
         TransitionListenerDefImpl<T, C> listenerDef = new TransitionListenerDefImpl<>(listenerId);

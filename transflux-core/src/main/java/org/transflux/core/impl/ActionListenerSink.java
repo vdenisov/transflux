@@ -35,7 +35,7 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * Shared implementation and storage for the action-listener hook family that every action def
  * exposes.
  * <p>
- * The family is nine overloads wide - three hooks, each in an instance, class, and configurer
+ * The family is nine overloads wide - three hooks, each in an instance, a configurer and a by-id
  * form. Every owning def declares one sink and implements its public methods as one-line
  * delegates, so validation order, argument labels, and the configurer guard are written once.
  *

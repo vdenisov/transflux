@@ -71,7 +71,7 @@ public interface StateMachineDef<T> {
      * definition that never named one, since the entity type is what the built state machine is
      * identified by when its definition is replaced.
      * <p>
-     * {@link org.transflux.core.Transflux#defineStateMachine(Class)} calls this for you; the
+     * {@link Transflux#defineStateMachine(Class)} calls this for you; the
      * no-argument entry point leaves it to the caller.
      *
      * @param entityType the entity class; never {@code null}
@@ -545,7 +545,7 @@ public interface StateMachineDef<T> {
      * {@code Object} context so it attaches to any transition.
      * <p>
      * A registration claims the id and carries everything the trigger is; a transition attaches it
-     * by id through {@link org.transflux.core.transition.TransitionDef#addTrigger(String)}, any
+     * by id through {@link TransitionDef#addTrigger(String)}, any
      * number of times. It stays one trigger: the catalog lists it once, reporting every transition
      * it sits on. Registering one nothing attaches is not an error.
      *
@@ -575,7 +575,7 @@ public interface StateMachineDef<T> {
      * {@code Object} context so it attaches to any transition.
      * <p>
      * A registration claims the id and carries everything the trigger is; a transition attaches it
-     * by id through {@link org.transflux.core.transition.TransitionDef#addTrigger(String)}, any
+     * by id through {@link TransitionDef#addTrigger(String)}, any
      * number of times. It stays one trigger: the catalog lists it once, reporting every transition
      * it sits on. Registering one nothing attaches is not an error.
      *
@@ -605,7 +605,7 @@ public interface StateMachineDef<T> {
      * {@code Object} context so it attaches to any transition.
      * <p>
      * A registration claims the id and carries everything the trigger is; a transition attaches it
-     * by id through {@link org.transflux.core.transition.TransitionDef#addTrigger(String)}, any
+     * by id through {@link TransitionDef#addTrigger(String)}, any
      * number of times. It stays one trigger: the catalog lists it once, reporting every transition
      * it sits on. Registering one nothing attaches is not an error.
      *

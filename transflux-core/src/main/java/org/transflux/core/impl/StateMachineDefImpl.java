@@ -109,8 +109,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * <p>
      * Held on the definition, so one definition builds one machine at a time. Building the same
      * definition twice is supported and is what the clearing in {@code build()} is for; building it
-     * twice <em>concurrently</em> is not, in line with §2.1.2 leaving concurrency to the host - a
-     * def is mutable throughout its life and was never safe to share across threads.
+     * twice <em>concurrently</em> is not: concurrency is the host's to manage, and a def is mutable
+     * throughout its life and was never safe to share across threads.
      */
     private ListenerRegistrations<T> listenerBinder;
 
@@ -2163,8 +2163,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
                             new Hook("onEntry", sd.getEntryListeners()), new Hook("onExit", sd.getExitListeners()));
         }
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
-            Class<?> context = td.getContextType() == null ? Object.class : td.getContextType();
-            checkReferences("transition '" + td.getId() + "'", context, declaredElsewhere,
+            checkReferences("transition '" + td.getId() + "'", td.getContextType(), declaredElsewhere,
                             transitionListenerRegistrations, "transition",
                             new Hook("onStart", td.getStartListeners()),
                             new Hook("onComplete", td.getCompleteListeners()),
@@ -2333,6 +2332,10 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * The eight state-machine-wide hooks are one owner, and they take {@code Object}: a hook
      * spanning every transition, or every action, cannot promise one context, so a registration
      * typed to anything narrower is refused here rather than at whichever owner it would break on.
+     *
+     * @param declaredElsewhere every listener declared in place, with its owner and category
+     *
+     * @throws TransfluxValidationException on the first reference at a global hook that breaks a rule
      */
     private void checkGlobalReferences(Map<String, InPlaceListener> declaredElsewhere) {
         checkReferences("the state machine", Object.class, declaredElsewhere, stateListenerRegistrations,
@@ -2349,8 +2352,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     /**
      * Validates every {@code addTrigger(id)} attachment: that the id names a registration, that
-     * the registration's context accepts the attaching transition's, and that no manual trigger
-     * ends up on two transitions leaving one state.
+     * the registration's context accepts the attaching transition's, and that no trigger, whatever
+     * its kind, ends up on two transitions leaving one state.
      * <p>
      * A trigger declared in place gets its own message rather than "unknown": it exists, it is
      * simply visible to the transition that declared it and to nothing else.
@@ -2390,13 +2393,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
                 checkTriggerContext(registered, td);
 
-                // Whatever its kind, one trigger is not allowed to sit on two transitions leaving
-                // one state. A manual trigger could not choose between them, having only the
-                // current state to go on; an event's filter and a data trigger's gate are the same
-                // object at both attachments, so they cannot either, and the one thing that could
-                // still tell them apart - a firing context one transition accepts and the other
-                // refuses - is deliberately not made to carry that weight. Two *different* triggers
-                // competing is the first-match rule and stays legal, context eligibility included.
+                // Any kind: nothing at two attachments of one trigger could choose between them.
                 String clash = attachedBySource
                     .computeIfAbsent(ref, k -> new HashMap<>())
                     .putIfAbsent(td.getSourceStateId(), td.getId());
@@ -2420,7 +2417,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      */
     private void checkTriggerContext(TriggerDefImpl<T, ?, ?> registered, TransitionDefImpl<T, ?> td) {
         Class<?> declared = registered.getContextType();
-        Class<?> transitionContext = td.getContextType() == null ? Object.class : td.getContextType();
+        Class<?> transitionContext = td.getContextType();
         if (declared == Object.class || declared.isAssignableFrom(transitionContext)) {
             return;
         }
@@ -2443,7 +2440,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      *         declares an incompatible context type
      */
     private void checkConditionRefs(TransitionDefImpl<T, ?> td) {
-        Class<?> context = td.getContextType() != null ? td.getContextType() : Object.class;
+        Class<?> context = td.getContextType();
         String label = "transition '" + td.getId() + "'";
 
         checkConditionRefs(td.getPreConditionDescriptors(), context, label, "pre-condition");

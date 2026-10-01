@@ -1011,7 +1011,7 @@ triggers:
       - support-user-authorized
 ```
 
-A trigger registered under the top-level `triggers:` may be attached to several transitions and remains one trigger (§2.2.8). For a manual one that is the point: `manual-cancel` on both `active → cancelled` and `suspended → cancelled` lets the host fire it without knowing which state the entity is in, and the framework takes the attachment leaving the current state. Attaching one manual trigger to two transitions leaving the *same* state is an error.
+A trigger registered under the top-level `triggers:` may be attached to several transitions and remains one trigger (§2.2.8). For a manual one that is the point: `manual-cancel` on both `active → cancelled` and `suspended → cancelled` lets the host fire it without knowing which state the entity is in, and the framework takes the attachment leaving the current state. Attaching one trigger, whatever its kind, to two transitions leaving the *same* state is an error (§2.2.8).
 
 #### 3.3.3 Event Triggers
 

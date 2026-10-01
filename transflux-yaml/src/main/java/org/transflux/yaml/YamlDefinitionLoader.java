@@ -21,6 +21,7 @@ package org.transflux.yaml;
 import org.transflux.core.ComponentFactory;
 import org.transflux.core.StateMachineDef;
 import org.transflux.core.Transflux;
+import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.yaml.source.DefinitionResource;
 import org.transflux.yaml.source.DefinitionSource;
 import org.yaml.snakeyaml.nodes.Node;
@@ -66,7 +67,7 @@ public final class YamlDefinitionLoader {
      *
      * @return a builder for a loader reading from {@code source}
      *
-     * @throws org.transflux.core.exception.TransfluxValidationException if {@code source} is null
+     * @throws TransfluxValidationException if {@code source} is null
      */
     public static Builder builder(DefinitionSource source) {
         return new Builder(requireNotNull(source, "Definition source"));
@@ -84,7 +85,7 @@ public final class YamlDefinitionLoader {
      * @throws DefinitionLoadException when the document or an import is missing or is not valid, the
      *         imports are circular, or the document declares an entity type other than
      *         {@code entityType}
-     * @throws org.transflux.core.exception.TransfluxValidationException if an argument is null or blank
+     * @throws TransfluxValidationException if an argument is null or blank
      */
     public <T> StateMachineDef<T> load(String identifier, Class<T> entityType) {
         requireNotBlank(identifier, "Root identifier");
@@ -197,6 +198,14 @@ public final class YamlDefinitionLoader {
 
     /**
      * Opens an import, attributing a miss and a refusal alike to the entry that named it.
+     *
+     * @param importer the importing document's root mapping
+     * @param entry the {@code imports:} entry naming the document
+     * @param identifier the identifier the entry names
+     *
+     * @return the opened resource
+     *
+     * @throws DefinitionLoadException when the source misses or refuses the identifier
      */
     private DefinitionResource open(NodeMap importer, Node entry, String identifier) {
         Optional<DefinitionResource> resource;
@@ -229,13 +238,15 @@ public final class YamlDefinitionLoader {
         }
 
         /**
-         * @param classLoader the class loader class names in documents are loaded through; the
-         *        thread context class loader current at {@link #build()} when not set, or this
-         *        class's own loader when that is {@code null}
+         * Sets the class loader class names in documents are loaded through. When it is not set,
+         * the thread context class loader current at {@link #build()} is used, or this class's own
+         * loader when that is {@code null}.
+         *
+         * @param classLoader the class loader
          *
          * @return this builder
          *
-         * @throws org.transflux.core.exception.TransfluxValidationException if {@code classLoader} is null
+         * @throws TransfluxValidationException if {@code classLoader} is null
          */
         public Builder withClassLoader(ClassLoader classLoader) {
             this.classLoader = requireNotNull(classLoader, "Class loader");
@@ -243,12 +254,14 @@ public final class YamlDefinitionLoader {
         }
 
         /**
-         * @param componentFactory what turns a class a document names into an instance;
-         *        {@link ComponentFactory#reflective()} when not set
+         * Sets what turns a class a document names into an instance; {@link ComponentFactory#reflective()}
+         * when not set.
+         *
+         * @param componentFactory the component factory
          *
          * @return this builder
          *
-         * @throws org.transflux.core.exception.TransfluxValidationException if {@code componentFactory} is null
+         * @throws TransfluxValidationException if {@code componentFactory} is null
          */
         public Builder withComponentFactory(ComponentFactory componentFactory) {
             this.componentFactory = requireNotNull(componentFactory, "Component factory");

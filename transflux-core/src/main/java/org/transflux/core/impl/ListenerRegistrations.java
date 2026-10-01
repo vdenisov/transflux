@@ -27,17 +27,8 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * Resolves a hook's listener entries into bound listeners, for one build.
- * <p>
- * Each entry is either a listener declared at that hook or a reference to one declared elsewhere.
- * A reference resolves against the owner's own declarations first - any hook of that owner, so one
- * listener serves several under a single id - and then against the state machine's registrations.
- * A registration is bound exactly once and the same bound record is handed to every attachment,
- * which is what makes {@code withAsync} hold wherever the listener is attached.
- * <p>
- * By the time this runs the build has already rejected every reference that resolves to nothing,
- * to another owner's declaration or to another category, so a miss here is a broken invariant
- * rather than a host error.
+ * Resolves a hook's listener entries - each one declared at that hook, or a reference to one
+ * declared elsewhere - into bound listeners, for one build.
  *
  * @param <T> the entity type the surrounding state machine manages
  */
@@ -122,7 +113,14 @@ final class ListenerRegistrations<T> {
         return scope;
     }
 
-    /** The declarations among a hook's entries, for the passes that only look at what is new. */
+    /**
+     * Returns the declarations among a hook's entries, for the passes that only look at what is new.
+     *
+     * @param entries the hook's entries
+     * @param <D> the category's def type
+     *
+     * @return the declared defs, in declaration order
+     */
     static <D> List<D> declaredOf(List<? extends ListenerEntry<? extends D>> entries) {
         List<D> declared = new ArrayList<>(entries.size());
         for (ListenerEntry<? extends D> entry : entries) {
@@ -148,6 +146,7 @@ final class ListenerRegistrations<T> {
                 continue;
             }
 
+            // The owner's own declarations first, from any of its hooks, so one listener serves several.
             D own = ownScope.get(entry.id());
             if (own != null) {
                 bound.add(bind.apply(own));
@@ -156,10 +155,12 @@ final class ListenerRegistrations<T> {
 
             D registered = registrations.get(entry.id());
             if (registered == null) {
+                // The build rejected every reference that resolves to nothing, so this is a broken invariant.
                 throw new TransfluxValidationException(
                     "Listener '" + entry.id() + "' resolved to nothing at bind time");
             }
 
+            // Bound once, the same record at every attachment, which is what makes withAsync hold everywhere.
             bound.add(boundCache.computeIfAbsent(entry.id(), id -> bind.apply(registered)));
         }
 

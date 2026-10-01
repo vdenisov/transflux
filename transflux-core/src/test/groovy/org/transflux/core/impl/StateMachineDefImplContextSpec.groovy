@@ -272,10 +272,10 @@ class StateMachineDefImplContextSpec extends Specification {
         e.message.contains(CtxB.name)
 
         where:
-        form          | label                           | declare
-        'operation'   | "operation 'inner'"             | narrowOperation(null)
-        'step'        | "step 'inner'"                  | narrowStep(null)
-        'choice' | "choice 'inner'" | narrowChoice(null)
+        form        | label               | declare
+        'operation' | "operation 'inner'" | narrowOperation(null)
+        'step'      | "step 'inner'"      | narrowStep(null)
+        'choice'    | "choice 'inner'"    | narrowChoice(null)
     }
 
     def 'an inline container widening to Object is accepted'() {
@@ -311,10 +311,10 @@ class StateMachineDefImplContextSpec extends Specification {
         noExceptionThrown()
 
         where:
-        form          | declare
-        'operation'   | narrowOperation(aToB())
-        'step'        | narrowStep(aToB())
-        'choice' | narrowChoice(aToB())
+        form        | declare
+        'operation' | narrowOperation(aToB())
+        'step'      | narrowStep(aToB())
+        'choice'    | narrowChoice(aToB())
     }
 
     @Unroll

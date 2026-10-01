@@ -112,6 +112,11 @@ final class StateMachineSection {
     /**
      * Reads {@code stateResolver:} or {@code stateApplier:}: a class, or the expression a Java host
      * writes as a lambda.
+     *
+     * @param section the {@code stateMachine:} mapping
+     * @param key {@code stateResolver} or {@code stateApplier}
+     *
+     * @throws DefinitionLoadException when the block is not a valid accessor
      */
     private void accessor(NodeMap section, String key) {
         boolean resolver = key.equals("stateResolver");
@@ -139,6 +144,10 @@ final class StateMachineSection {
     /**
      * Reads {@code config:}: the executor under {@code async:}, the shipped execution trace under
      * {@code logging:}.
+     *
+     * @param section the {@code stateMachine:} mapping
+     *
+     * @throws DefinitionLoadException when the block is not valid
      */
     private void config(NodeMap section) {
         NodeMap config = section.optionalMap("config");
@@ -205,7 +214,13 @@ final class StateMachineSection {
      * Reads a {@code config:} block whose presence is itself the statement, so a key written with
      * no value is refused rather than read as absent.
      *
+     * @param config the {@code config:} mapping
+     * @param key the block's key
+     * @param empty what {@code key: {}} stands for, for the refusal of an empty value
+     *
      * @return the block, or {@code null} when the key is not written
+     *
+     * @throws DefinitionLoadException when the key is written with no value, or not as a mapping
      */
     private static NodeMap block(NodeMap config, String key, String empty) {
         // Asked before holds() is, so an unknown-key error lists the key whether or not it is written.

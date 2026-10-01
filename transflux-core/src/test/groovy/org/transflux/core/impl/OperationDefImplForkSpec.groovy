@@ -161,10 +161,10 @@ class OperationDefImplForkSpec extends Specification {
         e.message.contains(verb)
 
         where:
-        verb              || call
-        'forkStep'        || { it.forkStep('a', new NoopAction()) }
-        'forkOperation'   || { it.forkOperation('a', { op -> op } as Consumer) }
-        'forkChoice' || { it.forkChoice('a', branches) }
+        verb            || call
+        'forkStep'      || { it.forkStep('a', new NoopAction()) }
+        'forkOperation' || { it.forkOperation('a', { op -> op } as Consumer) }
+        'forkChoice'    || { it.forkChoice('a', branches) }
     }
 
     /** A choice configurer with one always-taken branch, so every shape has a body to build. */

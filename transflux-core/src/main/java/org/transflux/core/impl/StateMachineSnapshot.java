@@ -1122,10 +1122,10 @@ class StateMachineSnapshot<T> {
     /**
      * Reports a pre-condition rejection and builds the failure result both loops return.
      *
-     * <p>A rejection here is not an error and produces no listener notification — §2.4 places the
-     * start hook after the pre-conditions — so this line is the only trace a rejected transition
-     * leaves behind. The stack is provably empty at this point, hence no drain and no compensated
-     * path.
+     * <p>A rejection here is not an error and produces no listener notification — the start hook
+     * runs only after the pre-conditions have passed — so this line is the only trace a rejected
+     * transition leaves behind. The stack is provably empty at this point, hence no drain and no
+     * compensated path.
      */
     private static <T, C> TransitionResult<T> preConditionRejected(T entity,
                                                                    BoundTransition<T, C> transition,

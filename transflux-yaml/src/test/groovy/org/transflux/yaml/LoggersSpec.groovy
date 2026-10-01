@@ -19,6 +19,7 @@
 package org.transflux.yaml
 
 import groovy.io.FileType
+import org.slf4j.Logger
 import spock.lang.Specification
 
 import java.lang.reflect.Modifier
@@ -33,14 +34,6 @@ class LoggersSpec extends Specification {
         'org.transflux.yaml.Loggers',
         'org.transflux.yaml.source.Loggers',
     ]
-
-    private static List<String> leafNames() {
-        return HOLDERS.collectMany { name ->
-            Class.forName(name).declaredFields
-                .findAll { Modifier.isStatic(it.modifiers) && org.slf4j.Logger.isAssignableFrom(it.type) }
-                .collect { it.setAccessible(true); ((org.slf4j.Logger) it.get(null)).name }
-        }
-    }
 
     def 'the declared tree is exactly the documented one'() {
         expect:
@@ -84,5 +77,13 @@ class LoggersSpec extends Specification {
         then: 'the sweep found something to sweep, so an empty result means clean rather than broken'
         sources.size() > 2
         offenders.collect { it.name } == []
+    }
+
+    private static List<String> leafNames() {
+        return HOLDERS.collectMany { name ->
+            Class.forName(name).declaredFields
+                .findAll { Modifier.isStatic(it.modifiers) && Logger.isAssignableFrom(it.type) }
+                .collect { it.setAccessible(true); ((Logger) it.get(null)).name }
+        }
     }
 }

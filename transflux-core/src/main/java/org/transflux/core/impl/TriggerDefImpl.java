@@ -30,10 +30,9 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * Shared base for the trigger definition family.
  * <p>
  * A trigger is either declared in place on a transition, which then owns it, or registered on the
- * state machine and attached by id. The first reads its context back through its owner rather than
- * copying it at construction, so it reports whatever the transition carries rather than a stale
- * snapshot, and declaration order inside the configurer does not matter - the same freedom the rest
- * of the DSL gives. The second has no owner and carries a context of its own.
+ * state machine and attached by id. The owner is what tells the two apart: one declared in place
+ * takes its owner's context and is visible to it alone, while a registration has no owner and
+ * carries a context of its own.
  *
  * @param <T> the entity type the surrounding state machine manages
  * @param <C> the host-supplied context type carried through transition execution
@@ -64,7 +63,7 @@ sealed abstract class TriggerDefImpl<T, C, SELF extends TriggerDefImpl<T, C, SEL
 
     /**
      * Returns the context class this trigger runs against - a registration's own, or the enclosing
-     * transition's as currently declared.
+     * transition's.
      *
      * @return the context type; never {@code null}
      */

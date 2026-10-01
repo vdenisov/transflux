@@ -1287,33 +1287,6 @@ public final class JavaDslSurface {
         return List.of(trackedMachine(Order.class), trackedMachine(Shipment.class));
     }
 
-    private static <T extends Trackable> StateMachine<T> trackedMachine(Class<T> entityType) {
-        return Transflux.defineStateMachine(entityType)
-            .withStateResolver(TRACKED_RESOLVER)
-            .withStateApplier(TRACKED_APPLIER)
-            .step("track", TRACK_STEP)
-            .condition("tracked", IS_TRACKED)
-            // an implicitly-typed lambda still infers the entity type rather than the wildcard
-            .condition("has-trail", entity -> entity.trail() != null)
-            .onAnyStateEntry("any-state", new TrackedStateAudit())
-            .onAnyTransitionStart("any-transition", new TrackedTransitionAudit())
-            .onAnyActionStart("any-action", new TrackedActionAudit())
-            .state("s1", s -> s
-                .onExit("on-exit", new TrackedStateAudit()))
-            .transition("t", "s1", "s2", t -> t
-                .preCondition("tracked")
-                .preCondition("has-trail")
-                .onStart("on-start", new TrackedTransitionAudit())
-                .run("track")
-                .step("inline-track", TRACK_STEP)
-                .step("compensated", step -> step
-                    .using(TRACK_STEP)
-                    .withCompensation(new UntrackCompensation())
-                    .onStart("on-action", new TrackedActionAudit())))
-            .state("s2")
-            .build();
-    }
-
     /**
      * The state machine's own metadata, declared on the definition and read back off the built
      * machine, alongside an expression that passes the entity whole through {@code #entity} - the
@@ -1360,28 +1333,6 @@ public final class JavaDslSurface {
 
             return before + ":" + after + ":" + String.join(",", order.trail);
         }
-    }
-
-    /**
-     * A one-transition definition, left unbuilt so it can be handed to
-     * {@link StateMachine#replaceDefinition(StateMachineDef)}.
-     *
-     * @param tag what the transition's step writes to the entity's trail
-     * @param target the state the transition leads to
-     *
-     * @return the definition
-     */
-    private static StateMachineDef<Order> tinyDefinition(String tag, String target) {
-        return Transflux.defineStateMachine(Order.class)
-            .withVersion(tag)
-            .withStateResolver(o -> o.state)
-            .withStateApplier((o, next) -> o.state = next)
-            .state("s1")
-            .transition("t", "s1", target, t -> t
-                .step("mark", (order, ctx, view) -> order.trail.add(tag)))
-            .state("s2")
-            .transition("back", "s2", "s1", t -> { })
-            .state("s3");
     }
 
     /** Reachable from SpEL by name, so {@code #entity} has somewhere to be passed whole. */
@@ -1515,5 +1466,54 @@ public final class JavaDslSurface {
             + ":" + (result.getDuration() != null);
         order.state = "s1";
         return summary;
+    }
+
+    private static <T extends Trackable> StateMachine<T> trackedMachine(Class<T> entityType) {
+        return Transflux.defineStateMachine(entityType)
+            .withStateResolver(TRACKED_RESOLVER)
+            .withStateApplier(TRACKED_APPLIER)
+            .step("track", TRACK_STEP)
+            .condition("tracked", IS_TRACKED)
+            // an implicitly-typed lambda still infers the entity type rather than the wildcard
+            .condition("has-trail", entity -> entity.trail() != null)
+            .onAnyStateEntry("any-state", new TrackedStateAudit())
+            .onAnyTransitionStart("any-transition", new TrackedTransitionAudit())
+            .onAnyActionStart("any-action", new TrackedActionAudit())
+            .state("s1", s -> s
+                .onExit("on-exit", new TrackedStateAudit()))
+            .transition("t", "s1", "s2", t -> t
+                .preCondition("tracked")
+                .preCondition("has-trail")
+                .onStart("on-start", new TrackedTransitionAudit())
+                .run("track")
+                .step("inline-track", TRACK_STEP)
+                .step("compensated", step -> step
+                    .using(TRACK_STEP)
+                    .withCompensation(new UntrackCompensation())
+                    .onStart("on-action", new TrackedActionAudit())))
+            .state("s2")
+            .build();
+    }
+
+    /**
+     * A one-transition definition, left unbuilt so it can be handed to
+     * {@link StateMachine#replaceDefinition(StateMachineDef)}.
+     *
+     * @param tag what the transition's step writes to the entity's trail
+     * @param target the state the transition leads to
+     *
+     * @return the definition
+     */
+    private static StateMachineDef<Order> tinyDefinition(String tag, String target) {
+        return Transflux.defineStateMachine(Order.class)
+            .withVersion(tag)
+            .withStateResolver(o -> o.state)
+            .withStateApplier((o, next) -> o.state = next)
+            .state("s1")
+            .transition("t", "s1", target, t -> t
+                .step("mark", (order, ctx, view) -> order.trail.add(tag)))
+            .state("s2")
+            .transition("back", "s2", "s1", t -> { })
+            .state("s3");
     }
 }
