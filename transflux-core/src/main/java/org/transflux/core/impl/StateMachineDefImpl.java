@@ -162,30 +162,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private AsyncRejectionPolicy asyncRejectionPolicy;
 
 
-    /**
-     * State listeners attached to every state rather than to one. Kept in declaration order; the
-     * per-state listeners of whichever state is being entered or left run ahead of these.
-     */
-    private final List<ListenerEntry<StateListenerDefImpl<T>>> globalEntryListeners = new ArrayList<>();
-    private final List<ListenerEntry<StateListenerDefImpl<T>>> globalExitListeners = new ArrayList<>();
-
-    /**
-     * Transition listeners attached to every transition rather than to one. Kept in declaration
-     * order; the per-transition listeners of whichever transition is executing run ahead of these.
-     * They span transitions with differing context types and so are typed against {@link Object}.
-     */
-    private final List<ListenerEntry<TransitionListenerDefImpl<T, Object>>> globalStartListeners = new ArrayList<>();
-    private final List<ListenerEntry<TransitionListenerDefImpl<T, Object>>> globalCompleteListeners = new ArrayList<>();
-    private final List<ListenerEntry<TransitionListenerDefImpl<T, Object>>> globalErrorListeners = new ArrayList<>();
-
-    /**
-     * Action listeners attached to every action rather than to one. Kept in declaration order; the
-     * listeners of whichever action is running run ahead of these. They span actions declared
-     * against differing context types and so are typed against {@link Object}.
-     */
-    private final List<ListenerEntry<ActionListenerDefImpl<T, Object>>> globalActionStartListeners = new ArrayList<>();
-    private final List<ListenerEntry<ActionListenerDefImpl<T, Object>>> globalActionCompleteListeners = new ArrayList<>();
-    private final List<ListenerEntry<ActionListenerDefImpl<T, Object>>> globalActionErrorListeners = new ArrayList<>();
+    /** The listeners attached to every state, transition or action rather than to one. */
+    private final GlobalListenerHooks<T> globalHooks = new GlobalListenerHooks<>();
 
     /**
      * Listener ids claimed so far, each with where it was declared - {@code state 's' via onEntry}
@@ -1315,7 +1293,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     @Override
     public StateMachineDef<T> onAnyStateEntry(String listenerId) {
         requireNotBlank(listenerId, "State listener ID");
-        globalEntryListeners.add(ListenerEntry.reference(listenerId));
+        globalHooks.stateEntry.add(ListenerEntry.reference(listenerId));
         return this;
     }
 
@@ -1328,14 +1306,14 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     @Override
     public StateMachineDef<T> onAnyStateEntry(String listenerId, Consumer<StateListenerDef<T>> configurer) {
-        globalEntryListeners.add(declareStateListener(listenerId, configurer));
+        globalHooks.stateEntry.add(declareStateListener(listenerId, configurer));
         return this;
     }
 
     @Override
     public StateMachineDef<T> onAnyStateExit(String listenerId) {
         requireNotBlank(listenerId, "State listener ID");
-        globalExitListeners.add(ListenerEntry.reference(listenerId));
+        globalHooks.stateExit.add(ListenerEntry.reference(listenerId));
         return this;
     }
 
@@ -1348,7 +1326,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     @Override
     public StateMachineDef<T> onAnyStateExit(String listenerId, Consumer<StateListenerDef<T>> configurer) {
-        globalExitListeners.add(declareStateListener(listenerId, configurer));
+        globalHooks.stateExit.add(declareStateListener(listenerId, configurer));
         return this;
     }
 
@@ -1358,7 +1336,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @return the live global entry-listener list
      */
     List<ListenerEntry<StateListenerDefImpl<T>>> getGlobalEntryListeners() {
-        return globalEntryListeners;
+        return globalHooks.stateEntry;
     }
 
     /**
@@ -1367,13 +1345,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @return the live global exit-listener list
      */
     List<ListenerEntry<StateListenerDefImpl<T>>> getGlobalExitListeners() {
-        return globalExitListeners;
+        return globalHooks.stateExit;
     }
 
     @Override
     public StateMachineDef<T> onAnyTransitionStart(String listenerId) {
         requireNotBlank(listenerId, "Transition listener ID");
-        globalStartListeners.add(ListenerEntry.reference(listenerId));
+        globalHooks.transitionStart.add(ListenerEntry.reference(listenerId));
         return this;
     }
 
@@ -1387,14 +1365,14 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     @Override
     public StateMachineDef<T> onAnyTransitionStart(String listenerId,
                                                    Consumer<TransitionListenerDef<T, Object>> configurer) {
-        globalStartListeners.add(declareTransitionListener(listenerId, configurer));
+        globalHooks.transitionStart.add(declareTransitionListener(listenerId, configurer));
         return this;
     }
 
     @Override
     public StateMachineDef<T> onAnyTransitionComplete(String listenerId) {
         requireNotBlank(listenerId, "Transition listener ID");
-        globalCompleteListeners.add(ListenerEntry.reference(listenerId));
+        globalHooks.transitionComplete.add(ListenerEntry.reference(listenerId));
         return this;
     }
 
@@ -1408,14 +1386,14 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     @Override
     public StateMachineDef<T> onAnyTransitionComplete(String listenerId,
                                                       Consumer<TransitionListenerDef<T, Object>> configurer) {
-        globalCompleteListeners.add(declareTransitionListener(listenerId, configurer));
+        globalHooks.transitionComplete.add(declareTransitionListener(listenerId, configurer));
         return this;
     }
 
     @Override
     public StateMachineDef<T> onAnyTransitionError(String listenerId) {
         requireNotBlank(listenerId, "Transition listener ID");
-        globalErrorListeners.add(ListenerEntry.reference(listenerId));
+        globalHooks.transitionError.add(ListenerEntry.reference(listenerId));
         return this;
     }
 
@@ -1429,14 +1407,14 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     @Override
     public StateMachineDef<T> onAnyTransitionError(String listenerId,
                                                    Consumer<TransitionListenerDef<T, Object>> configurer) {
-        globalErrorListeners.add(declareTransitionListener(listenerId, configurer));
+        globalHooks.transitionError.add(declareTransitionListener(listenerId, configurer));
         return this;
     }
 
     @Override
     public StateMachineDef<T> onAnyActionStart(String listenerId) {
         requireNotBlank(listenerId, "Action listener ID");
-        globalActionStartListeners.add(ListenerEntry.reference(listenerId));
+        globalHooks.actionStart.add(ListenerEntry.reference(listenerId));
         return this;
     }
 
@@ -1450,14 +1428,14 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     @Override
     public StateMachineDef<T> onAnyActionStart(String listenerId,
                                                Consumer<ActionListenerDef<T, Object>> configurer) {
-        globalActionStartListeners.add(declareActionListener(listenerId, configurer));
+        globalHooks.actionStart.add(declareActionListener(listenerId, configurer));
         return this;
     }
 
     @Override
     public StateMachineDef<T> onAnyActionComplete(String listenerId) {
         requireNotBlank(listenerId, "Action listener ID");
-        globalActionCompleteListeners.add(ListenerEntry.reference(listenerId));
+        globalHooks.actionComplete.add(ListenerEntry.reference(listenerId));
         return this;
     }
 
@@ -1471,14 +1449,14 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     @Override
     public StateMachineDef<T> onAnyActionComplete(String listenerId,
                                                   Consumer<ActionListenerDef<T, Object>> configurer) {
-        globalActionCompleteListeners.add(declareActionListener(listenerId, configurer));
+        globalHooks.actionComplete.add(declareActionListener(listenerId, configurer));
         return this;
     }
 
     @Override
     public StateMachineDef<T> onAnyActionError(String listenerId) {
         requireNotBlank(listenerId, "Action listener ID");
-        globalActionErrorListeners.add(ListenerEntry.reference(listenerId));
+        globalHooks.actionError.add(ListenerEntry.reference(listenerId));
         return this;
     }
 
@@ -1492,7 +1470,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     @Override
     public StateMachineDef<T> onAnyActionError(String listenerId,
                                                Consumer<ActionListenerDef<T, Object>> configurer) {
-        globalActionErrorListeners.add(declareActionListener(listenerId, configurer));
+        globalHooks.actionError.add(declareActionListener(listenerId, configurer));
         return this;
     }
 
@@ -1502,7 +1480,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @return the live global action-start listener list
      */
     List<ListenerEntry<ActionListenerDefImpl<T, Object>>> getGlobalActionStartListeners() {
-        return globalActionStartListeners;
+        return globalHooks.actionStart;
     }
 
     /**
@@ -1511,7 +1489,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @return the live global action-complete listener list
      */
     List<ListenerEntry<ActionListenerDefImpl<T, Object>>> getGlobalActionCompleteListeners() {
-        return globalActionCompleteListeners;
+        return globalHooks.actionComplete;
     }
 
     /**
@@ -1520,7 +1498,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @return the live global action-error listener list
      */
     List<ListenerEntry<ActionListenerDefImpl<T, Object>>> getGlobalActionErrorListeners() {
-        return globalActionErrorListeners;
+        return globalHooks.actionError;
     }
 
     /**
@@ -1529,7 +1507,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @return the live global start-listener list
      */
     List<ListenerEntry<TransitionListenerDefImpl<T, Object>>> getGlobalStartListeners() {
-        return globalStartListeners;
+        return globalHooks.transitionStart;
     }
 
     /**
@@ -1538,7 +1516,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @return the live global completion-listener list
      */
     List<ListenerEntry<TransitionListenerDefImpl<T, Object>>> getGlobalCompleteListeners() {
-        return globalCompleteListeners;
+        return globalHooks.transitionComplete;
     }
 
     /**
@@ -1547,7 +1525,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @return the live global error-listener list
      */
     List<ListenerEntry<TransitionListenerDefImpl<T, Object>>> getGlobalErrorListeners() {
-        return globalErrorListeners;
+        return globalHooks.transitionError;
     }
 
     /**
@@ -1640,28 +1618,24 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @throws TransfluxValidationException if a disabled id names no such global listener
      */
     private void checkGlobalListenerDisables() {
-        Set<String> stateGlobals = listenerIdsOf(globalEntryListeners, globalExitListeners);
-        Set<String> transitionGlobals =
-            listenerIdsOf(globalStartListeners, globalCompleteListeners, globalErrorListeners);
-        Set<String> actionGlobals = listenerIdsOf(globalActionStartListeners,
-                                                  globalActionCompleteListeners,
-                                                  globalActionErrorListeners);
+        Set<String> stateGlobals = listenerIdsOf(globalHooks.state.values());
+        Set<String> transitionGlobals = listenerIdsOf(globalHooks.transition.values());
+        Set<String> actionGlobals = listenerIdsOf(globalHooks.action.values());
 
         for (StateDefImpl<T> sd : states.values()) {
             checkDisabledIds(sd.getDisabledGlobals(), stateGlobals, sd.defLabel(), "state",
-                             "onAnyStateEntry / onAnyStateExit");
+                             String.join(" / ", globalHooks.state.keySet()));
         }
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             checkDisabledIds(td.getDisabledGlobals(), transitionGlobals, td.defLabel(), "transition",
-                             "onAnyTransitionStart / onAnyTransitionComplete / onAnyTransitionError");
+                             String.join(" / ", globalHooks.transition.keySet()));
         }
         visitActionDefs(def -> checkDisabledIds(def.getDisabledGlobals(), actionGlobals,
                                                 def.defLabel(), "action",
-                                                "onAnyActionStart / onAnyActionComplete / onAnyActionError"));
+                                                String.join(" / ", globalHooks.action.keySet())));
     }
 
-    @SafeVarargs
-    private static Set<String> listenerIdsOf(List<? extends ListenerEntry<?>>... groups) {
+    private static Set<String> listenerIdsOf(Collection<? extends List<? extends ListenerEntry<?>>> groups) {
         Set<String> ids = new HashSet<>();
         for (List<? extends ListenerEntry<?>> group : groups) {
             for (ListenerEntry<?> entry : group) {
@@ -1693,14 +1667,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @param visitor what to apply to each
      */
     private void visitListenerDefs(Consumer<ListenerDefImpl<?>> visitor) {
-        ListenerRegistrations.declaredOf(globalEntryListeners).forEach(visitor);
-        ListenerRegistrations.declaredOf(globalExitListeners).forEach(visitor);
-        ListenerRegistrations.declaredOf(globalStartListeners).forEach(visitor);
-        ListenerRegistrations.declaredOf(globalCompleteListeners).forEach(visitor);
-        ListenerRegistrations.declaredOf(globalErrorListeners).forEach(visitor);
-        ListenerRegistrations.declaredOf(globalActionStartListeners).forEach(visitor);
-        ListenerRegistrations.declaredOf(globalActionCompleteListeners).forEach(visitor);
-        ListenerRegistrations.declaredOf(globalActionErrorListeners).forEach(visitor);
+        globalHooks.all().forEach(hook -> ListenerRegistrations.declaredOf(hook).forEach(visitor));
         // A registration is visited once here rather than once per attachment: an unattached one
         // still declares what it declares, and a doubly-attached one must not count twice.
         stateListenerRegistrations.values().forEach(visitor);
@@ -2195,11 +2162,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
                                      td.getStartListeners(), td.getCompleteListeners(),
                                      td.getErrorListeners());
         }
-        collectOwnerDeclarations(declaredElsewhere, "the state machine",
-                                 globalEntryListeners, globalExitListeners, globalStartListeners,
-                                 globalCompleteListeners, globalErrorListeners,
-                                 globalActionStartListeners, globalActionCompleteListeners,
-                                 globalActionErrorListeners);
+        globalHooks.all().forEach(hook -> collectOwnerDeclarations(declaredElsewhere, "the state machine", hook));
         visitActionDefs(ad -> collectOwnerDeclarations(declaredElsewhere, ad.defLabel(),
                                                        ad.getListeners(ActionPhase.START),
                                                        ad.getListeners(ActionPhase.COMPLETE),
@@ -2384,16 +2347,15 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      */
     private void checkGlobalReferences(Map<String, InPlaceListener> declaredElsewhere) {
         checkReferences("the state machine", Object.class, declaredElsewhere, stateListenerRegistrations,
-                        "state", new Hook("onAnyStateEntry", globalEntryListeners),
-                        new Hook("onAnyStateExit", globalExitListeners));
+                        "state", hooksOf(globalHooks.state));
         checkReferences("the state machine", Object.class, declaredElsewhere, transitionListenerRegistrations,
-                        "transition", new Hook("onAnyTransitionStart", globalStartListeners),
-                        new Hook("onAnyTransitionComplete", globalCompleteListeners),
-                        new Hook("onAnyTransitionError", globalErrorListeners));
+                        "transition", hooksOf(globalHooks.transition));
         checkReferences("the state machine", Object.class, declaredElsewhere, actionListenerRegistrations,
-                        "action", new Hook("onAnyActionStart", globalActionStartListeners),
-                        new Hook("onAnyActionComplete", globalActionCompleteListeners),
-                        new Hook("onAnyActionError", globalActionErrorListeners));
+                        "action", hooksOf(globalHooks.action));
+    }
+
+    private static Hook[] hooksOf(Map<String, ? extends List<? extends ListenerEntry<?>>> hooks) {
+        return hooks.entrySet().stream().map(e -> new Hook(e.getKey(), e.getValue())).toArray(Hook[]::new);
     }
 
     /**

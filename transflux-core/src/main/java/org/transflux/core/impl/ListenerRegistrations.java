@@ -123,9 +123,9 @@ final class ListenerRegistrations<T> {
     }
 
     /** The declarations among a hook's entries, for the passes that only look at what is new. */
-    static <D> List<D> declaredOf(List<ListenerEntry<D>> entries) {
+    static <D> List<D> declaredOf(List<? extends ListenerEntry<? extends D>> entries) {
         List<D> declared = new ArrayList<>(entries.size());
-        for (ListenerEntry<D> entry : entries) {
+        for (ListenerEntry<? extends D> entry : entries) {
             if (!entry.isReference()) {
                 declared.add(entry.declared());
             }
