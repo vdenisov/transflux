@@ -50,6 +50,11 @@ final class TransitionListenerDefImpl<T, C> extends ListenerDefImpl<TransitionLi
     }
 
     @Override
+    String category() {
+        return "transition";
+    }
+
+    @Override
     boolean hasListener() {
         return source.isSet();
     }

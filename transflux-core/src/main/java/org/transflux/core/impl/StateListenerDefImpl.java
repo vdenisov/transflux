@@ -44,6 +44,11 @@ final class StateListenerDefImpl<T> extends ListenerDefImpl<StateListenerDefImpl
     }
 
     @Override
+    String category() {
+        return "state";
+    }
+
+    @Override
     boolean hasListener() {
         return source.isSet();
     }

@@ -49,6 +49,11 @@ final class ActionListenerDefImpl<T, C> extends ListenerDefImpl<ActionListenerDe
     }
 
     @Override
+    String category() {
+        return "action";
+    }
+
+    @Override
     boolean hasListener() {
         return source.isSet();
     }

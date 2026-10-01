@@ -63,6 +63,20 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
         d.onAnyTransitionStart('g', { en, c, x -> } as TransitionListener).onAnyTransitionStart('g')
     }
 
+    // A reference naming a listener declared in place in another category.
+    static final Closure GLOBAL_OTHER_CATEGORY = { d ->
+        d.onAnyTransitionStart('x', { en, c, x -> } as TransitionListener).onAnyStateEntry('x')
+    }
+    static final Closure OWNER_OTHER_CATEGORY = { d -> d
+        .state('s3', { s -> s.onEntry('y', { en, c, ch -> } as StateListener) })
+        .transition('t', 's1', 's2', { t -> t.onStart('y') })
+    }
+    static final Closure ACTION_OTHER_CATEGORY = { d -> d
+        .transition('u', 's1', 's2', { t ->
+            t.step('a', { a -> a.using({ en, c, x -> } as Action).onStart('z', { en, c, x -> } as ActionListener) }) })
+        .transition('t', 's1', 's2', { t -> t.onStart('z') })
+    }
+
     def 'one registered listener serves several hooks and stays one listener'() {
         given:
         def seen = []
@@ -152,7 +166,7 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
 
         then: 'it exists, just not in the category this hook reaches'
         def e = thrown(TransfluxValidationException)
-        e.message.contains('registered in another category')
+        e.message == "transition 't' attaches listener 'audit', which is registered as an action listener; a hook only reaches listeners of its own category"
     }
 
     def "a registration's context is checked against every owner attaching it"() {
@@ -332,6 +346,21 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
         def e = thrown(TransfluxValidationException)
         e.message.contains('is declared on the state machine')
         e.message.contains('register it')
+    }
+
+    def 'a reference reaching a listener declared in place in another category says so: #scenario'() {
+        when:
+        build({ d -> declare.call(d.state('s1').state('s2')) })
+
+        then: 'registering it would not help, so the advice is about the category, not visibility'
+        def e = thrown(TransfluxValidationException)
+        e.message == message
+
+        where:
+        scenario                         | declare                 || message
+        'between two global hooks'       | GLOBAL_OTHER_CATEGORY   || "the state machine attaches listener 'x', which is a transition listener declared on the state machine; a hook only reaches listeners of its own category"
+        'from a transition to a state'   | OWNER_OTHER_CATEGORY    || "transition 't' attaches listener 'y', which is a state listener declared on state 's3'; a hook only reaches listeners of its own category"
+        'from a transition to an action' | ACTION_OTHER_CATEGORY   || "transition 't' attaches listener 'z', which is an action listener declared on step 'a'; a hook only reaches listeners of its own category"
     }
 
     def 'the untyped instance registration takes an Object-context listener, so nothing escapes the check'() {

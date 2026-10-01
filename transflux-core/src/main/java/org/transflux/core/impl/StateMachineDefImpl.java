@@ -471,7 +471,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     private static String article(String kind) {
-        return "AEIOU".indexOf(kind.charAt(0)) >= 0 ? "an" : "a";
+        return "aeiou".indexOf(Character.toLowerCase(kind.charAt(0))) >= 0 ? "an" : "a";
     }
 
     /**
@@ -2179,7 +2179,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * @throws TransfluxValidationException on the first reference that breaks one of those
      */
     private void checkListenerAttachments() {
-        Map<String, String> declaredElsewhere = new HashMap<>();
+        Map<String, InPlaceListener> declaredElsewhere = new HashMap<>();
         for (StateDefImpl<T> sd : states.values()) {
             collectOwnerDeclarations(declaredElsewhere, "state '" + sd.getId() + "'",
                                      sd.getEntryListeners(), sd.getExitListeners());
@@ -2248,12 +2248,12 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     @SafeVarargs
-    private void collectOwnerDeclarations(Map<String, String> declaredElsewhere, String owner,
-                                          List<? extends ListenerEntry<?>>... hooks) {
-        for (List<? extends ListenerEntry<?>> hook : hooks) {
-            for (ListenerEntry<?> entry : hook) {
+    private void collectOwnerDeclarations(Map<String, InPlaceListener> declaredElsewhere, String owner,
+                                          List<? extends ListenerEntry<? extends ListenerDefImpl<?>>>... hooks) {
+        for (List<? extends ListenerEntry<? extends ListenerDefImpl<?>>> hook : hooks) {
+            for (ListenerEntry<? extends ListenerDefImpl<?>> entry : hook) {
                 if (!entry.isReference()) {
-                    declaredElsewhere.put(entry.id(), owner);
+                    declaredElsewhere.put(entry.id(), new InPlaceListener(owner, entry.declared().category()));
                 }
             }
         }
@@ -2265,13 +2265,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      *
      * @param ownerLabel names the owner in a rejection
      * @param ownerContext the context the owner runs against
-     * @param declaredElsewhere every inline declaration in the definition, by owner
+     * @param declaredElsewhere every inline declaration in the definition, with its owner and category
      * @param registrations the registrations of this hook's category
      * @param category the category name, for the rejection
      * @param hooks the owner's hooks
      */
     private void checkReferences(
-            String ownerLabel, Class<?> ownerContext, Map<String, String> declaredElsewhere,
+            String ownerLabel, Class<?> ownerContext, Map<String, InPlaceListener> declaredElsewhere,
             Map<String, ? extends ListenerDefImpl<?>> registrations, String category, Hook... hooks) {
         Set<String> ownIds = new HashSet<>();
         for (Hook hook : hooks) {
@@ -2305,18 +2305,33 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
     /**
      * Builds the message for a reference that did not resolve, naming what was found instead: a
-     * listener of another category, one declared on another owner, or nothing at all.
+     * listener of another category, registered or declared in place, one declared on another
+     * owner, or nothing at all.
+     *
+     * @param ownerLabel names the owner holding the reference
+     * @param id the referenced listener id
+     * @param category the category of the hook holding the reference
+     * @param declaredElsewhere every listener declared in place, with its owner and category
+     *
+     * @return the message
      */
     private String unresolvedListener(String ownerLabel, String id, String category,
-                                      Map<String, String> declaredElsewhere) {
+                                      Map<String, InPlaceListener> declaredElsewhere) {
         String head = ownerLabel + " attaches listener '" + id + "', which ";
-        if (otherCategoryRegistrations(category).containsKey(id)) {
-            return head + "is registered in another category; a hook only reaches listeners of its own";
+        ListenerDefImpl<?> registered = otherCategoryRegistrations(category).get(id);
+        if (registered != null) {
+            return head + "is registered as " + article(registered.category()) + " " + registered.category()
+                + " listener; a hook only reaches listeners of its own category";
         }
 
-        String owner = declaredElsewhere.get(id);
-        if (owner != null) {
-            return head + "is declared on " + owner
+        InPlaceListener declared = declaredElsewhere.get(id);
+        // The category first: registering it would not help a hook of another category.
+        if (declared != null && !declared.category().equals(category)) {
+            return head + "is " + article(declared.category()) + " " + declared.category()
+                + " listener declared on " + declared.owner() + "; a hook only reaches listeners of its own category";
+        }
+        if (declared != null) {
+            return head + "is declared on " + declared.owner()
                 + "; a listener declared in place is visible to its own owner alone, so register it"
                 + " to attach it elsewhere";
         }
@@ -2361,7 +2376,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * spanning every transition, or every action, cannot promise one context, so a registration
      * typed to anything narrower is refused here rather than at whichever owner it would break on.
      */
-    private void checkGlobalReferences(Map<String, String> declaredElsewhere) {
+    private void checkGlobalReferences(Map<String, InPlaceListener> declaredElsewhere) {
         checkReferences("the state machine", Object.class, declaredElsewhere, stateListenerRegistrations,
                         "state", new Hook("onAnyStateEntry", globalEntryListeners),
                         new Hook("onAnyStateExit", globalExitListeners));
@@ -2725,6 +2740,15 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             }
             return BoundAction.of(id, (Action) instance, ActionKind.STEP);
         }
+    }
+
+    /**
+     * A listener declared in place, as a rejection of a reference to it names it.
+     *
+     * @param owner names the owner it is declared on, such as {@code state 's'}
+     * @param category its category: {@code state}, {@code transition} or {@code action}
+     */
+    private record InPlaceListener(String owner, String category) {
     }
 
     /**

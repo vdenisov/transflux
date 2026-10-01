@@ -1,8 +1,5 @@
-# error: transition 't' attaches listener 'l', which is registered as a state listener; a hook only reaches listeners of its own category
+# error: transition 't' attaches listener 'l', which is a state listener declared on state 'a'; a hook only reaches listeners of its own category
 apiVersion: transflux/v1
-listeners:
-  - id: l
-    class: org.transflux.yaml.LoaderFixtures$StateAudit
 stateMachine:
   entityType: org.transflux.yaml.LoaderFixtures$Order
   stateResolver:
@@ -11,6 +8,10 @@ stateMachine:
     expression: state
   states:
     - id: a
+      listeners:
+        onEntry:
+          - id: l
+            class: org.transflux.yaml.LoaderFixtures$StateAudit
     - id: b
   transitions:
     - id: t

@@ -48,6 +48,13 @@ abstract class ListenerDefImpl<SELF extends ListenerDefImpl<SELF>> extends Ident
     abstract boolean hasListener();
 
     /**
+     * Names this listener's category, as rejections name it.
+     *
+     * @return {@code state}, {@code transition} or {@code action}
+     */
+    abstract String category();
+
+    /**
      * Rejects a def that declared no listener, at the point the def is filed rather than when
      * something eventually binds it.
      *
