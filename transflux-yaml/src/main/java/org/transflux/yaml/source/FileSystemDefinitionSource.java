@@ -23,10 +23,14 @@ import static org.transflux.core.Preconditions.requireNotNull;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
@@ -100,11 +104,12 @@ public final class FileSystemDefinitionSource implements DefinitionSource {
      *
      * @param identifier a path relative to the root
      *
-     * @return the file, or empty when there is no regular file at that path
+     * @return the file, or empty when nothing exists at that path or it is no regular file
      *
      * @throws TransfluxValidationException if the identifier is blank, is not a relative path
      *         staying under the root, or breaks the symlink policy
-     * @throws UncheckedIOException if the file exists but cannot be read
+     * @throws UncheckedIOException if the path cannot be examined - a name too long for the
+     *         filesystem included - or the file cannot be read
      */
     @Override
     public Optional<DefinitionResource> open(String identifier) {
@@ -113,24 +118,53 @@ public final class FileSystemDefinitionSource implements DefinitionSource {
         try {
             // ponytail: checked, then opened - a link swapped in between slips past; the filesystem is the host's
             // trust boundary, and closing the window needs a NOFOLLOW_LINKS open per path element
-            Path target = switch (symlinkPolicy) {
-                case FOLLOW -> resolved;
-                case WITHIN_ROOT -> Files.isRegularFile(resolved) ? requireWithinRoot(identifier, resolved) : resolved;
-                case REJECT -> requireNoLinks(identifier, relative);
-            };
+            Path target = symlinkPolicy == SymlinkPolicy.REJECT ? requireNoLinks(identifier, relative) : resolved;
             LinkOption[] linkOptions = symlinkPolicy == SymlinkPolicy.REJECT
                 ? new LinkOption[] {LinkOption.NOFOLLOW_LINKS}
                 : new LinkOption[0];
-            if (!Files.isRegularFile(target, linkOptions)) {
-                Loggers.YAML_SOURCE.debug("File definition not found, identifier={}, path={}", identifier, resolved);
+            BasicFileAttributes attributes = attributesOrNull(target, linkOptions);
+            if (attributes == null || !attributes.isRegularFile()) {
+                Loggers.YAML_SOURCE.debug("File definition not found, identifier={}, path={}, reason={}",
+                    identifier, resolved, attributes == null ? "missing" : "not a regular file");
                 return Optional.empty();
             }
-            // before the open, so a failure here cannot leave the stream unclosed
-            Instant lastModified = Files.getLastModifiedTime(target, linkOptions).toInstant();
+            if (symlinkPolicy == SymlinkPolicy.WITHIN_ROOT) {
+                target = requireWithinRoot(identifier, resolved);
+            }
+            Instant lastModified = attributes.lastModifiedTime().toInstant();
             return Optional.of(new DefinitionResource(identifier, Files.newInputStream(target, linkOptions),
                 target.toString(), lastModified, null));
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to read definition '" + identifier + "' at " + resolved, e);
+        }
+    }
+
+    /**
+     * Reads a path's attributes, telling a path that names nothing from one that cannot be examined.
+     *
+     * @param target the path
+     * @param linkOptions how links are followed
+     *
+     * @return the attributes, or {@code null} when nothing exists at the path
+     *
+     * @throws IOException when the path exists, or may exist, but cannot be examined
+     */
+    private BasicFileAttributes attributesOrNull(Path target, LinkOption... linkOptions) throws IOException {
+        try {
+            return Files.readAttributes(target, BasicFileAttributes.class, linkOptions);
+        } catch (NoSuchFileException e) {
+            return null;
+        } catch (AccessDeniedException e) {
+            throw e;
+        } catch (FileSystemException e) {
+            // A path through a regular file names nothing; POSIX reports it as ENOTDIR, Windows as missing.
+            for (Path ancestor = target.getParent(); ancestor != null && ancestor.startsWith(root);
+                 ancestor = ancestor.getParent()) {
+                if (Files.isRegularFile(ancestor)) {
+                    return null;
+                }
+            }
+            throw e;
         }
     }
 

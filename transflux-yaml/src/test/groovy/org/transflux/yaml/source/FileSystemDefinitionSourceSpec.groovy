@@ -26,6 +26,10 @@ import spock.lang.TempDir
 import java.nio.file.FileSystemException
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.AclEntry
+import java.nio.file.attribute.AclEntryPermission
+import java.nio.file.attribute.AclEntryType
+import java.nio.file.attribute.AclFileAttributeView
 import java.nio.file.attribute.FileTime
 import java.time.Instant
 
@@ -70,16 +74,15 @@ class FileSystemDefinitionSourceSpec extends Specification {
         read(source.withPrefixes('home:'), 'components/shared.yml') == 'shared'
     }
 
-    def 'a missing file or a directory is empty'() {
+    def "a path naming no regular file is empty under every policy: '#identifier', #policy"() {
         expect:
-        new FileSystemDefinitionSource(root).open(identifier).empty
+        new FileSystemDefinitionSource(root, policy).open(identifier).empty
 
         where:
-        identifier << [
-            'components/missing.yml',
-            'components',
-            'nowhere/missing.yml'
-        ]
+        [identifier, policy] << [
+            ['components/missing.yml', 'components', 'nowhere/missing.yml', 'components/shared.yml/nested.yml'],
+            SymlinkPolicy.values()
+        ].combinations()
     }
 
     def "a path with a '..' segment is refused, not treated as missing, even one landing back under the root"() {
@@ -223,6 +226,47 @@ class FileSystemDefinitionSourceSpec extends Specification {
         'escape/outside.yml' | SymlinkPolicy.WITHIN_ROOT
     }
 
+    @Requires({ System.getProperty('os.name').startsWith('Windows') })
+    def 'a file the source may not examine is a failure, not a miss, under #policy'() {
+        given: 'a deny entry on the file and its directory, so its attributes cannot be read'
+        def file = root.resolve('components/shared.yml')
+        def restore = []
+        restore << denyRead(file)
+        restore << denyRead(file.parent)
+
+        when:
+        new FileSystemDefinitionSource(root, policy).open('components/shared.yml')
+
+        then: 'a composite would otherwise serve a later source in its place'
+        thrown(UncheckedIOException)
+
+        cleanup:
+        restore.reverse().each { it.run() }
+
+        where:
+        policy << SymlinkPolicy.values()
+    }
+
+    @Requires({ !System.getProperty('os.name').startsWith('Windows') && System.getProperty('user.name') != 'root' })
+    def 'a file under a directory the source may not search is a failure, not a miss, under #policy'() {
+        given:
+        def directory = root.resolve('components')
+        def permissions = Files.getPosixFilePermissions(directory)
+        Files.setPosixFilePermissions(directory, [] as Set)
+
+        when:
+        new FileSystemDefinitionSource(root, policy).open('components/shared.yml')
+
+        then:
+        thrown(UncheckedIOException)
+
+        cleanup:
+        Files.setPosixFilePermissions(directory, permissions)
+
+        where:
+        policy << SymlinkPolicy.values()
+    }
+
     /** Creating a link needs a privilege Windows grants only in developer mode or to administrators. */
     static boolean symlinksSupported() {
         def probeDir = Files.createTempDirectory('transflux-symlink-probe')
@@ -261,6 +305,27 @@ class FileSystemDefinitionSourceSpec extends Specification {
         if (process.waitFor() != 0 || !Files.exists(link)) {
             throw new IOException("mklink /J failed for $link")
         }
+    }
+
+    /**
+     * Denies the current user reading a path's attributes and data, as an inherited deny entry on a
+     * source root would.
+     *
+     * @param path the file or directory to deny
+     *
+     * @return what restores the path's previous entries
+     */
+    private static Runnable denyRead(Path path) {
+        def view = Files.getFileAttributeView(path, AclFileAttributeView)
+        def original = view.acl
+        // The spec created the path, so its owner is the account running it.
+        def me = Files.getOwner(path)
+        def deny = AclEntry.newBuilder().setType(AclEntryType.DENY).setPrincipal(me)
+            .setPermissions(EnumSet.of(AclEntryPermission.READ_ATTRIBUTES, AclEntryPermission.READ_DATA,
+                                       AclEntryPermission.READ_NAMED_ATTRS, AclEntryPermission.EXECUTE))
+            .build()
+        view.acl = [deny] + original
+        return { view.acl = original } as Runnable
     }
 
     private static String read(DefinitionSource source, String identifier) {
