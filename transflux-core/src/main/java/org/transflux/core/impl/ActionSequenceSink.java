@@ -317,7 +317,7 @@ final class ActionSequenceSink<T, C, D> {
             }
 
             Class<?> declared = ref.declaredContext();
-            sink.accept(ref.id(), declared != null ? declared : effectiveScope, declaringScope);
+            sink.accept(ref.id(), declared != null ? declared : effectiveScope, declaringScope, ref.def());
 
             if (ref instanceof ActionRef.Choice<T, C> choice) {
                 choice.def().collectMemberContexts(

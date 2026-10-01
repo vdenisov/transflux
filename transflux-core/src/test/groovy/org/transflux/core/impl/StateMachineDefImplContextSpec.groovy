@@ -23,6 +23,7 @@ import org.transflux.core.condition.Condition
 import org.transflux.core.exception.TransfluxValidationException
 import org.transflux.core.action.OperationDef
 import org.transflux.core.action.Action
+import org.transflux.core.action.ActionListener
 import org.transflux.core.action.ChoiceDef
 import org.transflux.core.action.ContextMapper
 import org.transflux.core.state.StateResolver
@@ -711,6 +712,39 @@ class StateMachineDefImplContextSpec extends Specification {
 
         then:
         noExceptionThrown()
+    }
+
+    def 'an inline id duplicating a registered one is reported as a duplicate, not as the reference mismatching the registration'() {
+        given: 'the reference resolves innermost first, to the inline declaration its context agrees with'
+        def smd = baseDef()
+        smd.step('s', CtxA, new StepA())
+            .operation('op', CtxB, { OperationDef<Entity, CtxB> op -> op
+                .step('s', new StepB())
+                .run('s') })
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.startsWith("Step id 's' is already registered by another step")
+    }
+
+    def "an inline id declared in two scopes is reported as a duplicate, not against the other declaration's context"() {
+        given:
+        def smd = baseDef()
+        smd.actionListener('audit', CtxB, { l -> l.using({ en, c, x -> } as ActionListener) })
+            .operation('op1', CtxA, { OperationDef<Entity, CtxA> op -> op.step('s', new StepA()) })
+            .operation('op2', CtxB, { OperationDef<Entity, CtxB> op -> op.step('s', { d -> d
+                .using(new StepB())
+                .onStart('audit') } as Consumer) })
+
+        when:
+        smd.build()
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.startsWith("Step id 's' is already registered by another step")
     }
 
     private static StateMachineDefImpl<Entity> baseDef() {

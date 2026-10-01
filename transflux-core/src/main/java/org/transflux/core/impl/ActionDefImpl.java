@@ -440,7 +440,7 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
 
     /**
      * Records the context type every action declared inline beneath this one is written against,
-     * keyed by declaring scope and id.
+     * with the scope that declares it and the declaration itself.
      * <p>
      * A by-id reference is checked against its callee's context, and for a registered component
      * that context comes from the registration. An inline declaration has no registration, so

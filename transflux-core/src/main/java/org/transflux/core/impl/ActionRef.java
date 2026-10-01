@@ -77,6 +77,16 @@ sealed interface ActionRef<T, C>
     }
 
     /**
+     * Returns the def this member declares in place, which the three def-carrying forms answer
+     * with their own; a by-id reference and a step declared from an instance have none.
+     *
+     * @return the declared def, or {@code null}
+     */
+    default ActionDefImpl<?, ?, ?> def() {
+        return null;
+    }
+
+    /**
      * Resolves this reference against the enclosing composite's lexical-scope {@link Registry}
      * and returns the matching action component - the bound action, tagged with the context type
      * it was declared against.

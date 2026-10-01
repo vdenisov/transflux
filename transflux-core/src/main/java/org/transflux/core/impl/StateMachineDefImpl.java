@@ -53,6 +53,7 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.function.BiFunction;
 import java.util.List;
@@ -137,17 +138,20 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private final Set<String> untypedComponentIds = new HashSet<>();
 
     /**
-     * The context each inline-declared action runs against, keyed by the scope that declares it
-     * and then by id, collected per build. Inline ids never reach {@link #componentContextTypes},
+     * The context each inline-declared action runs against, keyed by id and then by the scope that
+     * declares it, collected per build. Inline ids never reach {@link #componentContextTypes},
      * which only registrations write, so a by-id reference to one has nothing else to be checked
      * against.
      * <p>
-     * Keyed by scope because that is what inline visibility is: an id is answerable only from a
-     * position that can resolve it, and resolution walks a scope chain. A flat map would have to
-     * answer for an id the referencing position cannot see, and answering on context there
-     * produces advice - "supply a mapper" - that cannot make the reference resolve.
+     * The scope is kept because that is what inline visibility is: an id is answerable only from
+     * a position that can resolve it, and resolution walks a scope chain. Answering for an id the
+     * referencing position cannot see produces advice - "supply a mapper" - that cannot make the
+     * reference resolve.
      */
-    private final Map<String, Map<String, Class<?>>> inlineMemberContexts = new LinkedHashMap<>();
+    private final Map<String, Map<String, Class<?>>> inlineMemberContexts = new HashMap<>();
+
+    /** The same contexts by declaration, for what asks about a def rather than a reference. */
+    private final Map<ActionDefImpl<?, ?, ?>, Class<?>> inlineDefContexts = new IdentityHashMap<>();
 
     private final Map<String, TransitionDefImpl<T, ?>> transitionsById = new LinkedHashMap<>();
 
@@ -849,8 +853,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * Reports the context a by-id reference's callee runs against, as seen from a position whose
      * enclosing scopes are {@code visibleScopes}.
      * <p>
-     * The scopes are walked innermost first, so the entry found is the one the reference will
-     * actually resolve to - the same order {@code Registry} follows through its parent chain.
+     * The scopes are walked innermost first and the registrations last, so the entry found is the
+     * one the reference will actually resolve to - the order {@code Registry} follows up its
+     * parent chain to the root.
      *
      * @param id the referenced id
      * @param visibleScopes the ids of the scopes the referencing position can resolve through,
@@ -860,17 +865,15 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      *         registration, or an inline declaration the referencing position cannot see
      */
     Class<?> componentContextTypeOrDefault(String id, Collection<String> visibleScopes) {
-        Class<?> registered = componentContextTypes.get(id);
-        if (registered != null) {
-            return registered;
-        }
+        Map<String, Class<?>> byScope = inlineMemberContexts.getOrDefault(id, Map.of());
         for (String scope : visibleScopes) {
-            Class<?> declared = inlineMemberContexts.getOrDefault(scope, Map.of()).get(id);
+            Class<?> declared = byScope.get(scope);
             if (declared != null) {
                 return declared;
             }
         }
-        return Object.class;
+        Class<?> registered = componentContextTypes.get(id);
+        return registered != null ? registered : Object.class;
     }
 
     /**
@@ -2055,17 +2058,21 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * an action attached to a transition, and one registered at state-machine level - and each
      * seeds the walk with the context that position runs against.
      *
-     * <p>Two declarations in one scope may still claim one id here: this pass runs before ids are
-     * claimed, so a duplicate is possible and is a definition error in its own right. The first
-     * wins, which leaves the duplicate to be reported as a duplicate rather than surfacing as a
-     * context mismatch blaming whichever declaration the walk happened to reach second.
+     * <p>This pass runs before ids are claimed, so one id may be declared more than once; that is
+     * a definition error in its own right, reported when the ids are claimed. A reference sees
+     * the declaration its innermost visible scope holds, the first there winning, and a listener
+     * check sees each declaration's own context, so neither reads another declaration's.
      */
     private void collectInlineMemberContexts() {
         inlineMemberContexts.clear();
+        inlineDefContexts.clear();
 
-        InlineContextSink sink = (id, context, scope) -> inlineMemberContexts
-            .computeIfAbsent(scope, k -> new LinkedHashMap<>())
-            .putIfAbsent(id, context);
+        InlineContextSink sink = (id, context, scope, def) -> {
+            inlineMemberContexts.computeIfAbsent(id, k -> new HashMap<>()).putIfAbsent(scope, context);
+            if (def != null) {
+                inlineDefContexts.put(def, context);
+            }
+        };
 
         for (TransitionDefImpl<T, ?> td : transitionsById.values()) {
             ActionDefImpl<T, ?, ?> op = td.getActionDef();
@@ -2231,19 +2238,13 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             return ad.declaredContext();
         }
 
+        Class<?> inline = inlineDefContexts.get(ad);
+        if (inline != null) {
+            return inline;
+        }
+
         Class<?> tagged = componentContextTypes.get(ad.getId());
-        if (tagged != null) {
-            return tagged;
-        }
-
-        for (Map<String, Class<?>> scope : inlineMemberContexts.values()) {
-            Class<?> inline = scope.get(ad.getId());
-            if (inline != null) {
-                return inline;
-            }
-        }
-
-        return Object.class;
+        return tagged != null ? tagged : Object.class;
     }
 
     @SafeVarargs
