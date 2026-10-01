@@ -89,6 +89,34 @@ class StateMachineImplTriggerKindSpec extends Specification {
         thrown(TransfluxValidationException)
     }
 
+    def 'one event named by the shorthand on two transitions is advised to register the trigger once'() {
+        when: 'addEventTrigger(eventId) takes the event id as the trigger id, so the second clashes'
+        build({ d -> d.state('s1')
+            .transition('t1', 's1', 's2', { t -> t.addEventTrigger('paid') })
+            .transition('t2', 's1', 's3', { t -> t.addEventTrigger('paid') })
+            .state('s2')
+            .state('s3') })
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == "Trigger id 'paid' is declared on transition 't1' and on transition 't2'; ids are unique" +
+            " across this state machine's triggers; to fire several transitions on one event, register the trigger" +
+            " once with eventTrigger(...) and attach it to each with addTrigger(id)"
+    }
+
+    def 'two event triggers clashing on id but not on event get no such advice'() {
+        when:
+        build({ d -> d.state('s1')
+            .transition('t1', 's1', 's2', { t -> t.addEventTrigger('dup', 'A') })
+            .transition('t2', 's1', 's3', { t -> t.addEventTrigger('dup', 'B') })
+            .state('s2')
+            .state('s3') })
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message.endsWith("ids are unique across this state machine's triggers")
+    }
+
     def 'a trigger id reused across two kinds is rejected at build'() {
         when:
         build({ d -> d.state('s1')

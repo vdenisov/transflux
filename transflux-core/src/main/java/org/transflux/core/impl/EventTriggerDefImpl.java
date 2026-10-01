@@ -90,6 +90,15 @@ final class EventTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, EventTriggerD
     }
 
     /**
+     * Returns the event this trigger fires on.
+     *
+     * @return the event id, or {@code null} when none was declared yet
+     */
+    String getEventId() {
+        return eventId;
+    }
+
+    /**
      * Resolves this trigger's event id and filter into a runtime {@link EventTriggerImpl}.
      *
      * @return the runtime trigger

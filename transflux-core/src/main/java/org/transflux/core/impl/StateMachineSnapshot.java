@@ -553,8 +553,14 @@ class StateMachineSnapshot<T> {
             where = "registered on the state machine and declared on transition '"
                 + (first != null ? first : second) + "'";
         }
+        // addEventTrigger(eventId) names the trigger after its event, so one event on two transitions lands here.
+        String advice = prior instanceof EventTriggerDefImpl<?, ?> a && triggerDef instanceof EventTriggerDefImpl<?, ?> b
+            && a.getEventId() != null && a.getEventId().equals(b.getEventId()) && first != null && second != null
+            ? "; to fire several transitions on one event, register the trigger once with eventTrigger(...) and"
+                + " attach it to each with addTrigger(id)"
+            : "";
         throw new TransfluxValidationException(
-            "Trigger id '" + id + "' is " + where + "; ids are unique across this state machine's triggers");
+            "Trigger id '" + id + "' is " + where + "; ids are unique across this state machine's triggers" + advice);
     }
 
     /** The triggers a transition declares in place, in the order dispatch scans them. */
