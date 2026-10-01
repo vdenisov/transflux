@@ -466,17 +466,13 @@ class StateMachineImpl<T> implements StateMachine<T> {
     }
 
     /**
-     * Releases the claim {@link #enterTransition} took, and drops the thread-local once this thread
-     * has no execution left in flight.
+     * Releases the claim {@link #enterTransition} took.
      *
      * @param entity the entity whose execution has finished
      */
     void exitTransition(Object entity) {
-        Set<EntityKey> inFlight = IN_FLIGHT.get();
-        inFlight.remove(new EntityKey(this, entity));
-        if (inFlight.isEmpty()) {
-            IN_FLIGHT.remove();
-        }
+        // The emptied set stays: it holds nothing of ours, unlike the branch deque, which names machines.
+        IN_FLIGHT.get().remove(new EntityKey(this, entity));
     }
 
     /**
