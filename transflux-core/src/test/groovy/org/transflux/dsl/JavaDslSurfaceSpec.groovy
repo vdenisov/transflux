@@ -490,7 +490,7 @@ class JavaDslSurfaceSpec extends Specification {
     def 'every listener registration form attaches by id, across categories and scopes'() {
         expect: 'each attachment delivered - a dropped one changes the sequence, not just its length'
         JavaDslSurface.listenerRegistrationShapes() ==
-            'START,any,EXIT,START,recording,COMPLETE,COMPLETE,ENTRY'
+            'START,any,EXIT,START,recording,COMPLETE,scoped-action-instance,COMPLETE,scoped-transition-instance,ENTRY'
     }
 
     def 'a component factory is a lambda, and may delegate to the reflective default'() {

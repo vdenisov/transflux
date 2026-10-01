@@ -24,8 +24,12 @@ import org.transflux.core.action.Compensation
 import org.transflux.core.action.ContextMapper
 import org.transflux.core.action.NoMatchBehavior
 import org.transflux.core.action.Action
+import org.transflux.core.action.ActionListener
+import org.transflux.core.transition.TransitionListener
 import spock.lang.Specification
 import spock.lang.Unroll
+
+import java.util.function.Consumer
 
 class ConfigurableDefImplSpec extends Specification {
 
@@ -173,6 +177,10 @@ class ConfigurableDefImplSpec extends Specification {
         'forContext scope'    | 'condition'          | { newScope() }                                           | { it.condition('cnd', 'entity != null') } | 'forContext scope for Object'
         'forContext scope'    | 'compositeOperation' | { newScope() }                                           | { it.operation('co', {}) }       | 'forContext scope for Object'
         'forContext scope'    | 'operation'          | { newScope() }                                           | { it.step('o', NOOP_OP) }            | 'forContext scope for Object'
+        'forContext scope'    | 'transitionListener' | { newScope() }                                           | { it.transitionListener('l', { en, c, x -> } as TransitionListener) } | 'forContext scope for Object'
+        'forContext scope'    | 'transitionListener cfg' | { newScope() }                                       | { it.transitionListener('l', { l -> } as Consumer) } | 'forContext scope for Object'
+        'forContext scope'    | 'actionListener'     | { newScope() }                                           | { it.actionListener('l', { en, c, x -> } as ActionListener) } | 'forContext scope for Object'
+        'forContext scope'    | 'actionListener cfg' | { newScope() }                                           | { it.actionListener('l', { l -> } as Consumer) } | 'forContext scope for Object'
     }
 
     private static ContextScopeImpl<Object, Object> newScope() {

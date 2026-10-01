@@ -262,10 +262,10 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
         seen == ['START']
     }
 
-    def 'a listener registered inside forContext carries that scope context'() {
+    def 'a listener registered inside forContext carries that scope context: #form'() {
         when:
         build({ d -> d
-            .forContext(Ctx, { scope -> scope.transitionListener('scoped', { l -> l.using({ e, c, x -> } as TransitionListener) }) })
+            .forContext(Ctx, register)
             .state('s1')
             .transition('t', 's1', 's2', OtherCtx, { t -> t.onStart('scoped') })
             .state('s2') })
@@ -273,6 +273,11 @@ class StateMachineDefImplListenerRegistrationSpec extends Specification {
         then:
         def e = thrown(TransfluxValidationException)
         e.message.contains('Context type mismatch')
+
+        where:
+        form         | register
+        'configurer' | { scope -> scope.transitionListener('scoped', { l -> l.using({ en, c, x -> } as TransitionListener) }) }
+        'instance'   | { scope -> scope.transitionListener('scoped', { en, c, x -> } as TransitionListener) }
     }
 
     def "an inline action's inherited context is what its listener attachment is checked against"() {

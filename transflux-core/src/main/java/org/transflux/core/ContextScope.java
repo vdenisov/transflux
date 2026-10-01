@@ -24,7 +24,9 @@ import org.transflux.core.action.ChoiceDef;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.StepDef;
+import org.transflux.core.action.ActionListener;
 import org.transflux.core.action.ActionListenerDef;
+import org.transflux.core.transition.TransitionListener;
 import org.transflux.core.transition.TransitionListenerDef;
 import org.transflux.core.trigger.DataTriggerDef;
 import org.transflux.core.trigger.EventTriggerDef;
@@ -38,10 +40,10 @@ import java.util.function.Predicate;
  * Context-typed registration scope handed to a {@link StateMachineDef#forContext(Class, Consumer)}
  * configurer.
  * <p>
- * Every reusable component (step, condition, operation) registered via this scope is
- * tagged with the scope's context class {@code C}. The framework uses that tag at build time
- * to verify that by-id references resolve against a component declared for the referring
- * scope's context type.
+ * Every reusable component registered via this scope - a step, condition, operation or choice,
+ * a transition or action listener, a trigger - is tagged with the scope's context class
+ * {@code C}. The framework uses that tag at build time to verify that by-id references resolve
+ * against a component declared for the referring scope's context type.
  *
  * <p>{@link Void} is a valid context class for components that do not consume a context.
  *
@@ -152,14 +154,42 @@ public interface ContextScope<T, C> {
     ContextScope<T, C> choice(String id, Consumer<ChoiceDef<T, C>> configurer);
 
     /**
+     * Registers a transition listener instance against this scope's context type, for an owner to
+     * attach by id.
+     *
+     * @param id the listener id, unique among this state machine's listeners
+     * @param listener the listener; never {@code null}
+     *
+     * @return this scope for chaining
+     *
+     * @throws TransfluxValidationException if the id is blank or taken, or the listener is {@code null}
+     */
+    ContextScope<T, C> transitionListener(String id, TransitionListener<? super T, C> listener);
+
+    /**
      * Registers a transition listener against this scope's context type, for an owner to attach by id.
      *
      * @param id the listener id, unique among this state machine's listeners
      * @param configurer callback that declares the listener
      *
      * @return this scope for chaining
+     *
+     * @throws TransfluxValidationException if the id is blank or taken, or the configurer declares no listener
      */
     ContextScope<T, C> transitionListener(String id, Consumer<TransitionListenerDef<T, C>> configurer);
+
+    /**
+     * Registers an action listener instance against this scope's context type, for an owner to
+     * attach by id.
+     *
+     * @param id the listener id, unique among this state machine's listeners
+     * @param listener the listener; never {@code null}
+     *
+     * @return this scope for chaining
+     *
+     * @throws TransfluxValidationException if the id is blank or taken, or the listener is {@code null}
+     */
+    ContextScope<T, C> actionListener(String id, ActionListener<? super T, C> listener);
 
     /**
      * Registers an action listener against this scope's context type, for an owner to attach by id.
@@ -168,6 +198,8 @@ public interface ContextScope<T, C> {
      * @param configurer callback that declares the listener
      *
      * @return this scope for chaining
+     *
+     * @throws TransfluxValidationException if the id is blank or taken, or the configurer declares no listener
      */
     ContextScope<T, C> actionListener(String id, Consumer<ActionListenerDef<T, C>> configurer);
 

@@ -24,7 +24,9 @@ import org.transflux.core.action.ChoiceDef;
 import org.transflux.core.action.OperationDef;
 import org.transflux.core.action.Action;
 import org.transflux.core.action.StepDef;
+import org.transflux.core.action.ActionListener;
 import org.transflux.core.action.ActionListenerDef;
+import org.transflux.core.transition.TransitionListener;
 import org.transflux.core.transition.TransitionListenerDef;
 import org.transflux.core.trigger.DataTriggerDef;
 import org.transflux.core.trigger.EventTriggerDef;
@@ -134,9 +136,23 @@ final class ContextScopeImpl<T, C> extends ConfigurableDefImpl implements Contex
     }
 
     @Override
+    public ContextScope<T, C> transitionListener(String id, TransitionListener<? super T, C> listener) {
+        requireConfigurerActive("transitionListener");
+        smd.transitionListener(id, contextType, listener);
+        return this;
+    }
+
+    @Override
     public ContextScope<T, C> transitionListener(String id, Consumer<TransitionListenerDef<T, C>> configurer) {
         requireConfigurerActive("transitionListener");
         smd.transitionListener(id, contextType, configurer);
+        return this;
+    }
+
+    @Override
+    public ContextScope<T, C> actionListener(String id, ActionListener<? super T, C> listener) {
+        requireConfigurerActive("actionListener");
+        smd.actionListener(id, contextType, listener);
         return this;
     }
 

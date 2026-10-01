@@ -1454,7 +1454,9 @@ public final class JavaDslSurface {
             // and the same two categories under a forContext block
             .forContext(OrderCtx.class, scope -> scope
                 .transitionListener("scoped-transition", l -> l.using(new TransitionAudit()))
-                .actionListener("scoped-action", l -> l.using(new ActionAudit())))
+                .transitionListener("scoped-transition-instance", (o, ctx, x) -> o.trail.add("scoped-transition-instance"))
+                .actionListener("scoped-action", l -> l.using(new ActionAudit()))
+                .actionListener("scoped-action-instance", (o, ctx, x) -> o.trail.add("scoped-action-instance")))
             // attached state-machine-wide by id
             .onAnyTransitionStart("any-transition")
             .onAnyStateEntry("state-audit")
@@ -1464,11 +1466,13 @@ public final class JavaDslSurface {
             .transition("t", "s1", "s2", OrderCtx.class, t -> t
                 .onStart("typed-transition")
                 .onComplete("scoped-transition")
+                .onComplete("scoped-transition-instance")
                 .onError("configured-transition")
                 .step("tracked", step -> step
                     .using(new RecordingAction())
                     .onStart("typed-action")
                     .onComplete("scoped-action")
+                    .onComplete("scoped-action-instance")
                     .onError("configured-action")))
             .state("s2")
             .build()) {
