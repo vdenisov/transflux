@@ -114,6 +114,9 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      */
     private ListenerRegistrations<T> listenerBinder;
 
+    /** Binds this build's expressions; held on the definition for the reason {@link #listenerBinder} is. */
+    private SpelConditionEvaluator conditionEvaluator;
+
     /** Registered listeners, per category, sharing the state-machine-wide listener namespace. */
     private final Map<String, StateListenerDefImpl<T>> stateListenerRegistrations = new LinkedHashMap<>();
     private final Map<String, TransitionListenerDefImpl<T, ?>> transitionListenerRegistrations =
@@ -160,6 +163,8 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     private AsyncPoolSpec asyncPoolSpec;
 
     private AsyncRejectionPolicy asyncRejectionPolicy;
+
+    private ClassLoader classLoader;
 
 
     /** The listeners attached to every state, transition or action rather than to one. */
@@ -263,6 +268,16 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
                                   "StateMachineDef", Loggers.BUILD_VALIDATION);
 
         this.asyncRejectionPolicy = policy;
+        return this;
+    }
+
+    @Override
+    public StateMachineDef<T> withClassLoader(ClassLoader classLoader) {
+        requireNotNull(classLoader, "Class loader");
+        ValidationUtils.warnIfSet(this.classLoader != null, "Class loader", "StateMachineDef",
+                                  Loggers.BUILD_VALIDATION);
+
+        this.classLoader = classLoader;
         return this;
     }
 
@@ -735,10 +750,10 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      * Resolves the condition registrations into {@link BoundCondition} instances. Called from
      * {@link StateMachineSnapshot} during state machine construction.
      */
-    Map<String, BoundCondition<T, ?>> buildBoundConditions() {
+    Map<String, BoundCondition<T, ?>> buildBoundConditions(SpelConditionEvaluator evaluator) {
         Map<String, BoundCondition<T, ?>> resolved = new LinkedHashMap<>();
         for (Map.Entry<String, ConditionRegistration<T>> e : conditionRegistrations.entrySet()) {
-            resolved.put(e.getKey(), e.getValue().toBoundCondition(e.getKey()));
+            resolved.put(e.getKey(), e.getValue().toBoundCondition(e.getKey(), evaluator));
         }
 
         return Collections.unmodifiableMap(resolved);
@@ -1119,6 +1134,15 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
      */
     ListenerRegistrations<T> listenerBinder() {
         return listenerBinder;
+    }
+
+    /**
+     * Returns the evaluator binding this build's expressions.
+     *
+     * @return the evaluator; never {@code null} while a build is running
+     */
+    SpelConditionEvaluator conditionEvaluator() {
+        return conditionEvaluator;
     }
 
     Map<String, StateListenerDefImpl<T>> getStateListenerRegistrations() {
@@ -1925,6 +1949,27 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
     }
 
     /**
+     * Resolves the class loader this build's expressions resolve type references through: the one
+     * set, else the thread context class loader now, else this library's own.
+     *
+     * @return the class loader
+     */
+    private ClassLoader effectiveClassLoader() {
+        String source = "explicit";
+        ClassLoader resolved = classLoader;
+        if (resolved == null) {
+            source = "thread-context";
+            resolved = Thread.currentThread().getContextClassLoader();
+        }
+        if (resolved == null) {
+            source = "framework";
+            resolved = StateMachineDefImpl.class.getClassLoader();
+        }
+        Loggers.BUILD_BINDING.debug("Expression class loader resolved, source={}, classLoader={}", source, resolved);
+        return resolved;
+    }
+
+    /**
      * Runs the build pipeline and produces one snapshot for {@code handle}. Shared by
      * {@link #build()} and by definition replacement, so both go through the same validation, the
      * same binding and the same completion line.
@@ -1947,13 +1992,21 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
 
         Loggers.BUILD_LIFECYCLE.debug("Populating registries and binding components");
         listenerBinder = new ListenerRegistrations<>(this);
-        visitActionDefs(actionDef -> ((ActionDefImpl) actionDef).setListenerBinder(listenerBinder));
+        conditionEvaluator = new SpelConditionEvaluator(effectiveClassLoader());
+        visitActionDefs(actionDef -> {
+            ((ActionDefImpl) actionDef).setListenerBinder(listenerBinder);
+            ((ActionDefImpl) actionDef).setConditionEvaluator(conditionEvaluator);
+        });
         StateMachineSnapshot<T> snapshot;
         try {
             snapshot = new StateMachineSnapshot<>(this, handle);
         } finally {
             listenerBinder = null;
-            visitActionDefs(actionDef -> ((ActionDefImpl) actionDef).setListenerBinder(null));
+            conditionEvaluator = null;
+            visitActionDefs(actionDef -> {
+                ((ActionDefImpl) actionDef).setListenerBinder(null);
+                ((ActionDefImpl) actionDef).setConditionEvaluator(null);
+            });
         }
 
         Loggers.BUILD_LIFECYCLE.debug("Validating registered components");
@@ -2728,7 +2781,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
             }
 
             @SuppressWarnings({"unchecked", "rawtypes"})
-            BoundCondition<T, ?> toBoundCondition(String id) {
+            BoundCondition<T, ?> toBoundCondition(String id, SpelConditionEvaluator evaluator) {
                 if (instance != null) {
                     return BoundCondition.of(id, (Condition) instance);
                 }
@@ -2737,7 +2790,7 @@ public class StateMachineDefImpl<T> implements StateMachineDef<T> {
                     Condition<T, Object> adapted = (entity, ctx, transition) -> p.test(entity, ctx);
                     return BoundCondition.of(id, (Condition) adapted);
                 }
-                return BoundCondition.fromExpression(id, expression);
+                return BoundCondition.fromExpression(id, expression, evaluator);
             }
         }
 

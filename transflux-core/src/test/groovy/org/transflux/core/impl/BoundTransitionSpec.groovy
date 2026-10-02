@@ -25,12 +25,14 @@ import spock.lang.Unroll
 
 class BoundTransitionSpec extends Specification {
 
+    private static final SpelConditionEvaluator EVALUATOR = new SpelConditionEvaluator(BoundTransitionSpec.classLoader)
+
     def 'from() builds a record populated from the def'() {
         given:
         def transitionDef = new TransitionDefImpl(new StateMachineDefImpl(), 't1', 'state1', 'state2', Object)
 
         when:
-        def transition = BoundTransition.from(transitionDef, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none())
+        def transition = BoundTransition.from(transitionDef, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none(), EVALUATOR)
 
         then:
         transition.id() == 't1'
@@ -50,7 +52,7 @@ class BoundTransitionSpec extends Specification {
         def transitionDef = new TransitionDefImpl(new StateMachineDefImpl(), 't1', 'state1', 'state2', Object)
 
         when:
-        BoundTransition.from(transitionDef, [:] as Map<String, BoundCondition>, null)
+        BoundTransition.from(transitionDef, [:] as Map<String, BoundCondition>, null, EVALUATOR)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -59,7 +61,7 @@ class BoundTransitionSpec extends Specification {
 
     def 'from() rejects a null def'() {
         when:
-        BoundTransition.from(null, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none())
+        BoundTransition.from(null, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none(), EVALUATOR)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -71,7 +73,7 @@ class BoundTransitionSpec extends Specification {
         def transitionDef = new TransitionDefImpl(new StateMachineDefImpl(), 't1', 'state1', 'state2', Object)
 
         when:
-        BoundTransition.from(transitionDef, null, BoundTransitionListeners.none())
+        BoundTransition.from(transitionDef, null, BoundTransitionListeners.none(), EVALUATOR)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -82,7 +84,7 @@ class BoundTransitionSpec extends Specification {
     def 'accessor #accessor returns #expected'() {
         given:
         def transitionDef = new TransitionDefImpl(new StateMachineDefImpl(), id, sourceId, targetId, Object)
-        def transition = BoundTransition.from(transitionDef, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none())
+        def transition = BoundTransition.from(transitionDef, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none(), EVALUATOR)
 
         expect:
         transition."$accessor"() == expected
@@ -98,8 +100,8 @@ class BoundTransitionSpec extends Specification {
         given:
         def defA = new TransitionDefImpl(new StateMachineDefImpl(), 't1', 'source', 'target', Object)
         def defB = new TransitionDefImpl(new StateMachineDefImpl(), 't1', 'source', 'target', Object)
-        def a = BoundTransition.from(defA, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none())
-        def b = BoundTransition.from(defB, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none())
+        def a = BoundTransition.from(defA, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none(), EVALUATOR)
+        def b = BoundTransition.from(defB, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none(), EVALUATOR)
 
         expect:
         a == b
@@ -110,8 +112,8 @@ class BoundTransitionSpec extends Specification {
         given:
         def defA = new TransitionDefImpl(new StateMachineDefImpl(), 'same-id', 'source1', 'target1', Object)
         def defB = new TransitionDefImpl(new StateMachineDefImpl(), 'same-id', 'source2', 'target2', Object)
-        def a = BoundTransition.from(defA, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none())
-        def b = BoundTransition.from(defB, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none())
+        def a = BoundTransition.from(defA, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none(), EVALUATOR)
+        def b = BoundTransition.from(defB, [:] as Map<String, BoundCondition>, BoundTransitionListeners.none(), EVALUATOR)
 
         expect:
         a != b

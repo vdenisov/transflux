@@ -23,13 +23,16 @@ import org.springframework.expression.Expression;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
+import org.springframework.expression.spel.support.StandardTypeLocator;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.transition.Transition;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 
 /**
- * Parses and evaluates the SpEL a definition writes. It keeps nothing: whoever binds an
+ * Parses and evaluates the SpEL a definition writes. One instance serves one build: it resolves
+ * {@code T(...)} type references through the definition's class loader, whichever thread evaluates,
+ * and shares one set of accessors and resolvers across every evaluation. Whoever binds an
  * expression holds its parsed form, so it lives exactly as long as the definition that declared it.
  * <p>
  * Evaluation binds the entity as the SpEL root object and exposes the context and the
@@ -41,7 +44,19 @@ final class SpelConditionEvaluator {
 
     private static final ExpressionParser PARSER = new SpelExpressionParser();
 
-    private SpelConditionEvaluator() {
+    private final StandardEvaluationContext prototype = new StandardEvaluationContext();
+
+    /**
+     * @param classLoader the class loader type references in the definition's expressions resolve through
+     */
+    SpelConditionEvaluator(ClassLoader classLoader) {
+        prototype.setTypeLocator(new StandardTypeLocator(classLoader));
+        // Filled lazily, some into plain fields: fill them here, as the prototype is shared across threads.
+        prototype.getPropertyAccessors();
+        prototype.getConstructorResolvers();
+        prototype.getMethodResolvers();
+        prototype.getIndexAccessors();
+        prototype.getTypeConverter();
     }
 
     /**
@@ -58,8 +73,8 @@ final class SpelConditionEvaluator {
      *
      * @throws TransfluxValidationException if evaluation fails or does not yield a {@code Boolean}
      */
-    static <T, C> boolean evaluate(Expression expression, T entity, C context, Transition transition) {
-        StandardEvaluationContext evalContext = new StandardEvaluationContext(entity);
+    <T, C> boolean evaluate(Expression expression, T entity, C context, Transition transition) {
+        StandardEvaluationContext evalContext = context(entity);
         evalContext.setVariable("entity", entity);
         evalContext.setVariable("context", context);
         evalContext.setVariable("transition", transition);
@@ -81,8 +96,8 @@ final class SpelConditionEvaluator {
      *
      * @throws TransfluxValidationException if evaluation fails or does not yield a {@code Boolean}
      */
-    static <T> boolean evaluateEventFilter(Expression expression, T entity, Object eventData, Object context) {
-        StandardEvaluationContext evalContext = new StandardEvaluationContext(entity);
+    <T> boolean evaluateEventFilter(Expression expression, T entity, Object eventData, Object context) {
+        StandardEvaluationContext evalContext = context(entity);
         evalContext.setVariable("entity", entity);
         evalContext.setVariable("event", eventData);
         evalContext.setVariable("context", context);
@@ -125,6 +140,12 @@ final class SpelConditionEvaluator {
             throw new TransfluxValidationException(
                 "Invalid SpEL expression '" + expression + "': " + e.getMessage(), e);
         }
+    }
+
+    private StandardEvaluationContext context(Object root) {
+        StandardEvaluationContext evalContext = new StandardEvaluationContext(root);
+        prototype.applyDelegatesTo(evalContext);
+        return evalContext;
     }
 
     private static boolean evaluateBoolean(Expression expression, StandardEvaluationContext evalContext) {

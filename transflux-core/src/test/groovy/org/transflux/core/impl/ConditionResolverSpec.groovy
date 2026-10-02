@@ -31,6 +31,9 @@ import java.util.function.Predicate
 
 class ConditionResolverSpec extends Specification {
 
+    private static final SpelConditionEvaluator EVALUATOR =
+        new SpelConditionEvaluator(ConditionResolverSpec.classLoader)
+
     static class Entity {
         int value
     }
@@ -42,7 +45,7 @@ class ConditionResolverSpec extends Specification {
         Map<String, BoundCondition<Entity, TestContext>> registry = ['a': bound]
 
         when:
-        def resolved = ConditionResolver.resolve(ConditionDescriptor.ref('a'), registry, 'path')
+        def resolved = ConditionResolver.resolve(ConditionDescriptor.ref('a'), registry, 'path', EVALUATOR)
 
         then:
         resolved.is(bound)
@@ -50,7 +53,7 @@ class ConditionResolverSpec extends Specification {
 
     def "a reference to an unregistered id is a build that skipped its check, not a validation error"() {
         when:
-        ConditionResolver.resolve(ConditionDescriptor.ref('missing'), [:], 'path')
+        ConditionResolver.resolve(ConditionDescriptor.ref('missing'), [:], 'path', EVALUATOR)
 
         then:
         def e = thrown(IllegalStateException)
@@ -63,7 +66,7 @@ class ConditionResolverSpec extends Specification {
 
         when:
         def resolved = ConditionResolver.resolve(
-            ConditionDescriptor.predicate('a', p), [:], 'path')
+            ConditionDescriptor.predicate('a', p), [:], 'path', EVALUATOR)
 
         then:
         resolved.id == 'a'
@@ -77,7 +80,7 @@ class ConditionResolverSpec extends Specification {
 
         when:
         def resolved = ConditionResolver.resolve(
-            ConditionDescriptor.predicate('a', p), [:], 'path')
+            ConditionDescriptor.predicate('a', p), [:], 'path', EVALUATOR)
 
         then:
         resolved.id == 'a'
@@ -90,7 +93,7 @@ class ConditionResolverSpec extends Specification {
         when:
         def resolved = ConditionResolver.resolve(
             ConditionDescriptor.expression('value > 0'), [:],
-            'transition[t1]/preCondition[0]')
+            'transition[t1]/preCondition[0]', EVALUATOR)
 
         then:
         resolved.id.startsWith('expr-')
@@ -100,7 +103,7 @@ class ConditionResolverSpec extends Specification {
     def "should use explicit id for an ExpressionBased descriptor"() {
         when:
         def resolved = ConditionResolver.resolve(
-            ConditionDescriptor.expression('cond-a', 'value > 0'), [:], 'path')
+            ConditionDescriptor.expression('cond-a', 'value > 0'), [:], 'path', EVALUATOR)
 
         then:
         resolved.id == 'cond-a'
@@ -109,7 +112,7 @@ class ConditionResolverSpec extends Specification {
 
     def "should reject a null descriptor"() {
         when:
-        ConditionResolver.resolve(null, [:], 'path')
+        ConditionResolver.resolve(null, [:], 'path', EVALUATOR)
 
         then:
         thrown(TransfluxValidationException)

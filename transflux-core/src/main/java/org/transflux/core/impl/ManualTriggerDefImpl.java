@@ -110,19 +110,21 @@ final class ManualTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, ManualTrigge
      *
      * @param registry the state machine's resolved condition registry, keyed by id
      * @param transitionIds the transitions it is attached to
+     * @param evaluator the evaluator its expressions bind through
      *
      * @return the runtime trigger
      *
      * @throws TransfluxValidationException if any descriptor cannot be resolved
      */
     @Override
-    ManualTriggerImpl<T, C> buildBound(Map<String, BoundCondition<T, C>> registry, List<String> transitionIds) {
+    ManualTriggerImpl<T, C> buildBound(Map<String, BoundCondition<T, C>> registry, List<String> transitionIds,
+                                    SpelConditionEvaluator evaluator) {
         requireNotNull(registry, "Condition registry");
         List<ConditionDescriptor> descriptors = preConditions.descriptors();
         List<BoundCondition<T, C>> bound = new ArrayList<>(descriptors.size());
         for (int i = 0; i < descriptors.size(); i++) {
             String path = "trigger:" + getId() + ":pre[" + i + "]";
-            bound.add(ConditionResolver.resolve(descriptors.get(i), registry, path));
+            bound.add(ConditionResolver.resolve(descriptors.get(i), registry, path, evaluator));
         }
         return new ManualTriggerImpl<>(getId(), getName(), getDescription(), transitionIds, bound);
     }

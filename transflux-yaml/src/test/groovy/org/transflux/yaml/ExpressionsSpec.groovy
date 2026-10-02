@@ -29,9 +29,11 @@ import static org.transflux.yaml.LoaderFixtures.Status
 
 class ExpressionsSpec extends Specification {
 
+    private static final Expressions EXPRESSIONS = new Expressions(ExpressionsSpec.classLoader)
+
     def 'mapTo is evaluated against the parent context'() {
         given:
-        def mapper = Expressions.mapper(map("mapTo: \"new ${ChildCtx.name}()\"\n"))
+        def mapper = EXPRESSIONS.mapper(map("mapTo: \"new ${ChildCtx.name}()\"\n"))
 
         expect:
         mapper.mapTo(new Ctx()) instanceof ChildCtx
@@ -39,7 +41,7 @@ class ExpressionsSpec extends Specification {
 
     def 'without mapFrom, a mapper writes nothing back'() {
         given:
-        def mapper = Expressions.mapper(map("mapTo: 'note'\n"))
+        def mapper = EXPRESSIONS.mapper(map("mapTo: 'note'\n"))
         def parent = new Ctx()
 
         when:
@@ -52,7 +54,7 @@ class ExpressionsSpec extends Specification {
 
     def 'mapFrom assigns into the parent in document order, converting to the property type'() {
         given:
-        def mapper = Expressions.mapper(map('''\
+        def mapper = EXPRESSIONS.mapper(map('''\
             mapTo: 'note'
             mapFrom:
               chargeId: "chargeId"
@@ -72,7 +74,7 @@ class ExpressionsSpec extends Specification {
 
     def 'a failing evaluation names the expression and the failure type, not the values'() {
         given:
-        def mapper = Expressions.mapper(map("mapTo: 'missing'\nmapFrom:\n  status: \"'SECRET-VALUE'\"\n"))
+        def mapper = EXPRESSIONS.mapper(map("mapTo: 'missing'\nmapFrom:\n  status: \"'SECRET-VALUE'\"\n"))
 
         when:
         mapper.mapTo(new Ctx())
@@ -92,7 +94,7 @@ class ExpressionsSpec extends Specification {
 
     def 'a resolver reads the state off the entity, an enum contributing its name'() {
         given:
-        def resolver = Expressions.resolver(map("expression: 'status'\n"))
+        def resolver = EXPRESSIONS.resolver(map("expression: 'status'\n"))
 
         expect:
         resolver.resolveState(new EnumOrder(status: Status.CHARGED)) == 'CHARGED'
@@ -100,7 +102,7 @@ class ExpressionsSpec extends Specification {
 
     def 'a resolver renders a non-enum state through toString, and passes null through'() {
         given:
-        def resolver = Expressions.resolver(map("expression: 'state'\n"))
+        def resolver = EXPRESSIONS.resolver(map("expression: 'state'\n"))
 
         expect:
         resolver.resolveState(new Order(state: 'a')) == 'a'
@@ -109,7 +111,7 @@ class ExpressionsSpec extends Specification {
 
     def 'a resolver binds the entity under #entity as well as at the root'() {
         given:
-        def resolver = Expressions.resolver(map("expression: \"#entity.state + '/' + priority\"\n"))
+        def resolver = EXPRESSIONS.resolver(map("expression: \"#entity.state + '/' + priority\"\n"))
 
         expect:
         resolver.resolveState(new Order(state: 'a', priority: 7)) == 'a/7'
@@ -117,7 +119,7 @@ class ExpressionsSpec extends Specification {
 
     def 'an applier assigns the state id, converting it to an enum-typed property'() {
         given:
-        def applier = Expressions.applier(map("expression: 'status'\n"))
+        def applier = EXPRESSIONS.applier(map("expression: 'status'\n"))
         def order = new EnumOrder()
 
         when:
@@ -129,7 +131,7 @@ class ExpressionsSpec extends Specification {
 
     def 'an applier assigns a String-typed property'() {
         given:
-        def applier = Expressions.applier(map("expression: 'state'\n"))
+        def applier = EXPRESSIONS.applier(map("expression: 'state'\n"))
         def order = new Order()
 
         when:
@@ -141,7 +143,7 @@ class ExpressionsSpec extends Specification {
 
     def 'an applier that cannot assign names the target and the failure type, not the value'() {
         given:
-        def applier = Expressions.applier(map("expression: 'priority'\n"))
+        def applier = EXPRESSIONS.applier(map("expression: 'priority'\n"))
 
         when:
         applier.applyState(new Order(), 'SECRET-VALUE')
@@ -154,7 +156,7 @@ class ExpressionsSpec extends Specification {
 
     def 'a guard judges the failure it is handed'() {
         given:
-        def guard = Expressions.guard(map("expression: \"message == 'boom'\"\n"))
+        def guard = EXPRESSIONS.guard(map("expression: \"message == 'boom'\"\n"))
 
         expect:
         guard.test(new IllegalStateException('boom'))
@@ -163,7 +165,7 @@ class ExpressionsSpec extends Specification {
 
     def 'a guard that does not yield a boolean throws'() {
         given:
-        def guard = Expressions.guard(map("expression: 'message'\n"))
+        def guard = EXPRESSIONS.guard(map("expression: 'message'\n"))
 
         when:
         guard.test(new IllegalStateException('boom'))
@@ -183,11 +185,11 @@ class ExpressionsSpec extends Specification {
 
         where:
         what                     | text                                           | read                                || message
-        'a malformed mapTo'      | "mapTo: 'a +'\n"                               | { Expressions.mapper(it) }          || "doc.yml:1:8: invalid SpEL expression 'a +': "
-        'a malformed target'     | "mapTo: 'a'\nmapFrom:\n  'a +': 'b'\n"         | { Expressions.mapper(it) }          || "doc.yml:3:3: mapFrom: invalid SpEL expression 'a +': "
-        'a malformed value'      | "mapTo: 'a'\nmapFrom:\n  a: 'b +'\n"           | { Expressions.mapper(it) }          || "doc.yml:3:6: mapFrom: invalid SpEL expression 'b +': "
-        'a mapFrom not a map'    | "mapTo: 'a'\nmapFrom: [a]\n"                   | { Expressions.mapper(it) }          || "doc.yml:2:10: 'mapFrom' must be a mapping"
-        'a malformed guard'      | "expression: 'a +'\n"                          | { Expressions.guard(it) }           || "doc.yml:1:13: invalid SpEL expression 'a +': "
+        'a malformed mapTo'      | "mapTo: 'a +'\n"                               | { EXPRESSIONS.mapper(it) }          || "doc.yml:1:8: Invalid SpEL expression 'a +': "
+        'a malformed target'     | "mapTo: 'a'\nmapFrom:\n  'a +': 'b'\n"         | { EXPRESSIONS.mapper(it) }          || "doc.yml:3:3: mapFrom: Invalid SpEL expression 'a +': "
+        'a malformed value'      | "mapTo: 'a'\nmapFrom:\n  a: 'b +'\n"           | { EXPRESSIONS.mapper(it) }          || "doc.yml:3:6: mapFrom: Invalid SpEL expression 'b +': "
+        'a mapFrom not a map'    | "mapTo: 'a'\nmapFrom: [a]\n"                   | { EXPRESSIONS.mapper(it) }          || "doc.yml:2:10: 'mapFrom' must be a mapping"
+        'a malformed guard'      | "expression: 'a +'\n"                          | { EXPRESSIONS.guard(it) }           || "doc.yml:1:13: Invalid SpEL expression 'a +': "
     }
 
     private static NodeMap map(String text) {

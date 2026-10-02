@@ -101,10 +101,12 @@ sealed abstract class TriggerDefImpl<T, C, SELF extends TriggerDefImpl<T, C, SEL
      *
      * @param registry the state machine's resolved conditions
      * @param transitionIds the transitions it is attached to
+     * @param evaluator the evaluator its expressions bind through
      *
      * @return the runtime trigger
      *
      * @throws TransfluxValidationException if the definition is incomplete
      */
-    abstract TriggerImpl buildBound(Map<String, BoundCondition<T, C>> registry, List<String> transitionIds);
+    abstract TriggerImpl buildBound(Map<String, BoundCondition<T, C>> registry, List<String> transitionIds,
+                                    SpelConditionEvaluator evaluator);
 }

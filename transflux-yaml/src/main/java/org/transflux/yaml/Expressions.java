@@ -22,6 +22,7 @@ import org.springframework.expression.Expression;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
+import org.springframework.expression.spel.support.StandardTypeLocator;
 import org.transflux.core.action.ContextMapper;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.state.StateApplier;
@@ -36,13 +37,26 @@ import java.util.function.Predicate;
  * The expressions a document writes where the Java DSL takes a lambda: the state resolver and
  * applier, a mapper's {@code mapTo} and {@code mapFrom}, and a route's guard. Each is parsed when
  * it is read, so a malformed one is refused at its line; conditions and event filters are not here,
- * since the definition they are handed to parses them itself.
+ * since the definition they are handed to parses them itself. One instance serves one load, and
+ * resolves {@code T(...)} type references through the loader's class loader, whichever thread evaluates.
  */
 final class Expressions {
 
     private static final ExpressionParser PARSER = new SpelExpressionParser();
 
-    private Expressions() {
+    private final StandardEvaluationContext prototype = new StandardEvaluationContext();
+
+    /**
+     * @param classLoader the class loader type references in the expressions resolve through
+     */
+    Expressions(ClassLoader classLoader) {
+        prototype.setTypeLocator(new StandardTypeLocator(classLoader));
+        // Filled lazily, some into plain fields: fill them here, as the prototype is shared across threads.
+        prototype.getPropertyAccessors();
+        prototype.getConstructorResolvers();
+        prototype.getMethodResolvers();
+        prototype.getIndexAccessors();
+        prototype.getTypeConverter();
     }
 
     /**
@@ -55,7 +69,7 @@ final class Expressions {
      *
      * @throws DefinitionLoadException when an expression or a property path does not parse
      */
-    static ContextMapper<Object, Object> mapper(NodeMap map) {
+    ContextMapper<Object, Object> mapper(NodeMap map) {
         String mapTo = map.requiredString("mapTo");
         Expression parsedMapTo = parse(map, map.requiredNode("mapTo"), mapTo);
 
@@ -68,7 +82,7 @@ final class Expressions {
                     parse(entries, entries.requiredNode(target), value), value));
             }
         }
-        return new SpelContextMapper(parsedMapTo, mapTo, List.copyOf(mapFrom));
+        return new SpelContextMapper(this, parsedMapTo, mapTo, List.copyOf(mapFrom));
     }
 
     /**
@@ -81,7 +95,7 @@ final class Expressions {
      *
      * @throws DefinitionLoadException when the expression does not parse
      */
-    static StateResolver<Object> resolver(NodeMap map) {
+    StateResolver<Object> resolver(NodeMap map) {
         String text = map.requiredString("expression");
         Expression expression = parse(map, map.requiredNode("expression"), text);
         return entity -> {
@@ -103,12 +117,12 @@ final class Expressions {
      *
      * @throws DefinitionLoadException when the expression does not parse
      */
-    static StateApplier<Object> applier(NodeMap map) {
+    StateApplier<Object> applier(NodeMap map) {
         String text = map.requiredString("expression");
         Expression expression = parse(map, map.requiredNode("expression"), text);
         return (entity, newStateId) -> {
             try {
-                expression.setValue(new StandardEvaluationContext(entity), newStateId);
+                expression.setValue(context(entity), newStateId);
             } catch (RuntimeException e) {
                 // The type alone: a failure's message may carry the host values it was evaluated against.
                 throw new TransfluxValidationException("Failed to assign state applier target '" + text + "': "
@@ -126,11 +140,11 @@ final class Expressions {
      *
      * @throws DefinitionLoadException when the expression does not parse
      */
-    static Predicate<Object> guard(NodeMap map) {
+    Predicate<Object> guard(NodeMap map) {
         String text = map.requiredString("expression");
         Expression expression = parse(map, map.requiredNode("expression"), text);
         return failure -> {
-            Object result = evaluate(expression, text, new StandardEvaluationContext(failure));
+            Object result = evaluate(expression, text, context(failure));
             if (result instanceof Boolean matched) {
                 return matched;
             }
@@ -144,9 +158,20 @@ final class Expressions {
      *
      * @return an evaluation context with the entity as root and bound to {@code #entity}
      */
-    private static StandardEvaluationContext entityContext(Object entity) {
-        StandardEvaluationContext context = new StandardEvaluationContext(entity);
+    private StandardEvaluationContext entityContext(Object entity) {
+        StandardEvaluationContext context = context(entity);
         context.setVariable("entity", entity);
+        return context;
+    }
+
+    /**
+     * @param root the evaluation's root object
+     *
+     * @return a fresh evaluation context sharing this load's type locator, accessors and resolvers
+     */
+    private StandardEvaluationContext context(Object root) {
+        StandardEvaluationContext context = new StandardEvaluationContext(root);
+        prototype.applyDelegatesTo(context);
         return context;
     }
 
@@ -155,7 +180,7 @@ final class Expressions {
             return PARSER.parseExpression(text);
         } catch (RuntimeException e) {
             // The parser's complaint quotes the expression the author wrote, never host data.
-            throw map.error(at, "invalid SpEL expression '" + text + "': " + e.getMessage(), e);
+            throw map.error(at, "Invalid SpEL expression '" + text + "': " + e.getMessage(), e);
         }
     }
 
@@ -172,12 +197,12 @@ final class Expressions {
     private record Assignment(Expression target, String targetText, Expression value, String valueText) {
     }
 
-    private record SpelContextMapper(Expression mapTo, String mapToText, List<Assignment> mapFrom)
-        implements ContextMapper<Object, Object> {
+    private record SpelContextMapper(Expressions expressions, Expression mapTo, String mapToText,
+                                     List<Assignment> mapFrom) implements ContextMapper<Object, Object> {
 
         @Override
         public Object mapTo(Object parentContext) {
-            return evaluate(mapTo, mapToText, new StandardEvaluationContext(parentContext));
+            return evaluate(mapTo, mapToText, expressions.context(parentContext));
         }
 
         @Override
@@ -185,9 +210,9 @@ final class Expressions {
             if (mapFrom.isEmpty()) {
                 return;
             }
-            StandardEvaluationContext child = new StandardEvaluationContext(nestedContext);
+            StandardEvaluationContext child = expressions.context(nestedContext);
             child.setVariable("parent", parentContext);
-            StandardEvaluationContext parent = new StandardEvaluationContext(parentContext);
+            StandardEvaluationContext parent = expressions.context(parentContext);
             for (Assignment assignment : mapFrom) {
                 Object value = evaluate(assignment.value(), assignment.valueText(), child);
                 try {

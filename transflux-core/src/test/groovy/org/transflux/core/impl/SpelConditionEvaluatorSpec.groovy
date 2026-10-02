@@ -27,6 +27,9 @@ import spock.lang.Specification
 
 class SpelConditionEvaluatorSpec extends Specification {
 
+    private static final SpelConditionEvaluator EVALUATOR =
+        new SpelConditionEvaluator(SpelConditionEvaluatorSpec.classLoader)
+
     static class Entity {
         int value
         String name
@@ -152,12 +155,11 @@ class SpelConditionEvaluatorSpec extends Specification {
     }
 
     private static boolean evaluate(String expression, Object entity, Object context, Transition transition) {
-        return SpelConditionEvaluator.evaluate(SpelConditionEvaluator.parse(expression), entity, context, transition)
+        return EVALUATOR.evaluate(SpelConditionEvaluator.parse(expression), entity, context, transition)
     }
 
     private static boolean evaluateEventFilter(String expression, Object entity, Object eventData, Object context) {
-        return SpelConditionEvaluator.evaluateEventFilter(SpelConditionEvaluator.parse(expression), entity, eventData,
-            context)
+        return EVALUATOR.evaluateEventFilter(SpelConditionEvaluator.parse(expression), entity, eventData, context)
     }
 
     private static void transition(StateMachineDef<Entity> smd, Closure configurer) {

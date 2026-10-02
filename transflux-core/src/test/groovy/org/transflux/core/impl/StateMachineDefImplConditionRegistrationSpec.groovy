@@ -123,7 +123,7 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
             .condition('shared', instance)
 
         when:
-        def map = ((StateMachineDefImpl) smd).buildBoundConditions()
+        def map = ((StateMachineDefImpl) smd).buildBoundConditions(new SpelConditionEvaluator(getClass().classLoader))
 
         then:
         map.keySet() == ['shared'] as Set
@@ -141,7 +141,7 @@ class StateMachineDefImplConditionRegistrationSpec extends Specification {
             .condition('expr', 'value > 0')
 
         when:
-        def map = ((StateMachineDefImpl) smd).buildBoundConditions()
+        def map = ((StateMachineDefImpl) smd).buildBoundConditions(new SpelConditionEvaluator(getClass().classLoader))
 
         then:
         map.keySet() == ['inst', 'pred', 'expr'] as Set

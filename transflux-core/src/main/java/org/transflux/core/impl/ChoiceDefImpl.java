@@ -310,7 +310,8 @@ final class ChoiceDefImpl<T, C>
             }
 
             String path = "choice:" + getId() + ":branch[" + i + "]";
-            conditions.add(ConditionResolver.resolve(branch.getDescriptor(), conditionRegistry, path));
+            conditions.add(ConditionResolver.resolve(branch.getDescriptor(), conditionRegistry, path,
+                conditionEvaluator()));
         }
 
         if (defaultBranch != null && defaultBranch.getMembers().isEmpty()) {

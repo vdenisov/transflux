@@ -251,6 +251,20 @@ public interface StateMachineDef<T> {
     StateMachineDef<T> withAsyncRejectionPolicy(AsyncRejectionPolicy policy);
 
     /**
+     * Sets the class loader the definition's expressions resolve type references - {@code T(...)}
+     * - through, whichever thread evaluates them. When it is not set, the thread context class
+     * loader current at {@code build()} or {@code replaceDefinition(...)} is used, or Transflux's
+     * own loader when that is {@code null}.
+     *
+     * @param classLoader the class loader; never {@code null}
+     *
+     * @return this state machine def for chaining
+     *
+     * @throws TransfluxValidationException if {@code classLoader} is {@code null}
+     */
+    StateMachineDef<T> withClassLoader(ClassLoader classLoader);
+
+    /**
      * Registers a step instance against this state machine under the given id, without a
      * declared context type. The step's context parameter is treated as {@link Object} at
      * the registry level; the actual context value is whatever the referencing transition

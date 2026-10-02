@@ -180,7 +180,8 @@ class StateMachineSnapshot<T> {
         //     so runtime resolve() is a single map lookup. Members are resolved against the
         //     still-chained scopes during build, so flattening earlier — or switching
         //     build-time resolution from resolve() to get() — breaks root fallback.
-        Map<String, BoundCondition<T, ?>> conditionRegistry = def.buildBoundConditions();
+        SpelConditionEvaluator evaluator = def.conditionEvaluator();
+        Map<String, BoundCondition<T, ?>> conditionRegistry = def.buildBoundConditions(evaluator);
         for (BoundCondition<T, ?> bc : conditionRegistry.values()) {
             Class<?> ctx = effectiveContextType(def, bc.id());
             registry.register(new Component.Condition(bc.id(), ctx, bc));
@@ -203,13 +204,13 @@ class StateMachineSnapshot<T> {
         BoundTransitionListeners<T, Object> globalTransitionListeners = bindGlobalTransitionListeners(def);
         for (TransitionDefImpl<T, ?> td : def.getTransitionsById().values()) {
             BoundTransition<T, ?> transition = buildTransition(td, conditionRegistry, globalTransitionListeners,
-                                                               def.listenerBinder());
+                                                               def.listenerBinder(), evaluator);
             this.transitions.put(td.getId(), transition);
             this.transitionsBySource.computeIfAbsent(transition.sourceStateId(), s -> new ArrayList<>())
                                     .add(transition);
         }
 
-        registerTriggers(def, conditionRegistry);
+        registerTriggers(def, conditionRegistry, evaluator);
 
         def.bindDeferredMembers(this);
         def.visitActionDefs(actionDef -> indexFilteredActionGlobals(actionDef.getDisabledGlobals().frozen()));
@@ -457,10 +458,12 @@ class StateMachineSnapshot<T> {
      * @param def the definition being built
      * @param conditionRegistry the resolved conditions a manual trigger's pre-conditions and a data
      *                          trigger's gate reference by id
+     * @param evaluator the evaluator the triggers' expressions bind through
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
     private void registerTriggers(StateMachineDefImpl<T> def,
-                                  Map<String, BoundCondition<T, ?>> conditionRegistry) {
+                                  Map<String, BoundCondition<T, ?>> conditionRegistry,
+                                  SpelConditionEvaluator evaluator) {
         Map<String, List<TransitionDefImpl<T, ?>>> attachments = new LinkedHashMap<>();
         Map<String, TriggerDefImpl<T, ?, ?>> defsById = new LinkedHashMap<>();
 
@@ -486,7 +489,7 @@ class StateMachineSnapshot<T> {
                                                     .stream()
                                                     .map(TransitionDefImpl::getId)
                                                     .toList();
-            putTrigger(buildTrigger(entry.getValue(), transitionIds, conditionRegistry));
+            putTrigger(buildTrigger(entry.getValue(), transitionIds, conditionRegistry, evaluator));
         }
 
         // Indexing walks the transitions again rather than the triggers, because a source state's
@@ -543,8 +546,9 @@ class StateMachineSnapshot<T> {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private TriggerImpl buildTrigger(TriggerDefImpl<T, ?, ?> triggerDef, List<String> transitionIds,
-                                     Map<String, BoundCondition<T, ?>> conditionRegistry) {
-        return triggerDef.buildBound((Map) conditionRegistry, transitionIds);
+                                     Map<String, BoundCondition<T, ?>> conditionRegistry,
+                                     SpelConditionEvaluator evaluator) {
+        return triggerDef.buildBound((Map) conditionRegistry, transitionIds, evaluator);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -874,7 +878,8 @@ class StateMachineSnapshot<T> {
     private <C> BoundTransition<T, C> buildTransition(TransitionDefImpl<T, C> td,
                                                       Map<String, BoundCondition<T, ?>> conditionRegistry,
                                                       BoundTransitionListeners<T, Object> globals,
-                                                      ListenerRegistrations<T> binder) {
+                                                      ListenerRegistrations<T> binder,
+                                                      SpelConditionEvaluator evaluator) {
         GlobalListenerDisables disabled = td.getDisabledGlobals();
         Map<String, TransitionListenerDefImpl<T, C>> ownScope = ListenerRegistrations.ownScope(
             td.getStartListeners(), td.getCompleteListeners(), td.getErrorListeners());
@@ -886,7 +891,7 @@ class StateMachineSnapshot<T> {
             concatListeners(binder.bindTransitions(td.getErrorListeners(), ownScope),
                             (List) disabled.filter(globals.onError(), BoundTransitionListener::id)));
 
-        return BoundTransition.from(td, (Map) conditionRegistry, listeners);
+        return BoundTransition.from(td, (Map) conditionRegistry, listeners, evaluator);
     }
 
     /**

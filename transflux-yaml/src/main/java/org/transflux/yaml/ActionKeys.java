@@ -39,11 +39,13 @@ final class ActionKeys {
     private final Classes classes;
     private final Class<?> entityType;
     private final ListenerEntries listeners;
+    private final Expressions expressions;
 
-    ActionKeys(Classes classes, Class<?> entityType, ListenerEntries listeners) {
+    ActionKeys(Classes classes, Class<?> entityType, ListenerEntries listeners, Expressions expressions) {
         this.classes = classes;
         this.entityType = entityType;
         this.listeners = listeners;
+        this.expressions = expressions;
     }
 
     /**
@@ -100,7 +102,7 @@ final class ActionKeys {
         if (guard != null) {
             Predicate<X> predicate = TypeArguments.overObjects(guard.exactlyOneOf("class", "expression").equals("class")
                 ? classes.instantiate(guard, "class", Predicate.class, Expected.exactly(exception))
-                : Expressions.guard(guard));
+                : expressions.guard(guard));
             guard.rejectUnknownKeys();
             guard.at(route.requiredNode("guard"), () -> opened.matching(predicate));
         }

@@ -1300,6 +1300,7 @@ public final class JavaDslSurface {
             .withName("Orders")
             .withDescription("What an order does")
             .withVersion("3")
+            .withClassLoader(JavaDslSurface.class.getClassLoader())
             .withStateResolver(o -> o.state)
             .withStateApplier((o, next) -> o.state = next)
             .condition("labelled", "T(org.transflux.dsl.JavaDslSurface).hasLabel(#entity)")

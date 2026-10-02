@@ -113,6 +113,7 @@ final class DataTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, DataTriggerDef
      *
      * @param registry the state machine's resolved condition registry, keyed by id
      * @param transitionIds the transitions it is attached to
+     * @param evaluator the evaluator its expressions bind through
      *
      * @return the runtime trigger
      *
@@ -120,7 +121,8 @@ final class DataTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, DataTriggerDef
      *         cannot be resolved
      */
     @Override
-    DataTriggerImpl<T, C> buildBound(Map<String, BoundCondition<T, C>> registry, List<String> transitionIds) {
+    DataTriggerImpl<T, C> buildBound(Map<String, BoundCondition<T, C>> registry, List<String> transitionIds,
+                                    SpelConditionEvaluator evaluator) {
         requireNotNull(registry, "Condition registry");
         ConditionDescriptor descriptor = gate.descriptor();
         if (descriptor == null) {
@@ -128,7 +130,7 @@ final class DataTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, DataTriggerDef
                 "Data trigger '" + getId() + "' declares no condition; call condition(...) in its configurer");
         }
         String path = "trigger:" + getId() + ":gate";
-        BoundCondition<T, C> bound = ConditionResolver.resolve(descriptor, registry, path);
+        BoundCondition<T, C> bound = ConditionResolver.resolve(descriptor, registry, path, evaluator);
         return new DataTriggerImpl<>(getId(), getName(), getDescription(), transitionIds, bound);
     }
 }

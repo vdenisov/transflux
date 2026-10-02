@@ -45,7 +45,8 @@ class ConditionContextHookSpec extends Specification {
 
     def 'expression-based condition reads context — different contexts produce different results'() {
         given:
-        def cond = BoundCondition.<Entity, Ctx> fromExpression('cond-id', '#context.counter > 5').condition()
+        def cond = BoundCondition.<Entity, Ctx> fromExpression('cond-id', '#context.counter > 5',
+            new SpelConditionEvaluator(getClass().classLoader)).condition()
         def entity = new Entity()
 
         expect:

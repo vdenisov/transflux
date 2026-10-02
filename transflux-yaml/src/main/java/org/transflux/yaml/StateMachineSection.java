@@ -50,6 +50,7 @@ final class StateMachineSection {
     private final TriggerEntries triggers;
     private final ActionEntries actions;
     private final DeclarationSites sites;
+    private final Expressions expressions;
 
     private StateMachineSection(Readers readers, StateMachineDef<?> def) {
         this.classes = readers.classes();
@@ -60,6 +61,7 @@ final class StateMachineSection {
         this.listeners = readers.listeners();
         this.triggers = readers.triggers();
         this.actions = readers.actions();
+        this.expressions = readers.expressions();
     }
 
     /**
@@ -126,7 +128,7 @@ final class StateMachineSection {
                 ? classes.instantiate(block, "class", StateResolver.class, Expected.superOf(entityType))
                 : classes.instantiate(block, "class", StateApplier.class, Expected.superOf(entityType));
         } else {
-            accessor = resolver ? Expressions.resolver(block) : Expressions.applier(block);
+            accessor = resolver ? expressions.resolver(block) : expressions.applier(block);
         }
         block.rejectUnknownKeys();
 

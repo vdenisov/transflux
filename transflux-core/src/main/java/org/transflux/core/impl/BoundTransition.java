@@ -85,6 +85,7 @@ record BoundTransition<T, C>(String id,
      * @param conditionRegistry the resolved state-machine condition registry
      * @param listeners the transition's listeners merged with the state machine's global ones,
      *                  already in notification order
+     * @param evaluator the evaluator the transition's expression conditions bind through
      * @param <T> the entity type
      * @param <C> the context type
      *
@@ -92,7 +93,8 @@ record BoundTransition<T, C>(String id,
      */
     static <T, C> BoundTransition<T, C> from(TransitionDefImpl<T, C> def,
                                              java.util.Map<String, BoundCondition<T, C>> conditionRegistry,
-                                             BoundTransitionListeners<T, C> listeners) {
+                                             BoundTransitionListeners<T, C> listeners,
+                                             SpelConditionEvaluator evaluator) {
         requireNotNull(def, "Transition definition");
         requireNotNull(conditionRegistry, "Condition registry");
         return new BoundTransition<>(
@@ -103,8 +105,8 @@ record BoundTransition<T, C>(String id,
             def.getTargetStateId(),
             def.getContextType(),
             def.buildBoundAction(),
-            def.buildBoundPreConditions(conditionRegistry),
-            def.buildBoundPostConditions(conditionRegistry),
+            def.buildBoundPreConditions(conditionRegistry, evaluator),
+            def.buildBoundPostConditions(conditionRegistry, evaluator),
             listeners);
     }
 }

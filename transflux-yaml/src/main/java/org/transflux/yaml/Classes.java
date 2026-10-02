@@ -39,6 +39,13 @@ final class Classes {
     }
 
     /**
+     * @return the class loader class names are loaded through
+     */
+    ClassLoader classLoader() {
+        return classLoader;
+    }
+
+    /**
      * Loads the class a key names.
      *
      * @param map the mapping holding the key

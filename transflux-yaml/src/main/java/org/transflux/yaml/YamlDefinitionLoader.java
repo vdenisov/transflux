@@ -139,6 +139,8 @@ public final class YamlDefinitionLoader {
                 + (declared.getName().equals(entityType.getName()) ? " (loaded by another class loader)" : ""));
         }
         StateMachineDef<T> def = Transflux.defineStateMachine(entityType);
+        // A document's expressions resolve T(...) as its class: keys do, whichever thread evaluates them.
+        def.withClassLoader(classes.classLoader());
         Loggers.YAML_BINDING.debug("State machine definition created, identifier={}, entityType={}",
             root.document().identifier(), entityType.getName());
         // A library names no entity type, so its classes can only be checked once the root's is known.
@@ -250,7 +252,8 @@ public final class YamlDefinitionLoader {
         /**
          * Sets the class loader class names in documents are loaded through. When it is not set,
          * the thread context class loader current at {@link #build()} is used, or this class's own
-         * loader when that is {@code null}.
+         * loader when that is {@code null}. It is also the class loader a loaded definition's
+         * expressions resolve {@code T(...)} through, so name it here rather than on the definition.
          *
          * @param classLoader the class loader
          *

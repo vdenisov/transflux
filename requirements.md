@@ -1563,7 +1563,7 @@ Transflux uses SpEL (Spring Expression Language) wherever a document says `expre
 
 **An expression is parsed where it is declared**, in either DSL: a malformed one is refused by the def call that declares it — at its line, in a document — rather than at its first evaluation. It is still evaluated only when the position runs.
 
-**A definition is code.** Expressions are evaluated with SpEL's full feature set — type references such as `T(java.time.LocalTime)` included, which the examples below depend on — and every `class:` key instantiates a class by name. Loading a definition from an external source is therefore loading code, and the `DefinitionSource` (§2.6) is a trust boundary the host owns.
+**A definition is code.** Expressions are evaluated with SpEL's full feature set — type references such as `T(java.time.LocalTime)` included, which the examples below depend on — and every `class:` key instantiates a class by name. Loading a definition from an external source is therefore loading code, and the `DefinitionSource` (§2.6) is a trust boundary the host owns. A type reference resolves through the definition's class loader, whichever thread evaluates it — a forked member's or an async listener's pool worker included: in a document, the class loader the YAML loader was given, which `class:` keys load through too (§3.1.5); in Java, the one `withClassLoader(...)` names on `StateMachineDef`, else the thread context class loader current when the definition is built.
 
 **`@name` needs a resolver.** A bean reference such as `@checkoutService` resolves through the dependency-injection integration of §6.1. Without one, the expression still parses, and fails when it is first evaluated.
 
@@ -2596,7 +2596,7 @@ TransfluxConfiguration config = TransfluxConfiguration.builder()
 Transflux transflux = Transflux.create(config);
 ```
 
-> **Async settings are not here.** Where forked members run belongs to the state machine, because the state machine is the thing that can own a pool's lifecycle: it is declared with `withAsyncExecutor(...)` or `withAsyncPool(threads, queueCapacity[, threadFactory])` on `StateMachineDef`, and released by `StateMachine.close()`, which shuts down a pool the framework built and leaves a host-supplied executor alone. `withAsyncRejectionPolicy(...)` sits beside them. A process-wide `TransfluxConfiguration` could carry defaults for these one day, but it cannot carry the pool itself without taking over a lifetime it does not own.
+> **Async settings are not here.** Where forked members run belongs to the state machine, because the state machine is the thing that can own a pool's lifecycle: it is declared with `withAsyncExecutor(...)` or `withAsyncPool(threads, queueCapacity[, threadFactory])` on `StateMachineDef`, and released by `StateMachine.close()`, which shuts down a pool the framework built and leaves a host-supplied executor alone. `withAsyncRejectionPolicy(...)` sits beside them. So does `withClassLoader(...)`, the class loader the definition's expressions resolve type references through (§3.9): it belongs to the definition, which a hot-reloaded plugin loader may own, not to the process. A process-wide `TransfluxConfiguration` could carry defaults for these one day, but it cannot carry the pool itself without taking over a lifetime it does not own.
 
 #### 4.10.2 Spring Integration
 

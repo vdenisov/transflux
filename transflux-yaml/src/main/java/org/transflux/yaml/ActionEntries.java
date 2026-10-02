@@ -52,14 +52,16 @@ final class ActionEntries {
     private final ConditionDescriptors conditions;
     private final ActionKeys actionKeys;
     private final DeclarationSites sites;
+    private final Expressions expressions;
 
     ActionEntries(Classes classes, Class<?> entityType, ConditionDescriptors conditions, ActionKeys actionKeys,
-                  DeclarationSites sites) {
+                  DeclarationSites sites, Expressions expressions) {
         this.classes = classes;
         this.entityType = entityType;
         this.conditions = conditions;
         this.actionKeys = actionKeys;
         this.sites = sites;
+        this.expressions = expressions;
     }
 
     /**
@@ -159,7 +161,7 @@ final class ActionEntries {
             }
             return classes.instantiate(block, "class", ContextMapper.class, parent, child);
         }
-        return Expressions.mapper(block);
+        return expressions.mapper(block);
     }
 
     private void member(NodeMap owner, Node node, ActionSequence<?, ?, ?> sequence, Class<?> context) {

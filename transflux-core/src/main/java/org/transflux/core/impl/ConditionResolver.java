@@ -63,7 +63,7 @@ final class ConditionResolver {
      */
     static <T, C> BoundCondition<T, C> resolve(ConditionDescriptor descriptor,
                                                       Map<String, BoundCondition<T, C>> registry,
-                                                      String path) {
+                                                      String path, SpelConditionEvaluator evaluator) {
         requireNotNull(descriptor, "Condition descriptor");
         requireNotNull(registry, "Condition registry");
         requireNotNull(path, "Path");
@@ -81,7 +81,7 @@ final class ConditionResolver {
         }
 
         if (descriptor instanceof ConditionDescriptor.ExpressionBased eb) {
-            return resolveExpressionBased(eb, path);
+            return resolveExpressionBased(eb, path, evaluator);
         }
 
         throw new TransfluxValidationException(
@@ -115,13 +115,13 @@ final class ConditionResolver {
     }
 
     private static <T, C> BoundCondition<T, C> resolveExpressionBased(ConditionDescriptor.ExpressionBased descriptor,
-                                                                      String path) {
+                                                                      String path, SpelConditionEvaluator evaluator) {
         String id = descriptor.id();
 
         if (id == null) {
             id = ExpressionIdDerivation.deriveId(descriptor.expression(), path);
         }
 
-        return BoundCondition.fromExpression(id, descriptor.expression());
+        return BoundCondition.fromExpression(id, descriptor.expression(), evaluator);
     }
 }

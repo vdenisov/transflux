@@ -29,9 +29,10 @@ package org.transflux.yaml;
  * @param listeners listener pool entries, hook blocks and disables
  * @param actions action pool entries and {@code actions:} lists
  * @param triggers trigger pool entries and a transition's {@code triggers:} entries
+ * @param expressions the expressions the loader evaluates itself
  */
 record Readers(Classes classes, Class<?> entityType, DeclarationSites sites, ConditionDescriptors conditions,
-               ListenerEntries listeners, ActionEntries actions, TriggerEntries triggers) {
+               ListenerEntries listeners, ActionEntries actions, TriggerEntries triggers, Expressions expressions) {
 
     /**
      * Builds the readers for one load.
@@ -43,11 +44,12 @@ record Readers(Classes classes, Class<?> entityType, DeclarationSites sites, Con
      * @return the readers
      */
     static Readers of(Classes classes, Class<?> entityType, DeclarationSites sites) {
+        Expressions expressions = new Expressions(classes.classLoader());
         ConditionDescriptors conditions = new ConditionDescriptors(classes, entityType);
         ListenerEntries listeners = new ListenerEntries(classes, entityType, sites);
         ActionEntries actions = new ActionEntries(classes, entityType, conditions,
-            new ActionKeys(classes, entityType, listeners), sites);
+            new ActionKeys(classes, entityType, listeners, expressions), sites, expressions);
         TriggerEntries triggers = new TriggerEntries(classes, entityType, conditions, sites);
-        return new Readers(classes, entityType, sites, conditions, listeners, actions, triggers);
+        return new Readers(classes, entityType, sites, conditions, listeners, actions, triggers, expressions);
     }
 }

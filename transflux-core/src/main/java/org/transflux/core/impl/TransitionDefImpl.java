@@ -202,13 +202,15 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
      * instances against the supplied registry.
      *
      * @param registry the state machine's resolved condition registry, keyed by id
+     * @param evaluator the evaluator expression conditions bind through
      *
      * @return an unmodifiable list of resolved bound pre-conditions, in declaration order
      *
      * @throws TransfluxValidationException if any descriptor cannot be resolved
      */
-    List<BoundCondition<T, C>> buildBoundPreConditions(Map<String, BoundCondition<T, C>> registry) {
-        return buildBoundConditionList(preConditions.descriptors(), registry, "pre");
+    List<BoundCondition<T, C>> buildBoundPreConditions(Map<String, BoundCondition<T, C>> registry,
+                                                       SpelConditionEvaluator evaluator) {
+        return buildBoundConditionList(preConditions.descriptors(), registry, "pre", evaluator);
     }
 
     /**
@@ -216,13 +218,15 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
      * instances against the supplied registry.
      *
      * @param registry the state machine's resolved condition registry, keyed by id
+     * @param evaluator the evaluator expression conditions bind through
      *
      * @return an unmodifiable list of resolved bound post-conditions, in declaration order
      *
      * @throws TransfluxValidationException if any descriptor cannot be resolved
      */
-    List<BoundCondition<T, C>> buildBoundPostConditions(Map<String, BoundCondition<T, C>> registry) {
-        return buildBoundConditionList(postConditions.descriptors(), registry, "post");
+    List<BoundCondition<T, C>> buildBoundPostConditions(Map<String, BoundCondition<T, C>> registry,
+                                                        SpelConditionEvaluator evaluator) {
+        return buildBoundConditionList(postConditions.descriptors(), registry, "post", evaluator);
     }
 
     /**
@@ -555,7 +559,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
 
     private List<BoundCondition<T, C>> buildBoundConditionList(List<ConditionDescriptor> descriptors,
                                                                Map<String, BoundCondition<T, C>> registry,
-                                                               String slot) {
+                                                               String slot, SpelConditionEvaluator evaluator) {
         requireNotNull(registry, "Condition registry");
         if (descriptors.isEmpty()) {
             return Collections.emptyList();
@@ -563,7 +567,7 @@ class TransitionDefImpl<T, C> extends IdentifiedDefImpl<TransitionDefImpl<T, C>>
         List<BoundCondition<T, C>> bound = new ArrayList<>(descriptors.size());
         for (int i = 0; i < descriptors.size(); i++) {
             String path = "transition:" + getId() + ":" + slot + "[" + i + "]";
-            bound.add(ConditionResolver.resolve(descriptors.get(i), registry, path));
+            bound.add(ConditionResolver.resolve(descriptors.get(i), registry, path, evaluator));
         }
         return Collections.unmodifiableList(bound);
     }

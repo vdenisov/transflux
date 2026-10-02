@@ -72,6 +72,8 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
     private RegistryImpl<T> scopeRegistry;
 
     private ListenerRegistrations<T> listenerBinder;
+
+    private SpelConditionEvaluator conditionEvaluator;
     private final ActionListenerSink<T, C, SELF> listeners = new ActionListenerSink<>(this, self());
 
     private final CompensationSink<T, C, SELF> compensation = new CompensationSink<>(this, self());
@@ -367,6 +369,23 @@ sealed abstract class ActionDefImpl<T, C, SELF extends ActionDefImpl<T, C, SELF>
      */
     final void setListenerBinder(ListenerRegistrations<T> binder) {
         this.listenerBinder = binder;
+    }
+
+    /**
+     * Seeds the evaluator this def's expressions bind through, for the reason
+     * {@link #setListenerBinder} is a field: only a choice reads it, from its argument-less {@code buildBound()}.
+     *
+     * @param evaluator the build's evaluator
+     */
+    final void setConditionEvaluator(SpelConditionEvaluator evaluator) {
+        this.conditionEvaluator = evaluator;
+    }
+
+    /**
+     * @return the build's evaluator; {@code null} outside a build
+     */
+    final SpelConditionEvaluator conditionEvaluator() {
+        return conditionEvaluator;
     }
 
     /**

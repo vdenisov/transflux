@@ -146,6 +146,41 @@ class YamlDefinitionLoaderSpec extends Specification {
         limit << [0, -1]
     }
 
+    def "a document's expressions resolve types through the loader's class loader, whichever thread evaluates"() {
+        given:
+        def rules = YamlDefinitionLoaderSpec.name
+        def definition = loader("""            apiVersion: transflux/v1
+            stateMachine:
+              entityType: ${Order.name}
+              stateResolver:
+                expression: "T(${rules}).stateOf(#entity)"
+              stateApplier:
+                expression: state
+              states:
+                - id: a
+                - id: b
+              transitions:
+                - id: t
+                  from: a
+                  to: b
+                  preConditions:
+                    - expression: "T(${rules}).ok(#entity)"
+            """.stripIndent()).load('root.yml', Order)
+        def original = Thread.currentThread().contextClassLoader
+
+        when: 'it is built and fired on a thread whose context class loader sees the JDK alone'
+        Thread.currentThread().contextClassLoader = new URLClassLoader(new URL[0], (ClassLoader) null)
+        def sm = definition.build()
+        def result = sm.entity(new Order()).transitionTo('b')
+
+        then:
+        result.success
+
+        cleanup:
+        Thread.currentThread().contextClassLoader = original
+        sm?.close()
+    }
+
     def 'a document the source does not have is reported by its identifier'() {
         when:
         YamlDefinitionLoader.builder({ Optional.empty() } as DefinitionSource).build().load('missing.yml', Order)
@@ -297,6 +332,14 @@ class YamlDefinitionLoaderSpec extends Specification {
 
     private static YamlDefinitionLoader loader(String text) {
         return YamlDefinitionLoader.builder(source(text)).build()
+    }
+
+    static String stateOf(Order order) {
+        return order.state
+    }
+
+    static boolean ok(Order order) {
+        return order != null
     }
 
     private static DefinitionSource source(String text) {

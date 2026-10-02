@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 import static org.transflux.core.Preconditions.requireNotBlank;
 import static org.transflux.core.Preconditions.requireNotNull;
@@ -50,7 +50,7 @@ final class EventTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, EventTriggerD
     implements EventTriggerDef<T, C> {
 
     private String eventId;
-    private Supplier<EventFilter<T>> filterSource;
+    private Function<SpelConditionEvaluator, EventFilter<T>> filterSource;
 
     EventTriggerDefImpl(String id, TransitionDefImpl<T, C> owner) {
         super(id, "event trigger", owner);
@@ -73,14 +73,14 @@ final class EventTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, EventTriggerD
     public EventTriggerDef<T, C> filter(BiPredicate<Object, ? super T> filter) {
         requireConfigurerActive("filter");
         requireNotNull(filter, "Filter");
-        return setFilter(() -> (eventData, entity, context) -> filter.test(eventData, entity));
+        return setFilter(evaluator -> (eventData, entity, context) -> filter.test(eventData, entity));
     }
 
     @Override
     public EventTriggerDef<T, C> filter(Predicate<Object> filter) {
         requireConfigurerActive("filter");
         requireNotNull(filter, "Filter");
-        return setFilter(() -> (eventData, entity, context) -> filter.test(eventData));
+        return setFilter(evaluator -> (eventData, entity, context) -> filter.test(eventData));
     }
 
     @Override
@@ -88,10 +88,9 @@ final class EventTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, EventTriggerD
         requireConfigurerActive("filterExpression");
         requireNotBlank(expression, "Expression");
         SpelConditionEvaluator.validate(expression);
-        return setFilter(() -> {
+        return setFilter(evaluator -> {
             Expression parsed = SpelConditionEvaluator.parse(expression);
-            return (eventData, entity, context) ->
-                SpelConditionEvaluator.evaluateEventFilter(parsed, entity, eventData, context);
+            return (eventData, entity, context) -> evaluator.evaluateEventFilter(parsed, entity, eventData, context);
         });
     }
 
@@ -114,18 +113,20 @@ final class EventTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, EventTriggerD
      *
      * @param registry unused: an event trigger carries no condition to resolve
      * @param transitionIds the transitions it is attached to
+     * @param evaluator the evaluator its expressions bind through
      *
      * @return the runtime trigger
      *
      * @throws TransfluxValidationException if no event id was declared
      */
     @Override
-    EventTriggerImpl<T> buildBound(Map<String, BoundCondition<T, C>> registry, List<String> transitionIds) {
+    EventTriggerImpl<T> buildBound(Map<String, BoundCondition<T, C>> registry, List<String> transitionIds,
+                                    SpelConditionEvaluator evaluator) {
         if (eventId == null) {
             throw new TransfluxValidationException(
                 "Event trigger '" + getId() + "' declares no event id; call onEvent(...) in its configurer");
         }
-        EventFilter<T> resolved = resolveFilter();
+        EventFilter<T> resolved = resolveFilter(evaluator);
         return new EventTriggerImpl<>(getId(), getName(), getDescription(), transitionIds, eventId, resolved);
     }
 
@@ -133,16 +134,18 @@ final class EventTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, EventTriggerD
      * Realizes the declared filter. A trigger with no declared filter fires on every published
      * event of its id.
      *
+     * @param evaluator the evaluator an expression filter binds through
+     *
      * @return the resolved filter, never {@code null}
      */
-    private EventFilter<T> resolveFilter() {
+    private EventFilter<T> resolveFilter(SpelConditionEvaluator evaluator) {
         if (filterSource == null) {
             return (eventData, entity, context) -> true;
         }
-        return filterSource.get();
+        return filterSource.apply(evaluator);
     }
 
-    private EventTriggerDef<T, C> setFilter(Supplier<EventFilter<T>> incoming) {
+    private EventTriggerDef<T, C> setFilter(Function<SpelConditionEvaluator, EventFilter<T>> incoming) {
         warnIfSet(filterSource != null, "Filter", defLabel(), Loggers.BUILD_VALIDATION);
         this.filterSource = incoming;
         return this;

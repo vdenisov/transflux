@@ -126,17 +126,18 @@ record BoundCondition<T, C>(String id, Condition<? super T, C> condition) {
      *
      * @param id the condition id; never {@code null} or blank
      * @param expression the SpEL expression text; never {@code null} or blank
+     * @param evaluator the evaluator the condition evaluates through
      * @param <T> the entity type
      * @param <C> the context type
      *
      * @return a bound condition that evaluates {@code expression} on each call
      *
-     * @throws TransfluxValidationException if the expression is blank or cannot be parsed
+     * @throws TransfluxValidationException if the expression is blank or cannot be parsed, or no evaluator is given
      */
-    static <T, C> BoundCondition<T, C> fromExpression(String id, String expression) {
+    static <T, C> BoundCondition<T, C> fromExpression(String id, String expression, SpelConditionEvaluator evaluator) {
+        requireNotNull(evaluator, "Condition evaluator");
         Expression parsed = SpelConditionEvaluator.parse(expression);
-        Condition<T, C> condition = (entity, ctx, transition) ->
-            SpelConditionEvaluator.evaluate(parsed, entity, ctx, transition);
+        Condition<T, C> condition = (entity, ctx, transition) -> evaluator.evaluate(parsed, entity, ctx, transition);
         return new BoundCondition<>(id, condition);
     }
 }
