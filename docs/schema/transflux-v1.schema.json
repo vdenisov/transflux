@@ -546,7 +546,7 @@
       "type": "object",
       "properties": {
         "async": {"description": "The executor; async: {} asks for the default pool.", "$ref": "#/$defs/asyncConfig"},
-        "logging": {"description": "Attaches the shipped trace listeners; logging: {} for the defaults.", "$ref": "#/$defs/loggingConfig"}
+        "logging": {"description": "Attaches the shipped trace listeners; logging: {} for the defaults. They claim the listener ids transflux-log-state-entry, transflux-log-state-exit, transflux-log-transition-start, transflux-log-transition-complete, transflux-log-transition-error, transflux-log-action-start, transflux-log-action-complete and transflux-log-action-error, which disableGlobalListeners names to keep the trace off an owner.", "$ref": "#/$defs/loggingConfig"}
       },
       "additionalProperties": false
     },
