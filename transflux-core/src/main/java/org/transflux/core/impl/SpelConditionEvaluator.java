@@ -26,65 +26,39 @@ import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.transition.Transition;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-
 import static org.transflux.core.Preconditions.requireNotBlank;
 
 /**
- * Thread-safe SpEL evaluator that compiles each unique expression string at most once and
- * caches the parsed {@link Expression}.
+ * Parses and evaluates the SpEL a definition writes. It keeps nothing: whoever binds an
+ * expression holds its parsed form, so it lives exactly as long as the definition that declared it.
  * <p>
  * Evaluation binds the entity as the SpEL root object and exposes the context and the
  * per-execution {@link Transition} view as the SpEL variables {@code #context} and
  * {@code #transition} respectively. The entity is bound a second time as {@code #entity}, which
  * is how an expression passes it to a method whole - the root has no other spelling.
- * <p>
- * A process-wide singleton is available via {@link #shared()}; framework-owned
- * expression-based conditions use the singleton so cache benefits accumulate across state
- * machines.
  */
 final class SpelConditionEvaluator {
 
-    private static final SpelConditionEvaluator SHARED = new SpelConditionEvaluator();
+    private static final ExpressionParser PARSER = new SpelExpressionParser();
 
-    private final ExpressionParser parser = new SpelExpressionParser();
-    private final ConcurrentMap<String, Expression> cache = new ConcurrentHashMap<>();
-
-    SpelConditionEvaluator() {
+    private SpelConditionEvaluator() {
     }
 
     /**
-     * Returns the process-wide shared evaluator.
+     * Evaluates a parsed condition expression against the supplied scope.
      *
-     * @return the shared evaluator
-     */
-    static SpelConditionEvaluator shared() {
-        return SHARED;
-    }
-
-    /**
-     * Parses (or retrieves from cache) the given expression and evaluates it against the
-     * supplied scope.
-     *
-     * @param expression the SpEL expression text; never {@code null} or blank
-     * @param entity the entity bound as the SpEL root object and as {@code #entity}; may be
-     *               {@code null}
+     * @param expression the parsed expression
+     * @param entity the entity bound as the SpEL root object and as {@code #entity}; may be {@code null}
      * @param context the host-supplied context bound as {@code #context}; may be {@code null}
-     * @param transition the read-only transition view bound as {@code #transition}; may be
-     *                   {@code null}
+     * @param transition the read-only transition view bound as {@code #transition}; may be {@code null}
      * @param <T> the entity type
      * @param <C> the context type
      *
      * @return the boolean result of evaluating the expression
      *
-     * @throws TransfluxValidationException if {@code expression} is {@code null} or blank,
-     *         if the expression cannot be parsed, if evaluation fails, or if the expression
-     *         does not evaluate to a {@code Boolean}
+     * @throws TransfluxValidationException if evaluation fails or does not yield a {@code Boolean}
      */
-    <T, C> boolean evaluate(String expression, T entity, C context, Transition transition) {
-        requireNotBlank(expression, "Expression");
-
+    static <T, C> boolean evaluate(Expression expression, T entity, C context, Transition transition) {
         StandardEvaluationContext evalContext = new StandardEvaluationContext(entity);
         evalContext.setVariable("entity", entity);
         evalContext.setVariable("context", context);
@@ -94,28 +68,20 @@ final class SpelConditionEvaluator {
     }
 
     /**
-     * Parses (or retrieves from cache) the given event-filter expression and evaluates it against
-     * the supplied scope.
-     * <p>
-     * Event filters bind the entity as the SpEL root object and as {@code #entity}, the event
-     * payload as the variable {@code #event}, and the host-supplied context as {@code #context}.
+     * Evaluates a parsed event-filter expression, which binds the entity as the root and as
+     * {@code #entity}, the event payload as {@code #event}, and the context as {@code #context}.
      *
-     * @param expression the SpEL expression text; never {@code null} or blank
-     * @param entity the entity bound as the SpEL root object and as {@code #entity}; may be
-     *               {@code null}
+     * @param expression the parsed expression
+     * @param entity the entity bound as the SpEL root object and as {@code #entity}; may be {@code null}
      * @param eventData the event payload bound as {@code #event}; may be {@code null}
      * @param context the host-supplied context bound as {@code #context}; may be {@code null}
      * @param <T> the entity type
      *
      * @return the boolean result of evaluating the expression
      *
-     * @throws TransfluxValidationException if {@code expression} is {@code null} or blank,
-     *         if the expression cannot be parsed, if evaluation fails, or if the expression
-     *         does not evaluate to a {@code Boolean}
+     * @throws TransfluxValidationException if evaluation fails or does not yield a {@code Boolean}
      */
-    <T> boolean evaluateEventFilter(String expression, T entity, Object eventData, Object context) {
-        requireNotBlank(expression, "Expression");
-
+    static <T> boolean evaluateEventFilter(Expression expression, T entity, Object eventData, Object context) {
         StandardEvaluationContext evalContext = new StandardEvaluationContext(entity);
         evalContext.setVariable("entity", entity);
         evalContext.setVariable("event", eventData);
@@ -125,15 +91,15 @@ final class SpelConditionEvaluator {
     }
 
     /**
-     * Parses an expression into the cache without evaluating it, so a malformed one is refused
-     * where it is declared rather than at its first evaluation.
+     * Parses an expression and discards it, so a malformed one is refused where it is declared
+     * rather than at its first evaluation.
      *
-     * @param expression the SpEL expression text; never {@code null} or blank
+     * @param expression the SpEL expression text
      *
-     * @throws TransfluxValidationException if the expression cannot be parsed
+     * @throws TransfluxValidationException if the expression is blank or cannot be parsed
      */
-    void validate(String expression) {
-        parsed(expression);
+    static void validate(String expression) {
+        parse(expression);
     }
 
     /**
@@ -144,40 +110,39 @@ final class SpelConditionEvaluator {
      * author wrote - already quoted here - and no entity or context, so the parser has no host data
      * to leak. It is also the only diagnostic there is, since "the expression is invalid" without
      * saying where is not something an author can act on.
+     *
+     * @param expression the SpEL expression text
+     *
+     * @return the parsed expression
+     *
+     * @throws TransfluxValidationException if the expression is blank or cannot be parsed
      */
-    private Expression parse(String expression) {
+    static Expression parse(String expression) {
+        requireNotBlank(expression, "Expression");
         try {
-            return parser.parseExpression(expression);
+            return PARSER.parseExpression(expression);
         } catch (RuntimeException e) {
             throw new TransfluxValidationException(
                 "Invalid SpEL expression '" + expression + "': " + e.getMessage(), e);
         }
     }
 
-    private Expression parsed(String expression) {
-        Expression parsed = cache.get(expression);
-        if (parsed == null) {
-            cache.putIfAbsent(expression, parse(expression));
-            parsed = cache.get(expression);
+    private static boolean evaluateBoolean(Expression expression, StandardEvaluationContext evalContext) {
+        Object result;
+        try {
+            result = expression.getValue(evalContext);
+        } catch (RuntimeException e) {
+            // Built here rather than up front: this runs per condition, and success is the common case.
+            throw new TransfluxValidationException("Failed to evaluate SpEL expression '"
+                + expression.getExpressionString() + "': " + e.getClass().getName(), e);
         }
-        return parsed;
-    }
-
-    private boolean evaluateBoolean(String expression, StandardEvaluationContext evalContext) {
-        Expression toEvaluate = parsed(expression);
-        Object result = ThrowingUtils.sneakyGet(() -> toEvaluate.getValue(evalContext),
-                                                "Failed to evaluate SpEL expression '" + expression + "'");
 
         if (result instanceof Boolean b) {
             return b;
         }
 
         String resultType = result == null ? "null" : result.getClass().getName();
-        throw new TransfluxValidationException(
-            "SpEL expression '" + expression + "' must evaluate to boolean but returned " + resultType);
-    }
-
-    int cacheSize() {
-        return cache.size();
+        throw new TransfluxValidationException("SpEL expression '" + expression.getExpressionString()
+            + "' must evaluate to boolean but returned " + resultType);
     }
 }

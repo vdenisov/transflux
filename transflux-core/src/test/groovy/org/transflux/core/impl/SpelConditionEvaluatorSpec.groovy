@@ -44,54 +44,47 @@ class SpelConditionEvaluatorSpec extends Specification {
 
     def "should evaluate a boolean expression against the entity"() {
         given:
-        def eval = new SpelConditionEvaluator()
         def entity = new Entity(value: 5)
 
         expect:
-        eval.evaluate('value > 0', entity, null, null)
-        !eval.evaluate('value < 0', entity, null, null)
+        evaluate('value > 0', entity, null, null)
+        !evaluate('value < 0', entity, null, null)
     }
 
     def "should expose the entity as #entity beside the root it names"() {
         given: 'a static helper, because passing the root whole has no other spelling'
-        def eval = new SpelConditionEvaluator()
         def entity = new Entity(value: 5, name: 'e-1')
 
         expect: 'a condition and an event filter both bind it'
-        eval.evaluate("T(${Named.name}).isNamed(#entity)", entity, null, null)
-        eval.evaluateEventFilter("T(${Named.name}).isNamed(#entity)", entity, null, null)
+        evaluate("T(${Named.name}).isNamed(#entity)", entity, null, null)
+        evaluateEventFilter("T(${Named.name}).isNamed(#entity)", entity, null, null)
 
         and: 'it is the same object the root resolves against'
-        eval.evaluate('#entity.value == value', entity, null, null)
+        evaluate('#entity.value == value', entity, null, null)
     }
 
     def "should expose the context as #context"() {
         given:
-        def eval = new SpelConditionEvaluator()
         def entity = new Entity(value: 5)
         def ctx = new Ctx(flag: true)
 
         expect:
-        eval.evaluate('#context.flag', entity, ctx, null)
+        evaluate('#context.flag', entity, ctx, null)
     }
 
     def "should expose the transition view as #transition"() {
         given:
-        def eval = new SpelConditionEvaluator()
         def entity = new Entity(value: 5)
         Transition transition = Mock()
         transition.getTargetStateId() >> 'ACTIVE'
 
         expect:
-        eval.evaluate("#transition.targetStateId == 'ACTIVE'", entity, null, transition)
+        evaluate("#transition.targetStateId == 'ACTIVE'", entity, null, transition)
     }
 
     def "should throw TransfluxValidationException on invalid expression syntax"() {
-        given:
-        def eval = new SpelConditionEvaluator()
-
         when:
-        eval.evaluate('value >', new Entity(value: 1), null, null)
+        evaluate('value >', new Entity(value: 1), null, null)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -126,11 +119,8 @@ class SpelConditionEvaluatorSpec extends Specification {
     }
 
     def "should throw TransfluxValidationException when evaluation fails"() {
-        given:
-        def eval = new SpelConditionEvaluator()
-
         when:
-        eval.evaluate('nonExistentProperty > 0', new Entity(value: 1), null, null)
+        evaluate('nonExistentProperty > 0', new Entity(value: 1), null, null)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -141,11 +131,8 @@ class SpelConditionEvaluatorSpec extends Specification {
     }
 
     def "should throw TransfluxValidationException when result is not boolean"() {
-        given:
-        def eval = new SpelConditionEvaluator()
-
         when:
-        eval.evaluate("'hello'", new Entity(), null, null)
+        evaluate("'hello'", new Entity(), null, null)
 
         then:
         def e = thrown(TransfluxValidationException)
@@ -153,37 +140,24 @@ class SpelConditionEvaluatorSpec extends Specification {
         e.message.contains('java.lang.String')
     }
 
-    def "should cache parsed expressions"() {
-        given:
-        def eval = new SpelConditionEvaluator()
-        def entity = new Entity(value: 5)
-
-        when:
-        eval.evaluate('value > 0', entity, null, null)
-        eval.evaluate('value > 0', entity, null, null)
-        eval.evaluate('value > 1', entity, null, null)
-
-        then:
-        eval.cacheSize() == 2
-    }
-
-    def "shared() should return the same singleton instance"() {
-        expect:
-        SpelConditionEvaluator.shared().is(SpelConditionEvaluator.shared())
-    }
-
     def "should reject a null/blank expression"() {
-        given:
-        def eval = new SpelConditionEvaluator()
-
         when:
-        eval.evaluate(expr, new Entity(), null, null)
+        evaluate(expr, new Entity(), null, null)
 
         then:
         thrown(TransfluxValidationException)
 
         where:
         expr << [null, '', '  ']
+    }
+
+    private static boolean evaluate(String expression, Object entity, Object context, Transition transition) {
+        return SpelConditionEvaluator.evaluate(SpelConditionEvaluator.parse(expression), entity, context, transition)
+    }
+
+    private static boolean evaluateEventFilter(String expression, Object entity, Object eventData, Object context) {
+        return SpelConditionEvaluator.evaluateEventFilter(SpelConditionEvaluator.parse(expression), entity, eventData,
+            context)
     }
 
     private static void transition(StateMachineDef<Entity> smd, Closure configurer) {

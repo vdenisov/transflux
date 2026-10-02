@@ -19,6 +19,7 @@
 package org.transflux.core.impl;
 
 import org.slf4j.Logger;
+import org.springframework.expression.Expression;
 import org.transflux.core.condition.Condition;
 import org.transflux.core.transition.Transition;
 
@@ -120,8 +121,8 @@ record BoundCondition<T, C>(String id, Condition<? super T, C> condition) {
     }
 
     /**
-     * Creates a bound condition whose evaluation parses the given SpEL expression and
-     * interprets its boolean result.
+     * Parses a SpEL expression and binds it as a condition that evaluates what was parsed, so the
+     * condition holds its own parse.
      *
      * @param id the condition id; never {@code null} or blank
      * @param expression the SpEL expression text; never {@code null} or blank
@@ -129,12 +130,13 @@ record BoundCondition<T, C>(String id, Condition<? super T, C> condition) {
      * @param <C> the context type
      *
      * @return a bound condition that evaluates {@code expression} on each call
+     *
+     * @throws TransfluxValidationException if the expression is blank or cannot be parsed
      */
     static <T, C> BoundCondition<T, C> fromExpression(String id, String expression) {
-        requireNotBlank(expression, "Expression");
-        String expr = expression;
+        Expression parsed = SpelConditionEvaluator.parse(expression);
         Condition<T, C> condition = (entity, ctx, transition) ->
-            SpelConditionEvaluator.shared().evaluate(expr, entity, ctx, transition);
+            SpelConditionEvaluator.evaluate(parsed, entity, ctx, transition);
         return new BoundCondition<>(id, condition);
     }
 }

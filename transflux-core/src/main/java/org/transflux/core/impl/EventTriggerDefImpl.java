@@ -18,6 +18,7 @@
 
 package org.transflux.core.impl;
 
+import org.springframework.expression.Expression;
 import org.transflux.core.condition.ConditionDescriptor;
 import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.core.trigger.EventTriggerDef;
@@ -86,9 +87,12 @@ final class EventTriggerDefImpl<T, C> extends TriggerDefImpl<T, C, EventTriggerD
     public EventTriggerDef<T, C> filterExpression(String expression) {
         requireConfigurerActive("filterExpression");
         requireNotBlank(expression, "Expression");
-        SpelConditionEvaluator.shared().validate(expression);
-        return setFilter(() -> (eventData, entity, context) ->
-            SpelConditionEvaluator.shared().evaluateEventFilter(expression, entity, eventData, context));
+        SpelConditionEvaluator.validate(expression);
+        return setFilter(() -> {
+            Expression parsed = SpelConditionEvaluator.parse(expression);
+            return (eventData, entity, context) ->
+                SpelConditionEvaluator.evaluateEventFilter(parsed, entity, eventData, context);
+        });
     }
 
     /**

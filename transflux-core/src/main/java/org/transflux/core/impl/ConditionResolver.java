@@ -35,9 +35,8 @@ import static org.transflux.core.Preconditions.requireNotNull;
  * instance-based descriptors return the wrapped {@code Condition} as-is;
  * predicate-based descriptors are adapted into {@code Condition} instances that pass the
  * entity and context through to the underlying predicate (ignoring the transition view);
- * expression-based descriptors are bound to the shared
- * {@link SpelConditionEvaluator}, with id auto-derived from the supplied path when the
- * descriptor omits an explicit id.
+ * expression-based descriptors are parsed and bound holding what was parsed, with id
+ * auto-derived from the supplied path when the descriptor omits an explicit id.
  */
 final class ConditionResolver {
 
@@ -123,10 +122,6 @@ final class ConditionResolver {
             id = ExpressionIdDerivation.deriveId(descriptor.expression(), path);
         }
 
-        String expression = descriptor.expression();
-        Condition<T, C> condition = (entity, ctx, transition) ->
-            SpelConditionEvaluator.shared().evaluate(expression, entity, ctx, transition);
-
-        return BoundCondition.of(id, condition);
+        return BoundCondition.fromExpression(id, descriptor.expression());
     }
 }
