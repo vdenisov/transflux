@@ -64,7 +64,7 @@ class DocumentSpec extends Specification {
 
     def 'an error carries the location beside the identifier'() {
         when:
-        Document.parse([], 'doc.yml', '/defs/doc.yml', new StringReader('a: !x 1\n'))
+        Document.parse([], 'doc.yml', '/defs/doc.yml', new StringReader('a: !x 1\n'), Document.DEFAULT_CODE_POINT_LIMIT)
 
         then:
         def e = thrown(DefinitionLoadException)
@@ -73,7 +73,7 @@ class DocumentSpec extends Specification {
 
     def 'an error in an imported document leads with the imports that reached it'() {
         when:
-        Document.parse(['root.yml', 'lib.yml'], 'doc.yml', null, new StringReader('a: [1\n'))
+        Document.parse(['root.yml', 'lib.yml'], 'doc.yml', null, new StringReader('a: [1\n'), Document.DEFAULT_CODE_POINT_LIMIT)
 
         then:
         def e = thrown(DefinitionLoadException)
@@ -82,6 +82,6 @@ class DocumentSpec extends Specification {
     }
 
     private static Document parse(String text) {
-        return Document.parse([], 'doc.yml', null, new StringReader(text))
+        return Document.parse([], 'doc.yml', null, new StringReader(text), Document.DEFAULT_CODE_POINT_LIMIT)
     }
 }

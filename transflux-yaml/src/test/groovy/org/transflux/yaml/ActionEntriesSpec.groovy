@@ -530,7 +530,7 @@ class ActionEntriesSpec extends Specification {
             } as InvocationHandler) as ActionSequence
         def readers = Readers.of(new Classes(getClass().classLoader, ComponentFactory.reflective()), Order,
             new DeclarationSites())
-        def document = Document.parse([], 'doc.yml', null, new StringReader("actions:\n  - ${entry}\n"))
+        def document = Document.parse([], 'doc.yml', null, new StringReader("actions:\n  - ${entry}\n"), Document.DEFAULT_CODE_POINT_LIMIT)
         readers.actions().list(NodeMap.of(document, document.root(), null, 'the document'), sequence, Ctx)
         return calls
     }

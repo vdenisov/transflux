@@ -53,10 +53,12 @@ public final class YamlDefinitionLoader {
 
     private final DefinitionSource source;
     private final Classes classes;
+    private final int codePointLimit;
 
-    private YamlDefinitionLoader(DefinitionSource source, Classes classes) {
+    private YamlDefinitionLoader(DefinitionSource source, Classes classes, int codePointLimit) {
         this.source = source;
         this.classes = classes;
+        this.codePointLimit = codePointLimit;
     }
 
     /**
@@ -104,7 +106,7 @@ public final class YamlDefinitionLoader {
         Document document;
         try {
             document = Document.parse(importChain, resource.identifier(), resource.location(),
-                new UnicodeReader(resource.bytes()));
+                new UnicodeReader(resource.bytes()), codePointLimit);
         } catch (RuntimeException e) {
             closeQuietly(resource);
             throw e;
@@ -239,6 +241,7 @@ public final class YamlDefinitionLoader {
         private final DefinitionSource source;
         private ClassLoader classLoader;
         private ComponentFactory componentFactory = ComponentFactory.reflective();
+        private int codePointLimit = Document.DEFAULT_CODE_POINT_LIMIT;
 
         private Builder(DefinitionSource source) {
             this.source = source;
@@ -276,6 +279,25 @@ public final class YamlDefinitionLoader {
         }
 
         /**
+         * Sets the most code points one document may hold - 3,145,728 when not set. A document over
+         * it is refused rather than read; only the root holds states and transitions, so a generated
+         * state machine is what reaches it.
+         *
+         * @param codePointLimit the limit
+         *
+         * @return this builder
+         *
+         * @throws TransfluxValidationException if {@code codePointLimit} is not positive
+         */
+        public Builder withCodePointLimit(int codePointLimit) {
+            if (codePointLimit <= 0) {
+                throw new TransfluxValidationException("Code point limit must be positive, was " + codePointLimit);
+            }
+            this.codePointLimit = codePointLimit;
+            return this;
+        }
+
+        /**
          * @return the loader
          */
         public YamlDefinitionLoader build() {
@@ -286,7 +308,7 @@ public final class YamlDefinitionLoader {
             if (loader == null) {
                 loader = YamlDefinitionLoader.class.getClassLoader();
             }
-            return new YamlDefinitionLoader(source, new Classes(loader, componentFactory));
+            return new YamlDefinitionLoader(source, new Classes(loader, componentFactory), codePointLimit);
         }
     }
 }

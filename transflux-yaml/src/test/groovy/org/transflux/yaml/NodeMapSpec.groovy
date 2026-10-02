@@ -141,7 +141,7 @@ class NodeMapSpec extends Specification {
     }
 
     private static NodeMap map(String text) {
-        def document = Document.parse([], 'doc.yml', null, new StringReader(text))
+        def document = Document.parse([], 'doc.yml', null, new StringReader(text), Document.DEFAULT_CODE_POINT_LIMIT)
         return NodeMap.of(document, document.root(), null, 'the document')
     }
 }

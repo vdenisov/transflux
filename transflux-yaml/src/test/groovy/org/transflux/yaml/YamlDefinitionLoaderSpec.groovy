@@ -118,6 +118,34 @@ class YamlDefinitionLoaderSpec extends Specification {
         e.message == 'root.yml: the document is not valid UTF-8 or UTF-16 text; save it as UTF-8'
     }
 
+    def 'a document over the code point limit is refused as such'() {
+        when:
+        YamlDefinitionLoader.builder(source(ENVELOPE)).withCodePointLimit(20).build().load('root.yml', Order)
+
+        then:
+        def e = thrown(DefinitionLoadException)
+        e.message == ('root.yml: the document is over the limit of 20 code points;'
+            + ' raise it with YamlDefinitionLoader.Builder.withCodePointLimit(int)')
+    }
+
+    def 'a document within a raised code point limit loads'() {
+        expect:
+        YamlDefinitionLoader.builder(source(ENVELOPE)).withCodePointLimit(ENVELOPE.length())
+            .build().load('root.yml', Order) != null
+    }
+
+    def 'a code point limit must be positive: #limit'() {
+        when:
+        YamlDefinitionLoader.builder(source(ENVELOPE)).withCodePointLimit(limit)
+
+        then:
+        def e = thrown(TransfluxValidationException)
+        e.message == "Code point limit must be positive, was ${limit}"
+
+        where:
+        limit << [0, -1]
+    }
+
     def 'a document the source does not have is reported by its identifier'() {
         when:
         YamlDefinitionLoader.builder({ Optional.empty() } as DefinitionSource).build().load('missing.yml', Order)

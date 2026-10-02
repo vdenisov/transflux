@@ -43,6 +43,12 @@ import java.util.Set;
  */
 record Document(List<String> importChain, String identifier, String location, Node root) {
 
+    /** The most code points a document may hold unless the host says otherwise; SnakeYAML's own default. */
+    static final int DEFAULT_CODE_POINT_LIMIT = new LoaderOptions().getCodePointLimit();
+
+    // How SnakeYAML's message for a document over the limit begins; it carries no type of its own.
+    private static final String SNAKEYAML_LIMIT_PREFIX = "The incoming YAML document exceeds the limit";
+
     private static final Set<Tag> PLAIN_TAGS = Set.of(
         Tag.STR, Tag.INT, Tag.BOOL, Tag.NULL, Tag.FLOAT, Tag.TIMESTAMP, Tag.SEQ, Tag.MAP);
 
@@ -56,18 +62,19 @@ record Document(List<String> importChain, String identifier, String location, No
      * @param identifier the identifier the document was opened under
      * @param location where the source found it; nullable
      * @param reader the document's text, decoding as it reads
+     * @param codePointLimit the most code points the document may hold
      *
      * @return the parsed document
      *
-     * @throws DefinitionLoadException when the bytes cannot be decoded, the text is not YAML, holds
-     *         other than one document, or uses an anchor, an alias, a merge key, a tag or a duplicate
-     *         key
+     * @throws DefinitionLoadException when the document cannot be decoded, is over the limit, or is not plain YAML
      */
-    static Document parse(List<String> importChain, String identifier, String location, Reader reader) {
+    static Document parse(List<String> importChain, String identifier, String location, Reader reader,
+                          int codePointLimit) {
         Iterator<Node> documents;
         Node root;
         try {
             LoaderOptions options = new LoaderOptions();
+            options.setCodePointLimit(codePointLimit);
             // Composing constructs nothing, so admit every tag here and refuse them below with one message.
             options.setTagInspector(tag -> true);
             documents = new Yaml(options).composeAll(reader).iterator();
@@ -88,9 +95,15 @@ record Document(List<String> importChain, String identifier, String location, No
                 null, "not valid YAML: " + e.getProblem(), e);
         } catch (YAMLException e) {
             // The decoder refuses malformed input; tell the author what the document should have been.
-            String problem = e.getCause() instanceof CharacterCodingException
-                ? "the document is not valid UTF-8 or UTF-16 text; save it as UTF-8"
-                : "cannot be read: " + e.getMessage();
+            String problem;
+            if (e.getCause() instanceof CharacterCodingException) {
+                problem = "the document is not valid UTF-8 or UTF-16 text; save it as UTF-8";
+            } else if (String.valueOf(e.getMessage()).startsWith(SNAKEYAML_LIMIT_PREFIX)) {
+                problem = "the document is over the limit of " + codePointLimit
+                    + " code points; raise it with YamlDefinitionLoader.Builder.withCodePointLimit(int)";
+            } else {
+                problem = "cannot be read: " + e.getMessage();
+            }
             throw new DefinitionLoadException(importChain, identifier, location, null, null, null, problem, e);
         }
         Document document = new Document(importChain, identifier, location, root);
