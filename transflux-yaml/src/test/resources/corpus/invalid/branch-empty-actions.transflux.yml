@@ -1,0 +1,10 @@
+# error: root.transflux.yml -> branch-empty-actions.transflux.yml:10:18: choice 'c' > branch 'b': 'actions' must hold at least one action
+# schema: /choices/0/branches/0/actions
+apiVersion: transflux/v1
+choices:
+  - id: c
+    branches:
+      - id: b
+        condition:
+          expression: 'true'
+        actions: []

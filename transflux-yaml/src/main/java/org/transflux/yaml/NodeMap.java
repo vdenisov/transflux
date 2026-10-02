@@ -166,6 +166,42 @@ final class NodeMap {
         return within(kind).requiredString("id");
     }
 
+    /**
+     * Reads a scalar that names something by its id, refusing one that names nothing.
+     *
+     * @param node the scalar
+     * @param problem the refusal of a node that names nothing
+     *
+     * @return the id
+     *
+     * @throws DefinitionLoadException when the node is not a scalar, or is null or blank
+     */
+    String referenceId(Node node, String problem) {
+        // Read as text, a null would be a reference to the id '~' or 'null' nobody wrote.
+        if (!(node instanceof ScalarNode scalar) || Tag.NULL.equals(scalar.getTag()) || scalar.getValue().isBlank()) {
+            throw error(node, problem);
+        }
+        return scalar.getValue();
+    }
+
+    /**
+     * Reads a list that must hold at least one item.
+     *
+     * @param key the list's key
+     * @param what what the list holds, for the refusal of an empty one, such as {@code action}
+     *
+     * @return the items
+     *
+     * @throws DefinitionLoadException when the key is absent, not a list, or the list is empty
+     */
+    List<Node> requiredNonEmptyList(String key, String what) {
+        List<Node> items = requiredList(key);
+        if (items.isEmpty()) {
+            throw error(requiredNode(key), "'" + key + "' must hold at least one " + what);
+        }
+        return items;
+    }
+
     String requiredString(String key) {
         return scalar(key, requiredNode(key), "a string");
     }

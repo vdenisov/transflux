@@ -141,9 +141,11 @@ final class ConditionDescriptors {
      * @throws DefinitionLoadException when the node is not a descriptor
      */
     void descriptor(NodeMap owner, Node node, Class<?> context, Target target) {
-        if (node instanceof ScalarNode reference) {
+        if (node instanceof ScalarNode) {
+            String id = owner.referenceId(node,
+                "a condition reference names a registered condition by its id; this one names none");
             owner.at(node, () -> {
-                target.reference(reference.getValue());
+                target.reference(id);
                 return null;
             });
             return;

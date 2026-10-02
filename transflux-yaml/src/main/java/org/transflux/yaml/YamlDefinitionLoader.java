@@ -25,8 +25,6 @@ import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.yaml.source.DefinitionResource;
 import org.transflux.yaml.source.DefinitionSource;
 import org.yaml.snakeyaml.nodes.Node;
-import org.yaml.snakeyaml.nodes.ScalarNode;
-import org.yaml.snakeyaml.nodes.Tag;
 
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -165,11 +163,8 @@ public final class YamlDefinitionLoader {
         List<String> importChain = new ArrayList<>(importer.document().importChain());
         importChain.add(importedBy);
         for (Node entry : entries) {
-            if (!(entry instanceof ScalarNode scalar) || Tag.NULL.equals(scalar.getTag())
-                || scalar.getValue().isBlank()) {
-                throw importer.error(entry, "an import names a document by its identifier; this entry names none");
-            }
-            String identifier = scalar.getValue();
+            String identifier = importer.referenceId(entry,
+                "an import names a document by its identifier; this entry names none");
             // Every document on the chain is also in seen, so the cycle has to be told apart first.
             int cycle = asked.indexOf(identifier);
             if (cycle >= 0) {

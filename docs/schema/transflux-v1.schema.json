@@ -9,7 +9,7 @@
     "imports": {
       "description": "Identifiers of the libraries this document imports, handed to the definition source as written.",
       "type": ["array", "null"],
-      "items": {"type": ["string", "number"], "pattern": "\\S"}
+      "items": {"$ref": "#/$defs/reference"}
     },
     "steps": {"description": "Imperative actions.", "type": ["array", "null"], "items": {"$ref": "#/$defs/stepRegistration"}},
     "operations": {
@@ -48,6 +48,7 @@
   "additionalProperties": false,
   "$defs": {
     "text": {"description": "A scalar the loader reads as text.", "type": ["string", "number"]},
+    "reference": {"description": "An id naming something declared elsewhere.", "type": ["string", "number"], "pattern": "\\S"},
     "optionalText": {"type": ["string", "number", "null"]},
     "className": {"description": "A fully qualified class name: its binary name, or a nested class's dotted source spelling.", "type": "string"},
     "optionalClassName": {"description": "A fully qualified class name: its binary name, or a nested class's dotted source spelling.", "type": ["string", "null"]},
@@ -61,7 +62,7 @@
     "rejectionPolicy": {"enum": ["DROP", "FAIL", "BLOCK", "CALLER_RUNS", null]},
     "disables": {
       "description": "true for all of them, or a list of listener ids.",
-      "anyOf": [{"enum": [true, null]}, {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/text"}}]
+      "anyOf": [{"enum": [true, null]}, {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/reference"}}]
     },
     "classOrExpression": {
       "description": "A class, or a SpEL expression.",
@@ -77,7 +78,7 @@
       "additionalProperties": false
     },
 
-    "actions": {"description": "Members, run in order.", "type": "array", "items": {"$ref": "#/$defs/actionEntry"}},
+    "actions": {"description": "Members, run in order.", "type": "array", "minItems": 1, "items": {"$ref": "#/$defs/actionEntry"}},
     "actionKeys": {
       "description": "The keys every action declaration accepts, whatever its form.",
       "properties": {
@@ -150,7 +151,7 @@
     "choiceBody": {
       "description": "What a choice holds besides the keys every action has.",
       "properties": {
-        "branches": {"description": "The branches, tried in order.", "type": "array", "items": {"$ref": "#/$defs/branch"}},
+        "branches": {"description": "The branches, tried in order.", "type": "array", "minItems": 1, "items": {"$ref": "#/$defs/branch"}},
         "default": {"description": "Runs when no branch matches.", "anyOf": [{"$ref": "#/$defs/defaultBranch"}, {"type": "null"}]},
         "onNoMatch": {
           "description": "What happens when nothing matches and there is no default.",
@@ -337,7 +338,7 @@
     "conditions": {"type": ["array", "null"], "items": {"$ref": "#/$defs/conditionDescriptor"}},
     "conditionDescriptor": {
       "description": "A registered condition's id, or a condition declared in place.",
-      "anyOf": [{"$ref": "#/$defs/text"}, {"$ref": "#/$defs/conditionBlock"}]
+      "anyOf": [{"$ref": "#/$defs/reference"}, {"$ref": "#/$defs/conditionBlock"}]
     },
     "conditionForms": {
       "description": "Exactly one of class, predicate or expression.",
@@ -481,7 +482,7 @@
     "listenerEntries": {
       "description": "Each a registered listener's id, or a listener declared in place.",
       "type": ["array", "null"],
-      "items": {"anyOf": [{"$ref": "#/$defs/text"}, {"$ref": "#/$defs/inlineListener"}]}
+      "items": {"anyOf": [{"$ref": "#/$defs/reference"}, {"$ref": "#/$defs/inlineListener"}]}
     },
     "executionHooks": {
       "description": "A transition's or an action's listeners.",
@@ -615,7 +616,7 @@
         "triggers": {
           "description": "Each a registered trigger's id, or a trigger declared in place.",
           "type": ["array", "null"],
-          "items": {"anyOf": [{"$ref": "#/$defs/text"}, {"$ref": "#/$defs/inlineTrigger"}]}
+          "items": {"anyOf": [{"$ref": "#/$defs/reference"}, {"$ref": "#/$defs/inlineTrigger"}]}
         },
         "listeners": {"description": "Transition listeners, by hook.", "anyOf": [{"$ref": "#/$defs/executionHooks"}, {"type": "null"}]},
         "disableGlobalListeners": {"description": "State-machine-wide transition listeners to suppress here.", "$ref": "#/$defs/disables"}

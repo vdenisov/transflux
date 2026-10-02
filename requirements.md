@@ -1094,7 +1094,7 @@ steps:
 
 #### 3.4.2 Operations
 
-An operation is declared under `operations:` and carries an `actions:` list. Each entry is verb-keyed per §3.1.2 — `run:` to reference, `step:` / `operation:` / `choice:` to declare — and the list runs in declaration order.
+An operation is declared under `operations:` and carries an `actions:` list, holding at least one entry. Each entry is verb-keyed per §3.1.2 — `run:` to reference, `step:` / `operation:` / `choice:` to declare — and the list runs in declaration order.
 
 A reference says nothing about the form of the thing it names: `run: notification-flow` reaches an operation and `run: charge-card` reaches a step, spelled identically, because which form the callee was authored in is a property of *its* declaration rather than of the call.
 
@@ -1262,7 +1262,7 @@ operations:
                 class: com.example.actions.BusinessHoursProcessingStep
 ```
 
-A branch carries an `id`, a `condition:` in the descriptor grammar (§3.6.1) and an `actions:` list; `default:` carries the list alone. A branch is not an action (§2.2.5.1), so neither accepts `compensation:`, `listeners:` or a `context:` — those belong to the choice, or to the members.
+A branch carries an `id`, a `condition:` in the descriptor grammar (§3.6.1) and an `actions:` list; `default:` carries the list alone. Each of those lists holds at least one entry, and `branches:` at least one branch; only a transition's body may be empty. A branch is not an action (§2.2.5.1), so neither accepts `compensation:`, `listeners:` or a `context:` — those belong to the choice, or to the members.
 
 **Execution Semantics:**
 1. Branches are evaluated in the order they are defined.

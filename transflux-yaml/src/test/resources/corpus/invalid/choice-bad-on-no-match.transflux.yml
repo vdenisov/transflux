@@ -1,4 +1,4 @@
-# error: root.transflux.yml -> choice-bad-on-no-match.transflux.yml:13:20: operation 'o' > choice 'c': 'onNoMatch' must be one of WARN, SILENT, ERROR, not 'IGNORE'
+# error: root.transflux.yml -> choice-bad-on-no-match.transflux.yml:18:20: operation 'o' > choice 'c': 'onNoMatch' must be one of WARN, SILENT, ERROR, not 'IGNORE'
 # schema: /operations/0/actions/0/onNoMatch
 # rule: choiceEntry /operations/0/actions/0
 apiVersion: transflux/v1
@@ -9,5 +9,10 @@ operations:
   - id: o
     actions:
       - choice: c
-        branches: []
+        branches:
+          - id: b
+            condition:
+              expression: 'true'
+            actions:
+              - run: s
         onNoMatch: IGNORE

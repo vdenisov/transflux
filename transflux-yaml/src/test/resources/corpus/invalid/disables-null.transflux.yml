@@ -1,0 +1,8 @@
+# error: root.transflux.yml -> disables-null.transflux.yml:8:9: step 's': 'disableGlobalListeners' names a listener by its id; this entry names none
+# schema: /steps/0/disableGlobalListeners/0
+apiVersion: transflux/v1
+steps:
+  - id: s
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+    disableGlobalListeners:
+      - ~

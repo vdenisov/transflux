@@ -1,0 +1,12 @@
+# error: root.transflux.yml -> operation-entry-empty-actions.transflux.yml:12:18: operation 'o' > operation 'n': 'actions' must hold at least one action
+# schema: /operations/0/actions/0/actions
+# rule: operationEntry /operations/0/actions/0
+apiVersion: transflux/v1
+steps:
+  - id: s
+    class: org.transflux.yaml.LoaderFixtures$RecordingStep
+operations:
+  - id: o
+    actions:
+      - operation: n
+        actions: []

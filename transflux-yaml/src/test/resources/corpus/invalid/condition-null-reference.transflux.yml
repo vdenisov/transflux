@@ -1,0 +1,11 @@
+# error: condition-null-reference.transflux.yml:11:11: state machine > transition 't': a condition reference names a registered condition by its id; this one names none
+# schema: /stateMachine/transitions/0/preConditions/0
+apiVersion: transflux/v1
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  transitions:
+    - id: t
+      from: a
+      to: b
+      preConditions:
+        - ~

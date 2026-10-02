@@ -1,0 +1,6 @@
+# error: root.transflux.yml -> choice-empty-branches.transflux.yml:6:15: choice 'c': 'branches' must hold at least one branch
+# schema: /choices/0/branches
+apiVersion: transflux/v1
+choices:
+  - id: c
+    branches: []

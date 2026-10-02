@@ -93,8 +93,9 @@ final class TriggerEntries {
      * @throws DefinitionLoadException when the entry is neither
      */
     void attach(NodeMap owner, Node entry, TransitionDef<?, ?> def, Class<?> context) {
-        if (entry instanceof ScalarNode reference) {
-            owner.at(entry, () -> def.addTrigger(reference.getValue()));
+        if (entry instanceof ScalarNode) {
+            String id = owner.referenceId(entry, "a reference names a trigger by its id; this entry names none");
+            owner.at(entry, () -> def.addTrigger(id));
             return;
         }
         NodeMap declaration = NodeMap.of(owner.document(), entry, owner.declarationPath(), "a trigger");

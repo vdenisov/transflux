@@ -4,4 +4,9 @@ apiVersion: transflux/v1
 choices:
   - id: c
     fork: true
-    branches: []
+    branches:
+      - id: b
+        condition:
+          expression: 'true'
+        actions:
+          - run: s

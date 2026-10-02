@@ -292,7 +292,7 @@ final class ActionEntries {
 
     private void choice(NodeMap within, String choiceId, ChoiceDef<Object, Object> choice, Class<?> context) {
         actionKeys.apply(within, choice, context);
-        for (Node node : within.requiredList("branches")) {
+        for (Node node : within.requiredNonEmptyList("branches", "branch")) {
             NodeMap entry = NodeMap.of(within.document(), node, within.declarationPath(), "a branch");
             String id = entry.requiredId("branch");
             NodeMap branch = entry.within("branch '" + id + "'");
@@ -329,10 +329,10 @@ final class ActionEntries {
      * @param sequence the container's or branch's def, inside its configurer
      * @param context the context the members run against
      *
-     * @throws DefinitionLoadException when the list is absent or an entry is not valid
+     * @throws DefinitionLoadException when the list is absent or empty, or an entry is not valid
      */
     private void members(NodeMap owner, ActionSequence<?, ?, ?> sequence, Class<?> context) {
-        owner.requiredList("actions").forEach(entry -> member(owner, entry, sequence, context));
+        owner.requiredNonEmptyList("actions", "action").forEach(entry -> member(owner, entry, sequence, context));
     }
 
     private Class<?> registeredContext(NodeMap within) {

@@ -4,4 +4,5 @@ apiVersion: transflux/v1
 operations:
   - id: o
     class: org.transflux.yaml.LoaderFixtures$RecordingStep
-    actions: []
+    actions:
+      - run: s

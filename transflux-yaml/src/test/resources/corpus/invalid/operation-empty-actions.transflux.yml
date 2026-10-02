@@ -1,0 +1,6 @@
+# error: root.transflux.yml -> operation-empty-actions.transflux.yml:6:14: operation 'o': 'actions' must hold at least one action
+# schema: /operations/0/actions
+apiVersion: transflux/v1
+operations:
+  - id: o
+    actions: []

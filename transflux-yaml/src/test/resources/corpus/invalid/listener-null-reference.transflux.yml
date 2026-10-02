@@ -1,0 +1,12 @@
+# error: listener-null-reference.transflux.yml:12:13: state machine > transition 't': a reference names a listener by its id; this entry names none
+# schema: /stateMachine/transitions/0/listeners/onStart/0
+apiVersion: transflux/v1
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order
+  transitions:
+    - id: t
+      from: a
+      to: b
+      listeners:
+        onStart:
+          - ~

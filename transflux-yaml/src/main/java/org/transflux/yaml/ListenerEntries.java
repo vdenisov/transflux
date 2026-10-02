@@ -189,12 +189,9 @@ final class ListenerEntries {
             throw owner.error(node, "'" + DISABLE_KEY + "' names no listener; write 'true' to disable every global"
                 + " listener");
         }
-        String[] ids = sequence.getValue().stream().map(id -> {
-            if (!(id instanceof ScalarNode scalar)) {
-                throw owner.error(id, "'" + DISABLE_KEY + "' must list listener ids");
-            }
-            return scalar.getValue();
-        }).toArray(String[]::new);
+        String[] ids = sequence.getValue().stream()
+            .map(id -> owner.referenceId(id, "'" + DISABLE_KEY + "' names a listener by its id; this entry names none"))
+            .toArray(String[]::new);
         owner.at(node, () -> {
             some.accept(ids);
             return null;
@@ -203,9 +200,10 @@ final class ListenerEntries {
 
     private void attach(NodeMap block, Node entry, Hook hook, Class<?> context, boolean claimsIds) {
         Category category = hook.category();
-        if (entry instanceof ScalarNode reference) {
+        if (entry instanceof ScalarNode) {
+            String id = block.referenceId(entry, "a reference names a listener by its id; this entry names none");
             block.at(entry, () -> {
-                hook.reference().accept(reference.getValue());
+                hook.reference().accept(id);
                 return null;
             });
             return;

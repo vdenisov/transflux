@@ -1,5 +1,5 @@
-# error: root.transflux.yml -> default-with-id.transflux.yml:16:7: choice 'c' > default branch: unknown key 'id'; expected only actions
-# schema: /choices/0/default/id
+# error: root.transflux.yml -> default-empty-actions.transflux.yml:16:16: choice 'c' > default branch: 'actions' must hold at least one action
+# schema: /choices/0/default/actions
 apiVersion: transflux/v1
 steps:
   - id: s
@@ -13,6 +13,4 @@ choices:
         actions:
           - run: s
     default:
-      id: d
-      actions:
-        - run: s
+      actions: []
