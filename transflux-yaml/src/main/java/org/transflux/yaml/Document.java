@@ -127,9 +127,16 @@ record Document(List<String> importChain, String identifier, String location, No
         if (node.getAnchor() != null) {
             throw error(node, null, "anchors and aliases are not supported ('&" + node.getAnchor() + "')");
         }
+
+        // The YAML 1.1 resolver tags a plain '<<' as a merge wherever it stands, a value included.
+        if (Tag.MERGE.equals(node.getTag())) {
+            throw error(node, null, "'<<' reads as a YAML merge, which is not supported");
+        }
+
         if (!PLAIN_TAGS.contains(node.getTag())) {
             throw error(node, null, "tag '" + shortTag(node.getTag()) + "' is not supported");
         }
+
         if (node instanceof MappingNode mapping) {
             Set<String> keys = new HashSet<>();
             for (NodeTuple entry : mapping.getValue()) {

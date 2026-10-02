@@ -46,6 +46,7 @@ class DocumentSpec extends Specification {
         'an anchor'             | 'a: &base\n  b: 1\nc: 2\n'               || "doc.yml:1:4: anchors and aliases are not supported ('&base')"
         'an alias'              | 'a: 1\nb: *a\n'                          || "doc.yml:2:4: not valid YAML: found undefined alias a"
         'a merge key'           | 'a:\n  <<: {b: 1}\n'                     || "doc.yml:2:3: merge keys ('<<') are not supported"
+        'a merge sign as value' | 'a: <<\n'                                || "doc.yml:1:4: '<<' reads as a YAML merge, which is not supported"
         'a second document'     | 'a: 1\n---\nb: 2\n'                      || 'doc.yml:3:1: a definition is one YAML document; this is a second one'
         'a language tag'        | 'a: !!java.util.Date 1\n'                || "doc.yml:1:4: tag '!!java.util.Date' is not supported"
         'a local tag'           | 'a: !custom 1\n'                         || "doc.yml:1:4: tag '!custom' is not supported"
