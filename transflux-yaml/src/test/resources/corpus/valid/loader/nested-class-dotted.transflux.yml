@@ -1,0 +1,9 @@
+# A nested class may be named with dots, as Java source spells it.
+apiVersion: transflux/v1
+
+steps:
+  - id: record
+    class: org.transflux.yaml.LoaderFixtures.RecordingStep
+
+stateMachine:
+  entityType: org.transflux.yaml.LoaderFixtures$Order

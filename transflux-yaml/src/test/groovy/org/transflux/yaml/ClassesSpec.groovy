@@ -47,6 +47,32 @@ class ClassesSpec extends Specification {
         classes.instantiate(map, 'class', Action) instanceof Step
     }
 
+    def 'a nested class may be named as Java source spells it: #name'() {
+        given:
+        def classes = new Classes(getClass().classLoader, ComponentFactory.reflective())
+
+        expect:
+        classes.requiredClass(map("class: ${name}\n"), 'class', Action) == type
+
+        where:
+        name                              || type
+        "${ClassesSpec.name}.Step"        || Step
+        "${ClassesSpec.name}.Outer.Inner" || Outer.Inner
+    }
+
+    def 'a nested class named with dots that cannot be loaded is reported with what failed it'() {
+        given:
+        def classes = new Classes(loaderWithoutMissing(), ComponentFactory.reflective())
+
+        when:
+        classes.requiredClass(map("class: pkg.Outer.Broken\n"), 'class', null)
+
+        then:
+        def e = thrown(DefinitionLoadException)
+        e.problem() == 'class pkg.Outer.Broken cannot be loaded'
+        e.cause instanceof NoClassDefFoundError
+    }
+
     def 'refuses #what at the line naming the class'() {
         given:
         def classes = new Classes(getClass().classLoader, factory)
@@ -149,10 +175,11 @@ class ClassesSpec extends Specification {
     }
 
     /**
-     * Compiles two classes mentioning {@code pkg.Missing} - one as its type argument, one as a
-     * constructor parameter - and loads them with {@code pkg.Missing} itself deleted.
+     * Compiles classes mentioning {@code pkg.Missing} - as a type argument, as a constructor
+     * parameter, and as a nested class's superclass - and loads them with {@code pkg.Missing}
+     * itself deleted.
      *
-     * @return a loader that sees the two classes but not the one they mention
+     * @return a loader that sees the classes but not the one they mention
      */
     private ClassLoader loaderWithoutMissing() {
         def sources = [
@@ -161,7 +188,8 @@ class ClassesSpec extends Specification {
                 + ' public boolean test(Missing m) { return true; } }',
             Constructed: 'public class Constructed implements java.util.function.Predicate<Object> {'
                 + ' public Constructed() {} public Constructed(Missing m) {}'
-                + ' public boolean test(Object o) { return true; } }']
+                + ' public boolean test(Object o) { return true; } }',
+            Outer      : 'public class Outer { public static class Broken extends Missing {} }']
         def files = sources.collect { name, body ->
             Files.writeString(Files.createDirectories(compiled.resolve('src/pkg')).resolve("${name}.java"),
                 "package pkg; ${body}").toString()
@@ -180,6 +208,13 @@ class ClassesSpec extends Specification {
 
     static class Step implements Action<Object, Object> {
         void execute(Object entity, Object context, ExecutingTransition<Object, Object> transition) {
+        }
+    }
+
+    static class Outer {
+        static class Inner implements Action<Object, Object> {
+            void execute(Object entity, Object context, ExecutingTransition<Object, Object> transition) {
+            }
         }
     }
 

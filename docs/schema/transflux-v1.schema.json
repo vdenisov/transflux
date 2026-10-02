@@ -49,8 +49,8 @@
   "$defs": {
     "text": {"description": "A scalar the loader reads as text.", "type": ["string", "number"]},
     "optionalText": {"type": ["string", "number", "null"]},
-    "className": {"description": "A fully qualified (binary) class name.", "type": "string"},
-    "optionalClassName": {"description": "A fully qualified (binary) class name.", "type": ["string", "null"]},
+    "className": {"description": "A fully qualified class name: its binary name, or a nested class's dotted source spelling.", "type": "string"},
+    "optionalClassName": {"description": "A fully qualified class name: its binary name, or a nested class's dotted source spelling.", "type": ["string", "null"]},
     "flag": {"type": ["boolean", "null"]},
     "positiveInt": {
       "description": "A positive whole number; the loader reads it with Integer.valueOf.",

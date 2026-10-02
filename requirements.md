@@ -800,7 +800,7 @@ A library may import libraries. Imports are read depth first, each before the do
 
 #### 3.1.5 Classes Named by a Document
 
-A class name in a document is loaded through the class loader the host gives the loader — the thread context class loader current when the loader was built, by default — and a class whose instance the definition needs is created through a `ComponentFactory` (§6.2): its accessible no-argument constructor, by default, or whatever the host's factory hands out, which need only be usable at the position, so a container's proxy for the class will do. A class that cannot be loaded, mentions one that cannot (an absent optional dependency), is not of the type its position takes, or cannot be instantiated is an error at the line that named it.
+A class name in a document is loaded through the class loader the host gives the loader — the thread context class loader current when the loader was built, by default — and a class whose instance the definition needs is created through a `ComponentFactory` (§6.2): its accessible no-argument constructor, by default, or whatever the host's factory hands out, which need only be usable at the position, so a container's proxy for the class will do. A class is named by its binary name, a nested class with `$` (`com.example.Listeners$AuditListener`); the dotted form Java source writes is accepted too, its dots read as `$` from the right until a class loads. A class that cannot be loaded, mentions one that cannot (an absent optional dependency), is not of the type its position takes, or cannot be instantiated is an error at the line that named it.
 
 The loader then checks what javac would have checked for a Java host, as far as the class itself declares it:
 

@@ -53,12 +53,26 @@ final class Classes {
     Class<?> requiredClass(NodeMap map, String key, Class<?> position) {
         String name = map.requiredString(key);
         Node at = map.requiredNode(key);
-        Class<?> type;
-
-        try {
-            type = Class.forName(name, false, classLoader);
-        } catch (ClassNotFoundException | LinkageError e) {
-            throw map.error(at, "class " + name + " cannot be loaded", e);
+        String candidate = name;
+        ClassNotFoundException miss = null;
+        Class<?> type = null;
+        while (type == null) {
+            try {
+                type = Class.forName(candidate, false, classLoader);
+            } catch (ClassNotFoundException e) {
+                miss = miss == null ? e : miss;
+                // Java source spells a nested class with dots, where its binary name has $; turn them from the right.
+                int dot = candidate.lastIndexOf('.');
+                if (dot < 0) {
+                    throw map.error(at, "class " + name + " cannot be loaded", miss);
+                }
+                candidate = candidate.substring(0, dot) + '$' + candidate.substring(dot + 1);
+            } catch (LinkageError e) {
+                throw map.error(at, "class " + name + " cannot be loaded", e);
+            }
+        }
+        if (!candidate.equals(name)) {
+            Loggers.YAML_BINDING.debug("Class resolved as nested, name={}, binaryName={}", name, candidate);
         }
 
         if (position != null && !position.isAssignableFrom(type)) {
