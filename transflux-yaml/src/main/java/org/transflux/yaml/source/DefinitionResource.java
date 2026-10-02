@@ -80,7 +80,7 @@ public final class DefinitionResource implements AutoCloseable {
     }
 
     /**
-     * @return the raw document; a single-use stream
+     * @return the raw document - UTF-8, or UTF-16 with a byte-order mark; a single-use stream
      */
     public InputStream bytes() {
         return bytes;

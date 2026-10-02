@@ -31,6 +31,7 @@ import org.yaml.snakeyaml.nodes.SequenceNode;
 import org.yaml.snakeyaml.nodes.Tag;
 
 import java.io.Reader;
+import java.nio.charset.CharacterCodingException;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -54,12 +55,13 @@ record Document(List<String> importChain, String identifier, String location, No
      *        first; empty for the root
      * @param identifier the identifier the document was opened under
      * @param location where the source found it; nullable
-     * @param reader the document's text
+     * @param reader the document's text, decoding as it reads
      *
      * @return the parsed document
      *
-     * @throws DefinitionLoadException when the text is not YAML, holds other than one document, or
-     *         uses an anchor, an alias, a merge key, a tag or a duplicate key
+     * @throws DefinitionLoadException when the bytes cannot be decoded, the text is not YAML, holds
+     *         other than one document, or uses an anchor, an alias, a merge key, a tag or a duplicate
+     *         key
      */
     static Document parse(List<String> importChain, String identifier, String location, Reader reader) {
         Iterator<Node> documents;
@@ -85,8 +87,11 @@ record Document(List<String> importChain, String identifier, String location, No
                 mark == null ? null : mark.getLine() + 1, mark == null ? null : mark.getColumn() + 1,
                 null, "not valid YAML: " + e.getProblem(), e);
         } catch (YAMLException e) {
-            throw new DefinitionLoadException(importChain, identifier, location, null, null, null,
-                "cannot be read: " + e.getMessage(), e);
+            // The decoder refuses malformed input; tell the author what the document should have been.
+            String problem = e.getCause() instanceof CharacterCodingException
+                ? "the document is not valid UTF-8 or UTF-16 text; save it as UTF-8"
+                : "cannot be read: " + e.getMessage();
+            throw new DefinitionLoadException(importChain, identifier, location, null, null, null, problem, e);
         }
         Document document = new Document(importChain, identifier, location, root);
         document.refuseUnsupported(root);

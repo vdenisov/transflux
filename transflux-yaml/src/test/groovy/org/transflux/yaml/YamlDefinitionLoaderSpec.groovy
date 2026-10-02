@@ -24,6 +24,8 @@ import org.transflux.yaml.source.DefinitionResource
 import org.transflux.yaml.source.DefinitionSource
 import spock.lang.Specification
 
+import java.nio.charset.StandardCharsets
+
 class YamlDefinitionLoaderSpec extends Specification {
 
     private static final String ENVELOPE = LoaderFixtures.resource('loader/envelope.transflux.yml')
@@ -75,6 +77,45 @@ class YamlDefinitionLoaderSpec extends Specification {
         'an unloadable entity'   | 'apiVersion: transflux/v1\nstateMachine:\n  entityType: com.nope.Order\n'           || 'root.yml:3:15: state machine: class com.nope.Order cannot be loaded'
         'another entity'         | "apiVersion: transflux/v1\nstateMachine:\n  entityType: ${String.name}\n"           || "root.yml:3:15: state machine: entityType is java.lang.String, but ${Order.name} was asked for"
         'an unknown key inside'  | "apiVersion: transflux/v1\nstateMachine:\n  entityType: ${Order.name}\n  extra: {}\n" || "root.yml:4:3: state machine: unknown key 'extra'; expected one of entityType, name, description, id, version, stateResolver, stateApplier, listeners, config, states, transitions"
+    }
+
+    def 'a document is read as #encoding'() {
+        given:
+        def text = "apiVersion: transflux/v1\nstateMachine:\n  entityType: ${Order.name}\n  name: Café\n"
+        def bytes = (bom + text.getBytes(charset).toList()) as byte[]
+        def source = { String id -> Optional.of(new DefinitionResource(id, new ByteArrayInputStream(bytes))) }
+            as DefinitionSource
+
+        when:
+        def sm = YamlDefinitionLoader.builder(source).build().load('root.yml', Order)
+            .withStateResolver { 'a' }.state('a').build()
+
+        then:
+        sm.name == 'Café'
+
+        cleanup:
+        sm?.close()
+
+        where:
+        encoding              | charset                   | bom
+        'UTF-8'               | StandardCharsets.UTF_8    | []
+        'UTF-8 with a BOM'    | StandardCharsets.UTF_8    | [0xEF, 0xBB, 0xBF]
+        'UTF-16LE with a BOM' | StandardCharsets.UTF_16LE | [0xFF, 0xFE]
+        'UTF-16BE with a BOM' | StandardCharsets.UTF_16BE | [0xFE, 0xFF]
+    }
+
+    def 'a document in another encoding is refused rather than misread'() {
+        given:
+        def text = "apiVersion: transflux/v1\nstateMachine:\n  entityType: ${Order.name}\n  name: Café\n"
+        def source = { String id -> Optional.of(new DefinitionResource(id, new ByteArrayInputStream(text.getBytes('windows-1252')))) }
+            as DefinitionSource
+
+        when:
+        YamlDefinitionLoader.builder(source).build().load('root.yml', Order)
+
+        then:
+        def e = thrown(DefinitionLoadException)
+        e.message == 'root.yml: the document is not valid UTF-8 or UTF-16 text; save it as UTF-8'
     }
 
     def 'a document the source does not have is reported by its identifier'() {

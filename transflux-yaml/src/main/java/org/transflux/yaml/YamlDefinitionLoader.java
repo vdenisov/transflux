@@ -25,9 +25,8 @@ import org.transflux.core.exception.TransfluxValidationException;
 import org.transflux.yaml.source.DefinitionResource;
 import org.transflux.yaml.source.DefinitionSource;
 import org.yaml.snakeyaml.nodes.Node;
+import org.yaml.snakeyaml.reader.UnicodeReader;
 
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -105,7 +104,7 @@ public final class YamlDefinitionLoader {
         Document document;
         try {
             document = Document.parse(importChain, resource.identifier(), resource.location(),
-                new InputStreamReader(resource.bytes(), StandardCharsets.UTF_8));
+                new UnicodeReader(resource.bytes()));
         } catch (RuntimeException e) {
             closeQuietly(resource);
             throw e;
