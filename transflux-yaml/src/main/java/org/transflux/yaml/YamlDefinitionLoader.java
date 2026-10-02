@@ -80,16 +80,22 @@ public final class YamlDefinitionLoader {
      *
      * @return the definition, not yet built
      *
-     * @throws DefinitionLoadException when the document or an import is missing or is not valid, the
-     *         imports are circular, or the document declares an entity type other than
-     *         {@code entityType}
+     * @throws DefinitionLoadException when the document or an import is missing, cannot be opened or
+     *         is not valid, the imports are circular, or the document declares an entity type other
+     *         than {@code entityType}
      * @throws TransfluxValidationException if an argument is null or blank
      */
     public <T> StateMachineDef<T> load(String identifier, Class<T> entityType) {
         requireNotBlank(identifier, "Root identifier");
         requireNotNull(entityType, "Entity type");
 
-        DefinitionResource resource = source.open(identifier).orElseThrow(() ->
+        Optional<DefinitionResource> opened;
+        try {
+            opened = source.open(identifier);
+        } catch (RuntimeException e) {
+            throw new DefinitionLoadException(List.of(), identifier, null, null, null, null, problem(e), e);
+        }
+        DefinitionResource resource = opened.orElseThrow(() ->
             new DefinitionLoadException(List.of(), identifier, null, null, null, null, "no such document", null));
         Document document = read(List.of(), resource);
         return bind(NodeMap.of(document, document.root(), null, "a definition document"), identifier, entityType);
@@ -206,10 +212,18 @@ public final class YamlDefinitionLoader {
         try {
             resource = source.open(identifier);
         } catch (RuntimeException e) {
-            throw importer.error(entry, "import '" + identifier + "': "
-                + (e.getMessage() == null ? e.getClass().getName() : e.getMessage()), e);
+            throw importer.error(entry, "import '" + identifier + "': " + problem(e), e);
         }
         return resource.orElseThrow(() -> importer.error(entry, "import '" + identifier + "': no such document"));
+    }
+
+    /**
+     * @param failure what a source threw opening a document
+     *
+     * @return how a load error states it
+     */
+    private static String problem(RuntimeException failure) {
+        return failure.getMessage() == null ? failure.getClass().getName() : failure.getMessage();
     }
 
     private static void requireApiVersion(NodeMap document) {

@@ -87,6 +87,26 @@ class YamlDefinitionLoaderSpec extends Specification {
         e.line() == null
     }
 
+    def 'a source failing to open the document is reported by its identifier: #failure.class.simpleName'() {
+        when:
+        YamlDefinitionLoader.builder({ throw failure } as DefinitionSource).build().load('root.yml', Order)
+
+        then:
+        def e = thrown(DefinitionLoadException)
+        e.message == "root.yml: ${problem}"
+        e.problem() == problem
+        e.importChain() == []
+        e.line() == null
+        e.column() == null
+        e.cause.is(failure)
+
+        where:
+        failure                                                || problem
+        new TransfluxValidationException('identifier refused') || 'identifier refused'
+        new UncheckedIOException(new IOException('disk gone')) || 'java.io.IOException: disk gone'
+        new IllegalStateException()                            || 'java.lang.IllegalStateException'
+    }
+
     def 'the same class from another class loader is named as such'() {
         given: 'a loader with no parent that reads the test classes, and Groovy, itself'
         def isolated = new URLClassLoader(
